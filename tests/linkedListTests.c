@@ -34,5 +34,5 @@ void llTests() {
 	assert(llIntNext(zero) == one);
 	assert(llIntPrev(zero) == negOne);
 	//
-	llIntDestroy(ll);
+	llIntDestroy(&ll);
 }

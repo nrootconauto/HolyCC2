@@ -1,6 +1,7 @@
 #pragma once
+#include <stdlib.h>
 struct __ll;
-#define LL_TYPE_DEF(type,suffix) typedef struct __ll *ll##suffix;
+#define LL_TYPE_DEF(type, suffix) typedef struct __ll *ll##suffix;
 #define LL_TYPE_FUNCS(type, suffix)                                            \
 	inline ll##suffix ll##suffix##Create(type value)                             \
 	    __attribute__((always_inline));                                          \
@@ -37,9 +38,35 @@ struct __ll;
 	inline ll##suffix ll##suffix##Prev(ll##suffix Node) {                        \
 		return (ll##suffix)__llPrev(Node);                                         \
 	}                                                                            \
-	inline void ll##suffix##Destroy(ll##suffix *node)                             \
+	inline void ll##suffix##Destroy(ll##suffix *node)                            \
 	    __attribute__((always_inline));                                          \
-	inline void ll##suffix##Destroy(ll##suffix *node) { __llDestroy(*node, NULL); }
+	inline void ll##suffix##Destroy(ll##suffix *node) {                          \
+		__llDestroy(*node, NULL);                                                  \
+	}                                                                            \
+	inline ll##suffix ll##suffix##FindLeft(ll##suffix *node, void *data,         \
+	                                       int (*pred)(void *, void *))          \
+	    __attribute__((always_inline));                                          \
+	inline ll##suffix ll##suffix##FindLeft(ll##suffix *node, void *data,         \
+	                                       int (*pred)(void *, void *)) {        \
+		return (ll##suffix)__llFindLeft(*node, data, pred);                        \
+	}                                                                            \
+	inline ll##suffix ll##suffix##FindRight(ll##suffix *node, void *data,        \
+	                                        int (*pred)(void *, void *))         \
+	    __attribute__((always_inline));                                          \
+	inline ll##suffix ll##suffix##FindRight(ll##suffix *node, void *data,        \
+	                                        int (*pred)(void *, void *)) {       \
+		return (ll##suffix)__llFindRight(*node, data, pred);                       \
+	}                                                                            \
+	inline ll##suffix ll##suffix##First(ll##suffix node)                         \
+	    __attribute__((always_inline));                                          \
+	inline ll##suffix ll##suffix##First(ll##suffix node) {                       \
+		return (ll##suffix)__llGetFirst((ll##suffix)node);                         \
+	}                                                                            \
+	inline ll##suffix ll##suffix##Last(ll##suffix node)                          \
+	    __attribute__((always_inline));                                          \
+	inline ll##suffix ll##suffix##Last(ll##suffix node) {                        \
+		return (ll##suffix)__llGetEnd((ll##suffix)node);                           \
+	}
 void __llDestroy(struct __ll *node, void (*killFunc)(void *));
 void *__llValuePtr(struct __ll *node);
 void __llRemoveNode(struct __ll *node);
@@ -47,6 +74,12 @@ struct __ll *__llCreate(void *item, long size);
 struct __ll *__llInsert(struct __ll *from, struct __ll *newItem,
                         int (*pred)(void *, void *));
 int llLastPred(void *a, void *b);
-int llFirstPred(void *a, void *b);
+int __llFirstPred(void *a, void *b);
 struct __ll *__llPrev(struct __ll *node);
 struct __ll *__llNext(struct __ll *node);
+struct __ll *__llFindRight(struct __ll *list, void *data,
+                           int (*pred)(void *a, void *b));
+struct __ll *__llFindLeft(struct __ll *list, void *data,
+                          int (*pred)(void *a, void *b));
+struct __ll *__llGetEnd(struct __ll *list);
+struct __ll *__llGetFirst(struct __ll *list);

@@ -1,32 +1,41 @@
+#include <linkedList.h>
 #include <str.h>
 #pragma once
 struct __graphNode;
-#define GRAPH_TYPE_DEF(type, suffix)                                           \
-	typedef struct __graphNode *graphNode##suffix;
-#define GRAPH_TYPE_FUNCS(type, suffix)                                         \
+struct __graphEdge;
+#define GRAPH_TYPE_DEF(type, edgeType, suffix)                                 \
+	typedef struct __graphNode *graphNode##suffix;                               \
+	typedef struct __graphEdge *graphEdge##suffix;
+#define GRAPH_TYPE_FUNCS(type, edgeType, suffix)                               \
 	STR_TYPE_DEF(graphNode##suffix, GraphNode##suffix##P);                       \
 	STR_TYPE_FUNCS(graphNode##suffix, GraphNode##suffix##P);                     \
+	STR_TYPE_DEF(graphEdge##suffix, GraphEdge##suffix##P);                       \
+	STR_TYPE_FUNCS(graphEdge##suffix, GraphEdge##suffix##P);                     \
+	inline void graphNode##suffix##KillGraph(                                    \
+	    graphNode##suffix *node, void (*killNode)(void *),                       \
+	    void (*killEdge)(void *)) __attribute__((always_inline));                \
 	inline void graphNode##suffix##KillGraph(graphNode##suffix *node,            \
-	                                         void (*kill)(void *))               \
-	    __attribute__((always_inline));                                          \
-	inline void graphNode##suffix##KillGraph(graphNode##suffix *node,            \
-	                                         void (*kill)(void *)) {             \
-		__graphKillAll((graphNode##suffix) * node, kill);                          \
+	                                         void (*killNode)(void *),           \
+	                                         void (*killEdge)(void *)) {         \
+		__graphKillAll((graphNode##suffix) * node, killNode, killEdge);            \
 	}                                                                            \
+	inline void graphNode##suffix##Kill(                                         \
+	    graphNode##suffix *node, void (*killNode)(void *),                       \
+	    void (*killEdge)(void *)) __attribute__((always_inline));                \
 	inline void graphNode##suffix##Kill(graphNode##suffix *node,                 \
-	                                    void (*kill)(void *))                    \
-	    __attribute__((always_inline));                                          \
-	inline void graphNode##suffix##Kill(graphNode##suffix *node,                 \
-	                                    void (*kill)(void *)) {                  \
-		__graphNodeKill((graphNode##suffix) * node, kill);                         \
+	                                    void (*killNode)(void *),                \
+	                                    void (*killEdge)(void *)) {              \
+		__graphNodeKill((graphNode##suffix) * node, killNode, killEdge);           \
 	}                                                                            \
-	inline void graphNode##suffix##Detach(graphNode##suffix node,                \
-	                                      graphNode##suffix node2)               \
+	inline void graphEdge##suffix##Kill(                                         \
+	    graphNode##suffix node, graphNode##suffix node2, void *data,             \
+	    int (*pred)(void *, void *), void (*killEdge)(void *))                   \
 	    __attribute__((always_inline));                                          \
-	inline void graphNode##suffix##Detach(graphNode##suffix node,                \
-	                                      graphNode##suffix node2) {             \
-		return __graphNodeDetach((graphNode##suffix)node,                          \
-		                         (graphNode##suffix)node2);                        \
+	inline void graphEdge##suffix##Kill(                                         \
+	    graphNode##suffix node, graphNode##suffix node2, void *data,             \
+	    int (*pred)(void *, void *), void (*killEdge)(void *)) {                 \
+		return __graphEdgeKill((graphNode##suffix)node, (graphNode##suffix)node2,  \
+		                       data, pred, killEdge);                              \
 	}                                                                            \
 	inline void graphNode##suffix##VisitForward(                                 \
 	    graphNode##suffix node, void *data,                                      \
@@ -77,30 +86,46 @@ struct __graphNode;
 	inline void graphNode##suffix##WriteUnlock(graphNode##suffix node) {         \
 		__graphNodeWriteUnlock(node);                                              \
 	}                                                                            \
-	inline void graphNode##suffix##Connect(graphNode##suffix node,               \
-	                                       graphNode##suffix node2)              \
+	inline void graphNode##suffix##Connect(                                      \
+	    graphNode##suffix node, graphNode##suffix node2, edgeType value)         \
 	    __attribute__((always_inline));                                          \
-	inline void graphNode##suffix##Connect(graphNode##suffix node,               \
-	                                       graphNode##suffix node2) {            \
-		__graphNodeConnect(node, node2);                                           \
+	inline void graphNode##suffix##Connect(                                      \
+	    graphNode##suffix node, graphNode##suffix node2, edgeType value) {       \
+		__graphNodeConnect(node, node2, &value, sizeof(edgeType));                 \
 	}                                                                            \
-	inline const str##GraphNode##suffix##P graphNode##suffix##Incoming(          \
+	inline const str##GraphEdge##suffix##P graphNode##suffix##Incoming(          \
 	    graphNode##suffix node) __attribute__((always_inline));                  \
-	inline const str##GraphNode##suffix##P graphNode##suffix##Incoming(          \
+	inline const str##GraphEdge##suffix##P graphNode##suffix##Incoming(          \
 	    graphNode##suffix node) {                                                \
-		return (str##GraphNode##suffix##P)__graphNodeIncoming(node);               \
+		return (str##GraphEdge##suffix##P)__graphNodeIncoming(node);               \
 	}                                                                            \
-	inline const str##GraphNode##suffix##P graphNode##suffix##Outgoing(          \
+	inline const str##GraphEdge##suffix##P graphNode##suffix##Outgoing(          \
 	    graphNode##suffix node) __attribute__((always_inline));                  \
-	inline const str##GraphNode##suffix##P graphNode##suffix##Outgoing(          \
+	inline const str##GraphEdge##suffix##P graphNode##suffix##Outgoing(          \
 	    graphNode##suffix node) {                                                \
-		return (str##GraphNode##suffix##P)__graphNodeOutgoing(node);               \
+		return (str##GraphEdge##suffix##P)__graphNodeOutgoing(node);               \
+	}                                                                            \
+	inline type *graphEdge##suffix##ValuePtr(graphEdge##suffix edge)             \
+	    __attribute__((always_inline));                                          \
+	inline type *graphEdge##suffix##ValuePtr(graphEdge##suffix edge) {           \
+		return __graphEdgeValuePtr(edge);                                          \
+	}                                                                            \
+	inline graphNode##suffix graphEdge##suffix##Outgoing(graphEdge##suffix edge) \
+	    __attribute__((always_inline));                                          \
+	inline graphNode##suffix graphEdge##suffix##Outgoing(                        \
+	    graphEdge##suffix edge) {                                                \
+		return __graphEdgeOutgoing(edge);                                          \
+	}                                                                            \
+	inline graphNode##suffix graphEdge##suffix##Incoming(graphEdge##suffix edge) \
+	    __attribute__((always_inline));                                          \
+	inline graphNode##suffix graphEdge##suffix##Incoming(                        \
+	    graphEdge##suffix edge) {                                                \
+		return __graphEdgeIncoming(edge);                                          \
 	}
-STR_TYPE_DEF(struct __graphNode *, GraphNodeP);
-STR_TYPE_FUNCS(struct __graphNode *, GraphNodeP);
-void __graphKillAll(struct __graphNode *start, void (*killFunc)(void *));
-void __graphNodeKill(struct __graphNode *node, void (*killItem)(void *item));
-void __graphNodeDetach(struct __graphNode *in, struct __graphNode *out);
+void __graphKillAll(struct __graphNode *start, void (*killFunc)(void *),
+                    void (*killEdge)(void *));
+void __graphNodeKill(struct __graphNode *node, void (*killNode)(void *item),
+                     void (*killEdge)(void *item));
 void __graphNodeVisitForward(struct __graphNode *node, void *data,
                              int(pred)(struct __graphNode *, void *),
                              void (*visit)(struct __graphNode *, void *));
@@ -112,6 +137,17 @@ void __graphNodeReadLock(struct __graphNode *node);
 void __graphNodeReadUnlock(struct __graphNode *node);
 void __graphNodeWriteLock(struct __graphNode *node);
 void __graphNodeWriteUnlock(struct __graphNode *node);
-void __graphNodeConnect(struct __graphNode *a, struct __graphNode *b);
-const strGraphNodeP __graphNodeIncoming(struct __graphNode *node);
-const strGraphNodeP __graphNodeOutgoing(struct __graphNode *node);
+void __graphNodeConnect(struct __graphNode *a, struct __graphNode *b,
+                        void *data, long itemSize);
+STR_TYPE_DEF(struct __graphNode *, GraphNodeP);
+STR_TYPE_FUNCS(struct __graphNode *, GraphNodeP);
+STR_TYPE_DEF(struct __graphEdge *, GraphEdgeP);
+STR_TYPE_FUNCS(struct __graphEdge *, GraphEdgeP);
+strGraphEdgeP __graphNodeIncoming(struct __graphNode *node);
+strGraphEdgeP __graphNodeOutgoing(struct __graphNode *node);
+void __graphEdgeKill(struct __graphNode *in, struct __graphNode *out,
+                     void *data, int (*pred)(void *, void *),
+                     void (*kill)(void *));
+void *__graphEdgeValuePtr(struct __graphEdge *edge);
+struct __graphNode *__graphEdgeIncoming(struct __graphEdge *edge);
+struct __graphNode *__graphEdgeOutgoing(struct __graphEdge *edge);
