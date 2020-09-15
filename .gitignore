@@ -39,3 +39,4 @@ build/vgcore.135860
 build/vgcore.136470
 build/vgcore.136511
 build/vgcore.136592
+*.o

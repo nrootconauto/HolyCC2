@@ -1,7 +1,8 @@
 #include <assert.h>
 #include <linkedList.h>
 #include <stdio.h>
-LL_TYPE(int, Int);
+LL_TYPE_DEF(int, Int);
+LL_TYPE_FUNCS(int, Int);
 static int orderPred(void *a, void *b) {
 	int *A = a, *B = b;
 	return *A - *B;

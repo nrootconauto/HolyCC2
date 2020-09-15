@@ -1,7 +1,7 @@
 #pragma once
 struct __ll;
-#define LL_TYPE(type, suffix)                                                  \
-	typedef struct __ll *ll##suffix;                                             \
+#define LL_TYPE_DEF(type,suffix) typedef struct __ll *ll##suffix;
+#define LL_TYPE_FUNCS(type, suffix)                                            \
 	inline ll##suffix ll##suffix##Create(type value)                             \
 	    __attribute__((always_inline));                                          \
 	inline ll##suffix ll##suffix##Create(type value) {                           \
@@ -37,9 +37,9 @@ struct __ll;
 	inline ll##suffix ll##suffix##Prev(ll##suffix Node) {                        \
 		return (ll##suffix)__llPrev(Node);                                         \
 	}                                                                            \
-	inline void ll##suffix##Destroy(ll##suffix node)                             \
+	inline void ll##suffix##Destroy(ll##suffix *node)                             \
 	    __attribute__((always_inline));                                          \
-	inline void ll##suffix##Destroy(ll##suffix node) { __llDestroy(node, NULL); }
+	inline void ll##suffix##Destroy(ll##suffix *node) { __llDestroy(*node, NULL); }
 void __llDestroy(struct __ll *node, void (*killFunc)(void *));
 void *__llValuePtr(struct __ll *node);
 void __llRemoveNode(struct __ll *node);

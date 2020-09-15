@@ -1,12 +1,12 @@
 #pragma once
 struct __vec;
 #include <string.h>
-#define STR_TYPE(type, suffix)                                                 \
-	typedef type *str##suffix;                                                   \
-	inline void str##suffix##Destroy(str##suffix vec)                            \
+#define STR_TYPE_DEF(type, suffix) typedef type *str##suffix;
+#define STR_TYPE_FUNCS(type, suffix)                                           \
+	inline void str##suffix##Destroy(str##suffix *vec)                           \
 	    __attribute__((always_inline));                                          \
-	inline void str##suffix##Destroy(str##suffix vec) {                          \
-		__vecDestroy((struct __vec *)vec);                                         \
+	inline void str##suffix##Destroy(str##suffix *vec) {                         \
+		__vecDestroy((struct __vec *)*vec);                                        \
 	};                                                                           \
 	inline str##suffix str##suffix##AppendItem(str##suffix vec, type item)       \
 	    __attribute__((always_inline));                                          \
@@ -57,6 +57,21 @@ struct __vec;
 		vec = (str##suffix)__vecResize((struct __vec *)vec, count * sizeof(type)); \
 		memcpy(&vec[oldSize], data, count * sizeof(type));                         \
 		return vec;                                                                \
+	}                                                                            \
+	inline type *str##suffix##SortedFind(str##suffix vec, type data,             \
+	                                     int pred(void *, void *))               \
+	    __attribute__((always_inline));                                          \
+	inline type *str##suffix##SortedFind(str##suffix vec, type data,             \
+	                                     int pred(void *, void *)) {             \
+		return __vecSortedFind((struct __vec *)vec, &data, sizeof(type), pred);    \
+	}                                                                            \
+	inline str##suffix str##suffix##SetDifference(                               \
+	    str##suffix vec, str##suffix vec2, int pred(void *, void *))             \
+	    __attribute__((always_inline));                                          \
+	inline str##suffix str##suffix##SetDifference(                               \
+	    str##suffix vec, str##suffix vec2, int pred(void *, void *)) {           \
+		return (str##suffix)__vecSetDifference(                                    \
+		    (struct __vec *)vec, (struct __vec *)vec2, sizeof(type), pred);        \
 	}
 struct __vec *__vecAppendItem(struct __vec *a, void *item, long itemSize);
 struct __vec *__vecReserve(struct __vec *a, long capacity);
@@ -67,3 +82,7 @@ struct __vec *__vecResize(struct __vec *a, long size);
 void __vecDestroy(struct __vec *a);
 struct __vec *__vecSortedInsert(struct __vec *a, void *item, long itemSize,
                                 int predicate(void *, void *));
+void *__vecSortedFind(struct __vec *a, void *item, long itemSize,
+                      int predicate(void *, void *));
+struct __vec *__vecSetDifference(struct __vec *a, struct __vec *b,
+                                 long itemSize, int (*pred)(void *, void *));

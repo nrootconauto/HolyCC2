@@ -8,6 +8,7 @@ list(APPEND sources "linkedList.c")
 list(APPEND sources "hashTable.c")
 list(APPEND sources "linkedList.c")
 list(APPEND sources "str.c")
+list(APPEND sources "graph.c")
 
 set(tests "")
 list(APPEND tests "tests/tests.c")
