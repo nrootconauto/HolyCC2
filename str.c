@@ -98,7 +98,7 @@ struct __vec *__vecSortedInsert(struct __vec *a, void *item, long itemSize,
 	for (int i = 0; i != oldSize; i += itemSize) {
 		__auto_type where = (void *)a + itemSize * i;
 		__auto_type result = predicate(item, where);
-		if (result <= 0 || i + itemSize == oldSize) {
+		if (result <= 0) {
 			memmove(where + itemSize, where, oldSize - i);
 			memcpy(where, item, itemSize);
 		}
@@ -108,9 +108,9 @@ struct __vec *__vecSortedInsert(struct __vec *a, void *item, long itemSize,
 // https://cplusplus.com/reference/algorithm/set_difference/
 struct __vec *__vecSetDifference(struct __vec *a, struct __vec *b,
                                  long itemSize, int (*pred)(void *, void *)) {
-	__auto_type aEnd = (void *)a + __vecSize(a) * itemSize;
+	__auto_type aEnd = (void *)a + __vecSize(a);
 	void *aStart = a;
-	__auto_type bEnd = (void *)b + __vecSize(b) * itemSize;
+	__auto_type bEnd = (void *)b + __vecSize(b);
 	void *bStart = b;
 	void *result = aStart;
 	while (aStart != aEnd && bStart != bEnd) {
@@ -126,6 +126,7 @@ struct __vec *__vecSetDifference(struct __vec *a, struct __vec *b,
 		}
 	}
 	memcpy(result, aStart, aEnd - aStart);
+	result += aEnd - aStart;
 	a = __vecResize(a, result - (void *)a);
 	return a;
 }

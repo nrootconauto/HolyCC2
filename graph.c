@@ -16,7 +16,7 @@ struct __graphNode {
 	unsigned int killable : 1;
 };
 static int ptrCompare(void *a, void *b) {
-	return (struct __graphNode *)a - (struct __graphNode *)b;
+	return *(struct __graphNode **)a - *(struct __graphNode **)b;
 }
 struct __graphNode *__graphNodeCreate(void *value, long itemSize, int version) {
 	struct __graphNode *retVal = malloc(sizeof(struct __graphNode) + itemSize);
