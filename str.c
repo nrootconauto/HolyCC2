@@ -88,7 +88,7 @@ struct __vec *__vecAppendItem(struct __vec *a, void *item, long itemSize) {
 		a = __vecReserve(a, newCap);
 	}
 	memcpy((void *)a + size, item, itemSize);
-	++*__vecSizePtr(a);
+	*__vecSizePtr(a) += itemSize;
 	return a;
 }
 struct __vec *__vecSortedInsert(struct __vec *a, void *item, long itemSize,

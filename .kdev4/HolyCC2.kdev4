@@ -28,6 +28,7 @@ Name=Clang
 
 [CustomDefinesAndIncludes][ProjectPath0][Includes]
 1=/home/clayton2/projects/HolyCC2
+2=/home/clayton2/projects/HolyCC2/ext/skinny_mutex
 
 [Project]
 VersionControlSupport=kdevgit
