@@ -39,7 +39,7 @@ static struct __graphEdge *__graphEdgeByDirection(struct __ll *edge,
 	if (d == DIR_FORWARD)
 		return __llValuePtr(edge);
 	else
-		return __graphEdgeValuePtr(__llValuePtr(edge));
+		return __llValuePtr(*(struct __ll **)__llValuePtr(edge));
 }
 STR_TYPE_DEF(struct __ll *, LLP);
 STR_TYPE_FUNCS(struct __ll *, LLP);
@@ -116,16 +116,25 @@ void __graphNodeVisitBackward(struct __graphNode *node, void *data,
                               void (*visit)(struct __graphNode *, void *)) {
 	__graphNodeVisitDirPred(node, data, pred, visit, DIR_BACKWARD);
 }
-static void __graphEdgeKillAllPred(struct __ll *ll, void *data,
-                                   int (*pred)(void *, void *),
-                                   void (*kill)(void *)) {
+static struct __ll *__graphEdgeKillAllPred(struct __ll *ll,
+                                           struct __graphNode *from,
+                                           struct __graphNode *to, void *data,
+                                           int (*pred)(void *, void *),
+                                           void (*kill)(void *), enum dir d) {
 	if (ll == NULL)
-		return;
+		return NULL;
 	ll = __llGetFirst(ll);
 	for (__auto_type node = ll; node != NULL;) {
 		__auto_type next = __llNext(node);
-		struct __graphEdge *edge = __llValuePtr(node);
+		struct __graphEdge *edge = __graphEdgeByDirection(node, d);
 		__auto_type value = sizeof(struct __graphEdge) + (void *)edge;
+		//
+		if (to != NULL)
+			if (edge->to != to)
+				goto endLoop;
+		if (from != NULL)
+			if (edge->from != from)
+				goto endLoop;
 		//
 		int kill2 = 0;
 		if (kill == NULL) {
@@ -140,23 +149,29 @@ static void __graphEdgeKillAllPred(struct __ll *ll, void *data,
 					kill(value);
 			}
 			//
-			__llRemoveNode(node);
+			ll = __llRemoveNode(node);
 			__llDestroy(node, kill);
 		}
+	endLoop:
 		node = next;
 	}
+	return ll;
 }
 void __graphEdgeKill(struct __graphNode *in, struct __graphNode *out,
                      void *data, int (*pred)(void *, void *),
                      void (*kill)(void *)) {
+	// out's incoming's elements point to __graphEdge(which are destroyed when
+	// in->outgoing is destroyed below)
+	rwWriteStart(out->lock);
+	out->incoming = __graphEdgeKillAllPred(out->incoming, in, out, data, pred,
+	                                       NULL, DIR_BACKWARD);
+	rwWriteEnd(out->lock);
 	//
 	rwWriteStart(in->lock);
-	__graphEdgeKillAllPred(in->outgoing, data, pred, kill);
+	in->outgoing = __graphEdgeKillAllPred(in->outgoing, in, out, data, pred, kill,
+	                                      DIR_FORWARD);
 	rwWriteEnd(in->lock);
 	//
-	rwWriteStart(out->lock);
-	__graphEdgeKillAllPred(in->incoming, data, pred, NULL);
-	rwWriteEnd(out->lock);
 }
 static int alwaysTrue(void *a, void *b) { return 1; }
 static void __graphNodeDetach(struct __graphNode *in, struct __graphNode *out,

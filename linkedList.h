@@ -20,8 +20,7 @@ struct __ll;
 	inline ll##suffix ll##suffix##Remove(ll##suffix from)                        \
 	    __attribute__((always_inline));                                          \
 	inline ll##suffix ll##suffix##Remove(ll##suffix from) {                      \
-		__llRemoveNode(from);                                                      \
-		return from;                                                               \
+		return __llRemoveNode(from);                                               \
 	}                                                                            \
 	inline type *ll##suffix##ValuePtr(ll##suffix Node)                           \
 	    __attribute__((always_inline));                                          \
@@ -69,7 +68,7 @@ struct __ll;
 	}
 void __llDestroy(struct __ll *node, void (*killFunc)(void *));
 void *__llValuePtr(struct __ll *node);
-void __llRemoveNode(struct __ll *node);
+struct __ll* __llRemoveNode(struct __ll *node);
 struct __ll *__llCreate(void *item, long size);
 struct __ll *__llInsert(struct __ll *from, struct __ll *newItem,
                         int (*pred)(void *, void *));

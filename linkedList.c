@@ -82,10 +82,12 @@ struct __ll *__llCreate(void *item, long size) {
 	memcpy((void *)retVal + sizeof(struct __ll), item, size);
 	return retVal;
 }
-void __llRemoveNode(struct __ll *node) {
+struct __ll* __llRemoveNode(struct __ll *node) {
+	__auto_type result = (node->prev == NULL) ? node->next : node->prev;
 	llInsertAfter(node->prev, node->next);
 	node->next = NULL;
 	node->prev = NULL;
+	return result;
 }
 void *__llValuePtr(struct __ll *node) {
 	return (void *)node + sizeof(struct __ll);
