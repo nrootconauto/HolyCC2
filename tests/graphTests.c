@@ -34,12 +34,12 @@ void graphTests() {
 	__auto_type dI = graphNodeIntIncoming(d);
 	__auto_type bI = graphNodeIntIncoming(b);
 	__auto_type cI = graphNodeIntIncoming(c);
-	assert(graphEdgeIntOutgoing(bI[0]) == a);
-	assert(graphEdgeIntOutgoing(cI[0]) == a);
+	assert(graphEdgeIntIncoming(bI[0]) == a);
+	assert(graphEdgeIntIncoming(cI[0]) == a);
 	foundB = false, foundC = false;
 	for (int i = 0; i != 2; i++) {
-		foundB |= graphEdgeIntOutgoing(dI[i]) == b;
-		foundC |= graphEdgeIntOutgoing(dI[i]) == c;
+		foundB |= graphEdgeIntIncoming(dI[i]) == b;
+		foundC |= graphEdgeIntIncoming(dI[i]) == c;
 	}
 	assert(foundB && foundC);
 	// detach b
@@ -50,7 +50,7 @@ void graphTests() {
 	assert(strGraphEdgeIntPSize(aO) == 1);
 	assert(graphEdgeIntOutgoing(aO[0]) == c);
 	assert(strGraphEdgeIntPSize(dI) == 1);
-	assert(graphEdgeIntOutgoing(dI[0]) == c);
+	assert(graphEdgeIntIncoming(dI[0]) == c);
 	bI = graphNodeIntIncoming(b);
 	bO = graphNodeIntOutgoing(b);
 	assert(strGraphEdgeIntPSize(bI) == 0);

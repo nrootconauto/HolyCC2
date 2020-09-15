@@ -286,9 +286,10 @@ strGraphEdgeP __graphNodeOutgoing(struct __graphNode *node) {
 }
 strGraphEdgeP __graphNodeIncoming(struct __graphNode *node) {
 	strGraphEdgeP retVal = NULL;
-	for (__auto_type node2 = __llGetFirst(node->outgoing); node2 != NULL;
+	for (__auto_type node2 = __llGetFirst(node->incoming); node2 != NULL;
 	     node2 = __llNext(node2)) {
-		retVal = strGraphEdgePAppendItem(retVal, __llValuePtr(node2));
+		retVal = strGraphEdgePAppendItem(
+		    retVal, __llValuePtr(*(struct __ll **)__llValuePtr(node2)));
 	}
 	return retVal;
 }
