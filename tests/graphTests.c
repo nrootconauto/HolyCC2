@@ -3,6 +3,10 @@
 #include <stdbool.h>
 GRAPH_TYPE_DEF(int, char, Int);
 GRAPH_TYPE_FUNCS(int, char, Int);
+static void appendToItems(graphNodeInt node, void *data) {
+	strGraphNodeIntP *edges = data;
+	*edges = strGraphNodeIntPAppendItem(*edges, node);
+}
 void graphTests() {
 	__auto_type a = graphNodeIntCreate(1, 0);
 	__auto_type b = graphNodeIntCreate(2, 0);
@@ -42,6 +46,20 @@ void graphTests() {
 		foundC |= graphEdgeIntIncoming(dI[i]) == c;
 	}
 	assert(foundB && foundC);
+	// navigate from a to d
+	strGraphNodeIntP visited = NULL;
+	graphNodeIntVisitForward(a, &visited, NULL, appendToItems);
+	assert(strGraphNodePSize(visited) == 3);
+	graphNodeInt toFind[4] = {b, c, d}; // Starts from a,doesnt visit it
+	int foundCount = 0;
+	for (int i = 0; i != 3; i++) {
+		for (int i2 = 0; i2 != 3; i2++) {
+			if (visited[i2] == toFind[i])
+				foundCount++;
+		}
+	}
+	assert(foundCount == 3);
+	strGraphNodePDestroy(&visited);
 	// detach b
 	graphEdgeIntKill(b, d, NULL, NULL, NULL);
 	graphEdgeIntKill(a, b, NULL, NULL, NULL);
@@ -55,5 +73,4 @@ void graphTests() {
 	bO = graphNodeIntOutgoing(b);
 	assert(strGraphEdgeIntPSize(bI) == 0);
 	assert(strGraphEdgeIntPSize(bO) == 0);
-	//
 }

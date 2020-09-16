@@ -96,7 +96,7 @@ struct __vec *__vecSortedInsert(struct __vec *a, void *item, long itemSize,
 	__auto_type oldSize = __vecSize(a);
 	a = __vecAppendItem(a, item, itemSize); // increase size by one
 	for (int i = 0; i != oldSize; i += itemSize) {
-		__auto_type where = (void *)a + itemSize * i;
+		__auto_type where = (void *)a + i;
 		__auto_type result = predicate(item, where);
 		if (result <= 0) {
 			memmove(where + itemSize, where, oldSize - i);
@@ -134,7 +134,7 @@ void *__vecSortedFind(struct __vec *a, void *item, long itemSize,
                       int predicate(void *, void *)) {
 	__auto_type oldSize = __vecSize(a);
 	for (int i = 0; i != oldSize; i += itemSize) {
-		__auto_type where = (void *)a + itemSize * i;
+		__auto_type where = (void *)a + i;
 		__auto_type result = predicate(item, where);
 		if (result < 0) {
 			break;

@@ -39,23 +39,23 @@ struct __graphEdge;
 	}                                                                            \
 	inline void graphNode##suffix##VisitForward(                                 \
 	    graphNode##suffix node, void *data,                                      \
-	    int(pred)(struct __graphNode *, void *),                                 \
+	    int(pred)(struct __graphNode *, struct __graphEdge *, void *),           \
 	    void (*visit)(struct __graphNode *, void *))                             \
 	    __attribute__((always_inline));                                          \
 	inline void graphNode##suffix##VisitForward(                                 \
 	    graphNode##suffix node, void *data,                                      \
-	    int(pred)(struct __graphNode *, void *),                                 \
+	    int(pred)(struct __graphNode *, struct __graphEdge *, void *),           \
 	    void (*visit)(struct __graphNode *, void *)) {                           \
 		__graphNodeVisitForward((struct __graphNode *)node, data, pred, visit);    \
 	}                                                                            \
 	inline void graphNode##suffix##VisitBackward(                                \
 	    graphNode##suffix node, void *data,                                      \
-	    int(pred)(struct __graphNode *, void *),                                 \
+	    int(pred)(struct __graphNode *, struct __graphEdge *, void *),           \
 	    void (*visit)(struct __graphNode *, void *))                             \
 	    __attribute__((always_inline));                                          \
 	inline void graphNode##suffix##VisitBackward(                                \
 	    graphNode##suffix node, void *data,                                      \
-	    int(pred)(struct __graphNode *, void *),                                 \
+	    int(pred)(struct __graphNode *, struct __graphEdge *, void *),           \
 	    void (*visit)(struct __graphNode *, void *)) {                           \
 		__graphNodeVisitBackward((struct __graphNode *)node, data, pred, visit);   \
 	}                                                                            \
@@ -127,10 +127,12 @@ void __graphKillAll(struct __graphNode *start, void (*killFunc)(void *),
 void __graphNodeKill(struct __graphNode *node, void (*killNode)(void *item),
                      void (*killEdge)(void *item));
 void __graphNodeVisitForward(struct __graphNode *node, void *data,
-                             int(pred)(struct __graphNode *, void *),
+                             int(pred)(struct __graphNode *,
+                                       struct __graphEdge *, void *),
                              void (*visit)(struct __graphNode *, void *));
 void __graphNodeVisitBackward(struct __graphNode *node, void *data,
-                              int(pred)(struct __graphNode *, void *),
+                              int(pred)(struct __graphNode *,
+                                        struct __graphEdge *, void *),
                               void (*visit)(struct __graphNode *, void *));
 struct __graphNode *__graphNodeCreate(void *value, long itemSize, int version);
 void __graphNodeReadLock(struct __graphNode *node);
