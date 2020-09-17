@@ -26,10 +26,11 @@ static void llInsertBefore(struct __ll *a, struct __ll *b) {
 		oldPrev = a->prev;
 		a->prev = b;
 	}
-	if (b != NULL)
+	if (b != NULL) {
 		b->next = a;
-	b->prev = oldPrev;
-	if (oldPrev == NULL) {
+		b->prev = oldPrev;
+	}
+	if (oldPrev != NULL) {
 		oldPrev->next = b;
 	}
 }
@@ -82,7 +83,7 @@ struct __ll *__llCreate(void *item, long size) {
 	memcpy((void *)retVal + sizeof(struct __ll), item, size);
 	return retVal;
 }
-struct __ll* __llRemoveNode(struct __ll *node) {
+struct __ll *__llRemoveNode(struct __ll *node) {
 	__auto_type result = (node->prev == NULL) ? node->next : node->prev;
 	llInsertAfter(node->prev, node->next);
 	node->next = NULL;
@@ -118,6 +119,7 @@ void __llDestroy(struct __ll *node, void (*killFunc)(void *)) {
 	bundle_go(b, __llKillRight(node, killFunc));
 	if (killFunc)
 		killFunc(__llValuePtr(node));
+	bundle_wait(b, -1);
 	hclose(b);
 }
 struct __ll *__llNext(struct __ll *node) {
@@ -136,10 +138,10 @@ struct __ll *__llFindLeft(struct __ll *list, void *data,
                           int (*pred)(void *a, void *b)) {
 	if (list == NULL)
 		return NULL;
-	if (pred(list, data))
+	if (0 == pred(data, __llValuePtr(list)))
 		return list;
 	for (__auto_type left = list->prev; left != NULL; left = left->prev) {
-		if (pred(__llValuePtr(left), data))
+		if (pred(data, __llValuePtr(left)) < 0)
 			return left;
 	}
 	return NULL;
@@ -148,10 +150,10 @@ struct __ll *__llFindRight(struct __ll *list, void *data,
                            int (*pred)(void *a, void *b)) {
 	if (list == NULL)
 		return NULL;
-	if (pred(list, data))
+	if (0 == pred(data, __llValuePtr(list)))
 		return list;
 	for (__auto_type right = list->next; right != NULL; right = right->next) {
-		if (pred(__llValuePtr(right), data))
+		if (pred(data, __llValuePtr(right)) < 0)
 			return right;
 	}
 	return NULL;
@@ -177,4 +179,11 @@ struct __ll *__llGetEnd(struct __ll *list) {
 		right = right->next;
 	}
 	return NULL;
+}
+long __llSize(struct __ll *list) {
+	__auto_type first = __llGetFirst(list);
+	long retVal = 0;
+	for (; first != NULL; retVal++)
+		first = first->next;
+	return retVal;
 }

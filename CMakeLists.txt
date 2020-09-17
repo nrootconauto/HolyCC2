@@ -16,6 +16,7 @@ set(tests "")
 list(APPEND tests "tests/tests.c")
 list(APPEND tests "tests/linkedListTests.c")
 list(APPEND tests "tests/strTests.c")
+list(APPEND tests "tests/mapTests.c")
 list(APPEND sources "tests/graphTests.c")
 
 add_executable(holycc2 ${sources} ${tests})

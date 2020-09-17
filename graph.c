@@ -239,6 +239,7 @@ void __graphNodeKill(struct __graphNode *node, void (*killNode)(void *item),
 			                                        killEdge));
 		}
 	}
+	bundle_wait(b,-1);
 	hclose(b);
 	//
 	rwLockDestroy(node->lock);

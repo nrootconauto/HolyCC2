@@ -65,10 +65,13 @@ struct __ll;
 	    __attribute__((always_inline));                                          \
 	inline ll##suffix ll##suffix##Last(ll##suffix node) {                        \
 		return (ll##suffix)__llGetEnd((ll##suffix)node);                           \
-	}
+	}                                                                            \
+	inline long ll##suffix##Size(ll##suffix node)                                \
+	    __attribute__((always_inline));                                          \
+	inline long ll##suffix##Size(ll##suffix node) { return __llSize(node); }
 void __llDestroy(struct __ll *node, void (*killFunc)(void *));
 void *__llValuePtr(struct __ll *node);
-struct __ll* __llRemoveNode(struct __ll *node);
+struct __ll *__llRemoveNode(struct __ll *node);
 struct __ll *__llCreate(void *item, long size);
 struct __ll *__llInsert(struct __ll *from, struct __ll *newItem,
                         int (*pred)(void *, void *));
@@ -82,3 +85,4 @@ struct __ll *__llFindLeft(struct __ll *list, void *data,
                           int (*pred)(void *a, void *b));
 struct __ll *__llGetEnd(struct __ll *list);
 struct __ll *__llGetFirst(struct __ll *list);
+long __llSize(struct __ll *list);
