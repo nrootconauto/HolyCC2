@@ -30,5 +30,26 @@ Name=Clang
 1=/home/clayton2/projects/HolyCC2
 2=/home/clayton2/projects/HolyCC2/ext/skinny_mutex
 
+[Launch]
+Launch Configurations=Launch Configuration 0
+
+[Launch][Launch Configuration 0]
+Configured Launch Modes=execute
+Configured Launchers=nativeAppLauncher
+Name=New Compiled Binary Launcher (2)
+Type=Native Application
+
+[Launch][Launch Configuration 0][Data]
+Arguments=
+Dependencies=@Variant(\x00\x00\x00\t\x00\x00\x00\x00\x00)
+Dependency Action=Nothing
+EnvironmentGroup=
+Executable=file:///home/clayton2/projects/HolyCC2/build/holycc2
+External Terminal=konsole --noclose --workdir %workdir -e %exe
+Project Target=HolyCC2,holycc2
+Use External Terminal=false
+Working Directory=
+isExecutable=true
+
 [Project]
 VersionControlSupport=kdevgit
