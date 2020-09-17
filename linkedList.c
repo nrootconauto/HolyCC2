@@ -114,6 +114,8 @@ static coroutine void __llKillLeft(struct __ll *node,
 	}
 }
 void __llDestroy(struct __ll *node, void (*killFunc)(void *)) {
+	if (node == NULL)
+		return;
 	int b = bundle();
 	bundle_go(b, __llKillLeft(node, killFunc));
 	bundle_go(b, __llKillRight(node, killFunc));
