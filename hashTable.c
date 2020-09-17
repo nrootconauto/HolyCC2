@@ -216,6 +216,6 @@ void __mapRemove(struct __map *map, const char *key, void (*kill)(void *)) {
 	                                 __mapBucketGetPred);
 	if (node == NULL)
 		return;
-	__llRemoveNode(node);
+	map->buckets[bucket] = __llRemoveNode(node);
 	__llDestroy(node, kill);
 }
