@@ -13,17 +13,20 @@ static bool checkDiff(const char *A, const char *B, const strDiff diffs) {
 	}
 	return strlen(A) == aI && strlen(B) == bI;
 }
+static int pred(const void *a, const void *b) {
+	return 0 == (*(char *)a - *(char *)b);
+}
 // See https://blog.robertelder.org/diff-algorithm/
 void diffTests() {
 	const char *A = "abgdef";
 	const char *B = "gh";
-	__auto_type res = __diff(A, B, strlen(A), strlen(B), sizeof(char));
+	__auto_type res = __diff(A, B, strlen(A), strlen(B), sizeof(char), pred);
 	assert(checkDiff(A, B, res));
 	strDiffDestroy(&res);
 	//
 	A = "abcabba";
 	B = "cbabac";
-	res = __diff(A, B, strlen(A), strlen(B), sizeof(char));
+	res = __diff(A, B, strlen(A), strlen(B), sizeof(char), pred);
 	assert(checkDiff(A, B, res));
 	strDiffDestroy(&res);
 }

@@ -21,9 +21,11 @@ LL_TYPE_FUNCS(struct __diff, Diff);
 		a = b;                                                                     \
 		b = t;                                                                     \
 	})
-static void __diffFollowPath(const void *a, const void *b, int x, int y,
-                             long aSize, long bSize, long itemSize,
-                             int direction) {
+static int __diffFollowPath(const void *a, const void *b, int x, int y,
+                            long aSize, long bSize, long itemSize,
+                            int direction,
+                            int (*pred)(const void *, const void *)) {
+	int len = 0;
 	if (direction == -1) {
 		x--, y--;
 	}
@@ -36,14 +38,17 @@ static void __diffFollowPath(const void *a, const void *b, int x, int y,
 			break;
 		if (y < 0)
 			break;
-		if (0 != memcmp(a + x * itemSize, b + y * itemSize, itemSize))
+		if (!pred(a + x * itemSize, b + y * itemSize))
 			break;
+		len++;
 	}
+	return len;
 }
 static bool __diffPathLeadsToPath(const void *a, const void *b, long aSize,
                                   long bSize, int x1, int y1, int x2, int y2,
                                   long itemSize, int *firstX, int *firstY,
-                                  int *lastX, int *lastY) {
+                                  int *lastX, int *lastY,
+                                  int (*pred)(const void *, const void *)) {
 	if (x1 > x2) {
 		SWAP(x1, x2);
 		SWAP(y1, y2);
@@ -64,7 +69,7 @@ static bool __diffPathLeadsToPath(const void *a, const void *b, long aSize,
 			break;
 		if (bSize / itemSize <= y1)
 			break;
-		if (0 != memcmp(a + x1 * itemSize, b + y1 * itemSize, itemSize)) {
+		if (!pred(a + x1 * itemSize, b + y1 * itemSize)) {
 			break;
 		}
 	}
@@ -85,7 +90,8 @@ static bool __diffCheckIfMeet(int totalSize, int d, const void *a,
                               const strIntPair forward,
                               const strIntPair backward, int *resultFirstX,
                               int *resultFirstY, int *resultLastX,
-                              int *resultLastY) {
+                              int *resultLastY,
+                              int (*pred)(const void *, const void *)) {
 	int maxD = INT_MIN;
 	bool foundItem = false;
 	int fL, fH;
@@ -104,7 +110,7 @@ static bool __diffCheckIfMeet(int totalSize, int d, const void *a,
 			int fX, fY, lX, lY;
 			if (!match) {
 				match = __diffPathLeadsToPath(a, b, aSize, bSize, x, y, otherX, otherY,
-				                              itemSize, &fX, &fY, &lX, &lY);
+				                              itemSize, &fX, &fY, &lX, &lY, pred);
 				if (match)
 					sharedDiagDist = lX - fX;
 			} else {
@@ -139,14 +145,17 @@ static bool __diffCheckIfMeet(int totalSize, int d, const void *a,
 	return foundItem;
 }
 static llDiff __diffRecur(const void *a, const void *b, long aSize, long bSize,
-                          long itemSize, llDiff prev, llDiff next);
+                          long itemSize, llDiff prev, llDiff next,
+                          int (*pred)(const void *, const void *));
 static coroutine void __diffRecurSplit(const void *a, const void *b, long aSize,
                                        long bSize, long itemSize,
+                                       int (*pred)(const void *, const void *),
                                        llDiff *result) {
-	*result = __diffRecur(a, b, aSize, bSize, itemSize, NULL, NULL);
+	*result = __diffRecur(a, b, aSize, bSize, itemSize, NULL, NULL, pred);
 }
 static llDiff __diffRecur(const void *a, const void *b, long aSize, long bSize,
-                          long itemSize, llDiff prev, llDiff next) {
+                          long itemSize, llDiff prev, llDiff next,
+                          int (*pred)(const void *, const void *)) {
 	const void *aEnd = a + aSize;
 	const void *bEnd = b + bSize;
 	// Check if nothing
@@ -155,7 +164,8 @@ static llDiff __diffRecur(const void *a, const void *b, long aSize, long bSize,
 	}
 	// Check if same before going into main body
 	if (aSize == bSize) {
-		if (0 == memcmp(a, b, aSize)) {
+		if (aSize / itemSize ==
+		    __diffFollowPath(a, b, 0, 0, aSize, bSize, itemSize, 1, pred)) {
 			struct __diff diff;
 			diff.len = aSize / itemSize;
 			diff.type = DIFF_SAME;
@@ -228,7 +238,7 @@ static llDiff __diffRecur(const void *a, const void *b, long aSize, long bSize,
 				__auto_type b2 = b + y * itemSize;
 			loop1:
 				if (a2 < aEnd && b2 < bEnd) {
-					if (0 == memcmp(a2, b2, itemSize)) {
+					if (pred(a2, b2)) {
 						x++;
 						y++;
 						a2 += itemSize;
@@ -273,7 +283,7 @@ static llDiff __diffRecur(const void *a, const void *b, long aSize, long bSize,
 					printf("g\n");
 			loop2:
 				if (a2 < aEnd && b2 < bEnd && a2 >= a && b2 >= b) {
-					if (0 == memcmp(a2, b2, itemSize)) {
+					if (pred(a2, b2)) {
 						x--;
 						y--;
 						a2 -= itemSize;
@@ -296,7 +306,7 @@ static llDiff __diffRecur(const void *a, const void *b, long aSize, long bSize,
 		int resultFirstX, resultFirstY, resultLastX, resultLastY;
 		if (__diffCheckIfMeet(totalSize, d, a, b, aSize, bSize, itemSize, forward,
 		                      backward, &resultFirstX, &resultFirstY, &resultLastX,
-		                      &resultLastY)) {
+		                      &resultLastY, pred)) {
 			strIntPairDestroy(&forward);
 			strIntPairDestroy(&backward);
 			//
@@ -313,18 +323,18 @@ static llDiff __diffRecur(const void *a, const void *b, long aSize, long bSize,
 			llDiff middle = NULL;
 			llDiff right = NULL;
 			// left
-			bundle_go(bun,
-			          __diffRecurSplit(a, b, xOffset1, yOffset1, itemSize, &left));
+			bundle_go(bun, __diffRecurSplit(a, b, xOffset1, yOffset1, itemSize, pred,
+			                                &left));
 			// middle
 			if (!(xOffset1 == xOffset2 && yOffset1 == yOffset2)) {
 				bundle_go(bun, __diffRecurSplit(
 				                   a + xOffset1, b + yOffset1, xOffset2 - xOffset1,
-				                   yOffset2 - yOffset1, itemSize, &middle));
+				                   yOffset2 - yOffset1, itemSize, pred, &middle));
 			}
 			// right
 			bundle_go(bun,
 			          __diffRecurSplit(a + xOffset2, b + yOffset2, aSize - xOffset2,
-			                           bSize - yOffset2, itemSize, &right));
+			                           bSize - yOffset2, itemSize, pred, &right));
 			bundle_wait(bun, -1);
 			llDiffInsertListAfter(__llGetEnd(left), __llGetFirst(middle));
 			newN = (middle == NULL) ? left : middle;
@@ -335,8 +345,8 @@ static llDiff __diffRecur(const void *a, const void *b, long aSize, long bSize,
 	}
 }
 strDiff __diff(const void *a, const void *b, long aSize, long bSize,
-               long itemSize) {
-	__auto_type res = __diffRecur(a, b, aSize, bSize, itemSize, NULL, NULL);
+               long itemSize, int (*pred)(const void *a, const void *b)) {
+	__auto_type res = __diffRecur(a, b, aSize, bSize, itemSize, NULL, NULL, pred);
 	__auto_type size = llDiffSize(res);
 	strDiff retVal = strDiffReserve(NULL, size);
 	__auto_type node = llDiffFirst(res);
