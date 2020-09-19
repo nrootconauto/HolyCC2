@@ -1,4 +1,5 @@
 #include <libdill.h>
+#include <linkedList.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,31 +8,35 @@ struct __ll {
 	struct __ll *next;
 };
 void *__llValuePtr(struct __ll *node);
-static void llInsertAfter(struct __ll *a, struct __ll *b) {
+void llInsertListAfter(struct __ll *a, struct __ll *b) {
 	struct __ll *oldNext = NULL;
+	__auto_type bEnd = __llGetEnd(b);
+	__auto_type bStart = __llGetFirst(b);
 	if (a != NULL) {
 		oldNext = a->next;
-		a->next = b;
+		a->next = bStart;
 	}
 	if (b != NULL) {
-		b->prev = a;
-		b->next = oldNext;
+		bStart->prev = a;
+		bEnd->next = oldNext;
 		if (oldNext != NULL)
-			oldNext->prev = b;
+			oldNext->prev = bEnd;
 	}
 }
-static void llInsertBefore(struct __ll *a, struct __ll *b) {
+void llInsertListBefore(struct __ll *a, struct __ll *b) {
 	struct __ll *oldPrev = NULL;
+	__auto_type bEnd = __llGetEnd(b);
+	__auto_type bStart = __llGetFirst(b);
 	if (a != NULL) {
 		oldPrev = a->prev;
-		a->prev = b;
+		a->prev = bEnd;
 	}
 	if (b != NULL) {
-		b->next = a;
-		b->prev = oldPrev;
+		bEnd->next = a;
+		bStart->prev = oldPrev;
 	}
 	if (oldPrev != NULL) {
-		oldPrev->next = b;
+		oldPrev->next = bStart;
 	}
 }
 struct __ll *__llInsert(struct __ll *from, struct __ll *newItem,
@@ -39,7 +44,7 @@ struct __ll *__llInsert(struct __ll *from, struct __ll *newItem,
 	if (from == NULL)
 		return newItem;
 	if (pred == NULL) {
-		llInsertAfter(from, newItem);
+		llInsertListAfter(from, newItem);
 		return newItem;
 	} else {
 		__auto_type current = from;
@@ -50,7 +55,7 @@ struct __ll *__llInsert(struct __ll *from, struct __ll *newItem,
 			lastCurrent = current;
 			__auto_type result = pred(__llValuePtr(newItem), __llValuePtr(current));
 			if (result == 0) {
-				llInsertAfter(current, newItem);
+				llInsertListAfter(current, newItem);
 				return newItem;
 			} else if (result < 0) {
 				current = current->prev;
@@ -63,16 +68,16 @@ struct __ll *__llInsert(struct __ll *from, struct __ll *newItem,
 			if (wentForward && wentBackward) {
 				bool movedForward = lastCurrent->next == current;
 				if (movedForward)
-					llInsertBefore(current, newItem);
+					llInsertListBefore(current, newItem);
 				else
-					llInsertAfter(current, newItem);
+					llInsertListAfter(current, newItem);
 				return newItem;
 			}
 		}
 		if (wentBackward && !wentForward)
-			llInsertBefore(lastCurrent, newItem);
+			llInsertListBefore(lastCurrent, newItem);
 		if (wentForward && !wentBackward)
-			llInsertAfter(lastCurrent, newItem);
+			llInsertListAfter(lastCurrent, newItem);
 	}
 	return newItem;
 }
@@ -83,9 +88,20 @@ struct __ll *__llCreate(void *item, long size) {
 	memcpy((void *)retVal + sizeof(struct __ll), item, size);
 	return retVal;
 }
+static void __llInsertNodeAfter(struct __ll *a, struct __ll *b) {
+	struct __ll *next = NULL;
+	if (a != NULL) {
+		a->next = b;
+		next = a->next;
+	}
+	if (b != NULL) {
+		b->prev = a;
+		b->next = next;
+	}
+}
 struct __ll *__llRemoveNode(struct __ll *node) {
 	__auto_type result = (node->prev == NULL) ? node->next : node->prev;
-	llInsertAfter(node->prev, node->next);
+	__llInsertNodeAfter(node->prev, node->next);
 	node->next = NULL;
 	node->prev = NULL;
 	return result;

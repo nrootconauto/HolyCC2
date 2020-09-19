@@ -6,7 +6,11 @@ enum diffType {
 	DIFF_INSERT,
 	DIFF_UNDEF,
 };
-STR_TYPE_DEF(char, Diff);   // char here represents enum diffType
-STR_TYPE_FUNCS(char, Diff); // char here represents enum diffType
+struct __diff {
+ enum diffType type;
+ int len;
+};
+STR_TYPE_DEF(struct __diff , Diff);   // char here represents enum diffType
+STR_TYPE_FUNCS(struct __diff , Diff); // char here represents enum diffType
 strDiff __diff(const void *a, const void *b, long aSize, long bSize,
                long itemSize);

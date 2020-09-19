@@ -68,7 +68,17 @@ struct __ll;
 	}                                                                            \
 	inline long ll##suffix##Size(ll##suffix node)                                \
 	    __attribute__((always_inline));                                          \
-	inline long ll##suffix##Size(ll##suffix node) { return __llSize(node); }
+	inline long ll##suffix##Size(ll##suffix node) { return __llSize(node); }     \
+	inline void ll##suffix##InsertListBefore(ll##suffix node, ll##suffix item)   \
+	    __attribute__((always_inline));                                          \
+	inline void ll##suffix##InsertListBefore(ll##suffix node, ll##suffix item) { \
+		llInsertListBefore(node, item);                                            \
+	}                                                                            \
+	inline void ll##suffix##InsertListAfter(ll##suffix node, ll##suffix item)    \
+	    __attribute__((always_inline));                                          \
+	inline void ll##suffix##InsertListAfter(ll##suffix node, ll##suffix item) {  \
+		llInsertListAfter(node, item);                                             \
+	}
 void __llDestroy(struct __ll *node, void (*killFunc)(void *));
 void *__llValuePtr(struct __ll *node);
 struct __ll *__llRemoveNode(struct __ll *node);
@@ -86,3 +96,5 @@ struct __ll *__llFindLeft(struct __ll *list, void *data,
 struct __ll *__llGetEnd(struct __ll *list);
 struct __ll *__llGetFirst(struct __ll *list);
 long __llSize(struct __ll *list);
+void llInsertListAfter(struct __ll *a, struct __ll *b);
+void llInsertListBefore(struct __ll *a, struct __ll *b);
