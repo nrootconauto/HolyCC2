@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <diff.h>
+#include <libdill.h>
 #include <limits.h>
 #include <linkedList.h>
 #include <stdbool.h>
@@ -137,8 +138,15 @@ static bool __diffCheckIfMeet(int totalSize, int d, const void *a,
 	}
 	return foundItem;
 }
-static llDiff __diffRecur(int bundle, const void *a, const void *b, long aSize,
-                          long bSize, long itemSize, llDiff prev, llDiff next) {
+static llDiff __diffRecur(const void *a, const void *b, long aSize, long bSize,
+                          long itemSize, llDiff prev, llDiff next);
+static coroutine void __diffRecurSplit(const void *a, const void *b, long aSize,
+                                       long bSize, long itemSize,
+                                       llDiff *result) {
+	*result = __diffRecur(a, b, aSize, bSize, itemSize, NULL, NULL);
+}
+static llDiff __diffRecur(const void *a, const void *b, long aSize, long bSize,
+                          long itemSize, llDiff prev, llDiff next) {
 	const void *aEnd = a + aSize;
 	const void *bEnd = b + bSize;
 	// Check if nothing
@@ -175,8 +183,8 @@ static llDiff __diffRecur(int bundle, const void *a, const void *b, long aSize,
 	}
 	//
 	long totalSize = (aSize + bSize) / itemSize;
-	strIntPair forward __attribute__((cleanup(strIntPairDestroy)));
-	strIntPair backward __attribute__((cleanup(strIntPairDestroy)));
+	strIntPair forward;
+	strIntPair backward;
 	forward = strIntPairResize(NULL, totalSize * 2 + 1);
 	backward = strIntPairResize(NULL, totalSize * 2 + 1);
 	for (int i = 0; i != totalSize * 2 + 1; i++) {
@@ -289,6 +297,9 @@ static llDiff __diffRecur(int bundle, const void *a, const void *b, long aSize,
 		if (__diffCheckIfMeet(totalSize, d, a, b, aSize, bSize, itemSize, forward,
 		                      backward, &resultFirstX, &resultFirstY, &resultLastX,
 		                      &resultLastY)) {
+			strIntPairDestroy(&forward);
+			strIntPairDestroy(&backward);
+			//
 			int k = resultFirstX - resultFirstY;
 			//
 			llDiff newN = __llGetEnd(prev);
@@ -296,28 +307,36 @@ static llDiff __diffRecur(int bundle, const void *a, const void *b, long aSize,
 			__auto_type yOffset1 = resultFirstY * itemSize;
 			__auto_type xOffset2 = resultLastX * itemSize;
 			__auto_type yOffset2 = resultLastY * itemSize;
+			//
+			int bun = bundle();
+			llDiff left = NULL;
+			llDiff middle = NULL;
+			llDiff right = NULL;
 			// left
-			__auto_type left =
-			    __diffRecur(bundle, a, b, xOffset1, yOffset1, itemSize, newN, NULL);
-			newN = __llGetEnd(left);
+			bundle_go(bun,
+			          __diffRecurSplit(a, b, xOffset1, yOffset1, itemSize, &left));
 			// middle
 			if (!(xOffset1 == xOffset2 && yOffset1 == yOffset2)) {
-				__auto_type middle =
-				    __diffRecur(bundle, a + xOffset1, b + yOffset1, xOffset2 - xOffset1,
-				                yOffset2 - yOffset1, itemSize, newN, NULL);
-				newN = __llGetEnd(middle);
+				bundle_go(bun, __diffRecurSplit(
+				                   a + xOffset1, b + yOffset1, xOffset2 - xOffset1,
+				                   yOffset2 - yOffset1, itemSize, &middle));
 			}
 			// right
-			newN = __diffRecur(bundle, a + xOffset2, b + yOffset2, aSize - xOffset2,
-			                   bSize - yOffset2, itemSize, __llGetEnd(newN), NULL);
-			llDiffInsertListBefore(__llGetFirst(next), __llGetEnd(newN));
-			return newN;
+			bundle_go(bun,
+			          __diffRecurSplit(a + xOffset2, b + yOffset2, aSize - xOffset2,
+			                           bSize - yOffset2, itemSize, &right));
+			bundle_wait(bun, -1);
+			llDiffInsertListAfter(__llGetEnd(left), __llGetFirst(middle));
+			newN = (middle == NULL) ? left : middle;
+			llDiffInsertListAfter(__llGetEnd(newN), __llGetFirst(right));
+			newN = (right == NULL) ? newN : right;
+			return __llGetEnd(newN);
 		}
 	}
 }
 strDiff __diff(const void *a, const void *b, long aSize, long bSize,
                long itemSize) {
-	__auto_type res = __diffRecur(-1, a, b, aSize, bSize, itemSize, NULL, NULL);
+	__auto_type res = __diffRecur(a, b, aSize, bSize, itemSize, NULL, NULL);
 	__auto_type size = llDiffSize(res);
 	strDiff retVal = strDiffReserve(NULL, size);
 	__auto_type node = llDiffFirst(res);
