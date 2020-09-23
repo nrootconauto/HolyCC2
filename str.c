@@ -101,6 +101,7 @@ struct __vec *__vecSortedInsert(struct __vec *a, void *item, long itemSize,
 		if (result <= 0) {
 			memmove(where + itemSize, where, oldSize - i);
 			memcpy(where, item, itemSize);
+			break;
 		}
 	}
 	return a;

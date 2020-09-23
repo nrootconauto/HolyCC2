@@ -239,7 +239,7 @@ void __graphNodeKill(struct __graphNode *node, void (*killNode)(void *item),
 			                                        killEdge));
 		}
 	}
-	bundle_wait(b,-1);
+	bundle_wait(b, -1);
 	hclose(b);
 	//
 	rwLockDestroy(node->lock);
@@ -261,7 +261,7 @@ void __graphKillAll(struct __graphNode *start, void (*killFunc)(void *),
                     void (*killEdge)(void *)) {
 	strGraphNodeP allNodesForward __attribute__((cleanup(strGraphNodePDestroy)));
 	allNodesForward = NULL;
-	__graphNodeVisitForward(start, allNodesForward, __graphAllPred,
+	__graphNodeVisitForward(start, &allNodesForward, __graphAllPred,
 	                        __graphVisitAppend);
 	for (int i = 0; i != strGraphNodePSize(allNodesForward); i++) {
 		__graphNodeKill(allNodesForward[i], killFunc, killEdge);
@@ -275,8 +275,9 @@ void __graphKillAll(struct __graphNode *start, void (*killFunc)(void *),
 		__graphNodeKill(allNodesBackward[i], killFunc, killEdge);
 	}
 }
-void __graphNodeConnect(struct __graphNode *a, struct __graphNode *b,
-                        void *data, long itemSize) {
+struct __graphEdge *__graphNodeConnect(struct __graphNode *a,
+                                       struct __graphNode *b, void *data,
+                                       long itemSize) {
 	struct __graphEdge newEdge;
 	newEdge.from = a;
 	newEdge.to = b;
@@ -300,6 +301,7 @@ void __graphNodeConnect(struct __graphNode *a, struct __graphNode *b,
 	rwWriteStart(b->lock);
 	b->incoming = __llInsert(b->incoming, newEdgeLL2, ptrCompare);
 	rwWriteEnd(b->lock);
+	return __llValuePtr(newEdgeLL);
 }
 void __graphNodeReadLock(struct __graphNode *node) { rwReadStart(node->lock); }
 void __graphNodeReadUnlock(struct __graphNode *node) { rwReadEnd(node->lock); }
@@ -309,7 +311,7 @@ void __graphNodeWriteLock(struct __graphNode *node) {
 void __graphNodeWriteUnlock(struct __graphNode *node) {
 	rwWriteEnd(node->lock);
 }
-strGraphEdgeP __graphNodeOutgoing(struct __graphNode *node) {
+strGraphEdgeP __graphNodeOutgoing(const struct __graphNode *node) {
 	strGraphEdgeP retVal = NULL;
 	for (__auto_type node2 = __llGetFirst(node->outgoing); node2 != NULL;
 	     node2 = __llNext(node2)) {
@@ -317,7 +319,7 @@ strGraphEdgeP __graphNodeOutgoing(struct __graphNode *node) {
 	}
 	return retVal;
 }
-strGraphEdgeP __graphNodeIncoming(struct __graphNode *node) {
+strGraphEdgeP __graphNodeIncoming(const struct __graphNode *node) {
 	strGraphEdgeP retVal = NULL;
 	for (__auto_type node2 = __llGetFirst(node->incoming); node2 != NULL;
 	     node2 = __llNext(node2)) {
@@ -326,14 +328,28 @@ strGraphEdgeP __graphNodeIncoming(struct __graphNode *node) {
 	}
 	return retVal;
 }
-struct __graphNode *__graphEdgeOutgoing(struct __graphEdge *edge) {
+struct __graphNode *__graphEdgeOutgoing(const struct __graphEdge *edge) {
 	return edge->to;
 }
-struct __graphNode *__graphEdgeIncoming(struct __graphEdge *edge) {
+struct __graphNode *__graphEdgeIncoming(const struct __graphEdge *edge) {
 	return edge->from;
 }
-void *__graphEdgeValuePtr(struct __graphEdge *edge) {
+void *__graphEdgeValuePtr(const struct __graphEdge *edge) {
 	if (!edge->valuePresent)
 		return NULL;
 	return sizeof(struct __graphEdge) + (void *)edge;
+}
+void *__graphNodeValuePtr(const struct __graphNode *node) {
+	return sizeof(struct __graphNode) + (void *)node;
+}
+int __graphIsConnectedTo(const struct __graphNode *from,
+                         const struct __graphNode *to) {
+
+	for (__auto_type first = __llGetFirst(from->outgoing); first != NULL;
+	     first = __llNext(first)) {
+		__auto_type edge = (struct __graphEdge *)__llValuePtr(first);
+		if (edge->to == to)
+			return 1;
+	}
+	return 0;
 }

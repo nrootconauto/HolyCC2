@@ -1,0 +1,217 @@
+#include <assert.h>
+#include <stdio.h>
+#include <subGraph.h>
+// https://github.com/sdiemert/subgraph-isomorphism/blob/master/index.js
+#define INT_BITS (sizeof(int) * 8)
+STR_TYPE_DEF(unsigned int, Bits);
+STR_TYPE_FUNCS(unsigned int, Bits);
+STR_TYPE_DEF(strBits, Bits2D);
+STR_TYPE_FUNCS(strBits, Bits2D);
+STR_TYPE_DEF(int, Int);
+STR_TYPE_FUNCS(int, Int);
+struct __mat {
+	strBits2D data;
+	int h;
+	int w;
+};
+STR_TYPE_DEF(struct __mat, Mat);
+STR_TYPE_FUNCS(struct __mat, Mat);
+struct __mat __adjMatrixCreate(strGraphNodeP nodes) {
+	__auto_type size = strGraphNodePSize(nodes);
+	strBits2D data = strBits2DResize(NULL, size);
+	for (int i = 0; i != size; i++) {
+		__auto_type ints = size / INT_BITS + (size % INT_BITS != 0 ? 1 : 0);
+		data[i] = strBitsResize(NULL, ints);
+		memset(data[i], 0, ints * sizeof(int));
+	}
+	for (int i1 = 0; i1 != size; i1++) {
+		for (int i2 = 0; i2 != size; i2++) {
+			if (__graphIsConnectedTo(nodes[i1], nodes[i2])) {
+				data[i1][i2 / INT_BITS] |= 1u << (i2 % INT_BITS);
+			}
+		}
+	}
+	return (struct __mat){data, size, size};
+}
+static int degree(strBits row) {
+	int retVal = 0;
+	__auto_type size = strBitsSize(row);
+	for (int i = 0; i != size; i++) {
+		retVal += __builtin_popcount(row[i]);
+	}
+	return retVal;
+}
+static struct __mat initMorphism(struct __mat *graph, struct __mat *sub) {
+	strBits2D data = strBits2DResize(NULL, sub->h);
+	for (int i = 0; i != sub->h; i++) {
+		__auto_type ints = graph->h / INT_BITS + (graph->h % INT_BITS != 0 ? 1 : 0);
+		data[i] = strBitsResize(NULL, ints);
+		memset(data[i], 0, ints * sizeof(int));
+	}
+	for (int i = 0; i != sub->h; i++) {
+		for (int j = 0; j != graph->h; j++) {
+			__auto_type subDegreee = degree(sub->data[i]);
+			__auto_type graphDegree = degree(graph->data[j]);
+
+			if (subDegreee <= graphDegree) {
+				printf("M[%i][%i]\n", i, j);
+				data[i][j / INT_BITS] |= 1u << (j % INT_BITS);
+			}
+		}
+	}
+	return (struct __mat){data, sub->h, graph->h};
+}
+static int morph(struct __mat *m, int p) {
+	for (int c = 0; c != m->w; c++) {
+		if (m->data[p][c / INT_BITS] & (1u << (c % INT_BITS))) {
+			printf("P->G:%i\n", c);
+			return c;
+		}
+	}
+	assert(0);
+}
+static void __matDestroy(struct __mat *mat) {
+	for (int i = 0; i != strBits2DSize(mat->data); i++)
+		strBitsDestroy(&mat->data[i]);
+	strBits2DDestroy(&mat->data);
+}
+static int isIso(struct __mat *m, struct __mat *graph, struct __mat *sub) {
+	__auto_type rows = sub->h;
+	for (int r1 = 0; r1 != rows; r1++) {
+		for (int r2 = 0; r2 != rows; r2++) {
+			if (sub->data[r1][r2 / INT_BITS] & (1u << (r2 % INT_BITS))) {
+				int c1 = morph(m, r1);
+				int c2 = morph(m, r2);
+				printf("C1:%i,C2:%i\n", c1, c2);
+				if (!(graph->data[c1][c2 / INT_BITS] & (1u << (c2 % INT_BITS)))) {
+					printf("Fail");
+					return 0;
+				}
+			}
+		}
+	}
+	printf("Success");
+	return 1;
+}
+static struct __mat matClone(struct __mat *toClone) {
+	struct __mat retVal = {NULL, toClone->h, toClone->w};
+	retVal.data = strBits2DResize(NULL, toClone->h);
+	for (int i1 = 0; i1 != toClone->h; i1++) {
+		__auto_type width = toClone->w / INT_BITS + (toClone->w % INT_BITS ? 1 : 0);
+		retVal.data[i1] = strBitsResize(NULL, width);
+		memcpy(retVal.data[i1], toClone->data[i1], width * sizeof(int));
+	}
+	return retVal;
+}
+static void prune(struct __mat *mat, struct __mat *sub, struct __mat *graph) {
+	assert(mat->w == graph->w);
+	for (int i = 0; i != mat->h; i++) {
+		for (int j = 0; j != mat->w; j++) {
+			if (mat->data[i][j / INT_BITS] & (1u << (j % INT_BITS))) {
+				for (int x = 0; x != sub->w; x++) {
+					if (sub->data[i][x / INT_BITS] & (1u << (x % INT_BITS))) {
+
+						int hasYNeighbor = 0;
+						for (int y = 0; y != graph->w; y++) {
+							if (graph->data[j][y / INT_BITS] & (1u << (y % INT_BITS))) {
+								printf("P[%i][%i]==1\n", i, x);
+								printf("G[%i][%i]==1\n", j, y);
+								hasYNeighbor = 1;
+								break;
+							}
+						}
+
+						if (!hasYNeighbor) {
+							printf("M[%i][%i]=0\n", i, j);
+							mat->data[i][j / INT_BITS] &= ~(1u << (j % INT_BITS));
+						}
+					}
+				}
+			}
+		}
+	}
+}
+static void recurse(strInt usedCols, int curRow, struct __mat *graph,
+                    struct __mat *sub, struct __mat *m, strMat *result) {
+	if (m->h == curRow) {
+		if (isIso(m, graph, sub)) {
+			printf("ISO\n");
+			*result = strMatAppendItem(*result, matClone(m));
+		}
+	} else {
+		__auto_type mp = matClone(m);
+
+		prune(&mp, sub, graph);
+
+		for (int c = 0; c != m->w; c++) {
+			if (usedCols[c] == 0 &&
+			    (m->data[curRow][c / INT_BITS] & (1u << (c % INT_BITS)))) {
+				printf("AVAIL:%i\n", c);
+				for (int i = 0; i != m->w; i++) {
+					if (i == c) {
+						mp.data[curRow][i / INT_BITS] |= 1u << (i % INT_BITS);
+					} else {
+						mp.data[curRow][i / INT_BITS] &= ~(1u << (i % INT_BITS));
+					}
+				}
+
+				usedCols[c] = 1;
+				recurse(usedCols, curRow + 1, graph, sub, &mp, result);
+				usedCols[c] = 0;
+			}
+		}
+
+		__matDestroy(&mp);
+	}
+}
+static strGraphNodeSubP reconstructFromAdj(struct __mat *mat,
+                                           strGraphNodeP graphNodes,
+                                           strGraphNodeP subGraph) {
+	__auto_type subGraphSize = strGraphNodePSize(subGraph);
+	strGraphNodeSubP nodes = strGraphNodeSubPResize(NULL, subGraphSize);
+	assert(subGraphSize == mat->h);
+	for (int i = 0; i != subGraphSize; i++) {
+		__auto_type g = morph(mat, i);
+		nodes[i] = graphNodeSubCreate(graphNodes[g], 0);
+	}
+
+	for (int i1 = 0; i1 != subGraphSize; i1++) {
+		for (int i2 = 0; i2 != subGraphSize; i2++) {
+			if (graphNodeSubConnectedTo(subGraph[i1], subGraph[i2]))
+				graphNodeSubConnect(nodes[i1], nodes[i2], NULL); // TODO process edges
+		}
+	}
+
+	return nodes;
+}
+strSub isolateSubGraph(strGraphNodeP graph, strGraphNodeP sub) {
+	struct __mat graphAdjMat;
+	struct __mat subAdjMat;
+	graphAdjMat = __adjMatrixCreate(graph);
+	subAdjMat = __adjMatrixCreate(sub);
+
+	__auto_type graphSize = strGraphNodePSize(graph);
+	__auto_type subSize = strGraphNodePSize(sub);
+
+	strInt unused __attribute__((cleanup(strIntDestroy)));
+	unused = strIntResize(NULL, graphSize);
+	memset(unused, 0, sizeof(int) * graphSize);
+
+	__auto_type m = initMorphism(&graphAdjMat, &subAdjMat);
+
+	strMat results = NULL;
+	recurse(unused, 0, &graphAdjMat, &subAdjMat, &m, &results);
+
+	strSub retVal = NULL;
+	for (int i = 0; i != strMatSize(results); i++)
+		retVal =
+		    strSubAppendItem(retVal, reconstructFromAdj(&results[i], graph, sub));
+
+	for (int i = 0; i != strMatSize(results); i++)
+		__matDestroy(&results[i]);
+	__matDestroy(&graphAdjMat);
+	__matDestroy(&subAdjMat);
+	__matDestroy(&m);
+
+	return retVal;
+}

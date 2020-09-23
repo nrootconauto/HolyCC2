@@ -86,12 +86,12 @@ struct __graphEdge;
 	inline void graphNode##suffix##WriteUnlock(graphNode##suffix node) {         \
 		__graphNodeWriteUnlock(node);                                              \
 	}                                                                            \
-	inline void graphNode##suffix##Connect(                                      \
+	inline graphEdge##suffix graphNode##suffix##Connect(                         \
 	    graphNode##suffix node, graphNode##suffix node2, edgeType value)         \
 	    __attribute__((always_inline));                                          \
-	inline void graphNode##suffix##Connect(                                      \
+	inline graphEdge##suffix graphNode##suffix##Connect(                         \
 	    graphNode##suffix node, graphNode##suffix node2, edgeType value) {       \
-		__graphNodeConnect(node, node2, &value, sizeof(edgeType));                 \
+		return __graphNodeConnect(node, node2, &value, sizeof(edgeType));          \
 	}                                                                            \
 	inline const str##GraphEdge##suffix##P graphNode##suffix##Incoming(          \
 	    graphNode##suffix node) __attribute__((always_inline));                  \
@@ -105,22 +105,34 @@ struct __graphEdge;
 	    graphNode##suffix node) {                                                \
 		return (str##GraphEdge##suffix##P)__graphNodeOutgoing(node);               \
 	}                                                                            \
-	inline type *graphEdge##suffix##ValuePtr(graphEdge##suffix edge)             \
+	inline edgeType *graphEdge##suffix##ValuePtr(const graphEdge##suffix edge)   \
 	    __attribute__((always_inline));                                          \
-	inline type *graphEdge##suffix##ValuePtr(graphEdge##suffix edge) {           \
+	inline edgeType *graphEdge##suffix##ValuePtr(const graphEdge##suffix edge) { \
 		return __graphEdgeValuePtr(edge);                                          \
 	}                                                                            \
-	inline graphNode##suffix graphEdge##suffix##Outgoing(graphEdge##suffix edge) \
-	    __attribute__((always_inline));                                          \
 	inline graphNode##suffix graphEdge##suffix##Outgoing(                        \
-	    graphEdge##suffix edge) {                                                \
+	    const graphEdge##suffix edge) __attribute__((always_inline));            \
+	inline graphNode##suffix graphEdge##suffix##Outgoing(                        \
+	    const graphEdge##suffix edge) {                                          \
 		return __graphEdgeOutgoing(edge);                                          \
 	}                                                                            \
-	inline graphNode##suffix graphEdge##suffix##Incoming(graphEdge##suffix edge) \
-	    __attribute__((always_inline));                                          \
 	inline graphNode##suffix graphEdge##suffix##Incoming(                        \
-	    graphEdge##suffix edge) {                                                \
+	    const graphEdge##suffix edge) __attribute__((always_inline));            \
+	inline graphNode##suffix graphEdge##suffix##Incoming(                        \
+	    const graphEdge##suffix edge) {                                          \
 		return __graphEdgeIncoming(edge);                                          \
+	}                                                                            \
+	inline type *graphNode##suffix##ValuePtr(const graphNode##suffix edge)       \
+	    __attribute__((always_inline));                                          \
+	inline type *graphNode##suffix##ValuePtr(const graphNode##suffix edge) {     \
+		return __graphNodeValuePtr(edge);                                          \
+	}                                                                            \
+	inline int graphNode##suffix##ConnectedTo(const graphNode##suffix from,      \
+	                                          const graphNode##suffix to)        \
+	    __attribute__((always_inline));                                          \
+	inline int graphNode##suffix##ConnectedTo(const graphNode##suffix from,      \
+	                                          const graphNode##suffix to) {      \
+		return __graphIsConnectedTo(from, to);                                     \
 	}
 void __graphKillAll(struct __graphNode *start, void (*killFunc)(void *),
                     void (*killEdge)(void *));
@@ -139,17 +151,21 @@ void __graphNodeReadLock(struct __graphNode *node);
 void __graphNodeReadUnlock(struct __graphNode *node);
 void __graphNodeWriteLock(struct __graphNode *node);
 void __graphNodeWriteUnlock(struct __graphNode *node);
-void __graphNodeConnect(struct __graphNode *a, struct __graphNode *b,
-                        void *data, long itemSize);
+struct __graphEdge *__graphNodeConnect(struct __graphNode *a,
+                                       struct __graphNode *b, void *data,
+                                       long itemSize);
 STR_TYPE_DEF(struct __graphNode *, GraphNodeP);
 STR_TYPE_FUNCS(struct __graphNode *, GraphNodeP);
 STR_TYPE_DEF(struct __graphEdge *, GraphEdgeP);
 STR_TYPE_FUNCS(struct __graphEdge *, GraphEdgeP);
-strGraphEdgeP __graphNodeIncoming(struct __graphNode *node);
-strGraphEdgeP __graphNodeOutgoing(struct __graphNode *node);
+strGraphEdgeP __graphNodeIncoming(const struct __graphNode *node);
+strGraphEdgeP __graphNodeOutgoing(const struct __graphNode *node);
 void __graphEdgeKill(struct __graphNode *in, struct __graphNode *out,
                      void *data, int (*pred)(void *, void *),
                      void (*kill)(void *));
-void *__graphEdgeValuePtr(struct __graphEdge *edge);
-struct __graphNode *__graphEdgeIncoming(struct __graphEdge *edge);
-struct __graphNode *__graphEdgeOutgoing(struct __graphEdge *edge);
+void *__graphEdgeValuePtr(const struct __graphEdge *edge);
+struct __graphNode *__graphEdgeIncoming(const struct __graphEdge *edge);
+struct __graphNode *__graphEdgeOutgoing(const struct __graphEdge *edge);
+void *__graphNodeValuePtr(const struct __graphNode *node);
+int __graphIsConnectedTo(const struct __graphNode *from,
+                         const struct __graphNode *to);

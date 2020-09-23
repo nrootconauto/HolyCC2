@@ -66,3 +66,8 @@ compile_commands.json
 build/gede2.ini
 build/gede2.ini
 build/gede2.ini
+build/.cmake/api/v1/query/client-kdevelop/query.json
+build/.cmake/api/v1/reply/cmakeFiles-v1-69cf97be724847e2ef39.json
+build/.cmake/api/v1/reply/codemodel-v2-9fbee239c97763d204ec.json
+build/.cmake/api/v1/reply/index-2020-09-23T18-59-20-0561.json
+build/.cmake/api/v1/reply/target-holycc2-Debug-1232a7e2a31f8e3e58e9.json
