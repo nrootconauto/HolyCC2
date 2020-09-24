@@ -13,6 +13,8 @@ int bitSearch(strBits bits, int startAt) {
 	int firstRun = 1;
 	for (int i = startAt / INT_BITS; i != strBitsSize(bits); i++) {
 		__auto_type copy = bits[i];
+		if (copy == 0)
+			continue;
 
 		if (firstRun) {
 			copy >>= (startAt % INT_BITS);
@@ -123,15 +125,15 @@ static void prune(struct __mat *mat, struct __mat *sub, struct __mat *graph) {
 	assert(mat->w == graph->w);
 	for (int i = 0; i != mat->h; i++) {
 		for (int j = bitSearch(mat->data[i], 0); j != -1;
-		     j=bitSearch(mat->data[i], j + 1)) {
+		     j = bitSearch(mat->data[i], j + 1)) {
 			for (int x = bitSearch(sub->data[i], 0); x != -1;
 			     x = bitSearch(sub->data[i], x + 1)) {
 
 				int hasYNeighbor = 0;
-			__auto_type n=bitSearch(graph->data[j], 0);
-				if ( n!= -1) {
+				__auto_type n = bitSearch(graph->data[j], 0);
+				if (n != -1) {
 					printf("P[%i][%i]==1\n", i, x);
-					printf("G[%i][%i]==1\n", j,n);
+					printf("G[%i][%i]==1\n", j, n);
 					hasYNeighbor = 1;
 				}
 
