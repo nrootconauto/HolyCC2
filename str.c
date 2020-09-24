@@ -145,3 +145,20 @@ void *__vecSortedFind(struct __vec *a, void *item, long itemSize,
 	}
 	return NULL;
 }
+// https://www.cplusplus.com/reference/algorithm/remove_if/
+struct __vec *__vecRemoveIf(struct __vec *a, long itemSize,
+                            int predicate(const void *, const void *),
+                            void *data) {
+	__auto_type size = __vecSize(a);
+	void *first = a, *last = (void *)a + size;
+	__auto_type result = first;
+	while (first != last) {
+		if (!predicate(first, data)) {
+			memcpy(result, first, itemSize);
+			result += itemSize;
+		}
+		first += itemSize;
+	}
+	*__vecSizePtr(a) = (char *)result - (char *)a;
+	return a;
+}

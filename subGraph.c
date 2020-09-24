@@ -61,7 +61,11 @@ static int degree(strBits row) {
 	}
 	return retVal;
 }
-static struct __mat initMorphism(struct __mat *graph, struct __mat *sub) {
+static struct __mat initMorphism(struct __mat *graph, struct __mat *sub,
+                                 strGraphNodeP graphNodes,
+                                 strGraphNodeP subNodes,
+                                 int (*nodePred)(const struct __graphNode *,
+                                                 const struct __graphNode *)) {
 	strBits2D data = strBits2DResize(NULL, sub->h);
 	for (int i = 0; i != sub->h; i++) {
 		__auto_type ints = graph->h / INT_BITS + (graph->h % INT_BITS != 0 ? 1 : 0);
@@ -70,6 +74,10 @@ static struct __mat initMorphism(struct __mat *graph, struct __mat *sub) {
 	}
 	for (int i = 0; i != sub->h; i++) {
 		for (int j = 0; j != graph->h; j++) {
+			if (nodePred != NULL)
+				if (!nodePred(subNodes[i], graphNodes[j]))
+					continue;
+
 			__auto_type subDegreee = degree(sub->data[i]);
 			__auto_type graphDegree = degree(graph->data[j]);
 
@@ -178,9 +186,24 @@ static void recurse(strInt usedCols, int curRow, struct __mat *graph,
 		__matDestroy(&mp);
 	}
 }
-static strGraphNodeSubP reconstructFromAdj(struct __mat *mat,
-                                           strGraphNodeP graphNodes,
-                                           strGraphNodeP subGraph) {
+int edgeComp(void *a, void *b) { return *(void **)a - *(void **)b; }
+static strGraphEdgeP edgesConnectedToNode(struct __graphNode *from,
+                                          struct __graphNode *to) {
+	__auto_type outgoing = graphNodeSubOutgoing(from);
+	__auto_type size = strGraphEdgePSize(outgoing);
+	strGraphEdgeP toRemove = strGraphEdgePReserve(NULL, size);
+
+	for (int i = 0; i != size; i++)
+		if (to != __graphEdgeOutgoing(outgoing[i]))
+			toRemove = strGraphEdgePSortedInsert(toRemove, outgoing[i], edgeComp);
+
+	outgoing = strGraphEdgePSetDifference(outgoing, toRemove, edgeComp);
+	strGraphEdgePDestroy(&toRemove);
+	return outgoing;
+}
+static strGraphNodeSubP reconstructFromAdj(
+    struct __mat *mat, strGraphNodeP graphNodes, strGraphNodeP subGraph,
+    int (*edgePred)(const struct __graphEdge *, const struct __graphEdge *)) {
 	__auto_type subGraphSize = strGraphNodePSize(subGraph);
 	strGraphNodeSubP nodes = strGraphNodeSubPResize(NULL, subGraphSize);
 	assert(subGraphSize == mat->h);
@@ -191,14 +214,56 @@ static strGraphNodeSubP reconstructFromAdj(struct __mat *mat,
 
 	for (int i1 = 0; i1 != subGraphSize; i1++) {
 		for (int i2 = 0; i2 != subGraphSize; i2++) {
-			if (graphNodeSubConnectedTo(subGraph[i1], subGraph[i2]))
-				graphNodeSubConnect(nodes[i1], nodes[i2], NULL); // TODO process edges
+			if (graphNodeSubConnectedTo(subGraph[i1], subGraph[i2])) {
+				__auto_type graphNodeFrom = *graphNodeSubValuePtr(nodes[i1]);
+				__auto_type graphNodeTo = *graphNodeSubValuePtr(nodes[i2]);
+
+				strGraphEdgeP edgesGraph __attribute__((cleanup(strGraphEdgePDestroy)));
+				edgesGraph = edgesConnectedToNode(graphNodeFrom, graphNodeTo);
+				if (edgePred != NULL) {
+					strGraphEdgeP edgesSub __attribute__((cleanup(strGraphEdgePDestroy)));
+					edgesSub = edgesConnectedToNode(subGraph[i1], subGraph[i2]);
+					int connectionCount = 0;
+
+					for (int i1 = 0; i1 != strGraphEdgePSize(edgesGraph); i1++) {
+						int edgeFits = 1;
+						for (int i2 = 0; i2 != strGraphEdgePSize(edgesSub); i2++) {
+							if (!edgePred(edgesGraph[i1], edgesSub[i1])) {
+								edgeFits = 0;
+								break;
+							}
+						}
+
+						if (edgeFits) {
+							connectionCount++;
+							graphNodeSubConnect(nodes[i1], nodes[i2], edgesGraph[i1]);
+						}
+					}
+
+					if (strGraphEdgePSize(edgesSub) > connectionCount)
+						goto fail;
+				} else {
+					for (int i = 0; i != strGraphEdgePSize(edgesGraph); i++)
+						graphNodeSubConnect(nodes[i1], nodes[i2], edgesGraph[i]);
+				}
+			}
 		}
 	}
 
+success:
 	return nodes;
+fail:;
+	__auto_type size = strGraphNodeSubPSize(nodes);
+	for (int i = 0; i != size; i++)
+		graphNodeSubKill(&nodes[i], NULL, NULL);
+
+	return NULL;
 }
-strSub isolateSubGraph(strGraphNodeP graph, strGraphNodeP sub) {
+strSub isolateSubGraph(strGraphNodeP graph, strGraphNodeP sub,
+                       int (*nodePred)(const struct __graphNode *,
+                                       const struct __graphNode *),
+                       int (*edgePred)(const struct __graphEdge *,
+                                       const struct __graphEdge *)) {
 	struct __mat graphAdjMat;
 	struct __mat subAdjMat;
 	graphAdjMat = __adjMatrixCreate(graph);
@@ -211,16 +276,19 @@ strSub isolateSubGraph(strGraphNodeP graph, strGraphNodeP sub) {
 	unused = strIntResize(NULL, graphSize);
 	memset(unused, 0, sizeof(int) * graphSize);
 
-	__auto_type m = initMorphism(&graphAdjMat, &subAdjMat);
+	__auto_type m = initMorphism(&graphAdjMat, &subAdjMat, graph, sub, nodePred);
 
 	strMat results = NULL;
 	recurse(unused, 0, &graphAdjMat, &subAdjMat, &m, &results);
 
 	strSub retVal = NULL;
-	for (int i = 0; i != strMatSize(results); i++)
-		retVal =
-		    strSubAppendItem(retVal, reconstructFromAdj(&results[i], graph, sub));
+	for (int i = 0; i != strMatSize(results); i++) {
+		__auto_type result = reconstructFromAdj(&results[i], graph, sub, edgePred);
+		if (result == NULL)
+			continue;
 
+		retVal = strSubAppendItem(retVal, result);
+	}
 	for (int i = 0; i != strMatSize(results); i++)
 		__matDestroy(&results[i]);
 	__matDestroy(&graphAdjMat);
@@ -228,4 +296,9 @@ strSub isolateSubGraph(strGraphNodeP graph, strGraphNodeP sub) {
 	__matDestroy(&m);
 
 	return retVal;
+}
+void killSubgraphs(strSub *subgraphs) {
+	for (int i1 = 0; i1 != strSubSize(*subgraphs); i1++)
+		for (int i2 = 0; i2 != strGraphNodeSubPSize(subgraphs[0][i1]); i2++)
+			graphNodeSubKill(&subgraphs[0][i1][i2], NULL, NULL);
 }

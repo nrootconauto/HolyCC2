@@ -72,6 +72,14 @@ struct __vec;
 	    str##suffix vec, str##suffix vec2, int pred(void *, void *)) {           \
 		return (str##suffix)__vecSetDifference(                                    \
 		    (struct __vec *)vec, (struct __vec *)vec2, sizeof(type), pred);        \
+	}                                                                            \
+	inline str##suffix str##suffix##RemoveIf(                                    \
+	    str##suffix vec, int pred(const void *, const void *), void *data)                   \
+	    __attribute__((always_inline));                                          \
+	inline str##suffix str##suffix##RemoveIf(                                    \
+	    str##suffix vec, int pred(const void *, const void *), void *data) {                 \
+		return (str##suffix)__vecRemoveItem((struct __vec *)vec, sizeof(type),     \
+		                                    pred, data);                           \
 	}
 struct __vec *__vecAppendItem(struct __vec *a, void *item, long itemSize);
 struct __vec *__vecReserve(struct __vec *a, long capacity);
@@ -86,3 +94,5 @@ void *__vecSortedFind(struct __vec *a, void *item, long itemSize,
                       int predicate(void *, void *));
 struct __vec *__vecSetDifference(struct __vec *a, struct __vec *b,
                                  long itemSize, int (*pred)(void *, void *));
+struct __vec *__vecRemoveItem(struct __vec *a, long itemSize,
+                      int predicate(const void *, const void *), void *data);

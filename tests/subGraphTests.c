@@ -4,6 +4,10 @@
 #include <subGraph.h>
 GRAPH_TYPE_DEF(int, void *, Int);
 GRAPH_TYPE_FUNCS(int, void *, Int);
+static int nodeComp(const struct __graphNode *a, const struct __graphNode *b) {
+	return *graphNodeIntValuePtr((graphNodeInt)a) ==
+	       *graphNodeIntValuePtr((graphNodeInt)b);
+}
 int validateSubgraph1(strGraphNodeSubP subGraphs, graphNodeInt expected[3]) {
 	graphNodeSub items[3];
 	int result = 1;
@@ -24,9 +28,9 @@ int validateSubgraph1(strGraphNodeSubP subGraphs, graphNodeInt expected[3]) {
 }
 void subGraphTests() {
 	//
-	__auto_type sA = graphNodeIntCreate(1, 0);
-	__auto_type sB = graphNodeIntCreate(2, 0);
-	__auto_type sC = graphNodeIntCreate(3, 0);
+	__auto_type sA = graphNodeIntCreate(2, 0); // Same value as b
+	__auto_type sB = graphNodeIntCreate(3, 0); // Same value as c
+	__auto_type sC = graphNodeIntCreate(4, 0); // Same value as d
 	graphNodeIntConnect(sA, sB, NULL);
 	graphNodeIntConnect(sA, sC, NULL);
 	graphNodeIntConnect(sB, sC, NULL);
@@ -45,15 +49,17 @@ void subGraphTests() {
 	__auto_type subGraph = strGraphNodePResize(NULL, 3);
 	subGraph[0] = sA, subGraph[1] = sB, subGraph[2] = sC;
 
-	__auto_type subGraphs = isolateSubGraph(graph, subGraph);
+	__auto_type subGraphs = isolateSubGraph(graph, subGraph, NULL, NULL);
 
 	assert(strSubSize(subGraphs) == 1);
 	graphNodeInt expected[3] = {b, c, d};
 	assert(validateSubgraph1(subGraphs[0], expected));
 
+	killSubgraphs(&subGraphs);
+
 	graphNodeIntConnect(a, d, NULL);
 
-	subGraphs = isolateSubGraph(graph, subGraph);
+	subGraphs = isolateSubGraph(graph, subGraph, NULL, NULL);
 	assert(strSubSize(subGraphs) == 2);
 	int found[2] = {0, 0};
 	graphNodeInt expected2[3] = {a, b, d};
@@ -62,4 +68,13 @@ void subGraphTests() {
 		found[i] |= validateSubgraph1(subGraphs[i], expected2);
 	}
 	assert(found[0] && found[1]);
+
+	killSubgraphs(&subGraphs);
+
+	/* Run again,but check node values against subgraph,(which has same values as
+	 * b,c,d) so "a,b,d" will be filtered out
+	 */
+	subGraphs = isolateSubGraph(graph, subGraph, nodeComp, NULL);
+	assert(strSubSize(subGraphs) == 1);
+	assert(validateSubgraph1(subGraphs[0], expected));
 }
