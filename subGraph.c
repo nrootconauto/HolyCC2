@@ -9,6 +9,24 @@ STR_TYPE_DEF(strBits, Bits2D);
 STR_TYPE_FUNCS(strBits, Bits2D);
 STR_TYPE_DEF(int, Int);
 STR_TYPE_FUNCS(int, Int);
+int bitSearch(strBits bits, int startAt) {
+	int firstRun = 1;
+	for (int i = startAt / INT_BITS; i != strBitsSize(bits); i++) {
+		__auto_type copy = bits[i];
+
+		if (firstRun) {
+			copy >>= (startAt % INT_BITS);
+			copy <<= (startAt % INT_BITS);
+		}
+
+		__auto_type find = __builtin_ffs(copy);
+		if (find != 0)
+			return i * INT_BITS + find - 1;
+
+		firstRun = 0;
+	}
+	return -1;
+}
 struct __mat {
 	strBits2D data;
 	int h;
@@ -62,11 +80,10 @@ static struct __mat initMorphism(struct __mat *graph, struct __mat *sub) {
 	return (struct __mat){data, sub->h, graph->h};
 }
 static int morph(struct __mat *m, int p) {
-	for (int c = 0; c != m->w; c++) {
-		if (m->data[p][c / INT_BITS] & (1u << (c % INT_BITS))) {
-			printf("P->G:%i\n", c);
-			return c;
-		}
+	__auto_type res = bitSearch(m->data[p], 0);
+	if (res != -1) {
+		printf("P->G:%i\n", res);
+		return res;
 	}
 	assert(0);
 }
@@ -78,15 +95,14 @@ static void __matDestroy(struct __mat *mat) {
 static int isIso(struct __mat *m, struct __mat *graph, struct __mat *sub) {
 	__auto_type rows = sub->h;
 	for (int r1 = 0; r1 != rows; r1++) {
-		for (int r2 = 0; r2 != rows; r2++) {
-			if (sub->data[r1][r2 / INT_BITS] & (1u << (r2 % INT_BITS))) {
-				int c1 = morph(m, r1);
-				int c2 = morph(m, r2);
-				printf("C1:%i,C2:%i\n", c1, c2);
-				if (!(graph->data[c1][c2 / INT_BITS] & (1u << (c2 % INT_BITS)))) {
-					printf("Fail");
-					return 0;
-				}
+		for (int r2 = bitSearch(sub->data[r1], 0); r2 != -1;
+		     r2 = bitSearch(sub->data[r1], r2 + 1)) {
+			int c1 = morph(m, r1);
+			int c2 = morph(m, r2);
+			printf("C1:%i,C2:%i\n", c1, c2);
+			if (!(graph->data[c1][c2 / INT_BITS] & (1u << (c2 % INT_BITS)))) {
+				printf("Fail");
+				return 0;
 			}
 		}
 	}
@@ -106,26 +122,22 @@ static struct __mat matClone(struct __mat *toClone) {
 static void prune(struct __mat *mat, struct __mat *sub, struct __mat *graph) {
 	assert(mat->w == graph->w);
 	for (int i = 0; i != mat->h; i++) {
-		for (int j = 0; j != mat->w; j++) {
-			if (mat->data[i][j / INT_BITS] & (1u << (j % INT_BITS))) {
-				for (int x = 0; x != sub->w; x++) {
-					if (sub->data[i][x / INT_BITS] & (1u << (x % INT_BITS))) {
+		for (int j = bitSearch(mat->data[i], 0); j != -1;
+		     j=bitSearch(mat->data[i], j + 1)) {
+			for (int x = bitSearch(sub->data[i], 0); x != -1;
+			     x = bitSearch(sub->data[i], x + 1)) {
 
-						int hasYNeighbor = 0;
-						for (int y = 0; y != graph->w; y++) {
-							if (graph->data[j][y / INT_BITS] & (1u << (y % INT_BITS))) {
-								printf("P[%i][%i]==1\n", i, x);
-								printf("G[%i][%i]==1\n", j, y);
-								hasYNeighbor = 1;
-								break;
-							}
-						}
+				int hasYNeighbor = 0;
+			__auto_type n=bitSearch(graph->data[j], 0);
+				if ( n!= -1) {
+					printf("P[%i][%i]==1\n", i, x);
+					printf("G[%i][%i]==1\n", j,n);
+					hasYNeighbor = 1;
+				}
 
-						if (!hasYNeighbor) {
-							printf("M[%i][%i]=0\n", i, j);
-							mat->data[i][j / INT_BITS] &= ~(1u << (j % INT_BITS));
-						}
-					}
+				if (!hasYNeighbor) {
+					printf("M[%i][%i]=0\n", i, j);
+					mat->data[i][j / INT_BITS] &= ~(1u << (j % INT_BITS));
 				}
 			}
 		}
@@ -143,9 +155,9 @@ static void recurse(strInt usedCols, int curRow, struct __mat *graph,
 
 		prune(&mp, sub, graph);
 
-		for (int c = 0; c != m->w; c++) {
-			if (usedCols[c] == 0 &&
-			    (m->data[curRow][c / INT_BITS] & (1u << (c % INT_BITS)))) {
+		for (int c = bitSearch(m->data[curRow], 0); c != -1;
+		     c = bitSearch(m->data[curRow], c + 1)) {
+			if (usedCols[c] == 0) {
 				printf("AVAIL:%i\n", c);
 				for (int i = 0; i != m->w; i++) {
 					if (i == c) {
