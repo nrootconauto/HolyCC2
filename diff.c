@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 struct __intPair {
+	int xBeforeDiag;
+	int yBeforeDiag;
 	int x;
 	int y;
 	int d;
@@ -109,8 +111,10 @@ static bool __diffCheckIfMeet(int totalSize, int d, const void *a,
 			bool match = x == otherX && y == otherY;
 			int fX, fY, lX, lY;
 			if (!match) {
-				match = __diffPathLeadsToPath(a, b, aSize, bSize, x, y, otherX, otherY,
-				                              itemSize, &fX, &fY, &lX, &lY, pred);
+				match = __diffPathLeadsToPath(
+				    a, b, aSize, bSize, forward[i1].xBeforeDiag,
+				    forward[i1].yBeforeDiag, backward[i2].xBeforeDiag,
+				    backward[i2].yBeforeDiag, itemSize, &fX, &fY, &lX, &lY, pred);
 				if (match)
 					sharedDiagDist = lX - fX;
 			} else {
@@ -236,6 +240,7 @@ static llDiff __diffRecur(const void *a, const void *b, long aSize, long bSize,
 				//
 				__auto_type a2 = a + x * itemSize;
 				__auto_type b2 = b + y * itemSize;
+				int xBeforeDiag = x, yBeforeDiag = y;
 			loop1:
 				if (a2 < aEnd && b2 < bEnd) {
 					if (pred(a2, b2)) {
@@ -250,12 +255,14 @@ static llDiff __diffRecur(const void *a, const void *b, long aSize, long bSize,
 				bool assign = false;
 				if (forward[k + totalSize].x < x) {
 					forward[k + totalSize].x = x;
+					forward[k + totalSize].xBeforeDiag = xBeforeDiag;
 					assign = true;
 				}
 				if (assign || forward[k + totalSize].d == -1 ||
 				    forward[k + totalSize].d > d) {
 					forward[k + totalSize].d = d;
 					forward[k + totalSize].y = y;
+					forward[k + totalSize].yBeforeDiag = yBeforeDiag;
 				}
 			}
 			{
@@ -279,8 +286,7 @@ static llDiff __diffRecur(const void *a, const void *b, long aSize, long bSize,
 				int y = (bSize / itemSize) - ((aSize / itemSize - x) - k);
 				__auto_type a2 = a + x * itemSize - itemSize;
 				__auto_type b2 = b + y * itemSize - itemSize;
-				if (x == 3 && y == 1)
-					printf("g\n");
+				int xBeforeDiag = x, yBeforeDiag = y;
 			loop2:
 				if (a2 < aEnd && b2 < bEnd && a2 >= a && b2 >= b) {
 					if (pred(a2, b2)) {
@@ -294,12 +300,14 @@ static llDiff __diffRecur(const void *a, const void *b, long aSize, long bSize,
 				bool assign = false;
 				if (backward[k + totalSize].x > x || backward[k + totalSize].x == -1) {
 					backward[k + totalSize].x = x;
+					backward[k + totalSize].xBeforeDiag = xBeforeDiag;
 					assign = true;
 				}
 				if (assign || backward[k + totalSize].d == -1 ||
 				    backward[k + totalSize].d > d) {
 					backward[k + totalSize].d = d;
 					backward[k + totalSize].y = y;
+					backward[k + totalSize].yBeforeDiag = yBeforeDiag;
 				}
 			}
 		}
