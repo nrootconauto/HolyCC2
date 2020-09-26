@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.0)
+set (CMAKE_CC_STANDARD 11)
 
 project(holycc2 LANGUAGES C)
 
@@ -13,6 +14,7 @@ list(APPEND sources "diff.c")
 list(APPEND sources "readersWritersLock.c")
 list(APPEND sources "ext/skinny_mutex/skinny_mutex.c")
 list(APPEND sources "subGraph.c")
+list(APPEND sources "cyk.c")
 
 set(tests "")
 list(APPEND tests "tests/tests.c")
