@@ -128,5 +128,13 @@ void cykTests() {
 		__cykIteratorNext(table, &iter);
 	}
 
+	assert(0 != __cykIteratorInitEnd(table, &iter));
+	for (int i = sizeof(expected) / sizeof(*expected) - 1; i >= 0; i--) {
+		assert(iter.x == expected[i].x);
+		assert(iter.y == expected[i].y);
+		assert(iter.r == expected[i].r);
+		__cykIteratorNext(table, &iter);
+	}
+
 	cykBinaryMatrixDestroy(&table);
 }
