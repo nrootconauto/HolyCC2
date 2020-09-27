@@ -12,5 +12,6 @@ int main() {
 	mapTests();
 	diffTests();
 	subGraphTests();
+	cykTests();
 	return 0;
 }

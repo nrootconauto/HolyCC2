@@ -6,6 +6,7 @@
 #include <math.h>
 #include <stdatomic.h>
 #include <stdbool.h>
+#include <stdio.h>
 enum __cykRuleType { CYK_TERMINAL, CYK_NONTERMINAL };
 struct __cykRule {
 	enum __cykRuleType type;
@@ -84,46 +85,49 @@ static void __cykSetBit(struct __cykBinaryMatrix *table, int grammarSize, int x,
 }
 static int __cykCheckBit(const struct __cykBinaryMatrix *table, int grammarSize,
                          int x, int y, int r) {
-	__auto_type bit = y + x * grammarSize + r;
+	__auto_type bit = x * grammarSize + r;
 	return table->bits[y][bit / INT_BITS] & (1u << (bit % INT_BITS));
 }
 static coroutine void cykCheckRule(const struct __cykBinaryMatrix *table,
                                    int grammarSize, int s, int l,
-                                   struct __cykRule *rule, char *dumpto1) {
+                                   struct __cykRule *rule,
+                                   _Atomic(char) * dumpto1) {
 	if (rule->type == CYK_TERMINAL)
 		return;
 
 	for (int p = 1; p <= l - 1; p++) {
-		if (__cykCheckBit(table, grammarSize, p - 1, s - 1, rule->nonTerminal.a))
-			if (__cykCheckBit(table, grammarSize, l - p - 1, s + p - 1,
-			                  rule->nonTerminal.b)) {
-				*dumpto1 = 1;
+		if (0 !=
+		    __cykCheckBit(table, grammarSize, p - 1, s - 1, rule->nonTerminal.a))
+			if (0 != __cykCheckBit(table, grammarSize, l - p - 1, s + p - 1,
+			                       rule->nonTerminal.b)) {
+				printf("%i at (%i,%i)\n", rule->value, l - 1, s - 1);
+				dumpto1[rule->value] = 1;
 				return;
 			}
 	}
 }
 static coroutine void cykCheckRules(const struct __cykBinaryMatrix *table,
-                                    int totalSize, const strCYKRulesP grammar,
-                                    int s, int l, char *dumpTo) {
-	__auto_type grammarSize = strCYKRulesPSize(grammar);
+                                    int grammarSize, const strCYKRulesP rules,
+                                    int s, int l, _Atomic(char) * dumpTo) {
+	__auto_type rulesSize = strCYKRulesPSize(rules);
 
 	int b = bundle();
-	for (int i = 0; i != grammarSize; i++) {
-		__auto_type rule = grammar[i];
-		__auto_type dumpTo2 = &dumpTo[i];
-		bundle_go(b, cykCheckRule(table, grammarSize, s, l, rule, dumpTo2));
+	for (int i = 0; i != rulesSize; i++) {
+		__auto_type rule = rules[i];
+		bundle_go(b, cykCheckRule(table, grammarSize, s, l, rule, dumpTo));
 	}
 	bundle_wait(b, -1);
 	hclose(b);
 }
-static void ckyS(const struct __cykBinaryMatrix *table, int totalSize,
-                 const strCYKRulesP grammar, int l, char *dumpTo) {
+static void ckyS(const struct __cykBinaryMatrix *table, int inputSize,
+                 int grammarSize, const strCYKRulesP rules, int l,
+                 _Atomic(char) * dumpTo) {
 	int b = bundle();
-	for (int s = 1; s <= totalSize - l + 1; s++) {
-		bundle_go(b, cykCheckRules(table, totalSize, grammar, s, l,
-		                           &dumpTo[strCYKRulesPSize(grammar) * (s - 1)]));
+	for (int s = 1; s <= grammarSize - l + 1; s++) {
+		__auto_type dumpTo2 = &dumpTo[grammarSize * (s - 1)];
+		bundle_go(b, cykCheckRules(table, grammarSize, rules, s, l, dumpTo2));
 	}
-	bundle_go(b, -1);
+	bundle_wait(b, -1);
 	hclose(b);
 }
 
@@ -149,18 +153,21 @@ static void __cykBinaryMatrixResize(struct __cykBinaryMatrix *table,
 
 	for (int i = 0; i != newSize; i++) {
 		__auto_type oldIntCount =
-		    (table->w < i) ? intCountFromBits(table->w - i) : 0;
+		    (table->w > i) ? intCountFromBits(table->w - i) : 0;
 
-		__auto_type ptr = (table->w < i) ? table->bits[i] : NULL;
+		__auto_type ptr = (table->w > i) ? table->bits[i] : NULL;
 		ptr = realloc(ptr, newSize * sizeof(int));
 
-		memset(ptr + oldIntCount, 0, intCountFromBits(newSize - i) - oldIntCount);
+		__auto_type count = intCountFromBits(newSize - i) - oldIntCount;
+		memset(ptr + oldIntCount, 0, count * sizeof(int));
 		table->bits[i] = ptr;
 	}
+
+	table->w = newSize;
 }
 
 struct __cykBinaryMatrix *
-__cykBinary(const strCYKRulesP grammar, struct __vec *items, long itemSize,
+__cykBinary(const strCYKRulesP rules, struct __vec *items, long itemSize,
             int grammarSize, strCYKRulesP(classify)(const void *, const void *),
             void *data) {
 	__auto_type totalSize = __vecSize(items) / itemSize;
@@ -168,19 +175,20 @@ __cykBinary(const strCYKRulesP grammar, struct __vec *items, long itemSize,
 	__auto_type width = intCountFromBits(totalSize * grammarSize);
 
 	struct __cykBinaryMatrix table = __cykBinaryMatrixCreate(grammarSize);
-	__cykBinaryMatrixResize(&table, width);
+	__cykBinaryMatrixResize(&table, totalSize * grammarSize);
 
 	for (int i1 = 0; i1 != totalSize; i1++) {
 		__auto_type categories = classify((void *)items + itemSize * i1, data);
 		for (int i2 = 0; i2 != strCYKRulesPSize(categories); i2++)
-			__cykSetBit(&table, grammarSize, i1, i2, categories[i2]->value);
+			__cykSetBit(&table, grammarSize, 0, i1, categories[i2]->value);
 
 		strCYKRulesPDestroy(&categories);
 	}
 
-	char buffer[totalSize * grammarSize];
+	_Atomic(char) buffer[totalSize * grammarSize];
 	for (int l = 2; l <= totalSize; l++) {
-		ckyS(&table, totalSize, grammar, l, buffer);
+		memset(buffer, 0, totalSize * grammarSize * sizeof(char));
+		ckyS(&table, totalSize, grammarSize, rules, l, buffer);
 
 		// Fill bits
 		for (int i = 1; i <= totalSize - l + 1; i++) {
@@ -361,7 +369,7 @@ void cykBinaryMatrixDestroy(struct __cykBinaryMatrix **mat) {
 		free(mat[0]->bits[i]);
 
 	free(mat[0]->bits);
-	free(mat);
+	free(mat[0]);
 }
 int __cykIteratorPrev(struct __cykBinaryMatrix *table,
                       struct __cykIterator *iter) {
