@@ -205,14 +205,22 @@ static llDiff __diffRecur(const void *a, const void *b, long aSize, long bSize,
 		forward[i].x = -1;
 		forward[i].y = -1;
 		forward[i].d = -1;
+		forward[i].xBeforeDiag = -1;
+		forward[i].yBeforeDiag = -1;
 		backward[i].x = -1;
 		backward[i].y = -1;
 		backward[i].d = -1;
+		backward[i].xBeforeDiag = -1;
+		backward[i].yBeforeDiag = -1;
 	}
 	forward[totalSize].x = 0;
 	forward[totalSize].y = 0;
+	forward[totalSize].xBeforeDiag = 0;
+	forward[totalSize].yBeforeDiag = 0;
 	backward[totalSize].x = aSize / itemSize;
 	backward[totalSize].y = bSize / itemSize;
+	backward[totalSize].xBeforeDiag = aSize / itemSize;
+	backward[totalSize].yBeforeDiag = bSize / itemSize;
 	forward[totalSize].d = 0;
 	backward[totalSize].d = 0;
 	for (int d = 1;; d++) {

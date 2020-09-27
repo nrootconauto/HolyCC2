@@ -6,20 +6,74 @@
 #include <math.h>
 #include <stdatomic.h>
 #include <stdbool.h>
+enum __cykRuleType { CYK_TERMINAL, CYK_NONTERMINAL };
+struct __cykRule {
+	enum __cykRuleType type;
+	int value;
+	double weight;
+	struct {
+		int a;
+		int b;
+	} nonTerminal;
+};
+struct __cykBinaryMatrix {
+	int w;
+	int **bits; //[y][x]
+	int grammarSize;
+};
 STR_TYPE_DEF(int, Int);
 STR_TYPE_FUNCS(int, Int);
 #define INT_BITS (8 * sizeof(int))
+struct __cykRule *cykRuleCreateTerminal(int value, double weight) {
+	struct __cykRule rule;
+	rule.type = CYK_TERMINAL;
+	rule.weight = weight;
+	rule.value = value;
+
+	struct __cykRule *retVal = malloc(sizeof(struct __cykRule));
+	return (*retVal = rule, retVal);
+}
+struct __cykRule *cykRuleCreateNonterminal(int value, double weight, int a,
+                                           int b) {
+	struct __cykRule rule;
+	rule.type = CYK_NONTERMINAL;
+	rule.weight = weight;
+	rule.value = value;
+	rule.nonTerminal.a = a;
+	rule.nonTerminal.b = b;
+
+	struct __cykRule *retVal = malloc(sizeof(struct __cykRule));
+	return (*retVal = rule, retVal);
+}
+static int bitsSearchReverse(int *buffer, int intCount, int startAt) {
+	int index = startAt;
+	for (int i = index / INT_BITS; i > 0; i--) {
+		int clone = buffer[i];
+		clone >>= index % intCount;
+		clone <<= index % intCount;
+
+		if (clone == 0) {
+			continue;
+		}
+
+		int offset = __builtin_clz(clone);
+		return i * INT_BITS + INT_BITS - offset;
+	}
+	return -1;
+}
 static int bitsSearch(int *buffer, int intCount, int startAt) {
 	int index = startAt;
 	for (int i = index / INT_BITS; i < intCount; i++) {
 		int clone = buffer[i];
 		clone <<= index % INT_BITS;
 		clone >>= index % INT_BITS;
-		if (clone == 0)
+
+		if (clone == 0) {
 			continue;
+		}
+
 		int offset = __builtin_ffs(clone);
-		index += offset;
-		return index;
+		return INT_BITS * index + offset;
 	}
 	return -1;
 }
@@ -49,13 +103,13 @@ static coroutine void cykCheckRule(const struct __cykBinaryMatrix *table,
 	}
 }
 static coroutine void cykCheckRules(const struct __cykBinaryMatrix *table,
-                                    int totalSize, const strCYKRules grammar,
+                                    int totalSize, const strCYKRulesP grammar,
                                     int s, int l, char *dumpTo) {
-	__auto_type grammarSize = strCYKRulesSize(grammar);
+	__auto_type grammarSize = strCYKRulesPSize(grammar);
 
 	int b = bundle();
 	for (int i = 0; i != grammarSize; i++) {
-		__auto_type rule = &grammar[i];
+		__auto_type rule = grammar[i];
 		__auto_type dumpTo2 = &dumpTo[i];
 		bundle_go(b, cykCheckRule(table, grammarSize, s, l, rule, dumpTo2));
 	}
@@ -63,11 +117,11 @@ static coroutine void cykCheckRules(const struct __cykBinaryMatrix *table,
 	hclose(b);
 }
 static void ckyS(const struct __cykBinaryMatrix *table, int totalSize,
-                 const strCYKRules grammar, int l, char *dumpTo) {
+                 const strCYKRulesP grammar, int l, char *dumpTo) {
 	int b = bundle();
 	for (int s = 1; s <= totalSize - l + 1; s++) {
 		bundle_go(b, cykCheckRules(table, totalSize, grammar, s, l,
-		                           &dumpTo[strCYKRulesSize(grammar) * (s - 1)]));
+		                           &dumpTo[strCYKRulesPSize(grammar) * (s - 1)]));
 	}
 	bundle_go(b, -1);
 	hclose(b);
@@ -76,10 +130,11 @@ static void ckyS(const struct __cykBinaryMatrix *table, int totalSize,
 static int intCountFromBits(int bits) {
 	return bits / INT_BITS + (bits % INT_BITS ? 1 : 0);
 }
-struct __cykBinaryMatrix __cykBinaryMatrixCreate() {
+struct __cykBinaryMatrix __cykBinaryMatrixCreate(int grammarSize) {
 	struct __cykBinaryMatrix retVal;
 	retVal.bits = NULL;
 	retVal.w = 0;
+	retVal.grammarSize = grammarSize;
 	return retVal;
 }
 static void __cykBinaryMatrixResize(struct __cykBinaryMatrix *table,
@@ -103,15 +158,16 @@ static void __cykBinaryMatrixResize(struct __cykBinaryMatrix *table,
 		table->bits[i] = ptr;
 	}
 }
-struct __cykBinaryMatrix
-__cykBinary(const strCYKRules grammar, struct __vec *items, long itemSize,
+
+struct __cykBinaryMatrix *
+__cykBinary(const strCYKRulesP grammar, struct __vec *items, long itemSize,
             int grammarSize, strCYKRulesP(classify)(const void *, const void *),
             void *data) {
 	__auto_type totalSize = __vecSize(items) / itemSize;
 
 	__auto_type width = intCountFromBits(totalSize * grammarSize);
 
-	struct __cykBinaryMatrix table = __cykBinaryMatrixCreate();
+	struct __cykBinaryMatrix table = __cykBinaryMatrixCreate(grammarSize);
 	__cykBinaryMatrixResize(&table, width);
 
 	for (int i1 = 0; i1 != totalSize; i1++) {
@@ -134,10 +190,10 @@ __cykBinary(const strCYKRules grammar, struct __vec *items, long itemSize,
 		}
 	}
 
-	return table;
+	struct __cykBinaryMatrix *retVal = malloc(sizeof(struct __cykBinaryMatrix));
+	*retVal = table;
+	return retVal;
 }
-GRAPH_TYPE_DEF(struct __cykRule, void *, CYKTree);
-GRAPH_TYPE_FUNCS(struct __cykRule, void *, CYKTree);
 STR_TYPE_DEF(double, Double);
 STR_TYPE_FUNCS(double, Double);
 struct __CYKEntry {
@@ -160,37 +216,37 @@ int __CYKEntryPred(void *a, void *b) {
 	res = A->r - B->r;
 	return res;
 }
-static double CYKProbalisticCheckRuleS(const strCYKRules grammar,
+static double CYKProbalisticCheckRuleS(const strCYKRulesP grammar,
                                        strCYKEntry entries, int s, int l,
                                        int p) {
 	double retVal = NAN;
 
-	for (int i = 0; i != strCYKRulesSize(grammar); i++) {
-		if (grammar[i].type == CYK_NONTERMINAL) {
+	for (int i = 0; i != strCYKRulesPSize(grammar); i++) {
+		if (grammar[i]->type == CYK_NONTERMINAL) {
 			struct __CYKEntry entryA;
-			entryA.r = grammar[i].nonTerminal.a;
+			entryA.r = grammar[i]->nonTerminal.a;
 			entryA.y = p - 1;
 			entryA.x = s - 1;
 			__auto_type A = strCYKEntrySortedFind(entries, entryA, __CYKEntryPred);
 
 			struct __CYKEntry entryB;
-			entryB.r = grammar[i].nonTerminal.b;
+			entryB.r = grammar[i]->nonTerminal.b;
 			entryB.y = l - p - 1;
 			entryB.x = p + s - 1;
 			__auto_type B = strCYKEntrySortedFind(entries, entryA, __CYKEntryPred);
 
 			if (A != NULL && B != NULL) {
 				if (retVal != NAN) {
-					retVal = (retVal > grammar[i].weight) ? retVal : grammar[i].weight;
+					retVal = (retVal > grammar[i]->weight) ? retVal : grammar[i]->weight;
 				} else
-					retVal = grammar[i].weight;
+					retVal = grammar[i]->weight;
 			}
 		}
 	}
 
 	return retVal;
 }
-static coroutine void CYKProbalisticS(const strCYKRules grammar,
+static coroutine void CYKProbalisticS(const strCYKRulesP grammar,
                                       strCYKEntry entries, int s, int l,
                                       double *dumpTo) {
 	double res;
@@ -208,28 +264,28 @@ static int findFirstAtRow(void *a, void *b) {
 	const struct __CYKEntry *B = b;
 	return B->y - *A;
 }
-graphNodeCYKTree CYKTree(const strCYKRules grammar, int grammarSize,
-                         struct __vec *items, long itemSize,
-                         strCYKRulesP (*classify)(const void *, const void *),
-                         void *data) {
-	__auto_type binaryTable =
-	    __cykBinary(grammar, items, itemSize, grammarSize, classify, data);
-
+graphNodeCYKTree
+CYKTree(const strCYKRulesP grammar, int grammarSize, struct __vec *items,
+        struct __cykBinaryMatrix *binaryTable, int Y, int X, long itemSize,
+        strCYKRulesP (*classify)(const void *, const void *), void *data) {
+	if (binaryTable == NULL)
+		binaryTable =
+		    __cykBinary(grammar, items, itemSize, grammarSize, classify, data);
 	// Compute total bit count
 
 	int popCount = 0;
-	for (int y = 0; y != binaryTable.w; y++) {
-		__auto_type intCount = intCountFromBits(binaryTable.w - y);
+	for (int y = 0; y != binaryTable->w; y++) {
+		__auto_type intCount = intCountFromBits(binaryTable->w - y);
 		for (int i = 0; i != intCount; i++)
-			popCount += __builtin_popcount(binaryTable.bits[y][i]);
+			popCount += __builtin_popcount(binaryTable->bits[y][i]);
 	}
 
 	strCYKEntry entries = strCYKEntryResize(NULL, popCount);
 	int entryIndex = 0;
-	for (int y = 0; y != binaryTable.w; y++) {
-		__auto_type intCount = intCountFromBits(binaryTable.w - y);
+	for (int y = 0; y != binaryTable->w; y++) {
+		__auto_type intCount = intCountFromBits(binaryTable->w - y);
 		for (int i = 0; i != -1;
-		     i = bitsSearch(binaryTable.bits[y], intCount, i + 1)) {
+		     i = bitsSearch(binaryTable->bits[y], intCount, i + 1)) {
 			int x = i / grammarSize;
 			int r = i % grammarSize;
 
@@ -261,13 +317,13 @@ graphNodeCYKTree CYKTree(const strCYKRules grammar, int grammarSize,
 
 	// Terminals
 	int x, y;
-	__auto_type intCount = intCountFromBits(binaryTable.w);
-	for (int i = 0; i != binaryTable.w; i++) {
+	__auto_type intCount = intCountFromBits(binaryTable->w);
+	for (int i = 0; i != binaryTable->w; i++) {
 		for (int r = 0; r != grammarSize; r++)
-			__cykCheckBit(&binaryTable, grammarSize, i, 0, r);
+			__cykCheckBit(binaryTable, grammarSize, i, 0, r);
 	}
 
-	for (int l = 2; l <= binaryTable.w; l++) {
+	for (int l = 2; l <= binaryTable->w; l++) {
 		// Find lower bound of row l-1
 		int l2 = l - 1;
 		__auto_type lowerBound =
@@ -285,7 +341,7 @@ graphNodeCYKTree CYKTree(const strCYKRules grammar, int grammarSize,
 		__auto_type upperBound = (upperBoundPtr - entries) / sizeof(*entries);
 
 		int b = bundle();
-		double dumpTo[binaryTable.w];
+		double dumpTo[binaryTable->w];
 		for (int i = lowerBound; i != upperBound; i++) {
 			__auto_type s = entries[i].x;
 			__auto_type l = entries[i].y;
@@ -299,4 +355,94 @@ graphNodeCYKTree CYKTree(const strCYKRules grammar, int grammarSize,
 			entries[i].prob = dumpTo[i - lowerBound];
 		}
 	}
+}
+void cykBinaryMatrixDestroy(struct __cykBinaryMatrix **mat) {
+	for (int i = 0; i != mat[0]->w; i++)
+		free(mat[0]->bits[i]);
+
+	free(mat[0]->bits);
+	free(mat);
+}
+int __cykIteratorPrev(struct __cykBinaryMatrix *table,
+                      struct __cykIterator *iter) {
+	__auto_type retVal = *iter;
+	retVal.x--;
+	for (; retVal.y >= 0;) {
+		__auto_type intCount = intCountFromBits(table->w - iter->y);
+		__auto_type newX =
+		    bitsSearchReverse(table->bits[iter->y], intCount,
+		                      iter->x * table->grammarSize % INT_BITS);
+
+		if (newX == -1) {
+			retVal.y--;
+
+			if (retVal.y >= 0)
+				break;
+
+			retVal.x = table->w - retVal.y;
+			continue;
+		}
+
+		retVal.x = newX;
+		*iter = retVal;
+		return 1;
+	}
+	return 0;
+}
+int __cykIteratorNext(struct __cykBinaryMatrix *table,
+                      struct __cykIterator *iter) {
+	__auto_type retVal = *iter;
+	retVal.x++;
+	for (; retVal.y < table->w;) {
+		__auto_type intCount = intCountFromBits(table->w - iter->y);
+		__auto_type newX = bitsSearch(table->bits[iter->y], intCount,
+		                              iter->x * table->grammarSize % INT_BITS);
+
+		if (newX == -1) {
+			retVal.y++;
+			retVal.x = 0;
+			continue;
+		}
+
+		retVal.x = newX;
+		*iter = retVal;
+		return 1;
+	}
+
+	return 0;
+}
+int __cykIteratorInitStart(struct __cykBinaryMatrix *table,
+                           struct __cykIterator *iter) {
+	struct __cykIterator start;
+	start.r = 0;
+	start.x = 0;
+	start.y = 0;
+	*iter = start;
+	// Search forward as start is a dummy value,then try to go backwards
+	__auto_type res = __cykIteratorNext(table, iter);
+	__auto_type clone = *iter;
+	if (res == 1)
+		if (__cykIteratorPrev(table, iter))
+			return 1;
+
+	*iter = clone;
+	return res;
+}
+int __cykIteratorInitEnd(struct __cykBinaryMatrix *table,
+                         struct __cykIterator *iter) {
+	struct __cykIterator start;
+	start.r = table->grammarSize;
+	start.x = 0;
+	start.y = table->w - 1;
+	*iter = start;
+
+	// Search backward as start is a dummy value,then try to go forward
+	__auto_type res = __cykIteratorPrev(table, iter);
+	__auto_type clone = *iter;
+	if (res == 1)
+		if (__cykIteratorNext(table, iter))
+			return 1;
+
+	*iter = clone;
+	return res;
 }
