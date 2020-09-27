@@ -55,12 +55,14 @@ static int bitsSearchReverse(int *buffer, int intCount, int startAt) {
 		clone >>= shift;
 
 		if (clone == 0) {
-			index = index / INT_BITS * INT_BITS - 1;
+			index = index / INT_BITS * INT_BITS - INT_BITS;
+			int res = index / INT_BITS;
+			assert(i - 1 == res);
 			continue;
 		}
 
 		int offset = __builtin_clz(clone);
-		return i * INT_BITS + INT_BITS - offset;
+		return i * INT_BITS + INT_BITS - offset - 1;
 	}
 	return -1;
 }
@@ -400,13 +402,9 @@ int __cykIteratorPrev(struct __cykBinaryMatrix *table,
 		if (newX == -1) {
 			retVal.y--;
 
-			if (retVal.y < 0) {
-				if (retVal.x <= 0)
-					break;
-				else {
-					retVal.x--;
-					retVal.r = table->grammarSize - 1;
-				}
+			if (retVal.y >= 0) {
+				retVal.x = table->w - retVal.y;
+				retVal.r = table->grammarSize - 1;
 			} else
 				break;
 

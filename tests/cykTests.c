@@ -133,7 +133,7 @@ void cykTests() {
 		assert(iter.x == expected[i].x);
 		assert(iter.y == expected[i].y);
 		assert(iter.r == expected[i].r);
-		__cykIteratorNext(table, &iter);
+		__cykIteratorPrev(table, &iter);
 	}
 
 	cykBinaryMatrixDestroy(&table);
