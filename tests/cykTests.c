@@ -21,7 +21,37 @@ static strCYKRulesP classify(const void *item, const void *pairs) {
 }
 STR_TYPE_DEF(char *, String);
 STR_TYPE_FUNCS(char *, String);
+struct expectedCYKEntry {
+	int y, x, r;
+};
+int expectedCYKEntrySort(const void *A, const void *B) {
+	const struct expectedCYKEntry *a = A;
+	const struct expectedCYKEntry *b = B;
+	__auto_type res = a->y - b->y;
+	if (res != 0)
+		return res;
+
+	res = a->x - b->x;
+	if (res != 0)
+		return res;
+
+	return a->r - b->r;
+}
 void cykTests() {
+	/*
+	  DET -> a
+	  N  -> fork
+	  N -> fish
+	  P -> with
+	  V -> eats
+	  NP -> she
+	  VP -> eats
+	  S -> NP VP
+	  VP -> VP PP
+	  VP -> V NP
+	  PP -> P NP
+	  NP -> DET N
+	 */
 	struct __pair terminalPairs[] = {
 	    (struct __pair){"a", cykRuleCreateTerminal(Deti, 1)},
 	    (struct __pair){"fork", cykRuleCreateTerminal(Ni, 1)},
@@ -62,6 +92,41 @@ void cykTests() {
 	__auto_type table =
 	    __cykBinary(grammar, (struct __vec *)sentence, sizeof(const char *),
 	                strCYKRulesPSize(grammar), classify, &terminalPairs2);
+
+	struct expectedCYKEntry expected[] = {
+	    (struct expectedCYKEntry){0, 0, NPi},
+	    (struct expectedCYKEntry){0, 1, Vi},
+	    (struct expectedCYKEntry){0, 1, VPi},
+	    (struct expectedCYKEntry){0, 2, Deti},
+	    (struct expectedCYKEntry){0, 3, Ni},
+	    (struct expectedCYKEntry){0, 4, Pi},
+	    (struct expectedCYKEntry){0, 5, Deti},
+	    (struct expectedCYKEntry){0, 6, Ni},
+
+	    (struct expectedCYKEntry){1, 0, Si},
+	    (struct expectedCYKEntry){1, 2, NPi},
+	    (struct expectedCYKEntry){1, 5, NPi},
+
+	    (struct expectedCYKEntry){2, 1, VPi},
+	    (struct expectedCYKEntry){2, 4, PPi},
+
+	    (struct expectedCYKEntry){3, 0, Si},
+
+	    (struct expectedCYKEntry){5, 1, VPi},
+
+	    (struct expectedCYKEntry){6, 0, Si},
+	};
+	qsort(expected, sizeof(expected) / sizeof(*expected), sizeof(*expected),
+	      expectedCYKEntrySort);
+
+	struct __cykIterator iter;
+	assert(0 != __cykIteratorInitStart(table, &iter));
+	for (int i = 0; i != sizeof(expected) / sizeof(*expected); i++) {
+		assert(iter.x == expected[i].x);
+		assert(iter.y == expected[i].y);
+		assert(iter.r == expected[i].r);
+		__cykIteratorNext(table, &iter);
+	}
 
 	cykBinaryMatrixDestroy(&table);
 }

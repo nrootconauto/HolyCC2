@@ -48,12 +48,14 @@ struct __cykRule *cykRuleCreateNonterminal(int value, double weight, int a,
 }
 static int bitsSearchReverse(int *buffer, int intCount, int startAt) {
 	int index = startAt;
-	for (int i = index / INT_BITS; i > 0; i--) {
-		int clone = buffer[i];
-		clone >>= index % intCount;
-		clone <<= index % intCount;
+	for (int i = index / INT_BITS; i >= 0; i--) {
+		unsigned int clone = buffer[i];
+		__auto_type shift = INT_BITS - index % INT_BITS;
+		clone <<= shift;
+		clone >>= shift;
 
 		if (clone == 0) {
+			index = index / INT_BITS * INT_BITS - 1;
 			continue;
 		}
 
@@ -65,26 +67,27 @@ static int bitsSearchReverse(int *buffer, int intCount, int startAt) {
 static int bitsSearch(int *buffer, int intCount, int startAt) {
 	int index = startAt;
 	for (int i = index / INT_BITS; i < intCount; i++) {
-		int clone = buffer[i];
-		clone <<= index % INT_BITS;
+		unsigned int clone = buffer[i];
 		clone >>= index % INT_BITS;
+		clone <<= index % INT_BITS;
 
 		if (clone == 0) {
+			index = index / INT_BITS * INT_BITS + INT_BITS;
 			continue;
 		}
 
-		int offset = __builtin_ffs(clone);
-		return INT_BITS * index + offset;
+		int offset = __builtin_ffs(clone) - 1;
+		return INT_BITS * i + offset;
 	}
 	return -1;
 }
-static void __cykSetBit(struct __cykBinaryMatrix *table, int grammarSize, int x,
-                        int y, int r) {
+static void __cykSetBit(struct __cykBinaryMatrix *table, int grammarSize, int y,
+                        int x, int r) {
 	__auto_type bit = x * grammarSize + r;
 	table->bits[y][bit / INT_BITS] |= 1 << (bit % INT_BITS);
 }
 static int __cykCheckBit(const struct __cykBinaryMatrix *table, int grammarSize,
-                         int x, int y, int r) {
+                         int y, int x, int r) {
 	__auto_type bit = x * grammarSize + r;
 	return table->bits[y][bit / INT_BITS] & (1u << (bit % INT_BITS));
 }
@@ -374,24 +377,43 @@ void cykBinaryMatrixDestroy(struct __cykBinaryMatrix **mat) {
 int __cykIteratorPrev(struct __cykBinaryMatrix *table,
                       struct __cykIterator *iter) {
 	__auto_type retVal = *iter;
-	retVal.x--;
-	for (; retVal.y >= 0;) {
-		__auto_type intCount = intCountFromBits(table->w - iter->y);
-		__auto_type newX =
-		    bitsSearchReverse(table->bits[iter->y], intCount,
-		                      iter->x * table->grammarSize % INT_BITS);
+
+	__auto_type index = retVal.x * table->grammarSize + iter->r - 1;
+	if (index < 0) {
+		retVal.y--;
+		retVal.r = table->grammarSize - 1;
+		retVal.x = table->w - retVal.y;
+	} else {
+		retVal.x = index / table->grammarSize;
+		retVal.r = index % table->grammarSize;
+	}
+
+	for (; retVal.x >= 0 && retVal.y >= 0;) {
+		__auto_type intCount = intCountFromBits(table->w - retVal.y);
+		__auto_type newX = bitsSearchReverse(
+		    table->bits[retVal.y], intCount,
+		    retVal.r +
+		        table->grammarSize * retVal.x); // Add table->grammarSize to
+		                                        // start search at and of column
 
 		if (newX == -1) {
 			retVal.y--;
 
-			if (retVal.y >= 0)
+			if (retVal.y < 0) {
+				if (retVal.x <= 0)
+					break;
+				else {
+					retVal.x--;
+					retVal.r = table->grammarSize - 1;
+				}
+			} else
 				break;
 
-			retVal.x = table->w - retVal.y;
 			continue;
 		}
 
-		retVal.x = newX;
+		retVal.x = newX / table->grammarSize;
+		retVal.r = newX % table->grammarSize;
 		*iter = retVal;
 		return 1;
 	}
@@ -400,19 +422,31 @@ int __cykIteratorPrev(struct __cykBinaryMatrix *table,
 int __cykIteratorNext(struct __cykBinaryMatrix *table,
                       struct __cykIterator *iter) {
 	__auto_type retVal = *iter;
-	retVal.x++;
+
+	__auto_type index = retVal.x * table->grammarSize + iter->r + 1;
+	if (index >= table->grammarSize + table->w) {
+		retVal.y++;
+		retVal.r = 0;
+		retVal.x = 0;
+	} else {
+		retVal.x = index / table->grammarSize;
+		retVal.r = index % table->grammarSize;
+	}
+
 	for (; retVal.y < table->w;) {
-		__auto_type intCount = intCountFromBits(table->w - iter->y);
-		__auto_type newX = bitsSearch(table->bits[iter->y], intCount,
-		                              iter->x * table->grammarSize % INT_BITS);
+		__auto_type intCount = intCountFromBits(table->w - retVal.y);
+		__auto_type newX = bitsSearch(table->bits[retVal.y], intCount,
+		                              retVal.r + retVal.x * table->grammarSize);
 
 		if (newX == -1) {
 			retVal.y++;
 			retVal.x = 0;
+			retVal.r = 0;
 			continue;
 		}
 
-		retVal.x = newX;
+		retVal.x = newX / table->grammarSize;
+		retVal.r = newX % table->grammarSize;
 		*iter = retVal;
 		return 1;
 	}
