@@ -1,5 +1,4 @@
 #include <assert.h>
-#include <stdio.h>
 #include <subGraph.h>
 // https://github.com/sdiemert/subgraph-isomorphism/blob/master/index.js
 #define INT_BITS (sizeof(int) * 8)
@@ -82,7 +81,6 @@ static struct __mat initMorphism(struct __mat *graph, struct __mat *sub,
 			__auto_type graphDegree = degree(graph->data[j]);
 
 			if (subDegreee <= graphDegree) {
-				printf("M[%i][%i]\n", i, j);
 				data[i][j / INT_BITS] |= 1u << (j % INT_BITS);
 			}
 		}
@@ -92,7 +90,6 @@ static struct __mat initMorphism(struct __mat *graph, struct __mat *sub,
 static int morph(struct __mat *m, int p) {
 	__auto_type res = bitSearch(m->data[p], 0);
 	if (res != -1) {
-		printf("P->G:%i\n", res);
 		return res;
 	}
 	assert(0);
@@ -109,14 +106,11 @@ static int isIso(struct __mat *m, struct __mat *graph, struct __mat *sub) {
 		     r2 = bitSearch(sub->data[r1], r2 + 1)) {
 			int c1 = morph(m, r1);
 			int c2 = morph(m, r2);
-			printf("C1:%i,C2:%i\n", c1, c2);
 			if (!(graph->data[c1][c2 / INT_BITS] & (1u << (c2 % INT_BITS)))) {
-				printf("Fail");
 				return 0;
 			}
 		}
 	}
-	printf("Success");
 	return 1;
 }
 static struct __mat matClone(struct __mat *toClone) {
@@ -140,13 +134,10 @@ static void prune(struct __mat *mat, struct __mat *sub, struct __mat *graph) {
 				int hasYNeighbor = 0;
 				__auto_type n = bitSearch(graph->data[j], 0);
 				if (n != -1) {
-					printf("P[%i][%i]==1\n", i, x);
-					printf("G[%i][%i]==1\n", j, n);
 					hasYNeighbor = 1;
 				}
 
 				if (!hasYNeighbor) {
-					printf("M[%i][%i]=0\n", i, j);
 					mat->data[i][j / INT_BITS] &= ~(1u << (j % INT_BITS));
 				}
 			}
@@ -157,7 +148,6 @@ static void recurse(strInt usedCols, int curRow, struct __mat *graph,
                     struct __mat *sub, struct __mat *m, strMat *result) {
 	if (m->h == curRow) {
 		if (isIso(m, graph, sub)) {
-			printf("ISO\n");
 			*result = strMatAppendItem(*result, matClone(m));
 		}
 	} else {
@@ -168,7 +158,6 @@ static void recurse(strInt usedCols, int curRow, struct __mat *graph,
 		for (int c = bitSearch(m->data[curRow], 0); c != -1;
 		     c = bitSearch(m->data[curRow], c + 1)) {
 			if (usedCols[c] == 0) {
-				printf("AVAIL:%i\n", c);
 				for (int i = 0; i != m->w; i++) {
 					if (i == c) {
 						mp.data[curRow][i / INT_BITS] |= 1u << (i % INT_BITS);

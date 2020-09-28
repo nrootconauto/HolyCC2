@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <cyk.h>
 #include <string.h>
+#include <subGraph.h>
 static int Si = 0, VPi = 1, PPi = 2, NPi = 3, Vi = 4, Pi = 5, Ni = 6, Deti = 7;
 struct __pair {
 	const char *text;
@@ -37,8 +38,29 @@ int expectedCYKEntrySort(const void *A, const void *B) {
 
 	return a->r - b->r;
 }
+strGraphNodeCYKTreeP assertOutgoing(graphNodeCYKTree node, int a, int b) {
+	strGraphEdgeCYKTreeP edges = graphNodeCYKTreeOutgoing(node);
+
+	__auto_type size = strGraphEdgeCYKTreePSize(edges);
+	assert(size == 2);
+
+	strGraphNodeCYKTreeP retVal = strGraphNodeCYKTreePResize(NULL, 2);
+	for (int i = 0; i != size; i++) {
+		__auto_type side = *graphEdgeCYKTreeValuePtr(edges[i]);
+		if (side == 0) {
+			retVal[0] = graphEdgeCYKTreeOutgoing(edges[i]);
+			assert(*graphNodeCYKTreeValuePtr(retVal[0]) == a);
+		} else {
+			retVal[1] = graphEdgeCYKTreeOutgoing(edges[i]);
+			assert(*graphNodeCYKTreeValuePtr(retVal[1]) == b);
+		}
+	}
+	return retVal;
+}
 void cykTests() {
 	/*
+	  http://lxmls.it.pt/2015/cky.html
+
 	  DET -> a
 	  N  -> fork
 	  N -> fish
@@ -51,6 +73,8 @@ void cykTests() {
 	  VP -> V NP
 	  PP -> P NP
 	  NP -> DET N
+
+	  she eats a fish with a fork
 	 */
 	struct __pair terminalPairs[] = {
 	    (struct __pair){"a", cykRuleCreateTerminal(Deti, 1)},
@@ -89,9 +113,11 @@ void cykTests() {
 	sentence[5] = "a";
 	sentence[6] = "fork";
 
+	const int grammarSize = 8;
+
 	__auto_type table =
 	    __cykBinary(grammar, (struct __vec *)sentence, sizeof(const char *),
-	                strCYKRulesPSize(grammar), classify, &terminalPairs2);
+	                grammarSize, classify, &terminalPairs2);
 
 	struct expectedCYKEntry expected[] = {
 	    (struct expectedCYKEntry){0, 0, NPi},
@@ -136,5 +162,19 @@ void cykTests() {
 		__cykIteratorPrev(table, &iter);
 	}
 
+	__auto_type tree =
+	    CYKTree(grammar, grammarSize, (struct __vec *)sentence, table, 6, 0, 0,
+	            sizeof(*sentence), classify, &terminalPairs2);
+	assert(tree != NULL);
+	assert(*graphNodeCYKTreeValuePtr(tree) == Si);
+	__auto_type treeOut1 = assertOutgoing(tree, NPi, VPi);
+	__auto_type treeOut1_2 = assertOutgoing(treeOut1[1], VPi, PPi);
+	__auto_type treeOut1_2_1 = assertOutgoing(treeOut1_2[0], Vi, NPi);
+	__auto_type treeOut1_2_1_2 = assertOutgoing(treeOut1_2_1[1], Deti, Ni);
+	//
+	__auto_type treeOut1_2_2 = assertOutgoing(treeOut1_2[1], Pi, NPi);
+	__auto_type treeOut1_2_2_2_2 = assertOutgoing(treeOut1_2_2[1], Deti, Ni);
+
+	graphNodeCYKTreeKillGraph(&tree, NULL, NULL);
 	cykBinaryMatrixDestroy(&table);
 }

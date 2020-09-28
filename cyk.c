@@ -105,8 +105,8 @@ static coroutine void cykCheckRule(const struct __cykBinaryMatrix *table,
 		    __cykCheckBit(table, grammarSize, p - 1, s - 1, rule->nonTerminal.a))
 			if (0 != __cykCheckBit(table, grammarSize, l - p - 1, s + p - 1,
 			                       rule->nonTerminal.b)) {
-				printf("%i at (%i,%i) from (%i,%i),(%i,%i)\n", rule->value, l - 1,
-				       s - 1, p - 1, s - 1, l - p - 1, s + p - 1);
+				// printf("%i at (%i,%i) from (%i,%i),(%i,%i)\n", rule->value, l - 1,
+				//       s - 1, p - 1, s - 1, l - p - 1, s + p - 1);
 				dumpto1[rule->value] = 1;
 				return;
 			}
@@ -219,7 +219,7 @@ STR_TYPE_DEF(struct __CYKEntry, CYKEntry);
 STR_TYPE_FUNCS(struct __CYKEntry, CYKEntry);
 int __CYKEntryPred(void *a, void *b) {
 	struct __CYKEntry *A = a, *B = b;
-	__auto_type res = B->y - A->y;
+	__auto_type res = A->y - B->y;
 	if (res != 0)
 		return res;
 
@@ -230,12 +230,19 @@ int __CYKEntryPred(void *a, void *b) {
 	res = A->r - B->r;
 	return res;
 }
-static double CYKProbalisticCheckRuleS(const strCYKRulesP grammar,
-                                       strCYKEntry entries, int s, int l,
-                                       int p) {
-	double retVal = NAN;
+static int CYKProbalisticCheckRuleS(const strCYKRulesP grammar,
+                                    strCYKEntry entries, int s, int l, int p,
+                                    int r, struct __CYKEntry *dumpTo) {
+	struct __CYKEntry retVal;
+	if (dumpTo != NULL)
+		retVal.prob = dumpTo->prob;
+	else
+		retVal.prob = NAN;
 
 	for (int i = 0; i != strCYKRulesPSize(grammar); i++) {
+		if (grammar[i]->value != r)
+			continue;
+
 		if (grammar[i]->type == CYK_NONTERMINAL) {
 			struct __CYKEntry entryA;
 			entryA.r = grammar[i]->nonTerminal.a;
@@ -247,41 +254,61 @@ static double CYKProbalisticCheckRuleS(const strCYKRulesP grammar,
 			entryB.r = grammar[i]->nonTerminal.b;
 			entryB.y = l - p - 1;
 			entryB.x = p + s - 1;
-			__auto_type B = strCYKEntrySortedFind(entries, entryA, __CYKEntryPred);
+			__auto_type B = strCYKEntrySortedFind(entries, entryB, __CYKEntryPred);
 
 			if (A != NULL && B != NULL) {
-				if (retVal != NAN) {
-					retVal = (retVal > grammar[i]->weight) ? retVal : grammar[i]->weight;
-				} else
-					retVal = grammar[i]->weight;
+				if (retVal.prob != NAN) {
+					if (retVal.prob > grammar[i]->weight) {
+						continue;
+					} else {
+						retVal.prob = grammar[i]->weight;
+					}
+				} else {
+					retVal.prob = grammar[i]->weight;
+				}
+
+				retVal.a = A;
+				retVal.b = B;
+				retVal.r = r;
+				retVal.x = s - 1;
+				retVal.y = l - 1;
 			}
 		}
 	}
 
-	return retVal;
+	if (dumpTo != NULL)
+		*dumpTo = retVal;
+	return retVal.prob != NAN;
 }
 static coroutine void CYKProbalisticS(const strCYKRulesP grammar,
-                                      strCYKEntry entries, int s, int l,
-                                      double *dumpTo) {
-	double res;
+                                      strCYKEntry entries, int s, int l, int r,
+                                      struct __CYKEntry *dumpTo) {
+	struct __CYKEntry retVal;
+	retVal.prob = NAN;
 
+	int found = 0;
 	for (int p = 1; p <= l - 1; p++) {
-		res = CYKProbalisticCheckRuleS(grammar, entries, s, l, p);
+		found |= CYKProbalisticCheckRuleS(grammar, entries, s, l, p, r, &retVal);
 	}
 
-	assert(res != NAN);
+	assert(found != 0);
 
-	*dumpTo = res;
+	if (dumpTo != NULL)
+		*dumpTo = retVal;
 }
 static int findFirstAtRow(void *a, void *b) {
 	const int *A = a;
 	const struct __CYKEntry *B = b;
-	return B->y - *A;
+	return (*A <= B->y) ? 0 : 1;
 }
-graphNodeCYKTree
-CYKTree(const strCYKRulesP grammar, int grammarSize, struct __vec *items,
-        struct __cykBinaryMatrix *binaryTable, int Y, int X, long itemSize,
-        strCYKRulesP (*classify)(const void *, const void *), void *data) {
+STR_TYPE_DEF(struct __CYKEntry *, CYKEntryP);
+STR_TYPE_FUNCS(struct __CYKEntry *, CYKEntryP);
+graphNodeCYKTree CYKTree(const strCYKRulesP grammar, int grammarSize,
+                         struct __vec *items,
+                         struct __cykBinaryMatrix *binaryTable, int Y, int X,
+                         int R, long itemSize,
+                         strCYKRulesP (*classify)(const void *, const void *),
+                         void *data) {
 	if (binaryTable == NULL)
 		binaryTable =
 		    __cykBinary(grammar, items, itemSize, grammarSize, classify, data);
@@ -289,7 +316,7 @@ CYKTree(const strCYKRulesP grammar, int grammarSize, struct __vec *items,
 
 	int popCount = 0;
 	for (int y = 0; y != binaryTable->w; y++) {
-		__auto_type intCount = intCountFromBits(binaryTable->w - y);
+		__auto_type intCount = intCountFromBits((binaryTable->w - y) * grammarSize);
 		for (int i = 0; i != intCount; i++)
 			popCount += __builtin_popcount(binaryTable->bits[y][i]);
 	}
@@ -297,8 +324,8 @@ CYKTree(const strCYKRulesP grammar, int grammarSize, struct __vec *items,
 	strCYKEntry entries = strCYKEntryResize(NULL, popCount);
 	int entryIndex = 0;
 	for (int y = 0; y != binaryTable->w; y++) {
-		__auto_type intCount = intCountFromBits(binaryTable->w - y);
-		for (int i = 0; i != -1;
+		__auto_type intCount = intCountFromBits((binaryTable->w - y) * grammarSize);
+		for (int i = bitsSearch(binaryTable->bits[y], intCount, 0); i != -1;
 		     i = bitsSearch(binaryTable->bits[y], intCount, i + 1)) {
 			int x = i / grammarSize;
 			int r = i % grammarSize;
@@ -308,6 +335,8 @@ CYKTree(const strCYKRulesP grammar, int grammarSize, struct __vec *items,
 			entry.r = r;
 			entry.x = x;
 			entry.y = y;
+			entry.a = NULL;
+			entry.b = NULL;
 
 			if (y == 0) {
 				__auto_type result = classify((void *)items + itemSize * x, data);
@@ -329,22 +358,15 @@ CYKTree(const strCYKRulesP grammar, int grammarSize, struct __vec *items,
 		}
 	}
 
-	// Terminals
-	int x, y;
-	__auto_type intCount = intCountFromBits(binaryTable->w);
-	for (int i = 0; i != binaryTable->w; i++) {
-		for (int r = 0; r != grammarSize; r++)
-			__cykCheckBit(binaryTable, grammarSize, i, 0, r);
-	}
-
 	for (int l = 2; l <= binaryTable->w; l++) {
 		// Find lower bound of row l-1
 		int l2 = l - 1;
+		__auto_type lowerBoundPtr = __vecSortedFind(
+		    (struct __vec *)entries, &l2, sizeof(*entries), findFirstAtRow);
+		if (lowerBoundPtr == NULL)
+			lowerBoundPtr = entries + strCYKEntrySize(entries);
 		__auto_type lowerBound =
-		    ((struct __CYKEntry *)__vecSortedFind(
-		         (struct __vec *)entries, &l2, sizeof(*entries), findFirstAtRow) -
-		     entries) /
-		    sizeof(*entries);
+		    (lowerBoundPtr - (void *)entries) / sizeof(*entries);
 
 		// Find upper bound of row l-1
 		int l3 = l - 1 + 1;
@@ -352,23 +374,87 @@ CYKTree(const strCYKRulesP grammar, int grammarSize, struct __vec *items,
 		    (struct __vec *)entries, &l3, sizeof(*entries), findFirstAtRow);
 		if (upperBoundPtr == NULL)
 			upperBoundPtr = entries + strCYKEntrySize(entries);
-		__auto_type upperBound = (upperBoundPtr - entries) / sizeof(*entries);
+		__auto_type upperBound =
+		    ((void *)upperBoundPtr - (void *)entries) / sizeof(*entries);
 
 		int b = bundle();
-		double dumpTo[binaryTable->w];
+		struct __CYKEntry dumpTo[binaryTable->w];
 		for (int i = lowerBound; i != upperBound; i++) {
-			__auto_type s = entries[i].x;
-			__auto_type l = entries[i].y;
+			__auto_type s = entries[i].x + 1;
+			__auto_type l = entries[i].y + 1;
 			__auto_type dumpTo2 = &dumpTo[i - lowerBound];
-			bundle_go(b, CYKProbalisticS(grammar, entries, s, l, dumpTo2));
+			bundle_go(b,
+			          CYKProbalisticS(grammar, entries, s, l, entries[i].r, dumpTo2));
 		}
 		bundle_wait(b, -1);
 		hclose(b);
 
 		for (int i = lowerBound; i != upperBound; i++) {
-			entries[i].prob = dumpTo[i - lowerBound];
+			entries[i] = dumpTo[i - lowerBound];
 		}
 	}
+
+	struct __CYKEntry expected;
+	expected.x = X;
+	expected.y = Y;
+	expected.r = R;
+
+	__auto_type res = strCYKEntrySortedFind(entries, expected, __CYKEntryPred);
+	if (res == NULL)
+		return NULL;
+
+	int childIndex = 0;
+	strInt childStack = strIntAppendItem(NULL, 0);
+	strCYKEntryP stack = strCYKEntryPAppendItem(NULL, res);
+	__auto_type node = graphNodeCYKTreeCreate(res->r, 0);
+	while (strCYKEntryPSize(stack) != 0) {
+		__auto_type top = stack[strCYKEntryPSize(stack) - 1];
+		bool hasChildren = top->a != NULL && top->b != NULL;
+
+		if (!hasChildren) {
+			goto pop;
+		} else {
+			goto push;
+		}
+		continue;
+	push : {
+		__auto_type child = childStack[strIntSize(childStack) - 1];
+		childStack = strIntAppendItem(childStack, 0);
+		__auto_type next = (child == 0) ? top->a : top->b;
+		stack = strCYKEntryPAppendItem(stack, next);
+
+		__auto_type newNode = graphNodeCYKTreeCreate(next->r, 0);
+		graphNodeCYKTreeConnect(node, newNode, child);
+		node = newNode;
+		continue;
+	}
+	pop : {
+		stack = strCYKEntryPResize(stack, strCYKEntryPSize(stack) - 1);
+		__auto_type newChildStackSize = strIntSize(childStack) - 1;
+		childStack = strIntResize(childStack, newChildStackSize);
+
+		if (strIntSize(childStack) == 0)
+			break;
+
+		// Goto parent node on graph
+		__auto_type incoming = graphNodeCYKTreeIncoming(node);
+		assert(incoming != NULL);
+		node = graphEdgeCYKTreeIncoming(incoming[0]);
+		strGraphEdgeCYKTreePDestroy(&incoming);
+
+		// Go to next child,
+		childStack[newChildStackSize-1]++;
+		// Pop is past second child
+		if (childStack[newChildStackSize-1] == 2)
+			goto pop;
+
+		continue;
+	}
+	}
+	strCYKEntryPDestroy(&stack);
+	strIntDestroy(&childStack);
+
+	return node;
 }
 void cykBinaryMatrixDestroy(struct __cykBinaryMatrix **mat) {
 	for (int i = 0; i != mat[0]->w; i++)
