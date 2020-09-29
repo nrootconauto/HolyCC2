@@ -15,6 +15,7 @@ list(APPEND sources "readersWritersLock.c")
 list(APPEND sources "ext/skinny_mutex/skinny_mutex.c")
 list(APPEND sources "subGraph.c")
 list(APPEND sources "cyk.c")
+list(APPEND sources "cacheingLexer.c")
 
 set(tests "")
 list(APPEND tests "tests/tests.c")
