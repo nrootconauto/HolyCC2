@@ -2,40 +2,11 @@
 #include <diff.h>
 #include <linkedList.h>
 #include <str.h>
+#include <cacheingLexer.h>
 struct __lexerItemTemplate;
-struct __lexerItem {
-	struct __lexerItemTemplate *template;
-	long start;
-	long end;
-	// Data appended after here
-};
-STR_TYPE_DEF(long, LineStart);
-STR_TYPE_FUNCS(long, LineStart);
-LL_TYPE_DEF(struct __lexerItem, LexerItem);
-LL_TYPE_FUNCS(struct __lexerItem, LexerItem);
-struct __lexerError {
-	int pos;
-	llLexerItem lastItem;
-};
 void *lexerItemValuePtr(struct __lexerItem *item) {
 	return (void *)item + sizeof(struct __lexerItem);
 }
-enum lexerItemState { LEXER_MODIFED, LEXER_UNCHANGED, LEXER_DESTROY };
-
-struct __lexerItemTemplate {
-	void *data;
-	struct __vec *(*lexItem)(struct __vec *str, long pos, long *end,
-	                         const void *data);
-	enum lexerItemState (*validateOnModify)(const void *lexerItemData,
-	                                        struct __vec *oldStr,
-	                                        struct __vec *newStr, long newPos,
-	                                        const void *data);
-	long (*update)(llLexerItem lexerItem, struct __vec *oldStr,
-	               struct __vec *newStr, long newPos, const void *data);
-	void (*killItemData)(struct __lexerItem *item);
-};
-STR_TYPE_DEF(struct __lexerItemTemplate, LexerItemTemplate);
-STR_TYPE_FUNCS(struct __lexerItemTemplate, LexerItemTemplate);
 struct __lexer {
 	struct __vec *oldSource;
 	llLexerItem oldItems;
@@ -43,18 +14,24 @@ struct __lexer {
 	int (*charCmp)(const void *, const void *);
 	const void *(*whitespaceSkip)(struct __vec *source, long pos);
 };
+llLexerItem lexerGetItems(struct __lexer *lexer) {
+ return lexer->oldItems;
+}
 struct __lexer *lexerCreate(struct __vec *data, strLexerItemTemplate templates,
                             int (*charCmp)(const void *, const void *),
                             const void *(*whitespaceSkip)(struct __vec *source,
                                                           long pos)) {
 	struct __lexer *retVal = malloc(sizeof(struct __lexer));
 
-	retVal->oldSource = __vecAppendItem(NULL, data, __vecSize(data));
+	retVal->oldSource = NULL;
 	retVal->charCmp = charCmp;
 	retVal->oldItems = NULL;
 	retVal->whitespaceSkip = whitespaceSkip;
 	retVal->templates =
 	    (strLexerItemTemplate)__vecConcat(NULL, (struct __vec *)templates);
+			
+	lexerUpdate(retVal,data);
+			
 	return retVal;
 }
 void lexerDestroy(struct __lexer **lexer) {
@@ -131,8 +108,8 @@ static llLexerItem getLexerCanidate(struct __lexer *lexer,
 	__auto_type biggestSize = 0;
 	for (int i = 0; i != strLexerItemTemplateSize(lexer->templates); i++) {
 		long end;
-		__auto_type res = lexer->templates[i].lexItem(newData, pos, &end,
-		                                              lexer->templates[i].data);
+		__auto_type res = lexer->templates[i]->lexItem(newData, pos, &end,
+		                                              lexer->templates[i]->data);
 		__auto_type resSize = __vecSize(res);
 		if (res != NULL) {
 			__auto_type size = end - pos;
@@ -145,7 +122,7 @@ static llLexerItem getLexerCanidate(struct __lexer *lexer,
 				__auto_type itemValue = llLexerItemValuePtr(retVal);
 				itemValue->start = pos;
 				itemValue->end = end;
-				itemValue->template = &lexer->templates[i];
+				itemValue->template = lexer->templates[i];
 
 				// Destroy previous(if present)
 				if (retVal != NULL) {
@@ -207,14 +184,25 @@ struct __lexerError *lexerUpdate(struct __lexer *lexer, struct __vec *newData) {
 				    template->validateOnModify(lexerItemValuePtr(lexerItemPtr), slice,
 				                               newData, foundAt, template->data);
 				if (state == LEXER_MODIFED) {
-					__auto_type newSize =
+				 long end;
+				 
+					__auto_type newValue=
 					    template->update(lexerItemValuePtr(lexerItemPtr), slice, newData,
-					                     foundAt, template->data);
+					                     foundAt, &end,template->data);
+							//Delete old value
+							template->killItemData(lexerItemValuePtr(lexerItemPtr));
+							
+							//Resize for new value
+							__auto_type newSize=__vecSize(newValue);
+							currentItem=__llValueResize(currentItem,newSize);
+							memmove(lexerItemValuePtr(lexerItemPtr),newValue,newSize);
+							__vecDestroy(newValue);
+							
 					// Update node size
-					lexerItemPtr->end = pos + newSize;
+					lexerItemPtr->end = pos;
 
 					// Update pos
-					pos += newSize;
+					pos = end;
 
 					goto killConsumedItems;
 				} else if (state == LEXER_DESTROY) {

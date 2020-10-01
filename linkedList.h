@@ -98,3 +98,4 @@ struct __ll *__llGetFirst(struct __ll *list);
 long __llSize(struct __ll *list);
 void llInsertListAfter(struct __ll *a, struct __ll *b);
 void llInsertListBefore(struct __ll *a, struct __ll *b);
+struct __ll *__llValueResize(struct __ll *list,long newSize);
