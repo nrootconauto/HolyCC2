@@ -459,8 +459,9 @@ static int stringParse(struct __vec *new, long pos,long *end,struct lexerString 
 	
 	if(escape==NULL||escape>end2)
 	 goto skip;
-	
-	retValText=__vecAppendItem(retValText,currPtr,escape-currPtr);
+
+	if (retVal != NULL)
+		retValText = __vecAppendItem(retValText, currPtr, escape - currPtr);
 	escape++;
 	
 	char tmp;
@@ -532,13 +533,15 @@ static int stringParse(struct __vec *new, long pos,long *end,struct lexerString 
 		int width;
 		char buffer[4];
 		utf8Encode(codePoint,buffer,&width);
-		retValText=__vecAppendItem(retValText,buffer,width);
+		if (retVal != NULL)
+			retValText = __vecAppendItem(retValText, buffer, width);
 	 }
 	 skip:
 	 //Append text to end or next escape
 	 escape=strchr(currPtr,'\\');
 	 __auto_type toPtr=(escape<end2&&escape!=NULL)?escape:end2;
-	 retValText=__vecAppendItem(retValText,currPtr,toPtr-currPtr);
+	 if (retVal != NULL)
+		 retValText = __vecAppendItem(retValText, currPtr, toPtr - currPtr);
 	 currPtr=toPtr;
 	 
 	 
@@ -576,15 +579,38 @@ static struct __vec *stringLex(struct __vec *new, long pos, long *end,
 }
 static struct __vec *stringUpdate(const void *data, struct __vec *old, struct __vec *new,
                            long pos, long* end,const void *data2) {
- 
  struct lexerString find;
- if(0==strcmp((char*)old,(char*)new+pos))
-	
  if(stringParse(new,pos,end,&find))
 	return __vecAppendItem(NULL,&find,sizeof(struct lexerString ));
+ assert(0);
  return NULL;
 }
+enum lexerItemState stringValidate(const void *itemData, struct __vec *old,
+                                   struct __vec *new, long pos,
+                                   const void *data) {
+	struct lexerString find;
+	long end;
+	if (!stringParse(new, pos, &end, NULL))
+		return LEXER_DESTROY;
 
+	__auto_type oldSize = __vecSize(old);
+	if (oldSize == end)
+		if (0 == strncmp((char *)old, (char *)new + pos, oldSize))
+			return LEXER_UNCHANGED;
+
+	return LEXER_MODIFED;
+}
+struct __lexerItemTemplate stringTemplateCreate() {
+	struct __lexerItemTemplate retVal;
+
+	retVal.killItemData = NULL;
+	retVal.lexItem = stringLex;
+	retVal.update = stringUpdate;
+	retVal.validateOnModify = stringValidate;
+	retVal.data = NULL;
+
+	return retVal;
+}
 STR_TYPE_DEF(char,Char);
 STR_TYPE_FUNCS(char,Char);
 static int charEq(const void *a,const void *b) {
@@ -611,6 +637,18 @@ static llLexerItem expectInt(llLexerItem node,struct __lexerItemTemplate *templa
  assert(value2->value.uLong==value);
  return llLexerItemNext(node);
 }
+static llLexerItem expectString(llLexerItem node,
+                                struct __lexerItemTemplate *template,
+                                const char *value, int isChar) {
+	__auto_type lexerItem = llLexerItemValuePtr(node);
+	assert(lexerItem->template == template);
+
+	__auto_type value2 = (struct lexerString *)lexerItemValuePtr(lexerItem);
+	assert(value2->isChar == isChar);
+	assert(0 == strcmp((char *)value2->text, value));
+
+	return llLexerItemNext(node);
+}
 void cachingLexerTests() {
 	const char *text = "graph h2O {\n"
 	                   "    h [Label=\"H\"];\n"
@@ -621,22 +659,36 @@ void cachingLexerTests() {
 	__auto_type keywordTemplate = keywordTemplateCreate();
 	__auto_type intTemplate=intTemplateCreate();
 	__auto_type floatingTemplate=floatingTemplateCreate();
-	__auto_type templates=strLexerItemTemplateResize(NULL,4);
+	__auto_type stringTemplate = stringTemplateCreate();
+	__auto_type templates = strLexerItemTemplateResize(NULL, 5);
 	templates[0]=&nameTemplate;
 	templates[1]=&keywordTemplate;
 	templates[2]=&intTemplate;
 	templates[3]=&floatingTemplate;
-	
+	templates[4] = &stringTemplate;
+
 	__auto_type str=strCharAppendData(NULL,(char*)text,strlen(text));
 	__auto_type lexer=lexerCreate((struct __vec*)str,templates,charEq,skipWhitespace);
 	__auto_type items=lexerGetItems(lexer);
 	
 	__auto_type node=__llGetFirst(items);
 	node=expectKeyword(node,&keywordTemplate,"graph");
-	node=expectKeyword(node,&nameTemplate,"h2O");
-	node=expectKeyword(node,&keywordTemplate,"{");
+	node = expectName(node, &nameTemplate, "h2O");
+	node = expectName(node, &keywordTemplate, "{");
 	node=expectKeyword(node,&nameTemplate,"h");
 	node=expectKeyword(node,&keywordTemplate,"[");
-	node=expectKeyword(node,&nameTemplate,"Label");
+	node = expectName(node, &nameTemplate, "Label");
 	node=expectKeyword(node,&keywordTemplate,"=");
+	node = expectString(node, &stringTemplate, "H", 0);
+	node = expectKeyword(node, &keywordTemplate, "]");
+	node = expectKeyword(node, &keywordTemplate, ";");
+	node = expectName(node, &nameTemplate, "h");
+	node = expectKeyword(node, &keywordTemplate, "--");
+	node = expectName(node, &nameTemplate, "O1");
+	node = expectKeyword(node, &keywordTemplate, ";");
+	node = expectName(node, &nameTemplate, "h");
+	node = expectKeyword(node, &keywordTemplate, "--");
+	node = expectName(node, &nameTemplate, "O2");
+	node = expectKeyword(node, &keywordTemplate, ";");
+	node = expectKeyword(node, &keywordTemplate, "}");
 }
