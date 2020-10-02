@@ -1,8 +1,8 @@
 #include <assert.h>
+#include <cacheingLexer.h>
 #include <diff.h>
 #include <linkedList.h>
 #include <str.h>
-#include <cacheingLexer.h>
 struct __lexerItemTemplate;
 void *lexerItemValuePtr(struct __lexerItem *item) {
 	return (void *)item + sizeof(struct __lexerItem);
@@ -14,9 +14,7 @@ struct __lexer {
 	int (*charCmp)(const void *, const void *);
 	const void *(*whitespaceSkip)(struct __vec *source, long pos);
 };
-llLexerItem lexerGetItems(struct __lexer *lexer) {
- return lexer->oldItems;
-}
+llLexerItem lexerGetItems(struct __lexer *lexer) { return lexer->oldItems; }
 struct __lexer *lexerCreate(struct __vec *data, strLexerItemTemplate templates,
                             int (*charCmp)(const void *, const void *),
                             const void *(*whitespaceSkip)(struct __vec *source,
@@ -29,9 +27,9 @@ struct __lexer *lexerCreate(struct __vec *data, strLexerItemTemplate templates,
 	retVal->whitespaceSkip = whitespaceSkip;
 	retVal->templates =
 	    (strLexerItemTemplate)__vecConcat(NULL, (struct __vec *)templates);
-			
-	lexerUpdate(retVal,data);
-			
+
+	lexerUpdate(retVal, data);
+
 	return retVal;
 }
 void lexerDestroy(struct __lexer **lexer) {
@@ -71,9 +69,37 @@ static struct __vec *lexerItemGetText(struct __lexer *lexer,
 	return __vecAppendItem(NULL, (void *)lexer->oldSource + item->start,
 	                       item->end - item->start);
 }
+static struct __diff *findSameDiffContaining(long startAt, const strDiff diffs,
+                                             long *atNew, long *atOld) {
+	long startAtDiff2 = 0;
+	long pos = 0, posOld = 0;
+	for (long i = startAtDiff2; i != strDiffSize(diffs); i++) {
+		if (diffs[i].type == DIFF_SAME) {
+			if (pos >= startAt || pos < startAt + diffs[i].len) {
+				if (atNew != NULL)
+					*atNew = pos;
+				if (atOld != NULL)
+					*atOld = posOld;
+				return &diffs[i];
+			}
+
+			pos += diffs[i].len;
+			posOld += diffs[i].len;
+			continue;
+		} else if (diffs[i].type == DIFF_REMOVE) {
+			posOld += diffs[i].len;
+			continue;
+		} else if (diffs[i].type == DIFF_INSERT) {
+			pos += diffs[i].len;
+			continue;
+		} else
+			assert(0);
+	}
+	return NULL;
+}
 static struct __diff *findNextSameDiff(const struct __lexer *lexer,
-                                       long startAt, strDiff diffs, long *atNew,
-                                       long *atOld) {
+                                       long startAt, const strDiff diffs,
+                                       long *atNew, long *atOld) {
 	long startAtDiff2 = 0;
 	long pos = 0, posOld = 0;
 	for (long i = startAtDiff2; i != strDiffSize(diffs); i++) {
@@ -102,14 +128,15 @@ static struct __diff *findNextSameDiff(const struct __lexer *lexer,
 };
 static void __vecDestroyPtr(struct __vec **vec) { __vecDestroy(*vec); }
 static llLexerItem getLexerCanidate(struct __lexer *lexer,
-                                    struct __vec *newData, long pos) {
+                                    struct __vec *newData, long pos,
+                                    long *endPos) {
 	llLexerItem retVal = NULL;
 
 	__auto_type biggestSize = 0;
 	for (int i = 0; i != strLexerItemTemplateSize(lexer->templates); i++) {
 		long end;
 		__auto_type res = lexer->templates[i]->lexItem(newData, pos, &end,
-		                                              lexer->templates[i]->data);
+		                                               lexer->templates[i]->data);
 		__auto_type resSize = __vecSize(res);
 		if (res != NULL) {
 			__auto_type size = end - pos;
@@ -119,10 +146,12 @@ static llLexerItem getLexerCanidate(struct __lexer *lexer,
 				memcpy(buffer + sizeof(struct __lexerItem), res, resSize);
 				llLexerItem item =
 				    __llCreate(buffer, sizeof(struct __lexerItem) + resSize);
-				__auto_type itemValue = llLexerItemValuePtr(retVal);
+				__auto_type itemValue = llLexerItemValuePtr(item);
 				itemValue->start = pos;
 				itemValue->end = end;
 				itemValue->template = lexer->templates[i];
+
+				biggestSize = size;
 
 				// Destroy previous(if present)
 				if (retVal != NULL) {
@@ -138,43 +167,77 @@ static llLexerItem getLexerCanidate(struct __lexer *lexer,
 		}
 	}
 
+	if (endPos != NULL)
+		*endPos = pos + biggestSize;
 	return retVal;
+}
+static llLexerItem killConsumedItems(struct __lexer *lexer, llLexerItem current,
+                                     const strDiff diffs) {
+	for (;;) {
+		__auto_type item = llLexerItemValuePtr(current);
+		// Kill Nodes that exist witin new range
+		long oldPos;
+		long newPos;
+		findSameDiffContaining(item->end, diffs, &newPos, &oldPos);
+		__auto_type offset = item->end - newPos;
+
+		for (__auto_type node = llLexerItemNext(current);;) {
+			__auto_type lexerItem = llLexerItemValuePtr(node);
+
+			if (lexerItem->start < oldPos + offset) {
+				if (lexerItem->template->killItemData != NULL)
+					lexerItem->template->killItemData(lexerItemValuePtr(lexerItem));
+
+				current = llLexerItemNext(node);
+				node = __llRemoveNode(node);
+
+				continue;
+			} else {
+				return current;
+			}
+		}
+	}
 }
 struct __lexerError *lexerUpdate(struct __lexer *lexer, struct __vec *newData) {
 	strDiff diffs __attribute__((cleanup(strDiffDestroy)));
 	diffs = NULL;
 
 	llLexerItem currentItem = __llGetFirst(lexer->oldItems);
-	long pos = 0;
+	long newPos = 0;
+	long oldPos = 0;
 	long foundAt = 0; // Dummy value will be updated ahead
-	for (; foundAt != __vecSize(lexer->oldSource);) {
-		__auto_type skipTo = lexer->whitespaceSkip(lexer->oldSource, pos);
-		pos = (skipTo == NULL) ? __vecSize(lexer->oldSource)
-		                       : (void *)skipTo - (void *)lexer->oldSource;
+	for (int firstRun = 1; !(foundAt == __vecSize(newData) && firstRun == 0);
+	     firstRun = 0) {
+		__auto_type skipTo = lexer->whitespaceSkip(newData, newPos);
+		newPos = (skipTo == NULL) ? __vecSize(newData)
+		                          : (void *)skipTo - (void *)newData;
 
 		long sameDiffEnd;
-		__auto_type nextSame = findNextSameDiff(lexer, pos, diffs, &foundAt, NULL);
+		__auto_type nextSame =
+		    findNextSameDiff(lexer, newPos, diffs, &foundAt, NULL);
 		// If no same-diff found,imagine a zero-length same diff at the end
 		if (nextSame == NULL) {
-			foundAt = __vecSize(lexer->oldSource);
+			foundAt = __vecSize(newData);
 			sameDiffEnd = foundAt;
 		} else {
 			sameDiffEnd = foundAt + nextSame->len;
 		}
 
-		for (; pos <= foundAt;) {
-			__auto_type skipTo = lexer->whitespaceSkip(lexer->oldSource, pos);
-			pos = (skipTo == NULL) ? __vecSize(lexer->oldSource)
-			                       : (void *)skipTo - (void *)lexer->oldSource;
+		for (; newPos <= foundAt;) {
+			__auto_type skipTo = lexer->whitespaceSkip(newData, newPos);
+			newPos = (skipTo == NULL) ? __vecSize(newData)
+			                          : (void *)skipTo - (void *)newData;
 
-			if (!(pos <= foundAt))
+			if (newPos >= foundAt)
 				break;
 
 			__auto_type lexerItemPtr = llLexerItemValuePtr(currentItem);
+			if (lexerItemPtr)
+				goto findNewItems;
 
 			// Previous items will have been updated before pos,so go to current item
-			if (lexerItemPtr->start >= pos) {
-				pos = lexerItemPtr->start;
+			if (lexerItemPtr->start >= newPos) {
+				newPos = lexerItemPtr->start;
 
 				struct __vec *slice __attribute__((cleanup(__vecDestroyPtr)));
 				slice = lexerItemGetText(lexer, lexerItemPtr);
@@ -182,29 +245,29 @@ struct __lexerError *lexerUpdate(struct __lexer *lexer, struct __vec *newData) {
 				__auto_type template = lexerItemPtr->template;
 				__auto_type state =
 				    template->validateOnModify(lexerItemValuePtr(lexerItemPtr), slice,
-				                               newData, foundAt, template->data);
+				                               newData, newPos, template->data);
 				if (state == LEXER_MODIFED) {
-				 long end;
-				 
-					__auto_type newValue=
+					long end;
+
+					__auto_type newValue =
 					    template->update(lexerItemValuePtr(lexerItemPtr), slice, newData,
-					                     foundAt, &end,template->data);
-							//Delete old value
-							template->killItemData(lexerItemValuePtr(lexerItemPtr));
-							
-							//Resize for new value
-							__auto_type newSize=__vecSize(newValue);
-							currentItem=__llValueResize(currentItem,newSize);
-							memmove(lexerItemValuePtr(lexerItemPtr),newValue,newSize);
-							__vecDestroy(newValue);
-							
+					                     newPos, &end, template->data);
+					// Delete old value
+					template->killItemData(lexerItemValuePtr(lexerItemPtr));
+
+					// Resize for new value
+					__auto_type newSize = __vecSize(newValue);
+					currentItem = __llValueResize(currentItem, newSize);
+					memmove(lexerItemValuePtr(lexerItemPtr), newValue, newSize);
+					__vecDestroy(newValue);
+
 					// Update node size
-					lexerItemPtr->end = pos;
+					lexerItemPtr->end = end;
 
 					// Update pos
-					pos = end;
+					newPos = end;
 
-					goto killConsumedItems;
+					currentItem = killConsumedItems(lexer, currentItem, diffs);
 				} else if (state == LEXER_DESTROY) {
 					__auto_type nodeBefore = llLexerItemPrev(currentItem);
 
@@ -215,45 +278,44 @@ struct __lexerError *lexerUpdate(struct __lexer *lexer, struct __vec *newData) {
 						lexerItem->template->killItemData(lexerItemValuePtr(lexerItem));
 
 					// Search for canidate
-					__auto_type res = getLexerCanidate(lexer, newData, pos);
+					long endPos;
+					__auto_type res = getLexerCanidate(lexer, newData, newPos, &endPos);
 					if (res == NULL) {
 						// No canidate found,return error
 						struct __lexerError *retVal = malloc(sizeof(struct __lexerError));
-						retVal->pos = pos;
+						retVal->pos = newPos;
 						retVal->lastItem = nodeBefore;
 						return retVal;
 					}
+					newPos = endPos;
 
 					llLexerItemInsertListAfter(nodeBefore, res);
 					currentItem = res;
-					goto killConsumedItems;
 				} else if (state == LEXER_UNCHANGED) {
-					pos = lexerItemPtr->end;
-				}
-				continue;
-			killConsumedItems : {
-				// Kill Nodes that exist witin new range
-				long oldPos;
-				findNextSameDiff(lexer, lexerItemPtr->end, diffs, NULL, &oldPos);
-				for (__auto_type node = llLexerItemNext(currentItem);;) {
-					__auto_type lexerItem = llLexerItemValuePtr(node);
-
-					if (lexerItem->start < oldPos) {
-						if (lexerItem->template->killItemData != NULL)
-							lexerItem->template->killItemData(lexerItemValuePtr(lexerItem));
-
-						node = __llRemoveNode(node);
-						currentItem = node;
-
-						continue;
-					} else {
-						break;
-					}
+					newPos = lexerItemPtr->end;
+					continue;
 				}
 			}
-			}
+		findNewItems : {
+			do {
+				newPos = lexer->whitespaceSkip(newData, newPos) - (void *)newData;
+				long end;
+				__auto_type res = getLexerCanidate(lexer, newData, newPos, &end);
+				newPos = end;
+				assert(NULL != res);
+				llLexerItemInsertListAfter(currentItem, (llLexerItem)res);
+				currentItem = res;
+
+				newPos = end;
+				if (newPos > foundAt) {
+					currentItem = killConsumedItems(lexer, currentItem, diffs);
+					break;
+				}
+			} while (newPos < foundAt);
+		}
 		}
 	}
 
+	lexer->oldItems = __llGetFirst(currentItem);
 	return NULL;
 }

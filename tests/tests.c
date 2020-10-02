@@ -5,6 +5,7 @@ void mapTests();
 void diffTests();
 void subGraphTests();
 void cykTests();
+void cachingLexerTests();
 int main() {
 	llTests();
 	strTests();
@@ -13,5 +14,6 @@ int main() {
 	diffTests();
 	subGraphTests();
 	cykTests();
+	cachingLexerTests();
 	return 0;
 }

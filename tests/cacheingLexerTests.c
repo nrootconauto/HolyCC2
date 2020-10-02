@@ -3,32 +3,45 @@
 #include <ctype.h>
 #include <limits.h>
 #include <stdio.h>
-#include <utf8Encode.h>
 #include <str.h>
 #include <string.h>
+#include <utf8Encode.h>
+STR_TYPE_DEF(char *, Str);
+STR_TYPE_FUNCS(char *, Str);
 static const void *skipWhitespace(struct __vec *text, long from) {
 	for (__auto_type ptr = (void *)text + from;
 	     ptr != (void *)text + __vecSize(text); ptr++)
-		if (!isblank(*(char *)ptr))
+		if (!isblank(*(char *)ptr) && *(char *)ptr != '\n' && *(char *)ptr != '\r')
 			return ptr;
 	return NULL;
 }
-static const char *keywords[] = {"graph", "--", "[", "]", "=", ";",  "{", "}"};
+static long countAlnum(struct __vec *data, long pos) {
+	long alNumCount = 0;
+	for (void *ptr = (void *)data + pos; ptr < __vecSize(data) + (void *)data;
+	     ptr++, alNumCount++)
+		if (!isalnum(*(char *)ptr))
+			break;
+
+	return alNumCount;
+}
+static const char *keywords[] = {"graph", "--", "[", "]", "=", ";", "{", "}"};
 static struct __vec *keywordLex(struct __vec *new, long pos, long *end,
                                 const void *data) {
 	__auto_type count = sizeof(keywords) / sizeof(*keywords);
 	for (int i = 0; i != count; i++) {
-		__auto_type len = strlen(keywords[count]);
+		__auto_type len = strlen(keywords[i]);
 		if (__vecSize(new) - pos < len)
 			continue;
 
-		if (0 == strncmp((void *)new, keywords[count], len)) {
+		if (0 == strncmp((void *)new + pos, keywords[i], len)) {
+			__auto_type alnumCount = countAlnum(new, pos);
+			if (alnumCount != 0)
+				if (alnumCount != len)
+					continue;
+
 			*end = pos + len;
 
-			if (isalnum(pos + len))
-				continue;
-
-			return __vecAppendItem(NULL, &keywords[count], sizeof(*keywords));
+			return __vecAppendItem(NULL, &keywords[i], sizeof(*keywords));
 		}
 	}
 	return NULL;
@@ -39,12 +52,20 @@ static enum lexerItemState keywordValidate(const void *itemData,
 	const char *itemText = *(const char **)itemData;
 	if (__vecSize(new) - pos < strlen(itemData))
 		return LEXER_DESTROY;
-	if (0 == strncmp(itemText, (void *)new + pos, strlen(itemText)))
+	if (0 == strncmp(itemText, (void *)new + pos, strlen(itemText))) {
+		// If alpha-numeric,ensure same length of alhpa-numeric charactors
+		__auto_type alnumCount = countAlnum(new, pos);
+		if (alnumCount != 0)
+			if (alnumCount != strlen((const char *)itemData))
+				return LEXER_DESTROY;
+
 		return LEXER_UNCHANGED;
+	}
 	return LEXER_DESTROY;
 }
-static struct __vec *keywordUpdate(const void *data, struct __vec *old, struct __vec *new,
-                          long x,long *end, const void *data2) {
+static struct __vec *keywordUpdate(const void *data, struct __vec *old,
+                                   struct __vec *new, long x, long *end,
+                                   const void *data2) {
 	// Dummy function,should never reach here
 	assert(0);
 }
@@ -59,20 +80,29 @@ static struct __lexerItemTemplate keywordTemplateCreate() {
 
 	return retVal;
 }
-static long countAlnum(struct __vec *data, long pos) {
-	long alNumCount = 0;
-	for (void *ptr = (void *)data + pos; ptr < __vecSize(data) + (void *)data;
-	     ptr++, alNumCount++)
-		if (!isalnum(ptr))
-			break;
-
-	return alNumCount;
+int isKeyword(struct __vec *new, long pos, const strStr keywords) {
+	__auto_type count = strStrSize(keywords);
+	__auto_type alNumCount = countAlnum(new, pos);
+	for (int i = 0; i != count; i++) {
+		if (alNumCount != 0) {
+			if (strlen(keywords[i]) == alNumCount)
+				if (0 == strncmp(keywords[i], (char *)new + pos, alNumCount))
+					return 1;
+		} else {
+			if (0 == strncmp(keywords[i], (char *)new + pos, strlen(keywords[i])))
+				return 1;
+		}
+	}
+	return 0;
 }
 static enum lexerItemState nameValidate(const void *itemData, struct __vec *old,
                                         struct __vec *new, long pos,
                                         const void *data) {
 	__auto_type alNumCount = countAlnum(new, pos);
 	if (isdigit((void *)new + pos))
+		return LEXER_DESTROY;
+
+	if (isKeyword(new, pos, (const strStr)data))
 		return LEXER_DESTROY;
 
 	__auto_type count = sizeof(keywords) / sizeof(*keywords);
@@ -92,26 +122,37 @@ static enum lexerItemState nameValidate(const void *itemData, struct __vec *old,
 
 	return (alNumCount == 0) ? LEXER_DESTROY : LEXER_MODIFED;
 }
-static struct __vec *nameUpdate(const void *data, struct __vec *old, struct __vec *new,
-                       long pos, long *end,const void *data2) {
+static struct __vec *nameUpdate(const void *data, struct __vec *old,
+                                struct __vec *new, long pos, long *end,
+                                const void *data2) {
 	__auto_type alNumCount = countAlnum(new, pos);
-	
-	*end=pos+alNumCount;
-	
-	char buffer[alNumCount+1];
-	memcpy(buffer,(char*)new+pos,alNumCount);
-	buffer[alNumCount]=0;
 
-	return __vecAppendItem(NULL,buffer,alNumCount+1);
+	*end = pos + alNumCount;
+
+	char buffer[alNumCount + 1];
+	memcpy(buffer, (char *)new + pos, alNumCount);
+	buffer[alNumCount] = 0;
+
+	return __vecAppendItem(NULL, buffer, alNumCount + 1);
 }
 static struct __vec *nameLex(struct __vec *new, long pos, long *end,
                              const void *data) {
 	__auto_type alNumCount = countAlnum(new, pos);
-	if (isdigit((void *)new + pos))
+	if (alNumCount == 0)
 		return NULL;
 
-	int len = alNumCount+1;
-	return __vecAppendItem(NULL,(char*)new+pos,len);
+	if (isdigit(((char *)new)[pos]))
+		return NULL;
+
+	if (isKeyword(new, pos, (const strStr)data))
+		return NULL;
+
+	*end = pos + alNumCount;
+
+	int len = alNumCount;
+	char z = 0;
+	__auto_type retVal = __vecAppendItem(NULL, (char *)new + pos, len);
+	return __vecAppendItem(retVal, &z, 1);
 }
 enum intType {
 	INT_UINT,
@@ -230,11 +271,11 @@ static int intParse(struct __vec *new, long pos, long *end,
 		goto dumpU;
 	}
 dumpU : {
- //Check to ensure isn't a float
-	if(*end+(char*)new<endPtr)
-	 if(*end=='.')
-		return 0;
-	 
+	// Check to ensure isn't a float
+	if (*end + (char *)new < endPtr)
+		if (*end == '.')
+			return 0;
+
 	if (retVal == NULL)
 		return 1;
 
@@ -268,14 +309,15 @@ static enum lexerItemState intValidate(const void *itemData, struct __vec *old,
 		return LEXER_UNCHANGED;
 	return (intParse(new, pos, NULL, NULL)) ? LEXER_MODIFED : LEXER_DESTROY;
 }
-static struct __vec *intUpdate(const void *data, struct __vec *old, struct __vec *new, long pos,long *end,
-               const void *data2) {
+static struct __vec *intUpdate(const void *data, struct __vec *old,
+                               struct __vec *new, long pos, long *end,
+                               const void *data2) {
 	struct lexerInt find;
 	intParse(new, pos, end, &find);
 
-	return __vecAppendItem(NULL,&find,sizeof(struct lexerInt));
+	return __vecAppendItem(NULL, &find, sizeof(struct lexerInt));
 }
-static struct __lexerItemTemplate nameTemplateCreate() {
+static struct __lexerItemTemplate nameTemplateCreate(strStr keywords) {
 	struct __lexerItemTemplate retVal;
 
 	retVal.data = keywords;
@@ -309,9 +351,13 @@ static int floatingParse(struct __vec *vec, long pos, long *end,
 	struct lexerFloating f;
 	f.base = 0;
 	f.frac = 0;
-	f.base = 0;
+	f.exponet = 0;
 
 	__auto_type alnumCount = countAlnum(vec, pos);
+	if (alnumCount == 0)
+		return 0;
+	if (!isdigit(*((char *)vec + pos)))
+		return 0;
 
 	int exponetIndex = -1;
 	for (int i = 0; i != alnumCount; i++) {
@@ -383,7 +429,7 @@ returnLabel : {
 		*retVal = f;
 	if (end != NULL)
 		*end = currPtr - (char *)vec;
-	
+
 	return 1;
 }
 
@@ -392,12 +438,13 @@ malformed : {
 	assert(0);
 }
 }
-static struct __vec *floatingUpdate(const void *data, struct __vec *old, struct __vec *new,
-                           long pos, long* end,const void *data2) {
+static struct __vec *floatingUpdate(const void *data, struct __vec *old,
+                                    struct __vec *new, long pos, long *end,
+                                    const void *data2) {
 	struct lexerFloating find;
 	floatingParse(new, pos, end, &find);
-	
-	return __vecAppendItem(NULL,&find,sizeof(struct lexerFloating ));
+
+	return __vecAppendItem(NULL, &find, sizeof(struct lexerFloating));
 }
 static struct __vec *floatingLex(struct __vec *new, long pos, long *end,
                                  const void *data) {
@@ -422,168 +469,178 @@ static enum lexerItemState floatingValidate(const void *itemData,
 		return LEXER_DESTROY;
 }
 static struct __lexerItemTemplate floatingTemplateCreate() {
- struct __lexerItemTemplate retVal;
- retVal.data=NULL;
- retVal.lexItem=floatingLex;
- retVal.update=floatingUpdate;
- retVal.validateOnModify=floatingValidate;
- retVal.killItemData=NULL;
- 
- return retVal;
-}
-struct lexerString{
- struct __vec *text;
- int isChar:1;
-};
-static int stringParse(struct __vec *new, long pos,long *end,struct lexerString *retVal) {
- __auto_type endPtr=__vecSize(new)+(char*)new;
- __auto_type currPtr=pos+(char*)new;
- 
- if(currPtr<endPtr) {
-	if(!(*currPtr!='"'||*currPtr!='\''))
-	 return 0;
-	
-	struct __vec *retValText=NULL;
-	
-	int isChar=*currPtr=='\'';
-	char endChar=(isChar)?'\'':'"';
-	
-	currPtr++;
-	for(;;){
-	__auto_type end2=strchr(currPtr,endChar);
-	
-	char *escape;
-	escape=strchr(currPtr,'\\');
-	if(end2==NULL)
-	 goto malformed;
-	
-	if(escape==NULL||escape>end2)
-	 goto skip;
+	struct __lexerItemTemplate retVal;
+	retVal.data = NULL;
+	retVal.lexItem = floatingLex;
+	retVal.update = floatingUpdate;
+	retVal.validateOnModify = floatingValidate;
+	retVal.killItemData = NULL;
 
-	if (retVal != NULL)
-		retValText = __vecAppendItem(retValText, currPtr, escape - currPtr);
-	escape++;
-	
-	char tmp;
-	unsigned int codePoint=0;
-	switch(*escape) {
-	 case 'a':
-		tmp='\a'; break;
-	 case 'b':
-		tmp='\b'; break;
-	 case 'e':
-		tmp='\e'; break;
-	 case 'f':
-		tmp='\f'; break;
-	 case 'n':
-		tmp='\n'; break;
-	 case 'r':
-		tmp='\r'; break;
-	 case 't':
-		tmp='\t'; break;
-	 case 'v':
-		tmp='\v'; break;
-	 case '\\':
-		tmp='\\'; break;
-	 case '\'':
-		tmp='\''; break;
-		case '"':
-		 tmp='"'; break;
-		case 'u': {
-		 if(escape+4<endPtr)
-			goto malformed;
-		 
-		 __auto_type slice=__vecAppendItem(NULL,(char*)escape,4);
-		 sscanf((char*)slice,"%x",&codePoint);
-		 __vecDestroy(slice);
-		 
-		 currPtr=(char *)escape+4;
-		 goto utfEncode;
+	return retVal;
+}
+struct lexerString {
+	struct __vec *text;
+	int isChar : 1;
+};
+static int stringParse(struct __vec *new, long pos, long *end,
+                       struct lexerString *retVal) {
+	__auto_type endPtr = __vecSize(new) + (char *)new;
+	__auto_type currPtr = pos + (char *)new;
+
+	if (currPtr < endPtr) {
+		if (!(*currPtr == '"' || *currPtr == '\''))
+			return 0;
+
+		struct __vec *retValText = NULL;
+
+		int isChar = *currPtr == '\'';
+		char endChar = (isChar) ? '\'' : '"';
+
+		currPtr++;
+		for (;;) {
+			__auto_type end2 = strchr(currPtr, endChar);
+
+			char *escape;
+			escape = strchr(currPtr, '\\');
+			if (end2 == NULL)
+				goto malformed;
+
+			if (escape == NULL || escape > end2)
+				goto skip;
+
+			if (retVal != NULL)
+				retValText = __vecAppendItem(retValText, currPtr, escape - currPtr);
+			escape++;
+
+			char tmp;
+			unsigned int codePoint = 0;
+			switch (*escape) {
+			case 'a':
+				tmp = '\a';
+				break;
+			case 'b':
+				tmp = '\b';
+				break;
+			case 'e':
+				tmp = '\e';
+				break;
+			case 'f':
+				tmp = '\f';
+				break;
+			case 'n':
+				tmp = '\n';
+				break;
+			case 'r':
+				tmp = '\r';
+				break;
+			case 't':
+				tmp = '\t';
+				break;
+			case 'v':
+				tmp = '\v';
+				break;
+			case '\\':
+				tmp = '\\';
+				break;
+			case '\'':
+				tmp = '\'';
+				break;
+			case '"':
+				tmp = '"';
+				break;
+			case 'u': {
+				if (escape + 4 < endPtr)
+					goto malformed;
+
+				__auto_type slice = __vecAppendItem(NULL, (char *)escape, 4);
+				sscanf((char *)slice, "%x", &codePoint);
+				__vecDestroy(slice);
+
+				currPtr = (char *)escape + 4;
+				goto utfEncode;
+			}
+			case 'U': {
+				if (escape + 8 < endPtr)
+					goto malformed;
+
+				__auto_type slice = __vecAppendItem(NULL, (char *)escape, 4);
+				unsigned int codePoint;
+				sscanf((char *)slice, "%x", &codePoint);
+				__vecDestroy(slice);
+
+				currPtr = (char *)escape + 8;
+				goto utfEncode;
+			}
+			case '0' ... '8': {
+				int count = 1;
+				for (escape++; escape < endPtr && count < 3; escape++)
+					if (*escape >= '0' && *escape <= '7')
+						count++;
+					else
+						break;
+
+				__auto_type slice = __vecAppendItem(NULL, (char *)escape, 4);
+				sscanf((char *)slice, "%o", &codePoint);
+				__vecDestroy(slice);
+
+				currPtr = (char *)escape + count;
+				goto utfEncode;
+			}
+			}
+			currPtr++;
+			goto skip;
+		utfEncode : {
+			int width;
+			char buffer[4];
+			utf8Encode(codePoint, buffer, &width);
+			if (retVal != NULL)
+				retValText = __vecAppendItem(retValText, buffer, width);
 		}
-		 case 'U': {
-			if(escape+8<endPtr)
+		skip:
+			// Append text to end or next escape
+			escape = strchr(currPtr, '\\');
+			__auto_type toPtr = (escape < end2 && escape != NULL) ? escape : end2;
+			if (retVal != NULL)
+				retValText = __vecAppendItem(retValText, currPtr, toPtr - currPtr);
+			currPtr = toPtr;
+
+			if (toPtr == end2) {
+				if (end != NULL)
+					*end = (end2 + 1 - (char *)new) / sizeof(char);
+				break;
+			}
+		}
+
+		// If char,ensure is <=8
+		if (isChar && __vecSize(retValText) > 8)
 			goto malformed;
-			
-			__auto_type slice=__vecAppendItem(NULL,(char*)escape,4);
-		 unsigned int codePoint;
-		 sscanf((char*)slice,"%x",&codePoint);
-		 __vecDestroy(slice);
-		 
-		 currPtr=(char *)escape+8;
-		 goto utfEncode;
-		 }
-		 case '0'...'8':  {
-			int count =1;
-			for(escape++;escape<endPtr&&count<3;escape++)
-			 if(*escape>='0'&&*escape<='7')
-				count++;
-			 else break;
-			 
-		 __auto_type slice=__vecAppendItem(NULL,(char*)escape,4);
-		 sscanf((char*)slice,"%o",&codePoint);
-		 __vecDestroy(slice);
-		 
-		 currPtr=(char *)escape+count;
-		 goto utfEncode;
-		 }
-	 }
-	 currPtr++;
-	 goto skip;
-	 utfEncode: {
-		int width;
-		char buffer[4];
-		utf8Encode(codePoint,buffer,&width);
-		if (retVal != NULL)
-			retValText = __vecAppendItem(retValText, buffer, width);
-	 }
-	 skip:
-	 //Append text to end or next escape
-	 escape=strchr(currPtr,'\\');
-	 __auto_type toPtr=(escape<end2&&escape!=NULL)?escape:end2;
-	 if (retVal != NULL)
-		 retValText = __vecAppendItem(retValText, currPtr, toPtr - currPtr);
-	 currPtr=toPtr;
-	 
-	 
-	 if(toPtr==end2) {
-		if(end!=NULL)
-			*end=(end2-(char*)new)/sizeof(char);
-		break;
-	 }
+
+		if (retVal != NULL) {
+			retVal->isChar = isChar;
+			retVal->text = retValText;
+		}
+
+		return 1;
 	}
-	
-	//If char,ensure is <=8
-	if(isChar&&__vecSize(retValText)>8)
-	 goto malformed;
-	
-	if(retVal!=NULL) {
-	retVal->isChar=isChar;
-	retVal->text=retValText;
-	}
-	
-	
-	return 1;
- }
- return 0;
- malformed: {
-	
- }
- return 0;
+	return 0;
+malformed : {}
+	return 0;
 }
 static struct __vec *stringLex(struct __vec *new, long pos, long *end,
-                                const void *data) {
- struct lexerString find;
- if(stringParse(new,pos,end,&find))
-	return __vecAppendItem(NULL,&find,sizeof(struct lexerString ));
- return NULL;
+                               const void *data) {
+	struct lexerString find;
+	if (stringParse(new, pos, end, &find))
+		return __vecAppendItem(NULL, &find, sizeof(struct lexerString));
+	return NULL;
 }
-static struct __vec *stringUpdate(const void *data, struct __vec *old, struct __vec *new,
-                           long pos, long* end,const void *data2) {
- struct lexerString find;
- if(stringParse(new,pos,end,&find))
-	return __vecAppendItem(NULL,&find,sizeof(struct lexerString ));
- assert(0);
- return NULL;
+static struct __vec *stringUpdate(const void *data, struct __vec *old,
+                                  struct __vec *new, long pos, long *end,
+                                  const void *data2) {
+	struct lexerString find;
+	if (stringParse(new, pos, end, &find))
+		return __vecAppendItem(NULL, &find, sizeof(struct lexerString));
+	assert(0);
+	return NULL;
 }
 enum lexerItemState stringValidate(const void *itemData, struct __vec *old,
                                    struct __vec *new, long pos,
@@ -611,31 +668,35 @@ struct __lexerItemTemplate stringTemplateCreate() {
 
 	return retVal;
 }
-STR_TYPE_DEF(char,Char);
-STR_TYPE_FUNCS(char,Char);
-static int charEq(const void *a,const void *b) {
- return a==b;
+STR_TYPE_DEF(char, Char);
+STR_TYPE_FUNCS(char, Char);
+static int charEq(const void *a, const void *b) { return a == b; }
+static llLexerItem expectKeyword(llLexerItem node,
+                                 struct __lexerItemTemplate *template,
+                                 const char *spelling) {
+	__auto_type lexerItem = llLexerItemValuePtr(node);
+	assert(lexerItem->template == template);
+	__auto_type value = *(const char **)lexerItemValuePtr(lexerItem);
+	assert(0 == strcmp(value, spelling));
+	return llLexerItemNext(node);
 }
-static llLexerItem expectKeyword(llLexerItem node,struct __lexerItemTemplate *template,const char *spelling) {
- __auto_type lexerItem=llLexerItemValuePtr(node);
- assert(lexerItem->template==template);
- __auto_type value=(const char *)lexerItemValuePtr(lexerItem);
- assert(0==strcmp(value,spelling));
- return llLexerItemNext(node);
+static llLexerItem expectName(llLexerItem node,
+                              struct __lexerItemTemplate *template,
+                              const char *spelling) {
+	__auto_type lexerItem = llLexerItemValuePtr(node);
+	assert(lexerItem->template == template);
+	__auto_type value = (const char *)lexerItemValuePtr(lexerItem);
+	assert(0 == strcmp(value, spelling));
+	return llLexerItemNext(node);
 }
-static llLexerItem expectName(llLexerItem node,struct __lexerItemTemplate *template,const char *spelling) {
- __auto_type lexerItem=llLexerItemValuePtr(node);
- assert(lexerItem->template==template);
- __auto_type value=(const char *)lexerItemValuePtr(lexerItem);
- assert(0==strcmp(value,spelling));
- return llLexerItemNext(node);
-}
-static llLexerItem expectInt(llLexerItem node,struct __lexerItemTemplate *template,unsigned long value) {
- __auto_type lexerItem=llLexerItemValuePtr(node);
- assert(lexerItem->template==template);
- __auto_type value2=(struct lexerInt*)lexerItemValuePtr(lexerItem);
- assert(value2->value.uLong==value);
- return llLexerItemNext(node);
+static llLexerItem expectInt(llLexerItem node,
+                             struct __lexerItemTemplate *template,
+                             unsigned long value) {
+	__auto_type lexerItem = llLexerItemValuePtr(node);
+	assert(lexerItem->template == template);
+	__auto_type value2 = (struct lexerInt *)lexerItemValuePtr(lexerItem);
+	assert(value2->value.uLong == value);
+	return llLexerItemNext(node);
 }
 static llLexerItem expectString(llLexerItem node,
                                 struct __lexerItemTemplate *template,
@@ -655,30 +716,34 @@ void cachingLexerTests() {
 	                   "    h -- O1;\n"
 	                   "    h -- O2;\n"
 	                   "}";
-	__auto_type nameTemplate = nameTemplateCreate();
+	__auto_type kwCount = sizeof(keywords) / sizeof(*keywords);
+	strStr keywordsVec = strStrAppendData(NULL, (char **)keywords, kwCount);
+
+	__auto_type nameTemplate = nameTemplateCreate(keywordsVec);
 	__auto_type keywordTemplate = keywordTemplateCreate();
-	__auto_type intTemplate=intTemplateCreate();
-	__auto_type floatingTemplate=floatingTemplateCreate();
+	__auto_type intTemplate = intTemplateCreate();
+	__auto_type floatingTemplate = floatingTemplateCreate();
 	__auto_type stringTemplate = stringTemplateCreate();
 	__auto_type templates = strLexerItemTemplateResize(NULL, 5);
-	templates[0]=&nameTemplate;
-	templates[1]=&keywordTemplate;
-	templates[2]=&intTemplate;
-	templates[3]=&floatingTemplate;
+	templates[0] = &nameTemplate;
+	templates[1] = &keywordTemplate;
+	templates[2] = &intTemplate;
+	templates[3] = &floatingTemplate;
 	templates[4] = &stringTemplate;
 
-	__auto_type str=strCharAppendData(NULL,(char*)text,strlen(text));
-	__auto_type lexer=lexerCreate((struct __vec*)str,templates,charEq,skipWhitespace);
-	__auto_type items=lexerGetItems(lexer);
-	
-	__auto_type node=__llGetFirst(items);
-	node=expectKeyword(node,&keywordTemplate,"graph");
+	__auto_type str = strCharAppendData(NULL, (char *)text, strlen(text));
+	__auto_type lexer =
+	    lexerCreate((struct __vec *)str, templates, charEq, skipWhitespace);
+	__auto_type items = lexerGetItems(lexer);
+
+	__auto_type node = __llGetFirst(items);
+	node = expectKeyword(node, &keywordTemplate, "graph");
 	node = expectName(node, &nameTemplate, "h2O");
-	node = expectName(node, &keywordTemplate, "{");
-	node=expectKeyword(node,&nameTemplate,"h");
-	node=expectKeyword(node,&keywordTemplate,"[");
+	node = expectKeyword(node, &keywordTemplate, "{");
+	node = expectName(node, &nameTemplate, "h");
+	node = expectKeyword(node, &keywordTemplate, "[");
 	node = expectName(node, &nameTemplate, "Label");
-	node=expectKeyword(node,&keywordTemplate,"=");
+	node = expectKeyword(node, &keywordTemplate, "=");
 	node = expectString(node, &stringTemplate, "H", 0);
 	node = expectKeyword(node, &keywordTemplate, "]");
 	node = expectKeyword(node, &keywordTemplate, ";");
