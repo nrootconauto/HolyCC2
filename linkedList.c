@@ -205,13 +205,17 @@ long __llSize(struct __ll *list) {
 		first = first->next;
 	return retVal;
 }
-struct __ll *__llValueResize(struct __ll *list,long newSize) {
- list=realloc(list,sizeof(struct __ll)+newSize);
- 
- if(list->prev)
-	llInsertListAfter(list->prev,list);
- if(list->next)
-	llInsertListBefore(list->next,list);
- 
- return list;
+struct __ll *__llValueResize(struct __ll *list, long newSize) {
+	__auto_type oldPrev = list->prev;
+	__auto_type oldNext = list->next;
+
+	__llRemoveNode(list);
+	list = realloc(list, sizeof(struct __ll) + newSize);
+
+	if (oldPrev != NULL)
+		llInsertListAfter(oldPrev, list);
+	if (oldNext != NULL)
+		llInsertListBefore(oldNext, list);
+
+	return list;
 }

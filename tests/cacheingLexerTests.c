@@ -100,22 +100,11 @@ static enum lexerItemState nameValidate(const void *itemData, struct __vec *old,
                                         struct __vec *new, long pos,
                                         const void *data) {
 	__auto_type alNumCount = countAlnum(new, pos);
-	if (isdigit((void *)new + pos))
+	if (isdigit(*((char*)new + pos)))
 		return LEXER_DESTROY;
 
 	if (isKeyword(new, pos, (const strStr)data))
 		return LEXER_DESTROY;
-
-	__auto_type count = sizeof(keywords) / sizeof(*keywords);
-	for (int i = 0; i != count; i++) {
-		__auto_type len = strlen(keywords[count]);
-
-		if (len != alNumCount)
-			continue;
-
-		if (strncmp((void *)new + pos, keywords[count], len) == 0)
-			return LEXER_DESTROY;
-	}
 
 	if (__vecSize(old) == alNumCount)
 		if (0 == strcmp((void *)old, (void *)new + pos))
