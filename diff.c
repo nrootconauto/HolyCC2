@@ -32,9 +32,9 @@ static int __diffFollowPath(const void *a, const void *b, int x, int y,
 		x--, y--;
 	}
 	for (;; x += direction, y += direction) {
-		if (aSize / itemSize < x)
+		if (aSize / itemSize <= x)
 			break;
-		if (bSize / itemSize < y)
+		if (bSize / itemSize <= y)
 			break;
 		if (x < 0)
 			break;
@@ -130,8 +130,9 @@ static bool __diffCheckIfMeet(int totalSize, int d, const void *a,
 				int d = forward[totalSize + k].d;
 				if (d < maxD)
 					continue;
-				if (forward[totalSize + k].x + backward[totalSize + otherK].x >=
-				    aSize / itemSize) {
+				__auto_type backwardX =
+				    aSize / itemSize - backward[totalSize + otherK].x;
+				if (forward[totalSize + k].x + backwardX >= aSize / itemSize) {
 					foundItem = true;
 					maxD = d;
 					if (resultFirstX != NULL)
@@ -213,12 +214,17 @@ static llDiff __diffRecur(const void *a, const void *b, long aSize, long bSize,
 		backward[i].xBeforeDiag = -1;
 		backward[i].yBeforeDiag = -1;
 	}
-	forward[totalSize].x = 0;
-	forward[totalSize].y = 0;
+	__auto_type lenF =
+	    __diffFollowPath(a, b, 0, 0, aSize, bSize, itemSize, 1, pred);
+	forward[totalSize].x = lenF;
+	forward[totalSize].y = lenF;
 	forward[totalSize].xBeforeDiag = 0;
 	forward[totalSize].yBeforeDiag = 0;
-	backward[totalSize].x = aSize / itemSize;
-	backward[totalSize].y = bSize / itemSize;
+	//
+	__auto_type lenB = __diffFollowPath(a, b, aSize / itemSize, bSize / itemSize,
+	                                    aSize, bSize, itemSize, -1, pred);
+	backward[totalSize].x = aSize / itemSize - lenB;
+	backward[totalSize].y = bSize / itemSize - lenB;
 	backward[totalSize].xBeforeDiag = aSize / itemSize;
 	backward[totalSize].yBeforeDiag = bSize / itemSize;
 	forward[totalSize].d = 0;
@@ -249,16 +255,13 @@ static llDiff __diffRecur(const void *a, const void *b, long aSize, long bSize,
 				__auto_type a2 = a + x * itemSize;
 				__auto_type b2 = b + y * itemSize;
 				int xBeforeDiag = x, yBeforeDiag = y;
-			loop1:
-				if (a2 < aEnd && b2 < bEnd) {
-					if (pred(a2, b2)) {
-						x++;
-						y++;
-						a2 += itemSize;
-						b2 += itemSize;
-						goto loop1;
-					}
-				}
+				//
+				__auto_type len =
+				    __diffFollowPath(a, b, x, y, aSize, bSize, itemSize, 1, pred);
+				a2 += len;
+				b2 += len;
+				x += len;
+				y += len;
 				//
 				bool assign = false;
 				if (forward[k + totalSize].x < x) {
@@ -295,16 +298,14 @@ static llDiff __diffRecur(const void *a, const void *b, long aSize, long bSize,
 				__auto_type a2 = a + x * itemSize - itemSize;
 				__auto_type b2 = b + y * itemSize - itemSize;
 				int xBeforeDiag = x, yBeforeDiag = y;
-			loop2:
-				if (a2 < aEnd && b2 < bEnd && a2 >= a && b2 >= b) {
-					if (pred(a2, b2)) {
-						x--;
-						y--;
-						a2 -= itemSize;
-						b2 -= itemSize;
-						goto loop2;
-					}
-				}
+				//
+				__auto_type len =
+				    __diffFollowPath(a, b, x, y, aSize, bSize, itemSize, -1, pred);
+				x -= len;
+				y -= len;
+				a2 -= len;
+				b2 -= len;
+				//
 				bool assign = false;
 				if (backward[k + totalSize].x > x || backward[k + totalSize].x == -1) {
 					backward[k + totalSize].x = x;
@@ -335,12 +336,18 @@ static llDiff __diffRecur(const void *a, const void *b, long aSize, long bSize,
 			__auto_type yOffset2 = resultLastY * itemSize;
 			//
 			int bun = bundle();
+			llDiff beforeLeft = NULL;
 			llDiff left = NULL;
 			llDiff middle = NULL;
 			llDiff right = NULL;
-			// left
-			bundle_go(bun, __diffRecurSplit(a, b, xOffset1, yOffset1, itemSize, pred,
-			                                &left));
+			llDiff afterRight = NULL;
+			// Before left(after-diag)
+			if (lenF != 0)
+				bundle_go(bun, __diffRecurSplit(a, b, lenF, lenF, itemSize, pred,
+				                                &beforeLeft));
+			// Left
+			bundle_go(bun, __diffRecurSplit(a + lenF, b + lenF, xOffset1 - lenF,
+			                                yOffset1 - lenF, itemSize, pred, &left));
 			// middle
 			if (!(xOffset1 == xOffset2 && yOffset1 == yOffset2)) {
 				bundle_go(bun, __diffRecurSplit(
@@ -348,14 +355,22 @@ static llDiff __diffRecur(const void *a, const void *b, long aSize, long bSize,
 				                   yOffset2 - yOffset1, itemSize, pred, &middle));
 			}
 			// right
-			bundle_go(bun,
-			          __diffRecurSplit(a + xOffset2, b + yOffset2, aSize - xOffset2,
-			                           bSize - yOffset2, itemSize, pred, &right));
+			bundle_go(bun, __diffRecurSplit(
+			                   a + xOffset2, b + yOffset2, aSize - xOffset2 - lenB,
+			                   bSize - yOffset2 - lenB, itemSize, pred, &right));
+			// After-right(diag)
+			if (lenB != 0)
+				bundle_go(bun, __diffRecurSplit(a + aSize - lenB, b + bSize - lenB,
+				                                lenB, lenB, itemSize, pred, &afterRight));
 			bundle_wait(bun, -1);
-			llDiffInsertListAfter(__llGetEnd(left), __llGetFirst(middle));
-			newN = (middle == NULL) ? left : middle;
+			llDiffInsertListAfter(__llGetEnd(beforeLeft), __llGetFirst(left));
+			newN = (left == NULL) ? beforeLeft : left;
+			llDiffInsertListAfter(newN, __llGetFirst(middle));
+			newN = (middle == NULL) ? newN : middle;
 			llDiffInsertListAfter(__llGetEnd(newN), __llGetFirst(right));
 			newN = (right == NULL) ? newN : right;
+			llDiffInsertListAfter(__llGetEnd(newN), __llGetFirst(afterRight));
+			newN = (afterRight == NULL) ? newN : afterRight;
 			return __llGetEnd(newN);
 		}
 	}

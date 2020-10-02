@@ -24,7 +24,8 @@ static long countAlnum(struct __vec *data, long pos) {
 
 	return alNumCount;
 }
-static const char *keywords[] = {"graph", "--", "[", "]", "=", ";", "{", "}"};
+static const char *keywords[] = {"graph", "subgraph", "--", "[", "]",
+                                 "=",     ";",        "{",  "}"};
 static struct __vec *keywordLex(struct __vec *new, long pos, long *end,
                                 const void *data) {
 	__auto_type count = sizeof(keywords) / sizeof(*keywords);
@@ -670,7 +671,9 @@ struct __lexerItemTemplate stringTemplateCreate() {
 }
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
-static int charEq(const void *a, const void *b) { return a == b; }
+static int charEq(const void *a, const void *b) {
+	return *(char *)a == *(char *)b;
+}
 static llLexerItem expectKeyword(llLexerItem node,
                                  struct __lexerItemTemplate *template,
                                  const char *spelling) {
@@ -711,11 +714,6 @@ static llLexerItem expectString(llLexerItem node,
 	return llLexerItemNext(node);
 }
 void cachingLexerTests() {
-	const char *text = "graph h2O {\n"
-	                   "    h [Label=\"H\"];\n"
-	                   "    h -- O1;\n"
-	                   "    h -- O2;\n"
-	                   "}";
 	__auto_type kwCount = sizeof(keywords) / sizeof(*keywords);
 	strStr keywordsVec = strStrAppendData(NULL, (char **)keywords, kwCount);
 
@@ -730,30 +728,62 @@ void cachingLexerTests() {
 	templates[2] = &intTemplate;
 	templates[3] = &floatingTemplate;
 	templates[4] = &stringTemplate;
+	{
+		const char *text = "a--b--c";
+		__auto_type str = strCharAppendData(NULL, (char *)text, strlen(text));
+		__auto_type lexer =
+		    lexerCreate((struct __vec *)str, templates, charEq, skipWhitespace);
+		__auto_type items = lexerGetItems(lexer);
+		__auto_type node = __llGetFirst(items);
+		node = expectName(node, &nameTemplate, "a");
+		node = expectKeyword(node, &keywordTemplate, "--");
+		node = expectName(node, &nameTemplate, "b");
+		node = expectKeyword(node, &keywordTemplate, "--");
+		node = expectName(node, &nameTemplate, "c");
+		strCharDestroy(&str);
+		//
+		text = "a1234--b--c";
+		str = strCharAppendData(NULL, (char *)text, strlen(text));
+		lexerUpdate(lexer, (struct __vec *)str);
 
-	__auto_type str = strCharAppendData(NULL, (char *)text, strlen(text));
-	__auto_type lexer =
-	    lexerCreate((struct __vec *)str, templates, charEq, skipWhitespace);
-	__auto_type items = lexerGetItems(lexer);
+		items = lexerGetItems(lexer);
+		node = __llGetFirst(items);
+		node = expectName(node, &nameTemplate, "a1234");
+		node = expectKeyword(node, &keywordTemplate, "--");
+		node = expectName(node, &nameTemplate, "b");
+		node = expectKeyword(node, &keywordTemplate, "--");
+		node = expectName(node, &nameTemplate, "c");
+	}
+	{
+		const char *text = "graph h2O {\n"
+		                   "    h [Label=\"H\"];\n"
+		                   "    h -- O1;\n"
+		                   "    h -- O2;\n"
+		                   "}";
+		__auto_type str = strCharAppendData(NULL, (char *)text, strlen(text));
+		__auto_type lexer =
+		    lexerCreate((struct __vec *)str, templates, charEq, skipWhitespace);
+		__auto_type items = lexerGetItems(lexer);
 
-	__auto_type node = __llGetFirst(items);
-	node = expectKeyword(node, &keywordTemplate, "graph");
-	node = expectName(node, &nameTemplate, "h2O");
-	node = expectKeyword(node, &keywordTemplate, "{");
-	node = expectName(node, &nameTemplate, "h");
-	node = expectKeyword(node, &keywordTemplate, "[");
-	node = expectName(node, &nameTemplate, "Label");
-	node = expectKeyword(node, &keywordTemplate, "=");
-	node = expectString(node, &stringTemplate, "H", 0);
-	node = expectKeyword(node, &keywordTemplate, "]");
-	node = expectKeyword(node, &keywordTemplate, ";");
-	node = expectName(node, &nameTemplate, "h");
-	node = expectKeyword(node, &keywordTemplate, "--");
-	node = expectName(node, &nameTemplate, "O1");
-	node = expectKeyword(node, &keywordTemplate, ";");
-	node = expectName(node, &nameTemplate, "h");
-	node = expectKeyword(node, &keywordTemplate, "--");
-	node = expectName(node, &nameTemplate, "O2");
-	node = expectKeyword(node, &keywordTemplate, ";");
-	node = expectKeyword(node, &keywordTemplate, "}");
+		__auto_type node = __llGetFirst(items);
+		node = expectKeyword(node, &keywordTemplate, "graph");
+		node = expectName(node, &nameTemplate, "h2O");
+		node = expectKeyword(node, &keywordTemplate, "{");
+		node = expectName(node, &nameTemplate, "h");
+		node = expectKeyword(node, &keywordTemplate, "[");
+		node = expectName(node, &nameTemplate, "Label");
+		node = expectKeyword(node, &keywordTemplate, "=");
+		node = expectString(node, &stringTemplate, "H", 0);
+		node = expectKeyword(node, &keywordTemplate, "]");
+		node = expectKeyword(node, &keywordTemplate, ";");
+		node = expectName(node, &nameTemplate, "h");
+		node = expectKeyword(node, &keywordTemplate, "--");
+		node = expectName(node, &nameTemplate, "O1");
+		node = expectKeyword(node, &keywordTemplate, ";");
+		node = expectName(node, &nameTemplate, "h");
+		node = expectKeyword(node, &keywordTemplate, "--");
+		node = expectName(node, &nameTemplate, "O2");
+		node = expectKeyword(node, &keywordTemplate, ";");
+		node = expectKeyword(node, &keywordTemplate, "}");
+	}
 }

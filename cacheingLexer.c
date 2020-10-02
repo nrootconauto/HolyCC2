@@ -75,7 +75,7 @@ static struct __diff *findSameDiffContaining(long startAt, const strDiff diffs,
 	long pos = 0, posOld = 0;
 	for (long i = startAtDiff2; i != strDiffSize(diffs); i++) {
 		if (diffs[i].type == DIFF_SAME) {
-			if (pos >= startAt || pos < startAt + diffs[i].len) {
+			if (pos <= startAt && pos < startAt + diffs[i].len) {
 				if (atNew != NULL)
 					*atNew = pos;
 				if (atOld != NULL)
@@ -200,7 +200,9 @@ static llLexerItem killConsumedItems(struct __lexer *lexer, llLexerItem current,
 }
 struct __lexerError *lexerUpdate(struct __lexer *lexer, struct __vec *newData) {
 	strDiff diffs __attribute__((cleanup(strDiffDestroy)));
-	diffs = NULL;
+	diffs = __diff(lexer->oldSource, newData, __vecSize(lexer->oldSource),
+	               __vecSize(newData), 1,
+	               lexer->charCmp); // TODO update item size
 
 	llLexerItem currentItem = __llGetFirst(lexer->oldItems);
 	long newPos = 0;
@@ -316,6 +318,7 @@ struct __lexerError *lexerUpdate(struct __lexer *lexer, struct __vec *newData) {
 		}
 	}
 
+	lexer->oldSource = __vecAppendItem(NULL, newData, __vecSize(newData));
 	lexer->oldItems = __llGetFirst(currentItem);
 	return NULL;
 }
