@@ -3,7 +3,7 @@
 #include <str.h>
 STR_TYPE_DEF(char, );
 STR_TYPE_FUNCS(char, );
-static int chrPred(void *a, void *b) { return *(char *)a - *(char *)b; }
+static int chrPred(const void *a, const void *b) { return *(const char *)a - *(const char *)b; }
 void strTests() {
 	// NULLS
 	str str1 = NULL;

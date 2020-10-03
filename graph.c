@@ -18,8 +18,8 @@ struct __graphNode {
 	struct rwLock *lock;
 	unsigned int killable : 1;
 };
-static int ptrCompare(void *a, void *b) {
-	void **A = a, **B = b;
+static int ptrCompare(const void *a, const void *b) {
+	const void **A = (const void**)a, **B = (const void**)b;
 	return *A - *B;
 }
 struct __graphNode *__graphNodeCreate(void *value, long itemSize, int version) {
@@ -200,7 +200,7 @@ static coroutine void __graphNodeKillConnections(struct __graphNode *a,
 	__graphNodeDetach(a, b, killEdge);
 	__graphNodeDetach(b, a, killEdge);
 }
-static int llpredAlwaysTrue(void *a, void *b) { return 0; }
+static int llpredAlwaysTrue(const void *a, const void *b) { return 0; }
 void __graphNodeKill(struct __graphNode *node, void (*killNode)(void *item),
                      void (*killEdge)(void *item)) {
 	strGraphEdgeP connectionPtrs = NULL;

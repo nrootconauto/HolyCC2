@@ -3,8 +3,8 @@
 #include <stdio.h>
 LL_TYPE_DEF(int, Int);
 LL_TYPE_FUNCS(int, Int);
-static int orderPred(void *a, void *b) {
-	int *A = a, *B = b;
+static int orderPred(const void *a, const void *b) {
+	const int *A = a, *B = b;
 	return *A - *B;
 }
 void llTests() {

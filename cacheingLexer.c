@@ -46,9 +46,9 @@ void lexerDestroy(struct __lexer **lexer) {
 
 	free(*lexer);
 }
-static int findAfterPosPred(void *a, void *b) {
-	long *A = a;
-	struct __lexerItem *B = b;
+static int findAfterPosPred(const void *a, const void *b) {
+	const long *A = a;
+	const struct __lexerItem *B = b;
 	return *A > B->start ? 1 : 0;
 }
 static llLexerItem findAfterPos(struct __lexer *lexer, long col,
@@ -200,6 +200,10 @@ static llLexerItem killConsumedItems(struct __lexer *lexer, llLexerItem current,
 		}
 	}
 	return NULL;
+}
+static llLexerItem lexerDestroyDeleted(const struct __lexer *lexer,const strDiff diffs,llLexerItem clone) {
+ for(int i=0;i!=strDiffSize(diffs);i++)
+	;
 }
 struct __lexerError *lexerUpdate(struct __lexer *lexer, struct __vec *newData) {
 	strDiff diffs __attribute__((cleanup(strDiffDestroy)));

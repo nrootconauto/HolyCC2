@@ -217,8 +217,8 @@ struct __CYKEntry {
 };
 STR_TYPE_DEF(struct __CYKEntry, CYKEntry);
 STR_TYPE_FUNCS(struct __CYKEntry, CYKEntry);
-int __CYKEntryPred(void *a, void *b) {
-	struct __CYKEntry *A = a, *B = b;
+int __CYKEntryPred(const void *a, const void *b) {
+	const struct __CYKEntry *A = a, *B = b;
 	__auto_type res = A->y - B->y;
 	if (res != 0)
 		return res;
@@ -296,7 +296,7 @@ static coroutine void CYKProbalisticS(const strCYKRulesP grammar,
 	if (dumpTo != NULL)
 		*dumpTo = retVal;
 }
-static int findFirstAtRow(void *a, void *b) {
+static int findFirstAtRow(const void *a, const void *b) {
 	const int *A = a;
 	const struct __CYKEntry *B = b;
 	return (*A <= B->y) ? 0 : 1;

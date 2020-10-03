@@ -50,7 +50,7 @@ static int *__mapNodeHashValue(const void *nodeValue) {
 static void *__mapNodeValue(const void *nodeValue) {
 	return (void *)nodeValue + sizeof(int) + sizeof(long);
 }
-static int __mapBucketInsertPred(void *current, void *item) {
+static int __mapBucketInsertPred(const void *current, const void *item) {
 	__auto_type res = __mapNodeHashValue(item) - __mapNodeHashValue(current);
 	if (res != 0)
 		return res;
@@ -60,8 +60,8 @@ struct __mapKeyValuePair {
 	const char *key;
 	int hash;
 };
-static int __mapBucketGetPred(void *item, void *current) {
-	struct __mapKeyValuePair *pair = item;
+static int __mapBucketGetPred(const void *item, const void *current) {
+	const struct __mapKeyValuePair *pair = item;
 	__auto_type result = pair->hash - *__mapNodeHashValue(current);
 	if (result != 0)
 		return result;

@@ -7,7 +7,7 @@ struct __ll {
 	struct __ll *prev;
 	struct __ll *next;
 };
-void *__llValuePtr(struct __ll *node);
+void *__llValuePtr(const struct __ll *node);
 void llInsertListAfter(struct __ll *a, struct __ll *b) {
 	struct __ll *oldNext = NULL;
 	__auto_type bEnd = __llGetEnd(b);
@@ -40,7 +40,7 @@ void llInsertListBefore(struct __ll *a, struct __ll *b) {
 	}
 }
 struct __ll *__llInsert(struct __ll *from, struct __ll *newItem,
-                        int (*pred)(void *, void *)) {
+                        int (*pred)(const void *, const void *)) {
 	if (from == NULL)
 		return newItem;
 	if (pred == NULL) {
@@ -81,7 +81,7 @@ struct __ll *__llInsert(struct __ll *from, struct __ll *newItem,
 	}
 	return newItem;
 }
-struct __ll *__llCreate(void *item, long size) {
+struct __ll *__llCreate(const void *item, long size) {
 	struct __ll *retVal = malloc(sizeof(struct __ll) + size);
 	retVal->next = NULL;
 	retVal->prev = NULL;
@@ -101,7 +101,7 @@ struct __ll *__llRemoveNode(struct __ll *node) {
 	node->prev = NULL;
 	return result;
 }
-void *__llValuePtr(struct __ll *node) {
+void *__llValuePtr(const struct __ll *node) {
 	return (void *)node + sizeof(struct __ll);
 }
 static coroutine void __llKillRight(struct __ll *node,
@@ -135,65 +135,65 @@ void __llDestroy(struct __ll *node, void (*killFunc)(void *)) {
 	bundle_wait(b, -1);
 	hclose(b);
 }
-struct __ll *__llNext(struct __ll *node) {
+struct __ll *__llNext(const struct __ll *node) {
 	if (node == NULL)
 		return NULL;
 	return node->next;
 }
-struct __ll *__llPrev(struct __ll *node) {
+struct __ll *__llPrev(const struct __ll *node) {
 	if (node == NULL)
 		return NULL;
 	return node->prev;
 }
-int llLastPred(void *a, void *b) { return 1; }
-int __llFirstPred(void *a, void *b) { return -1; }
-struct __ll *__llFindLeft(struct __ll *list, void *data,
-                          int (*pred)(void *a, void *b)) {
+int llLastPred(const void *a, const void *b) { return 1; }
+int __llFirstPred(const void *a, const void *b) { return -1; }
+struct __ll *__llFindLeft(const struct __ll *list, const void *data,
+                          int (*pred)(const void *a, const void *b)) {
 	if (list == NULL)
 		return NULL;
 	if (0 == pred(data, __llValuePtr(list)))
-		return list;
-	for (__auto_type left = list->prev; left != NULL; left = left->prev) {
+		return (struct __ll *)list;
+	for (struct __ll *left = list->prev; left != NULL; left = left->prev) {
 		if (pred(data, __llValuePtr(left)) < 0)
 			return left;
 	}
 	return NULL;
 }
-struct __ll *__llFindRight(struct __ll *list, void *data,
-                           int (*pred)(void *a, void *b)) {
+struct __ll *__llFindRight(const struct __ll *list, const void *data,
+                           int (*pred)(const void *a, const void *b)) {
 	if (list == NULL)
 		return NULL;
 	if (0 == pred(data, __llValuePtr(list)))
-		return list;
-	for (__auto_type right = list->next; right != NULL; right = right->next) {
+		return (struct __ll *)list;
+	for (struct __ll *right = list->next; right != NULL; right = right->next) {
 		if (pred(data, __llValuePtr(right)) < 0)
 			return right;
 	}
 	return NULL;
 }
-struct __ll *__llGetFirst(struct __ll *list) {
+struct __ll *__llGetFirst(const struct __ll *list) {
 	if (list == NULL)
 		return NULL;
 	__auto_type left = list;
 	for (;;) {
 		if (left->prev == NULL)
-			return left;
+			return (struct __ll *)left;
 		left = left->prev;
 	}
 	return NULL;
 }
-struct __ll *__llGetEnd(struct __ll *list) {
+struct __ll *__llGetEnd(const struct __ll *list) {
 	if (list == NULL)
 		return NULL;
 	__auto_type right = list;
 	for (;;) {
 		if (right->next == NULL)
-			return right;
+			return (struct __ll *)right;
 		right = right->next;
 	}
 	return NULL;
 }
-long __llSize(struct __ll *list) {
+long __llSize(const struct __ll *list) {
 	__auto_type first = __llGetFirst(list);
 	long retVal = 0;
 	for (; first != NULL; retVal++)

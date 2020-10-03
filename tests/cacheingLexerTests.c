@@ -704,7 +704,7 @@ static llLexerItem expectString(llLexerItem node,
 }
 void cachingLexerTests() {
 	__auto_type kwCount = sizeof(keywords) / sizeof(*keywords);
-	strStr keywordsVec = strStrAppendData(NULL, (char **)keywords, kwCount);
+	strStr keywordsVec = strStrAppendData(NULL, (const char **)keywords, kwCount);
 
 	__auto_type nameTemplate = nameTemplateCreate(keywordsVec);
 	__auto_type keywordTemplate = keywordTemplateCreate();

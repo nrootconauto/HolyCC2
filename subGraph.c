@@ -175,7 +175,7 @@ static void recurse(strInt usedCols, int curRow, struct __mat *graph,
 		__matDestroy(&mp);
 	}
 }
-int edgeComp(void *a, void *b) { return *(void **)a - *(void **)b; }
+int edgeComp(const void *a, const void *b) { return *(void **)a - *(void **)b; }
 static strGraphEdgeP edgesConnectedToNode(struct __graphNode *from,
                                           struct __graphNode *to) {
 	__auto_type outgoing = graphNodeSubOutgoing(from);
