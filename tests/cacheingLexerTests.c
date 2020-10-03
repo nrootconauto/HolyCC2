@@ -729,8 +729,8 @@ void cachingLexerTests() {
 		node = expectName(node, &nameTemplate, "b");
 		node = expectKeyword(node, &keywordTemplate, "--");
 		node = expectName(node, &nameTemplate, "c");
+		// Insert
 		strCharDestroy(&str);
-		//
 		text = "a1234--b--c";
 		str = strCharAppendData(NULL, (char *)text, strlen(text));
 		lexerUpdate(lexer, (struct __vec *)str);
@@ -740,6 +740,16 @@ void cachingLexerTests() {
 		node = expectName(node, &nameTemplate, "a1234");
 		node = expectKeyword(node, &keywordTemplate, "--");
 		node = expectName(node, &nameTemplate, "b");
+		node = expectKeyword(node, &keywordTemplate, "--");
+		node = expectName(node, &nameTemplate, "c");
+		//Delete
+		strCharDestroy(&str);
+		text = "a1234b--c";
+		str = strCharAppendData(NULL, (char *)text, strlen(text));
+		lexerUpdate(lexer, (struct __vec *)str);
+		items = lexerGetItems(lexer);
+		node = __llGetFirst(items);
+		node = expectName(node, &nameTemplate, "a1234b");
 		node = expectKeyword(node, &keywordTemplate, "--");
 		node = expectName(node, &nameTemplate, "c");
 	}
