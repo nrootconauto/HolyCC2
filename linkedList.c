@@ -89,15 +89,10 @@ struct __ll *__llCreate(void *item, long size) {
 	return retVal;
 }
 static void __llInsertNodeAfter(struct __ll *a, struct __ll *b) {
-	struct __ll *next = NULL;
-	if (a != NULL) {
+	if (a != NULL)
 		a->next = b;
-		next = a->next;
-	}
-	if (b != NULL) {
+	if (b != NULL)
 		b->prev = a;
-		b->next = next;
-	}
 }
 struct __ll *__llRemoveNode(struct __ll *node) {
 	__auto_type result = (node->prev == NULL) ? node->next : node->prev;
