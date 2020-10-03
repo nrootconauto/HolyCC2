@@ -195,30 +195,30 @@ static llLexerItem findEndOfConsumedItems(const llLexerItem new,
 	return NULL;
 }
 /**
- * Only delete items that are completely destroyed,if they partially exist in
+ * Only move pastitems that are completely destroyed,if they partially exist in
  * either same or insert,they may be modifed!!!
  */
-static llLexerItem lexerDestroyDeleted(const struct __lexer *lexer,
-                                       const strDiff diffs, llLexerItem clone) {
+static llLexerItem lexerMovePastDeleted(long startAt, llLexerItem currentItem,
+                                        const strDiff diffs) {
 
-	__auto_type retVal = llLexerItemFirst(clone);
+	__auto_type retVal = currentItem;
 
 	__auto_type oldPos = 0;
-	for (int i = 0; i != strDiffSize(diffs) && retVal != NULL; i++) {
+	for (long i = 0; i != strDiffSize(diffs) && retVal != NULL; i++) {
+		if (startAt <= oldPos)
+			break;
+
 		if (diffs[i].type == DIFF_REMOVE) {
 			__auto_type oldPosEnd = oldPos + diffs[i].len;
 
 			for (;;) {
 				__auto_type lexerItem = llLexerItemValuePtr(retVal);
-				if (lexerItem->start >= oldPos && lexerItem->end <= oldPosEnd) {
-					if (lexerItem->template->killItemData != NULL)
-						lexerItem->template->killItemData(lexerItemValuePtr(lexerItem));
-
+				if (lexerItem->start < oldPosEnd || lexerItem->end <= oldPosEnd) {
 					__auto_type next = llLexerItemNext(retVal);
 					if (next == NULL)
 						goto returnLabel;
 					retVal = next;
-				} else
+				} else if (lexerItem->end > oldPosEnd)
 					break;
 			}
 
@@ -286,6 +286,9 @@ struct __lexerError *lexerUpdate(struct __lexer *lexer, struct __vec *newData) {
 			newPos = (skipTo == NULL) ? __vecSize(newData)
 			                          : (void *)skipTo - (void *)newData;
 
+			currentItem = lexerMovePastDeleted(
+			    newPos, currentItem, diffs); // Move past any deletions moved past
+
 			if (newPos >= sameDiffEnd)
 				break;
 
@@ -315,7 +318,7 @@ struct __lexerError *lexerUpdate(struct __lexer *lexer, struct __vec *newData) {
 					__auto_type newNode =
 					    llLexerItemCreate(*llLexerItemValuePtr(currentItem));
 					// Make room for the new data
-					newNode = __llValueResize(newNode, sizeof(struct __lexerItem *) +
+					newNode = __llValueResize(newNode, sizeof(struct __lexerItem) +
 					                                       __vecSize(newValue));
 					lexerItemPtr = __llValuePtr(newNode);
 					// Move in the new data

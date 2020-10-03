@@ -742,7 +742,7 @@ void cachingLexerTests() {
 		node = expectName(node, &nameTemplate, "b");
 		node = expectKeyword(node, &keywordTemplate, "--");
 		node = expectName(node, &nameTemplate, "c");
-		//Delete
+		// Delete (overwrite)
 		strCharDestroy(&str);
 		text = "a1234b--c";
 		str = strCharAppendData(NULL, (char *)text, strlen(text));
@@ -752,6 +752,16 @@ void cachingLexerTests() {
 		node = expectName(node, &nameTemplate, "a1234b");
 		node = expectKeyword(node, &keywordTemplate, "--");
 		node = expectName(node, &nameTemplate, "c");
+		strCharDestroy(&str);
+		// Delete (Not part of any item)
+		text = "a1234b c";
+		str = strCharAppendData(NULL, (char *)text, strlen(text));
+		lexerUpdate(lexer, (struct __vec *)str);
+		items = lexerGetItems(lexer);
+		node = __llGetFirst(items);
+		node = expectName(node, &nameTemplate, "a1234b");
+		node = expectName(node, &nameTemplate, "c");
+		strCharDestroy(&str);
 	}
 	{
 		const char *text = "graph h2O {\n"
