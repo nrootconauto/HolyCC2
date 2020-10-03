@@ -51,7 +51,7 @@ static enum lexerItemState keywordValidate(const void *itemData,
                                            struct __vec *old, struct __vec *new,
                                            long pos, const void *data) {
 	const char *itemText = *(const char **)itemData;
-	if (__vecSize(new) - pos < strlen(itemData))
+	if (__vecSize(new) - pos < strlen(itemText))
 		return LEXER_DESTROY;
 	if (0 == strncmp(itemText, (void *)new + pos, strlen(itemText))) {
 		// If alpha-numeric,ensure same length of alhpa-numeric charactors
@@ -100,14 +100,14 @@ static enum lexerItemState nameValidate(const void *itemData, struct __vec *old,
                                         struct __vec *new, long pos,
                                         const void *data) {
 	__auto_type alNumCount = countAlnum(new, pos);
-	if (isdigit(*((char*)new + pos)))
+	if (isdigit(*((char *)new + pos)))
 		return LEXER_DESTROY;
 
 	if (isKeyword(new, pos, (const strStr)data))
 		return LEXER_DESTROY;
 
 	if (__vecSize(old) == alNumCount)
-		if (0 == strcmp((void *)old, (void *)new + pos))
+		if (0 == strncmp((void *)old, (void *)new + pos, alNumCount))
 			return LEXER_UNCHANGED;
 
 	return (alNumCount == 0) ? LEXER_DESTROY : LEXER_MODIFED;

@@ -208,7 +208,7 @@ struct __lexerError *lexerUpdate(struct __lexer *lexer, struct __vec *newData) {
 	long newPos = 0;
 	long diffOldPos = 0;
 	long diffNewPos = 0; // Dummy value will be updated ahead
-	for (int firstRun = 1; !(diffNewPos == __vecSize(newData) && firstRun == 0);
+	for (int firstRun = 1; !(newPos == __vecSize(newData) && firstRun == 0);
 	     firstRun = 0) {
 		__auto_type skipTo = lexer->whitespaceSkip(newData, newPos);
 		newPos = (skipTo == NULL) ? __vecSize(newData)
@@ -271,38 +271,34 @@ struct __lexerError *lexerUpdate(struct __lexer *lexer, struct __vec *newData) {
 					// Update pos
 					newPos = end;
 
+					__auto_type oldCurrentItem = currentItem;
 					currentItem = killConsumedItems(
 					    lexer, currentItem,
 					    diffs); // killConsumedItems returns next (availible) item
+					currentItem = (currentItem == NULL) ? oldCurrentItem : currentItem;
 					continue;
 				} else if (state == LEXER_DESTROY) {
 					__auto_type nodeBefore = llLexerItemPrev(currentItem);
 
 					// Destroy item
+					__auto_type newCurrentItem = (llLexerItemNext(currentItem) == NULL)
+					                                 ? llLexerItemPrev(currentItem)
+					                                 : llLexerItemNext(currentItem);
 					llLexerItemRemove(currentItem);
+					currentItem = newCurrentItem;
+
 					__auto_type lexerItem = llLexerItemValuePtr(currentItem);
 					if (lexerItem->template->killItemData != NULL)
 						lexerItem->template->killItemData(lexerItemValuePtr(lexerItem));
 
-					// Search for canidate
-					long endPos;
-					__auto_type res = getLexerCanidate(lexer, newData, newPos, &endPos);
-					if (res == NULL) {
-						// No canidate found,return error
-						struct __lexerError *retVal = malloc(sizeof(struct __lexerError));
-						retVal->pos = newPos;
-						retVal->lastItem = nodeBefore;
-						return retVal;
-					}
-					newPos = endPos;
-
-					llLexerItemInsertListAfter(nodeBefore, res);
-					currentItem = res;
+					goto findNewItems;
 				} else if (state == LEXER_UNCHANGED) {
 					newPos = lexerItemPtr->end - diffOldPos + diffNewPos;
 					lexerItemPtr->end = newPos;
 					lexerItemPtr->start = lexerItemPtr->start - diffOldPos + diffNewPos;
-					currentItem = llLexerItemNext(currentItem);
+
+					if (llLexerItemNext(currentItem) != NULL)
+						currentItem = llLexerItemNext(currentItem);
 					continue;
 				}
 			}
@@ -318,7 +314,7 @@ struct __lexerError *lexerUpdate(struct __lexer *lexer, struct __vec *newData) {
 
 				newPos = end;
 				if (newPos > diffNewPos) {
-					currentItem = killConsumedItems(lexer, currentItem, diffs);
+					killConsumedItems(lexer, currentItem, diffs);
 					break;
 				}
 			} while (newPos < diffNewPos);
