@@ -172,38 +172,86 @@ static llLexerItem getLexerCanidate(struct __lexer *lexer,
 		*endPos = pos + biggestSize;
 	return retVal;
 }
-static llLexerItem killConsumedItems(struct __lexer *lexer, llLexerItem current,
-                                     const strDiff diffs) {
-	for (;;) {
-		__auto_type item = llLexerItemValuePtr(current);
-		// Kill Nodes that exist witin new range
-		long oldPos;
-		long newPos;
-		findSameDiffContaining(item->end, diffs, &newPos, &oldPos);
-		__auto_type offset = item->end - newPos;
+static llLexerItem findEndOfConsumedItems(const llLexerItem new,
+                                          const llLexerItem current,
+                                          const strDiff diffs) {
+	__auto_type item = llLexerItemValuePtr(new);
+	// Kill Nodes that exist witin new range
+	long oldPos;
+	long newPos;
+	findSameDiffContaining(item->end, diffs, &newPos, &oldPos);
+	__auto_type offset = item->end - newPos;
 
-		for (__auto_type node = llLexerItemNext(current); node != NULL;) {
-			__auto_type lexerItem = llLexerItemValuePtr(node);
+	for (__auto_type node = llLexerItemNext(current); node != NULL;) {
+		__auto_type lexerItem = llLexerItemValuePtr(node);
 
-			if (lexerItem->start < oldPos + offset) {
-				if (lexerItem->template->killItemData != NULL)
-					lexerItem->template->killItemData(lexerItemValuePtr(lexerItem));
-
-				current = llLexerItemNext(node);
-				node = __llRemoveNode(node);
-				node = current;
-
-				continue;
-			} else {
-				return node;
-			}
+		if (lexerItem->start < oldPos + offset) {
+			node = llLexerItemNext(node);
+			continue;
+		} else {
+			return node;
 		}
 	}
 	return NULL;
 }
-static llLexerItem lexerDestroyDeleted(const struct __lexer *lexer,const strDiff diffs,llLexerItem clone) {
- for(int i=0;i!=strDiffSize(diffs);i++)
-	;
+/**
+ * Only delete items that are completely destroyed,if they partially exist in
+ * either same or insert,they may be modifed!!!
+ */
+static llLexerItem lexerDestroyDeleted(const struct __lexer *lexer,
+                                       const strDiff diffs, llLexerItem clone) {
+
+	__auto_type retVal = llLexerItemFirst(clone);
+
+	__auto_type oldPos = 0;
+	for (int i = 0; i != strDiffSize(diffs) && retVal != NULL; i++) {
+		if (diffs[i].type == DIFF_REMOVE) {
+			__auto_type oldPosEnd = oldPos + diffs[i].len;
+
+			for (;;) {
+				__auto_type lexerItem = llLexerItemValuePtr(retVal);
+				if (lexerItem->start >= oldPos && lexerItem->end <= oldPosEnd) {
+					if (lexerItem->template->killItemData != NULL)
+						lexerItem->template->killItemData(lexerItemValuePtr(lexerItem));
+
+					__auto_type next = llLexerItemNext(retVal);
+					if (next == NULL)
+						goto returnLabel;
+					retVal = next;
+				} else
+					break;
+			}
+
+			oldPos = oldPosEnd;
+		} else if (diffs[i].type == DIFF_SAME) {
+			oldPos += diffs[i].len;
+		}
+	}
+
+returnLabel:
+	return retVal;
+}
+llLexerItem lexerItemClone(const llLexerItem toClone) {
+	__auto_type item = llLexerItemValuePtr(toClone);
+	__auto_type clone = llLexerItemCreate(*item);
+
+	if (item->template->cloneData != NULL) {
+		__auto_type res = item->template->cloneData(lexerItemValuePtr(item));
+		clone = __llValueResize(clone, sizeof(struct __lexerItem) + __vecSize(res));
+
+		__auto_type valuePtr = lexerItemValuePtr(llLexerItemValuePtr(toClone));
+		memcpy(valuePtr, res, __vecSize(res));
+
+		__vecDestroy(res);
+	} else {
+		clone = __llValueResize(clone, __llItemSize(toClone));
+		__auto_type valuePtrClone = lexerItemValuePtr(llLexerItemValuePtr(clone));
+		__auto_type valuePtrFrom = lexerItemValuePtr(llLexerItemValuePtr(toClone));
+		memcpy(valuePtrClone, valuePtrFrom,
+		       __llItemSize(toClone) - sizeof(struct __lexerItem));
+	}
+
+	return clone;
 }
 struct __lexerError *lexerUpdate(struct __lexer *lexer, struct __vec *newData) {
 	strDiff diffs __attribute__((cleanup(strDiffDestroy)));
@@ -212,6 +260,7 @@ struct __lexerError *lexerUpdate(struct __lexer *lexer, struct __vec *newData) {
 	               lexer->charCmp); // TODO update item size
 
 	llLexerItem currentItem = __llGetFirst(lexer->oldItems);
+	llLexerItem retVal = NULL;
 	long newPos = 0;
 	long diffOldPos = 0;
 	long diffNewPos = 0; // Dummy value will be updated ahead
@@ -256,20 +305,26 @@ struct __lexerError *lexerUpdate(struct __lexer *lexer, struct __vec *newData) {
 				if (state == LEXER_MODIFED) {
 					long end;
 
+					//
+					// Make a new node containing the new value
+					//
 					__auto_type newValue =
 					    template->update(lexerItemValuePtr(lexerItemPtr), slice, newData,
 					                     newPos, &end, template->data);
-					// Delete old value
-					if (template->killItemData != NULL)
-						template->killItemData(lexerItemValuePtr(lexerItemPtr));
-
-					// Resize for new value
-					__auto_type newSize = __vecSize(newValue);
-					currentItem = __llValueResize(currentItem,
-					                              sizeof(struct __lexerItem) + newSize);
-					lexerItemPtr = __llValuePtr(currentItem);
-					memmove(lexerItemValuePtr(lexerItemPtr), newValue, newSize);
+					// Clone the properites of the current item
+					__auto_type newNode =
+					    llLexerItemCreate(*llLexerItemValuePtr(currentItem));
+					// Make room for the new data
+					newNode = __llValueResize(newNode, sizeof(struct __lexerItem *) +
+					                                       __vecSize(newValue));
+					lexerItemPtr = __llValuePtr(newNode);
+					// Move in the new data
+					memmove(lexerItemValuePtr(lexerItemPtr), newValue,
+					        __vecSize(newValue));
 					__vecDestroy(newValue);
+
+					//
+					retVal = newNode;
 
 					// Update node size
 					lexerItemPtr->start = newPos;
@@ -279,33 +334,24 @@ struct __lexerError *lexerUpdate(struct __lexer *lexer, struct __vec *newData) {
 					newPos = end;
 
 					__auto_type oldCurrentItem = currentItem;
-					currentItem = killConsumedItems(
-					    lexer, currentItem,
+					currentItem = findEndOfConsumedItems(
+					    retVal, currentItem,
 					    diffs); // killConsumedItems returns next (availible) item
-					currentItem = (currentItem == NULL) ? oldCurrentItem : currentItem;
 					continue;
 				} else if (state == LEXER_DESTROY) {
-					__auto_type nodeBefore = llLexerItemPrev(currentItem);
-
-					// Destroy item
-					__auto_type newCurrentItem = (llLexerItemNext(currentItem) == NULL)
-					                                 ? llLexerItemPrev(currentItem)
-					                                 : llLexerItemNext(currentItem);
-					llLexerItemRemove(currentItem);
-					currentItem = newCurrentItem;
-
-					__auto_type lexerItem = llLexerItemValuePtr(currentItem);
-					if (lexerItem->template->killItemData != NULL)
-						lexerItem->template->killItemData(lexerItemValuePtr(lexerItem));
+					currentItem = llLexerItemNext(currentItem);
 
 					goto findNewItems;
 				} else if (state == LEXER_UNCHANGED) {
-					newPos = lexerItemPtr->end - diffOldPos + diffNewPos;
-					lexerItemPtr->end = newPos;
-					lexerItemPtr->start = lexerItemPtr->start - diffOldPos + diffNewPos;
+					__auto_type clone = lexerItemClone(currentItem);
+					__auto_type cloneItemPtr = llLexerItemValuePtr(clone);
+					newPos = cloneItemPtr->end - diffOldPos + diffNewPos;
+					cloneItemPtr->end = newPos;
+					cloneItemPtr->start = cloneItemPtr->start - diffOldPos + diffNewPos;
+					llLexerItemInsertListAfter(retVal, clone);
+					retVal = clone;
 
-					if (llLexerItemNext(currentItem) != NULL)
-						currentItem = llLexerItemNext(currentItem);
+					currentItem = llLexerItemNext(currentItem);
 					continue;
 				}
 			}
@@ -316,20 +362,20 @@ struct __lexerError *lexerUpdate(struct __lexer *lexer, struct __vec *newData) {
 				__auto_type res = getLexerCanidate(lexer, newData, newPos, &end);
 				newPos = end;
 				assert(NULL != res);
-				llLexerItemInsertListAfter(currentItem, (llLexerItem)res);
-				currentItem = res;
+				llLexerItemInsertListAfter(retVal, (llLexerItem)res);
+				retVal = res;
 
 				newPos = end;
-				if (newPos > diffNewPos) {
-					killConsumedItems(lexer, currentItem, diffs);
-					break;
-				}
+
+				currentItem = findEndOfConsumedItems(
+				    retVal, currentItem,
+				    diffs); // killConsumedItems returns next (availible) item
 			} while (newPos < diffNewPos);
 		}
 		}
 	}
 
 	lexer->oldSource = __vecAppendItem(NULL, newData, __vecSize(newData));
-	lexer->oldItems = __llGetFirst(currentItem);
+	lexer->oldItems = __llGetFirst(retVal);
 	return NULL;
 }

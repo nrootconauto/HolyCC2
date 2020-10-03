@@ -6,6 +6,7 @@
 struct __ll {
 	struct __ll *prev;
 	struct __ll *next;
+	long itemSize;
 };
 void *__llValuePtr(const struct __ll *node);
 void llInsertListAfter(struct __ll *a, struct __ll *b) {
@@ -86,6 +87,7 @@ struct __ll *__llCreate(const void *item, long size) {
 	retVal->next = NULL;
 	retVal->prev = NULL;
 	memcpy((void *)retVal + sizeof(struct __ll), item, size);
+	retVal->itemSize = size;
 	return retVal;
 }
 static void __llInsertNodeAfter(struct __ll *a, struct __ll *b) {
@@ -212,5 +214,9 @@ struct __ll *__llValueResize(struct __ll *list, long newSize) {
 	if (oldNext != NULL)
 		llInsertListBefore(oldNext, list);
 
+	list->itemSize = newSize;
 	return list;
+}
+long __llItemSize(const struct __ll *list) {
+ return list->itemSize;
 }

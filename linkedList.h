@@ -104,3 +104,4 @@ long __llSize(const struct __ll *list);
 void llInsertListAfter(struct __ll *a, struct __ll *b);
 void llInsertListBefore(struct __ll *a, struct __ll *b);
 struct __ll *__llValueResize(struct __ll *list, long newSize);
+long __llItemSize(const struct __ll *list);

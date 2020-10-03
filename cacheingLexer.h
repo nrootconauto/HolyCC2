@@ -12,6 +12,7 @@ LL_TYPE_DEF(struct __lexerItem, LexerItem);
 LL_TYPE_FUNCS(struct __lexerItem, LexerItem);
 struct __lexerItemTemplate {
 	void *data;
+	struct __vec *(*cloneData)(const void*);
 	struct __vec *(*lexItem)(struct __vec *str, long pos, long *end,
 	                         const void *data);
 	enum lexerItemState (*validateOnModify)(const void *lexerItemData,
