@@ -18,6 +18,7 @@ list(APPEND sources "cyk.c")
 list(APPEND sources "cacheingLexer.c")
 list(APPEND sources "utf8Encode.c")
 list(APPEND sources "exception.c")
+list(APPEND sources "cacheingLexerItems.c")
 
 set(tests "")
 list(APPEND tests "tests/tests.c")

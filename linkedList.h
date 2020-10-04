@@ -38,10 +38,11 @@ struct __ll;
 	inline ll##suffix ll##suffix##Prev(const ll##suffix Node) {                  \
 		return (ll##suffix)__llPrev(Node);                                         \
 	}                                                                            \
-	inline void ll##suffix##Destroy(ll##suffix *node)                            \
+	inline void ll##suffix##Destroy(ll##suffix *node, void (*killFunc)(void *))  \
 	    __attribute__((always_inline));                                          \
-	inline void ll##suffix##Destroy(ll##suffix *node) {                          \
-		__llDestroy(*node, NULL);                                                  \
+	inline void ll##suffix##Destroy(ll##suffix *node,                            \
+	                                void (*killFunc)(void *)) {                  \
+		__llDestroy(*node, killFunc);                                              \
 	}                                                                            \
 	inline ll##suffix ll##suffix##FindLeft(                                      \
 	    const ll##suffix *node, const void *data,                                \

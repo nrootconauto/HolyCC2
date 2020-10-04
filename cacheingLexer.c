@@ -14,6 +14,11 @@ struct __lexer {
 	int (*charCmp)(const void *, const void *);
 	const void *(*whitespaceSkip)(struct __vec *source, long pos);
 };
+static void killLexerItemsNode(void *item) {
+	struct __lexerItem *ptr = item;
+	if (ptr->template->killItemData != NULL)
+		ptr->template->killItemData(lexerItemValuePtr(ptr));
+}
 llLexerItem lexerGetItems(struct __lexer *lexer) { return lexer->oldItems; }
 struct __lexer *lexerCreate(struct __vec *data, strLexerItemTemplate templates,
                             int (*charCmp)(const void *, const void *),
@@ -28,8 +33,11 @@ struct __lexer *lexerCreate(struct __vec *data, strLexerItemTemplate templates,
 	retVal->templates =
 	    (strLexerItemTemplate)__vecConcat(NULL, (struct __vec *)templates);
 
-	lexerUpdate(retVal, data);
+	int err;
+	lexerUpdate(retVal, data, &err);
 
+	if (err)
+		return NULL;
 	return retVal;
 }
 void lexerDestroy(struct __lexer **lexer) {
@@ -42,7 +50,13 @@ void lexerDestroy(struct __lexer **lexer) {
 			value->template->killItemData(lexerItemValuePtr(value));
 		node = llLexerItemNext(node);
 	}
-	llLexerItemDestroy(&lexer[0]->oldItems);
+	llLexerItemDestroy(&lexer[0]->oldItems, killLexerItemsNode);
+
+	for (long i = 0; i != strLexerItemTemplateSize(lexer[0]->templates); i++) {
+		__auto_type templatePtr = lexer[0]->templates[i];
+		if (templatePtr->killTemplateData != NULL)
+			templatePtr->killTemplateData(templatePtr->data);
+	}
 
 	free(*lexer);
 }
@@ -130,14 +144,24 @@ static struct __diff *findNextSameDiff(const struct __lexer *lexer,
 static void __vecDestroyPtr(struct __vec **vec) { __vecDestroy(*vec); }
 static llLexerItem getLexerCanidate(struct __lexer *lexer,
                                     struct __vec *newData, long pos,
-                                    long *endPos) {
+                                    long *endPos, int *err) {
 	llLexerItem retVal = NULL;
 
 	__auto_type biggestSize = 0;
 	for (int i = 0; i != strLexerItemTemplateSize(lexer->templates); i++) {
 		long end;
-		__auto_type res = lexer->templates[i]->lexItem(newData, pos, &end,
-		                                               lexer->templates[i]->data);
+		__auto_type res = lexer->templates[i]->lexItem(
+		    newData, pos, &end, lexer->templates[i]->data, err);
+
+		if (*err != 0) {
+			if (retVal != NULL) {
+				__auto_type item = llLexerItemValuePtr(retVal);
+				if (item->template->killItemData != NULL)
+					item->template->killItemData(lexerItemValuePtr(item));
+			}
+			return NULL;
+		}
+
 		__auto_type resSize = __vecSize(res);
 		if (res != NULL) {
 			__auto_type size = end - pos;
@@ -253,7 +277,7 @@ llLexerItem lexerItemClone(const llLexerItem toClone) {
 
 	return clone;
 }
-struct __lexerError *lexerUpdate(struct __lexer *lexer, struct __vec *newData) {
+void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 	strDiff diffs __attribute__((cleanup(strDiffDestroy)));
 	diffs = __diff(lexer->oldSource, newData, __vecSize(lexer->oldSource),
 	               __vecSize(newData), 1,
@@ -304,7 +328,11 @@ struct __lexerError *lexerUpdate(struct __lexer *lexer, struct __vec *newData) {
 				__auto_type template = lexerItemPtr->template;
 				__auto_type state =
 				    template->validateOnModify(lexerItemValuePtr(lexerItemPtr), slice,
-				                               newData, newPos, template->data);
+				                               newData, newPos, template->data, err);
+				if (err != NULL)
+					if (*err)
+						goto error;
+
 				if (state == LEXER_MODIFED) {
 					long end;
 
@@ -313,7 +341,10 @@ struct __lexerError *lexerUpdate(struct __lexer *lexer, struct __vec *newData) {
 					//
 					__auto_type newValue =
 					    template->update(lexerItemValuePtr(lexerItemPtr), slice, newData,
-					                     newPos, &end, template->data);
+					                     newPos, &end, template->data, err);
+					if (err != NULL)
+						if (*err)
+							goto error;
 					// Clone the properites of the current item
 					__auto_type newNode =
 					    llLexerItemCreate(*llLexerItemValuePtr(currentItem));
@@ -362,7 +393,10 @@ struct __lexerError *lexerUpdate(struct __lexer *lexer, struct __vec *newData) {
 			do {
 				newPos = lexer->whitespaceSkip(newData, newPos) - (void *)newData;
 				long end;
-				__auto_type res = getLexerCanidate(lexer, newData, newPos, &end);
+				__auto_type res = getLexerCanidate(lexer, newData, newPos, &end, err);
+				if (err != NULL)
+					if (*err)
+						goto error;
 				newPos = end;
 				assert(NULL != res);
 				llLexerItemInsertListAfter(retVal, (llLexerItem)res);
@@ -380,5 +414,6 @@ struct __lexerError *lexerUpdate(struct __lexer *lexer, struct __vec *newData) {
 
 	lexer->oldSource = __vecAppendItem(NULL, newData, __vecSize(newData));
 	lexer->oldItems = __llGetFirst(retVal);
-	return NULL;
+	return;
+error : { llLexerItemDestroy(&retVal, killLexerItemsNode); }
 }
