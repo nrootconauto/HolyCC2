@@ -52,12 +52,6 @@ void lexerDestroy(struct __lexer **lexer) {
 	}
 	llLexerItemDestroy(&lexer[0]->oldItems, killLexerItemsNode);
 
-	for (long i = 0; i != strLexerItemTemplateSize(lexer[0]->templates); i++) {
-		__auto_type templatePtr = lexer[0]->templates[i];
-		if (templatePtr->killTemplateData != NULL)
-			templatePtr->killTemplateData(templatePtr->data);
-	}
-
 	free(*lexer);
 }
 static int findAfterPosPred(const void *a, const void *b) {

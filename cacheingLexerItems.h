@@ -20,13 +20,9 @@ struct lexerFloating {
 	unsigned long frac;
 	int exponet;
 };
-struct lexerString {
-	struct __vec *text;
-	int isChar : 1;
-};
 const void *skipWhitespace(struct __vec *text, long from);
-struct __lexerItemTemplate floatingTemplateCreate();
-struct __lexerItemTemplate intTemplateCreate();
+void *findNextLine(struct __vec *text, long pos);
+void *findEndOfLine(struct __vec *text, long pos) ;
 struct __lexerItemTemplate keywordTemplateCreate(const char **keywords,
                                                  long keywordCount);
 struct __lexerItemTemplate nameTemplateCreate(const char **keywords,
