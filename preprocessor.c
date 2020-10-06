@@ -30,6 +30,9 @@ static void *findEndOfLine(const struct __vec *text, long pos) {
 		if (chr == '\r' || chr == '\n')
 			break;
 	}
+	if (retVal == (void *)text + __vecSize(text))
+		return retVal - 1;
+	
 	return retVal;
 }
 void *findNextLine(const struct __vec *text, long pos) {
@@ -175,9 +178,11 @@ static int expectMacroAndSkip(const char *macroText, struct __vec *text,
 		return 0;
 
 	if (pos + len < __vecSize(text))
-		if (isalnum((const char *)text + pos + len))
+		if (isalnum((pos + len)[(const char *)text]))
 			return 0;
 
+	if (end != NULL)
+		*end = pos + len;
 	return 0 == strncmp((void *)text + pos, macroText, len);
 }
 static int includeMacroLex(struct __vec *text, long pos, long *end,
@@ -238,7 +243,7 @@ static int defineMacroLex(struct __vec *text, long pos, long *end,
 	struct __vec *replacement =
 	    __vecAppendItem(NULL, &pos[(char *)text], end2 - pos);
 	if (end != NULL)
-		*end = findNextLine(text, pos) - (void *)text;
+		*end = findEndOfLine(text, pos) - (void *)text;
 	replacement = __vecAppendItem(replacement, "\0", 1);
 
 	struct defineMacro retVal;
