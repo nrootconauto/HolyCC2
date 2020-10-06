@@ -3,7 +3,7 @@
 #include <str.h>
 STR_TYPE_DEF(char, );
 STR_TYPE_FUNCS(char, );
-static int chrPred(const void *a, const void *b) { return *(const char *)a - *(const char *)b; }
+static int chrFind(const void *a, const void *b) { return *(const char *)a - *(const char *)b; }
 void strTests() {
 	// NULLS
 	str str1 = NULL;
@@ -17,13 +17,13 @@ void strTests() {
 	assert(0 == strncmp(str1, "abc", 3));
 	str1 = strAppendItem(str1, 'e');
 	assert(0 == strncmp(str1, "abce", 4));
-	str1 = strSortedInsert(str1, 'd', chrPred);
+	str1 = strSortedInsert(str1, 'd', chrFind);
 	assert(0 == strncmp(str1, "abcde", 5));
 	// Find
-	assert('d' == *strSortedFind(str1, 'd', chrPred));
+	assert('d' == *strSortedFind(str1, 'd', chrFind));
 	// Difference
 	str str2 = strAppendData(NULL, "ace", 3);
-	str1 = strSetDifference(str1, str2, chrPred);
+	str1 = strSetDifference(str1, str2, chrFind);
 	assert(0 == strncmp(str1, "bd", 2));
 	assert(2 == strSize(str1));
 }

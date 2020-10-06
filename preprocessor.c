@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <cacheingLexer.h>
 #include <ctype.h>
+#include <hashTable.h>
 #include <preprocessor.h>
 #include <stdio.h>
 #include <str.h>
@@ -8,7 +9,21 @@
 #include <stringParser.h>
 #include <unistd.h>
 // TODO implement exe,if,ifdef,ifndef
-void *findEndOfLine(struct __vec *text, long pos) {
+static __thread strSourceMapping sourceMappings = NULL;
+static __thread FILE *preprocessedSource = NULL;
+
+static void __vecDestroy2(struct __vec **vec) { __vecDestroy(*vec); }
+static void fileDestroy(FILE **file) { fclose(*file); }
+MAP_TYPE_DEF(struct defineMacro, DefineMacro);
+MAP_TYPE_FUNCS(struct defineMacro, DefineMacro);
+static struct __vec *createNullTerminated(struct __vec *vec) {
+	__auto_type nameLen = __vecSize(vec);
+	__auto_type retVal = __vecResize(NULL, nameLen + 1);
+	memcpy(retVal, vec, nameLen);
+	nameLen[(char *)retVal] = '\0';
+	return retVal;
+}
+static void *findEndOfLine(const struct __vec *text, long pos) {
 	void *retVal = (void *)text + pos;
 	for (; retVal < (void *)text + __vecSize(text); retVal++) {
 		__auto_type chr = *(char *)retVal;
@@ -17,7 +32,7 @@ void *findEndOfLine(struct __vec *text, long pos) {
 	}
 	return retVal;
 }
-void *findNextLine(struct __vec *text, long pos) {
+void *findNextLine(const struct __vec *text, long pos) {
 	void *retVal = findEndOfLine(text, pos);
 	for (; retVal < (void *)text + __vecSize(text); retVal++) {
 		__auto_type chr = *(char *)retVal;
@@ -26,31 +41,28 @@ void *findNextLine(struct __vec *text, long pos) {
 	}
 	return retVal;
 }
-static const void *skipNonMacro(struct __vec *text, long pos) {
+static void *findSkipStringAndComments(
+    const struct __vec *text, long pos, const void *data,
+    void *(*findFunc)(const void *, const struct __vec *text, long pos)) {
 	__auto_type end = (void *)text + __vecSize(text);
-
 loop:;
-	void *find = strchr(&pos[(void *)text], '#');
-	if (find == NULL)
-		return end;
+	void *find = findFunc(data, text, pos);
 
-	// Find things that invalidate macros
-	void *findCommentS = strstr(&pos[(void *)text], "//");
-	void *findCommentM = strstr(&pos[(void *)text], "/*");
+	void *findCommentS = strstr((void *)text + pos, "//");
+	void *findCommentM = strstr((void *)text + pos, "/*");
 	findCommentS = (findCommentS == NULL) ? end : findCommentS;
 	findCommentM = (findCommentM == NULL) ? end : findCommentM;
 	__auto_type lesserComment =
 	    (findCommentS < findCommentM) ? findCommentS : findCommentM;
 
-	void *findStr1 = strchr(&pos[(void *)text], '\'');
-	void *findStr2 = strchr(&pos[(void *)text], '"');
+	void *findStr1 = strchr((void *)text + pos, '\'');
+	void *findStr2 = strchr((void *)text + pos, '"');
 	findStr1 = (findStr1 == NULL) ? end : findStr1;
 	findStr2 = (findStr2 == NULL) ? end : findStr2;
 	__auto_type lesserStr = (findStr1 < findStr2) ? findStr1 : findStr2;
-	// Found macro before str/comment
-	if (find < lesserStr && find < lesserComment) {
+
+	if (find < lesserStr && find < lesserComment)
 		return find;
-	}
 
 	if (lesserComment != end && lesserComment < lesserStr) {
 		// Skip comments
@@ -62,9 +74,9 @@ loop:;
 			// Multiline
 			void *otherSide = strstr((void *)text, "*/");
 			if (otherSide == NULL)
-				return end;
+				return NULL;
 			else
-				pos = otherSide - (void *)text;
+				return otherSide + strlen("*/");
 		}
 	} else if (lesserStr != end) {
 		// Skip strings
@@ -73,16 +85,66 @@ loop:;
 		int err;
 		stringParse(text, pos, &endOfString, NULL, &err);
 		if (err)
-			return end;
-		goto loop;
+			return NULL;
+	} else {
+		return NULL; // Will never reach here
 	}
+	goto loop;
+	return NULL;
+}
+static void *chrFind(const void *a, const struct __vec *b, long pos) {
+	return strstr((void *)b + pos, a);
+}
+static void *skipNonMacro(const struct __vec *text, long pos) {
+	return findSkipStringAndComments(text, pos, "#", chrFind);
+}
+static void *replacementFindPred(const void *a, const struct __vec *text,
+                                 long pos) {
+	const mapDefineMacro map = (const mapDefineMacro)a;
+	__auto_type b = (void *)text + pos;
+	__auto_type textEnd = b + __vecSize(text);
 
-	return (find == NULL) ? end : find;
+	while (b != textEnd) {
+		// Check if charactor before is a word charactor,if so quit search
+		if (b != text) // Check if a start
+			if (isalnum(-1 [(char *)b]))
+				return NULL;
+		if (isalpha(*(char *)b)) {
+			__auto_type original = b;
+			__auto_type end = original;
+			while (isalnum(*(char *)end) && b < textEnd)
+				end++;
+
+			char buffer[end - original + 1];
+			memcpy(buffer, original, end - original);
+			buffer[end - original] = '\0';
+			__auto_type macro = mapDefineMacroGet(map, buffer);
+
+			return b;
+		}
+
+		// Skip word then look for next word
+		while (b < textEnd)
+			if (isalnum(*(char *)b))
+				b++;
+			else
+				break;
+		while (b < textEnd)
+			if (!isalnum(*(char *)b))
+				b++;
+
+		continue;
+	}
+	return NULL;
+}
+static void *findNextReplacement(const struct __vec *text,
+                                 const mapDefineMacro defines, long pos) {
+	return findSkipStringAndComments(text, pos, defines, replacementFindPred);
 }
 static void *skipWhitespace(struct __vec *text, long pos) {
 	__auto_type len = __vecSize(text);
 	void *where;
-	for (where = &pos[(void *)text]; where < (void *)text + len; where++) {
+	for (where = (void *)text + pos; where < (void *)text + len; where++) {
 		__auto_type chr = *(char *)where;
 		if (isblank(chr))
 			continue;
@@ -112,72 +174,30 @@ static int expectMacroAndSkip(const char *macroText, struct __vec *text,
 
 	return 0 == strncmp((void *)text + pos, macroText, len);
 }
-static struct __vec *includeMacroLex(struct __vec *text, long pos, long *end,
-                                     const void *data, int *err) {
+static int includeMacroLex(struct __vec *text, long pos, long *end,
+                           struct includeMacro *result, int *err) {
 	if (err != NULL)
 		*err = 0;
 
 	if (!expectMacroAndSkip("include", text, pos, &pos))
-		return NULL;
+		return 0;
 
 	pos = skipWhitespace(text, pos) - (void *)text;
 
-	struct parsedString result;
-	if (!stringParse(text, pos, end, &result, err))
+	struct parsedString filename;
+	if (!stringParse(text, pos, end, &filename, err))
 		goto malformed;
 
 	struct includeMacro retVal;
 	retVal.fileName =
-	    __vecAppendItem(NULL, (char *)result.text, __vecSize(result.text));
-	return __vecAppendItem(NULL, &retVal, sizeof(struct includeMacro));
+	    __vecAppendItem(NULL, (char *)filename.text, __vecSize(filename.text));
+	if (result != NULL)
+		*result = retVal;
+	return 1;
 malformed : {
 	*err = 1;
-	return NULL;
+	return 0;
 }
-}
-static enum lexerItemState includeMacroValidate(const void *oldData,
-                                                struct __vec *oldText,
-                                                struct __vec *newText, long pos,
-                                                const void *data, int *err) {
-	if (err != NULL)
-		*err = 0;
-
-	if (!expectMacroAndSkip("include", newText, pos, &pos))
-		return LEXER_DESTROY;
-
-	struct parsedString str;
-	long end;
-	if (!stringParse(newText, pos, &end, &str, err)) {
-		*err = 1;
-		return LEXER_DESTROY;
-	}
-
-	enum lexerItemState retVal = LEXER_MODIFED;
-	const struct includeMacro *oldMacro = oldData;
-	if (__vecSize(oldMacro->fileName) == __vecSize(str.text))
-		if (0 == strncmp((const char *)oldMacro->fileName, (char *)str.text,
-		                 __vecSize(str.text)))
-			retVal = LEXER_UNCHANGED;
-
-	parsedStringDestroy(&str);
-	return retVal;
-}
-static struct __vec *includeMacroUpdate(const void *oldData,
-                                        struct __vec *oldText,
-                                        struct __vec *newText, long pos,
-                                        long *end, const void *data, int *err) {
-	if (!expectMacroAndSkip("include", newText, pos, &pos))
-		return NULL;
-
-	pos = skipWhitespace(newText, pos) - (void *)newText;
-	struct parsedString str;
-	assert(0 != stringParse(newText, pos, end, &str, err));
-	struct includeMacro retVal;
-	retVal.fileName =
-	    __vecAppendItem(NULL, (void *)str.text, __vecSize(str.text));
-	parsedStringDestroy(&str);
-
-	return __vecAppendItem(NULL, &retVal, sizeof(struct includeMacro));
 }
 static void defineMacroDestroy(void *macro) {
 	struct defineMacro *macro2 = macro;
@@ -187,10 +207,10 @@ static void defineMacroDestroy(void *macro) {
 static void defineMacroDestroyLexerItem(struct __lexerItem *item) {
 	defineMacroDestroy(lexerItemValuePtr(item));
 }
-static struct __vec *defineMacroLex(struct __vec *text, long pos, long *end,
-                                    const void *data, int *err) {
+static int defineMacroLex(struct __vec *text, long pos, long *end,
+                          struct defineMacro *result, int *err) {
 	if (!expectMacroAndSkip("define", text, pos, &pos))
-		return NULL;
+		return 0;
 
 	pos = skipWhitespace(text, pos) - (void *)text;
 
@@ -216,79 +236,16 @@ static struct __vec *defineMacroLex(struct __vec *text, long pos, long *end,
 	struct defineMacro retVal;
 	retVal.name = name;
 	retVal.text = replacement;
-	return __vecAppendItem(NULL, &retVal, sizeof(struct defineMacro));
+	if (result != NULL)
+		*result = retVal;
+	return 0;
 malformed : {
 	*err = 1;
-	return NULL;
+	return 0;
 }
 }
-static struct __vec *defineMacroUpdate(const void *oldData,
-                                       struct __vec *oldText,
-                                       struct __vec *newText, long pos,
-                                       long *end, const void *data, int *err) {
-	return defineMacroLex(newText, pos, end, data, err);
-}
-static enum lexerItemState defineMacroValidate(const void *oldData,
-                                               struct __vec *oldText,
-                                               struct __vec *newText, long pos,
-                                               const void *data, int *err) {
-	__auto_type res = defineMacroLex(newText, pos, NULL, data, err);
-	if (res == NULL)
-		return LEXER_DESTROY;
-
-	const struct defineMacro *newDefine = (const void *)res;
-	const struct defineMacro *oldDefine = oldData;
-	enum lexerItemState retVal = LEXER_MODIFED;
-	if (__vecSize(oldDefine->name) != __vecSize(newDefine->name))
-		goto modified;
-	if (__vecSize(oldDefine->text) != __vecSize(newDefine->text))
-		goto modified;
-	if (0 != strncmp((const char *)newDefine->name, (const char *)oldDefine->name,
-	                 __vecSize(newDefine->name)))
-		goto modified;
-	if (0 != strncmp((const char *)newDefine->text, (const char *)oldDefine->text,
-	                 __vecSize(newDefine->text)))
-		goto modified;
-	retVal = LEXER_UNCHANGED;
-	goto returnLabel;
-modified:
-	retVal = LEXER_MODIFED;
-returnLabel:
-	defineMacroDestroy((struct defineMacro *)res);
-	__vecDestroy(res);
-	return retVal;
-}
-void includeMacroDestroy(struct __lexerItem *macro) {
-	struct includeMacro *macro2 = lexerItemValuePtr(macro);
-	__vecDestroy(macro2->fileName);
-}
-struct __lexerItemTemplate *createDefineMacroTemplate() {
-	struct __lexerItemTemplate *template =
-	    malloc(sizeof(struct __lexerItemTemplate));
-
-	template->cloneData = NULL;
-	template->data = NULL;
-	template->killItemData = defineMacroDestroyLexerItem;
-	template->killTemplateData = NULL;
-	template->lexItem = defineMacroLex;
-	template->update = defineMacroUpdate;
-	template->validateOnModify = defineMacroValidate;
-
-	return template;
-}
-struct __lexerItemTemplate *createIncludeMacroTemplate() {
-	struct __lexerItemTemplate *template =
-	    malloc(sizeof(struct __lexerItemTemplate));
-
-	template->lexItem = includeMacroLex;
-	template->validateOnModify = includeMacroValidate;
-	template->update = includeMacroUpdate;
-	template->cloneData = NULL;
-	template->killTemplateData = NULL;
-	template->data = NULL;
-	template->killItemData = includeMacroDestroy;
-
-	return template;
+void includeMacroDestroy(struct includeMacro *macro) {
+	__vecDestroy(macro->fileName);
 }
 /**
  * This takes a processed text(result of preprocessor),then maps it to source
@@ -297,7 +254,7 @@ long mappedPosition(const strSourceMapping mapping, long processedPos) {
 	long processedStart = 0;
 	long sourcePrevEnd = 0;
 	for (long i = 0; i != strSourceMappingSize(mapping); i++) {
-		__auto_type sourceLen = mapping[i].end - mapping[i].start;
+		__auto_type sourceLen = mapping[i].processedEnd - mapping[i].processedStart;
 
 		/**
 		 * Check if between gap
@@ -311,104 +268,274 @@ long mappedPosition(const strSourceMapping mapping, long processedPos) {
 		 * Gap is where "123" is in processed text( "123" comes from x)
 		 */
 		__auto_type oldProcessedStart = processedStart;
-		processedStart += mapping[i].start - sourcePrevEnd;
+		processedStart += mapping[i].processedStart - mapping[i].processedEnd;
 		if (processedStart > processedPos && processedPos >= oldProcessedStart)
-			return mapping[i].start;
+			return sourcePrevEnd;
 
 		oldProcessedStart = processedStart;
 		processedStart += sourceLen;
 		if (processedStart > processedPos && processedPos >= oldProcessedStart)
 			return processedPos - oldProcessedStart;
 
-		sourcePrevEnd = mapping[i].end;
+		sourcePrevEnd += sourceLen;
 	}
 	return -1;
 }
-struct __lexerItemTemplate *defineMacroTemplate;
-struct __lexerItemTemplate *includeMacroTemplate;
-static strLexerItemTemplate macroTemplates;
-static void initMacroTemplates() __attribute__((constructor));
-static void destroyMacroTemplates() __attribute__((destructor));
-static void initMacroTemplates() {
-	defineMacroTemplate = createDefineMacroTemplate();
-	includeMacroTemplate = createIncludeMacroTemplate();
-	const struct __lexerItemTemplate *templates[] = {defineMacroTemplate,
-	                                                 includeMacroTemplate};
-	__auto_type count = sizeof(templates) / sizeof(*templates);
-	macroTemplates = strLexerItemTemplateAppendData(NULL, templates, count);
+static int sourceMappingCmp(const void *a, const void *b) {
+	const struct sourceMapping *A = a;
+	const struct sourceMapping *B = b;
+	if (A->processedStart > B->processedStart)
+		return 1;
+	else if (A->processedStart == B->processedStart)
+		return 0;
+	else
+		return -1;
 }
-static void destroyMacroTemplates() {
-	for (long i = 0; i != strLexerItemTemplateSize(macroTemplates); i++) {
-		if (macroTemplates[i]->killTemplateData != NULL)
-			macroTemplates[i]->killTemplateData(macroTemplates[i]->data);
-		free(macroTemplates[i]);
+static void insertMacroText(struct __vec **text, const struct __vec *toInsert,
+                            long insertAt, long deleteCount,
+                            strSourceMapping *sourceMappings) {
+	__auto_type insertLen = __vecSize(toInsert);
+	__auto_type sourceLen = __vecSize(*text);
+	*text = __vecResize(*text, insertLen + sourceLen - deleteCount);
+
+	assert(deleteCount <= sourceLen);
+
+	// Insert the text and delete requested amount of chars
+	memmove((void *)text + insertAt + insertLen,
+	        (void *)text + insertAt + deleteCount,
+	        sourceLen - insertAt - deleteCount);
+
+	// Check if insert is in source mapping
+	long moveAheadFrom;
+	for (int i = 0; i != strSourceMappingSize(*sourceMappings); i++) {
+		__auto_type start = sourceMappings[0][i].processedStart;
+		__auto_type end = sourceMappings[0][i].processedEnd;
+		if (insertAt >= start && insertAt < end) {
+
+			__auto_type oldEnd = sourceMappings[0][i].processedEnd;
+			sourceMappings[0][i].processedEnd = insertAt;
+
+			struct sourceMapping splitRight;
+			splitRight.processedStart = insertAt + insertLen - deleteCount;
+			splitRight.processedEnd = oldEnd + insertLen - deleteCount;
+			*sourceMappings = strSourceMappingSortedInsert(
+			    *sourceMappings, splitRight, sourceMappingCmp);
+
+			// Move ahead mappings forward
+			__auto_type splitRightPtr = strSourceMappingSortedFind(
+			    *sourceMappings, splitRight, sourceMappingCmp);
+			assert(splitRightPtr != NULL);
+			long splitRightIndex =
+			    (splitRightPtr - *sourceMappings) / sizeof(struct sourceMapping);
+			moveAheadFrom = splitRightIndex + 1;
+		moveAhead:;
+			for (__auto_type i2 = moveAheadFrom;
+			     i2 < strSourceMappingSize(*sourceMappings); i2++) {
+				sourceMappings[0][i2].processedStart += insertLen - deleteCount;
+				sourceMappings[0][i2].processedEnd += insertLen - deleteCount;
+			}
+			return;
+		} else if (insertAt < start) {
+			moveAheadFrom = i;
+			goto moveAhead;
+		}
+	}
+}
+static long fstreamSeekEndOfLine(FILE *stream) {
+	char buffer[1025];
+	buffer[1024] = '\0';
+	long traveled = 0;
+	__auto_type oldPos = ftell(stream);
+loop:;
+	__auto_type count = fread(buffer, 1, 1024, stream);
+	traveled += count;
+
+	if (count == 0) { // EOF
+		// Seek to original pos
+		fseek(stream, SEEK_CUR, -traveled);
+
+		return ftell(stream);
 	}
 
-	strLexerItemTemplateDestroy(&macroTemplates);
-}
-static int charCmp(const void *a, const void *b) {
-	return *(char *)a == *(char *)b;
-}
-struct __lexer *createPreprocessorLexer() {
-	return lexerCreate(NULL, macroTemplates, charCmp, skipNonMacro);
-}
-static void insertFileIntoFile(FILE *writeTo, FILE *readFrom) {
-	char textBuffer[1024];
-	fseek(readFrom, 0, SEEK_END);
-	__auto_type end = ftell(readFrom);
-	fseek(readFrom, 0, SEEK_SET);
-	__auto_type start = ftell(readFrom);
-	while (start != end) {
-		__auto_type size = (end - start >= 1024) ? 1024 : end - start;
-		fread(textBuffer, 1, size, readFrom);
-		fwrite(textBuffer, 1, size, writeTo);
-		start += size;
+	char *finds[] = {
+	    strchr(buffer, '\n'),
+	    strchr(buffer, '\r'),
+	};
+	for (int i = 0; i != 2; i++) {
+		if (finds[i] != NULL) {
+			__auto_type at = ftell(stream);
+			__auto_type offset = finds[i] - buffer;
+			if (offset >= count)
+				continue;
+			// Seek to original pos
+			fseek(stream, SEEK_CUR, -traveled);
+
+			return at - oldPos + offset;
+		}
 	}
+	goto loop;
 }
-FILE *createPreprocessedFile(struct __lexer *lexer, struct __vec *text,
-                             int *err) {
+static long fstreamGoPastEndOfLine(FILE *stream) {
+	__auto_type res = fstreamSeekEndOfLine(stream);
+	fseek(stream, SEEK_CUR, res - ftell(stream));
+	do {
+		__auto_type chr = fgetc(stream);
+		if (chr == EOF)
+			return ftell(stream);
+
+		if (chr == '\n' || chr == '\r')
+			continue;
+
+		// rewind before current char
+		fseek(stream, SEEK_CUR, -1);
+		return ftell(stream);
+		break;
+	} while (1);
+}
+static void createPreprocessedFileLine(long processedPos,
+                                       strSourceMapping *sourceMappings,
+                                       mapDefineMacro defines,
+                                       struct __vec *text_, FILE *writeTo,
+                                       int *err) {
+	struct __vec *retVal = __vecAppendItem(NULL, text_, __vecSize(text_));
+
+	// Substitute macros
+	for (long where = 0; where != __vecSize(retVal);) {
+		__auto_type prev = (void *)retVal + where;
+		void *nextReplacement = findNextReplacement(prev, defines, where);
+
+		if (nextReplacement == NULL) {
+			break;
+		} else {
+			retVal = __vecAppendItem(retVal, prev, nextReplacement - prev);
+
+			// Get replacement text
+			__auto_type alnumCount = 0;
+			for (__auto_type i = nextReplacement; isalnum(*(char *)i);
+			     i++, alnumCount++)
+				;
+			__auto_type slice = __vecAppendItem(NULL, nextReplacement, alnumCount);
+			__auto_type replacement = mapDefineMacroGet(defines, (void *)slice);
+			assert(NULL != replacement);
+			__vecDestroy(slice);
+
+			// Add source mapping
+			long insertAt = nextReplacement - (void *)retVal;
+			insertMacroText(&retVal, replacement->text, insertAt + processedPos,
+			                alnumCount, sourceMappings);
+		}
+	}
+
+	for (long where = 0; where != __vecSize(retVal);) {
+		void *nextMacro = skipNonMacro(retVal, where);
+
+		if (nextMacro == NULL)
+			break;
+
+		long endPos;
+		struct defineMacro define;
+		struct includeMacro include;
+
+		if (defineMacroLex(retVal, nextMacro - (void *)retVal, &endPos, &define,
+		                   err)) {
+			// Make slice with null ending
+			__auto_type nameStr = createNullTerminated(define.name);
+			// Insert new macro
+			mapDefineMacroInsert(defines, (char *)nameStr, define);
+			__vecDestroy(nameStr);
+
+			// Remove macro text from source
+			__auto_type at = nextMacro - (void *)retVal;
+			insertMacroText(&retVal, NULL, at + processedPos, endPos - at,
+			                sourceMappings);
+		} else if (includeMacroLex(retVal, nextMacro - (void *)retVal, &endPos,
+		                           &include, err)) {
+			struct includeMacro includeClone
+			    __attribute((cleanup(includeMacroDestroy)));
+			includeClone = include;
+
+			struct __vec *fn __attribute__((cleanup(__vecDestroy2)));
+
+			fn = createNullTerminated(include.fileName);
+			assert(fn != NULL); // TODO whine about file not found
+
+			FILE *file __attribute__((cleanup(fileDestroy)));
+			file = fopen((char *)fn, "r");
+
+			long lineStart = ftell(file);
+			for (__auto_type lineEnd = fstreamSeekEndOfLine(file);
+			     lineStart != lineEnd;) {
+				fseek(file, SEEK_CUR, lineStart - ftell(file));
+				struct __vec *lineText __attribute__((cleanup(__vecDestroy2)));
+				lineText = __vecResize(NULL, lineEnd - lineStart);
+				fread((void *)lineText, 1, lineEnd - lineStart, file);
+
+				createPreprocessedFileLine(processedPos, sourceMappings, defines,
+				                           lineText, writeTo, err);
+				if (err != NULL)
+					if (*err)
+						goto returnLabel;
+
+				// Append newline to preprocessed source
+				char newLineBuffer[32];
+				__auto_type newLine = fstreamGoPastEndOfLine(file);
+				fseek(file, SEEK_CUR, lineEnd - ftell(file));
+				fread(newLineBuffer, 1, newLine - lineEnd, file);
+				fwrite(newLineBuffer, 1, newLine - lineEnd, preprocessedSource);
+
+				lineStart = newLine;
+				fseek(file, SEEK_CUR, newLine - ftell(file));
+			}
+		}
+		if (err != NULL)
+			if (*err)
+				goto returnLabel;
+
+		where = endPos;
+	}
+returnLabel:
+	return;
+}
+
+FILE *createPreprocessedFile(struct __vec *text, int *err) {
 	strSourceMappingDestroy(&sourceMappings);
- 
+
 	if (preprocessedSource != NULL)
 		fclose(preprocessedSource);
 	preprocessedSource = tmpfile();
 
-	lexerUpdate(lexer, text, err);
-	__auto_type macro = llLexerItemFirst(lexerGetItems(lexer));
+	mapDefineMacro defines = NULL;
 
-	long oldPos = 0;
-	for (; macro != NULL; macro = llLexerItemNext(macro)) {
-		__auto_type ptr = llLexerItemValuePtr(macro);
+	__auto_type processedPos = 0;
 
-		// Push slice of source text
-		fwrite(oldPos + (void *)text, 1, ptr->start - oldPos, preprocessedSource);
+	long lineStart = 0;
+	for (__auto_type lineEnd = findEndOfLine(text, lineStart) - (void *)text;;) {
+		__auto_type oldFPos = ftell(preprocessedSource);
 
-		if (ptr->template == defineMacroTemplate) {
-			struct defineMacro *value = lexerItemValuePtr(ptr);
-			fwrite((void *)value->text, 1, __vecSize(value->text),
-			       preprocessedSource);
-		} else if (ptr->template == includeMacroTemplate) {
-			struct includeMacro *value = lexerItemValuePtr(ptr);
-			__auto_type len = __vecSize(value->fileName);
-			char nameBuffer[len + 1];
-			memcpy(nameBuffer, value->fileName, len);
-			nameBuffer[len] = '\0';
-			__auto_type readFrom = fopen(nameBuffer, "r");
-			assert(NULL != readFrom); // TODO whine if file doesnt exist
-			insertFileIntoFile(preprocessedSource, readFrom);
-			fclose(readFrom);
-		} else {
-			assert(0);
-		}
-		
-		//Push mapping
-		struct sourceMapping tmp;
-		tmp.start=oldPos;
-		tmp.end=ptr->end;
-		strSourceMappingAppendItem(sourceMappings,tmp);
-		
-		oldPos=ptr->end;
+		struct __vec *lineText __attribute__((cleanup(__vecDestroy2)));
+		lineText = __vecResize(NULL, lineEnd - lineStart);
+		memcpy(lineText, (void *)text + lineStart, lineEnd - lineStart);
+
+		createPreprocessedFileLine(processedPos, &sourceMappings, defines, lineText,
+		                           preprocessedSource, err);
+		if (err != NULL)
+			if (*err)
+				goto returnLabel;
+
+		// Append newline to preprocessed source
+		__auto_type nextLine = findNextLine(text, lineStart) - (void *)text;
+		__auto_type lineEnd = findEndOfLine(text, lineStart) - (void *)text;
+		fwrite((void *)text + lineEnd, 1, nextLine - lineEnd, preprocessedSource);
+
+		// Update the start of the processed source for next line
+		__auto_type added = ftell(preprocessedSource) - oldFPos;
+		processedPos += added;
+
+		lineStart = nextLine;
 	}
+
+returnLabel:
+	mapDefineMacroDestroy(defines, defineMacroDestroy);
 
 	return preprocessedSource;
 }

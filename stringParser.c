@@ -1,8 +1,9 @@
 #include <str.h>
 #include <stringParser.h>
+#include <stdio.h>
 #include <utf8Encode.h>
 void parsedStringDestroy(struct parsedString *str) { __vecDestroy(str->text); }
-int stringParse(struct __vec *new, long pos, long *end,
+int stringParse(const struct __vec *new, long pos, long *end,
                 struct parsedString *retVal, int *err) {
 	if (err != NULL)
 		*err = 0;

@@ -13,9 +13,9 @@ struct __map;
 	                               type item) {                                  \
 		return __mapInsert(map, key, &item, sizeof(type));                         \
 	};                                                                           \
-	inline void *map##suffix##Get(map##suffix map, const char *key)              \
+	inline type *map##suffix##Get(const map##suffix map, const char *key)        \
 	    __attribute__((always_inline));                                          \
-	inline void *map##suffix##Get(map##suffix map, const char *key) {            \
+	inline type *map##suffix##Get(const map##suffix map, const char *key) {      \
 		return __mapGet(map, key);                                                 \
 	};                                                                           \
 	inline void map##suffix##Remove(map##suffix map, const char *key,            \
@@ -33,6 +33,6 @@ struct __map;
 void __mapDestroy(struct __map *map, void (*kill)(void *));
 int __mapInsert(struct __map *map, const char *key, const void *item,
                 const long itemSize);
-void *__mapGet(struct __map *map, const char *key);
+void *__mapGet(const struct __map *map, const char *key);
 struct __map *__mapCreate();
 void __mapRemove(struct __map *map, const char *key, void (*kill)(void *));

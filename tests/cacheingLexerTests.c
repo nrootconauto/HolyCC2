@@ -50,7 +50,7 @@ static llLexerItem expectString(llLexerItem node,
 	__auto_type lexerItem = llLexerItemValuePtr(node);
 	assert(lexerItem->template == template);
 
-	__auto_type value2 = (struct lexerString *)lexerItemValuePtr(lexerItem);
+	__auto_type value2 = (struct parsedString*)lexerItemValuePtr(lexerItem);
 	assert(value2->isChar == isChar);
 	assert(0 == strcmp((char *)value2->text, value));
 

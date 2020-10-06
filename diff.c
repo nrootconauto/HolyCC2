@@ -360,8 +360,9 @@ static llDiff __diffRecur(const void *a, const void *b, long aSize, long bSize,
 			                   bSize - yOffset2 - lenB, itemSize, pred, &right));
 			// After-right(diag)
 			if (lenB != 0)
-				bundle_go(bun, __diffRecurSplit(a + aSize - lenB, b + bSize - lenB,
-				                                lenB, lenB, itemSize, pred, &afterRight));
+				bundle_go(bun,
+				          __diffRecurSplit(a + aSize - lenB, b + bSize - lenB, lenB,
+				                           lenB, itemSize, pred, &afterRight));
 			bundle_wait(bun, -1);
 			llDiffInsertListAfter(__llGetEnd(beforeLeft), __llGetFirst(left));
 			newN = (left == NULL) ? beforeLeft : left;
@@ -377,6 +378,9 @@ static llDiff __diffRecur(const void *a, const void *b, long aSize, long bSize,
 }
 strDiff __diff(const void *a, const void *b, long aSize, long bSize,
                long itemSize, int (*pred)(const void *a, const void *b)) {
+	if (a == NULL && b == NULL)
+		return NULL;
+
 	__auto_type res = __diffRecur(a, b, aSize, bSize, itemSize, NULL, NULL, pred);
 	__auto_type size = llDiffSize(res);
 	strDiff retVal = strDiffReserve(NULL, size);
