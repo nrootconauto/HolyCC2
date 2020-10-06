@@ -1,6 +1,6 @@
+#include <stdio.h>
 #include <str.h>
 #include <stringParser.h>
-#include <stdio.h>
 #include <utf8Encode.h>
 void parsedStringDestroy(struct parsedString *str) { __vecDestroy(str->text); }
 int stringParse(const struct __vec *new, long pos, long *end,
@@ -129,6 +129,9 @@ int stringParse(const struct __vec *new, long pos, long *end,
 			currPtr = toPtr;
 
 			if (toPtr == end2) {
+				// Append NULL byte
+				retValText = __vecAppendItem(retValText, "\0", 1);
+
 				if (end != NULL)
 					*end = (end2 + 1 - (char *)new) / sizeof(char);
 				break;

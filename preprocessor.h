@@ -16,5 +16,4 @@ struct sourceMapping {
 STR_TYPE_DEF(struct sourceMapping, SourceMapping);
 STR_TYPE_FUNCS(struct sourceMapping, SourceMapping);
 long mappedPosition(const strSourceMapping, long processedPos);
-struct __lexerItemTemplate *includeMacroTemplateCreate();
-struct __lexerItemTemplate *createDefineMacroTemplate();
+FILE *createPreprocessedFile(struct __vec *text, int *err);

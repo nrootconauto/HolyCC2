@@ -112,7 +112,7 @@ static void *replacementFindPred(const void *a, const struct __vec *text,
 		if (isalpha(*(char *)b)) {
 			__auto_type original = b;
 			__auto_type end = original;
-			while (isalnum(*(char *)end) && b < textEnd)
+			while (isalnum(*(char *)end) && end < textEnd)
 				end++;
 
 			char buffer[end - original + 1];
@@ -120,9 +120,13 @@ static void *replacementFindPred(const void *a, const struct __vec *text,
 			buffer[end - original] = '\0';
 			__auto_type macro = mapDefineMacroGet(map, buffer);
 
+			if (macro == NULL)
+				goto next;
+
 			return b;
 		}
 
+	next:
 		// Skip word then look for next word
 		while (b < textEnd)
 			if (isalnum(*(char *)b))
@@ -132,6 +136,8 @@ static void *replacementFindPred(const void *a, const struct __vec *text,
 		while (b < textEnd)
 			if (!isalnum(*(char *)b))
 				b++;
+			else
+				break;
 
 		continue;
 	}
@@ -222,6 +228,7 @@ static int defineMacroLex(struct __vec *text, long pos, long *end,
 		goto malformed;
 
 	__auto_type name = __vecAppendItem(NULL, &pos[(char *)text], len);
+	name = __vecAppendItem(name, "\0", 1);
 
 	pos += len;
 	__auto_type end2 = findEndOfLine(text, pos) - (void *)text;
@@ -232,6 +239,7 @@ static int defineMacroLex(struct __vec *text, long pos, long *end,
 	    __vecAppendItem(NULL, &pos[(char *)text], end2 - pos);
 	if (end != NULL)
 		*end = findNextLine(text, pos) - (void *)text;
+	replacement = __vecAppendItem(replacement, "\0", 1);
 
 	struct defineMacro retVal;
 	retVal.name = name;
@@ -417,12 +425,13 @@ static void createPreprocessedFileLine(long processedPos,
 			__auto_type slice = __vecAppendItem(NULL, nextReplacement, alnumCount);
 			__auto_type replacement = mapDefineMacroGet(defines, (void *)slice);
 			assert(NULL != replacement);
-			__vecDestroy(slice);
 
 			// Add source mapping
 			long insertAt = nextReplacement - (void *)retVal;
 			insertMacroText(&retVal, replacement->text, insertAt + processedPos,
 			                alnumCount, sourceMappings);
+
+			__vecDestroy(slice);
 		}
 	}
 
@@ -467,8 +476,9 @@ static void createPreprocessedFileLine(long processedPos,
 			     lineStart != lineEnd;) {
 				fseek(file, SEEK_CUR, lineStart - ftell(file));
 				struct __vec *lineText __attribute__((cleanup(__vecDestroy2)));
-				lineText = __vecResize(NULL, lineEnd - lineStart);
+				lineText = __vecResize(NULL, lineEnd - lineStart + 1);
 				fread((void *)lineText, 1, lineEnd - lineStart, file);
+				((char *)lineText)[lineEnd - lineStart] = '\0';
 
 				createPreprocessedFileLine(processedPos, sourceMappings, defines,
 				                           lineText, writeTo, err);
@@ -504,17 +514,18 @@ FILE *createPreprocessedFile(struct __vec *text, int *err) {
 		fclose(preprocessedSource);
 	preprocessedSource = tmpfile();
 
-	mapDefineMacro defines = NULL;
+	mapDefineMacro defines = mapDefineMacroCreate();
 
 	__auto_type processedPos = 0;
 
 	long lineStart = 0;
-	for (__auto_type lineEnd = findEndOfLine(text, lineStart) - (void *)text;;) {
+	for (long lineEnd = findEndOfLine(text, lineStart) - (void *)text;;) {
 		__auto_type oldFPos = ftell(preprocessedSource);
 
 		struct __vec *lineText __attribute__((cleanup(__vecDestroy2)));
-		lineText = __vecResize(NULL, lineEnd - lineStart);
+		lineText = __vecResize(NULL, lineEnd - lineStart + 1);
 		memcpy(lineText, (void *)text + lineStart, lineEnd - lineStart);
+		(lineEnd - lineStart)[(char *)lineText] = '\0';
 
 		createPreprocessedFileLine(processedPos, &sourceMappings, defines, lineText,
 		                           preprocessedSource, err);
@@ -524,8 +535,8 @@ FILE *createPreprocessedFile(struct __vec *text, int *err) {
 
 		// Append newline to preprocessed source
 		__auto_type nextLine = findNextLine(text, lineStart) - (void *)text;
-		__auto_type lineEnd = findEndOfLine(text, lineStart) - (void *)text;
-		fwrite((void *)text + lineEnd, 1, nextLine - lineEnd, preprocessedSource);
+		__auto_type lineEnd2 = findEndOfLine(text, lineStart) - (void *)text;
+		fwrite((void *)text + lineEnd2, 1, nextLine - lineEnd2, preprocessedSource);
 
 		// Update the start of the processed source for next line
 		__auto_type added = ftell(preprocessedSource) - oldFPos;
