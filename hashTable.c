@@ -1,3 +1,4 @@
+#include <hashTable.h>
 #include <libdill.h>
 #include <linkedList.h>
 #include <stdio.h>
@@ -67,7 +68,7 @@ static int __mapBucketGetPred(const void *item, const void *current) {
 		return result;
 	return strcmp(pair->key, __mapNodeKey(current));
 }
-void *__mapGet(struct __map *map, const char *key) {
+void *__mapGet(const struct __map *map, const char *key) {
 	__auto_type hash = __mapHash(key, strLLPSize(map->buckets));
 	__auto_type bucket = map->buckets[hash % strLLPSize(map->buckets)];
 	__auto_type first = __llGetFirst(bucket);
@@ -193,7 +194,12 @@ static void __mapRehash(struct __map *map, int scaleUp) {
 }
 void __mapDestroy(struct __map *map, void (*kill)(void *)) {
 	for (int i = 0; i != strLLPSize(map->buckets); i++) {
-		__llDestroy(map->buckets[i], kill);
+		if (kill != NULL)
+			for (__auto_type node2 = __llGetFirst(map->buckets[i]); node2 != NULL;
+			     node2 = __llNext(node2))
+				kill(__mapNodeValue(__llValuePtr(node2)));
+
+		__llDestroy(map->buckets[i], NULL);
 	}
 	strIntDestroy(&map->bucketSizes);
 	strLLPDestroy(&map->buckets);
@@ -217,5 +223,7 @@ void __mapRemove(struct __map *map, const char *key, void (*kill)(void *)) {
 	if (node == NULL)
 		return;
 	map->buckets[bucket] = __llRemoveNode(node);
-	__llDestroy(node, kill);
+	if (kill != NULL)
+		kill(__mapNodeValue(__llValuePtr(node)));
+	__llDestroy(node, NULL);
 }

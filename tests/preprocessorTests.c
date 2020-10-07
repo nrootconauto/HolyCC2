@@ -2,9 +2,9 @@
 #include <preprocessor.h>
 #include <str.h>
 struct __vec *file2Str(FILE *file) {
-	fseek(file, SEEK_END, 0);
+	fseek(file, 0, SEEK_END);
 	long end = ftell(file);
-	fseek(file, SEEK_SET, 0);
+	fseek(file, 0, SEEK_SET);
 	long start = ftell(file);
 
 	char buffer[end - start + 1];
@@ -24,10 +24,11 @@ void preprocessorTests() {
 	strcpy((char *)textSlice, text);
 
 	__auto_type resultFile = createPreprocessedFile(textSlice, &err);
+	resultFile = fopen("test.txt", "r");
 	assert(err == 0);
 	__auto_type resultStr = file2Str(resultFile);
-	assert(0 == strcmp("a b c\n", (char *)resultStr));
-	
+	assert(0 == strcmp("\na b c\n", (char *)resultStr)); //First newline for ignoring #define line
+
 	__vecDestroy(textSlice);
 	__vecDestroy(resultStr);
 }
