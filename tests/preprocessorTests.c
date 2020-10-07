@@ -44,4 +44,19 @@ void preprocessorTests() {
 	fclose(resultFile);
 	assert(err == 1);
 	__vecDestroy(textSlice);
+	//
+	// Test 3,Dont replace  in macro
+	//
+	text = "#define x #define \nx x 2\nx";
+	textSlice = __vecResize(NULL, strlen(text) + 1);
+	strcpy((char *)textSlice, text);
+	resultFile = createPreprocessedFile(textSlice, &err);
+	assert(err == 0);
+	resultStr = file2Str(resultFile);
+	assert(0 ==
+	       strcmp("\n\n2",
+	              (char *)resultStr));
+	fclose(resultFile);
+	__vecDestroy(textSlice);
+	__vecDestroy(resultStr);
 }

@@ -411,13 +411,11 @@ static void expandDefinesInRangeRecur(struct __vec **retVal,
                                       long end, strSourceMapping *mappings,
                                       int *expanded, mapUsedDefines used,
                                       int *err) {
-	if (expanded != NULL)
-		*expanded = 0;
 	__auto_type prev = *(void **)retVal + where;
 
 	for (;;) {
 		void *nextReplacement = findNextWord(*retVal, where);
-		void *nextMacroStart = strchr(where+*(char **)retVal, '#');
+		void *nextMacroStart = strchr(where + *(char **)retVal, '#');
 		long newEnd =
 		    (nextMacroStart == NULL) ? end : nextMacroStart - *(void **)retVal;
 		end = (newEnd < end) ? newEnd : end;
@@ -459,7 +457,10 @@ static void expandDefinesInRangeRecur(struct __vec **retVal,
 			long insertAt = nextReplacement - *(void **)retVal;
 			insertMacroText(retVal, replacement->text, insertAt, alnumCount,
 			                mappings);
-			int expanded2;
+			if (expanded != NULL)
+				*expanded = 1;
+
+			int expanded2 = 0;
 			do {
 				expandDefinesInRangeRecur(retVal, defines, where,
 				                          where + __vecSize(replacement->text),
@@ -468,17 +469,15 @@ static void expandDefinesInRangeRecur(struct __vec **retVal,
 					if (*err)
 						return;
 			} while (expanded2);
-			
-			long oldWhere=where;
+
+			long oldWhere = where;
 			where = where + __vecSize(replacement->text);
-			
-			//Check if macro was inserted,if so quit
-			long nextMacroStart2 = strchr(oldWhere+*(char **)retVal, '#')-*(char**)retVal;
-			if(nextMacroStart2<where)
-			 return;
-			
-			if (expanded != NULL)
-				*expanded = 1;
+
+			// Check if macro was inserted,if so quit
+			long nextMacroStart2 =
+			    strchr(oldWhere + *(char **)retVal, '#') - *(char **)retVal;
+			if (nextMacroStart2 < where)
+				return;
 		}
 	}
 }
@@ -486,6 +485,9 @@ static void expandDefinesInRange(struct __vec **retVal, mapDefineMacro defines,
                                  long where, long end,
                                  strSourceMapping *mappings, int *expanded,
                                  int *err) {
+	if (expanded != NULL)
+		*expanded = 0;
+
 	__auto_type used = mapUsedDefinesCreate();
 	expandDefinesInRangeRecur(retVal, defines, where, end, mappings, expanded,
 	                          used, err);
@@ -528,6 +530,11 @@ static void createPreprocessedFileLine(long processedPos,
 		                   err)) {
 			// Make slice with null ending
 			__auto_type nameStr = createNullTerminated(define.name);
+
+			// Remove existing macro
+			if (mapDefineMacroGet(defines, (char *)nameStr) != NULL)
+				mapDefineMacroRemove(defines, (char *)nameStr, defineMacroDestroy);
+
 			// Insert new macro
 			mapDefineMacroInsert(defines, (char *)nameStr, define);
 			__vecDestroy(nameStr);
