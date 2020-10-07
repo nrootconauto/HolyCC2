@@ -70,4 +70,24 @@ void preprocessorTests() {
 	fclose(resultFile);
 	__vecDestroy(textSlice);
 	__vecDestroy(resultStr);
+
+	//
+	// Test 5,include
+	//
+	__auto_type dummy = tmpnam(NULL);
+	__auto_type includeFile = fopen(dummy, "w");
+	const char *includeText = "a\nb\nc";
+	fwrite(includeText, 1, strlen(includeText) + 1, includeFile);
+	fclose(includeFile);
+	char buffer[1024];
+	sprintf(buffer, "#include \"%s\"\n", dummy);
+	textSlice = __vecResize(NULL, strlen(buffer) + 1);
+	strcpy((char *)textSlice, buffer);
+	resultFile = createPreprocessedFile(textSlice, &err);
+	assert(err == 0);
+	resultStr = file2Str(resultFile);
+	assert(0 == strcmp("a\nb\nc\n", (char *)resultStr));
+	fclose(resultFile);
+	__vecDestroy(textSlice);
+	__vecDestroy(resultStr);
 }

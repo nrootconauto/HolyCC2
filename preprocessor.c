@@ -202,9 +202,9 @@ static int includeMacroLex(struct __vec **text_, mapDefineMacro defines,
 
 	if (!expectMacroAndSkip("include", text_, defines, mappings, pos, &pos, err))
 		return 0;
-	struct __vec *text = *(text_);
 
 	expandNextWord(text_, defines, mappings, pos, NULL, err);
+	struct __vec *text = *(text_);
 	if (err != NULL)
 		if (*err)
 			return 0;
@@ -390,9 +390,6 @@ loop:;
 	traveled += count;
 
 	if (count == 0) { // EOF
-		// Seek to original pos
-		fseek(stream, SEEK_CUR, -traveled);
-
 		return ftell(stream);
 	}
 
@@ -406,17 +403,18 @@ loop:;
 			__auto_type offset = finds[i] - buffer;
 			if (offset >= count)
 				continue;
-			// Seek to original pos
-			fseek(stream, SEEK_CUR, -traveled);
+			// Seek to newline
+			fseek(stream, -count, SEEK_CUR);
+			fseek(stream, offset, SEEK_CUR);
 
-			return at - oldPos + offset;
+			return ftell(stream);
 		}
 	}
 	goto loop;
 }
-static long fstreamGoPastEndOfLine(FILE *stream) {
+static long fstreamSeekPastEndOfLine(FILE *stream) {
 	__auto_type res = fstreamSeekEndOfLine(stream);
-	fseek(stream, SEEK_CUR, res - ftell(stream));
+	fseek(stream, res - ftell(stream), SEEK_CUR);
 	do {
 		__auto_type chr = fgetc(stream);
 		if (chr == EOF)
@@ -426,7 +424,7 @@ static long fstreamGoPastEndOfLine(FILE *stream) {
 			continue;
 
 		// rewind before current char
-		fseek(stream, SEEK_CUR, -1);
+		fseek(stream, -1, SEEK_CUR);
 		return ftell(stream);
 		break;
 	} while (1);
@@ -589,6 +587,10 @@ static void createPreprocessedFileLine(long processedPos,
 		} else if (includeMacroLex(&retVal, defines, sourceMappings,
 		                           nextMacro - (void *)retVal, &endPos, &include,
 		                           err)) {
+			//Remove #include
+		 __auto_type at=nextMacro - (void *)retVal;
+		 insertMacroText(&retVal,NULL,at,endPos-at,sourceMappings);
+			
 			struct includeMacro includeClone
 			    __attribute((cleanup(includeMacroDestroy)));
 			includeClone = include;
@@ -601,10 +603,10 @@ static void createPreprocessedFileLine(long processedPos,
 			FILE *file __attribute__((cleanup(fileDestroy)));
 			file = fopen((char *)fn, "r");
 
-			long lineStart = ftell(file);
-			for (__auto_type lineEnd = fstreamSeekEndOfLine(file);
-			     lineStart != lineEnd;) {
-				fseek(file, SEEK_CUR, lineStart - ftell(file));
+			long lineStart = ftell(file), lineEnd;
+			do {
+				lineEnd = fstreamSeekEndOfLine(file);
+				fseek(file, lineStart - ftell(file), SEEK_CUR);
 				struct __vec *lineText __attribute__((cleanup(__vecDestroy2)));
 				lineText = __vecResize(NULL, lineEnd - lineStart + 1);
 				fread((void *)lineText, 1, lineEnd - lineStart, file);
@@ -618,14 +620,14 @@ static void createPreprocessedFileLine(long processedPos,
 
 				// Append newline to preprocessed source
 				char newLineBuffer[32];
-				__auto_type newLine = fstreamGoPastEndOfLine(file);
-				fseek(file, SEEK_CUR, lineEnd - ftell(file));
+				__auto_type newLine = fstreamSeekPastEndOfLine(file);
+				fseek(file, lineEnd - ftell(file), SEEK_CUR);
 				fread(newLineBuffer, 1, newLine - lineEnd, file);
 				fwrite(newLineBuffer, 1, newLine - lineEnd, preprocessedSource);
 
 				lineStart = newLine;
-				fseek(file, SEEK_CUR, newLine - ftell(file));
-			}
+				fseek(file, newLine - ftell(file), SEEK_CUR);
+			} while (lineStart != lineEnd);
 		}
 		if (err != NULL)
 			if (*err)
