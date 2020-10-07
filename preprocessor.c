@@ -404,15 +404,23 @@ static long fstreamGoPastEndOfLine(FILE *stream) {
 		break;
 	} while (1);
 }
-static void expandDefinesInRange(struct __vec **retVal, mapDefineMacro defines,
-                                 long where, long end,
-                                 strSourceMapping *mappings, int *expanded) {
+MAP_TYPE_DEF(void *, UsedDefines);
+MAP_TYPE_FUNCS(void *, UsedDefines);
+static void expandDefinesInRangeRecur(struct __vec **retVal,
+                                      mapDefineMacro defines, long where,
+                                      long end, strSourceMapping *mappings,
+                                      int *expanded, mapUsedDefines used,
+                                      int *err) {
 	if (expanded != NULL)
 		*expanded = 0;
 	__auto_type prev = *(void **)retVal + where;
 
 	for (;;) {
 		void *nextReplacement = findNextWord(*retVal, where);
+		void *nextMacroStart = strchr(where+*(char **)retVal, '#');
+		long newEnd =
+		    (nextMacroStart == NULL) ? end : nextMacroStart - *(void **)retVal;
+		end = (newEnd < end) ? newEnd : end;
 
 		if (nextReplacement == NULL) {
 			break;
@@ -434,15 +442,54 @@ static void expandDefinesInRange(struct __vec **retVal, mapDefineMacro defines,
 				continue;
 			}
 
+			/** Check for infinite macro expansion
+			 * For example:
+			 * #define x y
+			 * #define y x
+			 * x //x will infinitly recur
+			 */
+			if (mapDefineMacroGet(used, (char *)slice) != NULL) {
+				if (err != NULL)
+					*err = 1;
+				return;
+			}
+			mapUsedDefinesInsert(used, (char *)slice, NULL);
+
 			// Add source mapping
 			long insertAt = nextReplacement - *(void **)retVal;
 			insertMacroText(retVal, replacement->text, insertAt, alnumCount,
 			                mappings);
-
+			int expanded2;
+			do {
+				expandDefinesInRangeRecur(retVal, defines, where,
+				                          where + __vecSize(replacement->text),
+				                          mappings, &expanded2, used, err);
+				if (err != NULL)
+					if (*err)
+						return;
+			} while (expanded2);
+			
+			long oldWhere=where;
+			where = where + __vecSize(replacement->text);
+			
+			//Check if macro was inserted,if so quit
+			long nextMacroStart2 = strchr(oldWhere+*(char **)retVal, '#')-*(char**)retVal;
+			if(nextMacroStart2<where)
+			 return;
+			
 			if (expanded != NULL)
 				*expanded = 1;
 		}
 	}
+}
+static void expandDefinesInRange(struct __vec **retVal, mapDefineMacro defines,
+                                 long where, long end,
+                                 strSourceMapping *mappings, int *expanded,
+                                 int *err) {
+	__auto_type used = mapUsedDefinesCreate();
+	expandDefinesInRangeRecur(retVal, defines, where, end, mappings, expanded,
+	                          used, err);
+	mapUsedDefinesDestroy(used, NULL);
 }
 static void createPreprocessedFileLine(long processedPos,
                                        strSourceMapping *sourceMappings,
@@ -461,12 +508,19 @@ static void createPreprocessedFileLine(long processedPos,
 		int expanded;
 		for (;;) {
 			expandDefinesInRange(&retVal, defines, where, expandEnd, sourceMappings,
-			                     &expanded);
+			                     &expanded, err);
+			if (err != NULL)
+				if (*err)
+					goto returnLabel;
+
 			if (expanded)
 				goto loop;
 			else
 				break;
 		}
+		if (nextMacro == NULL)
+			break;
+
 		long endPos;
 		struct defineMacro define;
 		struct includeMacro include;
@@ -480,8 +534,7 @@ static void createPreprocessedFileLine(long processedPos,
 
 			// Remove macro text from source
 			__auto_type at = nextMacro - (void *)retVal;
-			insertMacroText(&retVal, NULL, at + processedPos, endPos - at,
-			                sourceMappings);
+			insertMacroText(&retVal, NULL, at, endPos - at, sourceMappings);
 		} else if (includeMacroLex(retVal, nextMacro - (void *)retVal, &endPos,
 		                           &include, err)) {
 			struct includeMacro includeClone
@@ -542,20 +595,19 @@ FILE *createPreprocessedFile(struct __vec *text, int *err) {
 		*err = 0;
 
 	strSourceMappingDestroy(&sourceMappings);
-
-	__auto_type name = "test.txt";
-	if (preprocessedSource != NULL)
-		fclose(preprocessedSource);
-	preprocessedSource = fopen(name, "w");
+	sourceMappings = NULL;
+	preprocessedSource = tmpfile();
 
 	mapDefineMacro defines = mapDefineMacroCreate();
 
 	__auto_type processedPos = 0;
 
 	long lineStart = 0;
-	for (long lineEnd = findEndOfLine(text, lineStart) - (void *)text;
-	     lineEnd[(char *)text] != 0;
+	for (long lineEnd = findEndOfLine(text, lineStart) - (void *)text;;
 	     lineEnd = findEndOfLine(text, lineStart) - (void *)text) {
+		if (lineEnd == lineStart)
+			break;
+
 		__auto_type oldFPos = ftell(preprocessedSource);
 
 		struct __vec *lineText __attribute__((cleanup(__vecDestroy2)));
@@ -584,6 +636,5 @@ FILE *createPreprocessedFile(struct __vec *text, int *err) {
 returnLabel:
 	mapDefineMacroDestroy(defines, defineMacroDestroy);
 
-	fclose(preprocessedSource);
 	return preprocessedSource;
 }

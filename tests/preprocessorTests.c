@@ -16,19 +16,32 @@ struct __vec *file2Str(FILE *file) {
 	return retVal;
 }
 void preprocessorTests() {
+	//
+	// Test 1,define
+	//
 	const char *text = "#define x b\n"
 	                   "a x c\n";
 	int err;
-
 	struct __vec *textSlice = __vecResize(NULL, strlen(text) + 1);
 	strcpy((char *)textSlice, text);
-
 	__auto_type resultFile = createPreprocessedFile(textSlice, &err);
-	resultFile = fopen("test.txt", "r");
 	assert(err == 0);
 	__auto_type resultStr = file2Str(resultFile);
-	assert(0 == strcmp("\na b c\n", (char *)resultStr)); //First newline for ignoring #define line
-
+	assert(0 ==
+	       strcmp("\na b c\n",
+	              (char *)resultStr)); // First newline for ignoring #define line
+	fclose(resultFile);
 	__vecDestroy(textSlice);
 	__vecDestroy(resultStr);
+
+	//
+	// Test 2,error on infinite recursion
+	//
+	text = "#define x y\n#define y x \n x";
+	textSlice = __vecResize(NULL, strlen(text) + 1);
+	strcpy((char *)textSlice, text);
+	resultFile = createPreprocessedFile(textSlice, &err);
+	fclose(resultFile);
+	assert(err == 1);
+	__vecDestroy(textSlice);
 }
