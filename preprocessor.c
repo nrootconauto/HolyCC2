@@ -11,11 +11,17 @@
 // TODO implement exe,if,ifdef,ifndef
 static __thread strSourceMapping sourceMappings = NULL;
 static __thread FILE *preprocessedSource = NULL;
-
 static void __vecDestroy2(struct __vec **vec) { __vecDestroy(*vec); }
 static void fileDestroy(FILE **file) { fclose(*file); }
 MAP_TYPE_DEF(struct defineMacro, DefineMacro);
 MAP_TYPE_FUNCS(struct defineMacro, DefineMacro);
+static void expandDefinesInRange(struct __vec **retVal, mapDefineMacro defines,
+                                 long where, long end,
+                                 strSourceMapping *mappings, int *expanded,
+                                 int *err);
+static void expandNextWord(struct __vec **retVal, mapDefineMacro defines,
+                           strSourceMapping *mappings, long where,
+                           int *expanded, int *err);
 static struct __vec *createNullTerminated(struct __vec *vec) {
 	__auto_type nameLen = __vecSize(vec);
 	__auto_type retVal = __vecResize(NULL, nameLen + 1);
@@ -159,33 +165,49 @@ static void *skipWhitespace(struct __vec *text, long pos) {
 	}
 	return where;
 }
-static int expectMacroAndSkip(const char *macroText, struct __vec *text,
-                              long pos, long *end) {
-	const char *text2 = (const char *)text;
+static int expectMacroAndSkip(const char *macroText, struct __vec **text,
+                              mapDefineMacro defines,
+                              strSourceMapping *mappings, long pos, long *end,
+                              int *err) {
+	if (err != NULL)
+		*err = 0;
+
+	const char *text2 = *(const char **)text;
 	if (*text2 != '#')
 		return 0;
 
-	pos = skipWhitespace(text, pos + 1) - (const void *)text;
+	pos = skipWhitespace(*text, pos + 1) - *(const void **)text;
+
+	expandNextWord(text, defines, mappings, pos, NULL, err);
+	text2 = *(const char **)text;
 
 	__auto_type len = strlen(macroText);
-	if (__vecSize(text) - pos < len)
+	if (__vecSize(*text) - pos < len)
 		return 0;
 
-	if (pos + len < __vecSize(text))
-		if (isalnum((pos + len)[(const char *)text]))
+	if (pos + len < __vecSize(*text))
+		if (isalnum((pos + len)[*(const char **)text]))
 			return 0;
 
 	if (end != NULL)
 		*end = pos + len;
-	return 0 == strncmp((void *)text + pos, macroText, len);
+	return 0 == strncmp(*(void **)text + pos, macroText, len);
 }
-static int includeMacroLex(struct __vec *text, long pos, long *end,
+static int includeMacroLex(struct __vec **text_, mapDefineMacro defines,
+                           strSourceMapping *mappings, long pos, long *end,
                            struct includeMacro *result, int *err) {
+
 	if (err != NULL)
 		*err = 0;
 
-	if (!expectMacroAndSkip("include", text, pos, &pos))
+	if (!expectMacroAndSkip("include", text_, defines, mappings, pos, &pos, err))
 		return 0;
+	struct __vec *text = *(text_);
+
+	expandNextWord(text_, defines, mappings, pos, NULL, err);
+	if (err != NULL)
+		if (*err)
+			return 0;
 
 	pos = skipWhitespace(text, pos) - (void *)text;
 
@@ -209,11 +231,16 @@ static void defineMacroDestroy(void *macro) {
 	__vecDestroy(macro2->name);
 	__vecDestroy(macro2->text);
 }
-static int defineMacroLex(struct __vec *text, long pos, long *end,
+static int defineMacroLex(struct __vec **text_, mapDefineMacro defines,
+                          strSourceMapping *mappings, long pos, long *end,
                           struct defineMacro *result, int *err) {
-	if (!expectMacroAndSkip("define", text, pos, &pos))
+	if (!expectMacroAndSkip("define", text_, defines, mappings, pos, &pos, err))
 		return 0;
+	if (err != NULL)
+		if (*err)
+			return 0;
 
+	struct __vec *text = *text_;
 	pos = skipWhitespace(text, pos) - (void *)text;
 
 	int len = 0;
@@ -493,6 +520,23 @@ static void expandDefinesInRange(struct __vec **retVal, mapDefineMacro defines,
 	                          used, err);
 	mapUsedDefinesDestroy(used, NULL);
 }
+static void expandNextWord(struct __vec **retVal, mapDefineMacro defines,
+                           strSourceMapping *mappings, long where,
+                           int *expanded, int *err) {
+	if (err != NULL)
+		*err = 0;
+
+	__auto_type find = findNextWord(*retVal, where);
+	if (find == NULL)
+		return;
+
+	long endPos = find - *(void **)retVal;
+	for (; endPos < __vecSize(*retVal); endPos++)
+		if (!isalnum(endPos[*(char **)retVal]))
+			break;
+
+	expandDefinesInRange(retVal, defines, where, endPos, mappings, expanded, err);
+}
 static void createPreprocessedFileLine(long processedPos,
                                        strSourceMapping *sourceMappings,
                                        mapDefineMacro defines,
@@ -526,8 +570,8 @@ static void createPreprocessedFileLine(long processedPos,
 		long endPos;
 		struct defineMacro define;
 		struct includeMacro include;
-		if (defineMacroLex(retVal, nextMacro - (void *)retVal, &endPos, &define,
-		                   err)) {
+		if (defineMacroLex(&retVal, defines, sourceMappings,
+		                   nextMacro - (void *)retVal, &endPos, &define, err)) {
 			// Make slice with null ending
 			__auto_type nameStr = createNullTerminated(define.name);
 
@@ -542,8 +586,9 @@ static void createPreprocessedFileLine(long processedPos,
 			// Remove macro text from source
 			__auto_type at = nextMacro - (void *)retVal;
 			insertMacroText(&retVal, NULL, at, endPos - at, sourceMappings);
-		} else if (includeMacroLex(retVal, nextMacro - (void *)retVal, &endPos,
-		                           &include, err)) {
+		} else if (includeMacroLex(&retVal, defines, sourceMappings,
+		                           nextMacro - (void *)retVal, &endPos, &include,
+		                           err)) {
 			struct includeMacro includeClone
 			    __attribute((cleanup(includeMacroDestroy)));
 			includeClone = include;

@@ -53,9 +53,20 @@ void preprocessorTests() {
 	resultFile = createPreprocessedFile(textSlice, &err);
 	assert(err == 0);
 	resultStr = file2Str(resultFile);
-	assert(0 ==
-	       strcmp("\n\n2",
-	              (char *)resultStr));
+	assert(0 == strcmp("\n\n2", (char *)resultStr));
+	fclose(resultFile);
+	__vecDestroy(textSlice);
+	__vecDestroy(resultStr);
+	//
+	// Test 4,Replace macro name
+	//
+	text = "#define x define\n#x y 2\ny";
+	textSlice = __vecResize(NULL, strlen(text) + 1);
+	strcpy((char *)textSlice, text);
+	resultFile = createPreprocessedFile(textSlice, &err);
+	assert(err == 0);
+	resultStr = file2Str(resultFile);
+	assert(0 == strcmp("\n\n2", (char *)resultStr));
 	fclose(resultFile);
 	__vecDestroy(textSlice);
 	__vecDestroy(resultStr);
