@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <hashTable.h>
+#include <string.h>
 MAP_TYPE_DEF(int, Int);
 MAP_TYPE_FUNCS(int, Int);
 void mapTests() {
@@ -20,6 +21,14 @@ void mapTests() {
 		__auto_type result = (int *)mapIntGet(map, buffer);
 		assert(result != NULL);
 		assert(*result == chars[i]);
+	}
+	//
+	for (int i = 0; i != count; i++) {
+		buffer[0] = chars[i];
+		buffer[1] = '\0';
+		__auto_type result = (int *)mapIntGet(map, buffer);
+		__auto_type key = mapIntValueKey(result);
+		assert(0 == strcmp(key, buffer));
 	}
 	//
 	for (int i = 0; i != count; i++) {

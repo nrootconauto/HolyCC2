@@ -20,6 +20,8 @@ list(APPEND sources "utf8Encode.c")
 list(APPEND sources "cacheingLexerItems.c")
 list(APPEND sources "stringParser.c")
 list(APPEND sources "preprocessor.c")
+list(APPEND sources "cykGrammarGenerator.c")
+list(APPEND sources "eventPool.c")
 
 set(tests "")
 list(APPEND tests "tests/tests.c")

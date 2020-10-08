@@ -29,10 +29,16 @@ struct __map;
 	    __attribute__((always_inline));                                          \
 	inline void map##suffix##Destroy(map##suffix map, void (*kill)(void *)) {    \
 		__mapDestroy(map, kill);                                                   \
-	}
+	}                                                                            \
+	inline const char *map##suffix##ValueKey(const void *value)                  \
+	    __attribute__((always_inline));                                          \
+	inline const char *map##suffix##ValueKey(const void *value) {                \
+		return __mapKeyByPtr(value);                                               \
+	};
 void __mapDestroy(struct __map *map, void (*kill)(void *));
 int __mapInsert(struct __map *map, const char *key, const void *item,
                 const long itemSize);
 void *__mapGet(const struct __map *map, const char *key);
 struct __map *__mapCreate();
 void __mapRemove(struct __map *map, const char *key, void (*kill)(void *));
+const char *__mapKeyByPtr(const void *valuePtr);

@@ -227,3 +227,6 @@ void __mapRemove(struct __map *map, const char *key, void (*kill)(void *)) {
 		kill(__mapNodeValue(__llValuePtr(node)));
 	__llDestroy(node, NULL);
 }
+const char *__mapKeyByPtr(const void *valuePtr) {
+	return __mapNodeKey(valuePtr - sizeof(int) - sizeof(long));
+}
