@@ -45,20 +45,20 @@ struct __ll;
 		__llDestroy(*node, killFunc);                                              \
 	}                                                                            \
 	inline ll##suffix ll##suffix##FindLeft(                                      \
-	    const ll##suffix *node, const void *data,                                \
+	    const ll##suffix node, const void *data,                                 \
 	    int (*pred)(const void *, const void *)) __attribute__((always_inline)); \
 	inline ll##suffix ll##suffix##FindLeft(                                      \
-	    const ll##suffix *node, const void *data,                                \
+	    const ll##suffix node, const void *data,                                 \
 	    int (*pred)(const void *, const void *)) {                               \
-		return (ll##suffix)__llFindLeft(*node, data, pred);                        \
+		return (ll##suffix)__llFindLeft(node, data, pred);                         \
 	}                                                                            \
 	inline ll##suffix ll##suffix##FindRight(                                     \
-	    const ll##suffix *node, const void *data,                                \
+	    const ll##suffix node, const void *data,                                 \
 	    int (*pred)(const void *, const void *)) __attribute__((always_inline)); \
 	inline ll##suffix ll##suffix##FindRight(                                     \
-	    const ll##suffix *node, const void *data,                                \
+	    const ll##suffix node, const void *data,                                 \
 	    int (*pred)(const void *, const void *)) {                               \
-		return (ll##suffix)__llFindRight(*node, data, pred);                       \
+		return (ll##suffix)__llFindRight(node, data, pred);                        \
 	}                                                                            \
 	inline ll##suffix ll##suffix##First(const ll##suffix node)                   \
 	    __attribute__((always_inline));                                          \

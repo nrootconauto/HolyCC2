@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <hashTable.h>
 #include <linkedList.h>
 #include <string.h>
@@ -19,13 +20,6 @@ static int ptrCmp(const void *a, const void *b) {
 	else
 		return -1;
 }
-static char *cloneStr(const char *str) {
-	__auto_type len = strlen(str);
-	char *retVal = malloc(len + 1);
-	strncpy(retVal, str, len);
-	
-	return retVal;
-}
 struct event *eventPoolAdd(eventPool pool, const char *name,
                            void (*func)(void *, void *), void *data) {
 	struct event tmp;
@@ -40,6 +34,13 @@ struct event *eventPoolAdd(eventPool pool, const char *name,
 		*find = llEventInsert(*find, retVal, ptrCmp);
 	}
 
-	llEventValuePtr(retVal)->name=mapLLEventValueKey(find);
+	llEventValuePtr(retVal)->name = mapLLEventValueKey(find);
 	return llEventValuePtr(retVal);
+}
+
+void eventPoolRemove(eventPool pool, struct event *event) {
+	const llEvent *find = mapLLEventGet(pool, event->name);
+	assert(find != NULL);
+
+	llEventFindRight(llEventFirst(*find), event, ptrCmp);
 }

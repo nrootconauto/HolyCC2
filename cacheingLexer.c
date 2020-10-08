@@ -64,7 +64,7 @@ static llLexerItem findAfterPos(struct __lexer *lexer, long col,
 	long pos;
 	pos = col;
 
-	__auto_type find = llLexerItemFindRight(&startFrom, &pos, findAfterPosPred);
+	__auto_type find = llLexerItemFindRight(startFrom, &pos, findAfterPosPred);
 	if (find == NULL)
 		return __llGetEnd(startFrom);
 	else
