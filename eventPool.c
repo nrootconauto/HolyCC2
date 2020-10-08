@@ -39,8 +39,10 @@ struct event *eventPoolAdd(eventPool pool, const char *name,
 }
 
 void eventPoolRemove(eventPool pool, struct event *event) {
-	const llEvent *find = mapLLEventGet(pool, event->name);
+	llEvent *find = mapLLEventGet(pool, event->name);
 	assert(find != NULL);
 
-	llEventFindRight(llEventFirst(*find), event, ptrCmp);
+	__auto_type res=llEventFindRight(llEventFirst(*find), event, ptrCmp);
+	assert(res!=NULL);
+	*find=llEventRemove(res);
 }

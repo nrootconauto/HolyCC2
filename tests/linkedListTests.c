@@ -33,6 +33,15 @@ void llTests() {
 	llIntInsert(five, zero, orderPred);
 	assert(llIntNext(zero) == one);
 	assert(llIntPrev(zero) == negOne);
+	// Test sorted right find
+	__auto_type first = llIntFirst(five);
+	int tmp = 3;
+	assert(*llIntValuePtr(llIntFindRight(first, &tmp, orderPred)) == 3);
+	assert(llIntFindRight(four, &tmp, orderPred) == NULL);
+	// Test sorted right left
+	__auto_type last = llIntLast(one);
+	assert(*llIntValuePtr(llIntFindLeft(last, &tmp, orderPred)) == 3);
+	assert(llIntFindLeft(two, &tmp, orderPred) == NULL);
 	//
-	llIntDestroy(&ll,NULL);
+	llIntDestroy(&ll, NULL);
 }

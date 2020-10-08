@@ -156,8 +156,10 @@ struct __ll *__llFindLeft(const struct __ll *list, const void *data,
 	if (0 == pred(data, __llValuePtr(list)))
 		return (struct __ll *)list;
 	for (struct __ll *left = list->prev; left != NULL; left = left->prev) {
-		if (pred(data, __llValuePtr(left)) < 0)
+		if (pred(data, __llValuePtr(left)) == 0)
 			return left;
+		else if (pred(data, __llValuePtr(left)) > 0)
+			break;
 	}
 	return NULL;
 }
@@ -168,8 +170,10 @@ struct __ll *__llFindRight(const struct __ll *list, const void *data,
 	if (0 == pred(data, __llValuePtr(list)))
 		return (struct __ll *)list;
 	for (struct __ll *right = list->next; right != NULL; right = right->next) {
-		if (pred(data, __llValuePtr(right)) < 0)
+		if (pred(data, __llValuePtr(right)) == 0)
 			return right;
+		else if (pred(data, __llValuePtr(right)) < 0)
+			break;
 	}
 	return NULL;
 }
@@ -217,6 +221,4 @@ struct __ll *__llValueResize(struct __ll *list, long newSize) {
 	list->itemSize = newSize;
 	return list;
 }
-long __llItemSize(const struct __ll *list) {
- return list->itemSize;
-}
+long __llItemSize(const struct __ll *list) { return list->itemSize; }
