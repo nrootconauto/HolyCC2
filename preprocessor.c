@@ -15,12 +15,12 @@ MAP_TYPE_DEF(struct defineMacro, DefineMacro);
 MAP_TYPE_FUNCS(struct defineMacro, DefineMacro);
 static __thread long sourceMappingStart;
 static __thread long sourceMappingEnd;
-static __thread int inIncludeFile = 0;
+static __thread int includeFileDepth = 0;
 static __thread long lineStart;
 static __thread long sourcePos;
 static __thread strSourceMapping sourceMappings = NULL;
-static void enterIncludeFile() { inIncludeFile = 1; }
-static void leaveIncludeFile() { inIncludeFile = 0; }
+static void enterIncludeFile() { includeFileDepth++; }
+static void leaveIncludeFile() { includeFileDepth--; }
 static int isInChanged(long pos) {
 	for (long i = 0; i != strSourceMappingSize(sourceMappings); i++) {
 		__auto_type item = &sourceMappings[i];
@@ -32,14 +32,14 @@ static int isInChanged(long pos) {
 	return 0;
 }
 static void startSourceMapping(long col, long sourceSpan) {
-	if (inIncludeFile || isInChanged(col + lineStart))
+	if (includeFileDepth || isInChanged(col + lineStart))
 		return;
 	sourceMappingStart = col + lineStart;
 
 	sourcePos += sourceSpan;
 }
 static void endSourceMapping(long col) {
-	if (inIncludeFile || isInChanged(col + lineStart))
+	if (includeFileDepth || isInChanged(col + lineStart))
 		return;
 	struct sourceMapping mapping;
 	mapping.sourcePos = sourcePos;
@@ -575,7 +575,6 @@ static void createPreprocessedFileLine(mapDefineMacro defines,
 		                           &endPos, &include, err)) {
 			// Remove #include
 			__auto_type at = nextMacro - (void *)retVal;
-			insertMacroText(&retVal, NULL, at, endPos - at);
 
 			struct includeMacro includeClone
 			    __attribute((cleanup(includeMacroDestroy)));
@@ -588,31 +587,20 @@ static void createPreprocessedFileLine(mapDefineMacro defines,
 
 			FILE *file __attribute__((cleanup(fileDestroy)));
 			file = fopen((char *)fn, "r");
-
 			long lineStart = ftell(file), lineEnd;
-			do {
-				lineEnd = fstreamSeekEndOfLine(file);
-				fseek(file, lineStart - ftell(file), SEEK_CUR);
-				struct __vec *lineText __attribute__((cleanup(__vecDestroy2)));
-				lineText = __vecResize(NULL, lineEnd - lineStart + 1);
-				fread((void *)lineText, 1, lineEnd - lineStart, file);
-				((char *)lineText)[lineEnd - lineStart] = '\0';
 
-				createPreprocessedFileLine(defines, lineText, writeTo, err);
-				if (err != NULL)
-					if (*err)
-						goto returnLabel;
+			fseek(file, 0, SEEK_END);
+			long fileSize = ftell(file) - lineStart;
+			fseek(file, 0, SEEK_CUR);
 
-				// Append newline to preprocessed source
-				char newLineBuffer[32];
-				__auto_type newLine = fstreamSeekPastEndOfLine(file);
-				fseek(file, lineEnd - ftell(file), SEEK_CUR);
-				fread(newLineBuffer, 1, newLine - lineEnd, file);
-				fwrite(newLineBuffer, 1, newLine - lineEnd, preprocessedSource);
+			// Get first line then insert it
+			struct __vec *fileText __attribute__((cleanup(__vecDestroy2)));
+			fileText = __vecResize(NULL, fileSize - lineStart + 1);
+			fseek(file, lineStart - ftell(file), SEEK_CUR);
+			fread(fileText, 1, fileSize - lineStart, file);
+			((char *)fileText)[fileSize - lineStart] = '\0';
 
-				lineStart = newLine;
-				fseek(file, newLine - ftell(file), SEEK_CUR);
-			} while (lineStart != lineEnd);
+			insertMacroText(&retVal, fileText, at, endPos - at);
 		}
 		if (err != NULL)
 			if (*err)
@@ -642,7 +630,7 @@ FILE *createPreprocessedFile(struct __vec *text, strSourceMapping *mappings,
 
 	__auto_type processedPos = 0;
 
-	leaveIncludeFile();
+	includeFileDepth = 0;
 	__auto_type lineStart2 = 0;
 	startSourceMapping(0, 0);
 
