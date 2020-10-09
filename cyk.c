@@ -17,6 +17,9 @@ struct __cykRule {
 		int b;
 	} nonTerminal;
 };
+int cykRuleValue(struct __cykRule *rule) {
+ return rule->value;
+}
 struct __cykBinaryMatrix {
 	int w;
 	int **bits; //[y][x]

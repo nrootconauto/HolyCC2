@@ -8,6 +8,7 @@ STR_TYPE_DEF(struct __cykRule *, CYKRulesP);
 STR_TYPE_FUNCS(struct __cykRule *, CYKRulesP);
 GRAPH_TYPE_DEF(int, int , CYKTree);
 GRAPH_TYPE_FUNCS(int, int , CYKTree);
+int cykRuleValue(struct __cykRule *rule) ;
 struct __cykBinaryMatrix *
 __cykBinary(const strCYKRulesP rules, struct __vec *items, long itemSize,
             int grammarSize, strCYKRulesP(classify)(const void *, const void *),
