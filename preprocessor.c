@@ -520,9 +520,8 @@ static struct __vec *fileReadLine(FILE *file, long lineStart,
 static FILE *fileRemoveFirstLine(FILE *file, struct __vec **firstLine) {
 	fseek(file, 0, SEEK_SET);
 
-	long nextLineStart;
 	__auto_type firstLine2 =
-	    fileReadLine(file, ftell(file), &nextLineStart, NULL);
+	    fileReadLine(file, ftell(file), NULL, NULL);
 	if (firstLine != NULL) {
 		*firstLine = firstLine2;
 	} else {
@@ -531,10 +530,15 @@ static FILE *fileRemoveFirstLine(FILE *file, struct __vec **firstLine) {
 
 	const long bufferSize = 65536;
 	char buffer[bufferSize];
-	fseek(file, nextLineStart, SEEK_SET);
+
+	/**
+	 * Be sure to seek right to '\n',we want to include newline too
+	 */
+	fseek(file, 0, SEEK_SET);
+	long startAt=fstreamSeekEndOfLine(file);
 
 	__auto_type retVal = tmpfile();
-	for (long pos = nextLineStart;;) {
+	for (long pos = startAt;;) {
 		fseek(file, pos - ftell(file), SEEK_CUR);
 
 		__auto_type count = fread(buffer, 1, bufferSize, file);
@@ -593,6 +597,7 @@ static void expandNextWord(struct __vec **retVal, FILE **prependLinesTo,
 			*prependLinesTo = result;
 		}
 
+		*retVal = __vecResize(*retVal, macroFindIndex);
 		*retVal = __vecConcat(*retVal, firstLine);
 
 		if (expanded != NULL)
@@ -682,7 +687,6 @@ static FILE *includeFile(mapDefineMacro defines,
 
 		// Write out newline
 		fwrite(newLine, 1, strlen((char *)newLine), retValFile);
-
 		// Break if no next-line
 		if (strlen((char *)newLine) == 0)
 			break;

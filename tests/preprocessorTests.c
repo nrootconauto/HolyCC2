@@ -1,7 +1,9 @@
 #include <assert.h>
 #include <preprocessor.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include <str.h>
+#include <unistd.h>
 struct __vec *file2Str(FILE *file) {
 	fseek(file, 0, SEEK_END);
 	long end = ftell(file);
@@ -14,6 +16,12 @@ struct __vec *file2Str(FILE *file) {
 	memcpy(retVal, buffer, end - start);
 	(end - start)[(char *)retVal] = '\0';
 
+	return retVal;
+}
+char *uniqueFileName() {
+	__auto_type tmp = tmpnam(NULL);
+	char *retVal = malloc(strlen(tmp) + 1);
+	strcpy(retVal, tmp);
 	return retVal;
 }
 /**
@@ -35,7 +43,8 @@ void checkMappings(const strSourceMapping mappings, const char *sourceStr,
 
 		__auto_type len = strlen(expected);
 		if (!odd) {
-			long sourcePos = mappedPosition(mappings, processedPtr - processedStr+len)-len;
+			long sourcePos =
+			    mappedPosition(mappings, processedPtr - processedStr + len) - len;
 
 			assert(0 == strncmp(processedPtr, expected, len));
 			assert(0 == strncmp(sourceStr + sourcePos, expected, len));
@@ -111,13 +120,13 @@ void preprocessorTests() {
 	//
 	// Test 5,include
 	//
-	__auto_type dummy = tmpnam(NULL);
-	__auto_type includeFile = fopen(dummy, "w");
+	__auto_type dummyFileName1 = uniqueFileName();
+	__auto_type includeFile = fopen(dummyFileName1, "w");
 	const char *includeText = "a\nb\nc";
 	fwrite(includeText, 1, strlen(includeText) + 1, includeFile);
 	fclose(includeFile);
 	char buffer[1024];
-	sprintf(buffer, "#include \"%s\"\n", dummy);
+	sprintf(buffer, "#include \"%s\"\n", dummyFileName1);
 	textSlice = __vecResize(NULL, strlen(buffer) + 1);
 	strcpy((char *)textSlice, buffer);
 	resultFile = createPreprocessedFile(textSlice, &mappings, &err);
@@ -130,4 +139,28 @@ void preprocessorTests() {
 	__vecDestroy(textSlice);
 	__vecDestroy(resultStr);
 	strSourceMappingDestroy(&mappings);
+	//
+	// 6 #include #include
+	//
+	__auto_type dummyFileName2 = uniqueFileName();
+	__auto_type includeFile2 = fopen(dummyFileName2, "w");
+	sprintf(buffer, "\"%s\"\na", dummyFileName1);
+	fwrite(buffer, 1, strlen(buffer), includeFile2);
+	fclose(includeFile2);
+	sprintf(buffer, "#include #include \"%s\"", dummyFileName2);
+	textSlice = __vecResize(NULL, strlen(buffer) + 1);
+	strcpy((char *)textSlice, buffer);
+	resultFile = createPreprocessedFile(textSlice, &mappings, &err);
+	assert(err == 0);
+	resultStr = file2Str(resultFile);
+	assert(0 == strcmp("a\nb\nc\na", (char *)resultStr));
+	__vecDestroy(textSlice);
+	__vecDestroy(resultStr);
+	strSourceMappingDestroy(&mappings);
+
+	//
+	remove(dummyFileName1);
+	remove(dummyFileName2);
+	free(dummyFileName1);
+	free(dummyFileName2);
 }

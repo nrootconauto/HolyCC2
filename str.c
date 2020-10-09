@@ -55,9 +55,10 @@ long __vecCapacity(const struct __vec *a) {
 		return *__vecCapacityPtr(a);
 }
 struct __vec *__vecConcat(struct __vec *a, const struct __vec *b) {
+	__auto_type oldASize = __vecSize(a);
 	long totalSize = __vecSize(a) + __vecSize(b);
 	a = __vecResize(a, totalSize);
-	memcpy(a, b, totalSize);
+	memcpy((void *)a + oldASize, b, totalSize);
 	return a;
 }
 struct __vec *__vecReserve(struct __vec *a, long capacity) {
