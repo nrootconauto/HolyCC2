@@ -1,6 +1,6 @@
 #include <textMapper.h>
-long mapToSource(long resultPos, const strTextModify edits) {
-	for (long i = strTextModifySize(edits) - 1; i >= 0; i--) {
+long mapToSource(long resultPos, const strTextModify edits,long startEdit) {
+	for (long i = strTextModifySize(edits) - 1; i >= startEdit; i--) {
 		__auto_type edit = &edits[i];
 		if (resultPos >= edit->where) {
 			if (edit->type == MODIFY_INSERT) {

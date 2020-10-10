@@ -14,8 +14,8 @@ MAP_TYPE_DEF(struct defineMacro, DefineMacro);
 MAP_TYPE_FUNCS(struct defineMacro, DefineMacro);
 ;
 static __thread long lineStart;
-static __thread int includeFileDepth = 0;
 static __thread strTextModify sourceMappings = NULL;
+static __thread strFileMappings allFileMappings = NULL;
 static FILE *createPreprocessedFileLine(mapDefineMacro defines,
                                         struct __vec *text_, int *err);
 static void expandDefinesInRange(struct __vec **retVal, mapDefineMacro defines,
@@ -593,9 +593,36 @@ static void concatFile(FILE *a, FILE *b) {
 	}
 	fclose(b);
 }
-static FILE *includeFile(mapDefineMacro defines,
-                         struct __vec *textFollowingInclude, FILE *readFrom,
-                         int *err) {
+static char *stringClone(const char *str) {
+	char *retVal = malloc(strlen(str) + 1);
+	strcpy(retVal, str);
+	return retVal;
+}
+static FILE *includeFile(const char *fileName, mapDefineMacro defines,
+                         struct __vec *textFollowingInclude, int *err) {
+	FILE *readFrom = fopen(fileName, "r");
+	fseek(readFrom, 0, SEEK_END);
+	long fileEnd = ftell(readFrom);
+	fseek(readFrom, 0, SEEK_SET);
+	long fileStart = ftell(readFrom);
+	long fileSize = fileEnd - fileStart;
+
+	// Insert the file text
+	struct textModify wholeFileInsert;
+	wholeFileInsert.len = fileSize, wholeFileInsert.where = lineStart,
+	wholeFileInsert.type = MODIFY_INSERT;
+	sourceMappings = strTextModifyAppendItem(sourceMappings, wholeFileInsert);
+
+	struct fileMapping __newFileMappping;
+	__newFileMappping.fileOffset=lineStart;
+	__newFileMappping.fileName = stringClone(fileName);
+	__newFileMappping.mappingIndexStart = strTextModifySize(sourceMappings);
+	__newFileMappping.mappingIndexEnd = -1;
+	allFileMappings =
+	    strFileMappingsAppendItem(allFileMappings, __newFileMappping);
+	long t = sizeof(struct fileMapping);
+	long newFileMappingPos = strFileMappingsSize(allFileMappings) - 1;
+
 	__auto_type retValFile = tmpfile();
 
 	__auto_type lineStart2 = 0;
@@ -607,16 +634,6 @@ static FILE *includeFile(mapDefineMacro defines,
 		lineText = fileReadLine(readFrom, lineStart2, &nextLine, &newLine);
 		lineStart2 = nextLine;
 
-		/**
-		 * If in include file,treat new lines  as insert
-		 */
-		if (includeFileDepth != 0) {
-			struct textModify insert;
-			insert.len = strlen((char *)lineText);
-			insert.where = lineStart;
-			insert.type=MODIFY_INSERT;
-			sourceMappings = strTextModifyAppendItem(sourceMappings, insert);
-		}
 		/**!!!
 		 * If last line(end of line is at end of file),append text following
 		 * #include
@@ -624,9 +641,6 @@ static FILE *includeFile(mapDefineMacro defines,
 		if (strlen((char *)newLine) == 0) {
 			lineText = __vecAppendItem(lineText, textFollowingInclude,
 			                           __vecSize(textFollowingInclude));
-			// At Last line
-			if (includeFileDepth != 0)
-				includeFileDepth--;
 		}
 
 		__auto_type lump = createPreprocessedFileLine(defines, lineText, err);
@@ -637,13 +651,6 @@ static FILE *includeFile(mapDefineMacro defines,
 
 		// Write out newline
 		fwrite(newLine, 1, strlen((char *)newLine), retValFile);
-		if (includeFileDepth != 0) {
-			struct textModify insert;
-			insert.len = strlen((char *)newLine);
-			insert.where = lineStart;
-			insert.type=MODIFY_INSERT;
-			sourceMappings = strTextModifyAppendItem(sourceMappings, insert);
-		}
 		lineStart += strlen((char *)newLine);
 
 		// Break if no next-line
@@ -651,6 +658,10 @@ static FILE *includeFile(mapDefineMacro defines,
 			break;
 	}
 
+	allFileMappings[newFileMappingPos].mappingIndexEnd =
+	    strTextModifySize(sourceMappings);
+
+	fclose(readFrom);
 	return retValFile;
 }
 static FILE *createPreprocessedFileLine(mapDefineMacro defines,
@@ -710,8 +721,8 @@ static FILE *createPreprocessedFileLine(mapDefineMacro defines,
 			includeClone = include;
 
 			struct textModify destroy;
-			destroy.where = where;
-			destroy.len = endPos - where;
+			destroy.where = where + lineStart;
+			destroy.len = endPos - where + lineStart;
 			destroy.type = MODIFY_REMOVE;
 			sourceMappings = strTextModifyAppendItem(sourceMappings, destroy);
 
@@ -720,19 +731,17 @@ static FILE *createPreprocessedFileLine(mapDefineMacro defines,
 			fn = createNullTerminated(include.fileName);
 			assert(fn != NULL); // TODO whine about file not found
 
-			FILE *file __attribute__((cleanup(fileDestroy)));
-			file = fopen((char *)fn, "r");
-
 			struct __vec *textFollowingInclude
 			    __attribute__((cleanup(__vecDestroy2)));
 			textFollowingInclude = __vecAppendItem(NULL, (void *)retVal + endPos,
 			                                       __vecSize(retVal) - endPos);
+
 			retVal = __vecResize(retVal, where);
 			fwrite(retVal, 1, __vecSize(retVal), writeTo);
+			lineStart += __vecSize(retVal);
 
-			includeFileDepth++;
-			__auto_type included =
-			    includeFile(defines, textFollowingInclude, file, err);
+			__auto_type included = includeFile((char *)include.fileName, defines,
+			                                   textFollowingInclude, err);
 			if (err != NULL)
 				if (*err)
 					goto fail;
@@ -763,37 +772,37 @@ fail:
 	return NULL;
 }
 
-FILE *createPreprocessedFile(struct __vec *text, strTextModify *mappings,
-                             int *err) {
+FILE *createPreprocessedFile(const char *fileName, strTextModify *mappings,
+                             strFileMappings *fileMappings, int *err) {
 	if (err != NULL)
 		*err = 0;
 
 	strTextModifyDestroy(&sourceMappings);
+	strFileMappingsDestroy(&allFileMappings);
 	sourceMappings = NULL;
+	allFileMappings = NULL;
 	lineStart = 0;
 
 	mapDefineMacro defines = mapDefineMacroCreate();
 
-	__auto_type processedPos = 0;
-
-	__auto_type lineStart2 = 0;
-
-	__auto_type sourceFile = tmpfile();
-	fwrite(text, 1, __vecSize(text), sourceFile);
-	fseek(sourceFile, 0, SEEK_SET);
-
-	__auto_type preprocessedSource = includeFile(defines, NULL, sourceFile, err);
+	__auto_type preprocessedSource = includeFile(fileName, defines, NULL, err);
 
 	if (mappings != NULL)
 		*mappings = (strTextModify)__vecAppendItem(
 		    NULL, sourceMappings, __vecSize((struct __vec *)sourceMappings));
+	if (fileMappings != NULL)
+		*fileMappings = (strFileMappings)__vecAppendItem(
+		    NULL, allFileMappings, __vecSize((struct __vec *)allFileMappings));
 returnLabel:
 	mapDefineMacroDestroy(defines, defineMacroDestroy);
-	fclose(sourceFile);
 
 	if (err != NULL)
 		if (*err)
 			return NULL;
 
 	return preprocessedSource;
+}
+void fileMappingsDestroy(strFileMappings *mappings) {
+	for (long i = 0; i != strFileMappingsSize(*mappings); i++)
+		free(mappings[0][i].fileName);
 }

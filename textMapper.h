@@ -10,4 +10,4 @@ struct textModify {
 };
 STR_TYPE_DEF(struct textModify ,TextModify);
 STR_TYPE_FUNCS(struct textModify ,TextModify);
-long mapToSource(long resultPos,const strTextModify edits);
+long mapToSource(long resultPos,const strTextModify edits,long startEdit);
