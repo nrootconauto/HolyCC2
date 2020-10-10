@@ -28,7 +28,7 @@ char *uniqueFileName() {
  * Even items are the segments that are shared by source and preprocessed,odd
  * are preprocessor segments
  */
-void checkMappings(const strSourceMapping mappings, const char *sourceStr,
+void checkMappings(const strTextModify mappings, const char *sourceStr,
                    const char *processedStr, ...) {
 	const char *processedPtr = processedStr;
 
@@ -44,7 +44,7 @@ void checkMappings(const strSourceMapping mappings, const char *sourceStr,
 		__auto_type len = strlen(expected);
 		if (!odd) {
 			long sourcePos =
-			    mappedPosition(mappings, processedPtr - processedStr + len) - len;
+			    mapToSource(processedPtr - processedStr + len, mappings) - len;
 
 			assert(0 == strncmp(processedPtr, expected, len));
 			assert(0 == strncmp(sourceStr + sourcePos, expected, len));
@@ -61,7 +61,7 @@ void preprocessorTests() {
 	//
 	const char *text = "#define x b\n"
 	                   "a x c\n";
-	strSourceMapping mappings;
+	strTextModify mappings;
 	int err;
 	struct __vec *textSlice = __vecResize(NULL, strlen(text) + 1);
 	strcpy((char *)textSlice, text);
@@ -76,7 +76,7 @@ void preprocessorTests() {
 	fclose(resultFile);
 	__vecDestroy(textSlice);
 	__vecDestroy(resultStr);
-	strSourceMappingDestroy(&mappings);
+	strTextModifyDestroy(&mappings);
 	//
 	// Test 2,error on infinite recursion
 	//
@@ -84,7 +84,6 @@ void preprocessorTests() {
 	textSlice = __vecResize(NULL, strlen(text) + 1);
 	strcpy((char *)textSlice, text);
 	resultFile = createPreprocessedFile(textSlice, &mappings, &err);
-	fclose(resultFile);
 	assert(err == 1);
 	__vecDestroy(textSlice);
 	//
@@ -99,10 +98,10 @@ void preprocessorTests() {
 	assert(0 == strcmp("\n\n2", (char *)resultStr));
 	checkMappings(mappings, (const char *)textSlice, (const char *)resultStr, "",
 	              "\n", "", "\n2", "", NULL);
-	fclose(resultFile);
 	__vecDestroy(textSlice);
 	__vecDestroy(resultStr);
-	strSourceMappingDestroy(&mappings);
+	strTextModifyDestroy(&mappings);
+	fclose(resultFile);
 	//
 	// Test 4,Replace macro name
 	//
@@ -116,7 +115,7 @@ void preprocessorTests() {
 	fclose(resultFile);
 	__vecDestroy(textSlice);
 	__vecDestroy(resultStr);
-	strSourceMappingDestroy(&mappings);
+	strTextModifyDestroy(&mappings);
 	//
 	// Test 5,include
 	//
@@ -126,19 +125,19 @@ void preprocessorTests() {
 	fwrite(includeText, 1, strlen(includeText) + 1, includeFile);
 	fclose(includeFile);
 	char buffer[1024];
-	sprintf(buffer, "#include \"%s\"\n", dummyFileName1);
+	sprintf(buffer, "#include \"%s\"\n123", dummyFileName1);
 	textSlice = __vecResize(NULL, strlen(buffer) + 1);
 	strcpy((char *)textSlice, buffer);
 	resultFile = createPreprocessedFile(textSlice, &mappings, &err);
 	assert(err == 0);
 	resultStr = file2Str(resultFile);
-	assert(0 == strcmp("a\nb\nc\n", (char *)resultStr));
+	assert(0 == strcmp("a\nb\nc\n123", (char *)resultStr));
 	checkMappings(mappings, (const char *)textSlice, (const char *)resultStr, "",
-	              "a\nb\nc", NULL);
+	              "a\nb\nc","\n123", NULL);
 	fclose(resultFile);
 	__vecDestroy(textSlice);
 	__vecDestroy(resultStr);
-	strSourceMappingDestroy(&mappings);
+	strTextModifyDestroy(&mappings);
 	//
 	// 6 #include #include
 	//
@@ -156,7 +155,7 @@ void preprocessorTests() {
 	assert(0 == strcmp("a\nb\nc\na", (char *)resultStr));
 	__vecDestroy(textSlice);
 	__vecDestroy(resultStr);
-	strSourceMappingDestroy(&mappings);
+	strTextModifyDestroy(&mappings);
 
 	//
 	remove(dummyFileName1);

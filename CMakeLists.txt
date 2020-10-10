@@ -22,6 +22,7 @@ list(APPEND sources "stringParser.c")
 list(APPEND sources "preprocessor.c")
 list(APPEND sources "cykGrammarGenerator.c")
 list(APPEND sources "eventPool.c")
+list(APPEND sources "textMapper.c")
 
 set(tests "")
 list(APPEND tests "tests/tests.c")
