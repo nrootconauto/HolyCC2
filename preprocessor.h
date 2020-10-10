@@ -11,7 +11,8 @@ struct defineMacro {
 };
 struct fileMapping {
  char *fileName;
- long mappingIndexStart,mappingIndexEnd,fileOffset;
+ long mappingIndexStart,mappingIndexEnd;
+ long fileOffset,fileEndOffset;
 };
 STR_TYPE_DEF(struct fileMapping ,FileMappings);
 STR_TYPE_FUNCS(struct fileMapping ,FileMappings);

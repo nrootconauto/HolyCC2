@@ -90,6 +90,9 @@ struct __vec *__vecAppendItem(struct __vec *a, const void *item,
 		__auto_type newCap = (capacity + itemSize) * 4;
 		a = __vecReserve(a, newCap);
 	}
+	if (a == NULL)
+		return a;
+
 	memcpy((void *)a + size, item, itemSize);
 	*__vecSizePtr(a) += itemSize;
 	return a;

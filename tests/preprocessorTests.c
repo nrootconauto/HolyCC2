@@ -140,15 +140,17 @@ void preprocessorTests() {
 	fwrite(includeText, 1, strlen(includeText), includeFile);
 	fclose(includeFile);
 	char buffer[1024];
-	sprintf(buffer, "#include \"%s\"\n123", dummyFileName1);
+	sprintf(buffer, " #include \"%s\"\n123", dummyFileName1);
 	sourceFile = str2File(sourceFileName, buffer);
 	resultFile =
 	    createPreprocessedFile(sourceFileName, &mappings, &mappingsPerFile, &err);
 	assert(err == 0);
 	resultStr = file2Str(resultFile);
-	assert(0 == strcmp("a\nb\nc\n123", (char *)resultStr));
+	assert(0 == strcmp(" a\nb\nc\n123", (char *)resultStr));
 	checkMappings(mappings, mappingsPerFile, (const char *)buffer,
-	              (const char *)resultStr, "", "a\nb\nc", "\n123", NULL);
+	              (const char *)resultStr, " ", "a\nb\nc", "\n123", NULL);
+	assert(mappingsPerFile[1].fileOffset == 1);
+	assert(mappingsPerFile[1].fileEndOffset == 1 + strlen(includeText));
 	fclose(resultFile);
 	fclose(sourceFile);
 	__vecDestroy(resultStr);

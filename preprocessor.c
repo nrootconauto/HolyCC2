@@ -173,7 +173,7 @@ static int expectMacroAndSkip(const char *macroText, struct __vec **text,
 	if (err != NULL)
 		*err = 0;
 
-	const char *text2 = *(const char **)text;
+	const char *text2 = *(const char **)text + pos;
 	if (*text2 != '#')
 		return 0;
 
@@ -614,7 +614,7 @@ static FILE *includeFile(const char *fileName, mapDefineMacro defines,
 	sourceMappings = strTextModifyAppendItem(sourceMappings, wholeFileInsert);
 
 	struct fileMapping __newFileMappping;
-	__newFileMappping.fileOffset=lineStart;
+	__newFileMappping.fileOffset = lineStart;
 	__newFileMappping.fileName = stringClone(fileName);
 	__newFileMappping.mappingIndexStart = strTextModifySize(sourceMappings);
 	__newFileMappping.mappingIndexEnd = -1;
@@ -624,6 +624,7 @@ static FILE *includeFile(const char *fileName, mapDefineMacro defines,
 	long newFileMappingPos = strFileMappingsSize(allFileMappings) - 1;
 
 	__auto_type retValFile = tmpfile();
+	long retValStart = ftell(retValFile);
 
 	__auto_type lineStart2 = 0;
 	for (int firstRun = 1;; firstRun = 0) {
@@ -660,6 +661,10 @@ static FILE *includeFile(const char *fileName, mapDefineMacro defines,
 
 	allFileMappings[newFileMappingPos].mappingIndexEnd =
 	    strTextModifySize(sourceMappings);
+	// Set end relative to included file size
+	allFileMappings[newFileMappingPos].fileEndOffset =
+	    ftell(retValFile) - retValStart +
+	    allFileMappings[newFileMappingPos].fileOffset;
 
 	fclose(readFrom);
 	return retValFile;
@@ -694,6 +699,7 @@ static FILE *createPreprocessedFileLine(mapDefineMacro defines,
 		if (nextMacro == NULL)
 			break;
 
+		where = nextMacro - (void *)retVal;
 		long endPos;
 		struct defineMacro define;
 		struct includeMacro include;
