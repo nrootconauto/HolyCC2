@@ -34,7 +34,15 @@ struct __map;
 	    __attribute__((always_inline));                                          \
 	inline const char *map##suffix##ValueKey(const void *value) {                \
 		return __mapKeyByPtr(value);                                               \
-	};
+	}                                                                            \
+	inline map##suffix map##suffix##Clone(                                       \
+	    const map##suffix toClone, void (*cloneData)(void *, const void *))      \
+	    __attribute__((always_inline));                                          \
+	inline map##suffix map##suffix##Clone(                                       \
+	    const map##suffix toClone, void (*cloneData)(void *, const void *)) {    \
+		return (map##suffix)__mapClone((struct __map *)toClone, cloneData,         \
+		                               sizeof(type));                              \
+	}
 void __mapDestroy(struct __map *map, void (*kill)(void *));
 int __mapInsert(struct __map *map, const char *key, const void *item,
                 const long itemSize);
@@ -42,3 +50,6 @@ void *__mapGet(const struct __map *map, const char *key);
 struct __map *__mapCreate();
 void __mapRemove(struct __map *map, const char *key, void (*kill)(void *));
 const char *__mapKeyByPtr(const void *valuePtr);
+struct __map *__mapClone(struct __map *map,
+                         void (*cloneData)(void *, const void *),
+                         long itemSize);

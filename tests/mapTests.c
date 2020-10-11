@@ -31,6 +31,15 @@ void mapTests() {
 		assert(0 == strcmp(key, buffer));
 	}
 	//
+	__auto_type newMap = mapIntClone(map, NULL);
+	for (int i = 0; i != count; i++) {
+		buffer[0] = chars[i];
+		buffer[1] = '\0';
+		__auto_type result = (int *)mapIntGet(newMap, buffer);
+		__auto_type key = mapIntValueKey(result);
+		assert(0 == strcmp(key, buffer));
+	}
+	//
 	for (int i = 0; i != count; i++) {
 		buffer[0] = chars[i];
 		buffer[1] = '\0';
@@ -39,4 +48,5 @@ void mapTests() {
 	}
 	//
 	mapIntDestroy(map, NULL);
+	mapIntDestroy(newMap, NULL);
 }

@@ -230,3 +230,26 @@ void __mapRemove(struct __map *map, const char *key, void (*kill)(void *)) {
 const char *__mapKeyByPtr(const void *valuePtr) {
 	return __mapNodeKey(valuePtr - sizeof(int) - sizeof(long));
 }
+struct __map *__mapClone(struct __map *map,
+                         void (*cloneData)(void *, const void *),
+                         long itemSize) {
+	struct __map *retVal = __mapCreate();
+
+	for (long i = 0; i != strLLPSize(map->buckets); i++) {
+		for (__auto_type node = __llGetFirst(map->buckets[i]); node != NULL;
+		     node = __llNext(node)) {
+			__auto_type mapNode = __llValuePtr(node);
+
+			char buffer[itemSize];
+			if (cloneData != NULL) {
+				cloneData(buffer, __mapNodeValue(mapNode));
+			} else {
+				memcpy(buffer, __mapNodeValue(mapNode), itemSize);
+			}
+
+			__mapInsert(retVal, __mapNodeKey(mapNode), buffer, itemSize);
+		}
+	}
+
+	return retVal;
+}
