@@ -17,9 +17,7 @@ struct __cykRule {
 		int b;
 	} nonTerminal;
 };
-int cykRuleValue(struct __cykRule *rule) {
- return rule->value;
-}
+int cykRuleValue(struct __cykRule *rule) { return rule->value; }
 struct __cykBinaryMatrix {
 	int w;
 	int **bits; //[y][x]
@@ -446,9 +444,9 @@ graphNodeCYKTree CYKTree(const strCYKRulesP grammar, int grammarSize,
 		strGraphEdgeCYKTreePDestroy(&incoming);
 
 		// Go to next child,
-		childStack[newChildStackSize-1]++;
+		childStack[newChildStackSize - 1]++;
 		// Pop is past second child
-		if (childStack[newChildStackSize-1] == 2)
+		if (childStack[newChildStackSize - 1] == 2)
 			goto pop;
 
 		continue;
@@ -576,4 +574,10 @@ int __cykIteratorInitEnd(struct __cykBinaryMatrix *table,
 
 	*iter = clone;
 	return res;
+}
+void strCYKRulesPDestroy2(strCYKRulesP *rules) {
+	for (long i = 0; i != strCYKRulesPSize(*rules); i++) {
+		free(rules[0][i]);
+	}
+	strCYKRulesPDestroy(rules);
 }
