@@ -594,3 +594,16 @@ void strCYKRulesPDestroy2(strCYKRulesP *rules) {
 	}
 	strCYKRulesPDestroy(rules);
 }
+void CYKRulesPrint(const strCYKRulesP rules,
+                   const char *(*getName)(int ruleNumber, const void *data),
+                   const void *data) {
+	for (long i = 0; i != strCYKRulesPSize(rules); i++) {
+		if (rules[i]->type == CYK_TERMINAL) {
+			printf("%s -> Terminal\n", getName(rules[i]->value, data));
+		} else if (rules[i]->type == CYK_NONTERMINAL) {
+			printf("%s -> %s %s\n", getName(rules[i]->value, data),
+			       getName(rules[i]->nonTerminal.a, data), 
+			       getName(rules[i]->nonTerminal.b, data));
+		}
+	}
+}

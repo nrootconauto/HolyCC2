@@ -56,8 +56,9 @@ struct __vec;
 	inline str##suffix str##suffix##AppendData(str##suffix vec,                  \
 	                                           const type *data, long count) {   \
 		__auto_type oldSize = __vecSize((struct __vec *)vec);                      \
-		vec = (str##suffix)__vecResize((struct __vec *)vec, count * sizeof(type)); \
-		memcpy(&vec[oldSize], data, count * sizeof(type));                         \
+		vec = (str##suffix)__vecResize((struct __vec *)vec,                        \
+		                               oldSize + count * sizeof(type));            \
+		memcpy(&((char*)vec)[oldSize], data, count * sizeof(type));                         \
 		return vec;                                                                \
 	}                                                                            \
 	inline type *str##suffix##SortedFind(str##suffix vec, type data,             \

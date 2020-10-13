@@ -26,6 +26,9 @@ graphNodeCYKTree CYKTree(const strCYKRulesP grammar, int grammarSize,
                          int R, long itemSize,
                          strCYKRulesP (*classify)(const void *, const void *),
                          void *data);
+void CYKRulesPrint(const strCYKRulesP rules,
+                   const char *(*getName)(int ruleNumber, const void *data),
+                   const void *data);
 struct __cykIterator {
 	int x;
 	int y;

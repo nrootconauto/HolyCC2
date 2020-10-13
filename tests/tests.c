@@ -8,6 +8,7 @@ void cykTests();
 void cachingLexerTests();
 void preprocessorTests();
 void eventPoolTests();
+void cykGrammarGeneratorTests();
 int main() {
 	llTests();
 	strTests();
@@ -19,5 +20,6 @@ int main() {
 	cachingLexerTests();
 	preprocessorTests();
 	eventPoolTests();
+	cykGrammarGeneratorTests();
 	return 0;
 }
