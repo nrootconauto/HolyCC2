@@ -211,11 +211,6 @@ __cykBinary(const strCYKRulesP rules, struct __vec *items, long itemSize,
 }
 STR_TYPE_DEF(double, Double);
 STR_TYPE_FUNCS(double, Double);
-struct __CYKEntry {
-	int x, y, r;
-	double prob;
-	struct __CYKEntry *a, *b;
-};
 STR_TYPE_DEF(struct __CYKEntry, CYKEntry);
 STR_TYPE_FUNCS(struct __CYKEntry, CYKEntry);
 int __CYKEntryPred(const void *a, const void *b) {
@@ -271,6 +266,7 @@ static int CYKProbalisticCheckRuleS(const strCYKRulesP grammar,
 				retVal.a = A;
 				retVal.b = B;
 				retVal.r = r;
+				retVal.rule = grammar[i];
 				retVal.x = s - 1;
 				retVal.y = l - 1;
 			}
@@ -339,18 +335,35 @@ graphNodeCYKTree CYKTree(const strCYKRulesP grammar, int grammarSize,
 			entry.a = NULL;
 			entry.b = NULL;
 
+			// Find rule corresponding to find
+			for (long i = 0; i != strCYKRulesPSize(grammar); i++) {
+				if (grammar[i]->type == CYK_TERMINAL) {
+					if (grammar[i]->value == r) {
+						break;
+					}
+				}
+			}
+
 			if (y == 0) {
 				__auto_type result = classify((void *)items + itemSize * x, data);
 
 				double maxWeight = NAN;
+				int maxWeightIndex = -1;
 				for (int i = 0; i != strCYKRulesPSize(result); i++) {
-					if (maxWeight == NAN)
+
+					if (maxWeight == NAN) {
 						maxWeight = result[i]->weight;
-					else
-						maxWeight =
-						    (maxWeight > result[i]->weight) ? maxWeight : result[i]->weight;
+						maxWeightIndex = i;
+					} else {
+						if (maxWeight < result[i]->weight) {
+							maxWeightIndex = i;
+							maxWeight = result[i]->weight;
+						}
+					}
 				}
 
+				assert(i != -1);
+				entry.rule = result[i];
 				entry.prob = maxWeight;
 				strCYKRulesPDestroy(&result);
 			}
@@ -407,7 +420,7 @@ graphNodeCYKTree CYKTree(const strCYKRulesP grammar, int grammarSize,
 	int childIndex = 0;
 	strInt childStack = strIntAppendItem(NULL, 0);
 	strCYKEntryP stack = strCYKEntryPAppendItem(NULL, res);
-	__auto_type node = graphNodeCYKTreeCreate(res->r, 0);
+	__auto_type node = graphNodeCYKTreeCreate(*res, 0);
 	while (strCYKEntryPSize(stack) != 0) {
 		__auto_type top = stack[strCYKEntryPSize(stack) - 1];
 		bool hasChildren = top->a != NULL && top->b != NULL;
@@ -424,7 +437,7 @@ graphNodeCYKTree CYKTree(const strCYKRulesP grammar, int grammarSize,
 		__auto_type next = (child == 0) ? top->a : top->b;
 		stack = strCYKEntryPAppendItem(stack, next);
 
-		__auto_type newNode = graphNodeCYKTreeCreate(next->r, 0);
+		__auto_type newNode = graphNodeCYKTreeCreate(*next, 0);
 		graphNodeCYKTreeConnect(node, newNode, child);
 		node = newNode;
 		continue;

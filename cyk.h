@@ -4,10 +4,16 @@
 struct __cykRule *cykRuleCreateTerminal(int value, double weight);
 struct __cykRule *cykRuleCreateNonterminal(int value, double weight, int a,
                                            int b);
+struct __CYKEntry {
+	int x, y, r;
+	double prob;
+	struct __cykRule *rule;
+	struct __CYKEntry *a, *b;
+};
 STR_TYPE_DEF(struct __cykRule *, CYKRulesP);
 STR_TYPE_FUNCS(struct __cykRule *, CYKRulesP);
-GRAPH_TYPE_DEF(int, int, CYKTree);
-GRAPH_TYPE_FUNCS(int, int, CYKTree);
+GRAPH_TYPE_DEF(struct __CYKEntry , int, CYKTree);
+GRAPH_TYPE_FUNCS(struct __CYKEntry , int, CYKTree);
 int cykRuleValue(struct __cykRule *rule);
 struct __cykBinaryMatrix *
 __cykBinary(const strCYKRulesP rules, struct __vec *items, long itemSize,

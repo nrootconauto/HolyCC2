@@ -49,10 +49,10 @@ strGraphNodeCYKTreeP assertOutgoing(graphNodeCYKTree node, int a, int b) {
 		__auto_type side = *graphEdgeCYKTreeValuePtr(edges[i]);
 		if (side == 0) {
 			retVal[0] = graphEdgeCYKTreeOutgoing(edges[i]);
-			assert(*graphNodeCYKTreeValuePtr(retVal[0]) == a);
+			assert(graphNodeCYKTreeValuePtr(retVal[0])->r == a);
 		} else {
 			retVal[1] = graphEdgeCYKTreeOutgoing(edges[i]);
-			assert(*graphNodeCYKTreeValuePtr(retVal[1]) == b);
+			assert(graphNodeCYKTreeValuePtr(retVal[1])->r == b);
 		}
 	}
 	return retVal;
@@ -166,7 +166,7 @@ void cykTests() {
 	    CYKTree(grammar, grammarSize, (struct __vec *)sentence, table, 6, 0, 0,
 	            sizeof(*sentence), classify, &terminalPairs2);
 	assert(tree != NULL);
-	assert(*graphNodeCYKTreeValuePtr(tree) == Si);
+	assert(graphNodeCYKTreeValuePtr(tree)->r == Si);
 	__auto_type treeOut1 = assertOutgoing(tree, NPi, VPi);
 	__auto_type treeOut1_2 = assertOutgoing(treeOut1[1], VPi, PPi);
 	__auto_type treeOut1_2_1 = assertOutgoing(treeOut1_2[0], Vi, NPi);

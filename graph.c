@@ -19,7 +19,7 @@ struct __graphNode {
 	unsigned int killable : 1;
 };
 static int ptrCompare(const void *a, const void *b) {
-	const void **A = (const void**)a, **B = (const void**)b;
+	const void **A = (const void **)a, **B = (const void **)b;
 	return *A - *B;
 }
 struct __graphNode *__graphNodeCreate(void *value, long itemSize, int version) {
@@ -47,8 +47,9 @@ static struct __graphEdge *__graphEdgeByDirection(struct __ll *edge,
 STR_TYPE_DEF(struct __ll *, LLP);
 STR_TYPE_FUNCS(struct __ll *, LLP);
 static void __graphNodeVisitDirPred(struct __graphNode *node, void *data,
-                                    int(pred)(struct __graphNode *,
-                                              struct __graphEdge *, void *),
+                                    int(pred)(const struct __graphNode *,
+                                              const struct __graphEdge *,
+                                              const void *),
                                     void (*visit)(struct __graphNode *, void *),
                                     enum dir d) {
 	strGraphNodeP visited __attribute__((cleanup(strGraphNodePDestroy)));
@@ -120,14 +121,16 @@ static void __graphNodeVisitDirPred(struct __graphNode *node, void *data,
 	}
 }
 void __graphNodeVisitForward(struct __graphNode *node, void *data,
-                             int(pred)(struct __graphNode *,
-                                       struct __graphEdge *, void *),
+                             int(pred)(const struct __graphNode *,
+                                       const struct __graphEdge *,
+                                       const void *),
                              void (*visit)(struct __graphNode *, void *)) {
 	__graphNodeVisitDirPred(node, data, pred, visit, DIR_FORWARD);
 }
 void __graphNodeVisitBackward(struct __graphNode *node, void *data,
-                              int(pred)(struct __graphNode *,
-                                        struct __graphEdge *, void *),
+                              int(pred)(const struct __graphNode *,
+                                        const struct __graphEdge *,
+                                        const void *),
                               void (*visit)(struct __graphNode *, void *)) {
 	__graphNodeVisitDirPred(node, data, pred, visit, DIR_BACKWARD);
 }
@@ -249,8 +252,8 @@ void __graphNodeKill(struct __graphNode *node, void (*killNode)(void *item),
 		killNode(node + sizeof(struct __graphNode));
 	free(node);
 }
-static int __graphAllPred(struct __graphNode *node, struct __graphEdge *edge,
-                          void *data) {
+static int __graphAllPred(const struct __graphNode *node, const struct __graphEdge *edge,
+                          const void *data) {
 	return 1;
 }
 static void __graphVisitAppend(struct __graphNode *node, void *data) {
