@@ -61,10 +61,10 @@ struct __vec;
 		memcpy(&((char*)vec)[oldSize], data, count * sizeof(type));                         \
 		return vec;                                                                \
 	}                                                                            \
-	inline type *str##suffix##SortedFind(str##suffix vec, type data,             \
+	inline type *str##suffix##SortedFind(str##suffix vec, const type data,             \
 	                                     int pred(const void *, const void *))   \
 	    __attribute__((always_inline));                                          \
-	inline type *str##suffix##SortedFind(str##suffix vec, type data,             \
+	inline type *str##suffix##SortedFind(str##suffix vec, const type data,             \
 	                                     int pred(const void *, const void *)) { \
 		return __vecSortedFind((struct __vec *)vec, &data, sizeof(type), pred);    \
 	}                                                                            \

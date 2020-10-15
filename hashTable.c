@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <hashTable.h>
 #include <libdill.h>
 #include <linkedList.h>
@@ -226,6 +227,14 @@ void __mapRemove(struct __map *map, const char *key, void (*kill)(void *)) {
 	if (kill != NULL)
 		kill(__mapNodeValue(__llValuePtr(node)));
 	__llDestroy(node, NULL);
+
+	map->bucketSizes[bucket]--;
+	__auto_type load = __mapCalculateLoad(map);
+	if (load > 3.5) {
+		__mapRehash(map, 1);
+	} else if (load < 0.1) {
+		__mapRehash(map, 0);
+	}
 }
 const char *__mapKeyByPtr(const void *valuePtr) {
 	return __mapNodeKey(valuePtr - sizeof(int) - sizeof(long));
@@ -252,4 +261,33 @@ struct __map *__mapClone(struct __map *map,
 	}
 
 	return retVal;
+}
+static int strCmp(const void *a, const void *b) {
+	return strcmp(*(const char **)a, *(const char **)b);
+}
+void __mapKeys(const struct __map *map, const char **dumpTo, long *count) {
+	long computedCount = 0;
+	for (long i = 0; i != strLLPSize(map->buckets); i++) {
+		computedCount += map->bucketSizes[i];
+	}
+
+	if (count != NULL)
+		*count = computedCount;
+
+	if (dumpTo != NULL) {
+		const char *buffer[computedCount];
+		long inserted = 0;
+		for (long i = 0; i != strLLPSize(map->buckets); i++) {
+			for (__auto_type node = __llGetFirst(map->buckets[i]); node != NULL;
+			     node = __llNext(node)) {
+				buffer[inserted++] = __mapNodeKey(__llValuePtr(node));
+				assert(inserted <= computedCount);
+			}
+		}
+		assert(inserted == computedCount);
+
+		qsort(buffer, inserted, sizeof(const char *), strCmp);
+		for (long i = 0; i != inserted; i++)
+			dumpTo[i] = buffer[i];
+	}
 }
