@@ -52,8 +52,13 @@ static int bitsSearchReverse(int *buffer, int intCount, int startAt) {
 	for (int i = index / INT_BITS; i >= 0; i--) {
 		unsigned int clone = buffer[i];
 		__auto_type shift = INT_BITS - index % INT_BITS;
-		clone <<= shift;
-		clone >>= shift;
+		// https://stackoverflow.com/questions/12145636/bit-shifting-an-int-32-times-in-c
+		if (shift == INT_BITS) {
+			clone = 0;
+		} else {
+			clone <<= shift;
+			clone >>= shift;
+		}
 
 		if (clone == 0) {
 			index = index / INT_BITS * INT_BITS - INT_BITS;
@@ -574,7 +579,7 @@ int __cykIteratorInitEnd(struct __cykBinaryMatrix *table,
                          struct __cykIterator *iter) {
 	struct __cykIterator start;
 	start.r = table->grammarSize - 1;
-	start.x = 0;
+	start.x = 1;
 	start.y = table->w - 1;
 	*iter = start;
 
@@ -602,11 +607,11 @@ void CYKRulesPrint(const strCYKRulesP rules,
 			printf("%s -> Terminal\n", getName(rules[i]->value, data));
 		} else if (rules[i]->type == CYK_NONTERMINAL) {
 			printf("%s -> %s %s\n", getName(rules[i]->value, data),
-			       getName(rules[i]->nonTerminal.a, data), 
+			       getName(rules[i]->nonTerminal.a, data),
 			       getName(rules[i]->nonTerminal.b, data));
 		}
 	}
 }
 int CYKRuleIsTerminal(struct __cykRule *rule) {
-return rule->type==CYK_TERMINAL;
+	return rule->type == CYK_TERMINAL;
 }
