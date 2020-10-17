@@ -1,29 +1,33 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <str.h>
-STR_TYPE_DEF(char, );
-STR_TYPE_FUNCS(char, );
+STR_TYPE_DEF(char, Char);
+STR_TYPE_FUNCS(char, Char);
 static int chrFind(const void *a, const void *b) { return *(const char *)a - *(const char *)b; }
 void strTests() {
 	// NULLS
-	str str1 = NULL;
-	strDestroy(&str1);
+	strChar str1 = NULL;
+	strCharDestroy(&str1);
 	str1 = NULL;
-	str1 = strReserve(str1, 0);
-	assert(NULL == strConcat(NULL, NULL));
-	assert(NULL == strResize(str1, 0));
+	str1 = strCharReserve(str1, 0);
+	assert(NULL == strCharConcat(NULL, NULL));
+	assert(NULL == strCharResize(str1, 0));
 	// Actual data
-	str1 = strAppendData(str1, "abc", 3);
+	str1 = strCharAppendData(str1, "abc", 3);
 	assert(0 == strncmp(str1, "abc", 3));
-	str1 = strAppendItem(str1, 'e');
+	str1 = strCharAppendItem(str1, 'e');
 	assert(0 == strncmp(str1, "abce", 4));
-	str1 = strSortedInsert(str1, 'd', chrFind);
+	str1 = strCharSortedInsert(str1, 'd', chrFind);
 	assert(0 == strncmp(str1, "abcde", 5));
 	// Find
-	assert('d' == *strSortedFind(str1, 'd', chrFind));
+	assert('d' == *strCharSortedFind(str1, 'd', chrFind));
 	// Difference
-	str str2 = strAppendData(NULL, "ace", 3);
-	str1 = strSetDifference(str1, str2, chrFind);
+	strChar str2 = strCharAppendData(NULL, "ace", 3);
+	str1 = strCharSetDifference(str1, str2, chrFind);
 	assert(0 == strncmp(str1, "bd", 2));
-	assert(2 == strSize(str1));
+	assert(2 == strCharSize(str1));
+	//Unique
+	strChar str3=strCharAppendData(NULL,"aabbbcccc",2+3+4+1);
+	str3=strCharUnique(str3,chrFind);
+	assert(0==strcmp(str3,"abc"));
 }

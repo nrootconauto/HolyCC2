@@ -616,3 +616,21 @@ void CYKRulesPrint(const strCYKRulesP rules,
 int CYKRuleIsTerminal(struct __cykRule *rule) {
 	return rule->type == CYK_TERMINAL;
 }
+static int CYKRulePred(const void *a, const void *b) {
+	const struct __cykRule *A = a, *B = b;
+	if (A->value != B->value)
+		return A->value - B->value;
+	if (A->type != B->type)
+		return A->type - B->type;
+	if (A->type == CYK_NONTERMINAL) {
+		if (A->nonTerminal.a != B->nonTerminal.a)
+			return A->nonTerminal.a - B->nonTerminal.a;
+		if (A->nonTerminal.b != B->nonTerminal.b)
+			return A->nonTerminal.b - B->nonTerminal.b;
+	}
+
+	return 0;
+}
+void CYKRulesRemoveRepeats(strCYKRulesP *rules) {
+ //qsort();
+}

@@ -170,3 +170,25 @@ struct __vec *__vecRemoveIf(struct __vec *a, long itemSize,
 	*__vecSizePtr(a) = (char *)result - (char *)a;
 	return a;
 }
+// https://www.cplusplus.com/reference/algorithm/unique/
+struct __vec *__vecUnique(struct __vec *vec, long itemSize,
+                          int (*pred)(const void *, const void *)) {
+	void *end = (void *)vec + __vecSize(vec);
+	if (vec == end)
+		return vec;
+
+	void *res = vec, *first = vec;
+	for (;;) {
+		first += itemSize;
+		if (first == end)
+			break;
+
+		if (0 != pred(res, first)) {
+			res += itemSize;
+			memcpy(res, first, itemSize);
+		}
+	}
+
+	res += itemSize;
+	return __vecResize(vec, res - (void *)vec);
+}

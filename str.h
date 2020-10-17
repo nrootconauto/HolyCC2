@@ -58,13 +58,13 @@ struct __vec;
 		__auto_type oldSize = __vecSize((struct __vec *)vec);                      \
 		vec = (str##suffix)__vecResize((struct __vec *)vec,                        \
 		                               oldSize + count * sizeof(type));            \
-		memcpy(&((char*)vec)[oldSize], data, count * sizeof(type));                         \
+		memcpy(&((char *)vec)[oldSize], data, count * sizeof(type));               \
 		return vec;                                                                \
 	}                                                                            \
-	inline type *str##suffix##SortedFind(str##suffix vec, const type data,             \
+	inline type *str##suffix##SortedFind(str##suffix vec, const type data,       \
 	                                     int pred(const void *, const void *))   \
 	    __attribute__((always_inline));                                          \
-	inline type *str##suffix##SortedFind(str##suffix vec, const type data,             \
+	inline type *str##suffix##SortedFind(str##suffix vec, const type data,       \
 	                                     int pred(const void *, const void *)) { \
 		return __vecSortedFind((struct __vec *)vec, &data, sizeof(type), pred);    \
 	}                                                                            \
@@ -85,6 +85,13 @@ struct __vec;
 	    const void *data) {                                                      \
 		return (str##suffix)__vecRemoveItem((struct __vec *)vec, sizeof(type),     \
 		                                    pred, data);                           \
+	}                                                                            \
+	inline str##suffix str##suffix##Unique(                                      \
+	    str##suffix str, int (*pred)(const void *, const void *))                \
+	    __attribute__((always_inline));                                          \
+	inline str##suffix str##suffix##Unique(                                      \
+	    str##suffix str, int (*pred)(const void *, const void *)) {              \
+		return (str##suffix) __vecUnique((struct __vec *)str, sizeof(type), pred);  \
 	}
 struct __vec *__vecAppendItem(struct __vec *a, const void *item, long itemSize);
 struct __vec *__vecReserve(struct __vec *a, long capacity);
@@ -104,3 +111,5 @@ struct __vec *__vecSetDifference(struct __vec *a, const struct __vec *b,
 struct __vec *__vecRemoveItem(struct __vec *a, long itemSize,
                               int predicate(const void *, const void *),
                               const void *data);
+struct __vec *__vecUnique(struct __vec *vec, long itemSize,
+                          int (*pred)(const void *, const void *));

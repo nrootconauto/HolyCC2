@@ -5,7 +5,7 @@ static int validate(const void *a, const void *b) {
 }
 static void strRulePDestroy2(strRuleP *vec) {
 	for (long i = 0; i != strRulePSize(*vec); i++)
-		grammarRuleDestroy(vec[i]);
+		grammarRuleDestroy(&vec[0][i]);
 	strRulePDestroy(vec);
 };
 #define arrayToVec(vec) ({ __vecAppendItem(NULL, vec, sizeof(vec)); })
