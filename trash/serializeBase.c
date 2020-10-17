@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <str.h>
 #include <unistd.h>
+#include <serializeBase.h>
 enum fieldType {
 	FIELD_ARRAY = 1,
 	FIELD_INT = 2,
@@ -15,7 +16,6 @@ enum fieldType {
 	FIELD_POINTER = 32,
 };
 struct serializer;
-typedef void (*serializerFunc)(const void *data, struct serializer *serializer);
 struct serialEntry {
 	uint64_t dataStartOffset;
 	uint64_t fieldsCount;
@@ -72,6 +72,7 @@ struct serializer {
 	long entryCount;
 	mapPtrIndex pointers;
 	strPtr registeredItems;
+	const mapSerializerFunc *funcs;
 };
 void serializerSerialize(struct serializer *ser, const char *fieldName,
                          const char *typeName, const void *data,
@@ -152,9 +153,6 @@ void serializerFieldPtr(struct serializer *ser, const char *name,
                         const void *ptr) {
 	serializerStartField(ser, name);
 
-	__auto_type fields = &llEntryValuePtr(ser->currentEntryNode)->fields;
-	assert(*fields != NULL);
-
 	char buffer[64];
 	sprintf(buffer, "%p", ptr);
 loop:;
@@ -170,19 +168,21 @@ loop:;
 void serializerFieldStr(struct serializer *ser, const char *name,
                         const char *data, long len) {
 	serializerStartField(ser, name);
-
-	__auto_type fields = &llEntryValuePtr(ser->currentEntryNode)->fields;
-	assert(*fields != NULL);
-
+	
 	fwrite(data, 1, len, ser->dataTmp);
+	
 	serializerEndField(ser, FIELD_CHAR | FIELD_ARRAY);
 }
+void serializerFieldInt64(struct serializer *ser, const char *name,int64_t value) {
+ serializerStartField(ser, name);
+ 
+ write64(value,ser->dataTmp);
+ 
+ serializerEndField(ser, FIELD_INT);
+} 
 void serializerFieldInt64s(struct serializer *ser, const char *name,
                            const uint64_t *ints, long len) {
 	serializerStartField(ser, name);
-
-	__auto_type fields = &llEntryValuePtr(ser->currentEntryNode)->fields;
-	assert(*fields != NULL);
 
 	for (long i = 0; i != len; i++)
 		write64(ints[i], ser->dataTmp);
@@ -190,44 +190,23 @@ void serializerFieldInt64s(struct serializer *ser, const char *name,
 	serializerEndField(ser, FIELD_INT | FIELD_ARRAY);
 }
 void serializerFieldObject(struct serializer *ser, const char *name,
-                           const char *typeName, const void *data,
-                           void (*dumper)(const void *data,
-                                          struct serializer *serializer)) {
-	serializerSerialize(ser, name, typeName, data, dumper);
+                           const char *typeName, const void *data) {
+	__auto_type dumper=mapSerializerFuncGet( *ser->funcs,typeName);
+	assert(dumper!=NULL);
+	
+	serializerSerialize(ser, name, typeName, data, *dumper);
 	serializerEndField(ser, FIELD_OBJECT);
 };
-struct objectArray {
-	const void *item;
-	long count, itemSize;
-	void (*dumper)(const void *data, struct serializer *serializer);
-};
-static void objectArrayDumper(const void *data, struct serializer *ser) {
-	const struct objectArray *array = data;
-	for (long i = 0; i != array->count; i++) {
-		// Push objects into field with name of index
-		char buffer[64];
-		sprintf(buffer, "%li", i);
-
-		serializerStartField(ser, buffer);
-		array->dumper(array->item + i * array->itemSize, ser);
-		serializerEndField(ser, FIELD_OBJECT);
-	}
-}
 void serializerPushObjects(struct serializer *ser, const char *name,
                            const char *typeName, const void *data,
-                           long itemSize, long count,
-                           void (*dumper)(const void *data,
-                                          struct serializer *serializer)) {
+                           long itemSize, long count) {
 	serializerStartField(ser, name);
 
-	__auto_type fields = &llEntryValuePtr(ser->currentEntryNode)->fields;
-	assert(*fields != NULL);
-
-	struct objectArray objects;
-	objects.item = data, objects.dumper = dumper, objects.count = count,
-	objects.itemSize = itemSize;
-
-	serializerSerialize(ser, name, typeName, &objects, objectArrayDumper);
+	__auto_type dumper=mapSerializerFuncGet( *ser->funcs,typeName);
+	assert(dumper!=NULL);
+	
+	for(long i=0;i!=count;i++)
+	serializerSerialize(ser, name, typeName, data+itemSize*i, *dumper);
 
 	serializerEndField(ser, FIELD_ARRAY | FIELD_OBJECT);
 };
@@ -287,7 +266,7 @@ static void serializerEndField(struct serializer *serializer,
 		fseek(serializer->dataTmp, 0, SEEK_END);
 	}
 }
-struct serializer *serializerCreate() {
+struct serializer *serializerCreate(const mapSerializerFunc *funcs) {
 	struct serializer *retVal = malloc(sizeof(struct serializer));
 	retVal->dataTmp = tmpfile();
 	retVal->dataFileStart = ftell(retVal->dataTmp);
@@ -297,7 +276,20 @@ struct serializer *serializerCreate() {
 	retVal->entryOffsets=NULL;
 	retVal->pointers=mapPtrIndexCreate();
 	retVal->registeredItems=NULL;
+	retVal->funcs=funcs;
 	return retVal;
+}
+static void killEntry(void *ptr) {
+ struct __serialEntry *ptr2=ptr;
+ strFieldDestroy(&ptr2->fields) ;
+}
+void serializerDestroy(struct serializer **ser) {
+ llEntryDestroy(&ser[0]->entryOffsets, killEntry); 
+ fclose(ser[0]->dataTmp);
+ for(long i=0;i!=strNameSize(ser[0]->names);i++)
+		free(ser[0]->names[i]);
+ strNameDestroy(&ser[0]->names);
+ strPtrDestroy(&ser[0]->registeredItems); 
 }
 static int ptrCmp(const void *a, const void *b) {
 	if (a > b)
@@ -491,14 +483,7 @@ struct serializerEntryPair {
 	enum fieldType type;
 	union entryValue data;
 };
-
-MAP_TYPE_DEF(struct serializerEntryPair, SerializerKeys);
 MAP_TYPE_FUNCS(struct serializerEntryPair, SerializerKeys);
-
-typedef void *(*deserializeFunc)(mapSerializerKeys keys);
-
-MAP_TYPE_DEF(deserializeFunc, DeserializerFunc);
-MAP_TYPE_FUNCS(deserializeFunc, DeserializerFunc);
 
 STR_TYPE_DEF(void **, PtrPtr);
 STR_TYPE_FUNCS(void **, PtrPtr);
@@ -704,4 +689,39 @@ void **deserializeFile(const mapDeserializerFunc structures, FILE *file,
 
 	mapLongDestroy(pointerIDsToEntryID, NULL);
 	return retVal;
+}
+static void writeSize(void *ptr,int64_t value,long size) {
+ if(size==1) {
+		*(int8_t*)ptr=value;
+	 } else if(size==2) {
+		*(int16_t*)ptr=value;
+	 } else if(size==4) {
+		*(int32_t*)ptr=value;
+	 } else if(size==8) {
+		*(int64_t*)ptr=value;
+	 } else {
+		assert(0);
+	 }
+}
+int deserializerWriteInt(void *ptr,long size,const char *name,const mapSerializerKeys keys) {
+ __auto_type find=mapSerializerKeysGet(keys,name);
+ 
+ if(find!=NULL) {
+	if(find->type==FIELD_INT) {
+	 int64_t value=*find->data.integer;
+	 writeSize(ptr,value,size);
+	}
+	return 1;
+ }
+ return 0;
+}
+int deserializerWriteString(void *ptr,long size,const char *name,const mapSerializerKeys keys) {
+ __auto_type find=mapSerializerKeysGet(keys,name);
+ 
+ if(find!=NULL) {
+	if(find->type==(FIELD_ARRAY|FIELD_CHAR)) {
+	 char *value=find->data.chr;
+	 value|=;
+	}
+ }
 }
