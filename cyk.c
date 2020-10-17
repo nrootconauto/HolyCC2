@@ -352,23 +352,23 @@ graphNodeCYKTree CYKTree(const strCYKRulesP grammar, int grammarSize,
 			if (y == 0) {
 				__auto_type result = classify((void *)items + itemSize * x, data);
 
-				double maxWeight = NAN;
+				double maxWeight = -1;
 				int maxWeightIndex = -1;
-				for (int i = 0; i != strCYKRulesPSize(result); i++) {
+				for (int i2 = 0; i2 != strCYKRulesPSize(result); i2++) {
 
-					if (maxWeight == NAN) {
-						maxWeight = result[i]->weight;
-						maxWeightIndex = i;
+					if (maxWeight == -1) {
+						maxWeight = result[i2]->weight;
+						maxWeightIndex = i2;
 					} else {
-						if (maxWeight < result[i]->weight) {
-							maxWeightIndex = i;
-							maxWeight = result[i]->weight;
+						if (maxWeight < result[i2]->weight) {
+							maxWeightIndex = i2;
+							maxWeight = result[i2]->weight;
 						}
 					}
 				}
 
-				assert(i != -1);
-				entry.rule = result[i];
+				assert(maxWeightIndex != -1);
+				entry.rule = result[maxWeightIndex];
 				entry.prob = maxWeight;
 				strCYKRulesPDestroy(&result);
 			}
