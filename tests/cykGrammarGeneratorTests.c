@@ -32,7 +32,7 @@ void cykGrammarGeneratorTests() {
 		
 		const int data1[] = {1};
 		__auto_type data1Vec = arrayToVec(data1);
-		const int data2[] = {1, 2};
+		const int data2[] = {1, 1};
 		__auto_type data2Vec = arrayToVec(data2);
 
 		__auto_type parsing1 = grammarCreateParsingFromData(

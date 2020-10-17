@@ -1,6 +1,5 @@
 #include <assert.h>
 #include <hashTable.h>
-#include <libdill.h>
 #include <linkedList.h>
 #include <stdio.h>
 #include <str.h>
@@ -99,7 +98,7 @@ int __mapInsert(struct __map *map, const char *key, const void *item,
 	//
 	return 0;
 }
-static coroutine void __mapBucketRehash(struct __ll *bucket, int newBucketCount,
+static void __mapBucketRehash(struct __ll *bucket, int newBucketCount,
                                         struct __ll **dumpToStart) {
 	__auto_type first = __llGetFirst(bucket);
 	for (__auto_type node = first; node != NULL; node = __llNext(node)) {
@@ -110,17 +109,10 @@ static coroutine void __mapBucketRehash(struct __ll *bucket, int newBucketCount,
 		*(dumpToStart++) = node;
 	}
 }
-static coroutine void __mapBucketInsert(struct __map *map, int bucketIndex,
-                                        int channel) {
-	for (;;) {
-		struct __ll *node;
-		__auto_type res = chrecv(channel, &node, sizeof(struct __ll *), -1);
-		if (node == NULL)
-			return;
+static void __mapBucketInsert(struct __map *map, int bucketIndex,struct __ll *node) {
 		map->buckets[bucketIndex] =
 		    __llInsert(map->buckets[bucketIndex], node, __mapBucketInsertPred);
 		map->bucketSizes[bucketIndex]++;
-	}
 }
 static float __mapCalculateLoad(struct __map *map) {
 	float filled = 0;
@@ -151,47 +143,26 @@ static void __mapRehash(struct __map *map, int scaleUp) {
 		count += map->bucketSizes[i];
 	}
 	struct __ll *rehashedNodes[count];
-	int b = bundle();
 	for (int i = 0; i != strIntSize(map->bucketSizes); i++) {
-		bundle_go(b, __mapBucketRehash(map->buckets[i], newBucketCount,
-		                               rehashedNodes + bucketStarts[i]));
+		__mapBucketRehash(map->buckets[i], newBucketCount,
+		                               rehashedNodes + bucketStarts[i]);
 	}
-	bundle_wait(b, -1);
-	hclose(b);
 	//
 	strIntDestroy(&map->bucketSizes);
 	strLLPDestroy(&map->buckets);
 	map->bucketSizes = strIntResize(NULL, newBucketCount);
 	map->buckets = strLLPResize(NULL, newBucketCount);
-	//
-	b = bundle();
-	int channels[newBucketCount * 2];
-	for (int i = 0; i != newBucketCount; i++) {
-		map->buckets[i] = NULL;
-		map->bucketSizes[i] = 0;
-		chmake(&channels[2 * i]);
-		__auto_type channel = channels[i * 2 + 1];
-		__auto_type res = bundle_go(b, __mapBucketInsert(map, i, channel));
+	for(long i=0;i!=newBucketCount;i++) {
+	 map->buckets[i]=NULL;
+	 map->bucketSizes [i]=0;
 	}
 	//
 	for (int i1 = 0; i1 != count; i1++) {
 		__auto_type ptr = rehashedNodes[i1];
 		__auto_type bucket =
 		    *__mapNodeHashValue(__llValuePtr(ptr)) % newBucketCount;
-		__auto_type ptr2 = &ptr;
-		chsend(channels[2 * bucket], ptr2, sizeof(struct __ll *), -1);
+		__mapBucketInsert(map,bucket,ptr);
 	}
-	//
-	for (int i = 0; i != newBucketCount; i++) {
-		struct _ll *n = NULL;
-		chsend(channels[i * 2], &n, sizeof(struct __ll *), -1);
-	}
-	bundle_wait(b, -1);
-	for (int i = 0; i != 2 * newBucketCount; i++) {
-		hclose(channels[i * 2]);
-		hclose(channels[i * 2 + 1]);
-	}
-	hclose(b);
 }
 void __mapDestroy(struct __map *map, void (*kill)(void *)) {
 	for (int i = 0; i != strLLPSize(map->buckets); i++) {

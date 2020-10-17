@@ -10,16 +10,20 @@ void preprocessorTests();
 void eventPoolTests();
 void cykGrammarGeneratorTests();
 int main() {
-	llTests();
+ strTests();
+ llTests();
+ mapTests();
+ /*
 	strTests();
 	graphTests();
-	mapTests();
+	
 	diffTests();
 	subGraphTests();
 	cykTests();
 	cachingLexerTests();
 	preprocessorTests();
 	eventPoolTests();
-	cykGrammarGeneratorTests();
+	*/
+	//cykGrammarGeneratorTests();
 	return 0;
 }
