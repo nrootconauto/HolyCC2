@@ -607,3 +607,6 @@ void CYKRulesPrint(const strCYKRulesP rules,
 		}
 	}
 }
+int CYKRuleIsTerminal(struct __cykRule *rule) {
+return rule->type==CYK_TERMINAL;
+}

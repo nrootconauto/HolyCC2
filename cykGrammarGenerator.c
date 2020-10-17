@@ -29,8 +29,9 @@ struct grammar {
 	strCYKRulesP cykRules;
 	mapCYKRules names;
 	mapCYKRulePtrToGrammarRule rulePtrs;
+	mapCYKRulePtrToGrammarRule terminalPtrs;
 	strRuleP allRules;
-	strInt terminalRuleIndexes;
+	strInt terminalCYKIndexes;
 	long maximumRuleValue;
 };
 struct grammarRule {
@@ -75,8 +76,9 @@ static __thread mapCYKRulePtrToGrammarRule cykRulePtrToGrammarRule = NULL;
 MAP_TYPE_DEF(struct grammarRule *, NormalToComputed);
 MAP_TYPE_FUNCS(struct grammarRule *, NormalToComputed);
 static __thread mapNormalToComputed ruleCache = NULL;
+static mapCYKRulePtrToGrammarRule cykTerminalToRule = NULL;
 static int ptrCmp(const void *a, const void *b) {
- const void *a2=*(const void**)a,*b2=*(const void**)b;
+	const void *a2 = *(const void **)a, *b2 = *(const void **)b;
 	if (a2 > b2)
 		return 1;
 	else if (a2 == b2)
@@ -282,34 +284,42 @@ static struct grammarRule *registerRule2CYK(struct grammarRule **rules,
 		allowCache = 1;
 
 		long consumed2 = 0;
-		struct grammarRuleRepeat *repeat = (void *)rules[i];
-		__auto_type res = registerRule2CYK(&repeat->rule, 0, 1, 1, &consumed2);
 		if (consumed != NULL)
 			*consumed = consumed2;
 
-		maximumRuleValue++;
-		for (long i = 0; i != strCYKRulesPSize(res->cyk); i++) {
-			for (long i2 = 0; i2 != strCYKRulesPSize(res->cyk); i2++) {
-				// (new)->(old) (old)
-				__auto_type newRule = cykRuleCreateNonterminal(
-				    maximumRuleValue, prec, cykRuleValue(res->cyk[i]),
-				    cykRuleValue(res->cyk[i2]));
+		if (cached == NULL) {
+			struct grammarRuleRepeat *repeat = (void *)rules[i];
+			__auto_type res = registerRule2CYK(&repeat->rule, 0, 1, 1, &consumed2);
 
-				newCYKRules = strCYKRulesPAppendItem(newCYKRules, newRule);
+			maximumRuleValue++;
+			for (long i = 0; i != strCYKRulesPSize(res->cyk); i++) {
+				for (long i2 = 0; i2 != strCYKRulesPSize(res->cyk); i2++) {
+					// (new)->(old) (old)
+					__auto_type newRule = cykRuleCreateNonterminal(
+					    maximumRuleValue, prec, cykRuleValue(res->cyk[i]),
+					    cykRuleValue(res->cyk[i2]));
+
+					newCYKRules = strCYKRulesPAppendItem(newCYKRules, newRule);
+				}
 			}
+
+			for (long i = 0; i != strCYKRulesPSize(res->cyk); i++)
+				leftRules = strIntAppendItem(leftRules, cykRuleValue(res->cyk[i]));
+			isLeftMostRule = 1;
+
+			goto registerRule;
+		} else {
+			return *cached;
 		}
-
-		for (long i = 0; i != strCYKRulesPSize(res->cyk); i++)
-			leftRules = strIntAppendItem(leftRules, cykRuleValue(res->cyk[i]));
-		isLeftMostRule = 1;
-
-		goto registerRule;
 	} else if (rules[i]->type == RULE_SEQUENCE) {
 		mangleName = 0;
 		/**
 		 * Can use cached value as isn't dependant on previous items
 		 */
 		allowCache = 1;
+
+		if (cached != NULL)
+			return *cached;
 
 		struct grammarRuleSequence *seq = (struct grammarRuleSequence *)rules[i];
 		__auto_type rule = registerRule2CYKSequenceRecur(
@@ -329,11 +339,22 @@ static struct grammarRule *registerRule2CYK(struct grammarRule **rules,
 		if (consumed != NULL)
 			*consumed = 1;
 
-		maximumRuleValue++;
-		newCYKRules = strCYKRulesPAppendItem(
-		    newCYKRules, cykRuleCreateTerminal(maximumRuleValue, prec));
-		leftRules = strIntAppendItem(leftRules, cykRuleValue(newCYKRules[0]));
-		goto registerRule;
+		if (cached == NULL) {
+			maximumRuleValue++;
+			newCYKRules = strCYKRulesPAppendItem(
+			    newCYKRules, cykRuleCreateTerminal(maximumRuleValue, prec));
+			leftRules = strIntAppendItem(leftRules, cykRuleValue(newCYKRules[0]));
+
+			for (long i2 = 0; i2 != strCYKRulesPSize(newCYKRules); i2++) {
+				char buffer[64];
+				sprintf(buffer, "%p", newCYKRules[i2]);
+				if (NULL == mapCYKRulePtrToGrammarRuleGet(cykTerminalToRule, buffer))
+					mapCYKRulePtrToGrammarRuleInsert(cykTerminalToRule, buffer, rules[i]);
+			}
+			goto registerRule;
+		} else
+			return *cached;
+
 	} else if (rules[i]->type == RULE_COMPUTED) {
 		return (struct grammarRule *)rules[i];
 	} else {
@@ -368,6 +389,8 @@ struct grammar *grammarCreate(const strRuleP grammarRules) {
 		mapCYKRulesDestroy(cykRulesByName, (void (*)(void *))strCYKRulesPDestroy2);
 	if (ruleCache != NULL)
 		mapNormalToComputedDestroy(ruleCache, NULL);
+	if (cykTerminalToRule != NULL)
+		mapCYKRulePtrToGrammarRuleDestroy(cykTerminalToRule, NULL);
 
 	strRulePDestroy(&rules);
 	strCYKRulesPDestroy(&cykRules);
@@ -377,26 +400,29 @@ struct grammar *grammarCreate(const strRuleP grammarRules) {
 	maximumRuleValue = 0;
 	cykRulesByName = mapCYKRulePtrToGrammarRuleCreate();
 	cykRulePtrToGrammarRule = mapCYKRulePtrToGrammarRuleCreate();
+	cykTerminalToRule = mapCYKRulePtrToGrammarRuleCreate();
 
 	for (long i = 0; i != strRulePSize(grammarRules); i++) {
 		registerRule2CYK((struct grammarRule **)grammarRules + i, 0, 1,
 		                 grammarRules[i]->prec, NULL);
 	}
 
-	struct grammar *retVal = malloc(sizeof(grammarRules));
+	struct grammar *retVal = malloc(sizeof(struct grammar));
 	retVal->allRules = (strRuleP)__vecAppendItem(
 	    NULL, grammarRules, __vecSize((struct __vec *)grammarRules));
 	retVal->cykRules = (strCYKRulesP)__vecAppendItem(
 	    NULL, cykRules, __vecSize((struct __vec *)cykRules));
 	retVal->names = mapCYKRulesClone(cykRulesByName, strCYKRulesPClone);
-	retVal->terminalRuleIndexes = NULL;
+	retVal->terminalCYKIndexes = NULL;
 	retVal->maximumRuleValue = maximumRuleValue;
 	retVal->rulePtrs = mapCYKNodeValueByPtrClone(cykRulePtrToGrammarRule, NULL);
+	retVal->terminalPtrs =
+	    mapCYKRulePtrToGrammarRuleClone(cykTerminalToRule, NULL);
 
-	for (long i = 0; i != strRulePSize(retVal->allRules); i++) {
-		if (retVal->allRules[i]->type == RULE_TERMINAL) {
-			retVal->terminalRuleIndexes =
-			    strIntAppendItem(retVal->terminalRuleIndexes, i);
+	for (long i = 0; i != strCYKRulesPSize(retVal->cykRules); i++) {
+		if (CYKRuleIsTerminal(retVal->cykRules[i])) {
+			retVal->terminalCYKIndexes =
+			    strIntAppendItem(retVal->terminalCYKIndexes, i);
 		}
 	}
 
@@ -503,13 +529,18 @@ static strCYKRulesP grammarTerminalsValidate(const void *item,
 	const struct grammar *grammar2 = grammar;
 	strCYKRulesP results = NULL;
 
-	for (long i = 0; i != strIntSize(grammar2->terminalRuleIndexes); i++) {
-		struct grammarRuleTerminal *term =
-		    (struct grammarRuleTerminal *)grammar2->allRules[i];
+	for (long i = 0; i != strIntSize(grammar2->terminalCYKIndexes); i++) {
+		__auto_type term = grammar2->cykRules[i];
 
-		if (term->validate(item, term->data))
-			for (long i2 = 0; i2 != strCYKRulesPSize(term->base.cyk); i2++)
-				results = strCYKRulesPAppendItem(results, term->base.cyk[i2]);
+		char buffer[64];
+		sprintf(buffer, "%p", term);
+		__auto_type find =
+		    (struct grammarRuleTerminal **)mapCYKRulePtrToGrammarRuleGet(
+		        grammar2->terminalPtrs, buffer);
+		assert(find != NULL);
+
+		if (find[0]->validate(item, find[0]->data))
+			results = strCYKRulesPAppendItem(results, term);
 	}
 
 	return results;
@@ -518,7 +549,7 @@ void grammarDestroy(struct grammar **grammar) {
 	strRulePDestroy(&grammar[0]->allRules);
 	strCYKRulesPDestroy2(&grammar[0]->cykRules);
 	mapCYKRulesDestroy2(&grammar[0]->names);
-	strIntDestroy(&grammar[0]->terminalRuleIndexes);
+	strIntDestroy(&grammar[0]->terminalCYKIndexes);
 }
 static void *updateNodeValue(const graphNodeCYKTree node,
                              struct parsing *parsing,

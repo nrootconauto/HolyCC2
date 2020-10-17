@@ -10,9 +10,9 @@ void preprocessorTests();
 void eventPoolTests();
 void cykGrammarGeneratorTests();
 int main() {
- strTests();
- llTests();
- mapTests();
+// strTests();
+ //llTests();
+ //mapTests();
  /*
 	strTests();
 	graphTests();
@@ -24,6 +24,6 @@ int main() {
 	preprocessorTests();
 	eventPoolTests();
 	*/
-	//cykGrammarGeneratorTests();
+	cykGrammarGeneratorTests();
 	return 0;
 }

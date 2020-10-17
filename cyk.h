@@ -43,3 +43,4 @@ int __cykIteratorInitEnd(struct __cykBinaryMatrix *table,
 int __cykIteratorInitStart(struct __cykBinaryMatrix *table,
                            struct __cykIterator *iter);
 void strCYKRulesPDestroy2(strCYKRulesP *rules);
+int CYKRuleIsTerminal(struct __cykRule *rule) ;
