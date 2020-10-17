@@ -22,7 +22,10 @@ void cykGrammarGeneratorTests() {
 		__auto_type opt = grammarRuleOptCreate("OPT", "OPT", 1, one);
 		__auto_type seq =
 		    grammarRuleSequenceCreate("EXPECTED", "EXPECTED", 1, one, opt, NULL);
-		struct grammarRule *rules[] = {seq};
+		__auto_type rep=grammarRuleRepeatCreate("REP","REP",1,two);
+		__auto_type seq2 =
+		    grammarRuleSequenceCreate("EXPECTED2", "EXPECTED2", 1, one, rep, NULL);
+		struct grammarRule *rules[] = {seq,seq2};
 		strRuleP rulesVec = (strRuleP)arrayToVec(rules);
 		const struct grammarRule *tops[] = {seq};
 		strRuleP topLevels = (strRuleP)arrayToVec(tops);
@@ -34,6 +37,8 @@ void cykGrammarGeneratorTests() {
 		__auto_type data1Vec = arrayToVec(data1);
 		const int data2[] = {1, 1};
 		__auto_type data2Vec = arrayToVec(data2);
+		const int data3[] = {1, 2,2,2,2};
+		__auto_type data3Vec = arrayToVec(data3);
 
 		__auto_type parsing1 = grammarCreateParsingFromData(
 		    grammar, data1Vec, sizeof(int)); // TODO destroy
@@ -45,6 +50,12 @@ void cykGrammarGeneratorTests() {
 		__auto_type parsing2Tops = grammarParsingGetTops(parsing2);
 		assert(strGraphNodeCYKTreePSize(parsing2Tops) == 1);
 
+		
+		__auto_type parsing3 = grammarCreateParsingFromData(
+		    grammar, data3Vec, sizeof(int)); // TODO destroy
+		__auto_type parsing3Tops = grammarParsingGetTops(parsing3);
+		assert(strGraphNodeCYKTreePSize(parsing3Tops) == 1);
+		
 		grammarDestroy(&grammar);
 		strRulePDestroy2(&rulesVec);
 	}
