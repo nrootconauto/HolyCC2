@@ -36,12 +36,12 @@ void cykGrammarGeneratorTests() {
 		__auto_type data2Vec = arrayToVec(data2);
 
 		__auto_type parsing1 = grammarCreateParsingFromData(
-		    grammar, data1Vec, topLevels, sizeof(int)); // TODO destroy
+		    grammar, data1Vec, sizeof(int)); // TODO destroy
 		__auto_type parsing1Tops = grammarParsingGetTops(parsing1);
 		assert(strGraphNodeCYKTreePSize(parsing1Tops) == 1);
 
 		__auto_type parsing2 = grammarCreateParsingFromData(
-		    grammar, data2Vec, topLevels, sizeof(int)); // TODO destroy
+		    grammar, data2Vec, sizeof(int)); // TODO destroy
 		__auto_type parsing2Tops = grammarParsingGetTops(parsing2);
 		assert(strGraphNodeCYKTreePSize(parsing2Tops) == 1);
 

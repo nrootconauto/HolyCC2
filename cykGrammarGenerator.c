@@ -30,7 +30,7 @@ struct grammar {
 	mapCYKRules names;
 	mapCYKRulePtrToGrammarRule rulePtrs;
 	mapCYKRulePtrToGrammarRule terminalPtrs;
-	strRuleP allRules;
+	strRuleP topLevelRules;
 	strInt terminalCYKIndexes;
 	long maximumRuleValue;
 };
@@ -200,6 +200,11 @@ registerRule2CYKSequenceRecur(const struct grammarRule *baseRule,
 	} else {
 		*firstRules = strIntAppendData(NULL, front->leftMostRules,
 		                               strIntSize(front->leftMostRules));
+
+		__auto_type len = strCYKRulesPSize(front->cyk);
+		newCYKRules = strCYKRulesPResize(NULL, len);
+		for (long i = 0; i != len; i++)
+			newCYKRules[i] = front->cyk[i];
 
 		return front;
 	}
@@ -402,14 +407,19 @@ struct grammar *grammarCreate(const strRuleP grammarRules) {
 	cykRulePtrToGrammarRule = mapCYKRulePtrToGrammarRuleCreate();
 	cykTerminalToRule = mapCYKRulePtrToGrammarRuleCreate();
 
+	strRuleP grammarRules2 __attribute__((cleanup(strRulePDestroy)));
+	grammarRules2 = NULL;
 	for (long i = 0; i != strRulePSize(grammarRules); i++) {
-		registerRule2CYK((struct grammarRule **)grammarRules + i, 0, 1,
-		                 grammarRules[i]->prec, NULL);
+		__auto_type newRule =
+		    registerRule2CYK((struct grammarRule **)grammarRules + i, 0, 1,
+		                     grammarRules[i]->prec, NULL);
+
+		// Ignore cached rules;
+		if (NULL == strRulePSortedFind(grammarRules2, newRule, ptrCmp))
+			grammarRules2 = strRulePSortedInsert(grammarRules2, newRule, ptrCmp);
 	}
 
 	struct grammar *retVal = malloc(sizeof(struct grammar));
-	retVal->allRules = (strRuleP)__vecAppendItem(
-	    NULL, grammarRules, __vecSize((struct __vec *)grammarRules));
 	retVal->cykRules = (strCYKRulesP)__vecAppendItem(
 	    NULL, cykRules, __vecSize((struct __vec *)cykRules));
 	retVal->names = mapCYKRulesClone(cykRulesByName, strCYKRulesPClone);
@@ -418,6 +428,8 @@ struct grammar *grammarCreate(const strRuleP grammarRules) {
 	retVal->rulePtrs = mapCYKNodeValueByPtrClone(cykRulePtrToGrammarRule, NULL);
 	retVal->terminalPtrs =
 	    mapCYKRulePtrToGrammarRuleClone(cykTerminalToRule, NULL);
+	retVal->topLevelRules = (strRuleP)__vecAppendItem(
+	    NULL, grammarRules2, __vecSize((struct __vec *)grammarRules2));
 
 	for (long i = 0; i != strCYKRulesPSize(retVal->cykRules); i++) {
 		if (CYKRuleIsTerminal(retVal->cykRules[i])) {
@@ -546,7 +558,6 @@ static strCYKRulesP grammarTerminalsValidate(const void *item,
 	return results;
 }
 void grammarDestroy(struct grammar **grammar) {
-	strRulePDestroy(&grammar[0]->allRules);
 	strCYKRulesPDestroy2(&grammar[0]->cykRules);
 	mapCYKRulesDestroy2(&grammar[0]->names);
 	strIntDestroy(&grammar[0]->terminalCYKIndexes);
@@ -556,7 +567,8 @@ static void *updateNodeValue(const graphNodeCYKTree node,
                              const struct grammar *grammar) {
 
 	char ptrStr[128];
-	sprintf(ptrStr, "%p", graphNodeCYKTreeValuePtr(node)->rule);
+	__auto_type rule2= graphNodeCYKTreeValuePtr(node)->rule;
+	sprintf(ptrStr, "%p", rule2); //TODO
 	__auto_type find = mapCYKRulePtrToGrammarRuleGet(grammar->rulePtrs, ptrStr);
 	assert(find != NULL);
 	if (find[0]->callBack == NULL)
@@ -650,7 +662,6 @@ static void addToVisited(struct __graphNode *node, void *data) {
 }
 struct parsing *grammarCreateParsingFromData(struct grammar *grammar,
                                              struct __vec *items,
-                                             const strRuleP topLevelRules,
                                              long itemSize) {
 	struct parsing *retVal = malloc(sizeof(struct parsing));
 	retVal->binaryTable =
@@ -663,8 +674,8 @@ struct parsing *grammarCreateParsingFromData(struct grammar *grammar,
 	strCYKEntry visited = NULL;
 	if (__cykIteratorInitEnd(retVal->binaryTable, &retVal->iter)) {
 		for (int firstRun = 1;; firstRun = 0) {
-			for (long i = 0; i != strRulePSize(topLevelRules); i++) {
-				__auto_type cyk = &topLevelRules[i]->cyk;
+			for (long i = 0; i != strRulePSize(grammar->topLevelRules); i++) {
+				__auto_type cyk = &grammar->topLevelRules[i]->cyk;
 				for (long i2 = 0; i2 != strCYKRulesPSize(*cyk); i2++) {
 					if (retVal->iter.r == cykRuleValue(cyk[0][i2])) {
 						// Check ig already visited

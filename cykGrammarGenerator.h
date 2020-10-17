@@ -29,7 +29,6 @@ struct __cykBinaryMatrix *grammarParse(struct grammar *grammar,
 void grammarDestroy(struct grammar **grammar);
 struct parsing *grammarCreateParsingFromData(struct grammar *grammar,
                                              struct __vec *items,
-                                             const strRuleP topLevelRules,
                                              long itemSize);
 const strGraphNodeCYKTreeP grammarParsingGetTops(const struct parsing *parsing);
 void grammarPrint(const struct grammar *grammar);
