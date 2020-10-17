@@ -113,6 +113,7 @@ static coroutine void cykCheckRule(const struct __cykBinaryMatrix *table,
 			                       rule->nonTerminal.b)) {
 				// printf("%i at (%i,%i) from (%i,%i),(%i,%i)\n", rule->value, l - 1,
 				//       s - 1, p - 1, s - 1, l - p - 1, s + p - 1);
+				assert(rule->value < grammarSize);
 				dumpto1[rule->value] = 1;
 				return;
 			}

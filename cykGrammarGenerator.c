@@ -32,7 +32,7 @@ struct grammar {
 	mapCYKRulePtrToGrammarRule terminalPtrs;
 	strRuleP topLevelRules;
 	strInt terminalCYKIndexes;
-	long maximumRuleValue;
+	long grammarSize;
 };
 struct grammarRule {
 	enum ruleType type;
@@ -424,7 +424,7 @@ struct grammar *grammarCreate(const strRuleP grammarRules) {
 	    NULL, cykRules, __vecSize((struct __vec *)cykRules));
 	retVal->names = mapCYKRulesClone(cykRulesByName, strCYKRulesPClone);
 	retVal->terminalCYKIndexes = NULL;
-	retVal->maximumRuleValue = maximumRuleValue;
+	retVal->grammarSize = maximumRuleValue+1;
 	retVal->rulePtrs = mapCYKNodeValueByPtrClone(cykRulePtrToGrammarRule, NULL);
 	retVal->terminalPtrs =
 	    mapCYKRulePtrToGrammarRuleClone(cykTerminalToRule, NULL);
@@ -567,8 +567,8 @@ static void *updateNodeValue(const graphNodeCYKTree node,
                              const struct grammar *grammar) {
 
 	char ptrStr[128];
-	__auto_type rule2= graphNodeCYKTreeValuePtr(node)->rule;
-	sprintf(ptrStr, "%p", rule2); //TODO
+	__auto_type rule2 = graphNodeCYKTreeValuePtr(node)->rule;
+	sprintf(ptrStr, "%p", rule2); // TODO
 	__auto_type find = mapCYKRulePtrToGrammarRuleGet(grammar->rulePtrs, ptrStr);
 	assert(find != NULL);
 	if (find[0]->callBack == NULL)
@@ -663,10 +663,11 @@ static void addToVisited(struct __graphNode *node, void *data) {
 struct parsing *grammarCreateParsingFromData(struct grammar *grammar,
                                              struct __vec *items,
                                              long itemSize) {
+ __auto_type grammarSize=grammar->grammarSize ;
 	struct parsing *retVal = malloc(sizeof(struct parsing));
-	retVal->binaryTable =
-	    __cykBinary(grammar->cykRules, items, itemSize, grammar->maximumRuleValue,
-	                grammarTerminalsValidate, grammar);
+	retVal->binaryTable = __cykBinary(grammar->cykRules, items, itemSize,
+	                                  grammarSize,
+	                                  grammarTerminalsValidate, grammar);
 	retVal->nodeValueByPtr = mapCYKNodeValueByPtrCreate();
 	retVal->explored = NULL;
 	retVal->tops = NULL;
@@ -687,7 +688,7 @@ struct parsing *grammarCreateParsingFromData(struct grammar *grammar,
 
 						// Compute node value.
 						__auto_type node = CYKTree(
-						    grammar->cykRules, grammar->maximumRuleValue, items,
+						    grammar->cykRules, grammarSize, items,
 						    retVal->binaryTable, retVal->iter.y, retVal->iter.x,
 						    retVal->iter.r, itemSize, grammarTerminalsValidate, grammar);
 						retVal->tops = strGraphNodeCYKTreePAppendItem(retVal->tops, node);
