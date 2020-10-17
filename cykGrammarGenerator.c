@@ -300,15 +300,24 @@ static struct grammarRule *registerRule2CYK(struct grammarRule **rules,
 			struct grammarRuleRepeat *repeat = (void *)rules[i];
 			__auto_type res = registerRule2CYK(&repeat->rule, 0, 1, 1, &consumed2);
 
+			// (new)->(old) (old)
 			for (long i = 0; i != strCYKRulesPSize(res->cyk); i++) {
 				for (long i2 = 0; i2 != strCYKRulesPSize(res->cyk); i2++) {
-					// (new)->(old) (old)
+
 					__auto_type newRule = cykRuleCreateNonterminal(
 					    maximumRuleValue, prec, cykRuleValue(res->cyk[i]),
 					    cykRuleValue(res->cyk[i2]));
 
 					newCYKRules = strCYKRulesPAppendItem(newCYKRules, newRule);
 				}
+			}
+			//(new)->(new) (old)
+			for (long i = 0; i != strCYKRulesPSize(res->cyk); i++) {
+				__auto_type newRule =
+				    cykRuleCreateNonterminal(maximumRuleValue, prec, maximumRuleValue,
+				                             cykRuleValue(res->cyk[i]));
+
+				newCYKRules = strCYKRulesPAppendItem(newCYKRules, newRule);
 			}
 
 			for (long i = 0; i != strCYKRulesPSize(res->cyk); i++) {
@@ -664,6 +673,19 @@ static void addToVisited(struct __graphNode *node, void *data) {
 	*visited = strCYKEntryAppendItem(
 	    *visited, *graphNodeCYKTreeValuePtr((graphNodeCYKTree)node));
 }
+/**
+ * Returns true if cordnate exists in area covered in existing CYK parses
+ */
+static int existsInDomain(const strCYKEntry tops,int x,int y) {
+ for(long i=0;i!=strCYKEntrySize(tops);i++) {
+	if(tops[i].x>=x) {
+	 long diff=x-tops[i].x;
+	 if(y<=tops[i].y-diff)
+		return 1;
+	}
+ }
+ return 0;
+}
 struct parsing *grammarCreateParsingFromData(struct grammar *grammar,
                                              struct __vec *items,
                                              long itemSize) {
@@ -677,6 +699,7 @@ struct parsing *grammarCreateParsingFromData(struct grammar *grammar,
 	retVal->tops = NULL;
 
 	strCYKEntry visited = NULL;
+	strCYKEntry tops=NULL;
 	if (__cykIteratorInitEnd(retVal->binaryTable, &retVal->iter)) {
 		for (int firstRun = 1;; firstRun = 0) {
 			for (long i = 0; i != strRulePSize(grammar->topLevelRules); i++) {
@@ -689,6 +712,12 @@ struct parsing *grammarCreateParsingFromData(struct grammar *grammar,
 						dummy.y = retVal->iter.y;
 						if (NULL != strCYKEntrySortedFind(visited, dummy, cykEntryPred))
 							continue;
+						
+						/**
+						 * Checks if current entry is in area covered by an existing parse
+						 */
+						if(existsInDomain(tops,retVal->iter.x,retVal->iter.y))
+						 break;
 
 						// Compute node value.
 						__auto_type node = CYKTree(grammar->cykRules, grammarSize, items,
@@ -701,6 +730,13 @@ struct parsing *grammarCreateParsingFromData(struct grammar *grammar,
 						// Add visited nodes to visited
 						graphNodeCYKTreeVisitForward(node, &visited, visitPred,
 						                             addToVisited);
+
+						tops=strCYKEntryAppendItem(tops,dummy);
+						/**
+						 * Go to next matrix entry,multiple rules may share same value,so
+						 * move to next x/y
+						 */
+						break;
 					}
 				}
 			}
@@ -710,6 +746,7 @@ struct parsing *grammarCreateParsingFromData(struct grammar *grammar,
 		}
 	}
 
+	strCYKEntryDestroy(&tops);
 	return retVal;
 }
 const strGraphNodeCYKTreeP
@@ -728,7 +765,7 @@ static const char *getRuleName(int ruleNumber, const void *data) {
 	sprintf(buffer, "%p", grammar->cykRules[i]);
 	__auto_type find = mapCYKRulePtrToGrammarRuleGet(grammar->rulePtrs, buffer);
 	assert(find != NULL);
-	
+
 	return find[0]->name;
 }
 void grammarPrint(const struct grammar *grammar) {
