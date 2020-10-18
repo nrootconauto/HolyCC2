@@ -534,6 +534,12 @@ struct grammarRule *grammarRuleOrCreate(const char *name,
 
 	return (struct grammarRule *)retVal;
 }
+void grammarRuleSetCallback(struct grammarRule *rule,
+                            void *(*cb)(const mapTemplateData, const void *),
+                            void *data) {
+	rule->callBack = cb;
+	rule->ruleData = data;
+}
 struct grammarRule *grammarRuleOptCreate(const char *name,
                                          const char *templateName, double prec,
                                          struct grammarRule *rule) {
@@ -627,10 +633,47 @@ void grammarDestroy(struct grammar **grammar) {
 	strIntDestroy(&grammar[0]->terminalCYKIndexes);
 }
 static void *updateNodeValue(const graphNodeCYKTree node,
-                             struct parsing *parsing,
-                             const struct grammar *grammar) {
-	return NULL; // TODO remove me
+                             const struct grammar *grammar);
+static const char *templateNameFromNode(const struct grammar *grammar,
+                                        const graphNodeCYKTree node) {
+	__auto_type entry = graphNodeCYKTreeValuePtr(node);
+	char ptrStr[64];
+	sprintf(ptrStr, "%p", entry->rule);
 
+	__auto_type find = mapCYKRulePtrToGrammarRuleGet(grammar->rulePtrs, ptrStr);
+	assert(find != NULL);
+
+	return find[0]->templateName;
+}
+static void *registerTemplateItem(const struct grammar *grammar,
+                                  mapTemplateData templates,
+                                  const graphNodeCYKTree node, int computeLeft,
+                                  int computeRight) {
+	__auto_type templateName = templateNameFromNode(grammar, node);
+
+	__auto_type outGoing = graphNodeCYKTreeOutgoing(node);
+	for (long i = 0; i != strGraphEdgeCYKTreePSize(outGoing); i++) {
+		__auto_type node = graphEdgeCYKTreeOutgoing(outGoing[i]);
+		__auto_type templateName = templateNameFromNode(grammar, node);
+
+		if (templateName == NULL)
+			continue;
+		// Assert one rule of a name
+		assert(NULL == mapTemplateDataGet(templates, templateName));
+
+		void *data = NULL;
+		if (i == 1 && computeRight) {
+			data = updateNodeValue(node, grammar);
+		} else if (i == 0 && computeLeft) {
+			data = updateNodeValue(node, grammar);
+		}
+
+		mapTemplateDataInsert(templates, templateName, data);
+	}
+	strGraphEdgeCYKTreePDestroy(&outGoing);
+}
+static void *updateNodeValue(const graphNodeCYKTree node,
+                             const struct grammar *grammar) {
 	char ptrStr[128];
 	sprintf(ptrStr, "%p", graphNodeCYKTreeValuePtr(node)->rule);
 	__auto_type find = mapCYKRulePtrToGrammarRuleGet(grammar->rulePtrs, ptrStr);
@@ -661,7 +704,15 @@ breakLoop:;
 	 * have a template
 	 */
 	mapTemplateData templates = mapTemplateDataCreate();
-	return templates;
+	for (long i = 0; i != strGraphNodePSize(leftRules); i++) {
+		registerTemplateItem(grammar, templates, leftRules[i], i == 0, 1);
+	}
+	__auto_type data = find[0]->callBack(templates, find[0]->ruleData);
+
+	mapTemplateDataDestroy(templates, NULL); // TODO free me
+	strGraphNodePDestroy(&leftRules);
+
+	return data;
 }
 STR_TYPE_DEF(struct __CYKEntry, CYKEntry);
 STR_TYPE_FUNCS(struct __CYKEntry, CYKEntry);

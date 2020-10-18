@@ -32,3 +32,6 @@ struct parsing *grammarCreateParsingFromData(struct grammar *grammar,
                                              long itemSize);
 const strGraphNodeCYKTreeP grammarParsingGetTops(const struct parsing *parsing);
 void grammarPrint(const struct grammar *grammar);
+void grammarRuleSetCallback(struct grammarRule *rule,
+                            void *(*cb)(const mapTemplateData, const void *),
+                            void *data);

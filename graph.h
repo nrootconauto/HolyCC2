@@ -54,7 +54,7 @@ struct __graphEdge;
 	    graphNode##suffix node, void *data,                                      \
 	    int(pred)(const struct __graphNode *, const struct __graphEdge *,        \
 	              const void *),                                                 \
-	    void (*visit)(struct __graphNode *, void *))                       \
+	    void (*visit)(struct __graphNode *, void *))                             \
 	    __attribute__((always_inline));                                          \
 	inline void graphNode##suffix##VisitBackward(                                \
 	    graphNode##suffix node, void *data,                                      \
@@ -97,15 +97,15 @@ struct __graphEdge;
 	    graphNode##suffix node, graphNode##suffix node2, edgeType value) {       \
 		return __graphNodeConnect(node, node2, &value, sizeof(edgeType));          \
 	}                                                                            \
-	inline const str##GraphEdge##suffix##P graphNode##suffix##Incoming(          \
+	inline str##GraphEdge##suffix##P graphNode##suffix##Incoming(                \
 	    graphNode##suffix node) __attribute__((always_inline));                  \
-	inline const str##GraphEdge##suffix##P graphNode##suffix##Incoming(          \
+	inline str##GraphEdge##suffix##P graphNode##suffix##Incoming(                \
 	    graphNode##suffix node) {                                                \
 		return (str##GraphEdge##suffix##P)__graphNodeIncoming(node);               \
 	}                                                                            \
-	inline const str##GraphEdge##suffix##P graphNode##suffix##Outgoing(          \
+	inline str##GraphEdge##suffix##P graphNode##suffix##Outgoing(                \
 	    graphNode##suffix node) __attribute__((always_inline));                  \
-	inline const str##GraphEdge##suffix##P graphNode##suffix##Outgoing(          \
+	inline str##GraphEdge##suffix##P graphNode##suffix##Outgoing(                \
 	    graphNode##suffix node) {                                                \
 		return (str##GraphEdge##suffix##P)__graphNodeOutgoing(node);               \
 	}                                                                            \
