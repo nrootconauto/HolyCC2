@@ -28,6 +28,6 @@ void strTests() {
 	assert(2 == strCharSize(str1));
 	//Unique
 	strChar str3=strCharAppendData(NULL,"aabbbcccc",2+3+4+1);
-	str3=strCharUnique(str3,chrFind);
+	str3=strCharUnique(str3,chrFind,NULL);
 	assert(0==strcmp(str3,"abc"));
 }

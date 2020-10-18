@@ -631,7 +631,9 @@ static int CYKRulePred(const void *a, const void *b) {
 
 	return 0;
 }
+
+static void free2(void *item) { free(*(struct __cykRule **)item); }
 void CYKRulesRemoveRepeats(strCYKRulesP *rules) {
 	qsort(*rules, strCYKRulesPSize(*rules), sizeof(**rules), CYKRulePred);
-	*rules = strCYKRulesPUnique(*rules, CYKRulePred);
+	*rules = strCYKRulesPUnique(*rules, CYKRulePred, free2);
 }

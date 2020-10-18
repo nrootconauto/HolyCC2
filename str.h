@@ -87,11 +87,13 @@ struct __vec;
 		                                    pred, data);                           \
 	}                                                                            \
 	inline str##suffix str##suffix##Unique(                                      \
-	    str##suffix str, int (*pred)(const void *, const void *))                \
-	    __attribute__((always_inline));                                          \
+	    str##suffix str, int (*pred)(const void *, const void *),                \
+	    void (*kill)(void *)) __attribute__((always_inline));                    \
 	inline str##suffix str##suffix##Unique(                                      \
-	    str##suffix str, int (*pred)(const void *, const void *)) {              \
-		return (str##suffix) __vecUnique((struct __vec *)str, sizeof(type), pred);  \
+	    str##suffix str, int (*pred)(const void *, const void *),                \
+	    void (*kill)(void *)) {                                                  \
+		return (str##suffix)__vecUnique((struct __vec *)str, sizeof(type), pred,   \
+		                                kill);                                     \
 	}
 struct __vec *__vecAppendItem(struct __vec *a, const void *item, long itemSize);
 struct __vec *__vecReserve(struct __vec *a, long capacity);
@@ -112,4 +114,5 @@ struct __vec *__vecRemoveItem(struct __vec *a, long itemSize,
                               int predicate(const void *, const void *),
                               const void *data);
 struct __vec *__vecUnique(struct __vec *vec, long itemSize,
-                          int (*pred)(const void *, const void *));
+                          int (*pred)(const void *, const void *),
+                          void (*kill)(void *));
