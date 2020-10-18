@@ -7,6 +7,7 @@
 #include <str.h>
 enum ruleType {
 	RULE_OPT,
+	RULE_OR,
 	RULE_REPEAT,
 	RULE_SEQUENCE,
 	RULE_TERMINAL,
@@ -42,8 +43,8 @@ struct grammarRule {
 	void *ruleData;
 	void (*ruleDataDestroy)(void *);
 	char *name;
-	char *templateName;
 	strInt leftMostRules;
+	const char *templateName;
 	// Data appended here
 };
 struct grammarRuleOpt {
@@ -61,12 +62,19 @@ struct grammarRuleSequence {
 struct grammarRuleComputed {
 	struct grammarRule base;
 	strCYKRulesP startRules;
+	const char *leftTemplateName;
+	const char *rightTemplateName;
+	const char *terminalTemplateName;
 };
 struct grammarRuleTerminal {
 	struct grammarRule base;
 	int (*validate)(const void *, const void *);
 	void (*destroyData)(void *);
 	void *data;
+};
+struct grammarRuleOr {
+	struct grammarRule base;
+	strRuleP canidates;
 };
 static __thread strRuleP rules = NULL;
 static __thread strCYKRulesP cykRules = NULL;
@@ -97,8 +105,9 @@ static int intCmp(const void *a, const void *b) {
 }
 static struct grammarRule *
 registerRule(const struct grammarRule *baseRule, const char *name,
-             const char *templateName, long uniqueName,
-             strCYKRulesP newCYKRules2, const strInt leftMostRules) {
+             long uniqueName, strCYKRulesP newCYKRules2,
+             const strInt leftMostRules, const char *leftTemplateName,
+             const char *rightTemplateName, const char *terminalTemplateName) {
 	char *newName;
 	if (uniqueName == 1) {
 		newName = stringClone(name);
@@ -130,10 +139,6 @@ registerRule(const struct grammarRule *baseRule, const char *name,
 	newRule.base.cyk = newCYKRules2;
 	newRule.base.type = RULE_COMPUTED;
 	newRule.base.name = stringClone(newName);
-	if (templateName != NULL)
-		newRule.base.templateName = stringClone(templateName);
-	else
-		newRule.base.templateName = NULL;
 
 	// Assign left-most rules
 	__auto_type len = strIntSize(leftMostRules);
@@ -175,22 +180,26 @@ loop:;
 }
 static struct grammarRule *registerRule2CYK(struct grammarRule **rules,
                                             int index, long len, float prec,
-                                            long *consumed);
-static struct grammarRule *
-registerRule2CYKSequenceRecur(const struct grammarRule *baseRule,
-                              struct grammarRule **rules, const char *name,
-                              long len, strInt *firstRules) {
+                                            long *consumed,
+                                            const char **templateName);
+static struct grammarRule *registerRule2CYKSequenceRecur(
+    const struct grammarRule *baseRule, struct grammarRule **rules,
+    const char *name, long len, strInt *firstRules, const char **templateName) {
 	strCYKRulesP newCYKRules = NULL;
+
+	const char *frontTemplate, *backTemplate;
 
 	long consumed2;
 	strCYKRulesP firstRules2 __attribute__((cleanup(strCYKRulesPDestroy)));
 	firstRules2 = NULL;
-	__auto_type front = registerRule2CYK(rules, len - 1, len, 1, &consumed2);
+	__auto_type front =
+	    registerRule2CYK(rules, len - 1, len, 1, &consumed2, &frontTemplate);
 
 	const struct grammarRule *back = NULL;
+
 	if (len - 1 - consumed2 > 0)
 		back = registerRule2CYKSequenceRecur(NULL, rules, name, len - 1 - consumed2,
-		                                     firstRules);
+		                                     firstRules, &backTemplate);
 
 	if (back != NULL) {
 		for (long i = 0; i != strCYKRulesPSize(front->cyk); i++) {
@@ -202,6 +211,12 @@ registerRule2CYKSequenceRecur(const struct grammarRule *baseRule,
 				newCYKRules = strCYKRulesPAppendItem(newCYKRules, newRule);
 			}
 		}
+
+		if (templateName != NULL)
+			*templateName = NULL;
+
+		return registerRule(baseRule, name, len == 1, newCYKRules, NULL,
+		                    backTemplate, NULL, frontTemplate);
 	} else {
 		*firstRules = strIntAppendData(NULL, front->leftMostRules,
 		                               strIntSize(front->leftMostRules));
@@ -211,16 +226,25 @@ registerRule2CYKSequenceRecur(const struct grammarRule *baseRule,
 		for (long i = 0; i != len; i++)
 			newCYKRules[i] = front->cyk[i];
 
+		if (templateName != NULL)
+			*templateName = front->templateName;
+
 		return front;
 	}
-	return registerRule(baseRule, name, NULL, len == 1, newCYKRules, NULL);
 }
 /**
  * firstRules is the rules that apear at the left-most side of the parse
  */
 static struct grammarRule *registerRule2CYK(struct grammarRule **rules,
                                             int index, long len, float prec,
-                                            long *consumed) {
+                                            long *consumed,
+                                            const char **templateName) {
+	const char *leftTemplateName = NULL, *rightTemplateName = NULL,
+	           *terminalTemplateName = NULL;
+
+	if (templateName != NULL)
+		*templateName = rules[index]->templateName;
+
 	strCYKRulesP newCYKRules = NULL;
 	const char *name = rules[len - 1]->name;
 	int isLeftMostRule = 0;
@@ -243,15 +267,19 @@ static struct grammarRule *registerRule2CYK(struct grammarRule **rules,
 		allowCache = 0;
 
 		if (i >= 1) {
+			const char *optTemplate, *prevTemplate;
 			/**
 			 * New rule will contain an alias to (prev),and a rule ->(prev) (opt)
 			 * will be added to the new rule
 			 */
 			struct grammarRuleOpt *opt = (struct grammarRuleOpt *)rules[i];
-			__auto_type optComputed = registerRule2CYK(&opt->rule, 0, 1, 1, NULL);
+
+			__auto_type optComputed =
+			    registerRule2CYK(&opt->rule, 0, 1, 1, NULL, &optTemplate);
 			long consumed2 = 0;
+
 			__auto_type prevComputed =
-			    registerRule2CYK(rules, i - 1, len - 1, 1, &consumed2);
+			    registerRule2CYK(rules, i - 1, len - 1, 1, &consumed2, &prevTemplate);
 			if (consumed != NULL)
 				*consumed = consumed2;
 
@@ -281,12 +309,16 @@ static struct grammarRule *registerRule2CYK(struct grammarRule **rules,
 				    strIntAppendItem(leftRules, cykRuleValue(prevComputed->cyk[i]));
 			isLeftMostRule = 1;
 
+			leftTemplateName = prevTemplate;
+			rightTemplateName = optTemplate;
+
 			goto registerRule;
 		} else {
 			assert(0); // Whine about not being reducable
 		}
 	} else if (rules[i]->type == RULE_REPEAT) {
 		mangleName = 0;
+		const char *resTemplateName;
 		/**
 		 * Can use cached value as isn't dependant on previous items
 		 */
@@ -298,7 +330,8 @@ static struct grammarRule *registerRule2CYK(struct grammarRule **rules,
 
 		if (cached == NULL) {
 			struct grammarRuleRepeat *repeat = (void *)rules[i];
-			__auto_type res = registerRule2CYK(&repeat->rule, 0, 1, 1, &consumed2);
+			__auto_type res = registerRule2CYK(&repeat->rule, 0, 1, 1, &consumed2,
+			                                   &resTemplateName);
 
 			// (new)->(old) (old)
 			for (long i = 0; i != strCYKRulesPSize(res->cyk); i++) {
@@ -326,6 +359,8 @@ static struct grammarRule *registerRule2CYK(struct grammarRule **rules,
 			}
 			isLeftMostRule = 1;
 
+			leftTemplateName = resTemplateName;
+			rightTemplateName = resTemplateName;
 			goto registerRule;
 		} else {
 			return *cached;
@@ -343,12 +378,14 @@ static struct grammarRule *registerRule2CYK(struct grammarRule **rules,
 		struct grammarRuleSequence *seq = (struct grammarRuleSequence *)rules[i];
 		__auto_type rule = registerRule2CYKSequenceRecur(
 		    rules[i], (struct grammarRule **)seq->rules, rules[i]->name,
-		    strRulePSize(seq->rules), &leftRules);
+		    strRulePSize(seq->rules), &leftRules, NULL);
 		if (consumed != NULL)
 			*consumed = len;
 
 		return rule;
 	} else if (rules[i]->type == RULE_TERMINAL) {
+		terminalTemplateName = rules[i]->templateName;
+
 		mangleName = 0;
 		/**
 		 * Can use cached value as isn't dependant on previous items
@@ -385,8 +422,8 @@ registerRule : {
 		return *cached;
 	}
 
-	__auto_type computed = registerRule(rules[i], name, rules[i]->templateName,
-	                                    mangleName, newCYKRules, leftRules);
+	__auto_type computed = registerRule(rules[i], name, mangleName, newCYKRules,
+	                                    leftRules, NULL, NULL, NULL);
 
 	sprintf(buffer, "%p", rules[i]);
 	mapNormalToComputedInsert(ruleCache, buffer, computed);
@@ -425,7 +462,7 @@ struct grammar *grammarCreate(const strRuleP grammarRules) {
 	for (long i = 0; i != strRulePSize(grammarRules); i++) {
 		__auto_type newRule =
 		    registerRule2CYK((struct grammarRule **)grammarRules + i, 0, 1,
-		                     grammarRules[i]->prec, NULL);
+		                     grammarRules[i]->prec, NULL, NULL);
 
 		// Ignore cached rules;
 		if (NULL == strRulePSortedFind(grammarRules2, newRule, ptrCmp))
@@ -464,7 +501,6 @@ struct grammarRule *grammarRuleSequenceCreate(const char *name,
 	retVal->base.type = RULE_SEQUENCE;
 	retVal->base.cyk = NULL;
 	retVal->base.name = stringClone(name);
-	retVal->base.templateName = stringClone(templateName);
 	retVal->rules = NULL;
 
 	va_list list;
@@ -480,6 +516,24 @@ struct grammarRule *grammarRuleSequenceCreate(const char *name,
 
 	return (struct grammarRule *)retVal;
 }
+struct grammarRule *grammarRuleOrCreate(const char *name,
+                                        const char *templateName, double prec,
+                                        const strRuleP canidates) {
+	struct grammarRuleOr *retVal = malloc(sizeof(struct grammarRuleOr));
+	retVal->base.callBack = NULL;
+	retVal->base.cyk = NULL;
+	retVal->base.leftMostRules = NULL;
+	retVal->base.name = stringClone(templateName);
+	retVal->base.prec = prec;
+	retVal->base.ruleData = NULL;
+	retVal->base.ruleDataDestroy = NULL;
+	retVal->base.type = RULE_OR;
+
+	retVal->canidates = strRulePAppendData(
+	    NULL, (const struct grammarRule **)canidates, strRulePSize(canidates));
+
+	return (struct grammarRule *)retVal;
+}
 struct grammarRule *grammarRuleOptCreate(const char *name,
                                          const char *templateName, double prec,
                                          struct grammarRule *rule) {
@@ -488,7 +542,6 @@ struct grammarRule *grammarRuleOptCreate(const char *name,
 	newRule.base.cyk = NULL;
 	newRule.base.type = RULE_OPT;
 	newRule.base.name = stringClone(name);
-	newRule.base.templateName = stringClone(templateName);
 	newRule.rule = rule;
 
 	struct grammarRule *retVal = malloc(sizeof(newRule));
@@ -503,7 +556,6 @@ struct grammarRule *grammarRuleRepeatCreate(const char *name,
 	newRule.base.cyk = NULL;
 	newRule.base.type = RULE_REPEAT;
 	newRule.base.name = stringClone(name);
-	newRule.base.templateName = stringClone(templateName);
 	newRule.rule = rule;
 
 	struct grammarRule *retVal = malloc(sizeof(newRule));
@@ -519,7 +571,6 @@ grammarRuleTerminalCreate(const char *name, const char *templateName,
 	newRule.base.cyk = NULL;
 	newRule.base.type = RULE_TERMINAL;
 	newRule.base.name = stringClone(name);
-	newRule.base.templateName = stringClone(templateName);
 	newRule.validate = validate;
 	newRule.data = data;
 	newRule.destroyData = destroyData;
@@ -545,8 +596,6 @@ void grammarRuleDestroy(struct grammarRule **rule) {
 
 	if (rule[0]->name != NULL)
 		free(rule[0]->name);
-	if (rule[0]->templateName != NULL)
-		free(rule[0]->templateName);
 	if (rule[0]->ruleDataDestroy)
 		rule[0]->ruleDataDestroy(rule[0]->ruleData);
 	free(*rule);
@@ -612,42 +661,6 @@ breakLoop:;
 	 * have a template
 	 */
 	mapTemplateData templates = mapTemplateDataCreate();
-	for (long i = strGraphNodePSize(leftRules) - 1; i >= 0; i--) {
-		char buffer[64];
-		sprintf(buffer, "%p", leftRules[i]);
-		__auto_type find = mapCYKRulePtrToGrammarRuleGet(grammar->rulePtrs, buffer);
-		assert(find != NULL);
-
-		if (find[0]->templateName != NULL) {
-		loop:;
-			__auto_type find2 = mapTemplateDataGet(parsing->nodeValueByPtr, buffer);
-			if (find2 != NULL) {
-				// Check if node was visited,
-				if (NULL == strGraphNodeCYKTreePSortedFind(parsing->explored,
-				                                           leftRules[i], ptrCmp)) {
-					// Visit node
-					parsing->explored = strGraphNodeCYKTreePSortedInsert(
-					    parsing->explored, leftRules[i], ptrCmp);
-					updateNodeValue(leftRules[i], parsing, grammar);
-					goto loop;
-				}
-			}
-
-			sprintf(buffer, "%p", *find2);
-			__auto_type nodeValue =
-			    mapCYKNodeValueByPtrGet(parsing->nodeValueByPtr, buffer);
-			mapTemplateDataInsert(templates, find[0]->templateName, nodeValue);
-		}
-	}
-
-	char buffer[64];
-	sprintf(buffer, "%p", graphNodeCYKTreeValuePtr(node));
-	__auto_type rule = mapCYKRulePtrToGrammarRuleGet(grammar->rulePtrs, buffer);
-	assert(rule != NULL);
-	rule[0]->callBack(templates, rule[0]->ruleData);
-
-	strGraphNodePDestroy(&leftRules);
-	mapTemplateDataDestroy(templates, NULL);
 	return templates;
 }
 STR_TYPE_DEF(struct __CYKEntry, CYKEntry);
