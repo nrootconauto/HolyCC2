@@ -617,20 +617,21 @@ int CYKRuleIsTerminal(struct __cykRule *rule) {
 	return rule->type == CYK_TERMINAL;
 }
 static int CYKRulePred(const void *a, const void *b) {
-	const struct __cykRule *A = a, *B = b;
-	if (A->value != B->value)
-		return A->value - B->value;
-	if (A->type != B->type)
-		return A->type - B->type;
-	if (A->type == CYK_NONTERMINAL) {
-		if (A->nonTerminal.a != B->nonTerminal.a)
-			return A->nonTerminal.a - B->nonTerminal.a;
-		if (A->nonTerminal.b != B->nonTerminal.b)
-			return A->nonTerminal.b - B->nonTerminal.b;
+	const struct __cykRule *const *A = a, *const *B = b;
+	if (A[0]->value != B[0]->value)
+		return A[0]->value - B[0]->value;
+	if (A[0]->type != B[0]->type)
+		return A[0]->type - B[0]->type;
+	if (A[0]->type == CYK_NONTERMINAL) {
+		if (A[0]->nonTerminal.a != B[0]->nonTerminal.a)
+			return A[0]->nonTerminal.a - B[0]->nonTerminal.a;
+		if (A[0]->nonTerminal.b != B[0]->nonTerminal.b)
+			return A[0]->nonTerminal.b - B[0]->nonTerminal.b;
 	}
 
 	return 0;
 }
 void CYKRulesRemoveRepeats(strCYKRulesP *rules) {
- //qsort();
+	qsort(*rules, strCYKRulesPSize(*rules), sizeof(**rules), CYKRulePred);
+	*rules = strCYKRulesPUnique(*rules, CYKRulePred);
 }
