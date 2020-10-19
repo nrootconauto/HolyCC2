@@ -19,10 +19,13 @@ MAP_TYPE_DEF(struct grammarRule *, CYKRulePtrToGrammarRule);
 MAP_TYPE_FUNCS(struct grammarRule *, CYKRulePtrToGrammarRule);
 MAP_TYPE_DEF(void *, CYKNodeValueByPtr);
 MAP_TYPE_FUNCS(void *, CYKNodeValueByPtr);
+STR_TYPE_DEF(void *, TopData);
+STR_TYPE_FUNCS(void *, TopData);
 struct parsing {
 	mapCYKNodeValueByPtr nodeValueByPtr;
 	struct __cykBinaryMatrix *binaryTable;
 	strGraphNodeCYKTreeP tops;
+	strTopData topValues;
 	struct __cykIterator iter;
 	strGraphNodeCYKTreeP explored;
 };
@@ -681,21 +684,36 @@ static void *updateNodeValue(const graphNodeCYKTree node,
 	if (find[0]->callBack == NULL)
 		return NULL;
 
-	strGraphNodeP leftRules = NULL;
+	strGraphNodeP rules = NULL;
+
 	{
 		for (graphNodeCYKTree node2 = node; node2 != NULL;) {
 			__auto_type nodeRule = graphNodeCYKTreeValuePtr(node2)->rule;
-			leftRules = strGraphNodePAppendItem(leftRules, node2);
 
-			// Every rule is unique
-			if (NULL != strIntSortedFind(find[0]->leftMostRules,
-			                             cykRuleValue(nodeRule), intCmp))
+			__auto_type sides = graphNodeCYKTreeOutgoing(node2);
+
+			// If hit terminal quit
+			if (strGraphEdgeCYKTreePSize(sides) == 0) {
+				rules = strGraphNodePAppendItem(rules, node2);
+				strGraphEdgeCYKTreePDestroy(&sides);
 				goto breakLoop;
+			}
+			// If hit left-most rule of sequenct quit
 
+			// (Every rule is unique)
+			if (NULL != strIntSortedFind(find[0]->leftMostRules,
+			                             cykRuleValue(nodeRule), intCmp)) {
+				rules = strGraphNodePAppendItem(rules, node2);
+				strGraphEdgeCYKTreePDestroy(&sides);
+				goto breakLoop;
+			}
 			// Go to left-side node
-			__auto_type leftSide = graphNodeCYKTreeOutgoing(node);
-			node2 = graphEdgeCYKTreeOutgoing(leftSide[0]);
-			strGraphEdgeCYKTreePDestroy(&leftSide);
+			node2 = graphEdgeCYKTreeOutgoing(sides[0]);
+
+			__auto_type rightSide = graphEdgeCYKTreeOutgoing(sides[1]);
+			rules = strGraphNodePAppendItem(rules, rightSide);
+
+			strGraphEdgeCYKTreePDestroy(&sides);
 		}
 	}
 breakLoop:;
@@ -704,13 +722,13 @@ breakLoop:;
 	 * have a template
 	 */
 	mapTemplateData templates = mapTemplateDataCreate();
-	for (long i = 0; i != strGraphNodePSize(leftRules); i++) {
-		registerTemplateItem(grammar, templates, leftRules[i], i == 0, 1);
+	for (long i = 0; i != strGraphNodePSize(rules); i++) {
+		registerTemplateItem(grammar, templates, rules[i], i == 0, 1);
 	}
 	__auto_type data = find[0]->callBack(templates, find[0]->ruleData);
 
 	mapTemplateDataDestroy(templates, NULL); // TODO free me
-	strGraphNodePDestroy(&leftRules);
+	strGraphNodePDestroy(&rules);
 
 	return data;
 }
@@ -763,6 +781,7 @@ struct parsing *grammarCreateParsingFromData(struct grammar *grammar,
 	retVal->nodeValueByPtr = mapCYKNodeValueByPtrCreate();
 	retVal->explored = NULL;
 	retVal->tops = NULL;
+	retVal->topValues = NULL;
 
 	strCYKEntry visited = NULL;
 	strCYKEntry tops = NULL;
@@ -791,7 +810,8 @@ struct parsing *grammarCreateParsingFromData(struct grammar *grammar,
 						                           retVal->iter.x, retVal->iter.r, itemSize,
 						                           grammarTerminalsValidate, grammar);
 						retVal->tops = strGraphNodeCYKTreePAppendItem(retVal->tops, node);
-						updateNodeValue(node, retVal, grammar);
+						retVal->topValues = strTopDataAppendItem(
+						    retVal->topValues, updateNodeValue(node, grammar));
 
 						// Add visited nodes to visited
 						graphNodeCYKTreeVisitForward(node, &visited, visitPred,
