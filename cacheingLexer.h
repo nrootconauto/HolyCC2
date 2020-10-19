@@ -38,4 +38,4 @@ void lexerDestroy(struct __lexer **lexer);
 void lexerUpdate(struct __lexer *lexer, struct __vec *newData,int *err);
 
 llLexerItem lexerGetItems(struct __lexer *lexer);
-void *lexerItemValuePtr(struct __lexerItem *item) ;
+void *lexerItemValuePtr(const struct __lexerItem *item) ;

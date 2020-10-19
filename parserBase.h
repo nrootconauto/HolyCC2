@@ -1,25 +1,24 @@
 #pragma once
+#include <cacheingLexer.h>
 #include <linkedList.h>
 #include <str.h>
-struct rule;
-STR_TYPE_DEF(struct rule *, RuleP);
-STR_TYPE_FUNCS(struct rule *, RuleP);
-struct rule *ruleOptCreate(struct rule *rule, double prec,
-                           struct __vec *(*func)(const void *),
-                           void (*killData)(void *));
-struct rule *ruleOrCreate(const strRuleP rules, double prec,
-                          struct __vec *(*func)(const void *),
-                          void (*killData)(void *));
-struct rule *ruleRepeatCreate(const struct rule *rule, double prec,
-                              struct __vec *(*func)(const void **, long),
-                              void (*killData)(void *));
-struct rule *ruleSequenceCreate(const strRuleP rules, double prec,
-                                struct __vec *(*func)(const void **, long),
-                                void (*killData)(void *));
-struct rule *
-ruleTerminalCreate(double prec,
-                   struct __vec *(*func)(const struct __lexerItem *),
-                   void (*killData)(void *));
-void ruleDestroy(struct rule *rule);
-struct __vec *parse(const struct rule *top, llLexerItem lexerItemNode,
-                             long *consumed, int *success);
+struct grammar;
+struct grammarRule;
+struct grammar *grammarCreate(struct grammarRule *top,
+                              struct grammarRule **rules, long count);
+void *parse(struct grammar *gram, llLexerItem items, int *success,
+            void (*killData)(void *));
+struct grammarRule *grammarRuleOptCreate(const char *name, double prec,
+                                         const char *rule,
+                                         void *(*func)(const void *));
+struct grammarRule *grammarRuleRepeatCreate(const char *name, double prec,
+                                            void *(*func)(const void **, long),
+                                            ...);
+struct grammarRule *
+grammarRuleSequenceCreate(const char *name, double prec,
+                          void *(*func)(const void **, long), ...);
+struct grammarRule *
+grammarRuleTerminalCreate(const char *name, double prec,
+                          void *(*func)(const struct __lexerItem *));
+void grammarRuleDestroy(void *ptr);
+void grammarDestroy(struct grammar** gram) ;

@@ -1,8 +1,9 @@
 #include <assert.h>
-#include <cacheingLexer.h>
 #include <graph.h>
+#include <hashTable.h>
 #include <linkedList.h>
 #include <parserBase.h>
+#include <stdarg.h>
 #include <str.h>
 enum ruleType {
 	RULE_REPEAT,
@@ -10,46 +11,44 @@ enum ruleType {
 	RULE_SEQUENCE,
 	RULE_TERMINAL,
 	RULE_OR,
+	RULE_ALIAS,
+};
+STR_TYPE_DEF(struct rule *, RuleP);
+STR_TYPE_FUNCS(struct rule *, RuleP);
+struct grammar {
+	strRuleP rules;
+	struct rule *top;
 };
 struct rule {
 	double prec;
 	enum ruleType type;
-	void (*killData)(void *);
 };
 struct ruleOr {
 	struct rule base;
 	strRuleP rules;
-	struct __vec *(*func)(const void *);
 };
 struct ruleTerminal {
 	struct rule base;
-	struct __vec *(*func)(const struct __lexerItem *);
+	void *(*func)(const struct __lexerItem *);
+};
+struct ruleForward {
+	struct rule base;
+	const struct rule *alias;
 };
 struct ruleRepeat {
 	struct rule base;
 	const struct rule *rule;
-	struct __vec *(*func)(const void **, long);
+	void *(*func)(const void **, long);
 };
 struct ruleOpt {
 	struct rule base;
 	const struct rule *rule;
-	struct __vec *(*func)(const void *);
+	void *(*func)(const void *);
 };
 struct ruleSequence {
 	struct rule base;
 	strRuleP rules;
-	struct __vec *(*func)(const void **, long);
-};
-struct computedRuleGroup;
-struct computedRule {
-	struct computedRuleGroup *group;
-	struct rule *rule;
-	// Data appended here
-};
-STR_TYPE_DEF(struct computedRule *, ComputedRuleP);
-STR_TYPE_FUNCS(struct computedRule *, ComputedRuleP);
-struct computedRuleGroup {
-	strComputedRuleP items;
+	void *(*func)(const void **, long);
 };
 STR_TYPE_DEF(void *, Ptr);
 STR_TYPE_FUNCS(void *, Ptr);
@@ -61,8 +60,8 @@ static llLexerItem moveForward(llLexerItem from, long amount) {
 	}
 	return from;
 }
-static struct __vec *__parse(const struct rule *top, llLexerItem lexerItemNode,
-                             long *consumed, int *success) {
+static void *__parse(const struct rule *top, llLexerItem lexerItemNode,
+                     long *consumed, int *success, void (*killData)(void *)) {
 	if (lexerItemNode == NULL) {
 		if (consumed != NULL)
 			*consumed = 0;
@@ -75,7 +74,8 @@ static struct __vec *__parse(const struct rule *top, llLexerItem lexerItemNode,
 		const struct ruleOpt *opt = (const void *)top;
 		long consumed2;
 		int success2 = 0;
-		void *optValue = __parse(opt->rule, lexerItemNode, &consumed2, &success2);
+		void *optValue =
+		    __parse(opt->rule, lexerItemNode, &consumed2, &success2, killData);
 		if (success2) {
 			if (consumed != NULL)
 				*consumed = consumed2;
@@ -102,7 +102,7 @@ static struct __vec *__parse(const struct rule *top, llLexerItem lexerItemNode,
 		int success2 = 0;
 		for (;;) {
 			__auto_type retVal =
-			    __parse(rep->rule, lexerItemNode, &consumed2, &success2);
+			    __parse(rep->rule, lexerItemNode, &consumed2, &success2, killData);
 			if (!success2)
 				break;
 			values = strPtrAppendItem(values, retVal);
@@ -129,14 +129,14 @@ static struct __vec *__parse(const struct rule *top, llLexerItem lexerItemNode,
 		long i;
 		strPtr values = NULL;
 		for (i = 0; i != strRulePSize(seq->rules); i++) {
-			__auto_type value =
-			    __parse(seq->rules[i], lexerItemNode, &consumed2, &success2);
+			__auto_type value = __parse(seq->rules[i], lexerItemNode, &consumed2,
+			                            &success2, killData);
 			if (!success2) {
 				// Destroy previous values
 				for (long i2 = 0; i2 != i; i2++) {
 					__auto_type rule = seq->rules[i];
-					if (rule->killData != NULL)
-						rule->killData(values[i2]);
+					if (killData != NULL)
+						killData(values[i2]);
 				}
 
 				strPtrDestroy(&values);
@@ -179,7 +179,7 @@ static struct __vec *__parse(const struct rule *top, llLexerItem lexerItemNode,
 		int success2;
 		for (long i = strRulePSize(or->rules) - 1; i >= 0; i--) {
 			__auto_type data =
-			    __parse(or->rules[i], lexerItemNode, &consumed2, &success2);
+			    __parse(or->rules[i], lexerItemNode, &consumed2, &success2, killData);
 			if (success2) {
 				if (success != NULL)
 					*success = 1;
@@ -203,13 +203,15 @@ fail : {
 	return NULL;
 }
 }
-struct rule *ruleOptCreate(struct rule *rule, double prec,
-                           struct __vec *(*func)(const void *),
-                           void (*killData)(void *)) {
+void *parse(struct grammar *gram, llLexerItem items, int *success,
+            void (*killData)(void *)) {
+	return __parse(gram->top, llLexerItemFirst(items), NULL, success, killData);
+}
+static struct rule *ruleOptCreate(struct rule *rule, double prec,
+                                  void *(*func)(const void *)) {
 	struct ruleOpt *retVal = malloc(sizeof(struct ruleOpt));
 	retVal->base.prec = prec;
 	retVal->base.type = RULE_OPT;
-	retVal->base.killData = killData;
 	retVal->func = func;
 	retVal->rule = rule;
 
@@ -225,59 +227,45 @@ static int precCmp(const void *a, const void *b) {
 		return 0;
 	}
 }
-struct rule *ruleSequenceCreate(const strRuleP rules, double prec,
-                                struct __vec *(*func)(const void **, long),
-                                void (*killData)(void *)) {
+static struct rule *ruleSequenceCreate(strRuleP rules, double prec,
+                                       void *(*func)(const void **, long)) {
 	struct ruleSequence *retVal = malloc(sizeof(struct ruleSequence));
 	retVal->base.prec = prec;
 	retVal->base.type = RULE_SEQUENCE;
-	retVal->base.killData = killData;
 	retVal->func = func;
-	retVal->rules = strRulePAppendData(NULL, (const struct rule **)rules,
-	                                   strRulePSize(rules));
+	retVal->rules = rules;
 
 	return (struct rule *)retVal;
 }
-struct rule *ruleRepeatCreate(const struct rule *rule, double prec,
-                              struct __vec *(*func)(const void **, long),
-                              void (*killData)(void *)) {
+static struct rule *ruleRepeatCreate(const struct rule *rule, double prec,
+                                     void *(*func)(const void **, long)) {
 	struct ruleRepeat *retVal = malloc(sizeof(struct ruleRepeat));
 	retVal->base.prec = prec;
 	retVal->base.type = RULE_REPEAT;
-	retVal->base.killData = killData;
+
 	retVal->func = func;
 	retVal->rule = rule;
 
 	return (struct rule *)retVal;
 }
-struct rule *ruleOrCreate(const strRuleP rules, double prec,
-                          struct __vec *(*func)(const void *),
-                          void (*killData)(void *)) {
+static struct rule *ruleOrCreate(strRuleP rules, double prec) {
 	struct ruleOr *retVal = malloc(sizeof(struct ruleOr));
 	retVal->base.prec = prec;
 	retVal->base.type = RULE_OR;
-	retVal->base.killData = killData;
-	retVal->func = func;
-	retVal->rules = strRulePAppendData(NULL, (const struct rule **)rules,
-	                                   strRulePSize(rules));
+	retVal->rules = rules;
 
-	// Sort by precedence
-	qsort(retVal->rules, strRulePSize(rules), sizeof(*rules), precCmp);
 	return (struct rule *)retVal;
 }
-struct rule *
-ruleTerminalCreate(double prec,
-                   struct __vec *(*func)(const struct __lexerItem *),
-                   void (*killData)(void *)) {
+static struct rule *
+ruleTerminalCreate(double prec, void *(*func)(const struct __lexerItem *)) {
 	struct ruleTerminal *retVal = malloc(sizeof(struct ruleTerminal));
 	retVal->base.prec = prec;
 	retVal->base.type = RULE_OR;
-	retVal->base.killData = killData;
 	retVal->func = func;
 
 	return (struct rule *)retVal;
 }
-void ruleDestroy(struct rule *rule) {
+static void ruleDestroy(struct rule *rule) {
 	switch (rule->type) {
 	case RULE_OPT: {
 		break;
@@ -298,6 +286,227 @@ void ruleDestroy(struct rule *rule) {
 	case RULE_TERMINAL: {
 		break;
 	}
+	case RULE_ALIAS: {
+		break;
+	}
 	}
 	free(rule);
+}
+STR_TYPE_DEF(const char *, Name);
+STR_TYPE_FUNCS(const char *, Name);
+struct grammarRule {
+	enum ruleType type;
+	const char *name;
+	strName names;
+	void *func;
+	double prec;
+};
+struct grammarRule *grammarRuleOptCreate(const char *name, double prec,
+                                         const char *rule,
+                                         void *(*func)(const void *)) {
+	struct grammarRule *retVal = malloc(sizeof(struct grammarRule));
+
+	retVal->name = name;
+	retVal->type = RULE_OPT;
+	retVal->names = strNameAppendItem(NULL, rule);
+	retVal->func = func;
+	retVal->prec = prec;
+
+	return retVal;
+}
+struct grammarRule *grammarRuleRepeatCreate(const char *name, double prec,
+                                            void *(*func)(const void **, long),
+                                            ...) {
+	strName rules = NULL;
+	va_list list;
+	va_start(list, func);
+	for (;;) {
+		__auto_type r = va_arg(list, const char *);
+		if (r == NULL)
+			break;
+		else
+			rules = strNameAppendItem(rules, r);
+	}
+	va_end(list);
+
+	struct grammarRule *retVal = malloc(sizeof(struct grammarRule));
+
+	retVal->name = name;
+	retVal->type = RULE_OPT;
+	retVal->names = rules;
+	retVal->func = func;
+	retVal->prec = prec;
+
+	return retVal;
+}
+struct grammarRule *
+grammarRuleTerminalCreate(const char *name, double prec,
+                          void *(*func)(const struct __lexerItem *)) {
+	struct grammarRule *retVal = malloc(sizeof(struct grammarRule));
+
+	retVal->name = name;
+	retVal->type = RULE_OPT;
+	retVal->names = NULL;
+	retVal->func = func;
+	retVal->prec = prec;
+
+	return retVal;
+}
+struct grammarRule *
+grammarRuleSequenceCreate(const char *name, double prec,
+                          void *(*func)(const void **, long), ...) {
+	strName rules = NULL;
+	va_list list;
+	va_start(list, func);
+	for (;;) {
+		__auto_type r = va_arg(list, const char *);
+		if (r == NULL)
+			break;
+		else
+			rules = strNameAppendItem(rules, r);
+	}
+	va_end(list);
+
+	struct grammarRule *retVal = malloc(sizeof(struct grammarRule));
+
+	retVal->name = name;
+	retVal->type = RULE_OPT;
+	retVal->names = rules;
+	retVal->func = func;
+	retVal->prec = prec;
+
+	return retVal;
+}
+STR_TYPE_DEF(struct grammarRule *, GrammarRule);
+STR_TYPE_FUNCS(struct grammarRule *, GrammarRule);
+MAP_TYPE_DEF(strGrammarRule, GrammarRule);
+MAP_TYPE_FUNCS(strGrammarRule, GrammarRule);
+MAP_TYPE_DEF(struct rule *, Rule);
+MAP_TYPE_FUNCS(struct rule *, Rule);
+void grammarRuleDestroy(void *ptr) {
+	struct grammarRule **g = ptr;
+	strNameDestroy(&g[0]->names);
+	free(*g);
+}
+static void replaceAliases(strRuleP *rules, int sortByPrec) {
+	for (long i = 0; i != strRulePSize(*rules); i++) {
+		if (rules[0][i]->type == RULE_ALIAS) {
+			struct ruleForward *alias = (void *)rules[0][i];
+			rules[0][i] = (struct rule *)alias->alias;
+		}
+	}
+
+	if (sortByPrec)
+		qsort(*rules, strRulePSize(*rules), sizeof(**rules), precCmp);
+}
+static int scan(const char **array, const char *key, long len) {
+	for (long i = 0; i != len; i++)
+		if (0 == strcmp(array[i], key))
+			return i;
+	return -1;
+}
+struct grammar *grammarCreate(struct grammarRule *top,
+                              struct grammarRule **rules, long count) {
+	struct grammar *retVal = malloc(sizeof(struct grammar));
+	mapGrammarRule rulesMap = mapGrammarRuleCreate();
+	for (long i = 0; i != count; i++) {
+	loop:;
+		__auto_type find = mapGrammarRuleGet(rulesMap, rules[i]->name);
+		if (NULL == find) {
+			mapGrammarRuleInsert(rulesMap, rules[i]->name, NULL);
+			goto loop;
+		} else {
+			*find = strGrammarRuleAppendItem(*find, rules[i]);
+		}
+	}
+
+	long count2;
+	mapGrammarRuleKeys(rulesMap, NULL, &count2);
+	const char *keys[count];
+	mapGrammarRuleKeys(rulesMap, keys, &count2);
+
+	__auto_type topRuleI = scan(keys, top->name, count);
+	assert(topRuleI != -1);
+	struct rule *topRule = NULL;
+
+	strRuleP rules2 = NULL;
+
+	struct rule *aliases[count];
+	for (long i = 0; i != count; i++) {
+		aliases[i] = malloc(sizeof(struct ruleForward *));
+		aliases[i]->type = RULE_ALIAS;
+		aliases[i]->prec = 1;
+		((struct ruleForward *)aliases[i])->alias = NULL;
+	}
+
+	for (long i = 0; i != count; i++) {
+		__auto_type find = *mapGrammarRuleGet(rulesMap, keys[i]);
+
+		strRuleP rules3 = NULL;
+		for (long i2 = 0; i2 != strGrammarRuleSize(find); i2++) {
+			struct rule *r = NULL;
+			if (find[i2]->type == RULE_TERMINAL) {
+				r = ruleTerminalCreate(find[i2]->prec, find[i2]->func);
+			} else if (find[i2]->type == RULE_OPT) {
+				__auto_type opt = aliases[scan(keys, find[i2]->names[0], count)];
+				r = ruleOptCreate(opt, find[i2]->prec, find[i2]->func);
+			} else if (find[i2]->type == RULE_REPEAT) {
+				__auto_type rep = aliases[scan(keys, find[i2]->names[0], count)];
+				r = ruleRepeatCreate(rep, find[i2]->prec, find[i2]->func);
+			} else if (find[i2]->type == RULE_SEQUENCE) {
+				__auto_type len = strNameSize(find[i2]->names);
+				strRuleP seq = strRulePResize(NULL, len);
+				for (long i = 0; i != len; i++) {
+					__auto_type item = aliases[scan(keys, find[i2]->names[i], count)];
+					seq[0] = item;
+				}
+
+				r = ruleSequenceCreate(seq, find[i2]->prec, find[i2]->func);
+			} else {
+				assert(0);
+			}
+
+			rules3 = strRulePAppendItem(rules3, r);
+		}
+
+		// If a single rule,use that rule,else "OR" the rules togheter
+		if (strRulePSize(rules3) == 1) {
+			if (topRuleI == i)
+				topRule = rules3[0];
+
+			rules2 = strRulePAppendItem(rules2, rules3[0]);
+
+			strRulePDestroy(&rules3);
+		} else {
+			__auto_type newRule = ruleOrCreate(rules3, 1);
+
+			if (topRuleI == i)
+				topRule = newRule;
+
+			rules2 = strRulePAppendItem(rules2, newRule);
+			rules2 = strRulePConcat(rules2, rules3);
+		}
+	}
+
+	for (long i = 0; i != strRulePSize(rules2); i++) {
+		if (rules2[i]->type == RULE_OR) {
+			struct ruleOr * or = (void *)rules2[i];
+			replaceAliases(& or->rules, 1);
+		} else if (rules2[i]->type == RULE_SEQUENCE) {
+			struct ruleSequence *seq = (void *)rules2[i];
+			replaceAliases(&seq->rules, 0);
+		}
+	}
+
+	retVal->rules = rules2;
+	retVal->top = topRule;
+
+	mapGrammarRuleDestroy(rulesMap, NULL);
+	return retVal;
+}
+void grammarDestroy(struct grammar **gram) {
+	for (long i = 0; i != strRulePSize(gram[0]->rules); i++) {
+		ruleDestroy(gram[0]->rules[i]);
+	}
+	strRulePDestroy(&gram[0]->rules);
 }

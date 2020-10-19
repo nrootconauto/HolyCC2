@@ -4,7 +4,7 @@
 #include <linkedList.h>
 #include <str.h>
 struct __lexerItemTemplate;
-void *lexerItemValuePtr(struct __lexerItem *item) {
+void *lexerItemValuePtr(const struct __lexerItem *item) {
 	return (void *)item + sizeof(struct __lexerItem);
 }
 struct __lexer {
