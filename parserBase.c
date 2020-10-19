@@ -2,6 +2,7 @@
 #include <cacheingLexer.h>
 #include <graph.h>
 #include <linkedList.h>
+#include <parserBase.h>
 #include <str.h>
 enum ruleType {
 	RULE_REPEAT,
@@ -10,11 +11,10 @@ enum ruleType {
 	RULE_TERMINAL,
 	RULE_OR,
 };
-STR_TYPE_DEF(struct rule *, RuleP);
-STR_TYPE_FUNCS(struct rule *, RuleP);
 struct rule {
 	double prec;
 	enum ruleType type;
+	void (*killData)(void *);
 };
 struct ruleOr {
 	struct rule base;
@@ -132,6 +132,13 @@ static struct __vec *__parse(const struct rule *top, llLexerItem lexerItemNode,
 			__auto_type value =
 			    __parse(seq->rules[i], lexerItemNode, &consumed2, &success2);
 			if (!success2) {
+				// Destroy previous values
+				for (long i2 = 0; i2 != i; i2++) {
+					__auto_type rule = seq->rules[i];
+					if (rule->killData != NULL)
+						rule->killData(values[i2]);
+				}
+
 				strPtrDestroy(&values);
 				goto fail;
 			}
@@ -197,10 +204,12 @@ fail : {
 }
 }
 struct rule *ruleOptCreate(struct rule *rule, double prec,
-                           struct __vec *(*func)(const void *)) {
+                           struct __vec *(*func)(const void *),
+                           void (*killData)(void *)) {
 	struct ruleOpt *retVal = malloc(sizeof(struct ruleOpt));
 	retVal->base.prec = prec;
 	retVal->base.type = RULE_OPT;
+	retVal->base.killData = killData;
 	retVal->func = func;
 	retVal->rule = rule;
 
@@ -217,10 +226,12 @@ static int precCmp(const void *a, const void *b) {
 	}
 }
 struct rule *ruleSequenceCreate(const strRuleP rules, double prec,
-                                struct __vec *(*func)(const void **, long)) {
+                                struct __vec *(*func)(const void **, long),
+                                void (*killData)(void *)) {
 	struct ruleSequence *retVal = malloc(sizeof(struct ruleSequence));
 	retVal->base.prec = prec;
 	retVal->base.type = RULE_SEQUENCE;
+	retVal->base.killData = killData;
 	retVal->func = func;
 	retVal->rules = strRulePAppendData(NULL, (const struct rule **)rules,
 	                                   strRulePSize(rules));
@@ -228,20 +239,24 @@ struct rule *ruleSequenceCreate(const strRuleP rules, double prec,
 	return (struct rule *)retVal;
 }
 struct rule *ruleRepeatCreate(const struct rule *rule, double prec,
-                              struct __vec *(*func)(const void **, long)) {
+                              struct __vec *(*func)(const void **, long),
+                              void (*killData)(void *)) {
 	struct ruleRepeat *retVal = malloc(sizeof(struct ruleRepeat));
 	retVal->base.prec = prec;
 	retVal->base.type = RULE_REPEAT;
+	retVal->base.killData = killData;
 	retVal->func = func;
 	retVal->rule = rule;
 
 	return (struct rule *)retVal;
 }
 struct rule *ruleOrCreate(const strRuleP rules, double prec,
-                          struct __vec *(*func)(const void *)) {
+                          struct __vec *(*func)(const void *),
+                          void (*killData)(void *)) {
 	struct ruleOr *retVal = malloc(sizeof(struct ruleOr));
 	retVal->base.prec = prec;
 	retVal->base.type = RULE_OR;
+	retVal->base.killData = killData;
 	retVal->func = func;
 	retVal->rules = strRulePAppendData(NULL, (const struct rule **)rules,
 	                                   strRulePSize(rules));
@@ -252,10 +267,12 @@ struct rule *ruleOrCreate(const strRuleP rules, double prec,
 }
 struct rule *
 ruleTerminalCreate(double prec,
-                   struct __vec *(*func)(const struct __lexerItem *)) {
+                   struct __vec *(*func)(const struct __lexerItem *),
+                   void (*killData)(void *)) {
 	struct ruleTerminal *retVal = malloc(sizeof(struct ruleTerminal));
 	retVal->base.prec = prec;
 	retVal->base.type = RULE_OR;
+	retVal->base.killData = killData;
 	retVal->func = func;
 
 	return (struct rule *)retVal;
