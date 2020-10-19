@@ -85,6 +85,8 @@ static void *__parse(const struct rule *top, llLexerItem lexerItemNode,
 			void *retVal = NULL;
 			if (opt->func != NULL)
 				retVal = opt->func(optValue);
+			if (retVal == NULL)
+				goto fail;
 
 			return retVal;
 		} else {
@@ -110,16 +112,19 @@ static void *__parse(const struct rule *top, llLexerItem lexerItemNode,
 			lexerItemNode = moveForward(lexerItemNode, consumed2);
 			consumed3 += consumed2;
 		}
-		struct __vec *retVal = NULL;
+		void *retVal = NULL;
 		if (rep->func != NULL)
 			retVal = rep->func((const void **)values, strPtrSize(values));
+		strPtrDestroy(&values);
+
+		if (retVal == NULL)
+			goto fail;
 
 		if (success != NULL)
 			*success = 1;
 		if (consumed != NULL)
 			*consumed = consumed3;
 
-		strPtrDestroy(&values);
 		return retVal;
 	}
 	case RULE_SEQUENCE: {
@@ -149,11 +154,14 @@ static void *__parse(const struct rule *top, llLexerItem lexerItemNode,
 			lexerItemNode = moveForward(lexerItemNode, consumed2);
 		}
 
-		struct __vec *retVal = NULL;
+		void *retVal = NULL;
 		if (seq->func != NULL)
 			retVal = seq->func((const void **)values, strPtrSize(values));
 
 		strPtrDestroy(&values);
+
+		if (retVal == NULL)
+			goto fail;
 		return retVal;
 	}
 	case RULE_TERMINAL: {
@@ -260,7 +268,7 @@ static struct rule *
 ruleTerminalCreate(double prec, void *(*func)(const struct __lexerItem *)) {
 	struct ruleTerminal *retVal = malloc(sizeof(struct ruleTerminal));
 	retVal->base.prec = prec;
-	retVal->base.type = RULE_OR;
+	retVal->base.type = RULE_TERMINAL;
 	retVal->func = func;
 
 	return (struct rule *)retVal;
@@ -332,7 +340,7 @@ struct grammarRule *grammarRuleRepeatCreate(const char *name, double prec,
 	struct grammarRule *retVal = malloc(sizeof(struct grammarRule));
 
 	retVal->name = name;
-	retVal->type = RULE_OPT;
+	retVal->type = RULE_REPEAT;
 	retVal->names = rules;
 	retVal->func = func;
 	retVal->prec = prec;
@@ -345,7 +353,7 @@ grammarRuleTerminalCreate(const char *name, double prec,
 	struct grammarRule *retVal = malloc(sizeof(struct grammarRule));
 
 	retVal->name = name;
-	retVal->type = RULE_OPT;
+	retVal->type = RULE_TERMINAL;
 	retVal->names = NULL;
 	retVal->func = func;
 	retVal->prec = prec;
@@ -370,7 +378,7 @@ grammarRuleSequenceCreate(const char *name, double prec,
 	struct grammarRule *retVal = malloc(sizeof(struct grammarRule));
 
 	retVal->name = name;
-	retVal->type = RULE_OPT;
+	retVal->type = RULE_SEQUENCE;
 	retVal->names = rules;
 	retVal->func = func;
 	retVal->prec = prec;
@@ -422,24 +430,24 @@ struct grammar *grammarCreate(struct grammarRule *top,
 
 	long count2;
 	mapGrammarRuleKeys(rulesMap, NULL, &count2);
-	const char *keys[count];
+	const char *keys[count2];
 	mapGrammarRuleKeys(rulesMap, keys, &count2);
 
-	__auto_type topRuleI = scan(keys, top->name, count);
+	__auto_type topRuleI = scan(keys, top->name, count2);
 	assert(topRuleI != -1);
 	struct rule *topRule = NULL;
 
 	strRuleP rules2 = NULL;
 
-	struct rule *aliases[count];
-	for (long i = 0; i != count; i++) {
+	struct rule *aliases[count2];
+	for (long i = 0; i != count2; i++) {
 		aliases[i] = malloc(sizeof(struct ruleForward *));
 		aliases[i]->type = RULE_ALIAS;
 		aliases[i]->prec = 1;
 		((struct ruleForward *)aliases[i])->alias = NULL;
 	}
 
-	for (long i = 0; i != count; i++) {
+	for (long i = 0; i != count2; i++) {
 		__auto_type find = *mapGrammarRuleGet(rulesMap, keys[i]);
 
 		strRuleP rules3 = NULL;
@@ -448,17 +456,19 @@ struct grammar *grammarCreate(struct grammarRule *top,
 			if (find[i2]->type == RULE_TERMINAL) {
 				r = ruleTerminalCreate(find[i2]->prec, find[i2]->func);
 			} else if (find[i2]->type == RULE_OPT) {
-				__auto_type opt = aliases[scan(keys, find[i2]->names[0], count)];
+				__auto_type opt = aliases[scan(keys, find[i2]->names[0], count2)];
 				r = ruleOptCreate(opt, find[i2]->prec, find[i2]->func);
 			} else if (find[i2]->type == RULE_REPEAT) {
-				__auto_type rep = aliases[scan(keys, find[i2]->names[0], count)];
+				__auto_type rep = aliases[scan(keys, find[i2]->names[0], count2)];
 				r = ruleRepeatCreate(rep, find[i2]->prec, find[i2]->func);
 			} else if (find[i2]->type == RULE_SEQUENCE) {
 				__auto_type len = strNameSize(find[i2]->names);
 				strRuleP seq = strRulePResize(NULL, len);
 				for (long i = 0; i != len; i++) {
-					__auto_type item = aliases[scan(keys, find[i2]->names[i], count)];
-					seq[0] = item;
+					__auto_type ruleI = scan(keys, find[i2]->names[i], count2);
+					assert(ruleI != -1);
+					__auto_type item = aliases[ruleI];
+					seq[i] = item;
 				}
 
 				r = ruleSequenceCreate(seq, find[i2]->prec, find[i2]->func);
@@ -500,6 +510,9 @@ struct grammar *grammarCreate(struct grammarRule *top,
 
 	retVal->rules = rules2;
 	retVal->top = topRule;
+
+	for (long i = 0; i != count2; i++)
+		free(aliases[i]);
 
 	mapGrammarRuleDestroy(rulesMap, NULL);
 	return retVal;

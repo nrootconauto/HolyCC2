@@ -29,7 +29,7 @@ static int charCmp(const void *a, const void *b) {
 static struct __lexerItemTemplate intTemplate;
 static struct __lexerItemTemplate opsTemplate;
 
-static struct __vec *terminalInt(const struct __lexerItem *item) {
+static void *terminalInt(const struct __lexerItem *item) {
 	if (item->template == &intTemplate) {
 		struct lexerInt *i = lexerItemValuePtr(item);
 
@@ -37,14 +37,16 @@ static struct __vec *terminalInt(const struct __lexerItem *item) {
 		retVal.type = TYPE_NUM;
 		retVal.value.num = i->value.sInt;
 
-		return __vecAppendItem(NULL, &retVal, sizeof(retVal));
+		void *r = malloc(sizeof(retVal));
+		memcpy(r, &retVal, sizeof(retVal));
+		return r;
 	}
 	return NULL;
 }
-static struct __vec *terminalOp(const struct __lexerItem *item) {
+static void *terminalOp(const struct __lexerItem *item) {
 	if (item->template == &opsTemplate) {
 		__auto_type k = lexerItemValuePtr(item);
-		const char *valids[] = {"+", "-", "*", "/","(",")"};
+		const char *valids[] = {"+", "-", "*", "/", "(", ")"};
 		long count = sizeof(valids) / sizeof(*valids);
 		for (long i = 0; i != count; i++) {
 			if (0 == strcmp(k, valids[i])) {
@@ -53,14 +55,16 @@ static struct __vec *terminalOp(const struct __lexerItem *item) {
 				retVal.type = TYPE_NUM;
 				retVal.value.opTerm = valids[i];
 
-				return __vecAppendItem(NULL, &retVal, sizeof(retVal));
+				void *r = malloc(sizeof(retVal));
+				memcpy(r, &retVal, sizeof(retVal));
+				return r;
 			}
 		}
 	}
 	return NULL;
 }
-static struct __vec *opSeq(const void **items, const char **valids,
-                           long validsCount, long len) {
+static void *opSeq(const void **items, const char **valids, long validsCount,
+                   long len) {
 	if (len != 3)
 		return NULL;
 
@@ -81,9 +85,11 @@ success:;
 	retVal.value.op.op = items2[1]->value.opTerm;
 	retVal.value.op.right = items2[2];
 
-	return __vecAppendItem(NULL, &retVal, sizeof(retVal));
+	void *r = malloc(sizeof(retVal));
+	memcpy(r, &retVal, sizeof(retVal));
+	return r;
 }
-static struct __vec *paren(const void **items, long len) {
+static void *paren(const void **items, long len) {
 	if (len != 3)
 		return NULL;
 
@@ -103,22 +109,33 @@ static struct __vec *paren(const void **items, long len) {
 
 	return __vecAppendItem(NULL, &retVal, sizeof(retVal));
 }
-static struct __vec *opPrec1(const void **items, long len) {
+static void *opPrec1(const void **items, long len) {
 	const char *valids[] = {"+", "-"};
 	return opSeq(items, valids, 2, len);
 }
-static struct __vec *opPrec2(const void **items, long len) {
+static void *opPrec2(const void **items, long len) {
 	const char *valids[] = {"*", "/"};
 	return opSeq(items, valids, 2, len);
 }
-static void killNode(void *node) {
- free(node);
-}
-static struct rule *createGrammar(strRuleP *allRules) {
- __auto_type iT=ruleTerminalCreate(1,terminalInt,killNode);
- __auto_type opT=ruleTerminalCreate(1,terminalOp,killNode);
- __auto_type op=ruleSequenceCreate(1,opPrec1,killNode,iT,opT,NULL);
- 
+static void killNode(void *node) { free(node); }
+static struct grammar *createGrammar() {
+	__auto_type iT = grammarRuleTerminalCreate("EXP0", 1, terminalInt);
+	__auto_type opT = grammarRuleTerminalCreate("OP", 1, terminalOp);
+	__auto_type prec1_1 = grammarRuleSequenceCreate(
+	    "PREC_1", 1, opPrec1, "EXP0", "OP", "EXP0", NULL);
+	__auto_type prec1_2 =
+	    grammarRuleSequenceCreate("PREC_1", 2, opPrec1, "EXP0", NULL);
+	__auto_type prec2_1 = grammarRuleSequenceCreate(
+	    "PREC_2", 1, opPrec2, "PREC_1", "OP", "PREC_1", NULL);
+	__auto_type prec2_2 =
+	    grammarRuleSequenceCreate("PREC_2", 2, opPrec2, "PREC_1", NULL);
+	__auto_type paren_ =
+	    grammarRuleSequenceCreate("EXP0", 1, paren, "OP", "EXP0", "OP", NULL);
+	struct grammarRule *rules[] = {
+	    iT, opT, prec1_1, prec1_2, prec2_1, prec2_2, paren_,
+	};
+	long count = sizeof(rules) / sizeof(*rules);
+	return grammarCreate(prec2_2, rules, count);
 }
 void parserTests() {
 	const char *ops[] = {"+", "-", "*", "/", "(", ")"};
@@ -130,13 +147,19 @@ void parserTests() {
 	    &intTemplate,
 	    &opsTemplate,
 	};
-	long templateCount = sizeof(ops) / sizeof(*ops);
+	long templateCount = sizeof(templates) / sizeof(*templates);
 	__auto_type templatesVec =
 	    strLexerItemTemplateAppendData(NULL, templates, templateCount);
 
 	const char *text = "1 + 2 + 3";
-	__auto_type textStr = strCharAppendData(NULL, text, strlen(text) + 1);
+	__auto_type textStr = strCharAppendData(NULL, text, strlen(text));
 
-	lexerCreate((struct __vec *)textStr, templatesVec, charCmp, skipWhitespace);
-	parse();
+	__auto_type g = createGrammar();
+
+	__auto_type lex = lexerCreate((struct __vec *)textStr, templatesVec, charCmp,
+	                              skipWhitespace);
+
+	int success;
+	parse(g, lexerGetItems(lex), &success, killNode);
+	assert(success);
 }

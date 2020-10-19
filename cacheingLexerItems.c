@@ -179,10 +179,10 @@ static int intParse(struct __vec *new, long pos, long *end,
 	unsigned long valueU = 0;
 	int base = 10;
 
-	__auto_type New = (char *)new;
-	if (!isdigit(*(New + pos)))
+	__auto_type New = (char *)new + pos;
+	if (!isdigit(*(New)))
 		return 0;
-	__auto_type endPtr = New + __vecSize(new);
+	__auto_type endPtr = (char *)new + __vecSize(new);
 	if (*New == '0') {
 		New++;
 		if (endPtr == New) {

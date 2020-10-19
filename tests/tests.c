@@ -7,6 +7,7 @@ void subGraphTests();
 void cachingLexerTests();
 void preprocessorTests();
 void eventPoolTests();
+void parserTests();
 int main() {
 	strTests();
 	llTests();
@@ -18,5 +19,6 @@ int main() {
 	cachingLexerTests();
 	preprocessorTests();
 	eventPoolTests();
+	parserTests();
 	return 0;
 }
