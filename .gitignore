@@ -170,3 +170,7 @@ build/val.txt.core.5043
 build/valgrind.sh
 build/vgcore.4346
 build/vgcore.4431
+build/.cmake/api/v1/reply/codemodel-v2-cc2395cb219c828074fc.json
+build/.cmake/api/v1/reply/index-2020-10-20T16-54-07-0673.json
+build/.cmake/api/v1/reply/target-holycc2-Debug-b6901ea587f0903d33bd.json
+build/val.txt.save

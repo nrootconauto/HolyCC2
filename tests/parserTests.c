@@ -45,11 +45,11 @@ static void *terminalInt(const struct __lexerItem *item) {
 }
 static void *terminalOp(const struct __lexerItem *item) {
 	if (item->template == &opsTemplate) {
-		struct parsedString *k = lexerItemValuePtr(item);
+		const char *k = *(char**)lexerItemValuePtr(item);
 		const char *valids[] = {"+", "-", "*", "/", "(", ")"};
 		long count = sizeof(valids) / sizeof(*valids);
 		for (long i = 0; i != count; i++) {
-			if (0 == strcmp((char *)k->text, valids[i])) {
+			if (0 == strcmp(k, valids[i])) {
 				struct node retVal;
 
 				retVal.type = TYPE_OP_TERM;
