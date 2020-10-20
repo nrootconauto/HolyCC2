@@ -99,20 +99,26 @@ int __mapInsert(struct __map *map, const char *key, const void *item,
 	return 0;
 }
 static void __mapBucketRehash(struct __ll *bucket, int newBucketCount,
-                                        struct __ll **dumpToStart) {
+                              struct __ll **dumpToStart) {
 	__auto_type first = __llGetFirst(bucket);
-	for (__auto_type node = first; node != NULL; node = __llNext(node)) {
+	for (__auto_type node = first; node != NULL;) {
 		__auto_type hash =
 		    __mapHash(__mapNodeKey(__llValuePtr(node)), newBucketCount);
 		*__mapNodeHashValue(__llValuePtr(node)) = hash;
+
+		__auto_type nextNode = __llNext(node);
+
 		__llRemoveNode(node);
 		*(dumpToStart++) = node;
+
+		node = nextNode;
 	}
 }
-static void __mapBucketInsert(struct __map *map, int bucketIndex,struct __ll *node) {
-		map->buckets[bucketIndex] =
-		    __llInsert(map->buckets[bucketIndex], node, __mapBucketInsertPred);
-		map->bucketSizes[bucketIndex]++;
+static void __mapBucketInsert(struct __map *map, int bucketIndex,
+                              struct __ll *node) {
+	map->buckets[bucketIndex] =
+	    __llInsert(map->buckets[bucketIndex], node, __mapBucketInsertPred);
+	map->bucketSizes[bucketIndex]++;
 }
 static float __mapCalculateLoad(struct __map *map) {
 	float filled = 0;
@@ -145,23 +151,23 @@ static void __mapRehash(struct __map *map, int scaleUp) {
 	struct __ll *rehashedNodes[count];
 	for (int i = 0; i != strIntSize(map->bucketSizes); i++) {
 		__mapBucketRehash(map->buckets[i], newBucketCount,
-		                               rehashedNodes + bucketStarts[i]);
+		                  rehashedNodes + bucketStarts[i]);
 	}
 	//
 	strIntDestroy(&map->bucketSizes);
 	strLLPDestroy(&map->buckets);
 	map->bucketSizes = strIntResize(NULL, newBucketCount);
 	map->buckets = strLLPResize(NULL, newBucketCount);
-	for(long i=0;i!=newBucketCount;i++) {
-	 map->buckets[i]=NULL;
-	 map->bucketSizes [i]=0;
+	for (long i = 0; i != newBucketCount; i++) {
+		map->buckets[i] = NULL;
+		map->bucketSizes[i] = 0;
 	}
 	//
 	for (int i1 = 0; i1 != count; i1++) {
 		__auto_type ptr = rehashedNodes[i1];
 		__auto_type bucket =
 		    *__mapNodeHashValue(__llValuePtr(ptr)) % newBucketCount;
-		__mapBucketInsert(map,bucket,ptr);
+		__mapBucketInsert(map, bucket, ptr);
 	}
 }
 void __mapDestroy(struct __map *map, void (*kill)(void *)) {

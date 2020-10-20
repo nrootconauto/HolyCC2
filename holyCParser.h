@@ -1,3 +1,5 @@
+#include <cacheingLexerItems.h>
+#include <cacheingLexer.h>
 #pragma once
 enum parserNodeType {
 	NODE_OP_TERM,
@@ -46,3 +48,5 @@ struct parserNodeUnop {
 	const struct parserNode *a;
 	const struct parserNode *op;
 };
+struct grammar *holyCGrammarCreate();
+const strLexerItemTemplate holyCLexerTemplates();

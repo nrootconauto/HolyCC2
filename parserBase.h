@@ -22,3 +22,4 @@ grammarRuleTerminalCreate(const char *name, double prec,
                           void *(*func)(const struct __lexerItem *));
 void grammarRuleDestroy(void *ptr);
 void grammarDestroy(struct grammar** gram) ;
+struct grammarRule **grammarRuleList(const struct grammar *gram,long *count);

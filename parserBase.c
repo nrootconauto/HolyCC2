@@ -22,8 +22,12 @@ enum ruleType {
 };
 STR_TYPE_DEF(struct rule *, RuleP);
 STR_TYPE_FUNCS(struct rule *, RuleP);
+
+STR_TYPE_DEF(struct grammarRule *, GrammarRule);
+STR_TYPE_FUNCS(struct grammarRule *, GrammarRule);
 struct grammar {
 	strRuleP rules;
+	strGrammarRule grammarRules;
 	struct rule *top;
 };
 struct rule {
@@ -418,8 +422,6 @@ grammarRuleSequenceCreate(const char *name, double prec,
 
 	return retVal;
 }
-STR_TYPE_DEF(struct grammarRule *, GrammarRule);
-STR_TYPE_FUNCS(struct grammarRule *, GrammarRule);
 MAP_TYPE_DEF(strGrammarRule, GrammarRule);
 MAP_TYPE_FUNCS(strGrammarRule, GrammarRule);
 MAP_TYPE_DEF(struct rule *, Rule);
@@ -449,6 +451,8 @@ static int scan(const char **array, const char *key, long len) {
 struct grammar *grammarCreate(struct grammarRule *top,
                               struct grammarRule **rules, long count) {
 	struct grammar *retVal = malloc(sizeof(struct grammar));
+	retVal->grammarRules=strGrammarRuleAppendData(NULL,rules,count);
+	
 	mapGrammarRule rulesMap = mapGrammarRuleCreate();
 	for (long i = 0; i != count; i++) {
 	loop:;
@@ -558,9 +562,15 @@ struct grammar *grammarCreate(struct grammarRule *top,
 	mapGrammarRuleDestroy(rulesMap, NULL);
 	return retVal;
 }
+struct grammarRule **grammarRuleList(const struct grammar *gram, long *count) {
+ if(count!=NULL)
+	*count=strGrammarRuleSize(gram->grammarRules);
+ return gram->grammarRules;
+} 
 void grammarDestroy(struct grammar **gram) {
 	for (long i = 0; i != strRulePSize(gram[0]->rules); i++) {
 		ruleDestroy(gram[0]->rules[i]);
 	}
+	strGrammarRuleDestroy(&gram[0]->grammarRules);
 	strRulePDestroy(&gram[0]->rules);
 }
