@@ -4,7 +4,14 @@
 #include <linkedList.h>
 #include <parserBase.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include <str.h>
+#define DEBUG_PRINT_ENABLE 1
+#if DEBUG_PRINT_ENABLE
+#define DEBUG_PRINT(text, ...) printf(text, __VA_ARGS__);
+#else
+#define DEBUG_PRINT(text, ...) ;
+#endif
 enum ruleType {
 	RULE_REPEAT,
 	RULE_OPT,
@@ -78,6 +85,7 @@ static void *__parse(const struct rule *top, llLexerItem lexerItemNode,
 		void *optValue =
 		    __parse(opt->rule, lexerItemNode, &consumed2, &success2, killData);
 		if (success2) {
+			DEBUG_PRINT("OPT: %s\n", opt->base.name);
 			if (consumed != NULL)
 				*consumed = consumed2;
 			if (success != NULL)
@@ -126,6 +134,8 @@ static void *__parse(const struct rule *top, llLexerItem lexerItemNode,
 		if (consumed != NULL)
 			*consumed = consumed3;
 
+		DEBUG_PRINT("REPEAT: %s\n", rep->base.name);
+
 		return retVal;
 	}
 	case RULE_SEQUENCE: {
@@ -156,6 +166,7 @@ static void *__parse(const struct rule *top, llLexerItem lexerItemNode,
 		}
 
 		void *retVal = NULL;
+		// TODO destroy values on fail
 		if (seq->func != NULL)
 			retVal = seq->func((const void **)values, strPtrSize(values));
 
@@ -163,6 +174,13 @@ static void *__parse(const struct rule *top, llLexerItem lexerItemNode,
 
 		if (retVal == NULL)
 			goto fail;
+
+		DEBUG_PRINT("SEQ: %s\n", seq->base.name);
+
+		if (consumed != NULL)
+			*consumed = consumed3;
+		if (success != NULL)
+			*success = 1;
 		return retVal;
 	}
 	case RULE_TERMINAL: {
@@ -170,11 +188,14 @@ static void *__parse(const struct rule *top, llLexerItem lexerItemNode,
 		const struct __lexerItem *value = llLexerItemValuePtr(lexerItemNode);
 
 		__auto_type retVal = term->func(value);
-		if (retVal == NULL) {
+		if (retVal != NULL) {
 			if (success != NULL)
 				*success = 1;
 			if (consumed != NULL)
 				*consumed = 1;
+
+			DEBUG_PRINT("TERMINAL: %s\n", term->base.name);
+
 			return retVal;
 		} else {
 			goto fail;
@@ -186,7 +207,7 @@ static void *__parse(const struct rule *top, llLexerItem lexerItemNode,
 		// Rules are sorted by precedence
 		long consumed2;
 		int success2;
-		for (long i = strRulePSize(or->rules) - 1; i >= 0; i--) {
+		for (long i = 0; i != strRulePSize(or->rules); i++) {
 			__auto_type data =
 			    __parse(or->rules[i], lexerItemNode, &consumed2, &success2, killData);
 			if (success2) {
@@ -194,6 +215,8 @@ static void *__parse(const struct rule *top, llLexerItem lexerItemNode,
 					*success = 1;
 				if (consumed != NULL)
 					*consumed = consumed2;
+
+				DEBUG_PRINT("OR: %s\n", or->base.name);
 
 				return data;
 			}
@@ -492,6 +515,8 @@ struct grammar *grammarCreate(struct grammarRule *top,
 		}
 
 		__auto_type alias = (struct ruleForward *)aliases[i];
+		aliases[i]->name = keys[i];
+
 		// If a single rule,use that rule,else "OR" the rules togheter
 		if (strRulePSize(rules3) == 1) {
 			alias->alias = rules3[0];

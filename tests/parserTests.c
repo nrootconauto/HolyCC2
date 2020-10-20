@@ -45,14 +45,14 @@ static void *terminalInt(const struct __lexerItem *item) {
 }
 static void *terminalOp(const struct __lexerItem *item) {
 	if (item->template == &opsTemplate) {
-		__auto_type k = lexerItemValuePtr(item);
+		struct parsedString *k = lexerItemValuePtr(item);
 		const char *valids[] = {"+", "-", "*", "/", "(", ")"};
 		long count = sizeof(valids) / sizeof(*valids);
 		for (long i = 0; i != count; i++) {
-			if (0 == strcmp(k, valids[i])) {
+			if (0 == strcmp((char *)k->text, valids[i])) {
 				struct node retVal;
 
-				retVal.type = TYPE_NUM;
+				retVal.type = TYPE_OP_TERM;
 				retVal.value.opTerm = valids[i];
 
 				void *r = malloc(sizeof(retVal));
@@ -118,17 +118,21 @@ static void *opPrec2(const void **items, long len) {
 	return opSeq(items, valids, 2, len);
 }
 static void killNode(void *node) { free(node); }
+static void *yes(const void **items, long len) { return (void *)items[0]; }
 static struct grammar *createGrammar() {
 	__auto_type iT = grammarRuleTerminalCreate("EXP0", 1, terminalInt);
 	__auto_type opT = grammarRuleTerminalCreate("OP", 1, terminalOp);
-	__auto_type prec1_1 = grammarRuleSequenceCreate(
-	    "PREC_1", 1, opPrec1, "EXP0", "OP", "EXP0", NULL);
+
+	__auto_type prec1_1 = grammarRuleSequenceCreate("PREC_1", 1, opPrec1, "EXP0",
+	                                                "OP", "EXP0", NULL);
 	__auto_type prec1_2 =
-	    grammarRuleSequenceCreate("PREC_1", 2, opPrec1, "EXP0", NULL);
+	    grammarRuleSequenceCreate("PREC_1", 2, yes, "EXP0", NULL);
+
 	__auto_type prec2_1 = grammarRuleSequenceCreate(
 	    "PREC_2", 1, opPrec2, "PREC_1", "OP", "PREC_1", NULL);
 	__auto_type prec2_2 =
-	    grammarRuleSequenceCreate("PREC_2", 2, opPrec2, "PREC_1", NULL);
+	    grammarRuleSequenceCreate("PREC_2", 2, yes, "PREC_1", NULL);
+
 	__auto_type paren_ =
 	    grammarRuleSequenceCreate("EXP0", 1, paren, "OP", "EXP0", "OP", NULL);
 	struct grammarRule *rules[] = {
