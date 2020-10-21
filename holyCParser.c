@@ -144,14 +144,14 @@ const strLexerItemTemplate holyCLexerTemplates() { return templates; }
 	static void *name(const void **items, long count) {                          \
 		static const char *operators[] = {__VA_ARGS__};                            \
 		long opsCount = sizeof(operators) / sizeof(*operators);                    \
-		return unopRuleBase(operators, opsCount, items, opsCount, leftSide);       \
+		return unopRuleBase(operators, opsCount, items, count, leftSide);       \
 	}                                                                            \
 	OP_TERMINAL(name, __VA_ARGS__);
 #define PREC_BINOP(name, dir, ...)                                             \
 	static void *name(const void **items, long count) {                          \
 		static const char *operators[] = {__VA_ARGS__};                            \
 		long opsCount = sizeof(operators) / sizeof(*operators);                    \
-		return binopRuleBase(operators, opsCount, items, opsCount, dir);           \
+		return binopRuleBase(operators, opsCount, items, count, dir);           \
 	}                                                                            \
 	OP_TERMINAL(name, __VA_ARGS__);
 
