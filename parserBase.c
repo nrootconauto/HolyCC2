@@ -130,9 +130,6 @@ static void *__parse(const struct rule *top, llLexerItem lexerItemNode,
 			retVal = rep->func((const void **)values, strPtrSize(values));
 		strPtrDestroy(&values);
 
-		if (retVal == NULL)
-			goto fail;
-
 		if (success != NULL)
 			*success = 1;
 		if (consumed != NULL)
@@ -361,18 +358,8 @@ struct grammarRule *grammarRuleOptCreate(const char *name, double prec,
 }
 struct grammarRule *grammarRuleRepeatCreate(const char *name, double prec,
                                             void *(*func)(const void **, long),
-                                            ...) {
-	strName rules = NULL;
-	va_list list;
-	va_start(list, func);
-	for (;;) {
-		__auto_type r = va_arg(list, const char *);
-		if (r == NULL)
-			break;
-		else
-			rules = strNameAppendItem(rules, r);
-	}
-	va_end(list);
+                                            const char *ruleName) {
+	strName rules = strNameAppendItem(NULL, ruleName);
 
 	struct grammarRule *retVal = malloc(sizeof(struct grammarRule));
 
@@ -431,7 +418,7 @@ struct grammarRule *grammarRuleOrCreate(const char *name, double prec, ...) {
 		__auto_type name = va_arg(args, const char *);
 		if (name == NULL)
 			break;
-		
+
 		rules = strNameAppendItem(rules, name);
 	}
 	va_end(args);
@@ -585,6 +572,13 @@ struct grammar *grammarCreate(struct grammarRule *top,
 		} else if (rules2[i]->type == RULE_SEQUENCE) {
 			struct ruleSequence *seq = (void *)rules2[i];
 			replaceAliases(&seq->rules, 0);
+		} else if (rules2[i]->type == RULE_REPEAT) {
+			struct ruleRepeat *rep = (void *)rules2[i];
+
+			if (rep->rule->type == RULE_ALIAS) {
+				struct ruleForward *alias = (void *)rep->rule;
+				rep->rule = (struct rule *)alias->alias;
+			}
 		}
 	}
 

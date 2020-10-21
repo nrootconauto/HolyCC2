@@ -12,8 +12,7 @@ struct grammarRule *grammarRuleOptCreate(const char *name, double prec,
                                          const char *rule,
                                          void *(*func)(const void *));
 struct grammarRule *grammarRuleRepeatCreate(const char *name, double prec,
-                                            void *(*func)(const void **, long),
-                                            ...);
+                                            void *(*func)(const void **, long),const char *ruleName);
 struct grammarRule *
 grammarRuleSequenceCreate(const char *name, double prec,
                           void *(*func)(const void **, long), ...);
