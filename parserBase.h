@@ -23,3 +23,4 @@ grammarRuleTerminalCreate(const char *name, double prec,
 void grammarRuleDestroy(void *ptr);
 void grammarDestroy(struct grammar** gram) ;
 struct grammarRule **grammarRuleList(const struct grammar *gram,long *count);
+struct grammarRule *grammarRuleOrCreate(const char *name, double prec, ...);

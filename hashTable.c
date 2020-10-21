@@ -52,10 +52,10 @@ static void *__mapNodeValue(const void *nodeValue) {
 	return (void *)nodeValue + sizeof(int) + sizeof(long);
 }
 static int __mapBucketInsertPred(const void *current, const void *item) {
-	__auto_type res = __mapNodeHashValue(item) - __mapNodeHashValue(current);
+	__auto_type res = *__mapNodeHashValue(current) - *__mapNodeHashValue(item);
 	if (res != 0)
 		return res;
-	return strcmp(__mapNodeKey(item), __mapNodeKey(current));
+	return strcmp(__mapNodeKey(current), __mapNodeKey(item));
 }
 struct __mapKeyValuePair {
 	const char *key;
@@ -70,10 +70,11 @@ static int __mapBucketGetPred(const void *item, const void *current) {
 }
 void *__mapGet(const struct __map *map, const char *key) {
 	__auto_type hash = __mapHash(key, strLLPSize(map->buckets));
-	__auto_type bucket = map->buckets[hash % strLLPSize(map->buckets)];
+	__auto_type bucket = map->buckets[hash];
 	__auto_type first = __llGetFirst(bucket);
 	struct __mapKeyValuePair pair = {key, hash};
-	__auto_type res = __llFindRight(first, &pair, __mapBucketGetPred);
+	__auto_type res =
+	    __llFindRight(__llGetFirst(first), &pair, __mapBucketGetPred);
 	if (res == NULL)
 		return NULL;
 	return __mapNodeValue(__llValuePtr(res));
@@ -84,10 +85,10 @@ int __mapInsert(struct __map *map, const char *key, const void *item,
 		return -1;
 	__auto_type hash = __mapHash(key, strLLPSize(map->buckets));
 	__auto_type newNode = __mapNodeCreate(key, item, itemSize, hash);
-	__auto_type bucketI = hash % strLLPSize(map->buckets);
-	map->buckets[bucketI] =
-	    __llInsert(map->buckets[bucketI], newNode, __mapBucketInsertPred);
-	map->bucketSizes[hash % strLLPSize(map->buckets)]++;
+	__auto_type bucketI = hash;
+	map->buckets[bucketI] = __llInsert(__llGetFirst(map->buckets[bucketI]),
+	                                   newNode, __mapBucketInsertPred);
+	map->bucketSizes[hash]++;
 	//
 	__auto_type load = __mapCalculateLoad(map);
 	if (load > 3.5) {
@@ -194,7 +195,7 @@ struct __map *__mapCreate() {
 }
 void __mapRemove(struct __map *map, const char *key, void (*kill)(void *)) {
 	__auto_type hash = __mapHash(key, strIntSize(map->bucketSizes));
-	__auto_type bucket = hash % strIntSize(map->bucketSizes);
+	__auto_type bucket = hash;
 	struct __mapKeyValuePair pair = {key, hash};
 	__auto_type node = __llFindRight(__llGetFirst(map->buckets[bucket]), &pair,
 	                                 __mapBucketGetPred);

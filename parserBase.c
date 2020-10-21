@@ -422,6 +422,30 @@ grammarRuleSequenceCreate(const char *name, double prec,
 
 	return retVal;
 }
+struct grammarRule *grammarRuleOrCreate(const char *name, double prec, ...) {
+	strName rules = NULL;
+
+	va_list args;
+	va_start(args, prec);
+	for (;;) {
+		__auto_type name = va_arg(args, const char *);
+		if (name == NULL)
+			break;
+		
+		rules = strNameAppendItem(rules, name);
+	}
+	va_end(args);
+
+	struct grammarRule *retVal = malloc(sizeof(struct grammarRule));
+
+	retVal->name = name;
+	retVal->type = RULE_OR;
+	retVal->names = rules;
+	retVal->func = NULL;
+	retVal->prec = prec;
+
+	return retVal;
+}
 MAP_TYPE_DEF(strGrammarRule, GrammarRule);
 MAP_TYPE_FUNCS(strGrammarRule, GrammarRule);
 MAP_TYPE_DEF(struct rule *, Rule);
@@ -451,8 +475,9 @@ static int scan(const char **array, const char *key, long len) {
 struct grammar *grammarCreate(struct grammarRule *top,
                               struct grammarRule **rules, long count) {
 	struct grammar *retVal = malloc(sizeof(struct grammar));
-	retVal->grammarRules=strGrammarRuleAppendData(NULL,rules,count);
-	
+	retVal->grammarRules =
+	    strGrammarRuleAppendData(NULL, (const struct grammarRule **)rules, count);
+
 	mapGrammarRule rulesMap = mapGrammarRuleCreate();
 	for (long i = 0; i != count; i++) {
 	loop:;
@@ -511,6 +536,16 @@ struct grammar *grammarCreate(struct grammarRule *top,
 
 				r = ruleSequenceCreate(find[i2]->name, seq, find[i2]->prec,
 				                       find[i2]->func);
+			} else if (find[i2]->type == RULE_OR) {
+				__auto_type len = strNameSize(find[i2]->names);
+				strRuleP ors = strRulePResize(NULL, len);
+				for (long i = 0; i != len; i++) {
+					__auto_type ruleI = scan(keys, find[i2]->names[i], count2);
+					assert(ruleI != -1);
+					__auto_type item = aliases[ruleI];
+					ors[i] = item;
+				}
+				r = ruleOrCreate(find[i2]->name, ors, find[i2]->prec);
 			} else {
 				assert(0);
 			}
@@ -563,10 +598,10 @@ struct grammar *grammarCreate(struct grammarRule *top,
 	return retVal;
 }
 struct grammarRule **grammarRuleList(const struct grammar *gram, long *count) {
- if(count!=NULL)
-	*count=strGrammarRuleSize(gram->grammarRules);
- return gram->grammarRules;
-} 
+	if (count != NULL)
+		*count = strGrammarRuleSize(gram->grammarRules);
+	return gram->grammarRules;
+}
 void grammarDestroy(struct grammar **gram) {
 	for (long i = 0; i != strRulePSize(gram[0]->rules); i++) {
 		ruleDestroy(gram[0]->rules[i]);
