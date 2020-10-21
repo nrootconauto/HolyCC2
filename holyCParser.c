@@ -2,9 +2,11 @@
 #include <holyCParser.h>
 #include <parserBase.h>
 #include <stdlib.h>
+#include <stdio.h>
 #define ALLOCATE(x)                                                            \
 	({                                                                           \
 		void *r = malloc(sizeof(x));                                               \
+		memcpy(r, &x, sizeof(x));                                                  \
 		r;                                                                         \
 	})
 enum assoc {
@@ -27,8 +29,17 @@ static int isExpression(const struct parserNode *node) {
 }
 STR_TYPE_DEF(struct parserNode *, Node);
 STR_TYPE_FUNCS(struct parserNode *, Node);
-static void *binopRuleBase(const char **ops, long opsCount, const void **items,
-                           long itemsCount, enum assoc dir) {
+static void *binopRuleBase(const char **ops, long opsCount,
+                           const void **__items, long __itemsCount,
+                           enum assoc dir) {
+	/**
+	 * NOTE:
+	 * items[0] is a vector of nodes,so __itemsCount will always be 1
+	 */
+	assert(__itemsCount == 1);
+
+	const strNode items = (const strNode)__items[0];
+	long itemsCount = strNodeSize(items);
 	if (itemsCount < 3) {
 		if (itemsCount == 1)
 			return (void *)items[0];
@@ -144,14 +155,14 @@ const strLexerItemTemplate holyCLexerTemplates() { return templates; }
 	static void *name(const void **items, long count) {                          \
 		static const char *operators[] = {__VA_ARGS__};                            \
 		long opsCount = sizeof(operators) / sizeof(*operators);                    \
-		return unopRuleBase(operators, opsCount, items, count, leftSide);       \
+		return unopRuleBase(operators, opsCount, items, count, leftSide);          \
 	}                                                                            \
 	OP_TERMINAL(name, __VA_ARGS__);
 #define PREC_BINOP(name, dir, ...)                                             \
 	static void *name(const void **items, long count) {                          \
 		static const char *operators[] = {__VA_ARGS__};                            \
 		long opsCount = sizeof(operators) / sizeof(*operators);                    \
-		return binopRuleBase(operators, opsCount, items, count, dir);           \
+		return binopRuleBase(operators, opsCount, items, count, dir);              \
 	}                                                                            \
 	OP_TERMINAL(name, __VA_ARGS__);
 
@@ -235,7 +246,8 @@ static void *intLiteral(const struct __lexerItem *item) {
 		lit.base.type = NODE_LIT_INT;
 		lit.value = *(struct lexerInt *)lexerItemValuePtr(item);
 
-		return ALLOCATE(lit);
+		struct parserNode *node = ALLOCATE(lit);
+		return node;
 	}
 	return NULL;
 };
@@ -272,6 +284,8 @@ static void *yes1(const void **data, long length) {
 static void *mergeYes2(const void **nodes, long count) {
 	strNode retVal = strNodeResize(NULL, 2 * count);
 
+	if(count!=0)
+	printf("count:%li\n", count); // TODO
 	for (long i = 0; i != count; i++) {
 		const struct pair *node = nodes[i];
 		retVal[2 * i] = (struct parserNode *)node->a;
@@ -281,19 +295,12 @@ static void *mergeYes2(const void **nodes, long count) {
 	return retVal;
 }
 /**
- * [1,2,3]+4->[1,2,3,4]
- */
-static void *mergeLeft(const void **items, long count) {
-	assert(count == 2);
-	return strNodeAppendItem((strNode)items[0], (struct parserNode *)items[1]);
-}
-/**
  * 1+[2,3,4]->[1,2,3,4]
  */
-static void *mergeRight(const void **items, long count) {
+static void *__merge(const void **items, long count) {
 	assert(count == 2);
-	strNode retVal = strNodeAppendItem(NULL, (struct parserNode *)items[1]);
-	return strNodeConcat(retVal, (strNode)items[0]);
+	strNode retVal = strNodeAppendItem(NULL, (struct parserNode *)items[0]);
+	return strNodeConcat(retVal, (strNode)items[1]);
 }
 #define DEFINE_PREC_LEFT_SIDE_UNOP(appendRulesTo, name, opName, nextPrecName,  \
                                    func)                                       \
@@ -327,7 +334,7 @@ __leftAssocBinop(strRule *appendRulesTo, const char *finalName,
 	__auto_type tail =
 	    grammarRuleSequenceCreate(tailName, 1, yes2, opName, nextPrecName, NULL);
 	__auto_type rep = grammarRuleRepeatCreate(repName, 1, mergeYes2, tailName);
-	__auto_type combine = grammarRuleSequenceCreate(combinedName, 1, mergeLeft,
+	__auto_type combine = grammarRuleSequenceCreate(combinedName, 1, __merge,
 	                                                headName, repName, NULL);
 	__auto_type final =
 	    grammarRuleSequenceCreate(finalName, 1, func, combinedName, NULL);
@@ -354,7 +361,7 @@ __rightAssocBinop(strRule *appendRulesTo, const char *finalName,
 	__auto_type tail =
 	    grammarRuleSequenceCreate(tailName, 1, yes2, opName, nextPrecName, NULL);
 	__auto_type rep = grammarRuleRepeatCreate(repName, 1, mergeYes2, tailName);
-	__auto_type combined = grammarRuleSequenceCreate(combinedName, 1, mergeRight,
+	__auto_type combined = grammarRuleSequenceCreate(combinedName, 1, __merge,
 	                                                 headName, repName, NULL);
 	__auto_type final =
 	    grammarRuleSequenceCreate(finalName, 1, func, combinedName, NULL);

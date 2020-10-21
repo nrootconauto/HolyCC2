@@ -74,13 +74,6 @@ static llLexerItem moveForward(llLexerItem from, long amount) {
 }
 static void *__parse(const struct rule *top, llLexerItem lexerItemNode,
                      long *consumed, int *success, void (*killData)(void *)) {
-	if (lexerItemNode == NULL) {
-		if (consumed != NULL)
-			*consumed = 0;
-		if (success != NULL)
-			*success = 0;
-		return NULL;
-	}
 	switch (top->type) {
 	case RULE_OPT: {
 		const struct ruleOpt *opt = (const void *)top;
@@ -115,7 +108,7 @@ static void *__parse(const struct rule *top, llLexerItem lexerItemNode,
 		long consumed2 = 0, consumed3 = 0;
 		strPtr values = NULL;
 		int success2 = 0;
-		for (;;) {
+		for (; lexerItemNode != NULL;) {
 			__auto_type retVal =
 			    __parse(rep->rule, lexerItemNode, &consumed2, &success2, killData);
 			if (!success2)
@@ -144,8 +137,11 @@ static void *__parse(const struct rule *top, llLexerItem lexerItemNode,
 		long consumed2, consumed3 = 0;
 		int success2 = 0;
 		long i;
-		strPtr values = NULL;
-		for (i = 0; i != strRulePSize(seq->rules); i++) {
+		__auto_type len = strRulePSize(seq->rules);
+		strPtr values = strPtrResize(NULL, len);
+		for (long i = 0; i != len; i++)
+			values[i] = NULL;
+		for (i = 0; i != len; i++) {
 			__auto_type value = __parse(seq->rules[i], lexerItemNode, &consumed2,
 			                            &success2, killData);
 			if (!success2) {
@@ -160,11 +156,13 @@ static void *__parse(const struct rule *top, llLexerItem lexerItemNode,
 				goto fail;
 			}
 
-			values = strPtrAppendItem(values, value);
+			values[i] = value;
 
 			consumed3 += consumed2;
 			lexerItemNode = moveForward(lexerItemNode, consumed2);
 		}
+
+		// If past last item,ensure continuin
 
 		void *retVal = NULL;
 		// TODO destroy values on fail
@@ -185,6 +183,9 @@ static void *__parse(const struct rule *top, llLexerItem lexerItemNode,
 		return retVal;
 	}
 	case RULE_TERMINAL: {
+		if (lexerItemNode == NULL)
+			goto fail;
+
 		const struct ruleTerminal *term = (const void *)top;
 		const struct __lexerItem *value = llLexerItemValuePtr(lexerItemNode);
 
@@ -208,7 +209,8 @@ static void *__parse(const struct rule *top, llLexerItem lexerItemNode,
 		// Rules are sorted by precedence
 		long consumed2;
 		int success2;
-		for (long i = 0; i != strRulePSize(or->rules); i++) {
+		for (long i = 0; i != strRulePSize(or->rules) && lexerItemNode != NULL;
+		     i++) {
 			__auto_type data =
 			    __parse(or->rules[i], lexerItemNode, &consumed2, &success2, killData);
 			if (success2) {
