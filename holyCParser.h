@@ -39,14 +39,14 @@ struct parserNodeOpTerm {
 };
 struct parserNodeBinop {
 	struct parserNode base;
-	const struct parserNode *a;
-	const struct parserNode *b;
-	const struct parserNode *op;
+	struct parserNode *a;
+	struct parserNode *b;
+	struct parserNode *op;
 };
 struct parserNodeUnop {
 	struct parserNode base;
-	const struct parserNode *a;
-	const struct parserNode *op;
+	struct parserNode *a;
+	struct parserNode *op;
 };
 struct grammar *holyCGrammarCreate();
 const strLexerItemTemplate holyCLexerTemplates();

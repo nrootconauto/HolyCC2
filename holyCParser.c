@@ -1,8 +1,8 @@
 #include <assert.h>
 #include <holyCParser.h>
 #include <parserBase.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #define ALLOCATE(x)                                                            \
 	({                                                                           \
 		void *r = malloc(sizeof(x));                                               \
@@ -48,7 +48,7 @@ static void *binopRuleBase(const char **ops, long opsCount,
 	}
 
 	strNode result = strNodeReserve(NULL, itemsCount / 2);
-	for (long offset = 0; offset < itemsCount; offset += 2) {
+	for (long offset = 0; offset + 2 < itemsCount; offset += 2) {
 		const struct parserNode **items2 = (void *)items;
 		if (!isExpression(items2[offset + 0]) || !isExpression(items2[offset + 2]))
 			return NULL;
@@ -71,7 +71,7 @@ static void *binopRuleBase(const char **ops, long opsCount,
 		struct parserNodeBinop retVal;
 		retVal.base.type = NODE_EXPR_BINOP;
 		retVal.a = (offset == 0) ? items[0] : NULL;
-		retVal.b = (lastRun) ? items2[offset + 2] : NULL;
+		retVal.b = (lastRun) ? (struct parserNode *)items2[offset + 2] : NULL;
 		retVal.op = (void *)term;
 
 		result = strNodeAppendItem(result, ALLOCATE(retVal));
@@ -80,15 +80,19 @@ static void *binopRuleBase(const char **ops, long opsCount,
 
 	__auto_type len = strNodeSize(result);
 	struct parserNodeBinop *current;
-	if (dir == DIR_LEFT) {
+	if (dir == DIR_RIGHT) {
 		for (long i = 0; i < len - 1; i++) {
 			current = (void *)result[i];
+			current->a = items[i * 2];
 			current->b = result[i + 1];
 		}
-	} else if (dir == DIR_RIGHT) {
+	} else if (dir == DIR_LEFT) {
 		for (long i = len - 1; i >= 1; i--) {
 			current = (void *)result[i];
 			current->a = result[i - 1];
+
+			struct parserNodeBinop *prev = (void *)result[i - 1];
+			prev->b = items[i * 2];
 		}
 	} else {
 		assert(0);
@@ -119,7 +123,7 @@ static void *unopRuleBase(const char **ops, long opsCount, const void **items,
 		if (0 == strcmp(ops[i], op->text)) {
 			struct parserNodeUnop retVal;
 			retVal.base.type = NODE_EXPR_UNOP;
-			retVal.a = items[argIndex];
+			retVal.a = (struct parserNode *)items[argIndex];
 			retVal.op = (void *)op;
 		}
 	}
@@ -284,8 +288,8 @@ static void *yes1(const void **data, long length) {
 static void *mergeYes2(const void **nodes, long count) {
 	strNode retVal = strNodeResize(NULL, 2 * count);
 
-	if(count!=0)
-	printf("count:%li\n", count); // TODO
+	if (count != 0)
+		printf("count:%li\n", count); // TODO
 	for (long i = 0; i != count; i++) {
 		const struct pair *node = nodes[i];
 		retVal[2 * i] = (struct parserNode *)node->a;
