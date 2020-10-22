@@ -212,8 +212,6 @@ static int intParse(struct __vec *new, long pos, long *end,
 			sscanf((char *)slice, "%lx", &valueU);
 			__vecDestroy(slice);
 
-			if (end != NULL)
-				*end = New - (char *)new;
 			goto dumpU;
 		} else if (*New >= 0 && *New <= '7') {
 			base = 8;
@@ -234,8 +232,6 @@ static int intParse(struct __vec *new, long pos, long *end,
 			sscanf((char *)slice, "%lo", &valueU);
 			__vecDestroy(slice);
 
-			if (end != NULL)
-				*end = New - (char *)new;
 			goto dumpU;
 		} else if (*New == 'b' || *New == 'B') {
 			base = 2;
@@ -252,8 +248,6 @@ static int intParse(struct __vec *new, long pos, long *end,
 				valueU = (valueU << 1) | (New[i] == '1' ? 1 : 0);
 
 			New += alnumCount;
-			if (end != NULL)
-				*end = New - (char *)new;
 			goto dumpU;
 		} else {
 			goto malformed;
@@ -270,11 +264,13 @@ static int intParse(struct __vec *new, long pos, long *end,
 		sscanf((char *)slice, "%lu", &valueU);
 		__vecDestroy(slice);
 
-		if (end != NULL)
-			*end = New - (char *)new + alnumCount;
+		New+=alnumCount;
 		goto dumpU;
 	}
 dumpU : {
+	if (end != NULL)
+			*end = New - (char *)new;
+ 
 	// Check to ensure isn't a float
 	if (*end + (char *)new < endPtr)
 		if (*end == '.')

@@ -94,6 +94,7 @@ static void *binopRuleBase(const char **ops, long opsCount,
 			struct parserNodeBinop *prev = (void *)result[i - 1];
 			prev->b = items[i * 2];
 		}
+		current = (void *)result[len - 1];
 	} else {
 		assert(0);
 	}
