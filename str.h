@@ -95,11 +95,11 @@ struct __vec;
 		return (str##suffix)__vecUnique((struct __vec *)str, sizeof(type), pred,   \
 		                                kill);                                     \
 	}                                                                            \
-	inline str##suffix str##suffix##Intersection(                                \
+	inline str##suffix str##suffix##SetIntersection(                             \
 	    str##suffix a, const str##suffix b,                                      \
 	    int (*pred)(const void *, const void *), void (*kill)(void *))           \
 	    __attribute__((always_inline));                                          \
-	inline str##suffix str##suffix##Intersection(                                \
+	inline str##suffix str##suffix##SetIntersection(                             \
 	    str##suffix a, const str##suffix b,                                      \
 	    int (*pred)(const void *, const void *), void (*kill)(void *)) {         \
 		return (str##suffix)__vecSetIntersection(                                  \
