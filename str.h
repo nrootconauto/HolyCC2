@@ -94,6 +94,16 @@ struct __vec;
 	    void (*kill)(void *)) {                                                  \
 		return (str##suffix)__vecUnique((struct __vec *)str, sizeof(type), pred,   \
 		                                kill);                                     \
+	}                                                                            \
+	inline str##suffix str##suffix##Intersection(                                \
+	    str##suffix a, const str##suffix b,                                      \
+	    int (*pred)(const void *, const void *), void (*kill)(void *))           \
+	    __attribute__((always_inline));                                          \
+	inline str##suffix str##suffix##Intersection(                                \
+	    str##suffix a, const str##suffix b,                                      \
+	    int (*pred)(const void *, const void *), void (*kill)(void *)) {         \
+		return (str##suffix)__vecSetIntersection(                                  \
+		    (struct __vec *)a, (struct __vec *)b, sizeof(type), pred, kill);       \
 	}
 struct __vec *__vecAppendItem(struct __vec *a, const void *item, long itemSize);
 struct __vec *__vecReserve(struct __vec *a, long capacity);
@@ -116,3 +126,7 @@ struct __vec *__vecRemoveItem(struct __vec *a, long itemSize,
 struct __vec *__vecUnique(struct __vec *vec, long itemSize,
                           int (*pred)(const void *, const void *),
                           void (*kill)(void *));
+struct __vec *__vecSetIntersection(struct __vec *a, const struct __vec *b,
+                                   long itemSize,
+                                   int (*pred)(const void *, const void *),
+                                   void (*kill)(void *));

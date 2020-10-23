@@ -201,11 +201,6 @@ struct __vec *__vecUnique(struct __vec *vec, long itemSize,
 		}
 	}
 
-	res++;
-	for (long i = 0; i != res; i++)
-		memcpy((void *)vec + itemSize * i, (void *)vec + itemSize * moveBuffer[i],
-		       itemSize);
-
 	// Remove items not appearing in result
 	if (kill != NULL) {
 		qsort(moveBuffer, res, sizeof(long), longCmp);
@@ -216,5 +211,53 @@ struct __vec *__vecUnique(struct __vec *vec, long itemSize,
 		}
 	}
 
+	res++;
+	for (long i = 0; i != res; i++)
+		memcpy((void *)vec + itemSize * i, (void *)vec + itemSize * moveBuffer[i],
+		       itemSize);
+
 	return __vecResize(vec, res * itemSize);
+}
+// https://www.cplusplus.com/reference/algorithm/set_intersection/
+struct __vec *__vecSetIntersection(struct __vec *a, const struct __vec *b,
+                                   long itemSize,
+                                   int (*pred)(const void *, const void *),
+                                   void (*kill)(void *)) {
+	long count = __vecSize(a) / itemSize;
+	long moveBuffer[count];
+	for (long i = 0; i != count; i++)
+		moveBuffer[i] = i;
+
+	const void *first1 = a;
+	const void *first2 = b;
+	const void *last1 = first1 + __vecSize(a);
+	const void *last2 = first2 + __vecSize(b);
+	long result = 0;
+	while (first1 != last1 && first2 != last2) {
+		if (pred(first2, first1) > 0)
+			++first1;
+		else if (pred(first1, first2) > 0)
+			++first2;
+		else {
+			moveBuffer[result++] = first1 - (void *)a;
+			++first1, first2++;
+		}
+	}
+
+	if (kill != NULL) {
+		// Kill items not appearing in result
+		qsort(moveBuffer, result, sizeof(long), longCmp);
+		for (long i = 0; i != __vecSize(a) / itemSize; i++) {
+			if (NULL == bsearch(&i, moveBuffer, result, sizeof(long), longCmp)) {
+				kill((void *)a + itemSize * i);
+			}
+		}
+	}
+
+	for (long i = 0; i != result; i++) {
+		memcpy((void *)a + i * itemSize, (void *)a + moveBuffer[i] * itemSize,
+		       itemSize);
+	}
+
+	return __vecResize(a, result * itemSize);
 }

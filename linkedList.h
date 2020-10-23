@@ -21,17 +21,17 @@ struct __ll;
 	inline ll##suffix ll##suffix##Remove(ll##suffix from)                        \
 	    __attribute__((always_inline));                                          \
 	inline ll##suffix ll##suffix##Remove(ll##suffix from) {                      \
-		return __llRemoveNode(from);                                               \
+		return (ll##suffix)__llRemoveNode(from);                                   \
 	}                                                                            \
 	inline type *ll##suffix##ValuePtr(const ll##suffix Node)                     \
 	    __attribute__((always_inline));                                          \
 	inline type *ll##suffix##ValuePtr(const ll##suffix Node) {                   \
-		return __llValuePtr(Node);                                                 \
+		return (type *)__llValuePtr(Node);                                     \
 	}                                                                            \
 	inline ll##suffix ll##suffix##Next(const ll##suffix Node)                    \
 	    __attribute__((always_inline));                                          \
 	inline ll##suffix ll##suffix##Next(const ll##suffix Node) {                  \
-		return __llNext(Node);                                                     \
+		return (ll##suffix)__llNext(Node);                                         \
 	}                                                                            \
 	inline ll##suffix ll##suffix##Prev(const ll##suffix Node)                    \
 	    __attribute__((always_inline));                                          \

@@ -23,6 +23,7 @@ list(APPEND sources "eventPool.c")
 list(APPEND sources "textMapper.c")
 list(APPEND sources "parserBase.c")
 list(APPEND sources "holyCParser.c")
+list(APPEND sources "graphDominance.c")
 
 set(tests "")
 list(APPEND tests "tests/tests.c")

@@ -63,5 +63,10 @@ struct parserNodeCommaSequence {
  strParserNode nodes;
  strParserNode commas;
 };
+enum holyCTypeModifier {
+ TYPE_MOD_PTR,
+ TYPE_MOD_VOLATILE,
+ TYPE_MOD_ARRAY,
+};
 struct grammar *holyCGrammarCreate();
 const strLexerItemTemplate holyCLexerTemplates();

@@ -491,6 +491,15 @@ void *commaSequenceFunc(const void **items, long count) {
 	return ALLOCATE(seq);
 }
 static void *forward1(const void *value) { return (void *)value; }
+/**
+ * ["(" , typename , ")"]
+ */
+static void *typecastFunc(const void **data ,long count) {
+ assert(count==3);
+ 
+ if(NULL) //TODO resume work
+	;
+}
 static strRule createPrecedenceRules(strRule prev, struct grammarRule **top) {
 
 	const struct grammarRule *precRules[] = {
@@ -498,17 +507,30 @@ static strRule createPrecedenceRules(strRule prev, struct grammarRule **top) {
 	    grammarRuleTerminalCreate("LITERAL", 1, floatingLiteral),
 	    grammarRuleTerminalCreate("LITERAL", 1, stringLiteral),
 	    grammarRuleTerminalCreate("COMMA", 1, commaTreminal),
-	    //
 	    grammarRuleTerminalCreate("NAME", 1, nameToken),
+	    /**
+			 * Type-name
+			 */
+			grammarRuleSequenceCreate("TYPENAME",1,yes1,"NAME",NULL),//TODO
 	    /**
 	     * Base expression,used by comma
 	     */
-	    grammarRuleOrCreate("__EXP", 1, "PREC0_BINOP", "PREC0_UNOP", NULL),
+	    grammarRuleOrCreate("PREC0", 1, "PREC0_BINOP", "PREC0_UNOP", NULL),
+	    /**
+			 * Typecast
+			 */
+			grammarRuleSequenceCreate("__TYPECAST_HEAD",1,yes1,"PREC0",NULL) ,
+			grammarRuleSequenceCreate("__TYPECAST_TAIL",1,yes2,"LEFT_PAREN","TYPE","TYPENAME","RIGHT_PAREN",NULL) ,
+			grammarRuleSequenceCreate("TYPECAST",1,NULL,"PREC0",NULL), //TODO
+	    /**
+			 * (explicit) Function call
+			 */
+			grammarRuleSequenceCreate("__FUNC_CALL",1,yes1,"TYPECAST",NULL), //PROVIDE FUNCTION
 	    /**
 	     * Comma operator(creates sequences for function args,or returns single
 	     * __exp)
 	     */
-	    grammarRuleOptCreate("EXP_OPT", 1, "__EXP", forward1),
+	    grammarRuleOptCreate("EXP_OPT", 1, "FUNC_CALL", forward1),
 	    grammarRuleSequenceCreate("COMMA_HEAD", 1, yes1, "EXP_OPT", NULL),
 	    grammarRuleSequenceCreate("COMMA_TAIL", 1, yes2, "COMMA", "EXP_OPT",
 	                              NULL),

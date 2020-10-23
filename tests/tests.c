@@ -9,8 +9,9 @@ void preprocessorTests();
 void eventPoolTests();
 void parserTests();
 int main() {
+	strTests();
 	/**
-	  strTests();
+	  
 	  llTests();
 	  mapTests();
 	  strTests();
@@ -21,7 +22,7 @@ int main() {
 	  preprocessorTests();
 	  eventPoolTests();
 	  */
-	cachingLexerTests();
-	parserTests();
+	//cachingLexerTests();
+	//parserTests();
 	return 0;
 }
