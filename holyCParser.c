@@ -457,6 +457,7 @@ static strRule createPrecedenceRules(strRule prev, struct grammarRule **top) {
 			grammarRuleTerminalCreate("LEFT_PAREN",1,leftParenTreminal),
 			grammarRuleTerminalCreate("RIGHT_PAREN",1,rightParenTreminal),
 			grammarRuleSequenceCreate("PAREN",1,parenFunc,"LEFT_PAREN","EXP","RIGHT_PAREN",NULL),
+			grammarRuleSequenceCreate("PAREN",2,yes1,"NAME_OR_LITERAL",NULL),
 	    grammarRuleOrCreate("NAME_OR_LITERAL", 1, "NAME", "LITERAL", NULL),
 	    grammarRuleTerminalCreate("OP0_BINOP", 1, prec0_BinopTreminal),
 	    grammarRuleTerminalCreate("OP0_UNOP", 1, prec0_UnopTreminal),
@@ -494,7 +495,7 @@ static strRule createPrecedenceRules(strRule prev, struct grammarRule **top) {
 	DEFINE_PREC_LEFT_ASSOC_BINOP(prev, PREC11, "OP11", "PREC12", prec11);
 	DEFINE_PREC_LEFT_ASSOC_BINOP(prev, PREC12, "OP12", "PREC13", prec12);
 	//
-	DEFINE_PREC_RIGHT_ASSOC_BINOP(prev, PREC13, "OP13", "NAME_OR_LITERAL",
+	DEFINE_PREC_RIGHT_ASSOC_BINOP(prev, PREC13, "OP13", "PAREN",
 	                              prec13);
 	//
 
