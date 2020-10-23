@@ -518,6 +518,8 @@ struct grammar *grammarCreate(struct grammarRule *top,
 				strRuleP seq = strRulePResize(NULL, len);
 				for (long i = 0; i != len; i++) {
 					__auto_type ruleI = scan(keys, find[i2]->names[i], count2);
+					if (ruleI == -1)
+						printf("MISSING RULE :%s\n", find[i2]->names[i]);
 					assert(ruleI != -1);
 					__auto_type item = aliases[ruleI];
 					seq[i] = item;
@@ -530,6 +532,8 @@ struct grammar *grammarCreate(struct grammarRule *top,
 				strRuleP ors = strRulePResize(NULL, len);
 				for (long i = 0; i != len; i++) {
 					__auto_type ruleI = scan(keys, find[i2]->names[i], count2);
+					if (ruleI == -1)
+						printf("MISSING RULE :%s\n", find[i2]->names[i]);
 					assert(ruleI != -1);
 					__auto_type item = aliases[ruleI];
 					ors[i] = item;
@@ -580,6 +584,13 @@ struct grammar *grammarCreate(struct grammarRule *top,
 			if (rep->rule->type == RULE_ALIAS) {
 				struct ruleForward *alias = (void *)rep->rule;
 				rep->rule = (struct rule *)alias->alias;
+			}
+		} else if (rules2[i]->type == RULE_OPT) {
+			struct ruleOpt *opt = (void *)rules2[i];
+
+			if (opt->rule->type == RULE_ALIAS) {
+				struct ruleForward *alias = (void *)opt->rule;
+				opt->rule = (struct rule *)alias->alias;
 			}
 		}
 	}

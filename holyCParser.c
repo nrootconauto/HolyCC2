@@ -143,7 +143,7 @@ static struct __lexerItemTemplate nameTemplate;
 static strLexerItemTemplate templates;
 const strLexerItemTemplate holyCLexerTemplates() { return templates; }
 #define OP_TERMINAL(name, ...)                                                 \
-	static void *name##Treminal(const struct __lexerItem *item) {                       \
+	static void *name##Treminal(const struct __lexerItem *item) {                \
 		if (item->template == &operatorTemplate) {                                 \
 			const char *items[] = {__VA_ARGS__};                                     \
 			long count = sizeof(items) / sizeof(*items);                             \
@@ -161,8 +161,9 @@ const strLexerItemTemplate holyCLexerTemplates() { return templates; }
 		}                                                                          \
 		return NULL;                                                               \
 	}
-	OP_TERMINAL(leftParen,"(");
-	OP_TERMINAL(rightParen,")");
+OP_TERMINAL(leftParen, "(");
+OP_TERMINAL(rightParen, ")");
+OP_TERMINAL(comma, ",");
 #define PREC_UNOP(name, leftSide, ...)                                         \
 	static void *name(const void **items, long count) {                          \
 		static const char *operators[] = {__VA_ARGS__};                            \
@@ -354,11 +355,21 @@ static void *mergeYes2(const void **nodes, long count) {
 	return retVal;
 }
 /**
+ * [1,2,3]+4->[1,2,3,4]
+ */
+static void *__prependVec(const void **items, long count) {
+	assert(count == 2);
+	strNode retVal = strNodeAppendData(NULL, (const struct parserNode **)items[0],
+	                                   strNodeSize((strNode)items[0]));
+	return strNodeAppendItem(retVal, (struct parserNode *)items[1]);
+}
+/**
  * 1+[2,3,4]->[1,2,3,4]
  */
-static void *__merge(const void **items, long count) {
+static void *__appendVec(const void **items, long count) {
 	assert(count == 2);
-	strNode retVal = strNodeAppendItem(NULL, (struct parserNode *)items[0]);
+	strNode retVal = strNodeAppendItem(
+	    NULL, (struct parserNode *)items[0]); // TODO dont destroy items[1]
 	return strNodeConcat(retVal, (strNode)items[1]);
 }
 #define DEFINE_PREC_LEFT_SIDE_UNOP(appendRulesTo, name, opName, nextPrecName,  \
@@ -393,7 +404,7 @@ __leftAssocBinop(strRule *appendRulesTo, const char *finalName,
 	__auto_type tail =
 	    grammarRuleSequenceCreate(tailName, 1, yes2, opName, nextPrecName, NULL);
 	__auto_type rep = grammarRuleRepeatCreate(repName, 1, mergeYes2, tailName);
-	__auto_type combine = grammarRuleSequenceCreate(combinedName, 1, __merge,
+	__auto_type combine = grammarRuleSequenceCreate(combinedName, 1, __appendVec,
 	                                                headName, repName, NULL);
 	__auto_type final =
 	    grammarRuleSequenceCreate(finalName, 1, func, combinedName, NULL);
@@ -420,7 +431,7 @@ __rightAssocBinop(strRule *appendRulesTo, const char *finalName,
 	__auto_type tail =
 	    grammarRuleSequenceCreate(tailName, 1, yes2, opName, nextPrecName, NULL);
 	__auto_type rep = grammarRuleRepeatCreate(repName, 1, mergeYes2, tailName);
-	__auto_type combined = grammarRuleSequenceCreate(combinedName, 1, __merge,
+	__auto_type combined = grammarRuleSequenceCreate(combinedName, 1, __appendVec,
 	                                                 headName, repName, NULL);
 	__auto_type final =
 	    grammarRuleSequenceCreate(finalName, 1, func, combinedName, NULL);
@@ -436,29 +447,88 @@ __rightAssocBinop(strRule *appendRulesTo, const char *finalName,
 	__rightAssocBinop(&appendRulesTo, #name, opName, #name "_HEAD",              \
 	                  #name "_TAIL", #name "_TAIL*", "__" #name, nextPrecName,   \
 	                  func)
-static strRule createTerminalRules(strRule prev) {
-	const struct grammarRule *rules[] = {
-	    grammarRuleTerminalCreate("LITERAL", 1, intLiteral),
-	    grammarRuleTerminalCreate("LITERAL", 1, floatingLiteral),
-	    grammarRuleTerminalCreate("LITERAL", 1, stringLiteral),
-	    //
-	    grammarRuleTerminalCreate("NAME", 1, nameToken),
-	};
-	__auto_type count = sizeof(rules) / sizeof(*rules);
-	return strRuleAppendData(prev, rules, count);
+static void *parenFunc(const void **data, long count) {
+	assert(count == 3);
+	return (void *)data[1];
 }
-static void *parenFunc(const void **data,long count) {
- assert(count==3);
- return (void*)data[1];
+/**
+ * [1,2,3]+3->[1,2,3,4]
+ */
+static void *__appendItem(const void **items, long count) {
+	assert(count == 2);
+	return __vecAppendItem(*(void **)items, items[1],
+	                       sizeof(struct parserNode *));
 }
+/**
+ * One item which is a vec
+ * Takes [[exp? ","] [exp? ","] ...exp?]
+ */
+void *commaSequenceFunc(const void **items, long count) {
+	assert(count == 1);
+
+	long count2 = strNodeSize((const strNode)items[0]);
+	struct parserNode **nodes = (void *)items[0];
+
+	long commaCount = 0;
+	for (long i = 1; i < count2; i += 2) {
+		if (nodes[i]->type == NODE_OP_TERM)
+			commaCount++;
+	}
+	if (commaCount == 0)
+		return nodes[0];
+
+	struct parserNodeCommaSequence seq;
+	seq.base.type = NODE_COMMA_SEQ;
+	seq.commas = NULL;
+	seq.nodes = NULL;
+
+	for (long i = 0; i < count2; i += 2) {
+		seq.nodes = strNodeAppendItem(seq.nodes, nodes[i]);
+		if (i + 1 < count2)
+			seq.commas = strNodeAppendItem(seq.commas, nodes[i + 1]);
+	}
+
+	return ALLOCATE(seq);
+}
+static void *forward1(const void *value) { return (void *)value; }
 static strRule createPrecedenceRules(strRule prev, struct grammarRule **top) {
 
 	const struct grammarRule *precRules[] = {
-			grammarRuleTerminalCreate("LEFT_PAREN",1,leftParenTreminal),
-			grammarRuleTerminalCreate("RIGHT_PAREN",1,rightParenTreminal),
-			grammarRuleSequenceCreate("PAREN",1,parenFunc,"LEFT_PAREN","EXP","RIGHT_PAREN",NULL),
-			grammarRuleSequenceCreate("PAREN",2,yes1,"NAME_OR_LITERAL",NULL),
+	    grammarRuleTerminalCreate("LITERAL", 1, intLiteral),
+	    grammarRuleTerminalCreate("LITERAL", 1, floatingLiteral),
+	    grammarRuleTerminalCreate("LITERAL", 1, stringLiteral),
+	    grammarRuleTerminalCreate("COMMA", 1, commaTreminal),
+	    //
+	    grammarRuleTerminalCreate("NAME", 1, nameToken),
+	    /**
+	     * Base expression,used by comma
+	     */
+	    grammarRuleOrCreate("__EXP", 1, "PREC0_BINOP", "PREC0_UNOP", NULL),
+	    /**
+	     * Comma operator(creates sequences for function args,or returns single
+	     * __exp)
+	     */
+	    grammarRuleOptCreate("EXP_OPT", 1, "__EXP", forward1),
+	    grammarRuleSequenceCreate("COMMA_HEAD", 1, yes1, "EXP_OPT", NULL),
+	    grammarRuleSequenceCreate("COMMA_TAIL", 1, yes2, "COMMA", "EXP_OPT",
+	                              NULL),
+	    grammarRuleRepeatCreate("COMMA_TAIL*", 1, mergeYes2, "COMMA_TAIL"),
+	    grammarRuleSequenceCreate("__COMMA_COMPLETE", 1, __appendVec,
+	                              "COMMA_HEAD", "COMMA_TAIL*", NULL),
+	    grammarRuleSequenceCreate("COMMA_EXP", 1, commaSequenceFunc,
+	                              "__COMMA_COMPLETE", NULL),
+	    /**
+	     * Parenethesis
+	     */
+	    grammarRuleTerminalCreate("LEFT_PAREN", 1, leftParenTreminal),
+	    grammarRuleTerminalCreate("RIGHT_PAREN", 1, rightParenTreminal),
+	    grammarRuleSequenceCreate("PAREN", 1, parenFunc, "LEFT_PAREN", "EXP",
+	                              "RIGHT_PAREN", NULL),
+	    grammarRuleSequenceCreate("PAREN", 2, yes1, "NAME_OR_LITERAL", NULL),
 	    grammarRuleOrCreate("NAME_OR_LITERAL", 1, "NAME", "LITERAL", NULL),
+	    /**
+	     * Standard operators
+	     */
 	    grammarRuleTerminalCreate("OP0_BINOP", 1, prec0_BinopTreminal),
 	    grammarRuleTerminalCreate("OP0_UNOP", 1, prec0_UnopTreminal),
 	    grammarRuleTerminalCreate("OP1", 1, prec1Treminal),
@@ -495,13 +565,11 @@ static strRule createPrecedenceRules(strRule prev, struct grammarRule **top) {
 	DEFINE_PREC_LEFT_ASSOC_BINOP(prev, PREC11, "OP11", "PREC12", prec11);
 	DEFINE_PREC_LEFT_ASSOC_BINOP(prev, PREC12, "OP12", "PREC13", prec12);
 	//
-	DEFINE_PREC_RIGHT_ASSOC_BINOP(prev, PREC13, "OP13", "PAREN",
-	                              prec13);
+	DEFINE_PREC_RIGHT_ASSOC_BINOP(prev, PREC13, "OP13", "PAREN", prec13);
 	//
 
 	// Top
-	__auto_type top2 =
-	    grammarRuleOrCreate("EXP", 1, "PREC0_BINOP", "PREC0_UNOP", NULL);
+	__auto_type top2 = grammarRuleOrCreate("EXP", 1, "COMMA_EXP", NULL);
 	prev = strRuleAppendItem(prev, top2);
 	if (top != NULL)
 		*top = top2;
@@ -510,7 +578,6 @@ static strRule createPrecedenceRules(strRule prev, struct grammarRule **top) {
 }
 struct grammar *holyCGrammarCreate() {
 	struct grammarRule *top;
-	strRule rules = createTerminalRules(NULL);
-	rules = createPrecedenceRules(rules, &top);
+	strRule rules = createPrecedenceRules(NULL, &top);
 	return grammarCreate(top, rules, strRuleSize(rules));
 }

@@ -10,7 +10,11 @@ enum parserNodeType {
 	NODE_EXPR_UNOP,
 	NODE_EXPR_BINOP,
 	NODE_NAME_TOKEN,
+	NODE_COMMA_SEQ,
 };
+struct parserNode;
+STR_TYPE_DEF(struct parserNode*,ParserNode);
+STR_TYPE_FUNCS(struct parserNode*,ParserNode);
 struct parserNode {
 	enum parserNodeType type;
 };
@@ -53,6 +57,11 @@ struct parserNodeNameToken {
  struct parserNode base;
  struct nodePosition pos;
  const char *text;
+};
+struct parserNodeCommaSequence {
+ struct parserNode base;
+ strParserNode nodes;
+ strParserNode commas;
 };
 struct grammar *holyCGrammarCreate();
 const strLexerItemTemplate holyCLexerTemplates();

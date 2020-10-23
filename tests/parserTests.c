@@ -51,7 +51,11 @@ void parserTests() {
 	}
 	for (int i = 0; i != 2; i++) {
 		strCharDestroy(&textStr);
-		text = (i == 0) ? "a=b=c=d" : "a=(b)=(c)=(d)";
+		if (i == 0)
+			text = "a=b=c=d";
+		else if (i == 1)
+			text = "a=(b)=(c)=(d)";
+
 		textStr = strCharAppendData(NULL, text, strlen(text));
 		int err;
 		lexerUpdate(lex, (struct __vec *)textStr, &err);
@@ -82,6 +86,28 @@ void parserTests() {
 			assert(binop->b->type == NODE_NAME_TOKEN);
 			token = (void *)binop->b;
 			assert(0 == strcmp(token->text, "d"));
+		}
+	}
+	strCharDestroy(&textStr);
+	text = "a,b,c";
+	textStr = strCharAppendData(NULL, text, strlen(text));
+	int err;
+	lexerUpdate(lex, (struct __vec *)textStr, &err);
+	assert(!err);
+
+	node = parse(g, lexerGetItems(lex), &success, NULL);
+	assert(success);
+	{
+		assert(node->type == NODE_COMMA_SEQ);
+		struct parserNodeCommaSequence *seq = (void *)node;
+		assert(strParserNodeSize(seq->commas) == 2);
+		assert(strParserNodeSize(seq->nodes) == 3);
+
+		const char *names[] = {"a", "b", "c"};
+		for (long i = 0; i != 3; i++) {
+			assert(seq->nodes[i]->type == NODE_NAME_TOKEN);
+			struct parserNodeNameToken *name = (void *)seq->nodes[i];
+			assert(0 == strcmp(name->text, names[i]));
 		}
 	}
 }
