@@ -9,18 +9,19 @@ void preprocessorTests();
 void eventPoolTests();
 void parserTests();
 int main() {
-	/*
-	 strTests();
-	 llTests();
-	 mapTests();
-	 strTests();
-	 graphTests();
-	 diffTests();
-	 subGraphTests();
-	 cachingLexerTests();
-	 preprocessorTests();
-	 eventPoolTests();
-	 */
+	/**
+	  strTests();
+	  llTests();
+	  mapTests();
+	  strTests();
+	  graphTests();
+	  diffTests();
+	  subGraphTests();
+
+	  preprocessorTests();
+	  eventPoolTests();
+	  */
+	cachingLexerTests();
 	parserTests();
 	return 0;
 }

@@ -106,8 +106,7 @@ static struct __diff *findSameDiffContaining(long startAt, const strDiff diffs,
 
 	return NULL;
 }
-static struct __diff *findNextSameDiff(const struct __lexer *lexer,
-                                       long startAt, const strDiff diffs,
+static struct __diff *findNextSameDiff(long startAt, const strDiff diffs,
                                        long *atNew, long *atOld) {
 	long startAtDiff2 = 0;
 	long pos = 0, posOld = 0;
@@ -200,7 +199,7 @@ static llLexerItem findEndOfConsumedItems(const llLexerItem new,
 	findSameDiffContaining(item->end, diffs, &newPos, &oldPos);
 	__auto_type offset = item->end - newPos;
 
-	for (__auto_type node = llLexerItemNext(current); node != NULL;) {
+	for (llLexerItem node = current; node != NULL;) {
 		__auto_type lexerItem = llLexerItemValuePtr(node);
 
 		if (lexerItem->start < oldPos + offset) {
@@ -290,7 +289,7 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 
 		long sameDiffEnd;
 		__auto_type nextSame =
-		    findSameDiffContaining(newPos, diffs, &diffNewPos, &diffOldPos);
+		    findNextSameDiff(newPos, diffs, &diffNewPos, &diffOldPos);
 		// If no same-diff found,imagine a zero-length same diff at the end
 		if (nextSame == NULL) {
 			diffNewPos = __vecSize(newData);
@@ -307,7 +306,14 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 			currentItem = lexerMovePastDeleted(
 			    newPos, currentItem, diffs); // Move past any deletions moved past
 
+			/**
+			 * The for loop looks for changed/unmodifed/deleted items,if newPos is
+			 * past current diff,look for next same diff
+			 */
 			if (newPos >= sameDiffEnd)
+				break;
+
+			if (newPos == __vecSize(newData))
 				break;
 
 			if (currentItem == NULL)

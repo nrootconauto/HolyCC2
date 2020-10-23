@@ -49,9 +49,9 @@ void parserTests() {
 		intLit = (void *)binop->b;
 		assert(intLit->value.value.sInt == 1);
 	}
-	{
+	for (int i = 0; i != 2; i++) {
 		strCharDestroy(&textStr);
-		text = "a=b=c=d";
+		text = (i == 0) ? "a=b=c=d" : "a=(b)=(c)=(d)";
 		textStr = strCharAppendData(NULL, text, strlen(text));
 		int err;
 		lexerUpdate(lex, (struct __vec *)textStr, &err);

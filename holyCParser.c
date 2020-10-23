@@ -143,7 +143,7 @@ static struct __lexerItemTemplate nameTemplate;
 static strLexerItemTemplate templates;
 const strLexerItemTemplate holyCLexerTemplates() { return templates; }
 #define OP_TERMINAL(name, ...)                                                 \
-	void *name##Treminal(const struct __lexerItem *item) {                       \
+	static void *name##Treminal(const struct __lexerItem *item) {                       \
 		if (item->template == &operatorTemplate) {                                 \
 			const char *items[] = {__VA_ARGS__};                                     \
 			long count = sizeof(items) / sizeof(*items);                             \
@@ -161,6 +161,8 @@ const strLexerItemTemplate holyCLexerTemplates() { return templates; }
 		}                                                                          \
 		return NULL;                                                               \
 	}
+	OP_TERMINAL(leftParen,"(");
+	OP_TERMINAL(rightParen,")");
 #define PREC_UNOP(name, leftSide, ...)                                         \
 	static void *name(const void **items, long count) {                          \
 		static const char *operators[] = {__VA_ARGS__};                            \
@@ -445,9 +447,16 @@ static strRule createTerminalRules(strRule prev) {
 	__auto_type count = sizeof(rules) / sizeof(*rules);
 	return strRuleAppendData(prev, rules, count);
 }
+static void *parenFunc(const void **data,long count) {
+ assert(count==3);
+ return (void*)data[1];
+}
 static strRule createPrecedenceRules(strRule prev, struct grammarRule **top) {
 
 	const struct grammarRule *precRules[] = {
+			grammarRuleTerminalCreate("LEFT_PAREN",1,leftParenTreminal),
+			grammarRuleTerminalCreate("RIGHT_PAREN",1,rightParenTreminal),
+			grammarRuleSequenceCreate("PAREN",1,parenFunc,"LEFT_PAREN","EXP","RIGHT_PAREN",NULL),
 	    grammarRuleOrCreate("NAME_OR_LITERAL", 1, "NAME", "LITERAL", NULL),
 	    grammarRuleTerminalCreate("OP0_BINOP", 1, prec0_BinopTreminal),
 	    grammarRuleTerminalCreate("OP0_UNOP", 1, prec0_UnopTreminal),
