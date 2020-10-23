@@ -22,6 +22,7 @@ static int isExpression(const struct parserNode *node) {
 	case NODE_LIT_STRING:
 	case NODE_EXPR_BINOP:
 	case NODE_EXPR_UNOP:
+	case NODE_NAME_TOKEN:
 		return 1;
 	default:
 		return 0;
@@ -81,11 +82,14 @@ static void *binopRuleBase(const char **ops, long opsCount,
 	__auto_type len = strNodeSize(result);
 	struct parserNodeBinop *current;
 	if (dir == DIR_RIGHT) {
-		for (long i = 0; i < len - 1; i++) {
+		for (long i = 0; i < len; i++) {
 			current = (void *)result[i];
 			current->a = items[i * 2];
-			current->b = result[i + 1];
+
+			if (i + 1 < len)
+				current->b = result[i + 1];
 		}
+		current = (void *)result[0];
 	} else if (dir == DIR_LEFT) {
 		for (long i = len - 1; i >= 1; i--) {
 			current = (void *)result[i];
@@ -135,6 +139,7 @@ static struct __lexerItemTemplate intTemplate;
 static struct __lexerItemTemplate stringTemplate;
 static struct __lexerItemTemplate floatingTemplate;
 static struct __lexerItemTemplate operatorTemplate;
+static struct __lexerItemTemplate nameTemplate;
 static strLexerItemTemplate templates;
 const strLexerItemTemplate holyCLexerTemplates() { return templates; }
 #define OP_TERMINAL(name, ...)                                                 \
@@ -222,17 +227,50 @@ static void initTemplates() {
 	__auto_type operCount = sizeof(operators) / sizeof(*operators);
 	operatorTemplate = keywordTemplateCreate(operators, operCount);
 
+	const char *keywords[] = {
+	    "if",
+	    "else",
+	    //
+	    "while",
+	    "do",
+	    "for",
+	    "break",
+	    //
+	    "class",
+	    "union",
+	    //
+	    "switch",
+	    "case",
+	    "default",
+	    //
+	    "reg",
+	    "noreg",
+	    //
+	    "asm",
+	    //
+	    "static",
+	    "extern",
+	    "_extern",
+	    "import",
+	    "_import",
+	    "public",
+	};
+	__auto_type keywordCount = sizeof(keywords) / sizeof(*keywords);
+
+	nameTemplate = nameTemplateCreate(keywords, keywordCount);
+
 	const struct __lexerItemTemplate *templates2[] = {
 	    &intTemplate,
 	    &operatorTemplate,
 	    //&floatingTemplate,
 	    &stringTemplate,
+	    &nameTemplate,
 	};
 	long templateCount = sizeof(templates2) / sizeof(*templates2);
 	templates = strLexerItemTemplateAppendData(NULL, templates2, templateCount);
 }
 static void *floatingLiteral(const struct __lexerItem *item) {
-	if (item->template != &floatingTemplate) {
+	if (item->template == &floatingTemplate) {
 		struct parserNodeFloatingLiteral lit;
 		lit.pos.start = item->start;
 		lit.pos.end = item->end;
@@ -241,6 +279,20 @@ static void *floatingLiteral(const struct __lexerItem *item) {
 
 		return ALLOCATE(lit);
 	}
+	return NULL;
+}
+static void *nameToken(const struct __lexerItem *item) {
+	if (item->template == &nameTemplate) {
+		const char *text = lexerItemValuePtr(item);
+		struct parserNodeNameToken retVal;
+		retVal.base.type = NODE_NAME_TOKEN;
+		retVal.pos.start = item->start;
+		retVal.pos.end = item->end;
+		retVal.text = text;
+
+		return ALLOCATE(retVal);
+	}
+
 	return NULL;
 }
 static void *intLiteral(const struct __lexerItem *item) {
@@ -382,14 +434,21 @@ __rightAssocBinop(strRule *appendRulesTo, const char *finalName,
 	__rightAssocBinop(&appendRulesTo, #name, opName, #name "_HEAD",              \
 	                  #name "_TAIL", #name "_TAIL*", "__" #name, nextPrecName,   \
 	                  func)
-static strRule createPrecedenceRules(struct grammarRule **top) {
-	strRule retVal = NULL;
-
-	const struct grammarRule *precRules[] = {
+static strRule createTerminalRules(strRule prev) {
+	const struct grammarRule *rules[] = {
 	    grammarRuleTerminalCreate("LITERAL", 1, intLiteral),
 	    grammarRuleTerminalCreate("LITERAL", 1, floatingLiteral),
 	    grammarRuleTerminalCreate("LITERAL", 1, stringLiteral),
+	    //
+	    grammarRuleTerminalCreate("NAME", 1, nameToken),
+	};
+	__auto_type count = sizeof(rules) / sizeof(*rules);
+	return strRuleAppendData(prev, rules, count);
+}
+static strRule createPrecedenceRules(strRule prev, struct grammarRule **top) {
 
+	const struct grammarRule *precRules[] = {
+	    grammarRuleOrCreate("NAME_OR_LITERAL", 1, "NAME", "LITERAL", NULL),
 	    grammarRuleTerminalCreate("OP0_BINOP", 1, prec0_BinopTreminal),
 	    grammarRuleTerminalCreate("OP0_UNOP", 1, prec0_UnopTreminal),
 	    grammarRuleTerminalCreate("OP1", 1, prec1Treminal),
@@ -407,39 +466,41 @@ static strRule createPrecedenceRules(struct grammarRule **top) {
 	    grammarRuleTerminalCreate("OP13", 1, prec13Treminal),
 	};
 	long count = sizeof(precRules) / sizeof(*precRules);
-	retVal = strRuleAppendData(retVal, precRules, count);
+	prev = strRuleAppendData(prev, precRules, count);
 	//
-	DEFINE_PREC_LEFT_ASSOC_BINOP(retVal, PREC0_BINOP, "OP0_BINOP", "PREC1",
+	DEFINE_PREC_LEFT_ASSOC_BINOP(prev, PREC0_BINOP, "OP0_BINOP", "PREC1",
 	                             prec0_Binop);
-	DEFINE_PREC_RIGHT_ASSOC_BINOP(retVal, PREC0_UNOP, "OP0_UNOP", "PREC1",
+	DEFINE_PREC_RIGHT_ASSOC_BINOP(prev, PREC0_UNOP, "OP0_UNOP", "PREC1",
 	                              prec0_Unop);
-	DEFINE_PREC_LEFT_SIDE_UNOP(retVal, PREC1, "OP1", "PREC2", prec1); // Unops
-	DEFINE_PREC_LEFT_ASSOC_BINOP(retVal, PREC2, "OP2", "PREC3", prec2);
-	DEFINE_PREC_LEFT_ASSOC_BINOP(retVal, PREC3, "OP3", "PREC4", prec3);
-	DEFINE_PREC_LEFT_ASSOC_BINOP(retVal, PREC4, "OP4", "PREC5", prec4);
-	DEFINE_PREC_LEFT_ASSOC_BINOP(retVal, PREC5, "OP5", "PREC6", prec5);
-	DEFINE_PREC_LEFT_ASSOC_BINOP(retVal, PREC6, "OP6", "PREC7", prec6);
-	DEFINE_PREC_LEFT_ASSOC_BINOP(retVal, PREC7, "OP7", "PREC8", prec7);
-	DEFINE_PREC_LEFT_ASSOC_BINOP(retVal, PREC8, "OP8", "PREC9", prec8);
-	DEFINE_PREC_LEFT_ASSOC_BINOP(retVal, PREC9, "OP9", "PREC10", prec9);
-	DEFINE_PREC_LEFT_ASSOC_BINOP(retVal, PREC10, "OP10", "PREC11", prec10);
-	DEFINE_PREC_LEFT_ASSOC_BINOP(retVal, PREC11, "OP11", "PREC12", prec11);
-	DEFINE_PREC_LEFT_ASSOC_BINOP(retVal, PREC12, "OP12", "PREC13", prec12);
+	DEFINE_PREC_LEFT_SIDE_UNOP(prev, PREC1, "OP1", "PREC2", prec1); // Unops
+	DEFINE_PREC_LEFT_ASSOC_BINOP(prev, PREC2, "OP2", "PREC3", prec2);
+	DEFINE_PREC_LEFT_ASSOC_BINOP(prev, PREC3, "OP3", "PREC4", prec3);
+	DEFINE_PREC_LEFT_ASSOC_BINOP(prev, PREC4, "OP4", "PREC5", prec4);
+	DEFINE_PREC_LEFT_ASSOC_BINOP(prev, PREC5, "OP5", "PREC6", prec5);
+	DEFINE_PREC_LEFT_ASSOC_BINOP(prev, PREC6, "OP6", "PREC7", prec6);
+	DEFINE_PREC_LEFT_ASSOC_BINOP(prev, PREC7, "OP7", "PREC8", prec7);
+	DEFINE_PREC_LEFT_ASSOC_BINOP(prev, PREC8, "OP8", "PREC9", prec8);
+	DEFINE_PREC_LEFT_ASSOC_BINOP(prev, PREC9, "OP9", "PREC10", prec9);
+	DEFINE_PREC_LEFT_ASSOC_BINOP(prev, PREC10, "OP10", "PREC11", prec10);
+	DEFINE_PREC_LEFT_ASSOC_BINOP(prev, PREC11, "OP11", "PREC12", prec11);
+	DEFINE_PREC_LEFT_ASSOC_BINOP(prev, PREC12, "OP12", "PREC13", prec12);
 	//
-	DEFINE_PREC_RIGHT_ASSOC_BINOP(retVal, PREC13, "OP13", "LITERAL", prec13);
+	DEFINE_PREC_RIGHT_ASSOC_BINOP(prev, PREC13, "OP13", "NAME_OR_LITERAL",
+	                              prec13);
 	//
 
 	// Top
 	__auto_type top2 =
 	    grammarRuleOrCreate("EXP", 1, "PREC0_BINOP", "PREC0_UNOP", NULL);
-	retVal = strRuleAppendItem(retVal, top2);
+	prev = strRuleAppendItem(prev, top2);
 	if (top != NULL)
 		*top = top2;
 
-	return retVal;
+	return prev;
 }
 struct grammar *holyCGrammarCreate() {
 	struct grammarRule *top;
-	strRule rules = createPrecedenceRules(&top);
+	strRule rules = createTerminalRules(NULL);
+	rules = createPrecedenceRules(rules, &top);
 	return grammarCreate(top, rules, strRuleSize(rules));
 }

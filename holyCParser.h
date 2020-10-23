@@ -9,6 +9,7 @@ enum parserNodeType {
 	NODE_LIT_FLOATING,
 	NODE_EXPR_UNOP,
 	NODE_EXPR_BINOP,
+	NODE_NAME_TOKEN,
 };
 struct parserNode {
 	enum parserNodeType type;
@@ -47,6 +48,11 @@ struct parserNodeUnop {
 	struct parserNode base;
 	struct parserNode *a;
 	struct parserNode *op;
+};
+struct parserNodeNameToken {
+ struct parserNode base;
+ struct nodePosition pos;
+ const char *text;
 };
 struct grammar *holyCGrammarCreate();
 const strLexerItemTemplate holyCLexerTemplates();
