@@ -7,7 +7,7 @@ static int alwaysTrue(const struct __graphNode *node,
                       const struct __graphEdge *edge, const void *data) {
 	return 1;
 }
-static int ptrCmp(const void *a, const void *b) {
+static int ptrPtrCmp(const void *a, const void *b) {
 	if (*(void **)a > *(void **)b)
 		return 1;
 	else if (*(void **)a < *(void **)b)
@@ -17,26 +17,26 @@ static int ptrCmp(const void *a, const void *b) {
 }
 int llDominatorCmp(const void *a, const void *b) {
 	const struct graphDominators *B = b;
-	return ptrCmp(&a, &B->node);
+	return ptrPtrCmp(&a, &B->node);
 }
 int llDomFrontierCmp(const void *a, const void *b) {
 	const struct graphDomFrontier *B = b;
-	return ptrCmp(&a, &B->node);
+	return ptrPtrCmp(&a, &B->node);
 }
 static int llDomFrontierCmpInsert(const void *a, const void *b) {
 	const struct graphDomFrontier *A = a;
 	const struct graphDomFrontier *B = b;
-	return ptrCmp(&A->node, &B->node);
+	return ptrPtrCmp(&A->node, &B->node);
 }
 static int llDominatorCmpInsert(const void *a, const void *b) {
 	const struct graphDominators *A = a;
 	const struct graphDominators *B = b;
-	return ptrCmp(&A->node, &B->node);
+	return ptrPtrCmp(&A->node, &B->node);
 }
 static void visitNode(struct __graphNode *node, void *visited) {
 	strGraphNodeP *visited2 = visited;
-	if (NULL == strGraphNodePSortedFind(*visited2, node, ptrCmp)) {
-		*visited2 = strGraphNodePSortedInsert(*visited2, node, ptrCmp);
+	if (NULL == strGraphNodePSortedFind(*visited2, node, ptrPtrCmp)) {
+		*visited2 = strGraphNodePSortedInsert(*visited2, node, ptrPtrCmp);
 	}
 }
 static struct graphDominators *
@@ -47,8 +47,8 @@ llDominatorsFind(llDominators list, const struct __graphNode *node) {
 static strGraphNodeP uniqueUnion(strGraphNodeP items,
                                  const strGraphNodeP other) {
 	for (long i = 0; i != strGraphNodePSize(other); i++) {
-		if (NULL == strGraphNodePSortedFind(items, other[i], ptrCmp)) {
-			items = strGraphNodePSortedInsert(items, other[i], ptrCmp);
+		if (NULL == strGraphNodePSortedFind(items, other[i], ptrPtrCmp)) {
+			items = strGraphNodePSortedInsert(items, other[i], ptrPtrCmp);
 		}
 	}
 	return items;
@@ -98,15 +98,15 @@ llDominators graphComputeDominatorsPerNode(struct __graphNode *start) {
 
 				if (current->dominators != NULL) {
 					currentItems = strGraphNodePSetIntersection(
-					    currentItems, current->dominators, ptrCmp, NULL);
+					    currentItems, current->dominators, ptrPtrCmp, NULL);
 					referencesComputedNode = 1;
 				}
 			}
 
 			// Ensure current items include current node
-			if (NULL == strGraphNodePSortedFind(currentItems, allNodes[i], ptrCmp))
+			if (NULL == strGraphNodePSortedFind(currentItems, allNodes[i], ptrPtrCmp))
 				currentItems =
-				    strGraphNodePSortedInsert(currentItems, allNodes[i], ptrCmp);
+				    strGraphNodePSortedInsert(currentItems, allNodes[i], ptrPtrCmp);
 
 			if (referencesComputedNode) {
 				currentNode->dominators = currentItems;
@@ -176,7 +176,7 @@ struct __graphNode *graphDominatorIdom(const llDominators doms,
 				       *(int *)__graphNodeValuePtr(clone[i]),
 				       *(int *)__graphNodeValuePtr(clone[i2]));
 				__auto_type find =
-				    strGraphNodePSortedFind(i2Doms->dominators, clone[i], ptrCmp);
+				    strGraphNodePSortedFind(i2Doms->dominators, clone[i], ptrPtrCmp);
 				if (find != NULL) {
 					/**
 					 * Every node dominates itself,so ignore removing node that dominates

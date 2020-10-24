@@ -88,7 +88,7 @@ MAP_TYPE_DEF(struct grammarRule *, NormalToComputed);
 MAP_TYPE_FUNCS(struct grammarRule *, NormalToComputed);
 static __thread mapNormalToComputed ruleCache = NULL;
 static mapCYKRulePtrToGrammarRule cykTerminalToRule = NULL;
-static int ptrCmp(const void *a, const void *b) {
+static int ptrPtrCmp(const void *a, const void *b) {
 	const void *a2 = *(const void **)a, *b2 = *(const void **)b;
 	if (a2 > b2)
 		return 1;
@@ -122,8 +122,8 @@ registerRule(const struct grammarRule *baseRule, const char *name,
 
 	// Only insert if doesnt already exist
 	for (long i = 0; i != strCYKRulesPSize(newCYKRules2); i++) {
-		if (NULL == strCYKRulesPSortedFind(cykRules, newCYKRules2[i], ptrCmp))
-			cykRules = strCYKRulesPSortedInsert(cykRules, newCYKRules2[i], ptrCmp);
+		if (NULL == strCYKRulesPSortedFind(cykRules, newCYKRules2[i], ptrPtrCmp))
+			cykRules = strCYKRulesPSortedInsert(cykRules, newCYKRules2[i], ptrPtrCmp);
 	}
 
 	struct grammarRuleComputed newRule;
@@ -468,8 +468,8 @@ struct grammar *grammarCreate(const strRuleP grammarRules) {
 		                     grammarRules[i]->prec, NULL, NULL);
 
 		// Ignore cached rules;
-		if (NULL == strRulePSortedFind(grammarRules2, newRule, ptrCmp))
-			grammarRules2 = strRulePSortedInsert(grammarRules2, newRule, ptrCmp);
+		if (NULL == strRulePSortedFind(grammarRules2, newRule, ptrPtrCmp))
+			grammarRules2 = strRulePSortedInsert(grammarRules2, newRule, ptrPtrCmp);
 	}
 
 	CYKRulesRemoveRepeats(&cykRules);

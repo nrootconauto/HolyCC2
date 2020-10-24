@@ -291,7 +291,7 @@ void serializerDestroy(struct serializer **ser) {
  strNameDestroy(&ser[0]->names);
  strPtrDestroy(&ser[0]->registeredItems); 
 }
-static int ptrCmp(const void *a, const void *b) {
+static int ptrPtrCmp(const void *a, const void *b) {
 	if (a > b)
 		return 1;
 	else if (a < b)
@@ -303,11 +303,11 @@ void serializerSerialize(struct serializer *ser, const char *fieldName,
                          const char *typeName, const void *data,
                          void (*dumper)(const void *data,
                                         struct serializer *serializer)) {
-	if (NULL != strPtrSortedFind(ser->registeredItems, data, ptrCmp))
+	if (NULL != strPtrSortedFind(ser->registeredItems, data, ptrPtrCmp))
 		return;
 
 	ser->registeredItems =
-	    strPtrSortedInsert(ser->registeredItems, (void *)data, ptrCmp);
+	    strPtrSortedInsert(ser->registeredItems, (void *)data, ptrPtrCmp);
 
 	serializerRegisterName(ser, fieldName);
 	serializerRegisterName(ser, typeName);
@@ -330,7 +330,7 @@ void serializerSerialize(struct serializer *ser, const char *fieldName,
 	newEntry.fields = NULL;
 	newEntry.entryId = newEntryID;
 	__auto_type newEntryNode = llEntryCreate(newEntry);
-	ser->entryOffsets = llEntryInsert(ser->entryOffsets, newEntryNode, ptrCmp);
+	ser->entryOffsets = llEntryInsert(ser->entryOffsets, newEntryNode, ptrPtrCmp);
 
 	dumper(data, ser);
 
@@ -353,7 +353,7 @@ void serializerSerialize(struct serializer *ser, const char *fieldName,
 	entry2.name = fieldName, entry2.offset = originalOffset, entry2.ptr = data,
 	entry2.typeName = typeName;
 	ser->entryOffsets =
-	    llEntryInsert(ser->entryOffsets, llEntryCreate(entry2), ptrCmp);
+	    llEntryInsert(ser->entryOffsets, llEntryCreate(entry2), ptrPtrCmp);
 }
 void serializerPushData(struct serializer *serializer, const void *buffer,
                         long len) {

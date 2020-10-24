@@ -7,11 +7,7 @@
 #include <stdio.h>
 #include <str.h>
 #define DEBUG_PRINT_ENABLE 1
-#if DEBUG_PRINT_ENABLE
-#define DEBUG_PRINT(text, ...) printf(text, __VA_ARGS__);
-#else
-#define DEBUG_PRINT(text, ...) ;
-#endif
+#include <debugPrint.h>
 enum ruleType {
 	RULE_REPEAT,
 	RULE_OPT,

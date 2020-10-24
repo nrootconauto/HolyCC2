@@ -14,7 +14,7 @@ LL_TYPE_FUNCS(struct event, Event);
 MAP_TYPE_DEF(llEvent, LLEvent);
 MAP_TYPE_FUNCS(llEvent, LLEvent);
 typedef mapLLEvent __eventPool;
-static int ptrCmp(const void *a, const void *b) {
+static int ptrPtrCmp(const void *a, const void *b) {
 	if (a > b)
 		return 1;
 	else if (a == b)
@@ -36,7 +36,7 @@ struct event *eventPoolAdd(struct eventPool *pool, const char *name,
 		mapLLEventInsert(__pool, name, retVal);
 		find = mapLLEventGet(__pool, name);
 	} else {
-		*find = llEventInsert(*find, retVal, ptrCmp);
+		*find = llEventInsert(*find, retVal, ptrPtrCmp);
 	}
 
 	llEventValuePtr(retVal)->name = mapLLEventValueKey(find);
@@ -49,7 +49,7 @@ void eventPoolRemove(struct eventPool *pool, struct event *event) {
 	llEvent *find = mapLLEventGet(__pool, event->name);
 	assert(find != NULL);
 
-	__auto_type res = llEventFindRight(llEventFirst(*find), event, ptrCmp);
+	__auto_type res = llEventFindRight(llEventFirst(*find), event, ptrPtrCmp);
 	assert(res != NULL);
 	*find = llEventRemove(res);
 
