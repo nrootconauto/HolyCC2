@@ -9,11 +9,13 @@ void preprocessorTests();
 void eventPoolTests();
 void parserTests();
 void graphDominanceTests();
+void graphColoringTests();
 int main() {
-	strTests();
-	graphDominanceTests();
+	//strTests();
+	//graphDominanceTests();
+	graphColoringTests();
 	/**
-	  
+
 	  llTests();
 	  mapTests();
 	  strTests();
@@ -24,7 +26,7 @@ int main() {
 	  preprocessorTests();
 	  eventPoolTests();
 	  */
-	//cachingLexerTests();
-	//parserTests();
+	// cachingLexerTests();
+	// parserTests();
 	return 0;
 }
