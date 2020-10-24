@@ -21,3 +21,4 @@ llDomFrontier graphDominanceFrontiers(struct __graphNode *start,
                                       const llDominators doms);
 struct __graphNode *graphDominatorIdom(const llDominators doms,
                                    struct __graphNode *node);
+int llDomFrontierCmp(const void *a, const void *b);
