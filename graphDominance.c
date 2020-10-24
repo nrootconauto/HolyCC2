@@ -19,7 +19,16 @@ int llDominatorCmp(const void *a, const void *b) {
 	const struct graphDominators *B = b;
 	return ptrCmp(&a, &B->node);
 }
-int llDominatorCmp2(const void *a, const void *b) {
+int llDomFrontierCmp(const void *a, const void *b) {
+	const struct graphDomFrontier *B = b;
+	return ptrCmp(&a, &B->node);
+}
+static int llDomFrontierCmpInsert(const void *a, const void *b) {
+	const struct graphDomFrontier *A = a;
+	const struct graphDomFrontier *B = b;
+	return ptrCmp(&A->node, &B->node);
+}
+static int llDominatorCmpInsert(const void *a, const void *b) {
 	const struct graphDominators *A = a;
 	const struct graphDominators *B = b;
 	return ptrCmp(&A->node, &B->node);
@@ -58,7 +67,7 @@ llDominators graphComputeDominatorsPerNode(struct __graphNode *start) {
 			tmp.dominators = strGraphNodePAppendItem(NULL, start);
 
 		__auto_type newNode = llDominatorsCreate(tmp);
-		list = llDominatorsInsert(list, newNode, llDominatorCmp2);
+		list = llDominatorsInsert(list, newNode, llDominatorCmpInsert);
 	}
 
 	int changed = 1;
@@ -127,5 +136,117 @@ llDominators graphComputeDominatorsPerNode(struct __graphNode *start) {
 		}
 	}
 
+	strGraphNodePDestroy(&allNodes);
 	return list;
+}
+static int domsLenCmp(const void *a, const void *b) {
+	const struct graphDominators *A = a, *B = b;
+	__auto_type aLen = strGraphNodePSize(A->dominators);
+	__auto_type bLen = strGraphNodePSize(B->dominators);
+	if (aLen > bLen)
+		return 1;
+	if (aLen < bLen)
+		return -1;
+	return 0;
+}
+static int nodeEqual(const void *b, const void *data) {
+	return (struct __graphNode *)data == *(struct __graphNode **)b;
+}
+struct __graphNode *graphDominatorIdom(const llDominators doms,
+                                       struct __graphNode *node) {
+	__auto_type entry = llDominatorsFind(doms, node);
+	__auto_type clone = strGraphNodePAppendData(
+	    NULL, (const struct __graphNode **)entry->dominators,
+	    strGraphNodePSize(entry->dominators));
+	//Remove node from self
+	clone = strGraphNodePRemoveIf(clone, nodeEqual, node);
+
+	for (int changed = 1; changed;) {
+		changed = 0;
+		for (long i = 0; i != strGraphNodePSize(clone); i++) {
+			for (long i2 = 0; i2 != strGraphNodePSize(clone); i2++) {
+				if (clone[i2] == node)
+					continue;
+
+				__auto_type i2Doms = llDominatorsFind(doms, clone[i2]);
+				/**
+				 * clone[i] in [doms]
+				 */
+				printf("clone[i]:%i,clone[i2]:%i\n",
+				       *(int *)__graphNodeValuePtr(clone[i]),
+				       *(int *)__graphNodeValuePtr(clone[i2]));
+				__auto_type find =
+				    strGraphNodePSortedFind(i2Doms->dominators, clone[i], ptrCmp);
+				if (find != NULL) {
+					/**
+					 * Every node dominates itself,so ignore removing node that dominates
+					 * itself
+					 */
+					if (*find == clone[i2])
+						continue;
+
+					clone = strGraphNodePRemoveIf(clone, nodeEqual, clone[i]);
+					changed = 1;
+					goto next;
+				}
+			}
+		}
+	next:;
+	}
+	__auto_type len = strGraphNodePSize(clone);
+	qsort(clone, len, sizeof(struct __graphNode *), domsLenCmp);
+	__auto_type retVal = clone[len - 1];
+
+	printf("IDOM OF %i is %i\n", *(int *)__graphNodeValuePtr(node),
+	       *(int *)__graphNodeValuePtr(retVal));
+	strGraphNodePDestroy(&clone);
+	return retVal;
+}
+llDomFrontier graphDominanceFrontiers(struct __graphNode *start,
+                                      const llDominators doms) {
+	strGraphNodeP allNodes = strGraphNodePAppendItem(NULL, start);
+	__graphNodeVisitForward(start, &allNodes, alwaysTrue, visitNode);
+	__graphNodeVisitBackward(start, &allNodes, alwaysTrue, visitNode);
+
+	llDomFrontier fronts = NULL;
+	for (long i = 0; i != strGraphNodePSize(allNodes); i++) {
+		struct graphDomFrontier tmp;
+		tmp.dominators = NULL;
+		tmp.node = allNodes[i];
+
+		fronts = llDomFrontierInsert(fronts, llDomFrontierCreate(tmp),
+		                             llDomFrontierCmpInsert);
+	}
+
+	for (long b = 0; b != strGraphNodePSize(allNodes); b++) {
+		__auto_type preds = __graphNodeIncoming(allNodes[b]);
+		if (strGraphEdgePSize(preds) >= 2) {
+			for (long p = 0; p != strGraphEdgePSize(preds); p++) {
+				__auto_type runner = __graphEdgeIncoming(preds[p]);
+
+				while (runner != graphDominatorIdom(doms, allNodes[b])) {
+					// Add b to runners frontier
+					__auto_type find = llDomFrontierFindRight(llDomFrontierFirst(fronts),
+					                                          runner, llDomFrontierCmp);
+					__auto_type value = llDomFrontierValuePtr(find);
+					value->dominators =
+					    strGraphNodePAppendItem(value->dominators, allNodes[b]);
+					printf("RUNNER %i += %i\n", *(int *)__graphNodeValuePtr(runner),
+					       *(int *)__graphNodeValuePtr(allNodes[b]));
+
+					// runner = iDom(runner)
+					find = llDomFrontierFindRight(llDomFrontierFirst(fronts),
+					                              graphDominatorIdom(doms, runner),
+					                              llDomFrontierCmp);
+					value = llDomFrontierValuePtr(find);
+					runner = value->node;
+				}
+			}
+		}
+
+		strGraphEdgePDestroy(&preds);
+	}
+
+	strGraphNodePDestroy(&allNodes);
+	return fronts;
 }

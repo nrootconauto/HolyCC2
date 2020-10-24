@@ -83,7 +83,7 @@ struct __vec;
 	inline str##suffix str##suffix##RemoveIf(                                    \
 	    str##suffix vec, int pred(const void *, const void *),                   \
 	    const void *data) {                                                      \
-		return (str##suffix)__vecRemoveItem((struct __vec *)vec, sizeof(type),     \
+		return (str##suffix)__vecRemoveIf((struct __vec *)vec, sizeof(type),     \
 		                                    pred, data);                           \
 	}                                                                            \
 	inline str##suffix str##suffix##Unique(                                      \
@@ -120,7 +120,7 @@ void *__vecSortedFind(const struct __vec *a, const void *item, long itemSize,
 struct __vec *__vecSetDifference(struct __vec *a, const struct __vec *b,
                                  long itemSize,
                                  int (*pred)(const void *, const void *));
-struct __vec *__vecRemoveItem(struct __vec *a, long itemSize,
+struct __vec *__vecRemoveIf(struct __vec *a, long itemSize,
                               int predicate(const void *, const void *),
                               const void *data);
 struct __vec *__vecUnique(struct __vec *vec, long itemSize,
