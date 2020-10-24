@@ -123,7 +123,7 @@ void graphDominanceTests() {
 		assert(a == graphDominatorIdom(doms, f));
 
 		__auto_type fronts = graphDominanceFrontiers(a, doms);
-		
+
 		__auto_type first = llDomFrontierFirst(fronts);
 		__auto_type aFronts = llDomFrontierValuePtr(
 		    llDomFrontierFindRight(first, a, llDomFrontierCmp));
@@ -150,5 +150,30 @@ void graphDominanceTests() {
 		assert(cFronts->dominators[0] == e);
 		assert(dFronts->dominators[0] == e);
 		assert(eFronts->dominators[0] == f);
+	}
+	{
+
+		__auto_type one = graphNodeIntCreate(1, 0);
+		__auto_type two = graphNodeIntCreate(2, 0);
+		__auto_type three = graphNodeIntCreate(3, 0);
+		__auto_type four = graphNodeIntCreate(4, 0);
+		graphNodeIntConnect(one, two, NULL);
+		graphNodeIntConnect(one, three, NULL);
+		graphNodeIntConnect(two, four, NULL);
+		graphNodeIntConnect(three, four, NULL);
+		__auto_type doms = graphComputeDominatorsPerNode(one);
+
+		__auto_type fronts = graphDominanceFrontiers(one, doms);
+
+		__auto_type first = llDomFrontierFirst(fronts);
+		__auto_type twoFronts = llDomFrontierValuePtr(
+		    llDomFrontierFindRight(first, two, llDomFrontierCmp));
+		__auto_type threeFronts = llDomFrontierValuePtr(
+		    llDomFrontierFindRight(first, three, llDomFrontierCmp));
+
+		assert(strGraphNodePSize(twoFronts->dominators) == 1);
+		assert(strGraphNodePSize(threeFronts->dominators) == 1);
+		assert(twoFronts->dominators[0] == four);
+		assert(threeFronts->dominators[0] == four);
 	}
 }
