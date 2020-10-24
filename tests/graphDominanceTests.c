@@ -19,6 +19,7 @@ void graphDominanceCheck(graphNodeInt node, const llDominators doms, int *items,
 	}
 }
 void graphDominanceTests() {
+ {
 	__auto_type one = graphNodeIntCreate(1, 0);
 	__auto_type two = graphNodeIntCreate(2, 0);
 	__auto_type three = graphNodeIntCreate(3, 0);
@@ -46,4 +47,29 @@ void graphDominanceTests() {
 	
 	int one_2[]={1};
 	graphDominanceCheck(one,doms,one_2,1);
+ }
+ {
+	__auto_type one = graphNodeIntCreate(1, 0);
+	__auto_type two = graphNodeIntCreate(2, 0);
+	__auto_type three = graphNodeIntCreate(3, 0);
+	__auto_type four = graphNodeIntCreate(4, 0);
+	__auto_type five = graphNodeIntCreate(5, 0);
+	__auto_type six = graphNodeIntCreate(6, 0);
+	
+	graphNodeIntConnect(six,five,NULL);
+	graphNodeIntConnect(six,four,NULL);
+	
+	graphNodeIntConnect(four,two,NULL);
+	graphNodeIntConnect(four,three,NULL);
+	
+	graphNodeIntConnect(three,two,NULL);
+	graphNodeIntConnect(two,three,NULL);
+	
+	graphNodeIntConnect(two,one,NULL);
+	graphNodeIntConnect(one,two,NULL);
+	
+	graphNodeIntConnect(five,one,NULL);
+	
+	__auto_type doms = graphComputeDominatorsPerNode(six);
+ }
 }

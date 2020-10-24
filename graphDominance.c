@@ -10,7 +10,7 @@ static int alwaysTrue(const struct __graphNode *node,
 static int ptrCmp(const void *a, const void *b) {
 	if (*(void **)a > *(void **)b)
 		return 1;
-	else if (*(void **)b < *(void **)a)
+	else if (*(void **)a < *(void **)b)
 		return -1;
 	else
 		return 0;
@@ -73,10 +73,10 @@ llDominators graphComputeDominatorsPerNode(struct __graphNode *start) {
 			    NULL, (const struct __graphNode **)currentNode->dominators,
 			    strGraphNodePSize(currentNode->dominators));
 
-			__auto_type currentItems = strGraphNodePAppendData(
-			    NULL, (const struct __graphNode **)old, strGraphNodePSize(old));
+			strGraphNodeP currentItems = NULL;
 
 			__auto_type preds = __graphNodeIncoming(allNodes[i]);
+			int referencesComputedNode = 0;
 			for (long i = 0; i != strGraphEdgePSize(preds); i++) {
 				__auto_type incoming = __graphEdgeIncoming(preds[i]);
 
@@ -87,9 +87,11 @@ llDominators graphComputeDominatorsPerNode(struct __graphNode *start) {
 					currentItems = uniqueUnion(currentItems, current->dominators);
 				}
 
-				if (current->dominators != NULL)
+				if (current->dominators != NULL) {
 					currentItems = strGraphNodePSetIntersection(
 					    currentItems, current->dominators, ptrCmp, NULL);
+					referencesComputedNode = 1;
+				}
 			}
 
 			// Ensure current items include current node
@@ -97,12 +99,17 @@ llDominators graphComputeDominatorsPerNode(struct __graphNode *start) {
 				currentItems =
 				    strGraphNodePSortedInsert(currentItems, allNodes[i], ptrCmp);
 
-			printf("%d->", *(int *)__graphNodeValuePtr(allNodes[i]));
-			for (long i = 0; i != strGraphNodePSize(currentItems); i++)
-				printf("%d,", *(int *)__graphNodeValuePtr(currentItems[i]));
-			printf("\n");
+			if (referencesComputedNode) {
+				currentNode->dominators = currentItems;
 
-			currentNode->dominators = currentItems;
+				printf("%i->", *(int *)__graphNodeValuePtr(allNodes[i]));
+				for (long i = 0; i != strGraphNodePSize(currentItems); i++) {
+					int *v = __graphNodeValuePtr(currentItems[i]);
+					printf("%i,", *v);
+				}
+				printf("\n");
+			} else
+				strGraphNodePDestroy(&currentItems);
 
 			if (strGraphNodePSize(currentItems) == strGraphNodePSize(old)) {
 				if (0 !=

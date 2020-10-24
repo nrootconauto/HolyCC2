@@ -239,16 +239,17 @@ struct __vec *__vecSetIntersection(struct __vec *a, const struct __vec *b,
 		else if (pred(first1, first2) > 0)
 			first2 += itemSize;
 		else {
-			moveBuffer[result] = first1 - (void *)a;
+			moveBuffer[result / itemSize] = (first1 - (void *)a)/itemSize;
 			first1 += itemSize, first2 += itemSize, result += itemSize;
 		}
 	}
 
 	if (kill != NULL) {
 		// Kill items not appearing in result
-		qsort(moveBuffer, result, sizeof(long), longCmp);
+		qsort(moveBuffer, result / itemSize, sizeof(long), longCmp);
 		for (long i = 0; i != __vecSize(a) / itemSize; i++) {
-			if (NULL == bsearch(&i, moveBuffer, result, sizeof(long), longCmp)) {
+			if (NULL ==
+			    bsearch(&i, moveBuffer, result / itemSize, sizeof(long), longCmp)) {
 				kill((void *)a + itemSize * i);
 			}
 		}
