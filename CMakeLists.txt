@@ -37,6 +37,7 @@ list(APPEND tests "tests/cacheingLexerTests.c")
 list(APPEND tests "tests/preprocessorTests.c")
 list(APPEND tests "tests/eventPoolTests.c")
 list(APPEND tests "tests/parserTests.c")
+list(APPEND tests "tests/graphDominanceTests.c")
 
 add_executable(holycc2 ${sources} ${tests})
 target_include_directories(holycc2 PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/ext/skinny_mutex)

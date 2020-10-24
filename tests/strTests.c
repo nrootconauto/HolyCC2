@@ -35,7 +35,7 @@ void strTests() {
 	// Intersection
 	str2 = strCharAppendData(NULL, "456789", 6);
 	str3 = strCharAppendData(NULL, "123456", 6);
-	str2 = strCharIntersection(str2, str3, chrFind, NULL);
+	str2 = strCharSetIntersection(str2, str3, chrFind, NULL);
 	assert(strCharSize(str2) == 3);
 	assert(0 == strncmp(str2, "456", 3));
 }

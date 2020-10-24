@@ -8,8 +8,10 @@ void cachingLexerTests();
 void preprocessorTests();
 void eventPoolTests();
 void parserTests();
+void graphDominanceTests();
 int main() {
 	strTests();
+	graphDominanceTests();
 	/**
 	  
 	  llTests();

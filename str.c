@@ -235,12 +235,12 @@ struct __vec *__vecSetIntersection(struct __vec *a, const struct __vec *b,
 	long result = 0;
 	while (first1 != last1 && first2 != last2) {
 		if (pred(first2, first1) > 0)
-			++first1;
+			first1 += itemSize;
 		else if (pred(first1, first2) > 0)
-			++first2;
+			first2 += itemSize;
 		else {
-			moveBuffer[result++] = first1 - (void *)a;
-			++first1, first2++;
+			moveBuffer[result] = first1 - (void *)a;
+			first1 += itemSize, first2 += itemSize, result += itemSize;
 		}
 	}
 
@@ -254,10 +254,10 @@ struct __vec *__vecSetIntersection(struct __vec *a, const struct __vec *b,
 		}
 	}
 
-	for (long i = 0; i != result; i++) {
+	for (long i = 0; i != result / itemSize; i++) {
 		memcpy((void *)a + i * itemSize, (void *)a + moveBuffer[i] * itemSize,
 		       itemSize);
 	}
 
-	return __vecResize(a, result * itemSize);
+	return __vecResize(a, result);
 }
