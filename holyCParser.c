@@ -3,6 +3,7 @@
 #include <parserBase.h>
 #include <stdio.h>
 #include <stdlib.h>
+// TODO replace repeats with struct parserNodeRepeat
 #define ALLOCATE(x)                                                            \
 	({                                                                           \
 		void *r = malloc(sizeof(x));                                               \
@@ -164,6 +165,9 @@ const strLexerItemTemplate holyCLexerTemplates() { return templates; }
 OP_TERMINAL(leftParen, "(");
 OP_TERMINAL(rightParen, ")");
 OP_TERMINAL(comma, ",");
+OP_TERMINAL(ptr, "*");
+OP_TERMINAL(leftArray, "[");
+OP_TERMINAL(rightArray, "]");
 #define PREC_UNOP(name, leftSide, ...)                                         \
 	static void *name(const void **items, long count) {                          \
 		static const char *operators[] = {__VA_ARGS__};                            \
@@ -339,6 +343,12 @@ static void *yes1(const void **data, long length) {
 	return NULL;
 }
 /**
+ * [1,2,3,3]->[1,2,3,4]
+ */
+static void *merge1(const void **nodes, long count) {
+	return strNodeAppendData(NULL, (const struct parserNode **)nodes, count);
+}
+/**
  * [[1,2],[3,4]]->[1,2,3,4]
  */
 static void *mergeYes2(const void **nodes, long count) {
@@ -494,11 +504,27 @@ static void *forward1(const void *value) { return (void *)value; }
 /**
  * ["(" , typename , ")"]
  */
-static void *typecastFunc(const void **data ,long count) {
- assert(count==3);
- 
- if(NULL) //TODO resume work
-	;
+static void *typecastFunc(const void **data, long count) {
+	assert(count == 3);
+
+	if (NULL) // TODO resume work
+		;
+}
+static void *arrayDim1(const void **data, long count) {
+	assert(count == 3);
+	struct parserNodeArrayDim retVal;
+	retVal.base.type = NODE_ARRAY_DIM;
+	retVal.dim = (struct parserNode *)data[1];
+
+	return ALLOCATE(retVal);
+}
+static void *arrayDimEmpty(const void **data, long count) {
+	assert(count == 2);
+	struct parserNodeArrayDim retVal;
+	retVal.base.type = NODE_ARRAY_DIM;
+	retVal.dim = NULL;
+
+	return ALLOCATE(retVal);
 }
 static strRule createPrecedenceRules(strRule prev, struct grammarRule **top) {
 
@@ -508,32 +534,74 @@ static strRule createPrecedenceRules(strRule prev, struct grammarRule **top) {
 	    grammarRuleTerminalCreate("LITERAL", 1, stringLiteral),
 	    grammarRuleTerminalCreate("COMMA", 1, commaTreminal),
 	    grammarRuleTerminalCreate("NAME", 1, nameToken),
+	    grammarRuleTerminalCreate("PTR", 1, ptrTreminal),
+	    grammarRuleTerminalCreate("LEFT_ARRAY", 1, leftArrayTreminal),
+	    grammarRuleTerminalCreate("RIGHT_ARRAY", 1, rightArrayTreminal),
 	    /**
-			 * Type-name
-			 */
-			grammarRuleSequenceCreate("TYPENAME",1,yes1,"NAME",NULL),//TODO
+	     * Array dim
+	     */
+	    grammarRuleSequenceCreate("ARRAY_DIM", 1, arrayDim1, "LEFT_ARRAY",
+	                              "COMMA_EXP", "RIGHT_ARRAY", NULL),
+	    grammarRuleSequenceCreate("ARRAY_DIM", 1, arrayDimEmpty, "LEFT_ARRAY",
+	                              "RIGHT_ARRAY", NULL),
+	    /**
+	     * Type-name
+	     */
+	    grammarRuleSequenceCreate("__TYPENAME_LIST_HEAD", 1, yes1, "TYPENAME",
+	                              NULL),
+	    grammarRuleSequenceCreate("__TYPENAME_LIST_TAIL", 1, yes2, "COMMA",
+	                              "TYPENAME", NULL),
+	    grammarRuleRepeatCreate("__TYPENAME_LIST_TAIL*", 1, mergeYes2,
+	                            "__TYPENAME_LIST_TAIL"),
+	    grammarRuleSequenceCreate("TYPENAME_LIST", 1, __appendVec,
+	                              "TYPENAME_LIST_HEAD", "TYPENAME_LIST_TAIL*",
+	                              NULL),
+	    grammarRuleOptCreate("TYPENAME_LIST?", 1, "TYPENAME_LIST", forward1),
+	    grammarRuleSequenceCreate(
+	        "TYPENNAME_FUNC_PTR_TAIL", 1, yes1, "LEFT_PAREN", "(PTR|ARRAY_DIM)*",
+	        "RIGHT_PAREN", "LEFT_PAREN", "TYPENAME_LIST", "RIGHT_PAREN", NULL),
+
+	    grammarRuleSequenceCreate("TYPENAME", 1, yes1, "NAME", "(PTR|ARRAY_DIM)*",
+	                              NULL), // TODO
+	    grammarRuleOrCreate("PTR|ARRAY_DIM", 1, "ARRAY_DIM", "PTR", NULL),
+	    grammarRuleRepeatCreate("(PTR|ARRAY_DIM)*", 1, merge1, "PTR|ARRAY_DIM"),
+	    /**
+	     * Variable/function arg
+	     */
+	    grammarRuleRepeatCreate("PTR*", 1, merge1, "PTR"),
+	    grammarRuleRepeatCreate("ARRAY_DIM*", 1, merge1, "ARRAY_DIM"),
+	    //*name[dim]
+	    grammarRuleSequenceCreate("__VAR_DECLARATION_TAIL", 1, yes1, "PTR*",
+	                              "NAME", "ARRAY_DIM*", NULL),
+	    //(*name[dim])(args)
+
+	    grammarRuleRepeatCreate("__VAR_DECLARATION_TAIL*", 1, merge1,
+	                            "__VAR_DECLARATION_TAIL"),
+	    grammarRuleSequenceCreate("__VAR_DECLARATION_HEAD", 1, yes1, "NAME",
+	                              NULL),
 	    /**
 	     * Base expression,used by comma
 	     */
 	    grammarRuleOrCreate("PREC0", 1, "PREC0_BINOP", "PREC0_UNOP", NULL),
 	    /**
-			 * Typecast
-			 */
-			grammarRuleSequenceCreate("__TYPECAST_HEAD",1,yes1,"PREC0",NULL) ,
-			grammarRuleSequenceCreate("__TYPECAST_TAIL",1,yes2,"LEFT_PAREN","TYPE","TYPENAME","RIGHT_PAREN",NULL) ,
-			grammarRuleSequenceCreate("TYPECAST",1,NULL,"PREC0",NULL), //TODO
+	     * Typecast
+	     */
+	    grammarRuleSequenceCreate("__TYPECAST_HEAD", 1, yes1, "PREC0", NULL),
+	    grammarRuleSequenceCreate("__TYPECAST_TAIL", 1, yes2, "LEFT_PAREN",
+	                              "TYPE", "TYPENAME", "RIGHT_PAREN", NULL),
+	    grammarRuleSequenceCreate("TYPECAST", 1, NULL, "PREC0", NULL), // TODO
 	    /**
-			 * (explicit) Function call
-			 */
-			grammarRuleSequenceCreate("__FUNC_CALL",1,yes1,"TYPECAST",NULL), //PROVIDE FUNCTION
+	     * (explicit) Function call
+	     */
+	    grammarRuleSequenceCreate("__FUNC_CALL", 1, yes1, "TYPECAST",
+	                              NULL), // PROVIDE FUNCTION
 	    /**
 	     * Comma operator(creates sequences for function args,or returns single
 	     * __exp)
 	     */
-	    grammarRuleOptCreate("EXP_OPT", 1, "FUNC_CALL", forward1),
-	    grammarRuleSequenceCreate("COMMA_HEAD", 1, yes1, "EXP_OPT", NULL),
-	    grammarRuleSequenceCreate("COMMA_TAIL", 1, yes2, "COMMA", "EXP_OPT",
-	                              NULL),
+	    grammarRuleOptCreate("EXP?", 1, "FUNC_CALL", forward1),
+	    grammarRuleSequenceCreate("COMMA_HEAD", 1, yes1, "EXP?", NULL),
+	    grammarRuleSequenceCreate("COMMA_TAIL", 1, yes2, "COMMA", "EXP?", NULL),
 	    grammarRuleRepeatCreate("COMMA_TAIL*", 1, mergeYes2, "COMMA_TAIL"),
 	    grammarRuleSequenceCreate("__COMMA_COMPLETE", 1, __appendVec,
 	                              "COMMA_HEAD", "COMMA_TAIL*", NULL),

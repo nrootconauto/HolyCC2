@@ -11,12 +11,18 @@ enum parserNodeType {
 	NODE_EXPR_BINOP,
 	NODE_NAME_TOKEN,
 	NODE_COMMA_SEQ,
+	NODE_ARRAY_DIM,
+	NODE_REPEAT,
 };
 struct parserNode;
 STR_TYPE_DEF(struct parserNode*,ParserNode);
 STR_TYPE_FUNCS(struct parserNode*,ParserNode);
 struct parserNode {
 	enum parserNodeType type;
+};
+struct parserNodeRepeat {
+ struct parserNode base;
+ strParserNode nodes;
 };
 struct nodePosition {
 	long start, end;
@@ -57,6 +63,10 @@ struct parserNodeNameToken {
  struct parserNode base;
  struct nodePosition pos;
  const char *text;
+};
+struct parserNodeArrayDim {
+ struct parserNode base;
+ struct parserNode *dim;
 };
 struct parserNodeCommaSequence {
  struct parserNode base;

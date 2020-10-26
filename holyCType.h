@@ -2,6 +2,7 @@
 #include <linkedList.h>
 #include <str.h>
 enum holyCTypeKind {
+	TYPE_U0,
 	TYPE_U8i,
 	TYPE_U16i,
 	TYPE_U32i,
@@ -14,40 +15,66 @@ enum holyCTypeKind {
 	TYPE_UNION,
 	TYPE_PTR,
 	TYPE_ARRAY,
+	TYPE_FORWARD,
 };
-struct holyCMemberAttr {
-	struct __vec *name;
+struct objectMemberAttr {
+	char *name;
 	struct parserNode *value;
 };
-LL_TYPE_DEF(struct holyCMemberAttr, TypeAttr);
-LL_TYPE_FUNCS(struct holyCMemberAttr, TypeAttr);
+LL_TYPE_DEF(struct memberAttr, ObjectMemberAttr);
+LL_TYPE_FUNCS(struct objectMemberAttr, ObjectMemberAttr);
 
-struct holyCType;
-struct holyCTypeMember {
-struct holyCType* type;	
- struct __vec *name;
-	llTypeAttr attrs;
+struct object;
+struct objectMember {
+	struct object *type;
+	char *name;
+	llObjectMemberAttr attrs;
+	long offset;
 };
-LL_TYPE_DEF(struct holyCTypeMember, TypeMember);
-LL_TYPE_FUNCS(struct holyCTypeMember, TypeMember);
-struct holyCType {
+LL_TYPE_DEF(struct objectMember, ObjectMember);
+LL_TYPE_FUNCS(struct objectMember, ObjectMember);
+struct object {
 	enum holyCTypeKind type;
 };
-struct holyCTypeClass {
-	struct holyCType base;
-	struct __vec *name;
-	llTypeMember members;
+struct objectClass {
+	struct object base;
+	char *name;
+	llObjectMember members;
+	long align;
+	long size;
 };
-struct holyCTypeUnion {
-	struct holyCType base;
-	struct __vec *name;
-	llTypeMember members;
+struct objectUnion {
+	struct object base;
+	char *name;
+	llObjectMember members;
+	long align;
+	long size;
 };
-struct holyCTypePtr {
-	struct holyCType base;
-	struct holyCType *type;
+struct objectPtr {
+	struct object base;
+	struct object *type;
 };
-struct holyCTypeArray {
-	struct holyCType base;
-	struct holyCType *type;
+struct objectArray {
+	struct object base;
+	struct object *type;
+	struct parserNode *dim;
 };
+struct objectForwardDeclaration {
+	struct object base;
+	char *name;
+};
+struct object *objectArrayCreate(struct object *baseType,
+                                 struct parserNode *dim);
+struct object *objectPtrCreate(struct object *baseType);
+struct object *objectUnionCreate(const char *name,
+                                 const struct objectMember **members,
+                                 long count);
+struct object *objectClassCreate(const char *name,
+                                 const struct objectMember **members,
+                                 long count);
+long objectSize(const struct object *type, int *success);
+void objectDestroy(struct object **type);
+void objectMemberDestroy(struct objectMember *member);
+void objectMemberAttrDestroy(struct objectMemberAttr *attr);
+long objectAlign(const struct object *type, int *success);
+struct object *objectForwardDeclarationCreate(const char *name);
