@@ -1,7 +1,6 @@
 #include <assert.h>
 #include <cacheingLexerItems.h>
 #include <holyCParser.h>
-#include <parserBase.h>
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
 static int charCmp(const void *a, const void *b) {
@@ -11,13 +10,12 @@ void parserTests() {
 	const char *text = "0 + 1 + 2 + 3";
 	__auto_type textStr = strCharAppendData(NULL, text, strlen(text));
 
-	__auto_type g = holyCGrammarCreate();
-
 	__auto_type lex = lexerCreate((struct __vec *)textStr, holyCLexerTemplates(),
 	                              charCmp, skipWhitespace);
 
 	int success;
-	struct parserNode *node = parse(g, lexerGetItems(lex), &success, NULL);
+	struct parserNode *node =
+	    parseExpression(llLexerItemFirst(lexerGetItems(lex)), NULL, 0, &success);
 	assert(success);
 	{
 		/**
@@ -61,7 +59,9 @@ void parserTests() {
 		lexerUpdate(lex, (struct __vec *)textStr, &err);
 		assert(!err);
 
-		struct parserNode *node = parse(g, lexerGetItems(lex), &success, NULL);
+		struct parserNode *node = parseExpression(
+		    llLexerItemFirst(lexerGetItems(lex)), NULL, 0, &success);
+		assert(success);
 		{
 			assert(node->type == NODE_EXPR_BINOP);
 			struct parserNodeBinop *binop = (void *)node;
@@ -95,7 +95,8 @@ void parserTests() {
 	lexerUpdate(lex, (struct __vec *)textStr, &err);
 	assert(!err);
 
-	node = parse(g, lexerGetItems(lex), &success, NULL);
+	node =
+	    parseExpression(llLexerItemFirst(lexerGetItems(lex)), NULL, 0, &success);
 	assert(success);
 	{
 		assert(node->type == NODE_COMMA_SEQ);

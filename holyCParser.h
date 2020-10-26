@@ -12,7 +12,10 @@ enum parserNodeType {
 	NODE_NAME_TOKEN,
 	NODE_COMMA_SEQ,
 	NODE_ARRAY_DIM,
-	NODE_REPEAT,
+	NODE_FUNC_CALL,
+	NODE_TYPENAME,
+	NODE_TYPECAST,
+	NODE_ARRAY_ACCESS,
 };
 struct parserNode;
 STR_TYPE_DEF(struct parserNode*,ParserNode);
@@ -62,7 +65,7 @@ struct parserNodeUnop {
 struct parserNodeNameToken {
  struct parserNode base;
  struct nodePosition pos;
- const char *text;
+ char *text;
 };
 struct parserNodeArrayDim {
  struct parserNode base;
@@ -73,10 +76,25 @@ struct parserNodeCommaSequence {
  strParserNode nodes;
  strParserNode commas;
 };
-enum holyCTypeModifier {
- TYPE_MOD_PTR,
- TYPE_MOD_VOLATILE,
- TYPE_MOD_ARRAY,
+struct parserNodeFunctionCall {
+ struct parserNode base;
+ struct parserNode *func;
+ strParserNode args;
 };
-struct grammar *holyCGrammarCreate();
+struct parserNodeTypeCast {
+ struct parserNode base;
+ struct parserNode *exp;
+ struct parserNode *toType;
+};
+struct parserNodeArrayAccess {
+ struct parserNode base;
+ struct parserNode *exp;
+ struct parserNode *index;
+};
 const strLexerItemTemplate holyCLexerTemplates();
+struct parserNode * parserNodeUnopCreate(struct parserNode *exp,struct parserNode *op);
+struct parserNode *parserNodeCommaSequenceAppend(struct parserNode *start,
+                                                 struct parserNode *comma,
+                                                 struct parserNode *next);
+struct parserNode *parseExpression(llLexerItem start, llLexerItem *end,
+                                   int includeCommas, int *success);

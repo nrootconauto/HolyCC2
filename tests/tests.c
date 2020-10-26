@@ -13,7 +13,7 @@ void graphColoringTests();
 int main() {
 	//strTests();
 	//graphDominanceTests();
-	graphColoringTests();
+	//graphColoringTests();
 	/**
 
 	  llTests();
@@ -27,6 +27,6 @@ int main() {
 	  eventPoolTests();
 	  */
 	// cachingLexerTests();
-	// parserTests();
+	parserTests();
 	return 0;
 }

@@ -1,6 +1,6 @@
 #include <assert.h>
 #include <holyCParser.h>
-#include <parserBase.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 // TODO replace repeats with struct parserNodeRepeat
@@ -29,179 +29,12 @@ static int isExpression(const struct parserNode *node) {
 		return 0;
 	}
 }
-STR_TYPE_DEF(struct parserNode *, Node);
-STR_TYPE_FUNCS(struct parserNode *, Node);
-static void *binopRuleBase(const char **ops, long opsCount,
-                           const void **__items, long __itemsCount,
-                           enum assoc dir) {
-	/**
-	 * NOTE:
-	 * items[0] is a vector of nodes,so __itemsCount will always be 1
-	 */
-	assert(__itemsCount == 1);
-
-	const strNode items = (const strNode)__items[0];
-	long itemsCount = strNodeSize(items);
-	if (itemsCount < 3) {
-		if (itemsCount == 1)
-			return (void *)items[0];
-		else
-			return NULL;
-	}
-
-	strNode result = strNodeReserve(NULL, itemsCount / 2);
-	for (long offset = 0; offset + 2 < itemsCount; offset += 2) {
-		const struct parserNode **items2 = (void *)items;
-		if (!isExpression(items2[offset + 0]) || !isExpression(items2[offset + 2]))
-			return NULL;
-		if (items2[offset + 1]->type != NODE_OP_TERM)
-			return NULL;
-
-		const struct parserNodeOpTerm *term = (void *)items2[offset + 1];
-		for (long i = 0; i != opsCount; i++) {
-			if (0 == strcmp(ops[i], term->text)) {
-				goto success;
-			}
-		}
-		//
-		for (long i = 0; i != strNodeSize(result); i++)
-			parserNodeDestroy(&result[i]);
-		strNodeDestroy(&result);
-		return NULL;
-	success : {
-		int lastRun = offset + 2 >= itemsCount - 1;
-		struct parserNodeBinop retVal;
-		retVal.base.type = NODE_EXPR_BINOP;
-		retVal.a = (offset == 0) ? items[0] : NULL;
-		retVal.b = (lastRun) ? (struct parserNode *)items2[offset + 2] : NULL;
-		retVal.op = (void *)term;
-
-		result = strNodeAppendItem(result, ALLOCATE(retVal));
-	}
-	}
-
-	__auto_type len = strNodeSize(result);
-	struct parserNodeBinop *current;
-	if (dir == DIR_RIGHT) {
-		for (long i = 0; i < len; i++) {
-			current = (void *)result[i];
-			current->a = items[i * 2];
-
-			if (i + 1 < len)
-				current->b = result[i + 1];
-		}
-		current = (void *)result[0];
-	} else if (dir == DIR_LEFT) {
-		for (long i = len - 1; i >= 1; i--) {
-			current = (void *)result[i];
-			current->a = result[i - 1];
-
-			struct parserNodeBinop *prev = (void *)result[i - 1];
-			prev->b = items[i * 2];
-		}
-		current = (void *)result[len - 1];
-	} else {
-		assert(0);
-	}
-	return current;
-}
-static void *unopRuleBase(const char **ops, long opsCount, const void **items,
-                          long itemsCount, int leftSide) {
-	if (itemsCount != 2) {
-		if (itemsCount == 1)
-			return (void *)items[0];
-
-		return NULL;
-	}
-
-	__auto_type items2 = (struct parserNode **)items;
-
-	if (!isExpression(items2[1]))
-		return NULL;
-	if (items2[0]->type != NODE_OP_TERM)
-		return NULL;
-
-	int opIndex = (!leftSide) ? 1 : 0;
-	int argIndex = (!leftSide) ? 0 : 1;
-
-	__auto_type op = (struct parserNodeOpTerm *)items[opIndex];
-	for (long i = 0; i != opsCount; i++) {
-		if (0 == strcmp(ops[i], op->text)) {
-			struct parserNodeUnop retVal;
-			retVal.base.type = NODE_EXPR_UNOP;
-			retVal.a = (struct parserNode *)items[argIndex];
-			retVal.op = (void *)op;
-		}
-	}
-
-	return NULL;
-}
+static struct __lexerItemTemplate nameTemplate;
 static struct __lexerItemTemplate intTemplate;
 static struct __lexerItemTemplate stringTemplate;
 static struct __lexerItemTemplate floatingTemplate;
 static struct __lexerItemTemplate operatorTemplate;
-static struct __lexerItemTemplate nameTemplate;
 static strLexerItemTemplate templates;
-const strLexerItemTemplate holyCLexerTemplates() { return templates; }
-#define OP_TERMINAL(name, ...)                                                 \
-	static void *name##Treminal(const struct __lexerItem *item) {                \
-		if (item->template == &operatorTemplate) {                                 \
-			const char *items[] = {__VA_ARGS__};                                     \
-			long count = sizeof(items) / sizeof(*items);                             \
-			__auto_type text = *(const char **)lexerItemValuePtr(item);              \
-			for (long i = 0; i != count; i++) {                                      \
-				if (0 == strcmp(items[i], text)) {                                     \
-					struct parserNodeOpTerm term;                                        \
-					term.pos.start = item->start;                                        \
-					term.pos.end = item->end;                                            \
-					term.base.type = NODE_OP_TERM;                                       \
-					term.text = *(const char **)lexerItemValuePtr(item);                 \
-					return ALLOCATE(term);                                               \
-				}                                                                      \
-			}                                                                        \
-		}                                                                          \
-		return NULL;                                                               \
-	}
-OP_TERMINAL(leftParen, "(");
-OP_TERMINAL(rightParen, ")");
-OP_TERMINAL(comma, ",");
-OP_TERMINAL(ptr, "*");
-OP_TERMINAL(leftArray, "[");
-OP_TERMINAL(rightArray, "]");
-#define PREC_UNOP(name, leftSide, ...)                                         \
-	static void *name(const void **items, long count) {                          \
-		static const char *operators[] = {__VA_ARGS__};                            \
-		long opsCount = sizeof(operators) / sizeof(*operators);                    \
-		return unopRuleBase(operators, opsCount, items, count, leftSide);          \
-	}                                                                            \
-	OP_TERMINAL(name, __VA_ARGS__);
-#define PREC_BINOP(name, dir, ...)                                             \
-	static void *name(const void **items, long count) {                          \
-		static const char *operators[] = {__VA_ARGS__};                            \
-		long opsCount = sizeof(operators) / sizeof(*operators);                    \
-		return binopRuleBase(operators, opsCount, items, count, dir);              \
-	}                                                                            \
-	OP_TERMINAL(name, __VA_ARGS__);
-
-PREC_BINOP(prec0_Binop, DIR_LEFT, ".", "->");
-PREC_UNOP(prec0_Unop, 0, "++", "--");
-PREC_UNOP(prec1, 0, "++", "--", "+", "-", "!", "~", "*", "&");
-PREC_BINOP(prec2, DIR_LEFT, "`", "<<", ">>");
-PREC_BINOP(prec3, DIR_LEFT, "*", "/", "%");
-PREC_BINOP(prec4, DIR_LEFT, "&");
-PREC_BINOP(prec5, DIR_LEFT, "^");
-PREC_BINOP(prec6, DIR_LEFT, "|");
-PREC_BINOP(prec7, DIR_LEFT, "+", "-");
-PREC_BINOP(prec8, DIR_LEFT, ">=", "<=", ">", "<");
-PREC_BINOP(prec9, DIR_LEFT, "==", "!=");
-PREC_BINOP(prec10, DIR_LEFT, "&&");
-PREC_BINOP(prec11, DIR_LEFT, "^^");
-PREC_BINOP(prec12, DIR_LEFT, "||");
-PREC_BINOP(prec13, DIR_RIGHT, "=",
-           "&=", "|=", "^=", "<<=", ">>=", "+=", "-=", "*=", "%=", "/=");
-
-STR_TYPE_DEF(struct grammarRule *, Rule);
-STR_TYPE_FUNCS(struct grammarRule *, Rule);
 static void initTemplates() __attribute__((constructor));
 static void initTemplates() {
 	intTemplate = intTemplateCreate();
@@ -276,6 +109,37 @@ static void initTemplates() {
 	long templateCount = sizeof(templates2) / sizeof(*templates2);
 	templates = strLexerItemTemplateAppendData(NULL, templates2, templateCount);
 }
+const strLexerItemTemplate  holyCLexerTemplates() {
+ return templates;
+}
+struct parserNode **findOtherParen(const strParserNode nodes, int index) {
+	const char *lefts[] = {"(", "["};
+	const char *rights[] = {")", "]"};
+
+	int depth = 0;
+	int dir = 0;
+	for (int firstRun = 1; depth != 0 && !firstRun; firstRun = 0) {
+		struct parserNodeOpTerm *node = (void *)nodes[index];
+		if (node->base.type == NODE_OP_TERM) {
+			for (long i = 0; i != 2; i++)
+				if (0 == strcmp(node->text, lefts[i]))
+					depth++;
+			for (long i = 0; i != 2; i++)
+				if (0 == strcmp(node->text, rights[i]))
+					depth--;
+
+			if (firstRun == 1)
+				dir = (depth == 1) ? 1 : -1;
+		}
+
+		index += dir;
+		if (index < 0 || strParserNodeSize(nodes) > index)
+			goto fail;
+	}
+
+	return &nodes[index];
+fail : { return NULL; }
+}
 static void *floatingLiteral(const struct __lexerItem *item) {
 	if (item->template == &floatingTemplate) {
 		struct parserNodeFloatingLiteral lit;
@@ -295,7 +159,8 @@ static void *nameToken(const struct __lexerItem *item) {
 		retVal.base.type = NODE_NAME_TOKEN;
 		retVal.pos.start = item->start;
 		retVal.pos.end = item->end;
-		retVal.text = text;
+		retVal.text = malloc(strlen(text)+1);
+		strcpy(retVal.text ,text);
 
 		return ALLOCATE(retVal);
 	}
@@ -327,347 +192,381 @@ static void *stringLiteral(const struct __lexerItem *item) {
 	}
 	return NULL;
 };
-struct pair {
-	const struct parserNode *a, *b;
-};
-static void *yes2(const void **nodes, long count) {
-	if (count != 2)
-		return NULL;
-	struct pair p = {nodes[0], nodes[1]};
-	return ALLOCATE(p);
+struct parserNode *parserNodeUnopCreate(struct parserNode *exp,
+                                        struct parserNode *op) {
+	struct parserNodeUnop unop;
+	unop.a = exp;
+	unop.op = op;
+	unop.base.type = NODE_EXPR_UNOP;
+
+	return ALLOCATE(unop);
 }
-static void *yes1(const void **data, long length) {
-	if (length == 1)
-		return (void *)data[0];
+struct parserNode *parserNodeCommaSequenceAppend(struct parserNode *start,
+                                                 struct parserNode *comma,
+                                                 struct parserNode *next) {
+	if (start == NULL) {
+		struct parserNodeCommaSequence seq;
+		seq.base.type = NODE_COMMA_SEQ;
+		seq.commas = NULL;
+		seq.nodes = strParserNodeAppendItem(NULL, next);
+		return ALLOCATE(seq);
+	}
+	struct parserNodeCommaSequence *seq = (void *)start;
+	seq->commas = strParserNodeAppendItem(seq->commas, comma);
+	seq->nodes = strParserNodeAppendItem(seq->nodes, next);
+
+	return (void *)seq;
+}
+static void replaceNodeReferences(struct parserNode **start,
+                                  struct parserNode **end, int index,
+                                  struct parserNode *replaceWith) {
+	__auto_type toReplace = start[index];
+	start[index] = replaceWith;
+
+	for (long i = index - 1; i >= 0; i--)
+		if (start[i] == toReplace)
+			start[i] = replaceWith;
+		else
+			break;
+
+	for (long i = index + 1; i < (end - start) / sizeof(*start); i++)
+		if (start[i] == toReplace)
+			start[i] = replaceWith;
+		else
+			break;
+}
+static struct parserNode *operator(const char **names, long count,
+                                   enum assoc dir, int grabsLeft,
+                                   int grabsRight, struct parserNode **start,
+                                   struct parserNode **end) {
+	if (dir == DIR_RIGHT) {
+	} else if (dir == DIR_LEFT) {
+
+		__auto_type clone = start;
+		start = end;
+		end = clone;
+	}
+
+	for (__auto_type node = start; node != end;
+	     node = (dir == DIR_LEFT) ? node + 1 : node - 1) {
+		node = findOtherParen(start, (node - start) / sizeof(*node));
+		if (node == NULL)
+			break;
+		if (node == start && grabsLeft)
+			continue;
+		if (node == end && grabsRight)
+			continue;
+		if (grabsLeft && !isExpression(node[-1]))
+			continue;
+		if (grabsRight && !isExpression(node[1]))
+			continue;
+
+		__auto_type item = *node;
+		if (item->type != NODE_OP_TERM)
+			continue;
+
+		__auto_type text = ((struct parserNodeOpTerm *)item)->text;
+		for (long i = 0; i != count; i++) {
+			if (0 == strcmp(text, names[i])) {
+				// Create new node
+
+				struct parserNode *newNode = NULL;
+				if (grabsLeft && grabsRight) {
+					struct parserNodeBinop bin;
+					bin.base.type = NODE_EXPR_BINOP;
+					bin.a = node[-1];
+					bin.op = node[0];
+					bin.b = node[1];
+
+					newNode = ALLOCATE(bin);
+				} else if (grabsLeft || grabsRight) {
+					struct parserNodeUnop un;
+					un.a = node[grabsLeft ? -1 : 1];
+					un.op = node[0];
+					un.base.type = NODE_EXPR_UNOP;
+
+					newNode = ALLOCATE(un);
+				} else {
+					assert(0);
+				}
+
+				// Replace consumed nodes with newNode
+				if (grabsLeft)
+					replaceNodeReferences(start, end, (node - start) / sizeof(*node) - 1,
+					                      newNode);
+				if (grabsRight)
+					replaceNodeReferences(start, end, (node - start) / sizeof(*node) + 1,
+					                      newNode);
+				replaceNodeReferences(start, end, (node - start) / sizeof(*node),
+				                      newNode);
+
+				return newNode;
+			}
+		}
+	}
+	return NULL;
+}
+static struct parserNode *lexerItem2ParserNode(struct __lexerItem *item) {
+	if (item->template == &operatorTemplate) {
+		struct parserNodeOpTerm term;
+		term.base.type = NODE_OP_TERM;
+		term.pos.start = item->start;
+		term.pos.end = item->end;
+		term.text = *(const char **)lexerItemValuePtr(item);
+
+		return ALLOCATE(term);
+	} else if (item->template == &nameTemplate) {
+		struct parserNodeNameToken token;
+		token.base.type = NODE_NAME_TOKEN;
+		token.pos.start = item->start;
+		token.pos.end = item->end;
+
+		const char *text = lexerItemValuePtr(item);
+		token.text = malloc(strlen(text) + 1);
+		strcpy(token.text, text);
+
+		return ALLOCATE(token);
+	} else if (item->template == &stringTemplate) {
+		struct parsedString *string = lexerItemValuePtr(item);
+		struct parserNodeStringLiteral str;
+		str.base.type = NODE_LIT_STRING;
+		str.pos.start = item->start;
+		str.pos.end = item->end;
+		str.value = *(struct parsedString *)lexerItemValuePtr(item);
+
+		return ALLOCATE(str);
+	} else if (item->template == &intTemplate) {
+		struct parserNodeIntLiteral intLit;
+		intLit.base.type = NODE_LIT_INT;
+		intLit.pos.start = item->start;
+		intLit.pos.end = item->end;
+		intLit.value = *(struct lexerInt *)lexerItemValuePtr(item);
+
+		return ALLOCATE(intLit);
+	} else {
+		assert(0);
+	}
+}
+static struct parserNode *__parseExpression(struct parserNode **start,
+                                            struct parserNode **end,
+                                            int *success);
+static struct parserNode *
+pairOperator(const char *left, int grabsLeft, struct parserNode **start,
+             struct parserNode **end,
+             struct parserNode *(*callBack)(struct parserNode *left,
+                                            struct parserNode *node),
+             int *success) {
+	for (long i = 0; i != (end - start) / sizeof(*start); i++) {
+		if (start[i]->type != NODE_OP_TERM)
+			continue;
+		if (i == 0 && grabsLeft)
+			continue;
+		if (grabsLeft && !isExpression(start[i - 1]))
+			continue;
+
+		struct parserNodeOpTerm *term = (void *)start[i];
+		if (0 == strcmp(left, term->text)) {
+			__auto_type next = findOtherParen(start, i);
+			if (next == NULL)
+				goto fail;
+
+			return __parseExpression(start + i, next, success);
+		} else {
+			__auto_type next = findOtherParen(start, i);
+			if (next != NULL)
+				i = (next - start) / sizeof(*start);
+		}
+		i++;
+	}
+fail : {
+	if (success != NULL)
+		*success = 0;
 
 	return NULL;
 }
-/**
- * [1,2,3,3]->[1,2,3,4]
- */
-static void *merge1(const void **nodes, long count) {
-	return strNodeAppendData(NULL, (const struct parserNode **)nodes, count);
 }
-/**
- * [[1,2],[3,4]]->[1,2,3,4]
- */
-static void *mergeYes2(const void **nodes, long count) {
-	strNode retVal = strNodeResize(NULL, 2 * count);
+// TODO implement me
+static struct parserNode *parseTypeName(struct parserNode **start,
+                                        struct parserNode **end,
+                                        char **itemName) {
+	return NULL;
+}
+static struct parserNode *parseTypeCast(struct parserNode **start,
+                                        struct parserNode **end) {
+	for (long i = 0; i != (end - start) / sizeof(*start); i++) {
+		if (i == 0)
+			continue;
+		if (!isExpression(start[i - 1]))
+			continue;
+		if (start[i]->type != NODE_OP_TERM)
+			continue;
 
-	if (count != 0)
-		printf("count:%li\n", count); // TODO
-	for (long i = 0; i != count; i++) {
-		const struct pair *node = nodes[i];
-		retVal[2 * i] = (struct parserNode *)node->a;
-		retVal[2 * i + 1] = (struct parserNode *)node->b;
+		struct parserNodeOpTerm *term = (void *)start[i];
+		if (0 != strcmp(term->text, "("))
+			continue;
+
+		__auto_type endItem = findOtherParen(start, i);
+		if (endItem == NULL)
+			return NULL;
+
+		long endI = (endItem - start) / sizeof(*start);
+		__auto_type type = parseTypeName(&start[i], endItem, NULL);
+
+		if (type != NULL) {
+			struct parserNodeTypeCast retVal;
+			retVal.base.type = NODE_TYPECAST;
+			retVal.exp = start[i - 1];
+			retVal.toType = type;
+			__auto_type alloced = ALLOCATE(retVal);
+
+			for (__auto_type p = &start[i - 1]; p != endItem + 1; p++)
+				*p = alloced;
+
+			return alloced;
+		}
+	}
+	return NULL;
+}
+static struct parserNode *__functionCallback(struct parserNode *left,
+                                             struct parserNode *node) {
+	struct parserNodeFunctionCall retVal;
+	retVal.base.type = NODE_FUNC_CALL;
+	retVal.args = NULL;
+	retVal.func = left;
+	if (node->type == NODE_COMMA_SEQ) {
+		struct parserNodeCommaSequence *seq = (void *)node;
+		for (long i = 0; i != strParserNodeSize(seq->nodes); i++)
+			retVal.args = strParserNodeAppendItem(retVal.args, seq->nodes[i]);
+
+		parserNodeDestroy(&node);
+	} else if (isExpression(node)) {
+		retVal.args = strParserNodeAppendItem(retVal.args, node);
+	} else {
+		return NULL;
 	}
 
+	return ALLOCATE(retVal);
+}
+static struct parserNode *__arrayAccessCallback(struct parserNode *left,
+                                                struct parserNode *node) {
+	struct parserNodeArrayAccess retVal;
+	retVal.base.type = NODE_ARRAY_ACCESS;
+	retVal.exp = left;
+	retVal.index = node;
+
+	return ALLOCATE(retVal);
+}
+static struct parserNode *__parseExpression(struct parserNode **start,
+                                            struct parserNode **end,
+                                            int *success) {
+	for (long prec = 0; prec != 10; prec++) {
+		for (int found = 1; found;) {
+			found = 0;
+			struct parserNode *currentFind = NULL;
+
+			// Typecast
+			if (prec == 0) {
+				currentFind = parseTypeCast(start, end);
+				if (currentFind) {
+
+					found = 1;
+					continue;
+				}
+			}
+			// Function call
+			if (prec == 0) {
+				currentFind =
+				    pairOperator("(", 1, start, end, __functionCallback, success);
+				if (currentFind) {
+					found = 1;
+					continue;
+				}
+			}
+			if (prec == 0) {
+				currentFind =
+				    pairOperator("[", 1, start, end, __arrayAccessCallback, success);
+				if (currentFind) {
+					found = 1;
+					continue;
+				}
+			}
+#define OPERATORS(prec2, dir, left, right, ...)                                \
+	if (prec == prec2) {                                                         \
+		const char *names[] = {__VA_ARGS__};                                       \
+		__auto_type count = sizeof(names) / sizeof(*names);                        \
+		currentFind = operator(names, count, DIR_LEFT, left, right, start, end);   \
+		if (currentFind != NULL) {                                                 \
+			found = 1;                                                               \
+			continue;                                                                \
+		}                                                                          \
+	}
+			OPERATORS(0, DIR_LEFT, 1, 0, "++", "--");
+			OPERATORS(0, DIR_LEFT, 1, 1, ".", "->");
+
+			OPERATORS(1, DIR_RIGHT, 0, 1, "++", "--", "~", "!", "&", "*");
+			OPERATORS(1, DIR_LEFT, 1, 1, "`", "<<", ">>");
+			OPERATORS(2, DIR_LEFT, 1, 1, "*", "/", "%");
+			OPERATORS(3, DIR_LEFT, 1, 1, "&");
+			OPERATORS(4, DIR_LEFT, 1, 1, "^");
+			OPERATORS(5, DIR_LEFT, 1, 1, "|");
+			OPERATORS(6, DIR_LEFT, 1, 1, "+", "-");
+			OPERATORS(7, DIR_LEFT, 1, 1, "<", ">", "<=", ">=");
+			OPERATORS(8, DIR_LEFT, 1, 1, "!=", "==");
+			OPERATORS(10, DIR_LEFT, 1, 1, "&&");
+			OPERATORS(11, DIR_LEFT, 1, 1, "^^");
+			OPERATORS(12, DIR_LEFT, 1, 1, "||");
+			OPERATORS(13, DIR_RIGHT, 1, 1, "=",
+			          "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>=");
+		}
+	}
+	
+	__auto_type item=*start;
+	for(__auto_type p=start+1;p<end;p++)
+	 if(*p!=item)
+		goto fail;
+	 
+	return item;
+	fail: {
+	 if(success!=NULL)
+		*success=0;
+	 
+	 for(__auto_type p=start;p!=end;p++)
+		parserNodeDestroy(p);
+	 return NULL;
+	}
+}
+struct parserNode *parseExpression(llLexerItem start, llLexerItem *end,
+                                   int includeCommas, int *success) {
+	strParserNode items = NULL;
+
+	int parenDepth = 0;
+	__auto_type node = start;
+	for (; node != NULL; node = llLexerItemNext(node)) {
+		__auto_type item = llLexerItemValuePtr(start);
+
+		struct parserNode *node;
+		if (item->template == &nameTemplate) {
+		} else if (item->template == &operatorTemplate) {
+			const char *lefts[] = {"(", "["};
+			const char *rights[] = {")", "]"};
+			__auto_type text = *(const char **)lexerItemValuePtr(item);
+
+			for (long i = 0; i != 2; i++)
+				if (0 == strcmp(lefts[i], text))
+					parenDepth++;
+			for (long i = 0; i != 2; i++)
+				if (0 == strcmp(rights[i], text))
+					parenDepth--;
+		} else if (item->template == &stringTemplate) {
+		} else
+			break;
+
+		items = strParserNodeAppendItem(items, lexerItem2ParserNode(item));
+	}
+	if (end != NULL)
+		*end = node;
+	
+	__auto_type retVal= __parseExpression(items,items+strParserNodeSize(items),success);
+	strParserNodeDestroy(&items);
 	return retVal;
-}
-/**
- * [1,2,3]+4->[1,2,3,4]
- */
-static void *__prependVec(const void **items, long count) {
-	assert(count == 2);
-	strNode retVal = strNodeAppendData(NULL, (const struct parserNode **)items[0],
-	                                   strNodeSize((strNode)items[0]));
-	return strNodeAppendItem(retVal, (struct parserNode *)items[1]);
-}
-/**
- * 1+[2,3,4]->[1,2,3,4]
- */
-static void *__appendVec(const void **items, long count) {
-	assert(count == 2);
-	strNode retVal = strNodeAppendItem(
-	    NULL, (struct parserNode *)items[0]); // TODO dont destroy items[1]
-	return strNodeConcat(retVal, (strNode)items[1]);
-}
-#define DEFINE_PREC_LEFT_SIDE_UNOP(appendRulesTo, name, opName, nextPrecName,  \
-                                   func)                                       \
-	({                                                                           \
-		__auto_type name =                                                         \
-		    grammarRuleSequenceCreate(#name, 1, func, opName, nextPrecName, NULL); \
-		__auto_type name2 =                                                        \
-		    grammarRuleSequenceCreate(#name, 2, yes1, nextPrecName, NULL);         \
-		appendRulesTo = strRuleAppendItem(appendRulesTo, name);                    \
-		appendRulesTo = strRuleAppendItem(appendRulesTo, name2);                   \
-		name;                                                                      \
-	})
-#define DEFINE_PREC_RIGHT_SIDE_UNOP(appendRulesTo, name, opName, nextPrecName, \
-                                    func)                                      \
-	({                                                                           \
-		__auto_type name =                                                         \
-		    grammarRuleSequenceCreate(#name, 1, func, nextPrecName, opName, NULL); \
-		__auto_type name2 =                                                        \
-		    grammarRuleSequenceCreate(#name, 2, yes1, nextPrecName, NULL);         \
-		appendRulesTo = strRuleAppendItem(appendRulesTo, name2);                   \
-		appendRulesTo = strRuleAppendItem(appendRulesTo, name);                    \
-		name;                                                                      \
-	})
-static struct grammarRule *
-__leftAssocBinop(strRule *appendRulesTo, const char *finalName,
-                 const char *opName, const char *headName, const char *tailName,
-                 const char *repName, const char *combinedName,
-                 const char *nextPrecName, void *(*func)(const void **, long)) {
-	__auto_type head =
-	    grammarRuleSequenceCreate(headName, 1, yes1, nextPrecName, NULL);
-	__auto_type tail =
-	    grammarRuleSequenceCreate(tailName, 1, yes2, opName, nextPrecName, NULL);
-	__auto_type rep = grammarRuleRepeatCreate(repName, 1, mergeYes2, tailName);
-	__auto_type combine = grammarRuleSequenceCreate(combinedName, 1, __appendVec,
-	                                                headName, repName, NULL);
-	__auto_type final =
-	    grammarRuleSequenceCreate(finalName, 1, func, combinedName, NULL);
-	*appendRulesTo = strRuleAppendItem(*appendRulesTo, tail);
-	*appendRulesTo = strRuleAppendItem(*appendRulesTo, rep);
-	*appendRulesTo = strRuleAppendItem(*appendRulesTo, combine);
-	*appendRulesTo = strRuleAppendItem(*appendRulesTo, final);
-	*appendRulesTo = strRuleAppendItem(*appendRulesTo, head);
-	return final;
-}
-#define DEFINE_PREC_LEFT_ASSOC_BINOP(appendRulesTo, name, opName,              \
-                                     nextPrecName, func)                       \
-	__leftAssocBinop(&appendRulesTo, #name, opName, #name "_HEAD",               \
-	                 #name "_TAIL", #name "_TAIL*", "__" #name, nextPrecName,    \
-	                 func)
-static struct grammarRule *
-__rightAssocBinop(strRule *appendRulesTo, const char *finalName,
-                  const char *opName, const char *headName,
-                  const char *tailName, const char *repName,
-                  const char *combinedName, const char *nextPrecName,
-                  void *(*func)(const void **, long)) {
-	__auto_type head =
-	    grammarRuleSequenceCreate(headName, 1, yes1, nextPrecName, NULL);
-	__auto_type tail =
-	    grammarRuleSequenceCreate(tailName, 1, yes2, opName, nextPrecName, NULL);
-	__auto_type rep = grammarRuleRepeatCreate(repName, 1, mergeYes2, tailName);
-	__auto_type combined = grammarRuleSequenceCreate(combinedName, 1, __appendVec,
-	                                                 headName, repName, NULL);
-	__auto_type final =
-	    grammarRuleSequenceCreate(finalName, 1, func, combinedName, NULL);
-	*appendRulesTo = strRuleAppendItem(*appendRulesTo, head);
-	*appendRulesTo = strRuleAppendItem(*appendRulesTo, tail);
-	*appendRulesTo = strRuleAppendItem(*appendRulesTo, rep);
-	*appendRulesTo = strRuleAppendItem(*appendRulesTo, combined);
-	*appendRulesTo = strRuleAppendItem(*appendRulesTo, final);
-	return final;
-}
-#define DEFINE_PREC_RIGHT_ASSOC_BINOP(appendRulesTo, name, opName,             \
-                                      nextPrecName, func)                      \
-	__rightAssocBinop(&appendRulesTo, #name, opName, #name "_HEAD",              \
-	                  #name "_TAIL", #name "_TAIL*", "__" #name, nextPrecName,   \
-	                  func)
-static void *parenFunc(const void **data, long count) {
-	assert(count == 3);
-	return (void *)data[1];
-}
-/**
- * [1,2,3]+3->[1,2,3,4]
- */
-static void *__appendItem(const void **items, long count) {
-	assert(count == 2);
-	return __vecAppendItem(*(void **)items, items[1],
-	                       sizeof(struct parserNode *));
-}
-/**
- * One item which is a vec
- * Takes [[exp? ","] [exp? ","] ...exp?]
- */
-void *commaSequenceFunc(const void **items, long count) {
-	assert(count == 1);
-
-	long count2 = strNodeSize((const strNode)items[0]);
-	struct parserNode **nodes = (void *)items[0];
-
-	long commaCount = 0;
-	for (long i = 1; i < count2; i += 2) {
-		if (nodes[i]->type == NODE_OP_TERM)
-			commaCount++;
-	}
-	if (commaCount == 0)
-		return nodes[0];
-
-	struct parserNodeCommaSequence seq;
-	seq.base.type = NODE_COMMA_SEQ;
-	seq.commas = NULL;
-	seq.nodes = NULL;
-
-	for (long i = 0; i < count2; i += 2) {
-		seq.nodes = strNodeAppendItem(seq.nodes, nodes[i]);
-		if (i + 1 < count2)
-			seq.commas = strNodeAppendItem(seq.commas, nodes[i + 1]);
-	}
-
-	return ALLOCATE(seq);
-}
-static void *forward1(const void *value) { return (void *)value; }
-/**
- * ["(" , typename , ")"]
- */
-static void *typecastFunc(const void **data, long count) {
-	assert(count == 3);
-
-	if (NULL) // TODO resume work
-		;
-}
-static void *arrayDim1(const void **data, long count) {
-	assert(count == 3);
-	struct parserNodeArrayDim retVal;
-	retVal.base.type = NODE_ARRAY_DIM;
-	retVal.dim = (struct parserNode *)data[1];
-
-	return ALLOCATE(retVal);
-}
-static void *arrayDimEmpty(const void **data, long count) {
-	assert(count == 2);
-	struct parserNodeArrayDim retVal;
-	retVal.base.type = NODE_ARRAY_DIM;
-	retVal.dim = NULL;
-
-	return ALLOCATE(retVal);
-}
-static strRule createPrecedenceRules(strRule prev, struct grammarRule **top) {
-
-	const struct grammarRule *precRules[] = {
-	    grammarRuleTerminalCreate("LITERAL", 1, intLiteral),
-	    grammarRuleTerminalCreate("LITERAL", 1, floatingLiteral),
-	    grammarRuleTerminalCreate("LITERAL", 1, stringLiteral),
-	    grammarRuleTerminalCreate("COMMA", 1, commaTreminal),
-	    grammarRuleTerminalCreate("NAME", 1, nameToken),
-	    grammarRuleTerminalCreate("PTR", 1, ptrTreminal),
-	    grammarRuleTerminalCreate("LEFT_ARRAY", 1, leftArrayTreminal),
-	    grammarRuleTerminalCreate("RIGHT_ARRAY", 1, rightArrayTreminal),
-	    /**
-	     * Array dim
-	     */
-	    grammarRuleSequenceCreate("ARRAY_DIM", 1, arrayDim1, "LEFT_ARRAY",
-	                              "COMMA_EXP", "RIGHT_ARRAY", NULL),
-	    grammarRuleSequenceCreate("ARRAY_DIM", 1, arrayDimEmpty, "LEFT_ARRAY",
-	                              "RIGHT_ARRAY", NULL),
-	    /**
-	     * Type-name
-	     */
-	    grammarRuleSequenceCreate("__TYPENAME_LIST_HEAD", 1, yes1, "TYPENAME",
-	                              NULL),
-	    grammarRuleSequenceCreate("__TYPENAME_LIST_TAIL", 1, yes2, "COMMA",
-	                              "TYPENAME", NULL),
-	    grammarRuleRepeatCreate("__TYPENAME_LIST_TAIL*", 1, mergeYes2,
-	                            "__TYPENAME_LIST_TAIL"),
-	    grammarRuleSequenceCreate("TYPENAME_LIST", 1, __appendVec,
-	                              "TYPENAME_LIST_HEAD", "TYPENAME_LIST_TAIL*",
-	                              NULL),
-	    grammarRuleOptCreate("TYPENAME_LIST?", 1, "TYPENAME_LIST", forward1),
-	    grammarRuleSequenceCreate(
-	        "TYPENNAME_FUNC_PTR_TAIL", 1, yes1, "LEFT_PAREN", "(PTR|ARRAY_DIM)*",
-	        "RIGHT_PAREN", "LEFT_PAREN", "TYPENAME_LIST", "RIGHT_PAREN", NULL),
-
-	    grammarRuleSequenceCreate("TYPENAME", 1, yes1, "NAME", "(PTR|ARRAY_DIM)*",
-	                              NULL), // TODO
-	    grammarRuleOrCreate("PTR|ARRAY_DIM", 1, "ARRAY_DIM", "PTR", NULL),
-	    grammarRuleRepeatCreate("(PTR|ARRAY_DIM)*", 1, merge1, "PTR|ARRAY_DIM"),
-	    /**
-	     * Variable/function arg
-	     */
-	    grammarRuleRepeatCreate("PTR*", 1, merge1, "PTR"),
-	    grammarRuleRepeatCreate("ARRAY_DIM*", 1, merge1, "ARRAY_DIM"),
-	    //*name[dim]
-	    grammarRuleSequenceCreate("__VAR_DECLARATION_TAIL", 1, yes1, "PTR*",
-	                              "NAME", "ARRAY_DIM*", NULL),
-	    //(*name[dim])(args)
-
-	    grammarRuleRepeatCreate("__VAR_DECLARATION_TAIL*", 1, merge1,
-	                            "__VAR_DECLARATION_TAIL"),
-	    grammarRuleSequenceCreate("__VAR_DECLARATION_HEAD", 1, yes1, "NAME",
-	                              NULL),
-	    /**
-	     * Base expression,used by comma
-	     */
-	    grammarRuleOrCreate("PREC0", 1, "PREC0_BINOP", "PREC0_UNOP", NULL),
-	    /**
-	     * Typecast
-	     */
-	    grammarRuleSequenceCreate("__TYPECAST_HEAD", 1, yes1, "PREC0", NULL),
-	    grammarRuleSequenceCreate("__TYPECAST_TAIL", 1, yes2, "LEFT_PAREN",
-	                              "TYPE", "TYPENAME", "RIGHT_PAREN", NULL),
-	    grammarRuleSequenceCreate("TYPECAST", 1, NULL, "PREC0", NULL), // TODO
-	    /**
-	     * (explicit) Function call
-	     */
-	    grammarRuleSequenceCreate("__FUNC_CALL", 1, yes1, "TYPECAST",
-	                              NULL), // PROVIDE FUNCTION
-	    /**
-	     * Comma operator(creates sequences for function args,or returns single
-	     * __exp)
-	     */
-	    grammarRuleOptCreate("EXP?", 1, "FUNC_CALL", forward1),
-	    grammarRuleSequenceCreate("COMMA_HEAD", 1, yes1, "EXP?", NULL),
-	    grammarRuleSequenceCreate("COMMA_TAIL", 1, yes2, "COMMA", "EXP?", NULL),
-	    grammarRuleRepeatCreate("COMMA_TAIL*", 1, mergeYes2, "COMMA_TAIL"),
-	    grammarRuleSequenceCreate("__COMMA_COMPLETE", 1, __appendVec,
-	                              "COMMA_HEAD", "COMMA_TAIL*", NULL),
-	    grammarRuleSequenceCreate("COMMA_EXP", 1, commaSequenceFunc,
-	                              "__COMMA_COMPLETE", NULL),
-	    /**
-	     * Parenethesis
-	     */
-	    grammarRuleTerminalCreate("LEFT_PAREN", 1, leftParenTreminal),
-	    grammarRuleTerminalCreate("RIGHT_PAREN", 1, rightParenTreminal),
-	    grammarRuleSequenceCreate("PAREN", 1, parenFunc, "LEFT_PAREN", "EXP",
-	                              "RIGHT_PAREN", NULL),
-	    grammarRuleSequenceCreate("PAREN", 2, yes1, "NAME_OR_LITERAL", NULL),
-	    grammarRuleOrCreate("NAME_OR_LITERAL", 1, "NAME", "LITERAL", NULL),
-	    /**
-	     * Standard operators
-	     */
-	    grammarRuleTerminalCreate("OP0_BINOP", 1, prec0_BinopTreminal),
-	    grammarRuleTerminalCreate("OP0_UNOP", 1, prec0_UnopTreminal),
-	    grammarRuleTerminalCreate("OP1", 1, prec1Treminal),
-	    grammarRuleTerminalCreate("OP2", 1, prec2Treminal),
-	    grammarRuleTerminalCreate("OP3", 1, prec3Treminal),
-	    grammarRuleTerminalCreate("OP4", 1, prec4Treminal),
-	    grammarRuleTerminalCreate("OP5", 1, prec5Treminal),
-	    grammarRuleTerminalCreate("OP6", 1, prec6Treminal),
-	    grammarRuleTerminalCreate("OP7", 1, prec7Treminal),
-	    grammarRuleTerminalCreate("OP8", 1, prec8Treminal),
-	    grammarRuleTerminalCreate("OP9", 1, prec9Treminal),
-	    grammarRuleTerminalCreate("OP10", 1, prec10Treminal),
-	    grammarRuleTerminalCreate("OP11", 1, prec11Treminal),
-	    grammarRuleTerminalCreate("OP12", 1, prec12Treminal),
-	    grammarRuleTerminalCreate("OP13", 1, prec13Treminal),
-	};
-	long count = sizeof(precRules) / sizeof(*precRules);
-	prev = strRuleAppendData(prev, precRules, count);
-	//
-	DEFINE_PREC_LEFT_ASSOC_BINOP(prev, PREC0_BINOP, "OP0_BINOP", "PREC1",
-	                             prec0_Binop);
-	DEFINE_PREC_RIGHT_ASSOC_BINOP(prev, PREC0_UNOP, "OP0_UNOP", "PREC1",
-	                              prec0_Unop);
-	DEFINE_PREC_LEFT_SIDE_UNOP(prev, PREC1, "OP1", "PREC2", prec1); // Unops
-	DEFINE_PREC_LEFT_ASSOC_BINOP(prev, PREC2, "OP2", "PREC3", prec2);
-	DEFINE_PREC_LEFT_ASSOC_BINOP(prev, PREC3, "OP3", "PREC4", prec3);
-	DEFINE_PREC_LEFT_ASSOC_BINOP(prev, PREC4, "OP4", "PREC5", prec4);
-	DEFINE_PREC_LEFT_ASSOC_BINOP(prev, PREC5, "OP5", "PREC6", prec5);
-	DEFINE_PREC_LEFT_ASSOC_BINOP(prev, PREC6, "OP6", "PREC7", prec6);
-	DEFINE_PREC_LEFT_ASSOC_BINOP(prev, PREC7, "OP7", "PREC8", prec7);
-	DEFINE_PREC_LEFT_ASSOC_BINOP(prev, PREC8, "OP8", "PREC9", prec8);
-	DEFINE_PREC_LEFT_ASSOC_BINOP(prev, PREC9, "OP9", "PREC10", prec9);
-	DEFINE_PREC_LEFT_ASSOC_BINOP(prev, PREC10, "OP10", "PREC11", prec10);
-	DEFINE_PREC_LEFT_ASSOC_BINOP(prev, PREC11, "OP11", "PREC12", prec11);
-	DEFINE_PREC_LEFT_ASSOC_BINOP(prev, PREC12, "OP12", "PREC13", prec12);
-	//
-	DEFINE_PREC_RIGHT_ASSOC_BINOP(prev, PREC13, "OP13", "PAREN", prec13);
-	//
-
-	// Top
-	__auto_type top2 = grammarRuleOrCreate("EXP", 1, "COMMA_EXP", NULL);
-	prev = strRuleAppendItem(prev, top2);
-	if (top != NULL)
-		*top = top2;
-
-	return prev;
-}
-struct grammar *holyCGrammarCreate() {
-	struct grammarRule *top;
-	strRule rules = createPrecedenceRules(NULL, &top);
-	return grammarCreate(top, rules, strRuleSize(rules));
 }
