@@ -109,17 +109,19 @@ static void initTemplates() {
 	long templateCount = sizeof(templates2) / sizeof(*templates2);
 	templates = strLexerItemTemplateAppendData(NULL, templates2, templateCount);
 }
-const strLexerItemTemplate  holyCLexerTemplates() {
- return templates;
-}
-struct parserNode **findOtherParen(const strParserNode nodes, int index) {
+const strLexerItemTemplate holyCLexerTemplates() { return templates; }
+struct parserNode **findOtherParen(struct parserNode **start,
+                                   struct parserNode **end, int index) {
 	const char *lefts[] = {"(", "["};
 	const char *rights[] = {")", "]"};
 
 	int depth = 0;
 	int dir = 0;
-	for (int firstRun = 1; depth != 0 && !firstRun; firstRun = 0) {
-		struct parserNodeOpTerm *node = (void *)nodes[index];
+	for (int firstRun = 1; depth != 0 || firstRun; firstRun = 0) {
+		if (index < 0 || index >= end - start)
+			goto fail;
+
+		struct parserNodeOpTerm *node = (void *)start[index];
 		if (node->base.type == NODE_OP_TERM) {
 			for (long i = 0; i != 2; i++)
 				if (0 == strcmp(node->text, lefts[i]))
@@ -128,16 +130,24 @@ struct parserNode **findOtherParen(const strParserNode nodes, int index) {
 				if (0 == strcmp(node->text, rights[i]))
 					depth--;
 
-			if (firstRun == 1)
+			if (firstRun == 1) {
 				dir = (depth == 1) ? 1 : -1;
+				if (depth == 0)
+					goto fail;
+			}
+
+			if (depth == 0)
+				break;
 		}
+		if (firstRun && depth == 0)
+			goto fail;
 
 		index += dir;
-		if (index < 0 || strParserNodeSize(nodes) > index)
+		if (index < 0 || (end - start) / sizeof(*start) > index)
 			goto fail;
 	}
 
-	return &nodes[index];
+	return &start[index];
 fail : { return NULL; }
 }
 static void *floatingLiteral(const struct __lexerItem *item) {
@@ -159,8 +169,8 @@ static void *nameToken(const struct __lexerItem *item) {
 		retVal.base.type = NODE_NAME_TOKEN;
 		retVal.pos.start = item->start;
 		retVal.pos.end = item->end;
-		retVal.text = malloc(strlen(text)+1);
-		strcpy(retVal.text ,text);
+		retVal.text = malloc(strlen(text) + 1);
+		strcpy(retVal.text, text);
 
 		return ALLOCATE(retVal);
 	}
@@ -229,7 +239,7 @@ static void replaceNodeReferences(struct parserNode **start,
 		else
 			break;
 
-	for (long i = index + 1; i < (end - start) / sizeof(*start); i++)
+	for (long i = index + 1; i < (end - start); i++)
 		if (start[i] == toReplace)
 			start[i] = replaceWith;
 		else
@@ -239,22 +249,27 @@ static struct parserNode *operator(const char **names, long count,
                                    enum assoc dir, int grabsLeft,
                                    int grabsRight, struct parserNode **start,
                                    struct parserNode **end) {
-	if (dir == DIR_RIGHT) {
-	} else if (dir == DIR_LEFT) {
-
+	__auto_type originalStart = start;
+	__auto_type originalEnd = end;
+	if (dir == DIR_LEFT) {
+	} else if (dir == DIR_RIGHT) {
 		__auto_type clone = start;
-		start = end;
+		start = end - 1;
 		end = clone;
 	}
 
 	for (__auto_type node = start; node != end;
 	     node = (dir == DIR_LEFT) ? node + 1 : node - 1) {
-		node = findOtherParen(start, (node - start) / sizeof(*node));
+		__auto_type node2 =
+		    findOtherParen(originalStart, originalEnd, node - originalStart);
+		if (node2 != NULL)
+			node = node2;
+
 		if (node == NULL)
 			break;
-		if (node == start && grabsLeft)
+		if (node == originalStart && grabsLeft)
 			continue;
-		if (node == end && grabsRight)
+		if (node == originalEnd - 1 && grabsRight)
 			continue;
 		if (grabsLeft && !isExpression(node[-1]))
 			continue;
@@ -292,13 +307,13 @@ static struct parserNode *operator(const char **names, long count,
 
 				// Replace consumed nodes with newNode
 				if (grabsLeft)
-					replaceNodeReferences(start, end, (node - start) / sizeof(*node) - 1,
-					                      newNode);
+					replaceNodeReferences(originalStart, originalEnd,
+					                      (node - originalStart) - 1, newNode);
 				if (grabsRight)
-					replaceNodeReferences(start, end, (node - start) / sizeof(*node) + 1,
-					                      newNode);
-				replaceNodeReferences(start, end, (node - start) / sizeof(*node),
-				                      newNode);
+					replaceNodeReferences(originalStart, originalEnd,
+					                      (node - originalStart) + 1, newNode);
+				replaceNodeReferences(originalStart, originalEnd,
+				                      (node - originalStart), newNode);
 
 				return newNode;
 			}
@@ -349,34 +364,47 @@ static struct parserNode *lexerItem2ParserNode(struct __lexerItem *item) {
 }
 static struct parserNode *__parseExpression(struct parserNode **start,
                                             struct parserNode **end,
-                                            int *success);
+                                            int includeCommas, int *success);
 static struct parserNode *
 pairOperator(const char *left, int grabsLeft, struct parserNode **start,
              struct parserNode **end,
              struct parserNode *(*callBack)(struct parserNode *left,
                                             struct parserNode *node),
              int *success) {
-	for (long i = 0; i != (end - start) / sizeof(*start); i++) {
+	for (long i = 0; i < (end - start); i++) {
 		if (start[i]->type != NODE_OP_TERM)
-			continue;
+			goto next;
 		if (i == 0 && grabsLeft)
-			continue;
+			goto next;
 		if (grabsLeft && !isExpression(start[i - 1]))
-			continue;
+			goto next;
 
 		struct parserNodeOpTerm *term = (void *)start[i];
 		if (0 == strcmp(left, term->text)) {
-			__auto_type next = findOtherParen(start, i);
+			__auto_type next = findOtherParen(start, end, i);
 			if (next == NULL)
 				goto fail;
 
-			return __parseExpression(start + i, next, success);
+			int success2;
+			__auto_type retVal = __parseExpression(start + i + 1, next, 1, &success2);
+			if (!success2)
+				goto fail;
+
+			replaceNodeReferences(start, end, i, retVal);
+			replaceNodeReferences(start, end, next - start, retVal);
+			for (long i2 = i; i2 != next - start; i2++)
+				start[i2] = retVal;
+
+			return retVal;
 		} else {
-			__auto_type next = findOtherParen(start, i);
-			if (next != NULL)
-				i = (next - start) / sizeof(*start);
 		}
-		i++;
+	next:;
+		__auto_type next = findOtherParen(start, end, i);
+		if (next != NULL) {
+			// i will be incremented,so go back one
+			i = next - start;
+			continue;
+		}
 	}
 fail : {
 	if (success != NULL)
@@ -393,7 +421,7 @@ static struct parserNode *parseTypeName(struct parserNode **start,
 }
 static struct parserNode *parseTypeCast(struct parserNode **start,
                                         struct parserNode **end) {
-	for (long i = 0; i != (end - start) / sizeof(*start); i++) {
+	for (long i = 0; i != (end - start); i++) {
 		if (i == 0)
 			continue;
 		if (!isExpression(start[i - 1]))
@@ -405,11 +433,11 @@ static struct parserNode *parseTypeCast(struct parserNode **start,
 		if (0 != strcmp(term->text, "("))
 			continue;
 
-		__auto_type endItem = findOtherParen(start, i);
+		__auto_type endItem = findOtherParen(start, end, i);
 		if (endItem == NULL)
 			return NULL;
 
-		long endI = (endItem - start) / sizeof(*start);
+		long endI = (endItem - start);
 		__auto_type type = parseTypeName(&start[i], endItem, NULL);
 
 		if (type != NULL) {
@@ -458,8 +486,8 @@ static struct parserNode *__arrayAccessCallback(struct parserNode *left,
 }
 static struct parserNode *__parseExpression(struct parserNode **start,
                                             struct parserNode **end,
-                                            int *success) {
-	for (long prec = 0; prec != 10; prec++) {
+                                            int includeCommas, int *success) {
+	for (long prec = 0; prec != 13 + 1; prec++) {
 		for (int found = 1; found;) {
 			found = 0;
 			struct parserNode *currentFind = NULL;
@@ -476,7 +504,7 @@ static struct parserNode *__parseExpression(struct parserNode **start,
 			// Function call
 			if (prec == 0) {
 				currentFind =
-				    pairOperator("(", 1, start, end, __functionCallback, success);
+				    pairOperator("(", 0, start, end, __functionCallback, success);
 				if (currentFind) {
 					found = 1;
 					continue;
@@ -494,7 +522,7 @@ static struct parserNode *__parseExpression(struct parserNode **start,
 	if (prec == prec2) {                                                         \
 		const char *names[] = {__VA_ARGS__};                                       \
 		__auto_type count = sizeof(names) / sizeof(*names);                        \
-		currentFind = operator(names, count, DIR_LEFT, left, right, start, end);   \
+		currentFind = operator(names, count, dir, left, right, start, end);        \
 		if (currentFind != NULL) {                                                 \
 			found = 1;                                                               \
 			continue;                                                                \
@@ -517,24 +545,30 @@ static struct parserNode *__parseExpression(struct parserNode **start,
 			OPERATORS(12, DIR_LEFT, 1, 1, "||");
 			OPERATORS(13, DIR_RIGHT, 1, 1, "=",
 			          "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>=");
+			if(includeCommas)
+			OPERATORS(14, DIR_LEFT, 1, 1, ",");
 		}
 	}
-	
-	__auto_type item=*start;
-	for(__auto_type p=start+1;p<end;p++)
-	 if(*p!=item)
-		goto fail;
-	 
+
+	__auto_type item = *start;
+	for (__auto_type p = start + 1; p < end; p++)
+		if (*p != item)
+			goto fail;
+
+	if (success != NULL)
+		*success = 1;
+
 	return item;
-	fail: {
-	 if(success!=NULL)
-		*success=0;
-	 
-	 for(__auto_type p=start;p!=end;p++)
+fail : {
+	if (success != NULL)
+		*success = 0;
+
+	for (__auto_type p = start; p != end; p++)
 		parserNodeDestroy(p);
-	 return NULL;
-	}
+	return NULL;
 }
+}
+// TODO convert at nodes at once
 struct parserNode *parseExpression(llLexerItem start, llLexerItem *end,
                                    int includeCommas, int *success) {
 	strParserNode items = NULL;
@@ -542,31 +576,15 @@ struct parserNode *parseExpression(llLexerItem start, llLexerItem *end,
 	int parenDepth = 0;
 	__auto_type node = start;
 	for (; node != NULL; node = llLexerItemNext(node)) {
-		__auto_type item = llLexerItemValuePtr(start);
-
-		struct parserNode *node;
-		if (item->template == &nameTemplate) {
-		} else if (item->template == &operatorTemplate) {
-			const char *lefts[] = {"(", "["};
-			const char *rights[] = {")", "]"};
-			__auto_type text = *(const char **)lexerItemValuePtr(item);
-
-			for (long i = 0; i != 2; i++)
-				if (0 == strcmp(lefts[i], text))
-					parenDepth++;
-			for (long i = 0; i != 2; i++)
-				if (0 == strcmp(rights[i], text))
-					parenDepth--;
-		} else if (item->template == &stringTemplate) {
-		} else
-			break;
+		__auto_type item = llLexerItemValuePtr(node);
 
 		items = strParserNodeAppendItem(items, lexerItem2ParserNode(item));
 	}
 	if (end != NULL)
 		*end = node;
-	
-	__auto_type retVal= __parseExpression(items,items+strParserNodeSize(items),success);
+
+	__auto_type retVal = __parseExpression(
+	    items, items + strParserNodeSize(items), includeCommas, success);
 	strParserNodeDestroy(&items);
 	return retVal;
 }

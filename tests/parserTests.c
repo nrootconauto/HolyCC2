@@ -88,6 +88,7 @@ void parserTests() {
 			assert(0 == strcmp(token->text, "d"));
 		}
 	}
+	return ;
 	strCharDestroy(&textStr);
 	text = "a,b,c";
 	textStr = strCharAppendData(NULL, text, strlen(text));
