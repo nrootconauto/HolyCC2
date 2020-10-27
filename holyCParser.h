@@ -1,5 +1,6 @@
 #include <cacheingLexerItems.h>
 #include <cacheingLexer.h>
+#include <holyCType.h>
 #pragma once
 enum parserNodeType {
 	NODE_OP_TERM,
@@ -16,6 +17,9 @@ enum parserNodeType {
 	NODE_TYPENAME,
 	NODE_TYPECAST,
 	NODE_ARRAY_ACCESS,
+	NODE_VAR_DECL,
+	NODE_VAR_DECLS,
+	NODE_FUNC_TYPE_ARGS,
 };
 struct parserNode;
 STR_TYPE_DEF(struct parserNode*,ParserNode);
@@ -90,6 +94,27 @@ struct parserNodeArrayAccess {
  struct parserNode base;
  struct parserNode *exp;
  struct parserNode *index;
+};
+struct parserNodeObject {
+ struct parserNode base;
+ struct object *type;
+};
+struct parserNodeVarDecl {
+ struct parserNode base;
+ struct nodePosition pos;
+ char *name;
+ struct object *type;
+ struct parserNode *dftVal;
+};
+STR_TYPE_DEF(struct parserNodeVarDecl *,VarDecl);
+STR_TYPE_FUNCS(struct parserNodeVarDecl *,VarDecl);
+struct parserNodeVarDecls {
+ struct parserNode base;
+ strVarDecl decls;
+};
+struct parserNodeFuncArgs {
+ struct parserNode base;
+ strVarDecl decls;
 };
 const strLexerItemTemplate holyCLexerTemplates();
 struct parserNode * parserNodeUnopCreate(struct parserNode *exp,struct parserNode *op);

@@ -231,3 +231,16 @@ struct object *objectForwardDeclarationCreate(const char *name) {
 
 	return (struct object *)retVal;
 }
+struct object *objectByName(const char *name) {
+	return NULL;
+}
+struct object *objectFuncCreate(struct object *retType, strFuncArg args) {
+	struct objectFunction func;
+	func.base.type = TYPE_FUNCTION;
+	func.args = strFuncArgAppendData(NULL, args, strFuncArgSize(args));
+	func.retType = retType;
+
+	void *retVal=malloc(sizeof(struct objectFunction));
+	memcpy(retVal,&func,sizeof(struct objectFunction));
+	return retVal;
+}

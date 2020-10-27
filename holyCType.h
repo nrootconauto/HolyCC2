@@ -16,6 +16,7 @@ enum holyCTypeKind {
 	TYPE_PTR,
 	TYPE_ARRAY,
 	TYPE_FORWARD,
+	TYPE_FUNCTION,
 };
 struct objectMemberAttr {
 	char *name;
@@ -63,6 +64,18 @@ struct objectForwardDeclaration {
 	struct object base;
 	char *name;
 };
+struct objectFuncArg {
+	struct object *type;
+	struct parserNode *dftVal;
+};
+STR_TYPE_DEF(struct objectFuncArg, FuncArg);
+STR_TYPE_FUNCS(struct objectFuncArg, FuncArg);
+struct objectFunction {
+	struct object base;
+	struct object *retType;
+	strFuncArg args;
+};
+struct object;
 struct object *objectArrayCreate(struct object *baseType,
                                  struct parserNode *dim);
 struct object *objectPtrCreate(struct object *baseType);
@@ -78,3 +91,5 @@ void objectMemberDestroy(struct objectMember *member);
 void objectMemberAttrDestroy(struct objectMemberAttr *attr);
 long objectAlign(const struct object *type, int *success);
 struct object *objectForwardDeclarationCreate(const char *name);
+struct object *objectByName(const char *name);
+struct object *objectFuncCreate(struct object *retType, strFuncArg args);

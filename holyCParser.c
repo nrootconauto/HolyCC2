@@ -400,12 +400,12 @@ pairOperator(const char *left, int grabsLeft, struct parserNode **start,
 
 			int success2;
 			__auto_type retVal = __parseExpression(start + i + 1, next, 1, &success2);
-			retVal=callBack(start[i - 1], retVal);
+			retVal = callBack(start[i - 1], retVal);
 			if (!success2)
 				goto fail;
 
-			if(grabsLeft)
-			replaceNodeReferences(start, end, i-1, retVal);
+			if (grabsLeft)
+				replaceNodeReferences(start, end, i - 1, retVal);
 			replaceNodeReferences(start, end, next - start, retVal);
 			for (long i2 = i; i2 != next - start; i2++)
 				start[i2] = retVal;
@@ -428,11 +428,271 @@ fail : {
 	return NULL;
 }
 }
-// TODO implement me
-static struct parserNode *parseTypeName(struct parserNode **start,
-                                        struct parserNode **end,
-                                        char **itemName) {
+static strParserNode arrayDimConsec(struct parserNode **start,
+                                    struct parserNode **end, long *count) {
+	long offset = 0;
+	strParserNode dims = NULL;
+	while (offset != end - start) {
+		if (start[offset]->type != NODE_OP_TERM)
+			break;
+
+		struct parserNodeOpTerm *op = (void *)start[offset];
+		if (0 != strcmp(op->text, "["))
+			break;
+		__auto_type end2 = findOtherParen(&start[offset], end, 0);
+		offset = end2 - start + 1;
+
+		if (end2 == NULL)
+			goto fail;
+
+		int success2;
+		__auto_type dim = __parseExpression(&start[offset], end2, 1, &success2);
+		if (!success2)
+			goto fail;
+
+		dims = strParserNodeAppendItem(dims, dim);
+	}
+
+	return dims;
+fail : {
+	// TODO whine
 	return NULL;
+}
+}
+static long pointerConsec(struct parserNode **start, struct parserNode **end,
+                          long *count) {
+	long offset = 0;
+	while (offset != end - start) {
+		if (start[offset]->type != NODE_OP_TERM)
+			break;
+		struct parserNodeOpTerm *op = (void *)start[offset];
+		if (0 != strcmp(op->text, "*"))
+			break;
+		offset++;
+	}
+
+	if (count != NULL)
+		*count = offset;
+	return offset;
+}
+static struct parserNode *varDecls(struct parserNode **start,
+                                   struct parserNode **end, char **itemName,
+                                   long *count);
+static struct parserNode *parseFuncArgs(struct parserNode **start,
+                                        struct parserNode **end, long *count) {
+	struct parserNodeFuncArgs args;
+	args.base.type = NODE_VAR_DECLS;
+	args.decls = NULL;
+	for (__auto_type node = start; node != end;) {
+		long count2;
+		char *name;
+		__auto_type decls = varDecls(node, end, &name, &count2);
+		if (decls->type != NODE_VAR_DECL) {
+			// TODO whine
+			goto fail;
+		}
+		node += count2;
+
+		if (decls->type == NODE_VAR_DECL) {
+			args.decls = strVarDeclAppendItem(args.decls, (void *)decls);
+		} else {
+			goto fail;
+		}
+	}
+
+	return ALLOCATE(args);
+fail : {
+	// TODO free
+	return NULL;
+}
+}
+static void parserPtrAndDim(struct parserNode **start, struct parserNode **end,
+                            struct parserNode **nameToken, long *count,
+                            long *ptrLevel, strParserNode *dims) {
+	__auto_type originalStart = start;
+
+	long count2;
+	long ptrCount1 = pointerConsec(start, end, &count2);
+	start += count2;
+
+	strParserNode dims1;
+	dims1 = NULL;
+
+	if (start[0]->type == NODE_NAME_TOKEN && nameToken != NULL) {
+		*nameToken = (void *)start[0];
+	}
+
+	dims1 = arrayDimConsec(start, end, &count2);
+	start += count2;
+
+	if (dims != NULL)
+		*dims = dims1;
+	if (count != NULL)
+		*count = start - originalStart;
+}
+static int expectOp(struct parserNode *node, const char *text) {
+	if (node->type == NODE_OP_TERM) {
+		struct parserNodeOpTerm *op = (void *)node;
+		if (0 == strcmp(op->text, text))
+			return 1;
+	}
+	return 0;
+}
+/**
+ * Will return typename upon no name,it's a secret
+ */
+static struct parserNode *varDecls(struct parserNode **start,
+                                   struct parserNode **end, char **itemName,
+                                   long *count) {
+	struct parserNodeVarDecls returnDecls;
+	returnDecls.base.type = NODE_VAR_DECLS;
+	returnDecls.decls = NULL;
+
+	struct object *currentType = NULL;
+
+	__auto_type originalStart = start;
+
+	struct object *obj = NULL;
+	struct parserNode *name = NULL;
+loop:
+	if (start[0]->type == NODE_NAME_TOKEN) {
+		struct parserNodeNameToken *baseName = (void *)start[0];
+		start++;
+
+		long count;
+		struct parserNode *itemName2 = NULL;
+		long basePtrLvl;
+		strParserNode baseDims __attribute__((cleanup(strParserNodeDestroy)));
+		parserPtrAndDim(start, end, &itemName2, &count, &basePtrLvl, &baseDims);
+		name = itemName2;
+
+		int isFuncPtr = 0;
+		if (expectOp(start[0], "(")) {
+			// Check if name is already present,if so,fail
+			if (itemName2 != NULL)
+				goto fail;
+
+			start++;
+			struct parserNode *funcPtrName;
+			long funcPtrLvl;
+			strParserNode funcPtrDims __attribute__((cleanup(strParserNodeDestroy)));
+			parserPtrAndDim(start, end, &funcPtrName, &count, &funcPtrLvl,
+			                &funcPtrDims);
+			name = funcPtrName;
+
+			for (long i = 0; i != 2; i++) {
+				const char *expect[] = {")", "("};
+				if (!expectOp(start++[0], expect[i]))
+					goto fail;
+			}
+			__auto_type args = parseFuncArgs(start, end, &count);
+			start += count;
+			if (!expectOp(start[0], ")"))
+				goto fail;
+
+			struct object *retType = objectByName(baseName->text);
+			for (long i = 0; i != basePtrLvl; i++)
+				retType = objectPtrCreate(retType);
+			for (long i = 0; i != strParserNodeSize(baseDims); i++)
+				retType = objectArrayCreate(retType, baseDims[i]);
+
+			strFuncArg funcArgs __attribute__((cleanup(strFuncArgDestroy)));
+			funcArgs = NULL;
+			if (args != NULL) {
+				assert(args->type == NODE_FUNC_TYPE_ARGS);
+				struct parserNodeFuncArgs *args2 = (void *)args;
+				strVarDecl decls = args2->decls;
+				for (long i = 0; i != strVarDeclSize(decls); i++) {
+					struct objectFuncArg farg;
+					farg.dftVal = decls[i]->dftVal;
+					farg.type = decls[i]->type;
+					funcArgs = strFuncArgAppendItem(funcArgs, farg);
+				}
+			}
+			__auto_type funcType = objectFuncCreate(retType, funcArgs);
+
+			currentType = funcType;
+			goto lookForDftVal;
+		} else {
+			// Is not a funcPtr
+
+			struct object *type = objectByName(baseName->text);
+			for (long i = 0; i != basePtrLvl; i++)
+				type = objectPtrCreate(type);
+			for (long i = 0; i != strParserNodeSize(baseDims); i++)
+				type = objectArrayCreate(type, baseDims[i]);
+
+			currentType = type;
+			goto lookForDftVal;
+		}
+	lookForDftVal : {
+		struct parserNode *dftVal = NULL;
+		if (expectOp(*start, "=")) {
+			__auto_type expEnd = ++start;
+			for (; expEnd != end; expEnd++) {
+				if (expectOp(*expEnd, ","))
+					break;
+				__auto_type other = findOtherParen(expEnd, end, 0);
+				expEnd = (other == NULL) ? expEnd : other;
+			}
+
+			dftVal = __parseExpression(start, expEnd, 0, NULL);
+		}
+
+		struct parserNodeVarDecl decl;
+		decl.base.type = NODE_VAR_DECL;
+		decl.dftVal = dftVal;
+		decl.type = currentType;
+
+		if (name != NULL) {
+			struct parserNodeNameToken *nameToken = (void *)name;
+			decl.pos.start = nameToken->pos.start;
+			decl.pos.end = nameToken->pos.end;
+			decl.name = malloc(strlen(nameToken->text) + 1);
+			strcpy(decl.name, nameToken->text);
+		}
+		returnDecls.decls = strVarDeclAppendItem(returnDecls.decls, ALLOCATE(decl));
+
+		if (start != end)
+			if (expectOp(*start, ","))
+				goto loop;
+	}
+	}
+	if (strVarDeclSize(returnDecls.decls) == 1) {
+		// If just type name return type
+		if (returnDecls.decls[0]->name == NULL) {
+			struct parserNodeObject objNode;
+			objNode.base.type = NODE_TYPENAME;
+			objNode.type = returnDecls.decls[0]->type;
+
+			strVarDeclDestroy(&returnDecls.decls);
+			return ALLOCATE(objNode);
+		}
+
+		// Single var decl
+		struct parserNodeVarDecl retVal;
+		retVal = returnDecls.decls[0][0];
+		strVarDeclDestroy(&returnDecls.decls);
+
+		return ALLOCATE(retVal);
+	} else {
+		return ALLOCATE(returnDecls);
+	}
+
+fail:
+	return NULL;
+}
+struct parserNode *parseTypename(struct parserNode **start,
+                                 struct parserNode **end, long *count) {
+ /**
+	* varDecls returns typename when no name provided
+	*/
+	__auto_type retVal = varDecls(start, end, NULL, count);
+	if (retVal->type != NODE_TYPENAME) {
+		parserNodeDestroy(&retVal);
+		return NULL;
+	}
+	return retVal;
 }
 static struct parserNode *parseTypeCast(struct parserNode **start,
                                         struct parserNode **end) {
@@ -453,7 +713,9 @@ static struct parserNode *parseTypeCast(struct parserNode **start,
 			return NULL;
 
 		long endI = (endItem - start);
-		__auto_type type = parseTypeName(&start[i], endItem, NULL);
+		long count;
+		__auto_type type = parseTypename(&start[i], endItem, &count);
+		//TODO whine if not at end of paren
 
 		if (type != NULL) {
 			struct parserNodeTypeCast retVal;
@@ -462,6 +724,7 @@ static struct parserNode *parseTypeCast(struct parserNode **start,
 			retVal.toType = type;
 			__auto_type alloced = ALLOCATE(retVal);
 
+			replaceNodeReferences(start,end,i-1,alloced);
 			for (__auto_type p = &start[i - 1]; p != endItem + 1; p++)
 				*p = alloced;
 
@@ -672,12 +935,10 @@ fail : {
 	return NULL;
 }
 }
-// TODO convert at nodes at once
 struct parserNode *parseExpression(llLexerItem start, llLexerItem *end,
                                    int includeCommas, int *success) {
 	strParserNode items = NULL;
 
-	int parenDepth = 0;
 	__auto_type node = start;
 	for (; node != NULL; node = llLexerItemNext(node)) {
 		__auto_type item = llLexerItemValuePtr(node);
