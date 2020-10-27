@@ -111,4 +111,66 @@ void parserTests() {
 			assert(0 == strcmp(name->text, names[i]));
 		}
 	}
+
+	strCharDestroy(&textStr);
+	text = "c=!(a+1*3)+ ++b";
+	textStr = strCharAppendData(NULL, text, strlen(text));
+	err = 0;
+	lexerUpdate(lex, (struct __vec *)textStr, &err);
+	assert(!err);
+	node =
+	    parseExpression(llLexerItemFirst(lexerGetItems(lex)), NULL, 1, &success);
+	assert(success);
+	{
+		// c =
+		assert(node->type == NODE_EXPR_BINOP);
+		struct parserNodeBinop *binop = (void *)node;
+		struct parserNodeOpTerm *op = (void *)binop->op;
+		assert(op->base.type == NODE_OP_TERM);
+		assert(0 == strcmp(op->text, "="));
+		struct parserNodeNameToken *name = (void *)binop->a;
+		assert(name->base.type == NODE_NAME_TOKEN);
+		assert(0 == strcmp(name->text, "c"));
+
+		//+
+		binop = (void *)binop->b;
+		assert(binop->base.type == NODE_EXPR_BINOP);
+		op = (void *)binop->op;
+		assert(op->base.type == NODE_OP_TERM);
+		assert(0 == strcmp(op->text, "+"));
+		__auto_type plus1 = binop;
+
+		//++
+		struct parserNodeUnop *unop1 = (void *)plus1->b;
+		assert(unop1->base.type == NODE_EXPR_UNOP);
+		name = (void *)unop1->a;
+		assert(name->base.type == NODE_NAME_TOKEN);
+		assert(0 == strcmp(name->text, "b"));
+		op = (void *)unop1->op;
+		assert(op->base.type == NODE_OP_TERM);
+		assert(0 == strcmp(op->text, "++"));
+
+		//!
+		struct parserNodeUnop *unop2 = (void *)plus1->a;
+		assert(unop2->base.type == NODE_EXPR_UNOP);
+		op = (void *)unop2->op;
+		assert(op->base.type == NODE_OP_TERM);
+		assert(0 == strcmp(op->text, "!"));
+
+		struct parserNodeBinop *plus2 = (void *)unop2->a;
+		name = (void *)plus2->a;
+		assert(name->base.type == NODE_NAME_TOKEN);
+		assert(0 == strcmp(name->text, "a"));
+		op = (void *)plus2->op;
+		assert(op->base.type == NODE_OP_TERM);
+		assert(0 == strcmp(op->text, "+"));
+
+		struct parserNodeBinop *times = (void *)plus2->b;
+		struct parserNodeIntLiteral *intLit = (void *)times->a;
+		assert(intLit->base.type == NODE_LIT_INT);
+		assert(intLit->value.value.sInt == 1);
+		intLit = (void *)times->b;
+		assert(intLit->base.type == NODE_LIT_INT);
+		assert(intLit->value.value.sInt == 3);
+	}
 }

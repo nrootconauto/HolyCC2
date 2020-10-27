@@ -43,7 +43,7 @@ static void initTemplates() {
 
 	const char *operators[] = {
 	    "~",
-	    "!"
+	    "!",
 	    //
 	    ".",
 	    "->"
@@ -275,6 +275,18 @@ static struct parserNode *operator(const char **names, long count,
 			continue;
 		if (grabsRight && !isExpression(node[1]))
 			continue;
+		//If unop,ensure next item isn't expression if consumes left
+		if(grabsLeft&&!grabsRight) {
+		 if(node+1<originalEnd)
+			if(isExpression(node[1]))
+			 continue;
+		}
+		//If unop,ensure prev item isn't expression if consumes right
+		if(!grabsLeft&&grabsRight) {
+		 if(node-1>=originalStart)
+			if(isExpression(node[-1]))
+			 continue;
+		}
 
 		__auto_type item = *node;
 		if (item->type != NODE_OP_TERM)
@@ -596,14 +608,14 @@ static struct parserNode *__parseExpression(struct parserNode **start,
 			OPERATORS(0, DIR_LEFT, 1, 1, ".", "->");
 
 			OPERATORS(1, DIR_RIGHT, 0, 1, "++", "--", "~", "!", "&", "*");
-			OPERATORS(1, DIR_LEFT, 1, 1, "`", "<<", ">>");
-			OPERATORS(2, DIR_LEFT, 1, 1, "*", "/", "%");
-			OPERATORS(3, DIR_LEFT, 1, 1, "&");
-			OPERATORS(4, DIR_LEFT, 1, 1, "^");
-			OPERATORS(5, DIR_LEFT, 1, 1, "|");
-			OPERATORS(6, DIR_LEFT, 1, 1, "+", "-");
-			OPERATORS(7, DIR_LEFT, 1, 1, "<", ">", "<=", ">=");
-			OPERATORS(8, DIR_LEFT, 1, 1, "!=", "==");
+			OPERATORS(2, DIR_LEFT, 1, 1, "`", "<<", ">>");
+			OPERATORS(3, DIR_LEFT, 1, 1, "*", "/", "%");
+			OPERATORS(4, DIR_LEFT, 1, 1, "&");
+			OPERATORS(5, DIR_LEFT, 1, 1, "^");
+			OPERATORS(6, DIR_LEFT, 1, 1, "|");
+			OPERATORS(7, DIR_LEFT, 1, 1, "+", "-");
+			OPERATORS(8, DIR_LEFT, 1, 1, "<", ">", "<=", ">=");
+			OPERATORS(9, DIR_LEFT, 1, 1, "!=", "==");
 			OPERATORS(10, DIR_LEFT, 1, 1, "&&");
 			OPERATORS(11, DIR_LEFT, 1, 1, "^^");
 			OPERATORS(12, DIR_LEFT, 1, 1, "||");

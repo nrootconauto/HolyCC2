@@ -33,6 +33,7 @@ static struct __vec *keywordLex(struct __vec *new, long pos, long *end,
 	__auto_type count = strStrSize(keywords);
 
 	__auto_type alnumCount = countAlnum(new, pos);
+	long largestIndex = -1;
 	for (int i = 0; i != count; i++) {
 		__auto_type len = strlen(keywords[i]);
 		if (__vecSize(new) - pos < len)
@@ -45,9 +46,18 @@ static struct __vec *keywordLex(struct __vec *new, long pos, long *end,
 
 			*end = pos + len;
 
-			return __vecAppendItem(NULL, &keywords[i], sizeof(*keywords));
+			if (alnumCount == 0) {
+				if (largestIndex == -1)
+					largestIndex = i;
+				else if (strlen(keywords[largestIndex]) < len)
+					largestIndex = i;
+			} else
+				return __vecAppendItem(NULL, &keywords[i], sizeof(*keywords));
 		}
 	}
+	if (alnumCount == 0 && largestIndex != -1)
+		return __vecAppendItem(NULL, &keywords[largestIndex], sizeof(*keywords));
+
 	return NULL;
 }
 static enum lexerItemState keywordValidate(const void *itemData,
@@ -264,13 +274,13 @@ static int intParse(struct __vec *new, long pos, long *end,
 		sscanf((char *)slice, "%lu", &valueU);
 		__vecDestroy(slice);
 
-		New+=alnumCount;
+		New += alnumCount;
 		goto dumpU;
 	}
 dumpU : {
 	if (end != NULL)
-			*end = New - (char *)new;
- 
+		*end = New - (char *)new;
+
 	// Check to ensure isn't a float
 	if (*end + (char *)new < endPtr)
 		if (*end == '.')
