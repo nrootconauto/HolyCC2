@@ -173,4 +173,34 @@ void parserTests() {
 		assert(intLit->base.type == NODE_LIT_INT);
 		assert(intLit->value.value.sInt == 3);
 	}
+	strCharDestroy(&textStr);
+	text = "a(b(),,c)";
+	textStr = strCharAppendData(NULL, text, strlen(text));
+	err = 0;
+	lexerUpdate(lex, (struct __vec *)textStr, &err);
+	assert(!err);
+	node =
+	    parseExpression(llLexerItemFirst(lexerGetItems(lex)), NULL, 1, &success);
+	assert(success);
+	{
+		assert(node->type == NODE_FUNC_CALL);
+		struct parserNodeFunctionCall *call = (void *)node;
+		struct parserNodeNameToken *name = (void *)call->func;
+		assert(name->base.type == NODE_NAME_TOKEN);
+		assert(0 == strcmp(name->text, "a"));
+
+		assert(strParserNodeSize(call->args) == 3);
+		struct parserNodeFunctionCall *call2 = (void *)call->args[0];
+		assert(call2->base.type == NODE_FUNC_CALL);
+		name = (void *)call2->func;
+		assert(name->base.type == NODE_NAME_TOKEN);
+		assert(0 == strcmp(name->text, "b"));
+		assert(strParserNodeSize(call2->args) == 0);
+		
+		assert(call->args[1]==NULL);
+		
+		name = (void *)call->args[2];
+		assert(name->base.type == NODE_NAME_TOKEN);
+		assert(0 == strcmp(name->text, "c"));
+	}
 }

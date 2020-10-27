@@ -42,8 +42,7 @@ static void initTemplates() {
 	// floatingTemplate = floatingTemplateCreate();
 
 	const char *operators[] = {
-	    "~",
-	    "!",
+	    "~", "!",
 	    //
 	    ".",
 	    "->"
@@ -275,17 +274,17 @@ static struct parserNode *operator(const char **names, long count,
 			continue;
 		if (grabsRight && !isExpression(node[1]))
 			continue;
-		//If unop,ensure next item isn't expression if consumes left
-		if(grabsLeft&&!grabsRight) {
-		 if(node+1<originalEnd)
-			if(isExpression(node[1]))
-			 continue;
+		// If unop,ensure next item isn't expression if consumes left
+		if (grabsLeft && !grabsRight) {
+			if (node + 1 < originalEnd)
+				if (isExpression(node[1]))
+					continue;
 		}
-		//If unop,ensure prev item isn't expression if consumes right
-		if(!grabsLeft&&grabsRight) {
-		 if(node-1>=originalStart)
-			if(isExpression(node[-1]))
-			 continue;
+		// If unop,ensure prev item isn't expression if consumes right
+		if (!grabsLeft && grabsRight) {
+			if (node - 1 >= originalStart)
+				if (isExpression(node[-1]))
+					continue;
 		}
 
 		__auto_type item = *node;
@@ -390,6 +389,8 @@ pairOperator(const char *left, int grabsLeft, struct parserNode **start,
 			goto next;
 		if (grabsLeft && !isExpression(start[i - 1]))
 			goto next;
+		if (!grabsLeft && isExpression(start[i - 1]))
+			goto next;
 
 		struct parserNodeOpTerm *term = (void *)start[i];
 		if (0 == strcmp(left, term->text)) {
@@ -399,10 +400,12 @@ pairOperator(const char *left, int grabsLeft, struct parserNode **start,
 
 			int success2;
 			__auto_type retVal = __parseExpression(start + i + 1, next, 1, &success2);
+			retVal=callBack(start[i - 1], retVal);
 			if (!success2)
 				goto fail;
 
-			replaceNodeReferences(start, end, i, retVal);
+			if(grabsLeft)
+			replaceNodeReferences(start, end, i-1, retVal);
 			replaceNodeReferences(start, end, next - start, retVal);
 			for (long i2 = i; i2 != next - start; i2++)
 				start[i2] = retVal;
@@ -473,6 +476,9 @@ static struct parserNode *__functionCallback(struct parserNode *left,
 	retVal.base.type = NODE_FUNC_CALL;
 	retVal.args = NULL;
 	retVal.func = left;
+	if (node == NULL)
+		return ALLOCATE(retVal);
+
 	if (node->type == NODE_COMMA_SEQ) {
 		struct parserNodeCommaSequence *seq = (void *)node;
 		for (long i = 0; i != strParserNodeSize(seq->nodes); i++)
@@ -505,6 +511,9 @@ struct parserNode *commaSequence(struct parserNode **start,
                                  struct parserNode **end, int *success) {
 	strPtr commaPositions = NULL;
 	for (__auto_type p = start; p != end; p++) {
+		__auto_type otherSide = findOtherParen(start, end, p - start);
+		p = (otherSide != NULL) ? otherSide : p;
+
 		if (p[0]->type == NODE_OP_TERM) {
 			struct parserNodeOpTerm *op = (void *)(p[0]);
 			if (0 == strcmp(op->text, ","))
@@ -520,7 +529,8 @@ struct parserNode *commaSequence(struct parserNode **start,
 
 		struct parserNode **end2 =
 		    (i < strPtrSize(commaPositions)) ? commaPositions[i] : end;
-		struct parserNode **start2 = (i > 0) ? (struct parserNode**)commaPositions[i-1] + 1 : start;
+		struct parserNode **start2 =
+		    (i > 0) ? (struct parserNode **)commaPositions[i - 1] + 1 : start;
 
 		if (start2 == end2) {
 			nodes = strParserNodeAppendItem(nodes, NULL);
@@ -557,9 +567,20 @@ struct parserNode *commaSequence(struct parserNode **start,
 
 	return retVal;
 }
+static struct parserNode *__parenCallback(struct parserNode *left,
+                                          struct parserNode *value) {
+	return value;
+}
 static struct parserNode *__parseExpression(struct parserNode **start,
                                             struct parserNode **end,
                                             int includeCommas, int *success) {
+	if (start == end) {
+		if (success != NULL)
+			*success = 1;
+
+		return NULL;
+	}
+
 	if (includeCommas)
 		return commaSequence(start, end, success);
 
@@ -577,10 +598,19 @@ static struct parserNode *__parseExpression(struct parserNode **start,
 					continue;
 				}
 			}
+			// Parenthesis
+			if (prec == 0) {
+				currentFind =
+				    pairOperator("(", 0, start, end, __parenCallback, success);
+				if (currentFind) {
+					found = 1;
+					continue;
+				}
+			}
 			// Function call
 			if (prec == 0) {
 				currentFind =
-				    pairOperator("(", 0, start, end, __functionCallback, success);
+				    pairOperator("(", 1, start, end, __functionCallback, success);
 				if (currentFind) {
 					found = 1;
 					continue;
