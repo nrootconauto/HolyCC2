@@ -88,7 +88,6 @@ void parserTests() {
 			assert(0 == strcmp(token->text, "d"));
 		}
 	}
-	return ;
 	strCharDestroy(&textStr);
 	text = "a,b,c";
 	textStr = strCharAppendData(NULL, text, strlen(text));
@@ -97,7 +96,7 @@ void parserTests() {
 	assert(!err);
 
 	node =
-	    parseExpression(llLexerItemFirst(lexerGetItems(lex)), NULL, 0, &success);
+	    parseExpression(llLexerItemFirst(lexerGetItems(lex)), NULL, 1, &success);
 	assert(success);
 	{
 		assert(node->type == NODE_COMMA_SEQ);

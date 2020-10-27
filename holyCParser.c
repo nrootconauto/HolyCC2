@@ -484,10 +484,74 @@ static struct parserNode *__arrayAccessCallback(struct parserNode *left,
 
 	return ALLOCATE(retVal);
 }
+STR_TYPE_DEF(void *, Ptr);
+STR_TYPE_FUNCS(void *, Ptr);
+/**
+ * Returns regular parse on no comma
+ */
+struct parserNode *commaSequence(struct parserNode **start,
+                                 struct parserNode **end, int *success) {
+	strPtr commaPositions = NULL;
+	for (__auto_type p = start; p != end; p++) {
+		if (p[0]->type == NODE_OP_TERM) {
+			struct parserNodeOpTerm *op = (void *)(p[0]);
+			if (0 == strcmp(op->text, ","))
+				commaPositions = strPtrAppendItem(commaPositions, p);
+		}
+	}
+
+	strParserNode nodes = NULL;
+
+	int anyFailed = 0;
+	for (long i = 0; i != strPtrSize(commaPositions) + 1; i++) {
+		int success2;
+
+		struct parserNode **end2 =
+		    (i < strPtrSize(commaPositions)) ? commaPositions[i] : end;
+		struct parserNode **start2 = (i > 0) ? (struct parserNode**)commaPositions[i-1] + 1 : start;
+
+		if (start2 == end2) {
+			nodes = strParserNodeAppendItem(nodes, NULL);
+			continue;
+		}
+
+		nodes = strParserNodeAppendItem(
+		    nodes, __parseExpression(start2, end2, 0, &success2));
+		anyFailed |= !success2;
+	}
+
+	if (success != NULL)
+		*success = !anyFailed;
+
+	struct parserNode *retVal = NULL;
+	if (strParserNodeSize(nodes) == 1) {
+		retVal = nodes[0];
+	} else if (strParserNodeSize(nodes) > 0) {
+		struct parserNodeCommaSequence seq;
+		seq.base.type = NODE_COMMA_SEQ;
+		seq.commas = NULL;
+		for (long i = 0; i != strPtrSize(commaPositions); i++)
+			seq.commas =
+			    strParserNodeAppendItem(seq.commas, *(void **)commaPositions[i]);
+		seq.nodes = NULL;
+		for (long i = 0; i != strParserNodeSize(nodes); i++)
+			seq.nodes = strParserNodeAppendItem(seq.nodes, nodes[i]);
+
+		retVal = ALLOCATE(seq);
+	}
+
+	strPtrDestroy(&commaPositions);
+	strParserNodeDestroy(&nodes);
+
+	return retVal;
+}
 static struct parserNode *__parseExpression(struct parserNode **start,
                                             struct parserNode **end,
                                             int includeCommas, int *success) {
-	for (long prec = 0; prec != 13 + 1; prec++) {
+	if (includeCommas)
+		return commaSequence(start, end, success);
+
+	for (long prec = 0; prec != 14 + 1; prec++) {
 		for (int found = 1; found;) {
 			found = 0;
 			struct parserNode *currentFind = NULL;
@@ -545,8 +609,6 @@ static struct parserNode *__parseExpression(struct parserNode **start,
 			OPERATORS(12, DIR_LEFT, 1, 1, "||");
 			OPERATORS(13, DIR_RIGHT, 1, 1, "=",
 			          "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>=");
-			if(includeCommas)
-			OPERATORS(14, DIR_LEFT, 1, 1, ",");
 		}
 	}
 
