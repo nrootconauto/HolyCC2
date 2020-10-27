@@ -1,5 +1,6 @@
 #include <holyCType.h>
 #include <string.h>
+#include <hashTable.h>
 static char *strClone(const char *str) {
 	__auto_type len = strlen(str);
 	char *retVal = malloc(len + 1);
@@ -230,6 +231,42 @@ struct object *objectForwardDeclarationCreate(const char *name) {
 	retVal->name = strClone(name);
 
 	return (struct object *)retVal;
+}
+MAP_TYPE_DEF(struct object *,Object);
+MAP_TYPE_FUNCS(struct object *,Object);
+static __thread mapObject objectRegistry=NULL;
+struct object typeBool ={TYPE_Bool};
+struct object typeU0={TYPE_U0};
+struct object typeU8i={TYPE_U8i};
+struct object typeU16i={TYPE_U16i};
+struct object typeU32i={TYPE_U32i};
+struct object typeU64i={TYPE_U64i};
+struct object typeI8i={TYPE_I8i};
+struct object typeI16i={TYPE_I16i};
+struct object typeI32i={TYPE_I32i};
+struct object typeI64i={TYPE_U64i};
+struct object typeF64={TYPE_F64};
+static void initObjectRegistry() __attribute__((constructor));
+static void destroyObjectRegistry() __attribute__((destructor));
+static void destroyObjectRegistry() {
+ mapObjectDestroy(objectRegistry,(void(*)(void*))objectDestroy);
+}
+static void initObjectRegistry() {
+ objectRegistry=mapObjectCreate();
+ /**
+	* Register intristic types
+	*/
+ mapObjectInsert(objectRegistry,"Bool",&typeBool);
+ mapObjectInsert(objectRegistry,"U0",&typeU0);
+ mapObjectInsert(objectRegistry,"U8i",&typeU8i);
+ mapObjectInsert(objectRegistry,"U16i",&typeU16i);
+ mapObjectInsert(objectRegistry,"U32i",&typeU32i);
+ mapObjectInsert(objectRegistry,"U64i",&typeU64i);
+ mapObjectInsert(objectRegistry,"I8i",&typeI8i);
+ mapObjectInsert(objectRegistry,"I16i",&typeI16i);
+ mapObjectInsert(objectRegistry,"I32i",&typeI32i);
+ mapObjectInsert(objectRegistry,"I64i",&typeI64i);
+ mapObjectInsert(objectRegistry,"F64",&typeF64);
 }
 struct object *objectByName(const char *name) {
 	return NULL;

@@ -6,7 +6,7 @@ STR_TYPE_FUNCS(char, Char);
 static int charCmp(const void *a, const void *b) {
 	return *(char *)a == *(char *)b;
 }
-void parserTests() {
+void precParserTests() {
 	const char *text = "0 + 1 + 2 + 3";
 	__auto_type textStr = strCharAppendData(NULL, text, strlen(text));
 
@@ -204,3 +204,9 @@ void parserTests() {
 		assert(0 == strcmp(name->text, "c"));
 	}
 }
+void typeParserTests() {
+ const char * text="I64i x";
+ __auto_type textStr= strCharAppendData(NULL,text,strlen(text));
+	__auto_type lex = lexerCreate((struct __vec *)textStr, holyCLexerTemplates(),
+	                              charCmp, skipWhitespace);
+} 

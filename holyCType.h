@@ -2,6 +2,7 @@
 #include <linkedList.h>
 #include <str.h>
 enum holyCTypeKind {
+ TYPE_Bool,
 	TYPE_U0,
 	TYPE_U8i,
 	TYPE_U16i,
@@ -11,6 +12,7 @@ enum holyCTypeKind {
 	TYPE_I16i,
 	TYPE_I32i,
 	TYPE_I64i,
+	TYPE_F64,
 	TYPE_CLASS,
 	TYPE_UNION,
 	TYPE_PTR,
@@ -93,3 +95,15 @@ long objectAlign(const struct object *type, int *success);
 struct object *objectForwardDeclarationCreate(const char *name);
 struct object *objectByName(const char *name);
 struct object *objectFuncCreate(struct object *retType, strFuncArg args);
+
+extern struct object typeBool;
+extern struct object typeU0;
+extern struct object typeU8i;
+extern struct object typeU16i;
+extern struct object typeU32i;
+extern struct object typeU64i;
+extern struct object typeI8i;
+extern struct object typeI16i;
+extern struct object typeI32i;
+extern struct object typeI64i;
+extern struct object typeF64;

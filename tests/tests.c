@@ -7,9 +7,10 @@ void subGraphTests();
 void cachingLexerTests();
 void preprocessorTests();
 void eventPoolTests();
-void parserTests();
+void precParserTests();
 void graphDominanceTests();
 void graphColoringTests();
+void typeParserTests();
 int main() {
 	//strTests();
 	//graphDominanceTests();
@@ -27,6 +28,7 @@ int main() {
 	  eventPoolTests();
 	  */
 	// cachingLexerTests();
-	parserTests();
+	precParserTests();
+	typeParserTests();
 	return 0;
 }
