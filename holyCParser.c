@@ -1,8 +1,11 @@
 #include <assert.h>
 #include <holyCParser.h>
+#include <linkedList.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+LL_TYPE_DEF(struct parserNode *,ParserNodeP);
+LL_TYPE_FUNCS(struct parserNode *,ParserNodeP);
 // TODO replace repeats with struct parserNodeRepeat
 #define ALLOCATE(x)                                                            \
 	({                                                                           \
@@ -15,8 +18,9 @@ enum assoc {
 	DIR_RIGHT,
 };
 static void parserNodeDestroy(struct parserNode **node) { free(*node); }
-static int isExpression(const struct parserNode *node) {
-	switch (node->type) {
+static int isExpression(const llParserNodeP node) {
+	struct parserNode *nodeValue = llParserNodePValuePtr(node);
+	switch (nodeValue->type) {
 	case NODE_LIT_CHAR:
 	case NODE_LIT_FLOATING:
 	case NODE_LIT_INT:
@@ -109,18 +113,18 @@ static void initTemplates() {
 	templates = strLexerItemTemplateAppendData(NULL, templates2, templateCount);
 }
 const strLexerItemTemplate holyCLexerTemplates() { return templates; }
-struct parserNode **findOtherParen(struct parserNode **start,
-                                   struct parserNode **end, int index) {
+llParserNodeP findOtherParen(llParserNodeP start, llParserNodeP end,
+                            llParserNodeP current) {
 	const char *lefts[] = {"(", "["};
 	const char *rights[] = {")", "]"};
 
 	int depth = 0;
 	int dir = 0;
 	for (int firstRun = 1; depth != 0 || firstRun; firstRun = 0) {
-		if (index < 0 || index >= end - start)
+		if (llParserNodePPrev(start) == current || current == end)
 			goto fail;
 
-		struct parserNodeOpTerm *node = (void *)start[index];
+		struct parserNodeOpTerm *node = llParserNodePValuePtr(current);
 		if (node->base.type == NODE_OP_TERM) {
 			for (long i = 0; i != 2; i++)
 				if (0 == strcmp(node->text, lefts[i]))
@@ -141,12 +145,10 @@ struct parserNode **findOtherParen(struct parserNode **start,
 		if (firstRun && depth == 0)
 			goto fail;
 
-		index += dir;
-		if (index < 0 || (end - start) / sizeof(*start) > index)
-			goto fail;
+		current = (dir == 1) ? llParserNodePNext(current) : llParserNodePPrev(current);
 	}
 
-	return &start[index];
+	return current;
 fail : { return NULL; }
 }
 static void *floatingLiteral(const struct __lexerItem *item) {
@@ -244,23 +246,21 @@ static void replaceNodeReferences(struct parserNode **start,
 		else
 			break;
 }
-static struct parserNode *operator(const char **names, long count,
-                                   enum assoc dir, int grabsLeft,
-                                   int grabsRight, struct parserNode **start,
-                                   struct parserNode **end) {
+static llParserNodeP operator(const char **names, long count, enum assoc dir,
+                             int grabsLeft, int grabsRight, llParserNodeP start,
+                             llParserNodeP end) {
 	__auto_type originalStart = start;
 	__auto_type originalEnd = end;
 	if (dir == DIR_LEFT) {
 	} else if (dir == DIR_RIGHT) {
 		__auto_type clone = start;
-		start = end - 1;
-		end = clone;
+		start = llParserNodePPrev(end);
+		end = llParserNodePPrev(clone);
 	}
 
 	for (__auto_type node = start; node != end;
-	     node = (dir == DIR_LEFT) ? node + 1 : node - 1) {
-		__auto_type node2 =
-		    findOtherParen(originalStart, originalEnd, node - originalStart);
+	     node = (dir == DIR_LEFT) ? llParserNodePNext(node) : llParserNodePPrev(node)) {
+		__auto_type node2 = findOtherParen(originalStart, originalEnd, node);
 		if (node2 != NULL)
 			node = node2;
 
@@ -268,26 +268,26 @@ static struct parserNode *operator(const char **names, long count,
 			break;
 		if (node == originalStart && grabsLeft)
 			continue;
-		if (node == originalEnd - 1 && grabsRight)
+		if (node == llParserNodePPrev(originalEnd) && grabsRight)
 			continue;
-		if (grabsLeft && !isExpression(node[-1]))
+		if (grabsLeft && !isExpression(llParserNodePPrev(node)))
 			continue;
-		if (grabsRight && !isExpression(node[1]))
+		if (grabsRight && !isExpression(llParserNodePNext(node)))
 			continue;
 		// If unop,ensure next item isn't expression if consumes left
 		if (grabsLeft && !grabsRight) {
-			if (node + 1 < originalEnd)
-				if (isExpression(node[1]))
+			if (llParserNodePNext(node) != originalEnd)
+				if (isExpression(llParserNodePNext(node)))
 					continue;
 		}
 		// If unop,ensure prev item isn't expression if consumes right
 		if (!grabsLeft && grabsRight) {
-			if (node - 1 >= originalStart)
-				if (isExpression(node[-1]))
+			if (llParserNodePPrev(node) != llParserNodePPrev(originalStart))
+				if (isExpression(llParserNodePPrev(node)))
 					continue;
 		}
 
-		__auto_type item = *node;
+		struct parserNode *item = *llParserNodePValuePtr(node);
 		if (item->type != NODE_OP_TERM)
 			continue;
 
@@ -300,15 +300,15 @@ static struct parserNode *operator(const char **names, long count,
 				if (grabsLeft && grabsRight) {
 					struct parserNodeBinop bin;
 					bin.base.type = NODE_EXPR_BINOP;
-					bin.a = node[-1];
-					bin.op = node[0];
-					bin.b = node[1];
+					bin.a = *llParserNodePValuePtr(llParserNodePPrev(node));
+					bin.op = *llParserNodePValuePtr(node);
+					bin.b = *llParserNodePValuePtr(llParserNodePNext(node));
 
 					newNode = ALLOCATE(bin);
 				} else if (grabsLeft || grabsRight) {
 					struct parserNodeUnop un;
-					un.a = node[grabsLeft ? -1 : 1];
-					un.op = node[0];
+					un.a = *llParserNodePValuePtr(grabsLeft ? llParserNodePPrev(node) : llParserNodePNext(node));
+					un.op = *llParserNodePValuePtr(node);
 					un.base.type = NODE_EXPR_UNOP;
 
 					newNode = ALLOCATE(un);
@@ -317,16 +317,24 @@ static struct parserNode *operator(const char **names, long count,
 				}
 
 				// Replace consumed nodes with newNode
-				if (grabsLeft)
-					replaceNodeReferences(originalStart, originalEnd,
-					                      (node - originalStart) - 1, newNode);
-				if (grabsRight)
-					replaceNodeReferences(originalStart, originalEnd,
-					                      (node - originalStart) + 1, newNode);
-				replaceNodeReferences(originalStart, originalEnd,
-				                      (node - originalStart), newNode);
+				if (grabsLeft) {
+					__auto_type old = llParserNodePPrev(node);
+					llParserNodePRemove(old);
+					llParserNodePDestroy(old, NULL);
+				}
+				if (grabsRight) {
+					__auto_type old = llParserNodePPrev(node);
+					llParserNodePRemove(old);
+					llParserNodePDestroy(old, NULL);
+				}
 
-				return newNode;
+				__auto_type retVal = llParserNodePCreate(newNode);
+				llParserNodePInsertListAfter(node, retVal);
+				__auto_type old = node;
+				llParserNodePRemove(old);
+				llParserNodePDestroy(&old, NULL);
+
+				return retVal;
 			}
 		}
 	}
@@ -373,38 +381,37 @@ static struct parserNode *lexerItem2ParserNode(struct __lexerItem *item) {
 		assert(0);
 	}
 }
-static struct parserNode *__parseExpression(struct parserNode **start,
-                                            struct parserNode **end,
+static struct parserNode *__parseExpression(llParserNodeP start,llParserNodeP end,
                                             int includeCommas, int *success);
 static struct parserNode *
-pairOperator(const char *left, int grabsLeft, struct parserNode **start,
-             struct parserNode **end,
+pairOperator(const char *left, int grabsLeft, llParserNodeP start,
+             llParserNodeP end,
              struct parserNode *(*callBack)(struct parserNode *left,
                                             struct parserNode *node),
              int *success) {
-	for (long i = 0; i < (end - start); i++) {
-		if (start[i]->type != NODE_OP_TERM)
+	for (__auto_type node=start;node!=end;node=llParserNodePNext(node)) {
+		if (llParserNodePValuePtr(node)[0]->type != NODE_OP_TERM)
 			goto next;
-		if (i == 0 && grabsLeft)
+		if (node==start && grabsLeft)
 			goto next;
-		if (grabsLeft && !isExpression(start[i - 1]))
+		if (grabsLeft && !isExpression(llParserNodePPrev(node) ))
 			goto next;
-		if (!grabsLeft && isExpression(start[i - 1]))
+		if (!grabsLeft && isExpression(llParserNodePPrev(node)))
 			goto next;
 
-		struct parserNodeOpTerm *term = (void *)start[i];
+		struct parserNodeOpTerm *term = (void*)*llParserNodePValuePtr(node);
 		if (0 == strcmp(left, term->text)) {
-			__auto_type next = findOtherParen(start, end, i);
+			__auto_type next = findOtherParen(start, end, node);
 			if (next == NULL)
 				goto fail;
 
 			int success2;
-			__auto_type retVal = __parseExpression(start + i + 1, next, 1, &success2);
-			retVal = callBack(start[i - 1], retVal);
+			__auto_type retVal = __parseExpression(llParserNodePNext(node), next, 1, &success2);
+			retVal = callBack(*llParserNodePValuePtr(llParserNodePPrev(node)) , retVal);
 			if (!success2)
 				goto fail;
 
-			if (grabsLeft)
+			if (grabsLeft) {
 				replaceNodeReferences(start, end, i - 1, retVal);
 			replaceNodeReferences(start, end, next - start, retVal);
 			for (long i2 = i; i2 != next - start; i2++)
@@ -642,7 +649,7 @@ loop:
 			}
 
 			dftVal = __parseExpression(start, expEnd, 0, NULL);
-			start=expEnd;
+			start = expEnd;
 		}
 
 		struct parserNodeVarDecl decl;
@@ -843,8 +850,7 @@ static struct parserNode *__parenCallback(struct parserNode *left,
                                           struct parserNode *value) {
 	return value;
 }
-static struct parserNode *__parseExpression(struct parserNode **start,
-                                            struct parserNode **end,
+static struct parserNode *__parseExpression(llParserNodeP start,llParserNodeP end,
                                             int includeCommas, int *success) {
 	if (start == end) {
 		if (success != NULL)

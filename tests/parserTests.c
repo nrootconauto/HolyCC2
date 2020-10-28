@@ -221,4 +221,10 @@ void typeParserTests() {
 	assert(0==strcmp(decl->name,"x"));
 	assert(decl->type==&typeI64i);
 	assert(decl->dftVal->type==NODE_LIT_INT);
+	
+	return;
+	strCharDestroy(&textStr);
+	text="I64i (*x[])(I64i x)";
+	textStr= strCharAppendData(NULL,text,strlen(text));
+	lexerUpdate(lex,^textStr);
 } 
