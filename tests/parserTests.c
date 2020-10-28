@@ -205,8 +205,20 @@ void precParserTests() {
 	}
 }
 void typeParserTests() {
- const char * text="I64i x";
+ const char * text="I64i x=1";
  __auto_type textStr= strCharAppendData(NULL,text,strlen(text));
 	__auto_type lex = lexerCreate((struct __vec *)textStr, holyCLexerTemplates(),
 	                              charCmp, skipWhitespace);
+	__auto_type items= lexerGetItems(lex);
+	__auto_type str=parserLexerItems2Str(llLexerItemFirst(items),llLexerItemLast(items));
+	char *name;
+	long count;
+	__auto_type node= parseVarDecls( str ,str+strParserNodeSize(str),&name,&count);
+	assert(node!=NULL);
+	assert(count==4);
+	assert(node->type==NODE_VAR_DECL);
+	struct parserNodeVarDecl *decl=(void*)node;
+	assert(0==strcmp(decl->name,"x"));
+	assert(decl->type==&typeI64i);
+	assert(decl->dftVal->type==NODE_LIT_INT);
 } 

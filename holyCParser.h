@@ -121,5 +121,11 @@ struct parserNode * parserNodeUnopCreate(struct parserNode *exp,struct parserNod
 struct parserNode *parserNodeCommaSequenceAppend(struct parserNode *start,
                                                  struct parserNode *comma,
                                                  struct parserNode *next);
-struct parserNode *parseExpression(llLexerItem start, llLexerItem *end,
+struct parserNode *parseExpression(llLexerItem start, llLexerItem end,
                                    int includeCommas, int *success);
+struct parserNode *parseTypename(struct parserNode **start,
+                                 struct parserNode **end, long *count);
+struct parserNode *parseVarDecls(struct parserNode **start,
+                                   struct parserNode **end, char **itemName,
+                                   long *count);
+strParserNode parserLexerItems2Str(llLexerItem start, llLexerItem end);

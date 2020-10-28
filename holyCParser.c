@@ -475,9 +475,9 @@ static long pointerConsec(struct parserNode **start, struct parserNode **end,
 		*count = offset;
 	return offset;
 }
-static struct parserNode *varDecls(struct parserNode **start,
-                                   struct parserNode **end, char **itemName,
-                                   long *count);
+struct parserNode *parseVarDecls(struct parserNode **start,
+                                 struct parserNode **end, char **itemName,
+                                 long *count);
 static struct parserNode *parseFuncArgs(struct parserNode **start,
                                         struct parserNode **end, long *count) {
 	struct parserNodeFuncArgs args;
@@ -486,7 +486,7 @@ static struct parserNode *parseFuncArgs(struct parserNode **start,
 	for (__auto_type node = start; node != end;) {
 		long count2;
 		char *name;
-		__auto_type decls = varDecls(node, end, &name, &count2);
+		__auto_type decls = parseVarDecls(node, end, &name, &count2);
 		if (decls->type != NODE_VAR_DECL) {
 			// TODO whine
 			goto fail;
@@ -518,8 +518,10 @@ static void parserPtrAndDim(struct parserNode **start, struct parserNode **end,
 	strParserNode dims1;
 	dims1 = NULL;
 
-	if (start[0]->type == NODE_NAME_TOKEN && nameToken != NULL) {
-		*nameToken = (void *)start[0];
+	if (start[0]->type == NODE_NAME_TOKEN) {
+		if (nameToken != NULL)
+			*nameToken = (void *)start[0];
+		start++;
 	}
 
 	dims1 = arrayDimConsec(start, end, &count2);
@@ -529,6 +531,8 @@ static void parserPtrAndDim(struct parserNode **start, struct parserNode **end,
 		*dims = dims1;
 	if (count != NULL)
 		*count = start - originalStart;
+	if (ptrLevel != NULL)
+		*ptrLevel = ptrCount1;
 }
 static int expectOp(struct parserNode *node, const char *text) {
 	if (node->type == NODE_OP_TERM) {
@@ -541,9 +545,9 @@ static int expectOp(struct parserNode *node, const char *text) {
 /**
  * Will return typename upon no name,it's a secret
  */
-static struct parserNode *varDecls(struct parserNode **start,
-                                   struct parserNode **end, char **itemName,
-                                   long *count) {
+struct parserNode *parseVarDecls(struct parserNode **start,
+                                 struct parserNode **end, char **itemName,
+                                 long *count) {
 	struct parserNodeVarDecls returnDecls;
 	returnDecls.base.type = NODE_VAR_DECLS;
 	returnDecls.decls = NULL;
@@ -564,9 +568,9 @@ loop:
 		long basePtrLvl;
 		strParserNode baseDims __attribute__((cleanup(strParserNodeDestroy)));
 		parserPtrAndDim(start, end, &itemName2, &count, &basePtrLvl, &baseDims);
+		start += count;
 		name = itemName2;
 
-		int isFuncPtr = 0;
 		if (expectOp(start[0], "(")) {
 			// Check if name is already present,if so,fail
 			if (itemName2 != NULL)
@@ -578,6 +582,7 @@ loop:
 			strParserNode funcPtrDims __attribute__((cleanup(strParserNodeDestroy)));
 			parserPtrAndDim(start, end, &funcPtrName, &count, &funcPtrLvl,
 			                &funcPtrDims);
+			start += count;
 			name = funcPtrName;
 
 			for (long i = 0; i != 2; i++) {
@@ -637,6 +642,7 @@ loop:
 			}
 
 			dftVal = __parseExpression(start, expEnd, 0, NULL);
+			start=expEnd;
 		}
 
 		struct parserNodeVarDecl decl;
@@ -658,6 +664,9 @@ loop:
 				goto loop;
 	}
 	}
+	if (count != NULL)
+		*count = start - originalStart;
+
 	if (strVarDeclSize(returnDecls.decls) == 1) {
 		// If just type name return type
 		if (returnDecls.decls[0]->name == NULL) {
@@ -684,10 +693,10 @@ fail:
 }
 struct parserNode *parseTypename(struct parserNode **start,
                                  struct parserNode **end, long *count) {
- /**
-	* varDecls returns typename when no name provided
-	*/
-	__auto_type retVal = varDecls(start, end, NULL, count);
+	/**
+	 * varDecls returns typename when no name provided
+	 */
+	__auto_type retVal = parseVarDecls(start, end, NULL, count);
 	if (retVal->type != NODE_TYPENAME) {
 		parserNodeDestroy(&retVal);
 		return NULL;
@@ -715,7 +724,7 @@ static struct parserNode *parseTypeCast(struct parserNode **start,
 		long endI = (endItem - start);
 		long count;
 		__auto_type type = parseTypename(&start[i], endItem, &count);
-		//TODO whine if not at end of paren
+		// TODO whine if not at end of paren
 
 		if (type != NULL) {
 			struct parserNodeTypeCast retVal;
@@ -724,7 +733,7 @@ static struct parserNode *parseTypeCast(struct parserNode **start,
 			retVal.toType = type;
 			__auto_type alloced = ALLOCATE(retVal);
 
-			replaceNodeReferences(start,end,i-1,alloced);
+			replaceNodeReferences(start, end, i - 1, alloced);
 			for (__auto_type p = &start[i - 1]; p != endItem + 1; p++)
 				*p = alloced;
 
@@ -935,8 +944,7 @@ fail : {
 	return NULL;
 }
 }
-struct parserNode *parseExpression(llLexerItem start, llLexerItem *end,
-                                   int includeCommas, int *success) {
+strParserNode parserLexerItems2Str(llLexerItem start, llLexerItem end) {
 	strParserNode items = NULL;
 
 	__auto_type node = start;
@@ -945,8 +953,13 @@ struct parserNode *parseExpression(llLexerItem start, llLexerItem *end,
 
 		items = strParserNodeAppendItem(items, lexerItem2ParserNode(item));
 	}
-	if (end != NULL)
-		*end = node;
+
+	return items;
+}
+struct parserNode *parseExpression(llLexerItem start, llLexerItem end,
+                                   int includeCommas, int *success) {
+
+	__auto_type items = parserLexerItems2Str(start, end);
 
 	__auto_type retVal = __parseExpression(
 	    items, items + strParserNodeSize(items), includeCommas, success);
