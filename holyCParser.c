@@ -39,33 +39,62 @@ static void initTemplates() {
 	__auto_type kwCount = sizeof(keywords) / sizeof(*keywords);
 
 	const char *operators[] = {
-	    "++", "--",
+	    "++",
+	    "--",
 	    //
-	    "(", ")", "[", "]",
+	    "(",
+	    ")",
+	    "[",
+	    "]",
 	    //
-	    ".", "->",
+	    ".",
+	    "->",
 	    //
-	    "!", "~",
+	    "!",
+	    "~",
 	    //
-	    "*", "&",
+	    "*",
+	    "&",
 	    //
-	    "/", "%",
+	    "/",
+	    "%",
 	    //
-	    "+", "-",
+	    "+",
+	    "-",
 	    //
-	    "<<", ">>",
+	    "<<",
+	    ">>",
 	    //
-	    "<", ">",
+	    "<",
+	    ">",
 	    //
-	    ">=", "<=",
+	    ">=",
+	    "<=",
 	    //
-	    "==", "!=",
+	    "==",
+	    "!=",
 	    //
-	    "^", "|",
+	    "^",
+	    "|",
 	    //
-	    "&&", "^^", "||",
+	    "&&",
+	    "^^",
+	    "||",
 	    //
-	    "=", "+=", "-=", "*=", "/=", "%=", "<<=", ">>=", "&=", "^=", "|="};
+	    "=",
+	    "+=",
+	    "-=",
+	    "*=",
+	    "/=",
+	    "%=",
+	    "<<=",
+	    ">>=",
+	    "&=",
+	    "^=",
+	    "|=",
+	    //
+	    ",",
+	};
 	__auto_type opCount = sizeof(operators) / sizeof(*operators);
 	kwTemplate = keywordTemplateCreate(keywords, kwCount);
 	opTemplate = keywordTemplateCreate(operators, opCount);
@@ -150,6 +179,74 @@ static struct parserNode *prec2Recur(llLexerItem start, llLexerItem end,
                                      llLexerItem *result);
 static struct parserNode *prec3Recur(llLexerItem start, llLexerItem end,
                                      llLexerItem *result);
+STR_TYPE_DEF(int, Int);
+STR_TYPE_FUNCS(int, Int);
+static llLexerItem findOtherSide(llLexerItem start, llLexerItem end) {
+	const char *lefts[] = {"(", "[", "{"};
+	const char *rights[] = {")", "]", "}"};
+	__auto_type count = sizeof(lefts) / sizeof(*lefts);
+
+	strInt stack = NULL;
+	int dir = 0;
+	do {
+		if (start == NULL)
+			return NULL;
+		if (start == end)
+			return NULL;
+
+		if (llLexerItemValuePtr(start)->template == &opTemplate) {
+			__auto_type text =
+			    *(const char **)lexerItemValuePtr(llLexerItemValuePtr(start));
+			int i;
+			for (i = 0; i != count; i++) {
+				if (0 == strcmp(lefts[i], text))
+					goto foundLeft;
+				if (0 == strcmp(rights[i], text))
+					goto foundRight;
+			}
+			goto next;
+		foundLeft : {
+			if (dir == 0)
+				dir = 1;
+
+			if (dir == 1)
+				stack = strIntAppendItem(stack, i);
+			else
+				stack = strIntResize(stack, strIntSize(stack) - 1);
+
+			goto next;
+		}
+		foundRight : {
+			if (dir == 0)
+				dir = -1;
+
+			if (dir == -1)
+				stack = strIntAppendItem(stack, i);
+			else
+				stack = strIntResize(stack, strIntSize(stack) - 1);
+			goto next;
+		}
+		}
+	next:
+		if (dir == 0)
+			return NULL;
+
+		if (strIntSize(stack) == 0) {
+			strIntDestroy(&stack);
+			return start;
+		}
+		if (dir == 0)
+			return NULL;
+		else if (dir == -1)
+			start = llLexerItemPrev(start);
+		else if (dir == 1)
+			start = llLexerItemNext(start);
+	} while (strIntSize(stack));
+
+	// TODO whine about unbalanced
+	strIntDestroy(&stack);
+	return NULL;
+}
 static struct parserNode *precCommaRecur(llLexerItem start, llLexerItem end,
                                          llLexerItem *result) {
 	if (start == NULL)
@@ -157,15 +254,20 @@ static struct parserNode *precCommaRecur(llLexerItem start, llLexerItem end,
 
 	struct parserNodeCommaSeq seq;
 	seq.base.type = NODE_COMMA_SEQ;
+	seq.items = NULL;
+
 	__auto_type node = NULL;
 	for (; start != NULL && start != end;) {
 		__auto_type comma = expectOp(llLexerItemValuePtr(start), ",");
 		if (comma) {
 			parserNodeDestroy(&comma);
+			start = llLexerItemNext(start);
 			seq.items = strParserNodeAppendItem(seq.items, node);
 			node = NULL;
 		} else if (node == NULL) {
-			node = parenRecur(start, end, &start);
+			node = prec0Binop(start, end, &start);
+			if (node == NULL)
+				break;
 		} else {
 			break;
 		}
@@ -173,10 +275,12 @@ static struct parserNode *precCommaRecur(llLexerItem start, llLexerItem end,
 	if (result != NULL)
 		*result = start;
 
-	if (seq.items == NULL)
+	if (seq.items == NULL) {
 		return node;
-	else
+	} else {
+		seq.items = strParserNodeAppendItem(seq.items, node);
 		return ALLOCATTE(seq);
+	}
 }
 static struct parserNode *parenRecur(llLexerItem start, llLexerItem end,
                                      llLexerItem *result) {
@@ -184,13 +288,18 @@ static struct parserNode *parenRecur(llLexerItem start, llLexerItem end,
 		return NULL;
 
 	struct parserNode *left = expectOp(llLexerItemValuePtr(start), "(");
-	struct parserNode *right = NULL;
 
+	struct parserNode *right = NULL;
 	struct parserNode *retVal = NULL;
+
 	if (left != NULL) {
+		__auto_type pairEnd = findOtherSide(start, end);
+		if (pairEnd == NULL)
+			goto fail;
+
 		start = llLexerItemNext(start);
 		llLexerItem res;
-		retVal = parenRecur(start, end, &res);
+		retVal = precCommaRecur(start, pairEnd, &res);
 		if (!retVal)
 			goto fail;
 
@@ -219,7 +328,7 @@ success:
 }
 struct parserNode *parseExpression(llLexerItem start, llLexerItem end,
                                    llLexerItem *result) {
-	return prec0Binop(start, end, result);
+	return precCommaRecur(start, end, result);
 }
 struct pnPair {
 	struct parserNode *a, *b;
@@ -302,8 +411,9 @@ static struct parserNode *pairOperator(const char *left, const char *right,
 	result2 = llLexerItemNext(start);
 	if (l == NULL)
 		goto end;
+	__auto_type pairEnd = findOtherSide(start, end);
 
-	exp = precCommaRecur(result2, end, &result2);
+	exp = precCommaRecur(result2, pairEnd, &result2);
 
 	r = expectOp(llLexerItemValuePtr(result2), right);
 	if (r == NULL)
@@ -335,7 +445,7 @@ static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end,
 	const char *binops[] = {".", "->"};
 	const char *unops[] = {"--", "++"};
 	strPNPair tails = NULL;
-	for (; result2 != NULL;) {
+	for (; result2 != NULL && result2 != end;) {
 		for (long i = 0; i != 2; i++) {
 			__auto_type ptr = expectOp(llLexerItemValuePtr(result2), unops[i]);
 			if (ptr != NULL) {
@@ -355,6 +465,9 @@ static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end,
 			__auto_type ptr = expectOp(llLexerItemValuePtr(result2), binops[i]);
 			if (ptr)
 				result2 = llLexerItemNext(result2);
+			else
+				continue;
+
 			__auto_type next = nameParse(result2, end, &result2);
 			if (next == NULL)
 				goto fail;
@@ -400,6 +513,9 @@ static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end,
 
 			goto loop1;
 		}
+
+		// Nothing found
+		break;
 	loop1:;
 	}
 

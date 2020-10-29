@@ -16,7 +16,7 @@ void precParserTests() {
 
 	int success;
 	struct parserNode *node =
-	    parseExpression(llLexerItemFirst(lexerGetItems(lex)), NULL,NULL);
+	    parseExpression(llLexerItemFirst(lexerGetItems(lex)), NULL, NULL);
 	assert(node);
 	{
 		/**
@@ -60,8 +60,8 @@ void precParserTests() {
 		lexerUpdate(lex, (struct __vec *)textStr, &err);
 		assert(!err);
 
-		struct parserNode *node = parseExpression(
-		    llLexerItemFirst(lexerGetItems(lex)), NULL,NULL);
+		struct parserNode *node =
+		    parseExpression(llLexerItemFirst(lexerGetItems(lex)), NULL, NULL);
 		assert(node);
 		{
 			assert(node->type == NODE_BINOP);
@@ -89,8 +89,6 @@ void precParserTests() {
 			assert(0 == strcmp(token->text, "d"));
 		}
 	}
-}
-	/*
 	strCharDestroy(&textStr);
 	text = "a,b,c";
 	textStr = strCharAppendData(NULL, text, strlen(text));
@@ -98,139 +96,140 @@ void precParserTests() {
 	lexerUpdate(lex, (struct __vec *)textStr, &err);
 	assert(!err);
 
-	node =
-	    parseExpression(llLexerItemFirst(lexerGetItems(lex)), NULL, NULL);
-	assert(success);
+	node = parseExpression(llLexerItemFirst(lexerGetItems(lex)), NULL, NULL);
+	assert(node);
 	{
 		assert(node->type == NODE_COMMA_SEQ);
-		struct parserNodeCommaSequence *seq = (void *)node;
-		assert(strParserNodeSize(seq->commas) == 2);
-		assert(strParserNodeSize(seq->nodes) == 3);
+		struct parserNodeCommaSeq *seq = (void *)node;
+		assert(strParserNodeSize(seq->items) == 3);
 
 		const char *names[] = {"a", "b", "c"};
 		for (long i = 0; i != 3; i++) {
-			assert(seq->nodes[i]->type == NODE_NAME_TOKEN);
-			struct parserNodeNameToken *name = (void *)seq->nodes[i];
+			assert(seq->items[i]->type == NODE_NAME);
+			struct parserNodeName *name = (void *)seq->items[i];
 			assert(0 == strcmp(name->text, names[i]));
 		}
 	}
+}
+/*
 
-	strCharDestroy(&textStr);
-	text = "c=!(a+1*3)+ ++b";
-	textStr = strCharAppendData(NULL, text, strlen(text));
-	err = 0;
-	lexerUpdate(lex, (struct __vec *)textStr, &err);
-	assert(!err);
-	node =
-	    parseExpression(llLexerItemFirst(lexerGetItems(lex)), NULL, 1, &success);
-	assert(success);
-	{
-		// c =
-		assert(node->type == NODE_EXPR_BINOP);
-		struct parserNodeBinop *binop = (void *)node;
-		struct parserNodeOpTerm *op = (void *)binop->op;
-		assert(op->base.type == NODE_OP_TERM);
-		assert(0 == strcmp(op->text, "="));
-		struct parserNodeNameToken *name = (void *)binop->a;
-		assert(name->base.type == NODE_NAME_TOKEN);
-		assert(0 == strcmp(name->text, "c"));
 
-		//+
-		binop = (void *)binop->b;
-		assert(binop->base.type == NODE_EXPR_BINOP);
-		op = (void *)binop->op;
-		assert(op->base.type == NODE_OP_TERM);
-		assert(0 == strcmp(op->text, "+"));
-		__auto_type plus1 = binop;
+strCharDestroy(&textStr);
+text = "c=!(a+1*3)+ ++b";
+textStr = strCharAppendData(NULL, text, strlen(text));
+err = 0;
+lexerUpdate(lex, (struct __vec *)textStr, &err);
+assert(!err);
+node =
+    parseExpression(llLexerItemFirst(lexerGetItems(lex)), NULL, 1, &success);
+assert(success);
+{
+  // c =
+  assert(node->type == NODE_EXPR_BINOP);
+  struct parserNodeBinop *binop = (void *)node;
+  struct parserNodeOpTerm *op = (void *)binop->op;
+  assert(op->base.type == NODE_OP_TERM);
+  assert(0 == strcmp(op->text, "="));
+  struct parserNodeNameToken *name = (void *)binop->a;
+  assert(name->base.type == NODE_NAME_TOKEN);
+  assert(0 == strcmp(name->text, "c"));
 
-		//++
-		struct parserNodeUnop *unop1 = (void *)plus1->b;
-		assert(unop1->base.type == NODE_EXPR_UNOP);
-		name = (void *)unop1->a;
-		assert(name->base.type == NODE_NAME_TOKEN);
-		assert(0 == strcmp(name->text, "b"));
-		op = (void *)unop1->op;
-		assert(op->base.type == NODE_OP_TERM);
-		assert(0 == strcmp(op->text, "++"));
+  //+
+  binop = (void *)binop->b;
+  assert(binop->base.type == NODE_EXPR_BINOP);
+  op = (void *)binop->op;
+  assert(op->base.type == NODE_OP_TERM);
+  assert(0 == strcmp(op->text, "+"));
+  __auto_type plus1 = binop;
 
-		//!
-		struct parserNodeUnop *unop2 = (void *)plus1->a;
-		assert(unop2->base.type == NODE_EXPR_UNOP);
-		op = (void *)unop2->op;
-		assert(op->base.type == NODE_OP_TERM);
-		assert(0 == strcmp(op->text, "!"));
+  //++
+  struct parserNodeUnop *unop1 = (void *)plus1->b;
+  assert(unop1->base.type == NODE_EXPR_UNOP);
+  name = (void *)unop1->a;
+  assert(name->base.type == NODE_NAME_TOKEN);
+  assert(0 == strcmp(name->text, "b"));
+  op = (void *)unop1->op;
+  assert(op->base.type == NODE_OP_TERM);
+  assert(0 == strcmp(op->text, "++"));
 
-		struct parserNodeBinop *plus2 = (void *)unop2->a;
-		name = (void *)plus2->a;
-		assert(name->base.type == NODE_NAME_TOKEN);
-		assert(0 == strcmp(name->text, "a"));
-		op = (void *)plus2->op;
-		assert(op->base.type == NODE_OP_TERM);
-		assert(0 == strcmp(op->text, "+"));
+  //!
+  struct parserNodeUnop *unop2 = (void *)plus1->a;
+  assert(unop2->base.type == NODE_EXPR_UNOP);
+  op = (void *)unop2->op;
+  assert(op->base.type == NODE_OP_TERM);
+  assert(0 == strcmp(op->text, "!"));
 
-		struct parserNodeBinop *times = (void *)plus2->b;
-		struct parserNodeIntLiteral *intLit = (void *)times->a;
-		assert(intLit->base.type == NODE_LIT_INT);
-		assert(intLit->value.value.sInt == 1);
-		intLit = (void *)times->b;
-		assert(intLit->base.type == NODE_LIT_INT);
-		assert(intLit->value.value.sInt == 3);
-	}
-	strCharDestroy(&textStr);
-	text = "a(b(),,c)";
-	textStr = strCharAppendData(NULL, text, strlen(text));
-	err = 0;
-	lexerUpdate(lex, (struct __vec *)textStr, &err);
-	assert(!err);
-	node =
-	    parseExpression(llLexerItemFirst(lexerGetItems(lex)), NULL, 1, &success);
-	assert(success);
-	{
-		assert(node->type == NODE_FUNC_CALL);
-		struct parserNodeFunctionCall *call = (void *)node;
-		struct parserNodeNameToken *name = (void *)call->func;
-		assert(name->base.type == NODE_NAME_TOKEN);
-		assert(0 == strcmp(name->text, "a"));
+  struct parserNodeBinop *plus2 = (void *)unop2->a;
+  name = (void *)plus2->a;
+  assert(name->base.type == NODE_NAME_TOKEN);
+  assert(0 == strcmp(name->text, "a"));
+  op = (void *)plus2->op;
+  assert(op->base.type == NODE_OP_TERM);
+  assert(0 == strcmp(op->text, "+"));
 
-		assert(strParserNodeSize(call->args) == 3);
-		struct parserNodeFunctionCall *call2 = (void *)call->args[0];
-		assert(call2->base.type == NODE_FUNC_CALL);
-		name = (void *)call2->func;
-		assert(name->base.type == NODE_NAME_TOKEN);
-		assert(0 == strcmp(name->text, "b"));
-		assert(strParserNodeSize(call2->args) == 0);
+  struct parserNodeBinop *times = (void *)plus2->b;
+  struct parserNodeIntLiteral *intLit = (void *)times->a;
+  assert(intLit->base.type == NODE_LIT_INT);
+  assert(intLit->value.value.sInt == 1);
+  intLit = (void *)times->b;
+  assert(intLit->base.type == NODE_LIT_INT);
+  assert(intLit->value.value.sInt == 3);
+}
+strCharDestroy(&textStr);
+text = "a(b(),,c)";
+textStr = strCharAppendData(NULL, text, strlen(text));
+err = 0;
+lexerUpdate(lex, (struct __vec *)textStr, &err);
+assert(!err);
+node =
+    parseExpression(llLexerItemFirst(lexerGetItems(lex)), NULL, 1, &success);
+assert(success);
+{
+  assert(node->type == NODE_FUNC_CALL);
+  struct parserNodeFunctionCall *call = (void *)node;
+  struct parserNodeNameToken *name = (void *)call->func;
+  assert(name->base.type == NODE_NAME_TOKEN);
+  assert(0 == strcmp(name->text, "a"));
 
-		assert(call->args[1] == NULL);
+  assert(strParserNodeSize(call->args) == 3);
+  struct parserNodeFunctionCall *call2 = (void *)call->args[0];
+  assert(call2->base.type == NODE_FUNC_CALL);
+  name = (void *)call2->func;
+  assert(name->base.type == NODE_NAME_TOKEN);
+  assert(0 == strcmp(name->text, "b"));
+  assert(strParserNodeSize(call2->args) == 0);
 
-		name = (void *)call->args[2];
-		assert(name->base.type == NODE_NAME_TOKEN);
-		assert(0 == strcmp(name->text, "c"));
-	}
+  assert(call->args[1] == NULL);
+
+  name = (void *)call->args[2];
+  assert(name->base.type == NODE_NAME_TOKEN);
+  assert(0 == strcmp(name->text, "c"));
+}
 }
 void typeParserTests() {
-	const char *text = "I64i x=1";
-	__auto_type textStr = strCharAppendData(NULL, text, strlen(text));
-	__auto_type lex = lexerCreate((struct __vec *)textStr, holyCLexerTemplates(),
-	                              charCmp, skipWhitespace);
-	__auto_type items = lexerGetItems(lex);
-	__auto_type str =
-	    parserLexerItems2Str(llLexerItemFirst(items), llLexerItemLast(items));
-	char *name;
-	long count;
-	__auto_type node =
-	    parseVarDecls(str, str + strParserNodeSize(str), &name, &count);
-	assert(node != NULL);
-	assert(count == 4);
-	assert(node->type == NODE_VAR_DECL);
-	struct parserNodeVarDecl *decl = (void *)node;
-	assert(0 == strcmp(decl->name, "x"));
-	assert(decl->type == &typeI64i);
-	assert(decl->dftVal->type == NODE_LIT_INT);
+const char *text = "I64i x=1";
+__auto_type textStr = strCharAppendData(NULL, text, strlen(text));
+__auto_type lex = lexerCreate((struct __vec *)textStr, holyCLexerTemplates(),
+                              charCmp, skipWhitespace);
+__auto_type items = lexerGetItems(lex);
+__auto_type str =
+    parserLexerItems2Str(llLexerItemFirst(items), llLexerItemLast(items));
+char *name;
+long count;
+__auto_type node =
+    parseVarDecls(str, str + strParserNodeSize(str), &name, &count);
+assert(node != NULL);
+assert(count == 4);
+assert(node->type == NODE_VAR_DECL);
+struct parserNodeVarDecl *decl = (void *)node;
+assert(0 == strcmp(decl->name, "x"));
+assert(decl->type == &typeI64i);
+assert(decl->dftVal->type == NODE_LIT_INT);
 
-	return;
-	strCharDestroy(&textStr);
-	text = "I64i (*x[])(I64i x)";
-	textStr = strCharAppendData(NULL, text, strlen(text));
-	lexerUpdate(lex, ^textStr);
-	}
-	*/
+return;
+strCharDestroy(&textStr);
+text = "I64i (*x[])(I64i x)";
+textStr = strCharAppendData(NULL, text, strlen(text));
+lexerUpdate(lex, ^textStr);
+}
+*/
