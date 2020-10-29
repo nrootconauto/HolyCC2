@@ -37,7 +37,7 @@ list(APPEND sources "tests/subGraphTests.c")
 list(APPEND tests "tests/cacheingLexerTests.c")
 list(APPEND tests "tests/preprocessorTests.c")
 list(APPEND tests "tests/eventPoolTests.c")
-#list(APPEND tests "tests/parserTests.c")
+list(APPEND tests "tests/parserTests.c")
 list(APPEND tests "tests/graphDominanceTests.c")
 list(APPEND tests "tests/graphColoringTests.c")
 

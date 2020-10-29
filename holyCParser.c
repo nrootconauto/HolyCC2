@@ -70,18 +70,13 @@ static void initTemplates() {
 	opTemplate = keywordTemplateCreate(operators, opCount);
 	intTemplate = intTemplateCreate();
 	nameTemplate = nameTemplateCreate(keywords, kwCount);
-	struct __lexerItemTemplate *templates2[]={
-	&kwTemplate , 
-	&opTemplate ,
-	&intTemplate,
-	&nameTemplate
-	};
-	__auto_type templateCount=sizeof(templates2)/sizeof(*templates2);
-	templates=strLexerItemTemplateAppendData(NULL,(void*)templates2,templateCount);
+	struct __lexerItemTemplate *templates2[] = {&kwTemplate, &opTemplate,
+	                                            &intTemplate, &nameTemplate};
+	__auto_type templateCount = sizeof(templates2) / sizeof(*templates2);
+	templates =
+	    strLexerItemTemplateAppendData(NULL, (void *)templates2, templateCount);
 }
-strLexerItemTemplate holyCLexerTemplates() {
- return templates;
-}
+strLexerItemTemplate holyCLexerTemplates() { return templates; }
 static struct parserNode *expectOp(const struct __lexerItem *item,
                                    const char *text) {
 	if (item == NULL)
@@ -142,8 +137,6 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end,
 
 	// TODO add float template.
 }
-static struct parserNode *prec0Unop(llLexerItem start, llLexerItem end,
-                                    llLexerItem *result);
 static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end,
                                      llLexerItem *result);
 static struct parserNode *prec1Recur(llLexerItem start, llLexerItem end,
@@ -153,7 +146,33 @@ static struct parserNode *prec2Recur(llLexerItem start, llLexerItem end,
 static struct parserNode *prec3Recur(llLexerItem start, llLexerItem end,
                                      llLexerItem *result);
 static struct parserNode *precCommaRecur(llLexerItem start, llLexerItem end,
-                                         llLexerItem *result) {}
+                                         llLexerItem *result) {
+	if (start == NULL)
+		return NULL;
+
+	struct parserNodeCommaSeq seq;
+	seq.base.type = NODE_COMMA_SEQ;
+	__auto_type node = NULL;
+	for (; start != NULL && start != end;) {
+		__auto_type comma = expectOp(llLexerItemValuePtr(start), ",");
+		if (comma) {
+			parserNodeDestroy(&comma);
+			seq.items = strParserNodeAppendItem(seq.items, node);
+			node = NULL;
+		} else if (node == NULL) {
+			node = parenRecur(start, end, &start);
+		} else {
+			break;
+		}
+	}
+	if (result != NULL)
+		*result = start;
+
+	if (seq.items == NULL)
+		return node;
+	else
+		return ALLOCATTE(seq);
+}
 static struct parserNode *parenRecur(llLexerItem start, llLexerItem end,
                                      llLexerItem *result) {
 	if (start == NULL)
@@ -174,7 +193,7 @@ static struct parserNode *parenRecur(llLexerItem start, llLexerItem end,
 		if (!right)
 			goto fail;
 	} else {
-		retVal = prec0Unop(start, end, result);
+		retVal = prec0Binop(start, end, result);
 		goto success;
 	}
 fail:
@@ -189,8 +208,9 @@ success:
 
 	return retVal;
 }
-struct parserNode *parseExpression(llLexerItem start,llLexerItem end,llLexerItem *result) {
- return parenRecur(start,end,result);
+struct parserNode *parseExpression(llLexerItem start, llLexerItem end,
+                                   llLexerItem *result) {
+	return parenRecur(start, end, result);
 }
 struct pnPair {
 	struct parserNode *a, *b;
@@ -373,6 +393,8 @@ static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end,
 		}
 	loop1:;
 	}
+	
+	return head;
 fail:
 	parserNodeDestroy(&head);
 	return NULL;
@@ -433,7 +455,7 @@ static struct parserNode *binopLeftAssoc(
 	if (head == NULL)
 		goto end;
 
-	tail = tailBinop(start, end, &result2, ops, count, next);
+	tail = tailBinop(result2, end, &result2, ops, count, next);
 	for (long i = 0; i != strPNPairSize(tail); i++) {
 		struct parserNodeBinop binop;
 		binop.base.type = NODE_BINOP;

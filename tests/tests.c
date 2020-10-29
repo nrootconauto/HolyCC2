@@ -29,6 +29,6 @@ int main() {
 	  */
 	// cachingLexerTests();
 	precParserTests();
-	typeParserTests();
+	//typeParserTests();
 	return 0;
 }
