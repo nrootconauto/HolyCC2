@@ -162,7 +162,7 @@ void precParserTests() {
 		assert(0 == strcmp(op->text, "++"));
 		assert(unop->isSuffix == 1);
 
-		name = (void *)binop->a;
+		name = (void *)unop->a;
 		assert(name->base.type = NODE_NAME);
 		assert(0 == strcmp(name->text, "a"));
 	}
