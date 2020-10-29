@@ -44,13 +44,13 @@ static struct __vec *keywordLex(struct __vec *new, long pos, long *end,
 				if (alnumCount != len)
 					continue;
 
-			*end = pos + len;
-
 			if (alnumCount == 0) {
 				if (largestIndex == -1)
 					largestIndex = i;
 				else if (strlen(keywords[largestIndex]) < len)
 					largestIndex = i;
+
+				*end = pos + strlen(keywords[largestIndex]);
 			} else
 				return __vecAppendItem(NULL, &keywords[i], sizeof(*keywords));
 		}

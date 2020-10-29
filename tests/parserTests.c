@@ -110,6 +110,62 @@ void precParserTests() {
 			assert(0 == strcmp(name->text, names[i]));
 		}
 	}
+	strCharDestroy(&textStr);
+	text = "*++a,a++.b.c++";
+	textStr = strCharAppendData(NULL, text, strlen(text));
+	err = 0;
+	lexerUpdate(lex, (struct __vec *)textStr, &err);
+	assert(!err);
+
+	node = parseExpression(llLexerItemFirst(lexerGetItems(lex)), NULL, NULL);
+	assert(node);
+	{
+		assert(node->type = NODE_COMMA_SEQ);
+		struct parserNodeCommaSeq *seq = (void *)node;
+		assert(strParserNodeSize(seq->items) == 2);
+
+		struct parserNodeUnop *unop = (void *)seq->items[0];
+		struct parserNodeOpTerm *op = (void *)unop->op;
+		assert(op->base.type = NODE_OP);
+		assert(0 == strcmp(op->text, "*"));
+		assert(unop->isSuffix == 0);
+
+		unop = (void *)unop->a;
+		op = (void *)unop->op;
+		assert(op->base.type = NODE_OP);
+		assert(0 == strcmp(op->text, "++"));
+		assert(unop->isSuffix == 0);
+
+		struct parserNodeName *name = (void *)unop->a;
+		assert(name->base.type = NODE_NAME);
+		assert(0 == strcmp(name->text, "a"));
+
+		unop = (void *)seq->items[1];
+		op = (void *)unop->op;
+		assert(op->base.type = NODE_OP);
+		assert(0 == strcmp(op->text, "++"));
+		assert(unop->isSuffix == 1);
+
+		struct parserNodeBinop *binop = (void *)unop->a;
+		name = (void *)binop->b;
+		assert(name->base.type = NODE_NAME);
+		assert(0 == strcmp(name->text, "c"));
+
+		binop = (void *)binop->a;
+		name = (void *)binop->b;
+		assert(name->base.type = NODE_NAME);
+		assert(0 == strcmp(name->text, "b"));
+
+		unop = (void *)binop->a;
+		op = (void *)unop->op;
+		assert(op->base.type = NODE_OP);
+		assert(0 == strcmp(op->text, "++"));
+		assert(unop->isSuffix == 1);
+
+		name = (void *)binop->a;
+		assert(name->base.type = NODE_NAME);
+		assert(0 == strcmp(name->text, "a"));
+	}
 }
 /*
 

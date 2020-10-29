@@ -278,6 +278,7 @@ static struct parserNode *precCommaRecur(llLexerItem start, llLexerItem end,
 	if (seq.items == NULL) {
 		return node;
 	} else {
+		//Append last item
 		seq.items = strParserNodeAppendItem(seq.items, node);
 		return ALLOCATTE(seq);
 	}
@@ -555,7 +556,7 @@ static struct parserNode *prec1Recur(llLexerItem start, llLexerItem end,
 			goto fail;
 		}
 
-		for (long i = strParserNodeSize(opStack); i >= 0; i++) {
+		for (long i = strParserNodeSize(opStack)-1; i >= 0; i--) {
 			struct parserNodeUnop unop;
 			unop.base.type = NODE_BINOP;
 			unop.a = tail;
