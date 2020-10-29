@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <cacheingLexer.h>
 #include <cacheingLexerItems.h>
 #include <holyCParser.h>
 STR_TYPE_DEF(char, Char);
@@ -15,8 +16,8 @@ void precParserTests() {
 
 	int success;
 	struct parserNode *node =
-	    parseExpression(llLexerItemFirst(lexerGetItems(lex)), NULL, 0, &success);
-	assert(success);
+	    parseExpression(llLexerItemFirst(lexerGetItems(lex)), NULL,NULL);
+	assert(node);
 	{
 		/**
 		 *       +
@@ -27,14 +28,14 @@ void precParserTests() {
 		 *  / \
 		 * 0   1
 		 */
-		assert(node->type == NODE_EXPR_BINOP);
+		assert(node->type == NODE_BINOP);
 		struct parserNodeBinop *binop = (void *)node;
 
 		assert(binop->b->type == NODE_LIT_INT);
-		struct parserNodeIntLiteral *intLit = (void *)binop->b;
+		struct parserNodeLitInt *intLit = (void *)binop->b;
 		assert(intLit->value.value.sInt == 3);
 
-		assert(binop->a->type == NODE_EXPR_BINOP);
+		assert(binop->a->type == NODE_BINOP);
 		binop = (void *)binop->a;
 
 		intLit = (void *)binop->b;
@@ -196,35 +197,37 @@ void precParserTests() {
 		assert(name->base.type == NODE_NAME_TOKEN);
 		assert(0 == strcmp(name->text, "b"));
 		assert(strParserNodeSize(call2->args) == 0);
-		
-		assert(call->args[1]==NULL);
-		
+
+		assert(call->args[1] == NULL);
+
 		name = (void *)call->args[2];
 		assert(name->base.type == NODE_NAME_TOKEN);
 		assert(0 == strcmp(name->text, "c"));
 	}
 }
 void typeParserTests() {
- const char * text="I64i x=1";
- __auto_type textStr= strCharAppendData(NULL,text,strlen(text));
+	const char *text = "I64i x=1";
+	__auto_type textStr = strCharAppendData(NULL, text, strlen(text));
 	__auto_type lex = lexerCreate((struct __vec *)textStr, holyCLexerTemplates(),
 	                              charCmp, skipWhitespace);
-	__auto_type items= lexerGetItems(lex);
-	__auto_type str=parserLexerItems2Str(llLexerItemFirst(items),llLexerItemLast(items));
+	__auto_type items = lexerGetItems(lex);
+	__auto_type str =
+	    parserLexerItems2Str(llLexerItemFirst(items), llLexerItemLast(items));
 	char *name;
 	long count;
-	__auto_type node= parseVarDecls( str ,str+strParserNodeSize(str),&name,&count);
-	assert(node!=NULL);
-	assert(count==4);
-	assert(node->type==NODE_VAR_DECL);
-	struct parserNodeVarDecl *decl=(void*)node;
-	assert(0==strcmp(decl->name,"x"));
-	assert(decl->type==&typeI64i);
-	assert(decl->dftVal->type==NODE_LIT_INT);
-	
+	__auto_type node =
+	    parseVarDecls(str, str + strParserNodeSize(str), &name, &count);
+	assert(node != NULL);
+	assert(count == 4);
+	assert(node->type == NODE_VAR_DECL);
+	struct parserNodeVarDecl *decl = (void *)node;
+	assert(0 == strcmp(decl->name, "x"));
+	assert(decl->type == &typeI64i);
+	assert(decl->dftVal->type == NODE_LIT_INT);
+
 	return;
 	strCharDestroy(&textStr);
-	text="I64i (*x[])(I64i x)";
-	textStr= strCharAppendData(NULL,text,strlen(text));
-	lexerUpdate(lex,^textStr);
-} 
+	text = "I64i (*x[])(I64i x)";
+	textStr = strCharAppendData(NULL, text, strlen(text));
+	lexerUpdate(lex, ^textStr);
+}

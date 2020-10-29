@@ -2,16 +2,24 @@
 #include <readersWritersLock.h>
 #define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
-static int intCmp(const void *a, const void *b) {
-	return *(int *)a - *(int *)b;
+static int degree(const struct __graphNode *node) {
+	__auto_type out = __graphNodeOutgoing(node);
+	__auto_type in = __graphNodeIncoming(node);
+
+	int degree = strGraphEdgePSize(out) + strGraphEdgePSize(in);
+
+	strGraphEdgePDestroy(&in);
+	strGraphEdgePDestroy(&out);
+
+	return degree;
 }
-STR_TYPE_DEF(int, Int);
-STR_TYPE_FUNCS(int, Int);
 struct vertexInfo {
 	struct __graphNode *node;
+	int pri;
+	_Atomic int counter;
 	int color;
-	strGraphNodeP adjUncolored;
-	strInt adjColors;
+	strGraphNodeP prev;
+	strGraphNodeP succ;
 	struct rwLock *lock;
 };
 LL_TYPE_DEF(struct vertexPriority, Data);
@@ -58,36 +66,71 @@ static struct vertexInfo *llDataGet(const llData data,
                                     const struct __graphNode *node) {
 	return llDataValuePtr(llDataFindRight(llDataFirst(data), node, llDataGetCmp));
 }
+STR_TYPE_DEF(int, Int);
+STR_TYPE_FUNCS(int, Int);
 // TODO switch data/item
 struct __predPair {
 	llData data;
 	strGraphNodeP preds;
 };
-static strGraphNodeP adj(struct __graphNode *node) {
-	__auto_type out = __graphNodeOutgoing(node);
-	__auto_type in = __graphNodeIncoming(node);
+static int predHasColor(const void *item, const void *data) {
+	const struct __predPair *pair = data;
+	for (long i = 0; i != strGraphNodePSize(pair->preds); i++) {
+		__auto_type color = llDataGet(pair->data, pair->preds[i]);
+		DEBUG_PRINT("NODE %i has color %i\n",
+		            *(int *)__graphNodeValuePtr(pair->preds[i]), color->color);
+		if (color->color == *(int *)item) {
 
-	strGraphNodeP retVal = NULL;
+			return 1;
+		}
+	}
 
-	for (long i = 0; i != strGraphEdgePSize(out); i++)
-		if (NULL ==
-		    strGraphNodePSortedFind(retVal, __graphEdgeOutgoing(out[i]), ptrPtrCmp))
-			retVal = strGraphNodePSortedInsert(retVal, __graphEdgeOutgoing(out[i]),
-			                                   ptrPtrCmp);
-
-	for (long i = 0; i != strGraphEdgePSize(in); i++)
-		if (NULL ==
-		    strGraphNodePSortedFind(retVal, __graphEdgeOutgoing(in[i]), ptrPtrCmp))
-			retVal = strGraphNodePSortedInsert(retVal, __graphEdgeIncoming(in[i]),
-			                                   ptrPtrCmp);
-
-	strGraphEdgePDestroy(&out);
-	strGraphEdgePDestroy(&in);
-	return retVal;
+	return 0;
 }
-static int removeIfNodeEq(const void *a, const void *b) {
-	const struct __graphNode **A = (void *)a, **B = (void *)b;
-	return (*A == *B);
+static int getColor(llData data, struct vertexInfo *nodeInfo) {
+	long len = strGraphNodePSize(nodeInfo->prev);
+	if (len == 0)
+		return 0;
+
+	strInt colors2 = strIntResize(NULL, len + 1);
+	for (long i = 0; i != len + 1; i++) {
+		if (i < len)
+			rwReadStart(llDataGet(data, nodeInfo->prev[i])->lock);
+
+		colors2[i] = i;
+	}
+
+	struct __predPair pair;
+	pair.preds = nodeInfo->prev;
+	colors2 = strIntRemoveIf(colors2, predHasColor, &pair);
+
+	int minColor = colors2[0];
+	DEBUG_PRINT("NODE %i has Min color %i\n",
+	            *(int *)__graphNodeValuePtr(nodeInfo->node), minColor);
+
+	for (long i = 0; i != len; i++)
+		rwReadEnd(llDataGet(data, nodeInfo->prev[i])->lock);
+
+	strIntDestroy(&colors2);
+	return minColor;
+}
+static void jpColor(llData data, struct __graphNode *node) {
+	__auto_type nodeData = llDataGet(data, node);
+
+	int color = getColor(data, nodeData);
+
+	rwWriteStart(nodeData->lock);
+	nodeData->color = color;
+	DEBUG_PRINT("NODE %i's COLOR IS %i\n", *(int *)__graphNodeValuePtr(node),
+	            nodeData->color);
+	rwWriteEnd(nodeData->lock);
+
+	for (long i = 0; i != strGraphNodePSize(nodeData->succ); i++) {
+		__auto_type succ = llDataGet(data, nodeData->succ[i]);
+		if (--succ->counter == 0) {
+			jpColor(data, nodeData->succ[i]);
+		}
+	}
 }
 llVertexColor graphColor(const struct __graphNode *node) {
 	__auto_type allNodes =
@@ -96,98 +139,58 @@ llVertexColor graphColor(const struct __graphNode *node) {
 	                        visitNode);
 	__graphNodeVisitBackward((struct __graphNode *)node, &allNodes, alwaysTrue,
 	                         visitNode);
-	__auto_type allNodesLen = strGraphNodePSize(allNodes);
-	strGraphNodeP Q[allNodesLen][allNodesLen];
-	for (long i = 0; i != allNodesLen; i++)
-		for (long i2 = 0; i2 != allNodesLen; i2++)
-			Q[i][i2] = NULL;
 
 	llData datas = NULL;
-	for (long i = 0; i != allNodesLen; i++) {
+	for (long i = 0; i != strGraphNodePSize(allNodes); i++) {
 		struct vertexInfo tmp;
+		tmp.pri = degree(allNodes[i]);
 		tmp.node = allNodes[i];
 		tmp.lock = rwLockCreate();
+		tmp.counter = -1;
 		tmp.color = -1;
-		tmp.adjColors = NULL;
-		tmp.adjUncolored = adj(allNodes[i]);
-
-		DEBUG_PRINT("NODE: %i,has %li adjs\n",
-		            *(int *)__graphNodeValuePtr(allNodes[i]),
-		            strGraphNodePSize(tmp.adjUncolored));
+		tmp.succ = NULL;
+		tmp.prev = NULL;
 
 		datas = llDataInsert(datas, llDataCreate(tmp), llDataInsertCmp);
-
-		__auto_type ptr = &Q[0][strGraphNodePSize(tmp.adjUncolored)];
-		*ptr = strGraphNodePAppendItem(*ptr, allNodes[i]);
 	}
 
-	int s = 0;
-	while (s >= 0) {
-		long maxLen = 0, maxIndex = 0;
-		for (long i = 0; i != allNodesLen; i++) {
-			__auto_type len = strGraphNodePSize(Q[s][i]);
-			if (len > maxLen) {
-				maxLen = len;
-				maxIndex = i;
-			}
+	for (long i = 0; i != strGraphNodePSize(allNodes); i++) {
+		__auto_type v = llDataGet(datas, allNodes[i]);
+
+		__auto_type out = __graphNodeOutgoing(allNodes[i]);
+		__auto_type in = __graphNodeIncoming(allNodes[i]);
+		for (long i2 = 0; i2 != strGraphEdgePSize(out); i2++) {
+			__auto_type u = llDataGet(datas, __graphEdgeOutgoing(out[i2]));
+
+			if (v->pri > u->pri)
+				v->succ = strGraphNodePSortedInsert(v->succ, u->node, ptrPtrCmp);
+			else if (v->pri < u->pri)
+				v->prev = strGraphNodePSortedInsert(v->succ, u->node, ptrPtrCmp);
 		}
 
-		// Pop
-		__auto_type v = Q[s][maxIndex][maxLen - 1];
-		Q[s][maxIndex] = strGraphNodePResize(Q[s][maxIndex], maxLen - 1);
+		for (long i2 = 0; i2 != strGraphEdgePSize(in); i2++) {
+			__auto_type u = llDataGet(datas, __graphEdgeIncoming(in[i2]));
 
-		__auto_type vData = llDataGet(datas, v);
-
-		strInt valids = strIntResize(NULL, strIntSize(vData->adjColors) + 1);
-		for (long i = 0; i != strIntSize(valids); i++)
-			valids[i] = i + 1;
-		valids = strIntSetDifference(valids, vData->adjColors, intCmp);
-
-		vData->color = valids[0];
-		DEBUG_PRINT("NODE: %i,has color %i \n",
-		            *(int *)__graphNodeValuePtr(vData->node), valids[0]);
-
-		for (long i = 0; i != strGraphNodePSize(vData->adjUncolored); i++) {
-			__auto_type uData = llDataGet(datas, vData->adjUncolored[i]);
-
-			__auto_type ptr = &Q[strIntSize(uData->adjColors)]
-			                    [strGraphNodePSize(uData->adjUncolored)];
-			*ptr = strGraphNodePRemoveIf(*ptr, removeIfNodeEq, &uData->node);
-
-			DEBUG_PRINT("NODE: %i removed at %li ,%li\n",
-			            *(int *)__graphNodeValuePtr(uData->node),
-			            strIntSize(uData->adjColors),
-			            strGraphNodePSize(uData->adjUncolored));
-
-			uData->adjColors =
-			    strIntSortedInsert(uData->adjColors, vData->color, intCmp);
-			uData->adjUncolored = strGraphNodePRemoveIf(uData->adjUncolored,
-			                                            removeIfNodeEq, &vData->node);
-
-			ptr = &Q[strIntSize(uData->adjColors)]
-			        [strGraphNodePSize(uData->adjUncolored)];
-			*ptr = strGraphNodePAppendItem(*ptr, uData->node);
-
-			DEBUG_PRINT("NODE: %i inserted at %li ,%li\n",
-			            *(int *)__graphNodeValuePtr(uData->node),
-			            strIntSize(uData->adjColors),
-			            strGraphNodePSize(uData->adjUncolored));
-
-			long newS = strIntSize(uData->adjColors);
-			s = (s > newS) ? s : newS;
+			if (v->pri > u->pri)
+				v->succ = strGraphNodePSortedInsert(v->succ, u->node, ptrPtrCmp);
+			else if (v->pri < u->pri)
+				v->prev = strGraphNodePSortedInsert(v->succ, u->node, ptrPtrCmp);
 		}
-		while (s >= 0) {
-			int isNull = 1;
-			for (long i = 0; i != allNodesLen; i++) {
-				if (strGraphNodePSize(Q[s][i]) != 0) {
-					isNull = 0;
-					break;
-				}
-			}
-			if (isNull)
-				s--;
-			else
-				break;
+
+		v->counter = strGraphNodePSize(v->prev);
+		DEBUG_PRINT("NODE %i,succs:%li,preds:%li\n",
+		            *(int *)__graphNodeValuePtr(v->node),
+		            strGraphNodePSize(v->succ), strGraphNodePSize(v->prev));
+
+		strGraphEdgePDestroy(&out);
+		strGraphEdgePDestroy(&in);
+	}
+
+	for (long i = 0; i != strGraphNodePSize(allNodes); i++) {
+		// Parallel
+
+		if (llDataGet(datas, allNodes[i])->prev == NULL) {
+			jpColor(datas, allNodes[i]);
 		}
 	}
 
@@ -205,17 +208,4 @@ llVertexColor graphColor(const struct __graphNode *node) {
 	llDataDestroy(&datas, NULL);
 
 	return colors;
-}
-long vertexColorCount(const llVertexColor colors) {
-	__auto_type first = llVertexColorFirst(colors);
-	strInt unique = NULL;
-	for (__auto_type node = first; node != NULL; node = llVertexColorNext(node))
-		if (NULL ==
-		    strIntSortedFind(unique, llVertexColorValuePtr(node)->color, intCmp)) {
-			unique = strIntSortedInsert(unique, llVertexColorValuePtr(node)->color,
-			                            intCmp);
-		}
-	long count = strIntSize(unique);
-	strIntDestroy(&unique);
-	return count;
 }

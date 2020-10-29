@@ -10,6 +10,3 @@ LL_TYPE_FUNCS(struct vertexColoring, VertexColor);
 llVertexColor graphColor(const struct __graphNode *node);
 struct vertexColoring *llVertexColorGet(const llVertexColor data,
                                                const struct __graphNode *node);
-struct vertexColoring *llVertexColorGet(const llVertexColor data,
-                                        const struct __graphNode *node);
-long vertexColorCount(const llVertexColor colors);

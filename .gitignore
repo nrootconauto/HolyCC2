@@ -194,6 +194,7 @@ build/.cmake/api/v1/reply/target-holycc2-Debug-529e03b5e9376e50b5a6.json
 build/.cmake/api/v1/reply/codemodel-v2-a7ac98f9c5558d6f1741.json
 build/.cmake/api/v1/reply/index-2020-10-24T20-21-59-0882.json
 build/.cmake/api/v1/reply/target-holycc2-Debug-e971ad0fb180e7583a92.json
+<<<<<<< HEAD
 build/.cmake/api/v1/reply/index-2020-10-25T15-57-32-0900.json
 build/val.txt.core.35007
 build/val.txt.core.35494
@@ -212,3 +213,12 @@ build/.cmake/api/v1/reply/index-2020-10-27T16-35-46-0607.json
 build/.cmake/api/v1/reply/index-2020-10-27T21-00-54-0684.json
 build/.cmake/api/v1/reply/index-2020-10-28T00-10-33-0770.json
 build/.cmake/api/v1/reply/index-2020-10-28T12-27-37-0810.json
+=======
+>>>>>>> parent of 0436237... Graph coloring algorithm works.
+build/.cmake/api/v1/reply/codemodel-v2-13879031d00fbe40986d.json
+build/.cmake/api/v1/reply/index-2020-10-29T12-48-53-0994.json
+build/.cmake/api/v1/reply/target-holycc2-Debug-a3dbfebde92ce33f6fc7.json
+build/CMakeFiles/Progress/18
+build/CMakeFiles/Progress/19
+build/CMakeFiles/Progress/32
+build/CMakeFiles/Progress/33
