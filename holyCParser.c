@@ -166,6 +166,7 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end,
 	} else if (item->template == &nameTemplate) {
 		return nameParse(start, end, result);
 	} else {
+	 DEBUG_PRINT("op:%s\n",*(const char **)lexerItemValuePtr(item))
 		assert(0);
 	}
 
@@ -178,6 +179,26 @@ static struct parserNode *prec1Recur(llLexerItem start, llLexerItem end,
 static struct parserNode *prec2Recur(llLexerItem start, llLexerItem end,
                                      llLexerItem *result);
 static struct parserNode *prec3Recur(llLexerItem start, llLexerItem end,
+                                     llLexerItem *result);
+static struct parserNode *prec4Recur(llLexerItem start, llLexerItem end,
+                                     llLexerItem *result);
+static struct parserNode *prec5Recur(llLexerItem start, llLexerItem end,
+                                     llLexerItem *result);
+static struct parserNode *prec6Recur(llLexerItem start, llLexerItem end,
+                                     llLexerItem *result);
+static struct parserNode *prec7Recur(llLexerItem start, llLexerItem end,
+                                     llLexerItem *result);
+static struct parserNode *prec8Recur(llLexerItem start, llLexerItem end,
+                                     llLexerItem *result);
+static struct parserNode *prec9Recur(llLexerItem start, llLexerItem end,
+                                     llLexerItem *result);
+static struct parserNode *prec10Recur(llLexerItem start, llLexerItem end,
+                                     llLexerItem *result);
+static struct parserNode *prec11Recur(llLexerItem start, llLexerItem end,
+                                     llLexerItem *result);
+static struct parserNode *prec12Recur(llLexerItem start, llLexerItem end,
+                                     llLexerItem *result);
+static struct parserNode *prec13Recur(llLexerItem start, llLexerItem end,
                                      llLexerItem *result);
 STR_TYPE_DEF(int, Int);
 STR_TYPE_FUNCS(int, Int);
@@ -265,7 +286,7 @@ static struct parserNode *precCommaRecur(llLexerItem start, llLexerItem end,
 			seq.items = strParserNodeAppendItem(seq.items, node);
 			node = NULL;
 		} else if (node == NULL) {
-			node = prec0Binop(start, end, &start);
+			node = prec13Recur(start, end, &start);
 			if (node == NULL)
 				break;
 		} else {
@@ -440,7 +461,7 @@ static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end,
 		*result = start;
 
 	llLexerItem result2;
-	struct parserNode *head = prec1Recur(start, end, &result2);
+	struct parserNode *head = parenRecur(start, end, &result2);
 	if (head == NULL)
 		return NULL;
 	const char *binops[] = {".", "->"};
@@ -549,7 +570,7 @@ static struct parserNode *prec1Recur(llLexerItem start, llLexerItem end,
 		}
 		break;
 	}
-	struct parserNode *tail = prec2Recur(result2, end, &result2);
+	struct parserNode *tail = prec0Binop(result2, end, &result2);
 	if (opStack != NULL) {
 		if (tail == NULL) {
 			strParserNodeDestroy2(&opStack);
@@ -558,7 +579,7 @@ static struct parserNode *prec1Recur(llLexerItem start, llLexerItem end,
 
 		for (long i = strParserNodeSize(opStack)-1; i >= 0; i--) {
 			struct parserNodeUnop unop;
-			unop.base.type = NODE_BINOP;
+			unop.base.type = NODE_UNOP;
 			unop.a = tail;
 			unop.isSuffix = 0;
 			unop.op = opStack[i];
@@ -662,16 +683,16 @@ end:;
 		__auto_type count = sizeof(name##Ops) / sizeof(*name##Ops);                \
 		return binopRightAssoc(name##Ops, count, start, end, result, next);        \
 	}
-RIGHT_ASSOC_OP(prec13, parenRecur, "=",
+RIGHT_ASSOC_OP(prec13, prec12Recur, "=",
                "-=", "+=", "*=", "/=", "%=", "<<=", ">>=", "&=", "|=", "^=");
-LEFT_ASSOC_OP(prec12, prec13Recur, "||");
-LEFT_ASSOC_OP(prec11, prec12Recur, "^^");
-LEFT_ASSOC_OP(prec10, prec11Recur, "&&");
-LEFT_ASSOC_OP(prec9, prec10Recur, "==", "!=");
-LEFT_ASSOC_OP(prec8, prec9Recur, ">", "<", ">=", "<=");
-LEFT_ASSOC_OP(prec7, prec8Recur, "+", "-");
-LEFT_ASSOC_OP(prec6, prec7Recur, "|");
-LEFT_ASSOC_OP(prec5, prec6Recur, "^");
-LEFT_ASSOC_OP(prec4, prec5Recur, "&");
-LEFT_ASSOC_OP(prec3, prec4Recur, "*", "%", "/");
-LEFT_ASSOC_OP(prec2, prec3Recur, "`", "<<", ">>");
+LEFT_ASSOC_OP(prec12, prec11Recur, "||");
+LEFT_ASSOC_OP(prec11, prec10Recur, "^^");
+LEFT_ASSOC_OP(prec10, prec9Recur, "&&");
+LEFT_ASSOC_OP(prec9, prec8Recur, "==", "!=");
+LEFT_ASSOC_OP(prec8, prec7Recur, ">", "<", ">=", "<=");
+LEFT_ASSOC_OP(prec7, prec6Recur, "+", "-");
+LEFT_ASSOC_OP(prec6, prec5Recur, "|");
+LEFT_ASSOC_OP(prec5, prec4Recur, "^");
+LEFT_ASSOC_OP(prec4, prec3Recur, "&");
+LEFT_ASSOC_OP(prec3, prec2Recur, "*", "%", "/");
+LEFT_ASSOC_OP(prec2, prec1Recur, "`", "<<", ">>");
