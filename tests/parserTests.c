@@ -62,7 +62,7 @@ void precParserTests() {
 
 		struct parserNode *node = parseExpression(
 		    llLexerItemFirst(lexerGetItems(lex)), NULL,NULL);
-		assert(success);
+		assert(node);
 		{
 			assert(node->type == NODE_BINOP);
 			struct parserNodeBinop *binop = (void *)node;

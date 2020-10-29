@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <cacheingLexer.h>
 #include <cacheingLexerItems.h>
 #include <holyCParser.h>
@@ -6,9 +7,9 @@
 #define ALLOCATTE(x)                                                           \
 	({                                                                           \
 		__auto_type len = sizeof(x);                                               \
-		void *retVal = malloc(len);                                                \
-		memcpy(retVal, &x, len);                                                   \
-		retVal;                                                                    \
+		void *$retVal = malloc(len);                                               \
+		memcpy($retVal, &x, len);                                                  \
+		$retVal;                                                                   \
 	})
 static char *strClone(const char *str) {
 	__auto_type len = strlen(str);
@@ -98,6 +99,8 @@ static struct parserNode *expectOp(const struct __lexerItem *item,
 static void parserNodeDestroy(struct parserNode **node) {
 	// TODO implement
 }
+static struct parserNode *nameParse(llLexerItem start, llLexerItem end,
+                                    llLexerItem *result);
 static void strParserNodeDestroy2(strParserNode *nodes) {
 	for (long i = 0; i != strParserNodeSize(*nodes); i++)
 		parserNodeDestroy(&nodes[0][i]);
@@ -131,8 +134,10 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end,
 		lit.isChar = str.isChar;
 
 		return ALLOCATTE(lit);
+	} else if (item->template == &nameTemplate) {
+		return nameParse(start, end, result);
 	} else {
-		return parenRecur(start, end, result);
+		assert(0);
 	}
 
 	// TODO add float template.
@@ -188,12 +193,19 @@ static struct parserNode *parenRecur(llLexerItem start, llLexerItem end,
 		retVal = parenRecur(start, end, &res);
 		if (!retVal)
 			goto fail;
+
 		start = res;
 		right = expectOp(llLexerItemValuePtr(res), ")");
+		start = llLexerItemNext(start);
 		if (!right)
 			goto fail;
+
+		if (result != NULL)
+			*result = start;
+
+		goto success;
 	} else {
-		retVal = prec0Binop(start, end, result);
+		retVal = literalRecur(start, end, result);
 		goto success;
 	}
 fail:
@@ -203,14 +215,11 @@ success:
 	parserNodeDestroy(&right);
 	parserNodeDestroy(&left);
 
-	if (result != NULL)
-		*result = start;
-
 	return retVal;
 }
 struct parserNode *parseExpression(llLexerItem start, llLexerItem end,
                                    llLexerItem *result) {
-	return parenRecur(start, end, result);
+	return prec0Binop(start, end, result);
 }
 struct pnPair {
 	struct parserNode *a, *b;
@@ -393,7 +402,9 @@ static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end,
 		}
 	loop1:;
 	}
-	
+
+	if (result != NULL)
+		*result = result2;
 	return head;
 fail:
 	parserNodeDestroy(&head);
@@ -438,7 +449,12 @@ static struct parserNode *prec1Recur(llLexerItem start, llLexerItem end,
 			tail = ALLOCATTE(unop);
 		}
 	}
+
+	if (result != NULL)
+		*result = result2;
 	strParserNodeDestroy(&opStack);
+	return tail;
+
 fail:
 	return tail;
 }
@@ -491,7 +507,7 @@ static struct parserNode *binopRightAssoc(
 	struct parserNode *right = NULL;
 	for (long i = strPNPairSize(tail) - 1; i >= 0; i--) {
 		if (right == NULL)
-			right = tail->b;
+			right = tail[i].b;
 
 		struct parserNode *left;
 		if (i == 0)
@@ -522,8 +538,15 @@ end:;
 		__auto_type count = sizeof(name##Ops) / sizeof(*name##Ops);                \
 		return binopLeftAssoc(name##Ops, count, start, end, result, next);         \
 	}
-LEFT_ASSOC_OP(prec13, literalRecur, "=",
-              "-=", "+=", "*=", "/=", "%=", "<<=", ">>=", "&=", "|=", "^=");
+#define RIGHT_ASSOC_OP(name, next, ...)                                        \
+	static const char *name##Ops[] = {__VA_ARGS__};                              \
+	static struct parserNode *name##Recur(llLexerItem start, llLexerItem end,    \
+	                                      llLexerItem *result) {                 \
+		__auto_type count = sizeof(name##Ops) / sizeof(*name##Ops);                \
+		return binopRightAssoc(name##Ops, count, start, end, result, next);        \
+	}
+RIGHT_ASSOC_OP(prec13, parenRecur, "=",
+               "-=", "+=", "*=", "/=", "%=", "<<=", ">>=", "&=", "|=", "^=");
 LEFT_ASSOC_OP(prec12, prec13Recur, "||");
 LEFT_ASSOC_OP(prec11, prec12Recur, "^^");
 LEFT_ASSOC_OP(prec10, prec11Recur, "&&");
