@@ -11,10 +11,11 @@ void precParserTests();
 void graphDominanceTests();
 void graphColoringTests();
 void typeParserTests();
+void varDeclTests();
 int main() {
-	//strTests();
-	//graphDominanceTests();
-	//graphColoringTests();
+	// strTests();
+	// graphDominanceTests();
+	// graphColoringTests();
 	/**
 
 	  llTests();
@@ -29,6 +30,7 @@ int main() {
 	  */
 	// cachingLexerTests();
 	precParserTests();
-	//typeParserTests();
+	varDeclTests();
+	// typeParserTests();
 	return 0;
 }

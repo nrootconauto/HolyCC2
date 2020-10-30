@@ -809,13 +809,15 @@ static void getPtrsAndDims(llLexerItem start, llLexerItem *end,
 		*name = name2;
 	else
 		parserNodeDestroy(&name2);
+
+	if (end != NULL)
+		*end = start;
 }
 static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end,
                                        struct object *baseType,
                                        struct parserNode **name,
                                        struct parserNode **dftVal);
-struct parserNode *parseSingleVarDecl(llLexerItem start,
-                                             llLexerItem *end) {
+struct parserNode *parseSingleVarDecl(llLexerItem start, llLexerItem *end) {
 	struct parserNode *base __attribute__((cleanup(parserNodeDestroy)));
 	base = nameParse(start, NULL, &start);
 	if (base != NULL) {
@@ -844,12 +846,10 @@ struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end) {
 		struct parserNodeName *baseName = (void *)base;
 		__auto_type baseType = objectByName(baseName->text);
 		if (baseType == NULL)
-			goto fail ;
-
-			    start = llLexerItemNext(start);
+			goto fail;
 
 		for (int firstRun = 1;; firstRun = 0) {
-			if (firstRun) {
+			if (!firstRun) {
 				struct parserNode *op __attribute__((cleanup(parserNodeDestroy)));
 				op = expectOp(llLexerItemValuePtr(start), ",");
 				if (!op)
@@ -868,14 +868,11 @@ struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end) {
 			*end = start;
 
 		if (strParserNodeSize(decls) == 1) {
-			__auto_type retVal = decls[0];
-			strParserNodeDestroy(&decls);
-
-			return retVal;
+			return decls[0];
 		} else if (strParserNodeSize(decls) > 1) {
 			struct parserNodeVarDecls retVal;
 			retVal.base.type = NODE_VAR_DECLS;
-			retVal.decls = decls;
+			retVal.decls = strParserNodeAppendData(NULL,(const struct parserNode**)decls,strParserNodeSize(decls)) ;
 
 			return ALLOCATE(retVal);
 		}

@@ -2,6 +2,7 @@
 #include <cacheingLexer.h>
 #include <cacheingLexerItems.h>
 #include <holyCParser.h>
+#include <holyCType.h>
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
 static int charCmp(const void *a, const void *b) {
@@ -14,7 +15,6 @@ void precParserTests() {
 	__auto_type lex = lexerCreate((struct __vec *)textStr, holyCLexerTemplates(),
 	                              charCmp, skipWhitespace);
 
-	int success;
 	struct parserNode *node =
 	    parseExpression(llLexerItemFirst(lexerGetItems(lex)), NULL, NULL);
 	assert(node);
@@ -254,6 +254,28 @@ void precParserTests() {
 		name = (void *)call->args[2];
 		assert(name->base.type == NODE_NAME);
 		assert(0 == strcmp(name->text, "c"));
+	}
+}
+void varDeclTests() {
+	const char *text = "I64i x=10";
+	__auto_type textStr = strCharAppendData(NULL, text, strlen(text));
+
+	__auto_type lex = lexerCreate((struct __vec *)textStr, holyCLexerTemplates(),
+	                              charCmp, skipWhitespace);
+	__auto_type decl = parseVarDecls(llLexerItemFirst(lexerGetItems(lex)), NULL);
+	assert(decl);
+	{
+		assert(decl->type == NODE_VAR_DECL);
+		struct parserNodeVarDecl *declNode = (void *)decl;
+		struct parserNodeName *name = (void *)declNode->name;
+		assert(name->base.type = NODE_NAME);
+		assert(0 == strcmp(name->text, "x"));
+
+		struct parserNodeLitInt *dftVal = (void *)declNode->dftVal;
+		assert(dftVal->base.type = NODE_LIT_INT);
+		assert(dftVal->value.value.sInt == 10);
+
+		assert(objectByName("I64i") == declNode->type);
 	}
 }
 /*
