@@ -278,12 +278,13 @@ static int intParse(struct __vec *new, long pos, long *end,
 		goto dumpU;
 	}
 dumpU : {
+	__auto_type end2 = New - (char *)new;
 	if (end != NULL)
-		*end = New - (char *)new;
+		*end = end2;
 
 	// Check to ensure isn't a float
-	if (*end + (char *)new < endPtr)
-		if (*end == '.')
+	if (end2 + (char *)new < endPtr)
+		if (((char *)new)[end2] == '.')
 			return 0;
 
 	if (retVal == NULL)

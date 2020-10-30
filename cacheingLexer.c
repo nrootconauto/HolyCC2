@@ -357,9 +357,6 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 					        __vecSize(newValue));
 					__vecDestroy(newValue);
 
-					//
-					retVal = newNode;
-
 					// Update node size
 					lexerItemPtr->start = newPos;
 					lexerItemPtr->end = end;

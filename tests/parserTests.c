@@ -279,11 +279,11 @@ void varDeclTests() {
 	}
 	text = "I64i **x[1][2][3]";
 	textStr = strCharAppendData(NULL, text, strlen(text));
-	
+
 	int err = 0;
 	lexerUpdate(lex, (struct __vec *)textStr, &err);
 	assert(!err);
-	
+
 	decl = parseVarDecls(llLexerItemFirst(lexerGetItems(lex)), NULL);
 	assert(decl);
 	{
@@ -296,7 +296,7 @@ void varDeclTests() {
 		__auto_type type = declNode->type;
 		for (int i = 3 - 1; i >= 0; i--) {
 			struct objectArray *array = (void *)type;
-			assert(array->base.type== TYPE_ARRAY);
+			assert(array->base.type == TYPE_ARRAY);
 			assert(array->dim->type == NODE_LIT_INT);
 			struct parserNodeLitInt *lit = (void *)array->dim;
 			assert(lit->value.value.sInt == i + 1);
@@ -311,6 +311,42 @@ void varDeclTests() {
 		}
 
 		assert(type == objectByName("I64i"));
+	}
+	text = "I64i a=1,*b=2,c=3";
+	textStr = strCharAppendData(NULL, text, strlen(text));
+
+	err = 0;
+	lexerUpdate(lex, (struct __vec *)textStr, &err);
+	assert(!err);
+
+	decl = parseVarDecls(llLexerItemFirst(lexerGetItems(lex)), NULL);
+	assert(decl);
+	{
+		assert(decl->type == NODE_VAR_DECLS);
+		struct parserNodeVarDecls *decls = (void *)decl;
+
+		assert(strParserNodeSize(decls->decls) == 3);
+		const char *names[] = {"a", "b", "c"};
+		for (int i = 0; i != 3; i++) {
+			struct parserNodeVarDecl *decl = (void *)decls->decls[i];
+			assert(decl->base.type == NODE_VAR_DECL);
+
+			struct parserNodeName *name = (void *)decl->name;
+			assert(name->base.type == NODE_NAME);
+			assert(0 == strcmp(names[i], name->text));
+
+			struct parserNodeLitInt *lit = (void *)decl->dftVal;
+			assert(lit->base.type == NODE_LIT_INT);
+			assert(lit->value.value.sInt == i + 1);
+
+			struct object *type = decl->type;
+			if (i == 1) {
+				assert(type->type == TYPE_PTR);
+				struct objectPtr *ptr = (void *)type;
+				type = ptr->type;
+			}
+			assert(type->type == TYPE_I16i);
+		}
 	}
 }
 /*
