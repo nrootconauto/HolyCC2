@@ -277,6 +277,41 @@ void varDeclTests() {
 
 		assert(objectByName("I64i") == declNode->type);
 	}
+	text = "I64i **x[1][2][3]";
+	textStr = strCharAppendData(NULL, text, strlen(text));
+	
+	int err = 0;
+	lexerUpdate(lex, (struct __vec *)textStr, &err);
+	assert(!err);
+	
+	decl = parseVarDecls(llLexerItemFirst(lexerGetItems(lex)), NULL);
+	assert(decl);
+	{
+		assert(decl->type == NODE_VAR_DECL);
+		struct parserNodeVarDecl *declNode = (void *)decl;
+		struct parserNodeName *name = (void *)declNode->name;
+		assert(0 == strcmp(name->text, "x"));
+		assert(declNode->dftVal == NULL);
+
+		__auto_type type = declNode->type;
+		for (int i = 3 - 1; i >= 0; i--) {
+			struct objectArray *array = (void *)type;
+			assert(array->base.type== TYPE_ARRAY);
+			assert(array->dim->type == NODE_LIT_INT);
+			struct parserNodeLitInt *lit = (void *)array->dim;
+			assert(lit->value.value.sInt == i + 1);
+
+			type = (void *)array->type;
+		}
+
+		for (int i = 0; i != 2; i++) {
+			struct objectPtr *ptr = (void *)type;
+			assert(ptr->base.type = TYPE_PTR);
+			type = (void *)ptr->type;
+		}
+
+		assert(type == objectByName("I64i"));
+	}
 }
 /*
 
