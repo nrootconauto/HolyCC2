@@ -20,6 +20,14 @@ enum holyCTypeKind {
 	TYPE_FORWARD,
 	TYPE_FUNCTION,
 };
+enum linkage {
+ LINKAGE_STATIC=1,
+ LINKAGE_PUBLIC,
+ LINKAGE_EXTERN,
+ LINKAGE__EXTERN,
+ LINKAGE_IMPORT,
+ LINKAGE__IMPORT,
+};
 struct objectMemberAttr {
 	char *name;
 	struct parserNode *value;
@@ -38,6 +46,7 @@ LL_TYPE_DEF(struct objectMember, ObjectMember);
 LL_TYPE_FUNCS(struct objectMember, ObjectMember);
 struct object {
 	enum holyCTypeKind type;
+	enum linkage link;
 };
 struct objectClass {
 	struct object base;
@@ -68,6 +77,7 @@ struct objectForwardDeclaration {
 };
 struct objectFuncArg {
 	struct object *type;
+	struct parserNode *name;
 	struct parserNode *dftVal;
 };
 STR_TYPE_DEF(struct objectFuncArg, FuncArg);
@@ -107,3 +117,5 @@ extern struct object typeI16i;
 extern struct object typeI32i;
 extern struct object typeI64i;
 extern struct object typeF64;
+
+void strFuncArgDestroy2(strFuncArg *args) ;

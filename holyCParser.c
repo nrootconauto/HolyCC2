@@ -2,9 +2,10 @@
 #include <cacheingLexer.h>
 #include <cacheingLexerItems.h>
 #include <holyCParser.h>
+#include <holyCType.h>
 #define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
-#define ALLOCATTE(x)                                                           \
+#define ALLOCATE(x)                                                            \
 	({                                                                           \
 		__auto_type len = sizeof(x);                                               \
 		void *$retVal = malloc(len);                                               \
@@ -35,6 +36,23 @@ static void initTemplates() {
 	    "break",
 	    //
 	    "goto",
+	    //
+	    "return",
+	    //
+	    "switch",
+	    "default",
+	    "case",
+	    //
+	    "class",
+	    "union",
+	    //
+	    "static",
+	    "public",
+	    "extern",
+	    "_extern",
+	    "import",
+	    "_import",
+	    "public",
 	};
 	__auto_type kwCount = sizeof(keywords) / sizeof(*keywords);
 
@@ -120,12 +138,12 @@ static struct parserNode *expectOp(const struct __lexerItem *item,
 			term.pos.end = item->end;
 			term.text = text;
 
-			return ALLOCATTE(term);
+			return ALLOCATE(term);
 		}
 	}
 	return NULL;
 }
-static void parserNodeDestroy(struct parserNode **node) {
+void parserNodeDestroy(struct parserNode **node) {
 	// TODO implement
 }
 static struct parserNode *nameParse(llLexerItem start, llLexerItem end,
@@ -151,7 +169,7 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end,
 		lit.base.type = NODE_LIT_INT;
 		lit.value = *(struct lexerInt *)lexerItemValuePtr(item);
 
-		return ALLOCATTE(lit);
+		return ALLOCATE(lit);
 	} else if (item->template == &strTemplate) {
 		if (result != NULL)
 			*result = llLexerItemNext(start);
@@ -162,7 +180,7 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end,
 		lit.text = strClone((char *)str.text);
 		lit.isChar = str.isChar;
 
-		return ALLOCATTE(lit);
+		return ALLOCATE(lit);
 	} else if (item->template == &nameTemplate) {
 		return nameParse(start, end, result);
 	} else {
@@ -301,7 +319,7 @@ static struct parserNode *precCommaRecur(llLexerItem start, llLexerItem end,
 	} else {
 		// Append last item
 		seq.items = strParserNodeAppendItem(seq.items, node);
-		return ALLOCATTE(seq);
+		return ALLOCATE(seq);
 	}
 }
 static struct parserNode *parenRecur(llLexerItem start, llLexerItem end,
@@ -413,7 +431,7 @@ static struct parserNode *nameParse(llLexerItem start, llLexerItem end,
 		retVal.pos.end = item->end;
 		retVal.text = ptr;
 
-		return ALLOCATTE(retVal);
+		return ALLOCATE(retVal);
 	}
 	return NULL;
 }
@@ -485,7 +503,7 @@ static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end,
 				unop.isSuffix = 1;
 				unop.op = ptr;
 
-				head = ALLOCATTE(unop);
+				head = ALLOCATE(unop);
 				goto loop1;
 			}
 		}
@@ -506,7 +524,7 @@ static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end,
 				binop.op = ptr;
 				binop.b = next;
 
-				head = ALLOCATTE(binop);
+				head = ALLOCATE(binop);
 				goto loop1;
 			}
 		}
@@ -529,7 +547,7 @@ static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end,
 				}
 			}
 
-			head = ALLOCATTE(newNode);
+			head = ALLOCATE(newNode);
 			goto loop1;
 		}
 		__auto_type oldResult2 = result2;
@@ -542,7 +560,7 @@ static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end,
 			binop.op = expectOp(llLexerItemValuePtr(oldResult2), "[");
 			binop.b = array;
 
-			head = ALLOCATTE(binop);
+			head = ALLOCATE(binop);
 
 			goto loop1;
 		}
@@ -595,7 +613,7 @@ static struct parserNode *prec1Recur(llLexerItem start, llLexerItem end,
 			unop.isSuffix = 0;
 			unop.op = opStack[i];
 
-			tail = ALLOCATTE(unop);
+			tail = ALLOCATE(unop);
 		}
 	}
 
@@ -628,7 +646,7 @@ static struct parserNode *binopLeftAssoc(
 		binop.op = tail[i].a;
 		binop.b = tail[i].b;
 
-		head = ALLOCATTE(binop);
+		head = ALLOCATE(binop);
 	}
 end:
 	if (result != NULL)
@@ -670,7 +688,7 @@ static struct parserNode *binopRightAssoc(
 		binop.b = right;
 		binop.base.type = NODE_BINOP;
 
-		right = ALLOCATTE(binop);
+		right = ALLOCATE(binop);
 	}
 
 	retVal = right;
@@ -707,3 +725,287 @@ LEFT_ASSOC_OP(prec5, prec4Recur, "^");
 LEFT_ASSOC_OP(prec4, prec3Recur, "&");
 LEFT_ASSOC_OP(prec3, prec2Recur, "*", "%", "/");
 LEFT_ASSOC_OP(prec2, prec1Recur, "`", "<<", ">>");
+
+static struct parserNode *expectKeyword(struct __lexerItem *item,
+                                        const char *text) {
+	if (item->template == &kwTemplate) {
+		if (0 == strcmp(*(const char **)item, text)) {
+			struct parserNodeKeyword kw;
+			kw.base.type = NODE_KW;
+			kw.pos.start = item->start;
+			kw.pos.end = item->end;
+			kw.text = text;
+
+			return ALLOCATE(kw);
+		}
+	}
+	return NULL;
+}
+struct linkagePair {
+	enum linkage link;
+	const char *text;
+};
+static enum linkage getLinkage(llLexerItem start, llLexerItem *result) {
+	if (result != NULL)
+		*result = start;
+	if (start == NULL)
+		return 0;
+
+	if (llLexerItemValuePtr(start)->template != &kwTemplate)
+		return 0;
+
+	struct linkagePair pairs[] = {
+	    {LINKAGE_PUBLIC, "public"}, {LINKAGE_STATIC, "static"},
+	    {LINKAGE_EXTERN, "extern"}, {LINKAGE__EXTERN, "_extern"},
+	    {LINKAGE_IMPORT, "import"}, {LINKAGE__IMPORT, "_import"},
+	};
+	__auto_type count = sizeof(pairs) / sizeof(*pairs);
+
+	for (long i = 0; i != count; i++) {
+		if (expectKeyword(llLexerItemValuePtr(start), pairs[i].text)) {
+			if (result != NULL)
+				*result = llLexerItemNext(start);
+
+			return pairs[i].link;
+		}
+	}
+
+	return 0;
+}
+static void getPtrsAndDims(llLexerItem start, llLexerItem *end,
+                           struct parserNode **name, long *ptrLevel,
+                           strParserNode *dims) {
+	long ptrLevel2 = 0;
+	for (; start != NULL; start = llLexerItemNext(start)) {
+		__auto_type op = expectOp(llLexerItemValuePtr(start), "*");
+		if (op) {
+			parserNodeDestroy(&op);
+			ptrLevel2++;
+		} else
+			break;
+	}
+
+	__auto_type name2 = nameParse(start, NULL, &start);
+
+	strParserNode dims2 = NULL;
+	for (;;) {
+		__auto_type left = expectOp(llLexerItemValuePtr(start), "[");
+		if (left == NULL)
+			break;
+
+		__auto_type dim = pairOperator("[", "]", start, NULL, &start, NULL);
+		dims2 = strParserNodeAppendItem(dims2, dim);
+	}
+
+	if (dims != NULL)
+		*dims = dims2;
+	else
+		strParserNodeDestroy(&dims2);
+
+	if (ptrLevel != NULL)
+		*ptrLevel = ptrLevel2;
+
+	if (name != NULL)
+		*name = name2;
+	else
+		parserNodeDestroy(&name2);
+}
+static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end,
+                                       struct object *baseType,
+                                       struct parserNode **name,
+                                       struct parserNode **dftVal);
+struct parserNode *parseSingleVarDecl(llLexerItem start,
+                                             llLexerItem *end) {
+	struct parserNode *base __attribute__((cleanup(parserNodeDestroy)));
+	base = nameParse(start, NULL, &start);
+	if (base != NULL) {
+		struct parserNodeName *baseName = (void *)base;
+		__auto_type baseType = objectByName(baseName->text);
+		if (baseType == NULL)
+			return NULL;
+
+		start = llLexerItemNext(start);
+
+		struct parserNodeVarDecl decl;
+		decl.base.type = NODE_VAR_DECL;
+		decl.type =
+		    parseVarDeclTail(start, end, baseType, &decl.name, &decl.dftVal);
+		return ALLOCATE(decl);
+	}
+	return NULL;
+}
+struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end) {
+	struct parserNode *base __attribute__((cleanup(parserNodeDestroy)));
+	base = nameParse(start, NULL, &start);
+	if (base != NULL) {
+		strParserNode decls __attribute__((cleanup(strParserNodeDestroy2)));
+		decls = NULL;
+
+		struct parserNodeName *baseName = (void *)base;
+		__auto_type baseType = objectByName(baseName->text);
+		if (baseType == NULL)
+			goto fail ;
+
+			    start = llLexerItemNext(start);
+
+		for (int firstRun = 1;; firstRun = 0) {
+			if (firstRun) {
+				struct parserNode *op __attribute__((cleanup(parserNodeDestroy)));
+				op = expectOp(llLexerItemValuePtr(start), ",");
+				if (!op)
+					goto end;
+			}
+
+			struct parserNodeVarDecl decl;
+			decl.base.type = NODE_VAR_DECL;
+			decl.type =
+			    parseVarDeclTail(start, end, baseType, &decl.name, &decl.dftVal);
+
+			decls = strParserNodeAppendItem(decls, ALLOCATE(decl));
+		}
+	end:;
+		if (end != NULL)
+			*end = start;
+
+		if (strParserNodeSize(decls) == 1) {
+			__auto_type retVal = decls[0];
+			strParserNodeDestroy(&decls);
+
+			return retVal;
+		} else if (strParserNodeSize(decls) > 1) {
+			struct parserNodeVarDecls retVal;
+			retVal.base.type = NODE_VAR_DECLS;
+			retVal.decls = decls;
+
+			return ALLOCATE(retVal);
+		}
+	}
+fail:
+	if (end != NULL)
+		*end = start;
+
+	return NULL;
+}
+static llLexerItem findEndOfExpression(llLexerItem start, int stopAtComma) {
+	for (; start != NULL; start = llLexerItemNext(start)) {
+		__auto_type item = llLexerItemValuePtr(start);
+		__auto_type otherSide = findOtherSide(start, NULL);
+		start = (otherSide != NULL) ? otherSide : start;
+
+		if (stopAtComma)
+			if (item->template == &opTemplate)
+				if (0 == strcmp(",", *(const char **)lexerItemValuePtr(item)))
+					return start;
+
+		// TODO add floating template
+		if (item->template == &intTemplate)
+			continue;
+		if (item->template == &strTemplate)
+			continue;
+		if (item->template == &nameTemplate)
+			continue;
+		if (item->template == &opTemplate)
+			continue;
+		return start;
+	}
+
+	return NULL;
+}
+static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end,
+                                       struct object *baseType,
+                                       struct parserNode **name,
+                                       struct parserNode **dftVal) {
+	__auto_type funcPtrLeft = expectOp(llLexerItemValuePtr(start), "(");
+	long ptrLevel = 0;
+	struct parserNode *eq __attribute__((cleanup(parserNodeDestroy)));
+	eq = NULL;
+	strParserNode dims __attribute__((cleanup(strParserNodeDestroy)));
+	dims = NULL;
+	struct object *retValType = NULL;
+
+	if (funcPtrLeft != NULL) {
+		start = llLexerItemNext(start);
+		parserNodeDestroy(&funcPtrLeft);
+
+		getPtrsAndDims(start, &start, name, &ptrLevel, &dims);
+
+		__auto_type r = expectOp(llLexerItemValuePtr(start), ")");
+		if (r == NULL) {
+			parserNodeDestroy(&r);
+			goto fail;
+		}
+
+		struct parserNode *l2 __attribute__((cleanup(parserNodeDestroy)));
+		l2 = expectOp(llLexerItemValuePtr(start), "(");
+		start = llLexerItemNext(start);
+
+		strFuncArg args __attribute__((cleanup(strFuncArgDestroy2)));
+		args = NULL;
+		for (int firstRun = 1;; firstRun = 0) {
+			struct parserNode *r2 __attribute__((cleanup(parserNodeDestroy)));
+			r2 = expectOp(llLexerItemValuePtr(start), ")");
+			if (r2 != NULL) {
+				start = llLexerItemNext(start);
+				break;
+			}
+
+			// Check for comma if not firt run
+			if (!firstRun) {
+				struct parserNode *comma __attribute__((cleanup(parserNodeDestroy)));
+				comma = expectOp(llLexerItemValuePtr(start), ",");
+				if (comma == NULL)
+					goto fail;
+
+				start = llLexerItemNext(start);
+			}
+
+			struct parserNode *argName, *dftVal;
+			struct parserNodeVarDecl *argDecl =
+			    (void *)parseSingleVarDecl(start, &start);
+			if (argDecl == NULL)
+				goto fail;
+
+			struct objectFuncArg arg;
+			arg.dftVal = argDecl->dftVal;
+			arg.name = argDecl->name;
+			arg.type = argDecl->type;
+			free(argDecl);
+
+			args = strFuncArgAppendItem(args, arg);
+		}
+		retValType = objectFuncCreate(baseType, args);
+	} else {
+		getPtrsAndDims(start, &start, name, &ptrLevel, &dims);
+		retValType = baseType;
+	}
+
+	// Make type has pointers and dims
+	for (long i = 0; i != ptrLevel; i++)
+		retValType = objectPtrCreate(retValType);
+	for (long i = 0; i != strParserNodeSize(dims); i++)
+		retValType = objectArrayCreate(retValType, dims[i]);
+
+	// Look for default value
+
+	eq = expectOp(llLexerItemValuePtr(start), "=");
+	if (eq != NULL) {
+		start = llLexerItemNext(start);
+		__auto_type expEnd = findEndOfExpression(start, 1);
+		__auto_type dftVal2 = parseExpression(start, expEnd, &start);
+
+		if (dftVal != NULL)
+			*dftVal = dftVal2;
+	} else {
+		if (dftVal != NULL)
+			*dftVal = NULL;
+	}
+
+	if (end != NULL)
+		*end = start;
+
+	return retValType;
+fail:
+	if (end != NULL)
+		*end = start;
+	return NULL;
+}

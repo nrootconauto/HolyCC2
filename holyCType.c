@@ -1,4 +1,5 @@
 #include <hashTable.h>
+#include <holyCParser.h>
 #include <holyCType.h>
 #include <string.h>
 static char *strClone(const char *str) {
@@ -129,6 +130,7 @@ struct object *objectClassCreate(const char *name,
 	struct objectClass *newClass = malloc(sizeof(struct objectClass));
 	newClass->name = strClone(name);
 	newClass->base.type = TYPE_CLASS;
+	newClass->base.link = 0;
 	newClass->members = NULL;
 
 	long largestMemberAlign = 0;
@@ -175,6 +177,7 @@ struct object *objectUnionCreate(const char *name,
 	struct objectUnion *newUnion = malloc(sizeof(struct objectUnion));
 	newUnion->name = strClone(name);
 	newUnion->base.type = TYPE_CLASS;
+	newUnion->base.link = 0;
 	newUnion->members = NULL;
 
 	long largestMemberAlign = 0;
@@ -210,6 +213,7 @@ fail:
 }
 struct object *objectPtrCreate(struct object *baseType) {
 	struct objectPtr *ptr = malloc(sizeof(struct objectPtr));
+	ptr->base.link = 0;
 	ptr->base.type = TYPE_PTR;
 	ptr->type = baseType;
 
@@ -219,6 +223,7 @@ struct object *objectArrayCreate(struct object *baseType,
                                  struct parserNode *dim) {
 	struct objectArray *array = malloc(sizeof(struct objectArray));
 	array->base.type = TYPE_ARRAY;
+	array->base.link = 0;
 	array->dim = dim;
 	array->type = baseType;
 
@@ -228,6 +233,7 @@ struct object *objectForwardDeclarationCreate(const char *name) {
 	struct objectForwardDeclaration *retVal =
 	    malloc(sizeof(struct objectForwardDeclaration));
 	retVal->base.type = TYPE_FORWARD;
+	retVal->base.link = 0;
 	retVal->name = strClone(name);
 
 	return (struct object *)retVal;
@@ -277,6 +283,7 @@ struct object *objectByName(const char *name) {
 }
 struct object *objectFuncCreate(struct object *retType, strFuncArg args) {
 	struct objectFunction func;
+	func.base.link = 0;
 	func.base.type = TYPE_FUNCTION;
 	func.args = strFuncArgAppendData(NULL, args, strFuncArgSize(args));
 	func.retType = retType;
@@ -284,4 +291,11 @@ struct object *objectFuncCreate(struct object *retType, strFuncArg args) {
 	void *retVal = malloc(sizeof(struct objectFunction));
 	memcpy(retVal, &func, sizeof(struct objectFunction));
 	return retVal;
+}
+void strFuncArgDestroy2(strFuncArg *args) {
+	for (long i = 0; i != strFuncArgSize(*args); i++) {
+		parserNodeDestroy(&args[0][i].dftVal);
+		parserNodeDestroy(&args[0][i].name);
+	}
+	strFuncArgDestroy(args);
 }
