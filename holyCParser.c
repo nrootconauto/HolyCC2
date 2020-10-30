@@ -166,7 +166,7 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end,
 	} else if (item->template == &nameTemplate) {
 		return nameParse(start, end, result);
 	} else {
-	 DEBUG_PRINT("op:%s\n",*(const char **)lexerItemValuePtr(item))
+		DEBUG_PRINT("op:%s\n", *(const char **)lexerItemValuePtr(item))
 		assert(0);
 	}
 
@@ -193,13 +193,13 @@ static struct parserNode *prec8Recur(llLexerItem start, llLexerItem end,
 static struct parserNode *prec9Recur(llLexerItem start, llLexerItem end,
                                      llLexerItem *result);
 static struct parserNode *prec10Recur(llLexerItem start, llLexerItem end,
-                                     llLexerItem *result);
+                                      llLexerItem *result);
 static struct parserNode *prec11Recur(llLexerItem start, llLexerItem end,
-                                     llLexerItem *result);
+                                      llLexerItem *result);
 static struct parserNode *prec12Recur(llLexerItem start, llLexerItem end,
-                                     llLexerItem *result);
+                                      llLexerItem *result);
 static struct parserNode *prec13Recur(llLexerItem start, llLexerItem end,
-                                     llLexerItem *result);
+                                      llLexerItem *result);
 STR_TYPE_DEF(int, Int);
 STR_TYPE_FUNCS(int, Int);
 static llLexerItem findOtherSide(llLexerItem start, llLexerItem end) {
@@ -299,7 +299,7 @@ static struct parserNode *precCommaRecur(llLexerItem start, llLexerItem end,
 	if (seq.items == NULL) {
 		return node;
 	} else {
-		//Append last item
+		// Append last item
 		seq.items = strParserNodeAppendItem(seq.items, node);
 		return ALLOCATTE(seq);
 	}
@@ -419,7 +419,10 @@ static struct parserNode *nameParse(llLexerItem start, llLexerItem end,
 }
 static struct parserNode *pairOperator(const char *left, const char *right,
                                        llLexerItem start, llLexerItem end,
-                                       llLexerItem *result) {
+                                       llLexerItem *result, int *success) {
+	if (success != NULL)
+		*success = 0;
+
 	if (start == NULL)
 		return NULL;
 
@@ -438,11 +441,14 @@ static struct parserNode *pairOperator(const char *left, const char *right,
 	exp = precCommaRecur(result2, pairEnd, &result2);
 
 	r = expectOp(llLexerItemValuePtr(result2), right);
+	result2 = llLexerItemNext(result2);
 	if (r == NULL)
 		goto end;
 
 	if (result != NULL)
-		*result = start;
+		*result = result2;
+	if (success != NULL)
+		*success = 1;
 
 end:
 	if (r == NULL)
@@ -504,27 +510,32 @@ static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end,
 				goto loop1;
 			}
 		}
-		__auto_type funcCallArgs = pairOperator("(", ")", result2, end, &result2);
-		if (funcCallArgs != NULL) {
+		int success;
+		__auto_type funcCallArgs =
+		    pairOperator("(", ")", result2, end, &result2, &success);
+		if (success) {
 			struct parserNodeFuncCall newNode;
 			newNode.base.type = NODE_FUNC_CALL;
 			newNode.func = head;
 			newNode.args = NULL;
 
-			if (funcCallArgs->type == NODE_COMMA_SEQ) {
-				struct parserNodeCommaSeq *seq = (void *)funcCallArgs;
-				for (long i = 0; i != strParserNodeSize(seq->items); i++)
-					newNode.args = strParserNodeAppendItem(newNode.args, seq->items[i]);
-			} else if (funcCallArgs != NULL) {
-				newNode.args = strParserNodeAppendItem(newNode.args, funcCallArgs);
+			if (funcCallArgs != NULL) {
+				if (funcCallArgs->type == NODE_COMMA_SEQ) {
+					struct parserNodeCommaSeq *seq = (void *)funcCallArgs;
+					for (long i = 0; i != strParserNodeSize(seq->items); i++)
+						newNode.args = strParserNodeAppendItem(newNode.args, seq->items[i]);
+				} else if (funcCallArgs != NULL) {
+					newNode.args = strParserNodeAppendItem(newNode.args, funcCallArgs);
+				}
 			}
 
 			head = ALLOCATTE(newNode);
 			goto loop1;
 		}
 		__auto_type oldResult2 = result2;
-		__auto_type array = pairOperator("[", "]", result2, end, &result2);
-		if (array != NULL) {
+		__auto_type array =
+		    pairOperator("[", "]", result2, end, &result2, &success);
+		if (success) {
 			struct parserNodeBinop binop;
 			binop.a = head;
 			binop.base.type = NODE_BINOP;
@@ -577,7 +588,7 @@ static struct parserNode *prec1Recur(llLexerItem start, llLexerItem end,
 			goto fail;
 		}
 
-		for (long i = strParserNodeSize(opStack)-1; i >= 0; i--) {
+		for (long i = strParserNodeSize(opStack) - 1; i >= 0; i--) {
 			struct parserNodeUnop unop;
 			unop.base.type = NODE_UNOP;
 			unop.a = tail;
