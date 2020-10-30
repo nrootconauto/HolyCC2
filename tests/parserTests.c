@@ -345,7 +345,7 @@ void varDeclTests() {
 				struct objectPtr *ptr = (void *)type;
 				type = ptr->type;
 			}
-			assert(type->type == TYPE_I16i);
+			assert(type->type == TYPE_I64i);
 		}
 	}
 }

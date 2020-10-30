@@ -28,7 +28,7 @@ int main() {
 	  preprocessorTests();
 	  eventPoolTests();
 	  */
-	// cachingLexerTests();
+	cachingLexerTests();
 	precParserTests();
 	varDeclTests();
 	// typeParserTests();

@@ -210,13 +210,12 @@ struct __ll *__llValueResize(struct __ll *list, long newSize) {
 	__auto_type oldPrev = list->prev;
 	__auto_type oldNext = list->next;
 
-	__llRemoveNode(list);
 	list = realloc(list, sizeof(struct __ll) + newSize);
 
 	if (oldPrev != NULL)
-		llInsertListAfter(oldPrev, list);
+	 oldPrev->next=list;
 	if (oldNext != NULL)
-		llInsertListBefore(oldNext, list);
+		oldNext->prev=list;
 
 	list->itemSize = newSize;
 	return list;

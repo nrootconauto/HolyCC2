@@ -192,6 +192,9 @@ static llLexerItem getLexerCanidate(struct __lexer *lexer,
 static llLexerItem findEndOfConsumedItems(const llLexerItem new,
                                           const llLexerItem current,
                                           const strDiff diffs) {
+	if (new == NULL)
+		return NULL;
+
 	__auto_type item = llLexerItemValuePtr(new);
 	// Kill Nodes that exist witin new range
 	long oldPos;
@@ -364,10 +367,12 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 					// Update pos
 					newPos = end;
 
-					__auto_type oldCurrentItem = currentItem;
 					currentItem = findEndOfConsumedItems(
-					    retVal, currentItem,
+					    retVal, llLexerItemNext(currentItem),
 					    diffs); // killConsumedItems returns next (availible) item
+
+					llInsertListAfter(retVal, newNode);
+					retVal = newNode;
 					continue;
 				} else if (state == LEXER_DESTROY) {
 					currentItem = llLexerItemNext(currentItem);

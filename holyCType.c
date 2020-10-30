@@ -250,7 +250,7 @@ struct object typeU64i = {TYPE_U64i};
 struct object typeI8i = {TYPE_I8i};
 struct object typeI16i = {TYPE_I16i};
 struct object typeI32i = {TYPE_I32i};
-struct object typeI64i = {TYPE_U64i};
+struct object typeI64i = {TYPE_I64i};
 struct object typeF64 = {TYPE_F64};
 static void initObjectRegistry() __attribute__((constructor));
 static void destroyObjectRegistry() __attribute__((destructor));

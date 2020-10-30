@@ -51,8 +51,11 @@ static struct __vec *keywordLex(struct __vec *new, long pos, long *end,
 					largestIndex = i;
 
 				*end = pos + strlen(keywords[largestIndex]);
-			} else
+			} else {
+				*end = pos + strlen(keywords[i]);
+				
 				return __vecAppendItem(NULL, &keywords[i], sizeof(*keywords));
+			}
 		}
 	}
 	if (alnumCount == 0 && largestIndex != -1)
@@ -270,7 +273,9 @@ static int intParse(struct __vec *new, long pos, long *end,
 			if (!isdigit(New[i]))
 				goto malformed;
 
-		__auto_type slice = __vecAppendItem(NULL, New, alnumCount);
+		__auto_type slice = __vecAppendItem(NULL, New, alnumCount+1);
+		((char*)slice)[alnumCount]='\0';
+		
 		sscanf((char *)slice, "%lu", &valueU);
 		__vecDestroy(slice);
 

@@ -855,12 +855,14 @@ struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end) {
 				op = expectOp(start, ",");
 				if (!op)
 					goto end;
+
+				start = llLexerItemNext(start);
 			}
 
 			struct parserNodeVarDecl decl;
 			decl.base.type = NODE_VAR_DECL;
 			decl.type =
-			    parseVarDeclTail(start, end, baseType, &decl.name, &decl.dftVal);
+			    parseVarDeclTail(start, &start, baseType, &decl.name, &decl.dftVal);
 
 			decls = strParserNodeAppendItem(decls, ALLOCATE(decl));
 		}
