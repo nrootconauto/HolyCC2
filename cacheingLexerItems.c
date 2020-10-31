@@ -19,7 +19,7 @@ static long countAlnum(struct __vec *data, long pos) {
 	long alNumCount = 0;
 	for (void *ptr = (void *)data + pos; ptr < __vecSize(data) + (void *)data;
 	     ptr++, alNumCount++)
-		if (!isalnum(*(char *)ptr))
+		if (!(isalnum(*(char *)ptr)||*(char*)ptr=='_'))
 			break;
 
 	return alNumCount;

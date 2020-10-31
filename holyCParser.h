@@ -17,6 +17,7 @@ enum parserNodeType {
  NODE_KW,
  NODE_VAR_DECL,
  NODE_VAR_DECLS,
+ NODE_META_DATA,
 };
 STR_TYPE_DEF(struct parserNode *,ParserNode);
 STR_TYPE_FUNCS(struct parserNode *,ParserNode);
@@ -72,11 +73,17 @@ struct parserNodeKeyword {
  struct sourcePos pos;
  const char *text;
 };
+struct parserNodeMetaData {
+ struct parserNode base;
+ struct parserNode *name;
+ struct parserNode *value;
+};
 struct parserNodeVarDecl {
  struct parserNode base;
  struct parserNode *name;
  struct object *type;
  struct parserNode *dftVal;
+ strParserNode metaData;
 };
 struct parserNodeVarDecls {
  struct parserNode base;
@@ -86,5 +93,3 @@ struct parserNode *parseExpression(llLexerItem start,llLexerItem end,llLexerItem
 strLexerItemTemplate holyCLexerTemplates();
 void parserNodeDestroy(struct parserNode **node);
 struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end);
-struct parserNode *parseSingleVarDecl(llLexerItem start,
-                                             llLexerItem *end);

@@ -392,38 +392,32 @@ void varDeclTests() {
 
 		assert((void *)func->args[1].type == objectByName("I64i"));
 	}
+	
+	text = "I64i x dft_val 10 format \"%s\"";
+	textStr = strCharAppendData(NULL, text, strlen(text));
+	
+	err = 0;
+	lexerUpdate(lex, (struct __vec *)textStr, &err);
+	assert(!err);
+	
+	decl = parseVarDecls(llLexerItemFirst(lexerGetItems(lex)), NULL);
+	assert(decl);
+	{
+	 assert(decl->type==NODE_VAR_DECL);
+	 struct parserNodeVarDecl *decl2=(void*)decl;
+	 
+	 assert (strParserNodeSize(decl2->metaData)==2);
+	 
+	 struct parserNodeMetaData *m1=(void*)decl2->metaData[0];
+	 assert(m1->name->type==NODE_NAME);
+	 struct parserNodeName *name=(void*)m1->name;
+	 assert(0==strcmp(name->text,"dft_val"));
+	 assert(m1->value->type==NODE_LIT_INT);
+	 
+	 struct parserNodeMetaData *m2=(void*)decl2->metaData[1];
+	 assert(m2->name->type==NODE_NAME);
+	 struct parserNodeName *name2=(void*)m2->name;
+	 assert(0==strcmp(name2->text,"format"));
+	 assert(m2->value->type==NODE_LIT_STR);
+	}
 }
-/*
-
-
-strCharDestroy(&textStr);
-
-
-}
-void typeParserTests() {
-const char *text = "I64i x=1";
-__auto_type textStr = strCharAppendData(NULL, text, strlen(text));
-__auto_type lex = lexerCreate((struct __vec *)textStr, holyCLexerTemplates(),
-                              charCmp, skipWhitespace);
-__auto_type items = lexerGetItems(lex);
-__auto_type str =
-    parserLexerItems2Str(llLexerItemFirst(items), llLexerItemLast(items));
-char *name;
-long count;
-__auto_type node =
-    parseVarDecls(str, str + strParserNodeSize(str), &name, &count);
-assert(node != NULL);
-assert(count == 4);
-assert(node->type == NODE_VAR_DECL);
-struct parserNodeVarDecl *decl = (void *)node;
-assert(0 == strcmp(decl->name, "x"));
-assert(decl->type == &typeI64i);
-assert(decl->dftVal->type == NODE_LIT_INT);
-
-return;
-strCharDestroy(&textStr);
-text = "I64i (*x[])(I64i x)";
-textStr = strCharAppendData(NULL, text, strlen(text));
-lexerUpdate(lex, ^textStr);
-}
-*/

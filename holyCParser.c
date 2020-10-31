@@ -118,8 +118,10 @@ static void initTemplates() {
 	opTemplate = keywordTemplateCreate(operators, opCount);
 	intTemplate = intTemplateCreate();
 	nameTemplate = nameTemplateCreate(keywords, kwCount);
-	struct __lexerItemTemplate *templates2[] = {&kwTemplate, &opTemplate,
-	                                            &intTemplate, &nameTemplate};
+	strTemplate = stringTemplateCreate();
+
+	struct __lexerItemTemplate *templates2[] = {
+	    &kwTemplate, &opTemplate, &intTemplate, &nameTemplate, &strTemplate};
 	__auto_type templateCount = sizeof(templates2) / sizeof(*templates2);
 	templates =
 	    strLexerItemTemplateAppendData(NULL, (void *)templates2, templateCount);
@@ -132,8 +134,8 @@ static struct parserNode *expectOp(llLexerItem _item, const char *text) {
 	__auto_type item = llLexerItemValuePtr(_item);
 
 	if (item->template == &opTemplate) {
-		__auto_type opText=*(const char **)lexerItemValuePtr(item);
-	 if (0 == strcmp(opText, text)) {
+		__auto_type opText = *(const char **)lexerItemValuePtr(item);
+		if (0 == strcmp(opText, text)) {
 			struct parserNodeOpTerm term;
 			term.base.type = NODE_OP;
 			term.pos.start = item->start;
@@ -818,7 +820,8 @@ static void getPtrsAndDims(llLexerItem start, llLexerItem *end,
 static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end,
                                        struct object *baseType,
                                        struct parserNode **name,
-                                       struct parserNode **dftVal);
+                                       struct parserNode **dftVal,
+                                       strParserNode *metaDatas);
 struct parserNode *parseSingleVarDecl(llLexerItem start, llLexerItem *end) {
 	struct parserNode *base __attribute__((cleanup(parserNodeDestroy)));
 	base = nameParse(start, NULL, &start);
@@ -830,8 +833,8 @@ struct parserNode *parseSingleVarDecl(llLexerItem start, llLexerItem *end) {
 
 		struct parserNodeVarDecl decl;
 		decl.base.type = NODE_VAR_DECL;
-		decl.type =
-		    parseVarDeclTail(start, end, baseType, &decl.name, &decl.dftVal);
+		decl.type = parseVarDeclTail(start, end, baseType, &decl.name, &decl.dftVal,
+		                             &decl.metaData);
 		return ALLOCATE(decl);
 	}
 	return NULL;
@@ -860,8 +863,8 @@ struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end) {
 
 			struct parserNodeVarDecl decl;
 			decl.base.type = NODE_VAR_DECL;
-			decl.type =
-			    parseVarDeclTail(start, &start, baseType, &decl.name, &decl.dftVal);
+			decl.type = parseVarDeclTail(start, &start, baseType, &decl.name,
+			                             &decl.dftVal, &decl.metaData);
 
 			decls = strParserNodeAppendItem(decls, ALLOCATE(decl));
 		}
@@ -914,7 +917,11 @@ static llLexerItem findEndOfExpression(llLexerItem start, int stopAtComma) {
 static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end,
                                        struct object *baseType,
                                        struct parserNode **name,
-                                       struct parserNode **dftVal) {
+                                       struct parserNode **dftVal,
+                                       strParserNode *metaDatas) {
+	if (metaDatas != NULL)
+		*metaDatas = NULL;
+
 	__auto_type funcPtrLeft = expectOp(start, "(");
 	long ptrLevel = 0;
 	struct parserNode *eq __attribute__((cleanup(parserNodeDestroy)));
@@ -960,7 +967,6 @@ static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end,
 				start = llLexerItemNext(start);
 			}
 
-			struct parserNode *argName, *dftVal;
 			struct parserNodeVarDecl *argDecl =
 			    (void *)parseSingleVarDecl(start, &start);
 			if (argDecl == NULL)
@@ -986,6 +992,21 @@ static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end,
 	for (long i = 0; i != strParserNodeSize(dims); i++)
 		retValType = objectArrayCreate(retValType, dims[i]);
 
+	// Look for metaData
+	strParserNode metaDatas2 = NULL;
+metaDataLoop:;
+
+	__auto_type metaName = nameParse(start, NULL, &start);
+	if (metaName != NULL) {
+		struct parserNode *metaValue = parseExpression(start, NULL, &start);
+		struct parserNodeMetaData meta;
+		meta.base.type = NODE_META_DATA;
+		meta.name = metaName;
+		meta.value = metaValue;
+
+		metaDatas2 = strParserNodeAppendItem(metaDatas2, ALLOCATE(meta));
+		goto metaDataLoop;
+	}
 	// Look for default value
 
 	eq = expectOp(start, "=");
@@ -1000,6 +1021,11 @@ static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end,
 		if (dftVal != NULL)
 			*dftVal = NULL;
 	}
+
+	if (metaDatas != NULL)
+		*metaDatas = metaDatas2;
+	else
+		strParserNodeDestroy2(&metaDatas2);
 
 	if (end != NULL)
 		*end = start;
