@@ -83,6 +83,21 @@ void cachingLexerTests() {
 		node = expectName(node, &nameTemplate, "b");
 		node = expectKeyword(node, &keywordTemplate, "--");
 		node = expectName(node, &nameTemplate, "c");
+		// Insert(ignore items between first unchanged and last changed item,see isAdjChar)
+		
+		strCharDestroy(&str);
+		text = "a--b--c1234";
+		str = strCharAppendData(NULL, (char *)text, strlen(text));
+		lexerUpdate(lexer, (struct __vec *)str, &err);
+		assert(err == 0);
+		items = lexerGetItems(lexer);
+		node = __llGetFirst(items);
+		node = expectName(node, &nameTemplate, "a");
+		node = expectKeyword(node, &keywordTemplate, "--");
+		node = expectName(node, &nameTemplate, "b");
+		node = expectKeyword(node, &keywordTemplate, "--");
+		node = expectName(node, &nameTemplate, "c1234");
+		
 		// Insert
 		strCharDestroy(&str);
 		text = "a1234--b--c";

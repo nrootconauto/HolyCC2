@@ -388,6 +388,54 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 					retVal = clone;
 
 					currentItem = llLexerItemNext(currentItem);
+
+					/**
+					 * Check if no items comsumed,
+					 * if so ,find last item in sameDiff ,check if has adjacent charators
+					 * that can modify the value changed item(using isAdjChar). This
+					 * allows skipping the items from the unmodifed item to the last
+					 * modified item
+					 */
+					long offset = sameDiffEnd - diffNewPos;
+
+					llLexerItem nodeBeforeDiffEnd = NULL;
+					for (__auto_type node = llLexerItemNext(currentItem); node != NULL;
+					     node = llLexerItemNext(node)) {
+						if (llLexerItemValuePtr(node)->end <= offset + diffOldPos) {
+							nodeBeforeDiffEnd = node;
+							continue;
+						} else
+							break;
+					}
+
+					if (nodeBeforeDiffEnd != NULL) {
+						for (; nodeBeforeDiffEnd != currentItem;) {
+							long offset =
+							    llLexerItemValuePtr(nodeBeforeDiffEnd)->end - diffOldPos;
+							__auto_type template =
+							    llLexerItemValuePtr(nodeBeforeDiffEnd)->template;
+
+							if (template->isAdjChar != NULL) {
+								if (offset + diffNewPos < __vecSize(newData)) {
+									if (template->isAdjChar(
+									        ((char *)newData)[offset + diffNewPos]))
+										goto couldBeModified;
+								}
+								/**
+								 * Item is not adjacent to any charactors that affect the
+								 * value of the item,quit continue as normal
+								 */
+								goto unmodified;
+							} else
+								goto couldBeModified;
+						couldBeModified : {
+							nodeBeforeDiffEnd = llLexerItemPrev(nodeBeforeDiffEnd);
+						}
+						}
+					}
+					continue;
+				unmodified:
+					currentItem = nodeBeforeDiffEnd;
 					continue;
 				}
 			}

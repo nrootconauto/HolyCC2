@@ -109,6 +109,7 @@ struct __lexerItemTemplate keywordTemplateCreate(const char **keywords,
 	retVal.update = keywordUpdate;
 	retVal.killTemplateData = keywordsKill;
 	retVal.cloneData = NULL;
+	retVal.isAdjChar =NULL;
 
 	return retVal;
 }
@@ -331,6 +332,18 @@ static enum lexerItemState intValidate(const void *itemData, struct __vec *old,
 		return LEXER_UNCHANGED;
 	return (intParse(new, pos, NULL, NULL, err)) ? LEXER_MODIFED : LEXER_DESTROY;
 }
+static int floatIsChar(int chr) {
+ return isalnum(chr)||NULL!=strchr("e+-",chr);
+} 
+static int intIsChar(int chr) {
+ return isalnum(chr);
+}
+static int nameIsChar(int chr) {
+ return isalnum(chr)||chr=='_';
+}
+static int strIsChar(int chr) {
+ return 0;
+} 
 static struct __vec *intUpdate(const void *data, struct __vec *old,
                                struct __vec *new, long pos, long *end,
                                const void *data2, int *err) {
@@ -356,7 +369,8 @@ struct __lexerItemTemplate nameTemplateCreate(const char **keywords,
 	retVal.update = nameUpdate;
 	retVal.killTemplateData = keywordsKill;
 	retVal.cloneData = NULL;
-
+	retVal.isAdjChar =nameIsChar;
+	
 	return retVal;
 }
 struct __lexerItemTemplate intTemplateCreate() {
@@ -369,6 +383,7 @@ struct __lexerItemTemplate intTemplateCreate() {
 	retVal.update = intUpdate;
 	retVal.killTemplateData = NULL;
 	retVal.cloneData = NULL;
+	retVal.isAdjChar =intIsChar;
 
 	return retVal;
 }
@@ -508,7 +523,8 @@ struct __lexerItemTemplate floatingTemplateCreate() {
 	retVal.killItemData = NULL;
 	retVal.killTemplateData = NULL;
 	retVal.cloneData = NULL;
-
+	retVal.isAdjChar =floatIsChar;
+	
 	return retVal;
 }
 static struct __vec *stringLex(struct __vec *new, long pos, long *end,
@@ -551,6 +567,7 @@ struct __lexerItemTemplate stringTemplateCreate() {
 	retVal.data = NULL;
 	retVal.killTemplateData = NULL;
 	retVal.cloneData = NULL;
+	retVal.isAdjChar =strIsChar;
 
 	return retVal;
 }

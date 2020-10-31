@@ -32,6 +32,7 @@ struct __lexerItemTemplate {
 	struct __vec *(*update)(const void *lexerItemData, struct __vec *oldStr,
 	                        struct __vec *newStr, long newPos, long *end,
 	                        const void *data, int *err);
+	int (*isAdjChar)(int chr);
 	void (*killItemData)(struct __lexerItem *item);
 	void (*killTemplateData)(void *item);
 };
