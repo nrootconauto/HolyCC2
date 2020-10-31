@@ -132,7 +132,8 @@ static struct parserNode *expectOp(llLexerItem _item, const char *text) {
 	__auto_type item = llLexerItemValuePtr(_item);
 
 	if (item->template == &opTemplate) {
-		if (0 == strcmp(*(const char **)lexerItemValuePtr(item), text)) {
+		__auto_type opText=*(const char **)lexerItemValuePtr(item);
+	 if (0 == strcmp(opText, text)) {
 			struct parserNodeOpTerm term;
 			term.base.type = NODE_OP;
 			term.pos.start = item->start;
@@ -827,8 +828,6 @@ struct parserNode *parseSingleVarDecl(llLexerItem start, llLexerItem *end) {
 		if (baseType == NULL)
 			return NULL;
 
-		start = llLexerItemNext(start);
-
 		struct parserNodeVarDecl decl;
 		decl.base.type = NODE_VAR_DECL;
 		decl.type =
@@ -931,6 +930,7 @@ static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end,
 		getPtrsAndDims(start, &start, name, &ptrLevel, &dims);
 
 		__auto_type r = expectOp(start, ")");
+		start = llLexerItemNext(start);
 		if (r == NULL) {
 			parserNodeDestroy(&r);
 			goto fail;

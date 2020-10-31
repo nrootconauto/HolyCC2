@@ -3,6 +3,7 @@
 #include <cacheingLexerItems.h>
 #include <holyCParser.h>
 #include <holyCType.h>
+#include <stdio.h>
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
 static int charCmp(const void *a, const void *b) {
@@ -347,6 +348,49 @@ void varDeclTests() {
 			}
 			assert(type->type == TYPE_I64i);
 		}
+	}
+	text = "I64i (*func)(I64i(*foo)(),I64i x)";
+	textStr = strCharAppendData(NULL, text, strlen(text));
+
+	err = 0;
+	lexerUpdate(lex, (struct __vec *)textStr, &err);
+	
+	int i=0;
+	
+	assert(!err);
+	decl = parseVarDecls(llLexerItemFirst(lexerGetItems(lex)), NULL);
+	{
+		assert(decl->type == NODE_VAR_DECL);
+		struct parserNodeVarDecl *decl2 = (void *)decl;
+		struct parserNodeName *name = (void *)decl2->name;
+		assert(0 == strcmp(name->text, "func"));
+
+		struct objectPtr *ptr=(void *)decl2->type;
+		assert(ptr->base.type==TYPE_PTR);
+		
+		struct objectFunction *func = (void *)ptr->type;
+		assert(func->base.type == TYPE_FUNCTION);
+		assert(strFuncArgSize(func->args) == 2);
+		assert(func->retType == objectByName("I64i"));
+
+		
+		ptr = (void *)func->args[0].type;
+		assert(ptr->base.type==TYPE_PTR);
+		
+		struct objectFunction *func2=(void*)ptr->type;
+		assert(func2->base.type == TYPE_FUNCTION);
+		assert(strFuncArgSize(func2->args) == 0);
+		assert(func2->retType == objectByName("I64i"));
+
+		name = (void *)func->args[0].name;
+		assert(name->base.type == NODE_NAME);
+		assert(0 == strcmp(name->text, "foo"));
+
+		name = (void *)func->args[1].name;
+		assert(name->base.type == NODE_NAME);
+		assert(0 == strcmp(name->text, "x"));
+
+		assert((void *)func->args[1].type == objectByName("I64i"));
 	}
 }
 /*
