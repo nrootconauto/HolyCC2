@@ -333,16 +333,16 @@ static enum lexerItemState intValidate(const void *itemData, struct __vec *old,
 	return (intParse(new, pos, NULL, NULL, err)) ? LEXER_MODIFED : LEXER_DESTROY;
 }
 static int floatIsChar(int chr) {
- return isalnum(chr)||NULL!=strchr("e+-",chr);
+ return isdigit(chr)||NULL!=strchr("e+-.",chr);
 } 
 static int intIsChar(int chr) {
- return isalnum(chr);
+ return isdigit(chr)||NULL!=strchr("bxabcdefABCDEF",chr);
 }
 static int nameIsChar(int chr) {
  return isalnum(chr)||chr=='_';
 }
 static int strIsChar(int chr) {
- return 0;
+ return 1;
 } 
 static struct __vec *intUpdate(const void *data, struct __vec *old,
                                struct __vec *new, long pos, long *end,

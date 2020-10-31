@@ -325,6 +325,7 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 
 			// Previous items will have been updated before pos,so go to current item
 			if (lexerItemPtr->start == diffOldPos + newPos - diffNewPos) {
+
 				struct __vec *slice __attribute__((cleanup(__vecDestroyPtr)));
 				slice = lexerItemGetText(lexer, lexerItemPtr);
 
@@ -332,6 +333,18 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 				__auto_type state =
 				    template->validateOnModify(lexerItemValuePtr(lexerItemPtr), slice,
 				                               newData, newPos, template->data, err);
+				/**
+				 * Check if a new item appears at current pos before updating value
+				 */
+				__auto_type res = getLexerCanidate(lexer, newData, newPos, NULL, err);
+				if (res != NULL) {
+					if (llLexerItemValuePtr(res)->template != template) {
+						llLexerItemValuePtr(res)->template->killItemData(
+						    llLexerItemValuePtr(res));
+						goto findNewItems;
+					}
+				}
+
 				if (err != NULL)
 					if (*err)
 						goto error;
@@ -410,24 +423,33 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 
 					if (nodeBeforeDiffEnd != NULL) {
 						for (; nodeBeforeDiffEnd != currentItem;) {
-							long offset =
+							long offsetEnd =
 							    llLexerItemValuePtr(nodeBeforeDiffEnd)->end - diffOldPos;
-							__auto_type template =
-							    llLexerItemValuePtr(nodeBeforeDiffEnd)->template;
+							long offsetStart =
+							    llLexerItemValuePtr(nodeBeforeDiffEnd)->start - diffOldPos;
 
-							if (template->isAdjChar != NULL) {
-								if (offset + diffNewPos < __vecSize(newData)) {
-									if (template->isAdjChar(
-									        ((char *)newData)[offset + diffNewPos]))
-										goto couldBeModified;
-								}
-								/**
-								 * Item is not adjacent to any charactors that affect the
-								 * value of the item,quit continue as normal
-								 */
-								goto unmodified;
-							} else
-								goto couldBeModified;
+							for (long i = 0; i != strLexerItemTemplateSize(lexer->templates);
+							     i++) {
+								__auto_type template = lexer->templates[i];
+								if (template->isAdjChar != NULL) {
+									if (offsetEnd + diffNewPos < __vecSize(newData)) {
+										if (template->isAdjChar(
+										        ((char *)newData)[offsetEnd + diffNewPos]))
+											goto couldBeModified;
+									}
+									if (offsetStart + diffNewPos - 1 >= 0) {
+										if (template->isAdjChar(
+										        ((char *)newData)[offsetStart + diffNewPos - 1]))
+											goto couldBeModified;
+									}
+								} else
+									goto couldBeModified;
+							}
+							/**
+							 * Item is not adjacent to any charactors that affect the
+							 * value of the item,quit continue as normal
+							 */
+							goto unmodified;
 						couldBeModified : {
 							nodeBeforeDiffEnd = llLexerItemPrev(nodeBeforeDiffEnd);
 						}
