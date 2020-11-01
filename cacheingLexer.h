@@ -5,11 +5,7 @@ enum lexerItemState { LEXER_MODIFED, LEXER_UNCHANGED, LEXER_DESTROY };
 struct __lexerItem;
 STR_TYPE_DEF(struct __lexerItem *, LexerItem);
 STR_TYPE_FUNCS(struct __lexerItem *, LexerItem);
-struct __lexerCacheBlob {
-	strLexerItem items;
-	long refCount;
-	void *value;
-};
+struct __lexerCacheBlob;
 STR_TYPE_DEF(struct __lexerCacheBlob *, LexerCacheBlob);
 STR_TYPE_FUNCS(struct __lexerCacheBlob *, LexerCacheBlob);
 struct __lexerItem {
@@ -50,5 +46,17 @@ void lexerDestroy(struct __lexer **lexer);
 
 void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err);
 
+enum cacheBlobFlags {
+	CACHE_CHANGED = 1,
+	CACHE_INSERT = 2,
+	CACHE_FLAG_REMOVE = 4,
+	CACHE_INSERT_ADJ = 8,
+};
 llLexerItem lexerGetItems(struct __lexer *lexer);
 void *lexerItemValuePtr(const struct __lexerItem *item);
+struct cacheBlobTemplate {
+	void (*killData)(void *data);
+	enum cacheBlobFlags mask;
+	void (*update)(void *data, llLexerItem start, llLexerItem end,
+	               llLexerItem *start2, llLexerItem *end2, int *propigateUpwards);
+};

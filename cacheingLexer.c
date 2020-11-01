@@ -4,6 +4,73 @@
 #include <linkedList.h>
 #include <str.h>
 struct __lexerItemTemplate;
+struct __lexerCacheBlob {
+	struct cacheBlobTemplate *template;
+	void *data;
+	llLexerItem start, end;
+	int order;
+	enum cacheBlobFlags flags;
+};
+struct __lexerCacheBlob *
+lexerCacheBlobCreate(struct cacheBlobTemplate *template, int order,
+                     llLexerItem start, llLexerItem end, void *data) {
+	struct __lexerCacheBlob *retVal = malloc(sizeof(struct __lexerCacheBlob));
+	retVal->data = data;
+	retVal->start = start;
+	retVal->end = end;
+	retVal->order = order;
+	retVal->template = template;
+	retVal->flags = 0;
+
+	for(__auto_type node=start;node!=end;node=llLexerItemNext(node)) {
+	 __auto_type item=llLexerItemValuePtr(node);
+	 item->blobs=strLexerCacheBlobAppendItem(item->blobs,retVal);
+	}
+	
+	return retVal;
+}
+static void lexerCacheBlobUpdateInsert(struct __lexerCacheBlob *blob,
+                                       llLexerItem inserted) {
+	if (inserted == llLexerItemPrev(blob->start))
+		goto adj;
+	else if (inserted == llLexerItemNext(blob->end))
+		goto adj;
+	else {
+		blob->flags |= blob->template->mask & CACHE_INSERT;
+	}
+	return;
+adj : { blob->flags |= blob->template->mask & CACHE_INSERT_ADJ; }
+}
+static void lexerCacheBlobUpdateRemove(struct __lexerCacheBlob *blob,
+                                       llLexerItem toRemove) {
+
+	if (blob->end == toRemove)
+		blob->end = llLexerItemPrev(blob->end);
+	if (blob->end == blob->start)
+		goto destroy;
+
+	if (blob->start == toRemove)
+		blob->start = llLexerItemNext(blob->start);
+	if (blob->end == blob->start)
+		goto destroy;
+destroy : { blob->flags |= blob->template->mask & CACHE_FLAG_REMOVE; }
+}
+static void llLexerItemKillSlice(llLexerItem start, llLexerItem end) {
+	// Kill consumed nodes
+	for (llLexerItem node2 = start; node2 != end;
+	     node2 = llLexerItemNext(node2)) {
+		__auto_type item = llLexerItemValuePtr(node2);
+
+		for (long i = 0; i != strLexerCacheBlobSize(item->blobs); i++) {
+			lexerCacheBlobUpdateRemove(item->blobs[i], node2);
+		}
+
+		__auto_type killFunc = item->template->killItemData;
+		if (killFunc) {
+			killFunc(lexerItemValuePtr(item));
+		}
+	}
+}
 void *lexerItemValuePtr(const struct __lexerItem *item) {
 	return (void *)item + sizeof(struct __lexerItem);
 }
@@ -212,14 +279,8 @@ static llLexerItem findEndOfConsumedItems(const llLexerItem new,
 			continue;
 		} else {
 			// Kill consumed nodes
-			for (llLexerItem node2 = originalNode; node2 != node;
-			     node2 = llLexerItemNext(node2)) {
-				__auto_type item = llLexerItemValuePtr(node2);
-				__auto_type killFunc = item->template->killItemData;
-				if (killFunc) {
-					killFunc(lexerItemValuePtr(item));
-				}
-			}
+			llLexerItemKillSlice(originalNode, node);
+
 			return node;
 		}
 	}
@@ -260,15 +321,7 @@ static llLexerItem lexerMovePastDeleted(long startAt, llLexerItem currentItem,
 	}
 
 returnLabel:
-	// Kill consumed nodes
-	for (llLexerItem node2 = currentItem; node2 != retVal;
-	     node2 = llLexerItemNext(node2)) {
-		__auto_type item = llLexerItemValuePtr(node2);
-		__auto_type killFunc = item->template->killItemData;
-		if (killFunc) {
-			killFunc(lexerItemValuePtr(item));
-		}
-	}
+	llLexerItemKillSlice(currentItem, retVal);
 
 	return retVal;
 }
@@ -495,6 +548,21 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 				assert(NULL != res);
 				llLexerItemInsertListAfter(retVal, (llLexerItem)res);
 				retVal = res;
+				/**
+				 * Check for insert/adjacent insert
+				 */
+				if (llLexerItemPrev(retVal) != NULL) {
+					__auto_type prev = llLexerItemValuePtr(llLexerItemPrev(retVal));
+					if (prev->blobs != NULL) 
+						for (long i = 0; i != strLexerCacheBlobSize(prev->blobs); i++) 
+							lexerCacheBlobUpdateInsert(prev->blobs[i], retVal);
+				}
+				if (llLexerItemNext(retVal) != NULL) {
+					__auto_type prev = llLexerItemValuePtr(llLexerItemNext(retVal));
+					if (prev->blobs != NULL) 
+						for (long i = 0; i != strLexerCacheBlobSize(prev->blobs); i++) 
+							lexerCacheBlobUpdateInsert(prev->blobs[i], retVal);
+				}
 
 				newPos = end;
 
