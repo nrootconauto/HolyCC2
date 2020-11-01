@@ -168,6 +168,7 @@ static llLexerItem getLexerCanidate(struct __lexer *lexer,
 				itemValue->start = pos;
 				itemValue->end = end;
 				itemValue->template = lexer->templates[i];
+				itemValue->blobs = NULL;
 
 				biggestSize = size;
 
@@ -192,6 +193,7 @@ static llLexerItem getLexerCanidate(struct __lexer *lexer,
 static llLexerItem findEndOfConsumedItems(const llLexerItem new,
                                           const llLexerItem current,
                                           const strDiff diffs) {
+	__auto_type originalNode = current;
 	if (new == NULL)
 		return NULL;
 
@@ -209,6 +211,15 @@ static llLexerItem findEndOfConsumedItems(const llLexerItem new,
 			node = llLexerItemNext(node);
 			continue;
 		} else {
+			// Kill consumed nodes
+			for (llLexerItem node2 = originalNode; node2 != node;
+			     node2 = llLexerItemNext(node2)) {
+				__auto_type item = llLexerItemValuePtr(node2);
+				__auto_type killFunc = item->template->killItemData;
+				if (killFunc) {
+					killFunc(lexerItemValuePtr(item));
+				}
+			}
 			return node;
 		}
 	}
@@ -249,6 +260,16 @@ static llLexerItem lexerMovePastDeleted(long startAt, llLexerItem currentItem,
 	}
 
 returnLabel:
+	// Kill consumed nodes
+	for (llLexerItem node2 = currentItem; node2 != retVal;
+	     node2 = llLexerItemNext(node2)) {
+		__auto_type item = llLexerItemValuePtr(node2);
+		__auto_type killFunc = item->template->killItemData;
+		if (killFunc) {
+			killFunc(lexerItemValuePtr(item));
+		}
+	}
+
 	return retVal;
 }
 llLexerItem lexerItemClone(const llLexerItem toClone) {
@@ -361,6 +382,7 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 					if (err != NULL)
 						if (*err)
 							goto error;
+
 					// Clone the properites of the current item
 					__auto_type newNode =
 					    llLexerItemCreate(*llLexerItemValuePtr(currentItem));
@@ -476,9 +498,10 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 
 				newPos = end;
 
-				currentItem = findEndOfConsumedItems(
+				__auto_type newCurrentItem = findEndOfConsumedItems(
 				    retVal, currentItem,
 				    diffs); // killConsumedItems returns next (availible) item
+				currentItem = newCurrentItem;
 			} while (newPos < diffNewPos);
 		}
 		}

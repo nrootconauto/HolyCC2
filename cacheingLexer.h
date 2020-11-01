@@ -7,6 +7,7 @@ STR_TYPE_DEF(struct __lexerItem *, LexerItem);
 STR_TYPE_FUNCS(struct __lexerItem *, LexerItem);
 struct __lexerCacheBlob {
 	strLexerItem items;
+	long refCount;
 	void *value;
 };
 STR_TYPE_DEF(struct __lexerCacheBlob *, LexerCacheBlob);
