@@ -17,6 +17,8 @@ long objectAlign(const struct object *type, int *success) {
 		// TODO check if constant size
 		*success = 0;
 		return -1;
+	case TYPE_FORWARD:
+	case TYPE_FUNCTION:
 	case TYPE_U0: {
 		return 0;
 	}
@@ -32,6 +34,7 @@ long objectAlign(const struct object *type, int *success) {
 		__auto_type ptr = (struct objectClass *)type;
 		return ptr->size;
 	}
+	case TYPE_Bool:
 	case TYPE_I8i:
 	case TYPE_U8i: {
 		return 1;
@@ -44,9 +47,10 @@ long objectAlign(const struct object *type, int *success) {
 	case TYPE_U32i: {
 		return 4;
 	}
+	case TYPE_F64:
 	case TYPE_I64i:
 	case TYPE_U64i: {
-		return 2;
+		return 8;
 	}
 	}
 }
@@ -56,8 +60,10 @@ void objectMemberAttrDestroy(struct objectMemberAttr *attr) {
 }
 void objectMemberDestroy(struct objectMember *member) {
 	free(member->name);
-	llObjectMemberAttrDestroy(&member->attrs,
-	                          (void (*)(void *))objectMemberAttrDestroy);
+	for (long i = 0; i != strObjectMemberAttrSize(member->attrs); i++)
+		objectMemberAttrDestroy(&member->attrs[i]);
+
+	strObjectMemberAttrDestroy(&member->attrs);
 }
 void objectDestroy(struct object **type) {
 	struct object *type2 = *type;
@@ -65,16 +71,17 @@ void objectDestroy(struct object **type) {
 	case TYPE_CLASS: {
 		__auto_type item = (struct objectClass *)type2;
 		free(item->name);
-		llObjectMemberDestroy(&item->members,
-		                      (void (*)(void *))objectMemberDestroy);
+		for (long i = 0; i != strObjectMemberSize(item->members); i++)
+			objectMemberDestroy(&item->members[i]);
 		free(type2);
 		return;
 	}
 	case TYPE_UNION: {
 		__auto_type item = (struct objectUnion *)type2;
 		free(item->name);
-		llObjectMemberDestroy(&item->members,
-		                      (void (*)(void *))objectMemberDestroy);
+		for (long i = 0; i != strObjectMemberSize(item->members); i++)
+			objectMemberDestroy(&item->members[i]);
+
 		free(type2);
 		return;
 	}
@@ -120,12 +127,12 @@ long objectSize(const struct object *type, int *success) {
 	}
 	case TYPE_I64i:
 	case TYPE_U64i: {
-		return 2;
+		return 8;
 	}
 	}
 }
 struct object *objectClassCreate(const char *name,
-                                 const struct objectMember **members,
+                                 const struct objectMember *members,
                                  long count) {
 	struct objectClass *newClass = malloc(sizeof(struct objectClass));
 	newClass->name = strClone(name);
@@ -136,7 +143,7 @@ struct object *objectClassCreate(const char *name,
 	long largestMemberAlign = 0;
 	int success;
 	for (long i = 0; i != count; i++) {
-		__auto_type align = objectAlign(members[i]->type, &success);
+		__auto_type align = objectAlign(members[i].type, &success);
 		if (!success)
 			goto fail;
 
@@ -149,20 +156,16 @@ struct object *objectClassCreate(const char *name,
 	newClass->members = NULL;
 	long offset = 0;
 	for (long i = 0; i != count; i++) {
-		offset += offset & objectAlign(members[i]->type, &success);
+		offset += objectAlign(members[i].type, &success);
 		if (!success)
 			goto fail;
 
-		struct objectMember clone = *members[i];
-		clone.offset = offset;
-		clone.name = strClone(clone.name);
-
-		llObjectMember tmp = llObjectMemberCreate(clone);
-		llObjectMemberAttrInsertListAfter(llObjectMemberLast(newClass->members),
-		                                  tmp);
+		newClass->members =
+		    strObjectMemberAppendItem(newClass->members, members[i]);
 	}
-
-	newClass->size = offset + (largestMemberAlign % offset);
+	if (offset % largestMemberAlign)
+		newClass->size =
+		    offset + largestMemberAlign - (offset % largestMemberAlign);
 
 	return (struct object *)newClass;
 fail:
@@ -170,7 +173,7 @@ fail:
 	return NULL;
 }
 struct object *objectUnionCreate(const char *name,
-                                 const struct objectMember **members,
+                                 const struct objectMember *members,
                                  long count) {
 	int success;
 
@@ -183,13 +186,13 @@ struct object *objectUnionCreate(const char *name,
 	long largestMemberAlign = 0;
 	long largestSize = 0;
 	for (long i = 0; i != count; i++) {
-		struct objectMember clone = *members[i];
+		struct objectMember clone = members[i];
 		clone.offset = 0;
 
-		__auto_type align = objectAlign(members[i]->type, &success);
+		__auto_type align = objectAlign(members[i].type, &success);
 		if (!success)
 			goto fail;
-		__auto_type size = objectSize(members[i]->type, &success);
+		__auto_type size = objectSize(members[i].type, &success);
 		if (!success)
 			goto fail;
 
@@ -199,8 +202,8 @@ struct object *objectUnionCreate(const char *name,
 			largestSize = size;
 
 		clone.name = strClone(clone.name);
-		llObjectMemberInsertListAfter(llObjectMemberLast(newUnion->members),
-		                              llObjectMemberCreate(clone));
+		newUnion->members =
+		    strObjectMemberAppendItem(newUnion->members, members[i]);
 	}
 	largestSize += largestSize % largestMemberAlign;
 	newUnion->size = largestSize;

@@ -5,6 +5,12 @@
 #include <holyCType.h>
 #define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
+static char *strCopy(const char *text) {
+	char *retVal = malloc(strlen(text) + 1);
+	strcpy(retVal, text);
+
+	return retVal;
+}
 #define ALLOCATE(x)                                                            \
 	({                                                                           \
 		__auto_type len = sizeof(x);                                               \
@@ -53,6 +59,10 @@ static void initTemplates() {
 	    "import",
 	    "_import",
 	    "public",
+	    //
+	    ";",
+	    "{",
+	    "}",
 	};
 	__auto_type kwCount = sizeof(keywords) / sizeof(*keywords);
 
@@ -730,10 +740,12 @@ LEFT_ASSOC_OP(prec4, prec3Recur, "&");
 LEFT_ASSOC_OP(prec3, prec2Recur, "*", "%", "/");
 LEFT_ASSOC_OP(prec2, prec1Recur, "`", "<<", ">>");
 
-static struct parserNode *expectKeyword(struct __lexerItem *item,
-                                        const char *text) {
+static struct parserNode *expectKeyword(llLexerItem __item, const char *text) {
+	__auto_type item = llLexerItemValuePtr(__item);
+
 	if (item->template == &kwTemplate) {
-		if (0 == strcmp(*(const char **)item, text)) {
+		__auto_type itemText = *(const char **)lexerItemValuePtr(item);
+		if (0 == strcmp(itemText, text)) {
 			struct parserNodeKeyword kw;
 			kw.base.type = NODE_KW;
 			kw.pos.start = item->start;
@@ -766,7 +778,7 @@ static enum linkage getLinkage(llLexerItem start, llLexerItem *result) {
 	__auto_type count = sizeof(pairs) / sizeof(*pairs);
 
 	for (long i = 0; i != count; i++) {
-		if (expectKeyword(llLexerItemValuePtr(start), pairs[i].text)) {
+		if (expectKeyword(start, pairs[i].text)) {
 			if (result != NULL)
 				*result = llLexerItemNext(start);
 
@@ -998,7 +1010,9 @@ metaDataLoop:;
 
 	__auto_type metaName = nameParse(start, NULL, &start);
 	if (metaName != NULL) {
-		struct parserNode *metaValue = parseExpression(start, NULL, &start);
+		// Find end of expression,comma is reserved for next declaration.
+		__auto_type expEnd = findEndOfExpression(start, 1);
+		struct parserNode *metaValue = parseExpression(start, expEnd, &start);
 		struct parserNodeMetaData meta;
 		meta.base.type = NODE_META_DATA;
 		meta.name = metaName;
@@ -1035,4 +1049,149 @@ fail:
 	if (end != NULL)
 		*end = start;
 	return NULL;
+}
+static strObjectMember parseMembers(llLexerItem start, llLexerItem *end) {
+	__auto_type decls = parseVarDecls(start, &start);
+	if (decls != NULL) {
+		strParserNode decls2 = NULL;
+		if (decls->type == NODE_VAR_DECL) {
+			decls2 = strParserNodeAppendItem(decls2, decls);
+		} else if (decls->type == NODE_VAR_DECLS) {
+			struct parserNodeVarDecls *d = (void *)decls;
+			decls2 =
+			    strParserNodeAppendData(NULL, (const struct parserNode **)d->decls,
+			                            strParserNodeSize(d->decls));
+		}
+
+		strObjectMember members = NULL;
+		for (long i = 0; i != strParserNodeSize(decls2); i++) {
+			if (decls2[i]->type != NODE_VAR_DECL)
+				continue;
+
+			struct objectMember member;
+
+			struct parserNodeVarDecl *decl = (void *)decls2[i];
+			struct parserNodeName *name = (void *)decl->name;
+			member.name = NULL;
+			if (name != NULL)
+				if (name->base.type == NODE_NAME)
+					member.name = strCopy(name->text);
+
+			member.type = decl->type;
+			member.offset = -1;
+			member.attrs = NULL;
+
+			for (long i = 0; i != strParserNodeSize(decl->metaData); i++) {
+				struct parserNodeMetaData *meta = (void *)decl->metaData[i];
+				assert(meta->base.type == NODE_META_DATA);
+
+				struct objectMemberAttr attr;
+				name = (void *)meta->name;
+				assert(name->base.type == NODE_NAME);
+				attr.name = strCopy(name->text);
+				attr.value = meta->value;
+
+				member.attrs = strObjectMemberAttrAppendItem(member.attrs, attr);
+			}
+
+			members = strObjectMemberAppendItem(members, member);
+		}
+		strParserNodeDestroy2(&decls2);
+
+		if (end != NULL)
+			*end = start;
+		return members;
+	}
+	if (end != NULL)
+		*end = start;
+	return NULL;
+}
+struct parserNode *parseClass(llLexerItem start, llLexerItem *end) {
+	__auto_type originalStart = start;
+	__auto_type baseName = nameParse(start, NULL, &start);
+	struct parserNode *cls = NULL, *un = NULL;
+	struct object *retValObj = NULL;
+	struct parserNode *retVal = NULL;
+
+	struct object *baseType = NULL;
+	if (baseName != NULL) {
+		struct parserNodeName *name2 = (void *)baseName;
+		baseType = objectByName(name2->text);
+		if (baseType == NULL)
+			goto end;
+	}
+	cls = expectKeyword(start, "class");
+	un = expectKeyword(start, "union");
+
+	struct parserNode *name2 = NULL;
+	if (cls || un) {
+		start = llLexerItemNext(start);
+
+		name2 = nameParse(start, NULL, &start);
+
+		struct parserNode *l __attribute__((cleanup(parserNodeDestroy))) =
+		    expectKeyword(start, "{");
+		start = llLexerItemNext(start);
+		if (l == NULL)
+			goto end;
+
+		strObjectMember members __attribute__((cleanup(strObjectMemberDestroy))) =
+		    NULL;
+		for (;;) {
+			struct parserNode *r __attribute__((cleanup(parserNodeDestroy))) =
+			    expectKeyword(start, "}");
+			if (r != NULL) {
+				start = llLexerItemNext(start);
+				break;
+			}
+
+			__auto_type newMembers = parseMembers(start, &start);
+			members = strObjectMemberConcat(members, newMembers);
+
+			__auto_type kw = expectKeyword(start, ";");
+			if (kw != NULL) {
+				start = llLexerItemNext(start);
+			} else {
+				// TODO whine if no semicolon
+			}
+			parserNodeDestroy(&kw);
+		}
+
+		char *className = NULL;
+		if (name2 != NULL) {
+			struct parserNodeName *name = (void *)name2;
+			className = strClone(name->text);
+		}
+
+		if (cls) {
+			retValObj =
+			    objectClassCreate(className, members, strObjectMemberSize(members));
+			free(className);
+		} else if (un) {
+			retValObj =
+			    objectUnionCreate(className, members, strObjectMemberSize(members));
+			free(className);
+		}
+	}
+	if (cls) {
+		struct parserNodeClassDef def;
+		def.base.type = NODE_CLASS_DEF;
+		def.name = name2;
+		def.type = retValObj;
+
+		retVal = ALLOCATE(def);
+	} else if (un) {
+		struct parserNodeUnionDef def;
+		def.base.type = NODE_UNION_DEF;
+		def.name = name2;
+		def.type = retValObj;
+
+		retVal = ALLOCATE(def);
+	}
+end:
+	parserNodeDestroy(&cls);
+	parserNodeDestroy(&un);
+	parserNodeDestroy(&baseName);
+
+	return retVal;
 }

@@ -9,7 +9,7 @@ STR_TYPE_FUNCS(char, Char);
 static int charCmp(const void *a, const void *b) {
 	return *(char *)a == *(char *)b;
 }
-void precParserTests() {
+static void precParserTests() {
 	const char *text = "0 + 1 + 2 + 3";
 	__auto_type textStr = strCharAppendData(NULL, text, strlen(text));
 
@@ -257,7 +257,7 @@ void precParserTests() {
 		assert(0 == strcmp(name->text, "c"));
 	}
 }
-void varDeclTests() {
+static void varDeclTests() {
 	const char *text = "I64i x=10";
 	__auto_type textStr = strCharAppendData(NULL, text, strlen(text));
 
@@ -354,9 +354,9 @@ void varDeclTests() {
 
 	err = 0;
 	lexerUpdate(lex, (struct __vec *)textStr, &err);
-	
-	int i=0;
-	
+
+	int i = 0;
+
 	assert(!err);
 	decl = parseVarDecls(llLexerItemFirst(lexerGetItems(lex)), NULL);
 	{
@@ -365,19 +365,18 @@ void varDeclTests() {
 		struct parserNodeName *name = (void *)decl2->name;
 		assert(0 == strcmp(name->text, "func"));
 
-		struct objectPtr *ptr=(void *)decl2->type;
-		assert(ptr->base.type==TYPE_PTR);
-		
+		struct objectPtr *ptr = (void *)decl2->type;
+		assert(ptr->base.type == TYPE_PTR);
+
 		struct objectFunction *func = (void *)ptr->type;
 		assert(func->base.type == TYPE_FUNCTION);
 		assert(strFuncArgSize(func->args) == 2);
 		assert(func->retType == objectByName("I64i"));
 
-		
 		ptr = (void *)func->args[0].type;
-		assert(ptr->base.type==TYPE_PTR);
-		
-		struct objectFunction *func2=(void*)ptr->type;
+		assert(ptr->base.type == TYPE_PTR);
+
+		struct objectFunction *func2 = (void *)ptr->type;
 		assert(func2->base.type == TYPE_FUNCTION);
 		assert(strFuncArgSize(func2->args) == 0);
 		assert(func2->retType == objectByName("I64i"));
@@ -392,32 +391,74 @@ void varDeclTests() {
 
 		assert((void *)func->args[1].type == objectByName("I64i"));
 	}
-	
+
 	text = "I64i x dft_val 10 format \"%s\"";
 	textStr = strCharAppendData(NULL, text, strlen(text));
-	
+
 	err = 0;
 	lexerUpdate(lex, (struct __vec *)textStr, &err);
 	assert(!err);
-	
+
 	decl = parseVarDecls(llLexerItemFirst(lexerGetItems(lex)), NULL);
 	assert(decl);
 	{
-	 assert(decl->type==NODE_VAR_DECL);
-	 struct parserNodeVarDecl *decl2=(void*)decl;
-	 
-	 assert (strParserNodeSize(decl2->metaData)==2);
-	 
-	 struct parserNodeMetaData *m1=(void*)decl2->metaData[0];
-	 assert(m1->name->type==NODE_NAME);
-	 struct parserNodeName *name=(void*)m1->name;
-	 assert(0==strcmp(name->text,"dft_val"));
-	 assert(m1->value->type==NODE_LIT_INT);
-	 
-	 struct parserNodeMetaData *m2=(void*)decl2->metaData[1];
-	 assert(m2->name->type==NODE_NAME);
-	 struct parserNodeName *name2=(void*)m2->name;
-	 assert(0==strcmp(name2->text,"format"));
-	 assert(m2->value->type==NODE_LIT_STR);
+		assert(decl->type == NODE_VAR_DECL);
+		struct parserNodeVarDecl *decl2 = (void *)decl;
+
+		assert(strParserNodeSize(decl2->metaData) == 2);
+
+		struct parserNodeMetaData *m1 = (void *)decl2->metaData[0];
+		assert(m1->name->type == NODE_NAME);
+		struct parserNodeName *name = (void *)m1->name;
+		assert(0 == strcmp(name->text, "dft_val"));
+		assert(m1->value->type == NODE_LIT_INT);
+
+		struct parserNodeMetaData *m2 = (void *)decl2->metaData[1];
+		assert(m2->name->type == NODE_NAME);
+		struct parserNodeName *name2 = (void *)m2->name;
+		assert(0 == strcmp(name2->text, "format"));
+		assert(m2->value->type == NODE_LIT_STR);
 	}
+}
+void classParserTests() {
+	const char *text = "class x {\n"
+	                   "    I64i a dft_val 10,b,c;\n"
+	                   "    U8i d;\n"
+	                   "}";
+	__auto_type textStr = strCharAppendData(NULL, text, strlen(text));
+
+	__auto_type lex = lexerCreate((struct __vec *)textStr, holyCLexerTemplates(),
+	                              charCmp, skipWhitespace);
+
+	__auto_type cls = parseClass(llLexerItemFirst(lexerGetItems(lex)), NULL);
+	assert(cls);
+	{
+		assert(cls->type == NODE_CLASS_DEF);
+		struct parserNodeClassDef *clsDef = (void *)cls;
+
+		assert(clsDef->name->type == NODE_NAME);
+		struct parserNodeName *name = (void *)clsDef->name;
+		assert(0 == strcmp(name->text, "x"));
+
+		struct objectClass *clsType = (void *)clsDef->type;
+		assert(clsType->base.type == TYPE_CLASS);
+
+		const char *text[] = {"a", "b", "c", "d"};
+		for (long i = 0; i != strObjectMemberSize(clsType->members); i++) {
+			assert(0 == strcmp(clsType->members[i].name, text[i]));
+
+			if (i == 0) {
+				assert(strObjectMemberAttrSize(clsType->members[i].attrs) == 1);
+				assert(0 == strcmp(clsType->members[i].attrs[0].name, "dft_val"));
+				assert(clsType->members[i].attrs[0].value->type == NODE_LIT_INT);
+			} else {
+				assert(strObjectMemberAttrSize(clsType->members[i].attrs) == 0);
+			}
+		}
+	}
+}
+void parserTests() {
+	precParserTests();
+	varDeclTests();
+	classParserTests();
 }

@@ -32,18 +32,18 @@ struct objectMemberAttr {
 	char *name;
 	struct parserNode *value;
 };
-LL_TYPE_DEF(struct memberAttr, ObjectMemberAttr);
-LL_TYPE_FUNCS(struct objectMemberAttr, ObjectMemberAttr);
+STR_TYPE_DEF(struct objectMemberAttr, ObjectMemberAttr);
+STR_TYPE_FUNCS(struct objectMemberAttr, ObjectMemberAttr);
 
 struct object;
 struct objectMember {
 	struct object *type;
 	char *name;
-	llObjectMemberAttr attrs;
+	strObjectMemberAttr attrs;
 	long offset;
 };
-LL_TYPE_DEF(struct objectMember, ObjectMember);
-LL_TYPE_FUNCS(struct objectMember, ObjectMember);
+STR_TYPE_DEF(struct objectMember, ObjectMember);
+STR_TYPE_FUNCS(struct objectMember, ObjectMember);
 struct object {
 	enum holyCTypeKind type;
 	enum linkage link;
@@ -51,14 +51,14 @@ struct object {
 struct objectClass {
 	struct object base;
 	char *name;
-	llObjectMember members;
+	strObjectMember members;
 	long align;
 	long size;
 };
 struct objectUnion {
 	struct object base;
 	char *name;
-	llObjectMember members;
+	strObjectMember members;
 	long align;
 	long size;
 };
@@ -92,10 +92,10 @@ struct object *objectArrayCreate(struct object *baseType,
                                  struct parserNode *dim);
 struct object *objectPtrCreate(struct object *baseType);
 struct object *objectUnionCreate(const char *name,
-                                 const struct objectMember **members,
+                                 const struct objectMember *members,
                                  long count);
 struct object *objectClassCreate(const char *name,
-                                 const struct objectMember **members,
+                                 const struct objectMember *members,
                                  long count);
 long objectSize(const struct object *type, int *success);
 void objectDestroy(struct object **type);

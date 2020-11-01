@@ -10,8 +10,7 @@ void eventPoolTests();
 void precParserTests();
 void graphDominanceTests();
 void graphColoringTests();
-void typeParserTests();
-void varDeclTests();
+void parserTests();
 int main() {
 	// strTests();
 	// graphDominanceTests();
@@ -29,8 +28,7 @@ int main() {
 	  eventPoolTests();
 	  */
 	cachingLexerTests();
-	precParserTests();
-	varDeclTests();
+	parserTests();
 	// typeParserTests();
 	return 0;
 }
