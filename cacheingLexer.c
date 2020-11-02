@@ -3,7 +3,18 @@
 #include <diff.h>
 #include <linkedList.h>
 #include <str.h>
-struct __lexerItemTemplate;
+static struct __lexerItemTemplate cloneTemplate;
+static void initCloneTempate() __attribute__((constructor));
+static void initCloneTempate() {
+	cloneTemplate.cloneData = NULL;
+	cloneTemplate.data = NULL;
+	cloneTemplate.isAdjChar = NULL;
+	cloneTemplate.killItemData = NULL;
+	cloneTemplate.killTemplateData = NULL;
+	cloneTemplate.lexItem = NULL;
+	cloneTemplate.update = NULL;
+	cloneTemplate.validateOnModify = NULL;
+}
 static int ptrPtrCmp(const void *a, const void *b) {
 	if (*(void **)a > *(void **)b) {
 		return 1;
@@ -377,27 +388,57 @@ returnLabel:
 
 	return retVal;
 }
-llLexerItem lexerItemClone(const llLexerItem toClone) {
-	__auto_type item = llLexerItemValuePtr(toClone);
-	__auto_type clone = llLexerItemCreate(*item);
+static void __cloneNodeReplace(llLexerItem cloneNode) {
+	llLexerItem toClone =
+	    *(llLexerItem *)lexerItemValuePtr(llLexerItemValuePtr(cloneNode));
 
-	if (item->template->cloneData != NULL) {
-		__auto_type res = item->template->cloneData(lexerItemValuePtr(item));
-		clone = __llValueResize(clone, sizeof(struct __lexerItem) + __vecSize(res));
+	__auto_type toCloneItem = llLexerItemValuePtr(toClone);
+	if (toCloneItem->template->cloneData != NULL) {
+
+		__auto_type res = 
+		    toCloneItem->template->cloneData(lexerItemValuePtr(toCloneItem));
+		cloneNode =
+		    __llValueResize(cloneNode, sizeof(struct __lexerItem) + __vecSize(res));
 
 		__auto_type valuePtr = lexerItemValuePtr(llLexerItemValuePtr(toClone));
 		memcpy(valuePtr, res, __vecSize(res));
 
 		__vecDestroy(res);
 	} else {
-		clone = __llValueResize(clone, __llItemSize(toClone));
-		__auto_type valuePtrClone = lexerItemValuePtr(llLexerItemValuePtr(clone));
+		cloneNode = __llValueResize(cloneNode, __llItemSize(toClone));
+		__auto_type valuePtrClone =
+		    lexerItemValuePtr(llLexerItemValuePtr(cloneNode));
 		__auto_type valuePtrFrom = lexerItemValuePtr(llLexerItemValuePtr(toClone));
 		memcpy(valuePtrClone, valuePtrFrom,
 		       __llItemSize(toClone) - sizeof(struct __lexerItem));
 	}
+	__auto_type clonedItem=llLexerItemValuePtr(cloneNode);
+	clonedItem->template=toCloneItem->template;
 
-	return clone;
+	/**
+	 * Map blobs' old start/end ptrs to current node (if start/end points to old
+	 * element pointed to by this node)
+	 */
+	__auto_type blob = llLexerItemValuePtr(toClone)->blob;
+	for (__auto_type b = blob; b != NULL; b = b->parent) {
+		if (toClone == b->start)
+			b->start = toClone;
+		if (toClone == b->end)
+			b->end = toClone;
+	}
+}
+static llLexerItem createCloneNode(const llLexerItem toClone) {
+	__auto_type item = llLexerItemValuePtr(toClone);
+
+	struct __lexerItem newItem;
+	newItem.blob = item->blob;
+	newItem.itemIndex = newItem.end = newItem.start = -1;
+	newItem.template = &cloneTemplate;
+
+	char buffer[sizeof(newItem) + sizeof(toClone)];
+	memcpy(buffer, &newItem, sizeof(newItem));
+	memcpy(buffer + sizeof(newItem), &toClone, sizeof(toClone));
+	return __llCreate(buffer, sizeof(newItem) + sizeof(toClone));
 }
 static void blobDetach(struct __lexerCacheBlob *blob) {
 	for (__auto_type node = blob->start; node != blob->end;
@@ -482,6 +523,11 @@ static void blobDestroy(struct __lexerCacheBlob **blob) {
 		killData(blob[0]->data);
 	free(blob[0]);
 }
+static int lexerItemIndexCmp(const void *a, const void *b) {
+	const long *A = a;
+	const struct __lexerItem *B = b;
+	return longCmp(*A, B->itemIndex);
+}
 void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 	strDiff diffs __attribute__((cleanup(strDiffDestroy)));
 	diffs = __diff(lexer->oldSource, newData, __vecSize(lexer->oldSource),
@@ -492,7 +538,9 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 	llLexerItem retVal = NULL;
 	long newPos = 0;
 	long diffOldPos = 0;
-	long diffNewPos = 0; // Dummy value will be updated ahead
+	long diffNewPos = 0;
+	long index = 0;
+	// Dummy value will be updated ahead
 	for (int firstRun = 1; !(newPos == __vecSize(newData) && firstRun == 0);
 	     firstRun = 0) {
 		__auto_type skipTo = lexer->whitespaceSkip(newData, newPos);
@@ -594,6 +642,7 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 					    retVal, llLexerItemNext(currentItem),
 					    diffs); // killConsumedItems returns next (availible) item
 
+					llLexerItemValuePtr(newNode)->itemIndex = index++;
 					llInsertListAfter(retVal, newNode);
 					retVal = newNode;
 					continue;
@@ -602,11 +651,12 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 
 					goto findNewItems;
 				} else if (state == LEXER_UNCHANGED) {
-					__auto_type clone = lexerItemClone(currentItem);
-					__auto_type cloneItemPtr = llLexerItemValuePtr(clone);
-					newPos = cloneItemPtr->end - diffOldPos + diffNewPos;
-					cloneItemPtr->end = newPos;
-					cloneItemPtr->start = cloneItemPtr->start - diffOldPos + diffNewPos;
+					__auto_type clone = createCloneNode(currentItem);
+					__auto_type currItemPtr = llLexerItemValuePtr(currentItem);
+					newPos = currItemPtr->end - diffOldPos + diffNewPos;
+					currItemPtr->end = newPos;
+					currItemPtr->start = currItemPtr->start - diffOldPos + diffNewPos;
+					currItemPtr->itemIndex = index++;
 					llLexerItemInsertListAfter(retVal, clone);
 					retVal = clone;
 
@@ -669,15 +719,18 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 					continue;
 				unmodified:
 					currentItem = llLexerItemNext(nodeBeforeDiffEnd);
-					
+
 					long offsetEnd =
-							    llLexerItemValuePtr(nodeBeforeDiffEnd)->end - diffOldPos;
-					newPos=diffNewPos+offsetEnd;
-					
+					    llLexerItemValuePtr(nodeBeforeDiffEnd)->end - diffOldPos;
+					newPos = diffNewPos + offsetEnd;
+
 					// TODO write items to retVal
 					for (__auto_type node = llLexerItemNext(oldItem); node != currentItem;
 					     node = llLexerItemNext(node)) {
-						llInsertListAfter(retVal, lexerItemClone(node));
+						__auto_type clone = createCloneNode(node);
+
+						llLexerItemValuePtr(clone)->itemIndex = index++;
+						llInsertListAfter(retVal, clone);
 						retVal = llLexerItemLast(retVal);
 					}
 
@@ -694,6 +747,8 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 						goto error;
 				newPos = end;
 				assert(NULL != res);
+
+				llLexerItemValuePtr(res)->itemIndex = index++;
 				llLexerItemInsertListAfter(retVal, (llLexerItem)res);
 				retVal = res;
 				/**
@@ -722,12 +777,12 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 		}
 	}
 	/**
-	 * Update item indexes
+	 * Replace nodes with clone template with actual values
 	 */
-	long index = 0;
-	for (__auto_type node = llLexerItemFirst(toUpdate); node != NULL;
+	for (__auto_type node = llLexerItemFirst(retVal); node != NULL;
 	     node = llLexerItemNext(node)) {
-		llLexerItemValuePtr(node)->itemIndex = index++;
+		if (llLexerItemValuePtr(node)->template == &cloneTemplate)
+			__cloneNodeReplace(node);
 	}
 	/**
 	 * Trigger update for blobs
