@@ -395,7 +395,7 @@ static void __cloneNodeReplace(llLexerItem cloneNode) {
 	__auto_type toCloneItem = llLexerItemValuePtr(toClone);
 	if (toCloneItem->template->cloneData != NULL) {
 
-		__auto_type res = 
+		__auto_type res =
 		    toCloneItem->template->cloneData(lexerItemValuePtr(toCloneItem));
 		cloneNode =
 		    __llValueResize(cloneNode, sizeof(struct __lexerItem) + __vecSize(res));
@@ -412,8 +412,8 @@ static void __cloneNodeReplace(llLexerItem cloneNode) {
 		memcpy(valuePtrClone, valuePtrFrom,
 		       __llItemSize(toClone) - sizeof(struct __lexerItem));
 	}
-	__auto_type clonedItem=llLexerItemValuePtr(cloneNode);
-	clonedItem->template=toCloneItem->template;
+	__auto_type clonedItem = llLexerItemValuePtr(cloneNode);
+	clonedItem->template = toCloneItem->template;
 
 	/**
 	 * Map blobs' old start/end ptrs to current node (if start/end points to old
@@ -423,8 +423,8 @@ static void __cloneNodeReplace(llLexerItem cloneNode) {
 	for (__auto_type b = blob; b != NULL; b = b->parent) {
 		if (toClone == b->start)
 			b->start = toClone;
-		if (toClone == b->end)
-			b->end = toClone;
+		if (llLexerItemNext(toClone) == b->end)
+			b->end = llLexerItemNext(cloneNode);
 	}
 }
 static llLexerItem createCloneNode(const llLexerItem toClone) {
@@ -596,8 +596,9 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 				__auto_type res = getLexerCanidate(lexer, newData, newPos, NULL, err);
 				if (res != NULL) {
 					if (llLexerItemValuePtr(res)->template != template) {
-						llLexerItemValuePtr(res)->template->killItemData(
-						    llLexerItemValuePtr(res));
+					 __auto_type killData=llLexerItemValuePtr(res)->template->killItemData;
+					 if(killData)
+						    killData(llLexerItemValuePtr(res));
 						goto findNewItems;
 					}
 				}
