@@ -65,7 +65,7 @@ static enum cacheBlobRetCode updateBlob(void *data, llLexerItem start,
 	return CACHE_BLOB_RET_KEEP;
 }
 void cacheingLexerBlobTests() {
-	enum cacheBlobFlags expected;
+	enum cacheBlobFlags expected = CACHE_FLAG_INSERT;
 	struct cacheBlobTemplate blobTemplate;
 	blobTemplate.killData = NULL;
 	blobTemplate.mask = CACHE_FLAG_REMOVE | CACHE_FLAG_INSERT;
@@ -100,7 +100,7 @@ void cacheingLexerBlobTests() {
 	lexerUpdate(lexer, (struct __vec *)str, &err);
 	assert(!err);
 	{
-		__auto_type node = blob1->start;
+		__auto_type node = llLexerItemFirst(lexerGetItems(lexer));
 		node = expectName(node, &nameTemplate, "a");
 		node = expectName(node, &nameTemplate, "b");
 		node = expectName(node, &nameTemplate, "c");

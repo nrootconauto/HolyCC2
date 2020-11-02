@@ -16,9 +16,6 @@ static int ptrPtrCmp(const void *a, const void *b) {
 struct cacheLexerUpdate {
 	strLexerCacheBlob affected;
 };
-static void cacheLexerUpdateDestroy(struct cacheLexerUpdate *update) {
-	strLexerCacheBlobDestroy(&update->affected);
-};
 static int longCmp(long a, long b) {
 	if (a > b)
 		return 1;
@@ -30,11 +27,14 @@ static int longCmp(long a, long b) {
 LL_TYPE_DEF(void *, Ptr);
 LL_TYPE_FUNCS(void *, Ptr);
 static __thread llPtr toUpdate = NULL;
-static void toDestroyDestroy() __attribute__((destructor));
-static void toDestroyDestroy() { llPtrDestroy(&toUpdate, NULL); }
-struct __lexerCacheBlob *
-blobCreate(struct cacheBlobTemplate *template, llLexerItem start,
-                     llLexerItem end, void *data) {
+static void toUpdateDestroy() __attribute__((destructor));
+static void toUpdateDestroy() {
+	llPtrDestroy(&toUpdate, NULL);
+	toUpdate = NULL;
+}
+struct __lexerCacheBlob *blobCreate(struct cacheBlobTemplate *template,
+                                    llLexerItem start, llLexerItem end,
+                                    void *data) {
 	struct __lexerCacheBlob *retVal = malloc(sizeof(struct __lexerCacheBlob));
 	retVal->data = data;
 	retVal->start = start;
@@ -72,7 +72,7 @@ static int lexerCacheBlobUpdateInsert(struct __lexerCacheBlob *blob,
 adj : { blob->flags |= blob->template->mask & CACHE_FLAG_INSERT_ADJ; }
 end : {
 	if (old != blob->flags) {
-		if (llPtrFindLeft(llPtrFirst(toUpdate), &blob, ptrPtrCmp)) {
+		if (NULL == llPtrFindLeft(llPtrFirst(toUpdate), &blob, ptrPtrCmp)) {
 			toUpdate = llPtrInsert(toUpdate, llPtrCreate(blob), ptrPtrCmp);
 		}
 	}
@@ -101,7 +101,7 @@ destroy : {
 }
 end:
 	if (old != blob->flags) {
-		if (llPtrFindLeft(llPtrFirst(toUpdate), &blob, ptrPtrCmp)) {
+		if (NULL == llPtrFindLeft(llPtrFirst(toUpdate), &blob, ptrPtrCmp)) {
 			toUpdate = llPtrInsert(toUpdate, llPtrCreate(blob), ptrPtrCmp);
 			return 1;
 		}
@@ -458,20 +458,20 @@ void blobUpdateSpan(struct __lexerCacheBlob *blob) {
 			    1 + llLexerItemValuePtr(llLexerItemLast(parent->start))->itemIndex;
 		long startI2 = 0;
 		startI2 = llLexerItemValuePtr(parent->start)->itemIndex;
-		
-		int changed=0;
-		if(startI1<startI2) {
-		 changed=1;
-		 for(long i=0;i!=startI2-startI1;i++)
-		 parent->start=llLexerItemPrev(parent->start);
+
+		int changed = 0;
+		if (startI1 < startI2) {
+			changed = 1;
+			for (long i = 0; i != startI2 - startI1; i++)
+				parent->start = llLexerItemPrev(parent->start);
 		}
-		if(endI1>endI2) {
-		 changed=1;
-		 for(long i=0;i!=endI1-endI2;i++)
-		 parent->end=llLexerItemNext(parent->end);
+		if (endI1 > endI2) {
+			changed = 1;
+			for (long i = 0; i != endI1 - endI2; i++)
+				parent->end = llLexerItemNext(parent->end);
 		}
-		if(changed)
-		 blobUpdateSpan(parent);
+		if (changed)
+			blobUpdateSpan(parent);
 	}
 }
 static void blobDestroy(struct __lexerCacheBlob **blob) {
@@ -610,8 +610,6 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 					llLexerItemInsertListAfter(retVal, clone);
 					retVal = clone;
 
-					currentItem = llLexerItemNext(currentItem);
-
 					/**
 					 * Check if no items comsumed,
 					 * if so ,find last item in sameDiff ,check if has adjacent charators
@@ -620,10 +618,12 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 					 * modified item
 					 */
 					__auto_type oldItem = currentItem;
+					currentItem = llLexerItemNext(currentItem);
+
 					long offset = sameDiffEnd - diffNewPos;
 
 					llLexerItem nodeBeforeDiffEnd = NULL;
-					for (__auto_type node = llLexerItemNext(currentItem); node != NULL;
+					for (__auto_type node = currentItem; node != NULL;
 					     node = llLexerItemNext(node)) {
 						if (llLexerItemValuePtr(node)->end <= offset + diffOldPos) {
 							nodeBeforeDiffEnd = node;
@@ -633,7 +633,7 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 					}
 
 					if (nodeBeforeDiffEnd != NULL) {
-						for (; nodeBeforeDiffEnd != currentItem;) {
+						for (; nodeBeforeDiffEnd != oldItem;) {
 							long offsetEnd =
 							    llLexerItemValuePtr(nodeBeforeDiffEnd)->end - diffOldPos;
 							long offsetStart =
@@ -668,9 +668,14 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 					}
 					continue;
 				unmodified:
-					currentItem = nodeBeforeDiffEnd;
+					currentItem = llLexerItemNext(nodeBeforeDiffEnd);
+					
+					long offsetEnd =
+							    llLexerItemValuePtr(nodeBeforeDiffEnd)->end - diffOldPos;
+					newPos=diffNewPos+offsetEnd;
+					
 					// TODO write items to retVal
-					for (__auto_type node = oldItem; node != currentItem;
+					for (__auto_type node = llLexerItemNext(oldItem); node != currentItem;
 					     node = llLexerItemNext(node)) {
 						llInsertListAfter(retVal, lexerItemClone(node));
 						retVal = llLexerItemLast(retVal);
@@ -720,8 +725,8 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 	 * Update item indexes
 	 */
 	long index = 0;
-	for (__auto_type node = llPtrFirst(toUpdate); node != NULL;
-	     node = llPtrNext(node)) {
+	for (__auto_type node = llLexerItemFirst(toUpdate); node != NULL;
+	     node = llLexerItemNext(node)) {
 		llLexerItemValuePtr(node)->itemIndex = index++;
 	}
 	/**
@@ -732,16 +737,22 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 		struct __lexerCacheBlob *blob = *llPtrValuePtr(node);
 		if (blob->template->update) {
 		blobLoop:;
-			__auto_type start2 =
-			    (blob->flags & CACHE_FLAG_ALL_REMOVED) ? blob->start : NULL;
-			__auto_type end2 =
-			    (blob->flags & CACHE_FLAG_ALL_REMOVED) ? blob->end : NULL;
+			int useNULLs =
+			    (blob->flags & CACHE_FLAG_ALL_REMOVED) == CACHE_FLAG_ALL_REMOVED;
+			__auto_type start2 = (!useNULLs) ? blob->start : NULL;
+			__auto_type end2 = (!useNULLs) ? blob->end : NULL;
 
 			__auto_type retCode = blob->template->update(
 			    blob->data, start2, end2, &blob->start, &blob->end, blob->flags);
 
+			/**
+			 * Check if old range is same range as before,if not update range
+			 */
+			if (start2 != blob->start || end2 != blob->end)
+				blobUpdateSpan(blob);
+
 			__auto_type parentBlob = blob;
-			if ((retCode & CACHE_BLOB_RET_DESTROY) == CACHE_BLOB_RET_DESTROY) {
+			if (retCode == CACHE_BLOB_RET_DESTROY) {
 				blobDestroy(&blob);
 				goto goUpwards;
 			}
@@ -754,11 +765,15 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 		}
 		}
 	}
-	llPtrDestroy(&toUpdate, NULL);
+	toUpdateDestroy();
 	toUpdate = NULL;
 
 	lexer->oldSource = __vecAppendItem(NULL, newData, __vecSize(newData));
 	lexer->oldItems = __llGetFirst(retVal);
+
 	return;
-error : { llLexerItemDestroy(&retVal, killLexerItemsNode); }
+error : {
+	toUpdateDestroy();
+	llLexerItemDestroy(&retVal, killLexerItemsNode);
+}
 }
