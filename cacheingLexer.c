@@ -4,14 +4,6 @@
 #include <linkedList.h>
 #include <str.h>
 struct __lexerItemTemplate;
-struct __lexerCacheBlob {
-	struct cacheBlobTemplate *template;
-	void *data;
-	llLexerItem start, end;
-	int order;
-	enum cacheBlobFlags flags;
-	struct __lexerCacheBlob *parent;
-};
 static int ptrPtrCmp(const void *a, const void *b) {
 	if (*(void **)a > *(void **)b) {
 		return 1;
@@ -41,7 +33,7 @@ static __thread llPtr toUpdate = NULL;
 static void toDestroyDestroy() __attribute__((destructor));
 static void toDestroyDestroy() { llPtrDestroy(&toUpdate, NULL); }
 struct __lexerCacheBlob *
-lexerCacheBlobCreate(struct cacheBlobTemplate *template, llLexerItem start,
+blobCreate(struct cacheBlobTemplate *template, llLexerItem start,
                      llLexerItem end, void *data) {
 	struct __lexerCacheBlob *retVal = malloc(sizeof(struct __lexerCacheBlob));
 	retVal->data = data;
@@ -407,20 +399,83 @@ llLexerItem lexerItemClone(const llLexerItem toClone) {
 
 	return clone;
 }
-static void blobDestroy(struct __lexerCacheBlob **blob) {
-	for (__auto_type node = blob[0]->start; node != blob[0]->end;
+static void blobDetach(struct __lexerCacheBlob *blob) {
+	for (__auto_type node = blob->start; node != blob->end;
 	     node = llLexerItemNext(node)) {
 		// Remove from parents of node
 		struct __lexerCacheBlob *oldBlob = NULL;
 		for (__auto_type curBlob = llLexerItemValuePtr(node)->blob; curBlob != NULL;
 		     curBlob = curBlob->parent) {
-			if (curBlob == *blob) {
+			if (curBlob == blob) {
 				if (oldBlob != NULL)
 					oldBlob->parent = curBlob->parent;
+				else
+					llLexerItemValuePtr(node)->blob = curBlob->parent;
 			}
 			oldBlob = curBlob;
 		}
 	}
+}
+void blobUpdateSpan(struct __lexerCacheBlob *blob) {
+	blobDetach(blob);
+
+	__auto_type parent = blob->parent;
+	for (__auto_type node = blob->start; node != blob->end;
+	     node = llLexerItemNext(node)) {
+		/**
+		 * Insert blob before parent
+		 */
+		struct __lexerCacheBlob *oldBlob = NULL;
+		for (__auto_type curBlob = llLexerItemValuePtr(node)->blob; curBlob != NULL;
+		     curBlob = curBlob->parent) {
+			if (curBlob == parent) {
+				if (oldBlob == NULL) {
+					llLexerItemValuePtr(node)->blob = blob;
+				} else {
+					oldBlob->parent = blob;
+				}
+			}
+		}
+	}
+	/**
+	 * Blocks are in a hiearchy,so if child blob's end/start goes past boundary of
+	 * parent,move boundary
+	 */
+	if (parent != NULL) {
+		long endI1;
+		if (llLexerItemValuePtr(blob->end))
+			endI1 = llLexerItemValuePtr(blob->end)->itemIndex;
+		else
+			endI1 = 1 + llLexerItemValuePtr(llLexerItemLast(blob->start))->itemIndex;
+		long startI1 = 0;
+		startI1 = llLexerItemValuePtr(blob->start)->itemIndex;
+
+		long endI2;
+		if (llLexerItemValuePtr(parent->end))
+			endI2 = llLexerItemValuePtr(parent->end)->itemIndex;
+		else
+			endI2 =
+			    1 + llLexerItemValuePtr(llLexerItemLast(parent->start))->itemIndex;
+		long startI2 = 0;
+		startI2 = llLexerItemValuePtr(parent->start)->itemIndex;
+		
+		int changed=0;
+		if(startI1<startI2) {
+		 changed=1;
+		 for(long i=0;i!=startI2-startI1;i++)
+		 parent->start=llLexerItemPrev(parent->start);
+		}
+		if(endI1>endI2) {
+		 changed=1;
+		 for(long i=0;i!=endI1-endI2;i++)
+		 parent->end=llLexerItemNext(parent->end);
+		}
+		if(changed)
+		 blobUpdateSpan(parent);
+	}
+}
+static void blobDestroy(struct __lexerCacheBlob **blob) {
+	blobDetach(*blob);
 
 	__auto_type killData = blob[0]->template->killData;
 	if (killData)

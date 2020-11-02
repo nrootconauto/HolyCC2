@@ -70,5 +70,14 @@ struct cacheBlobTemplate {
 	               llLexerItem *start2, llLexerItem *end2, enum cacheBlobFlags flags);
 };
 struct __lexerCacheBlob *
-lexerCacheBlobCreate(struct cacheBlobTemplate *template,
+blobCreate(struct cacheBlobTemplate *template,
                      llLexerItem start, llLexerItem end, void *data);
+void blobUpdateSpan(struct __lexerCacheBlob *blob) ;
+struct __lexerCacheBlob {
+	struct cacheBlobTemplate *template;
+	void *data;
+	llLexerItem start, end;
+	int order;
+	enum cacheBlobFlags flags;
+	struct __lexerCacheBlob *parent;
+};

@@ -21,12 +21,13 @@ int main() {
 	  mapTests();
 	  strTests();
 	  graphTests();
-	  diffTests();
+	  
 	  subGraphTests();
 
 	  preprocessorTests();
 	  eventPoolTests();
 	  */
+	diffTests();
 	cachingLexerTests();
 	parserTests();
 	// typeParserTests();
