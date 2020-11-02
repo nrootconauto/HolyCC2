@@ -50,11 +50,41 @@ static llLexerItem expectString(llLexerItem node,
 	__auto_type lexerItem = llLexerItemValuePtr(node);
 	assert(lexerItem->template == template);
 
-	__auto_type value2 = (struct parsedString*)lexerItemValuePtr(lexerItem);
+	__auto_type value2 = (struct parsedString *)lexerItemValuePtr(lexerItem);
 	assert(value2->isChar == isChar);
 	assert(0 == strcmp((char *)value2->text, value));
 
 	return llLexerItemNext(node);
+}
+static enum cacheBlobRetCode updateBlob(void *data,llLexerItem start,llLexerItem end,llLexerItem *start2,llLexerItem *end2,enum cacheBlobFlags flags) {
+ enum cacheBlobFlags *expected=data;
+ assert(*expected==flags);
+ return CACHE_BLOB_RET_KEEP;
+}
+void cacheingLexerBlobTests() {
+	enum cacheBlobFlags expected;
+	struct cacheBlobTemplate blobTemplate;
+	blobTemplate.killData = NULL;
+	blobTemplate.mask = CACHE_FLAG_ALL ;
+	blobTemplate.update=updateBlob;
+
+	__auto_type nameTemplate = nameTemplateCreate(NULL, 0);
+	__auto_type templates = strLexerItemTemplateResize(NULL, 1);
+	templates[0] = &nameTemplate;
+
+	const char *text = "a c";
+	__auto_type str = strCharAppendData(NULL, (char *)text, strlen(text));
+	__auto_type lexer =
+	    lexerCreate((struct __vec *)str, templates, charEq, skipWhitespace);
+	{
+		__auto_type items = lexerGetItems(lexer);
+		__auto_type node = __llGetFirst(items);
+		node = expectName(node, &nameTemplate, "a");
+		node = expectName(node, &nameTemplate, "c");
+	}
+	/**
+	 * Create a blob
+	 */
 }
 void cachingLexerTests() {
 	__auto_type kwCount = sizeof(keywords) / sizeof(*keywords);
@@ -83,8 +113,9 @@ void cachingLexerTests() {
 		node = expectName(node, &nameTemplate, "b");
 		node = expectKeyword(node, &keywordTemplate, "--");
 		node = expectName(node, &nameTemplate, "c");
-		// Insert(ignore items between first unchanged and last changed item,see isAdjChar)
-		
+		// Insert(ignore items between first unchanged and last changed item,see
+		// isAdjChar)
+
 		strCharDestroy(&str);
 		text = "a--b--c1234";
 		str = strCharAppendData(NULL, (char *)text, strlen(text));
@@ -97,7 +128,7 @@ void cachingLexerTests() {
 		node = expectName(node, &nameTemplate, "b");
 		node = expectKeyword(node, &keywordTemplate, "--");
 		node = expectName(node, &nameTemplate, "c1234");
-		
+
 		// Insert
 		strCharDestroy(&str);
 		text = "a1234--b--c";

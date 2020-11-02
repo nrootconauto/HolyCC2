@@ -12,7 +12,8 @@ struct __lexerItem {
 	struct __lexerItemTemplate *template;
 	long start;
 	long end;
-	strLexerCacheBlob blobs;
+	struct __lexerCacheBlob *blob;
+	long itemIndex;
 	// Data appended after here
 };
 LL_TYPE_DEF(struct __lexerItem, LexerItem);
@@ -47,16 +48,27 @@ void lexerDestroy(struct __lexer **lexer);
 void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err);
 
 enum cacheBlobFlags {
-	CACHE_CHANGED = 1,
-	CACHE_INSERT = 2,
+	CACHE_FLAG_INSERT = 2,
 	CACHE_FLAG_REMOVE = 4,
-	CACHE_INSERT_ADJ = 8,
+	CACHE_FLAG_INSERT_ADJ = 8,
+	CACHE_FLAG_ALL_REMOVED =16,
 };
+enum cacheBlobRetCode {
+ CACHE_BLOB_RET_DESTROY=0,
+ CACHE_BLOB_RET_KEEP=1,
+};
+#define CACHE_FLAG_ALL (CACHE_FLAG_INSERT |CACHE_FLAG_REMOVE | CACHE_FLAG_INSERT_ADJ ) 
 llLexerItem lexerGetItems(struct __lexer *lexer);
 void *lexerItemValuePtr(const struct __lexerItem *item);
 struct cacheBlobTemplate {
 	void (*killData)(void *data);
 	enum cacheBlobFlags mask;
-	void (*update)(void *data, llLexerItem start, llLexerItem end,
-	               llLexerItem *start2, llLexerItem *end2, int *propigateUpwards);
+	/**
+	 * Return 1 to keep blob,otherwise blob will be destroyed
+	 */
+	enum cacheBlobRetCode (*update)(void *data, llLexerItem start, llLexerItem end,
+	               llLexerItem *start2, llLexerItem *end2, enum cacheBlobFlags flags);
 };
+struct __lexerCacheBlob *
+lexerCacheBlobCreate(struct cacheBlobTemplate *template,
+                     llLexerItem start, llLexerItem end, void *data);

@@ -104,6 +104,9 @@ struct __ll *__llRemoveNode(struct __ll *node) {
 	return result;
 }
 void *__llValuePtr(const struct __ll *node) {
+	if (node == NULL)
+		return NULL;
+
 	return (void *)node + sizeof(struct __ll);
 }
 static coroutine void __llKillRight(struct __ll *node,
@@ -213,9 +216,9 @@ struct __ll *__llValueResize(struct __ll *list, long newSize) {
 	list = realloc(list, sizeof(struct __ll) + newSize);
 
 	if (oldPrev != NULL)
-	 oldPrev->next=list;
+		oldPrev->next = list;
 	if (oldNext != NULL)
-		oldNext->prev=list;
+		oldNext->prev = list;
 
 	list->itemSize = newSize;
 	return list;
