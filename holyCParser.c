@@ -1,7 +1,7 @@
 #include <assert.h>
-#include <lexer.h>
 #include <holyCParser.h>
 #include <holyCType.h>
+#include <lexer.h>
 #define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 static char *strCopy(const char *text) {
@@ -739,15 +739,32 @@ struct parserNode *parseSingleVarDecl(llLexerItem start, llLexerItem *end) {
 }
 struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end) {
 	struct parserNode *base __attribute__((cleanup(parserNodeDestroy)));
+	struct object *baseType = NULL;
+	int foundType = 0;
 	base = nameParse(start, NULL, &start);
-	if (base != NULL) {
+
+	if (base) {
+		struct parserNodeName *baseName = (void *)base;
+		baseType = objectByName(baseName->text);
+		foundType = 1;
+	} else {
+		__auto_type cls = parseClass(start, &start);
+		if (cls != NULL) {
+			foundType = 1;
+
+			if (cls->type == NODE_CLASS_DEF) {
+				struct parserNodeClassDef *clsDef = (void *)cls;
+				baseType = clsDef->type;
+			} else if (cls->type == NODE_UNION_DEF) {
+				struct parserNodeUnionDef *unDef = (void *)cls;
+				baseType = unDef->type;
+			}
+		}
+	}
+
+	if (foundType) {
 		strParserNode decls __attribute__((cleanup(strParserNodeDestroy2)));
 		decls = NULL;
-
-		struct parserNodeName *baseName = (void *)base;
-		__auto_type baseType = objectByName(baseName->text);
-		if (baseType == NULL)
-			goto fail;
 
 		for (int firstRun = 1;; firstRun = 0) {
 			if (!firstRun) {
@@ -1049,14 +1066,23 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end) {
 			className = strClone(name->text);
 		}
 
-		if (cls) {
-			retValObj =
-			    objectClassCreate(className, members, strObjectMemberSize(members));
-			free(className);
-		} else if (un) {
-			retValObj =
-			    objectUnionCreate(className, members, strObjectMemberSize(members));
-			free(className);
+		// Whine is type of same name already exists
+		int alreadyExists = 0;
+		if (objectByName(((struct parserNodeName *)name2)->text)) {
+			// TODO whine
+			alreadyExists = 1;
+		}
+
+		if (!alreadyExists) {
+			if (cls) {
+				retValObj =
+				    objectClassCreate(className, members, strObjectMemberSize(members));
+				free(className);
+			} else if (un) {
+				retValObj =
+				    objectUnionCreate(className, members, strObjectMemberSize(members));
+				free(className);
+			}
 		}
 	}
 	if (cls) {
@@ -1075,6 +1101,9 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end) {
 		retVal = ALLOCATE(def);
 	}
 end:
+	if (end != NULL)
+		*end = start;
+
 	parserNodeDestroy(&cls);
 	parserNodeDestroy(&un);
 	parserNodeDestroy(&baseName);

@@ -94,11 +94,13 @@ struct parserNodeClassDef {
  struct parserNode base;
  struct parserNode *name;
  struct object *type;
+ strParserNode decls;
 };
 struct parserNodeUnionDef {
  struct parserNode base;
  struct parserNode *name;
  struct object *type;
+ strParserNode decls;
 };
 struct parserNode *parseExpression(llLexerItem start,llLexerItem end,llLexerItem *result);
 void parserNodeDestroy(struct parserNode **node);

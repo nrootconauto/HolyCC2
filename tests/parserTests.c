@@ -421,7 +421,7 @@ void classParserTests() {
 	const char *text = "class x {\n"
 	                   "    I64i a dft_val 10,b,c;\n"
 	                   "    U8i d;\n"
-	                   "}";
+	                   "};";
 	__auto_type textStr = strCharAppendData(NULL, text, strlen(text));
 
 	__auto_type lexItems = lexText((struct __vec *)textStr, NULL);
@@ -449,6 +449,33 @@ void classParserTests() {
 			} else {
 				assert(strObjectMemberAttrSize(clsType->members[i].attrs) == 0);
 			}
+		}
+	}
+	text = "class foo {\n"
+	       "I64i x;"
+	       "} a,b,c";
+	textStr = strCharAppendData(NULL, text, strlen(text));
+	
+	int err;
+	lexItems = lexText((struct __vec *)textStr, &err);
+	assert(!err);
+	__auto_type decls = parseVarDecls(lexItems, NULL);
+	assert(decls);
+
+	const char *names[] = {"a", "b", "c"};
+	{
+		assert(decls->type == NODE_VAR_DECLS);
+		struct parserNodeVarDecls *decls2 = (void *)decls;
+
+		assert(strParserNodeSize(decls2->decls) == 3);
+		for (long i = 0; i != 3; i++) {
+			assert(decls2->decls[i]->type == NODE_VAR_DECL);
+			struct parserNodeVarDecl *decl = (void *)decls2->decls[i];
+			assert(decl->type==objectByName("foo"));
+			
+			struct parserNodeName *name = (void *)decl->name;
+			assert(name->base.type == NODE_NAME);
+			assert(0 == strcmp(name->text, names[i]));
 		}
 	}
 }

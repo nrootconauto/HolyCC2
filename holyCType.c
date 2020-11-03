@@ -2,6 +2,9 @@
 #include <holyCParser.h>
 #include <holyCType.h>
 #include <string.h>
+MAP_TYPE_DEF(struct object *, Object);
+MAP_TYPE_FUNCS(struct object *, Object);
+static __thread mapObject objectRegistry = NULL;
 static char *strClone(const char *str) {
 	__auto_type len = strlen(str);
 	char *retVal = malloc(len + 1);
@@ -167,6 +170,13 @@ struct object *objectClassCreate(const char *name,
 		newClass->size =
 		    offset + largestMemberAlign - (offset % largestMemberAlign);
 
+	if (name) {
+		if (NULL == mapObjectGet(objectRegistry, name))
+			mapObjectInsert(objectRegistry, name, (struct object *)newClass);
+		else
+			goto fail;
+	}
+
 	return (struct object *)newClass;
 fail:
 	objectDestroy((struct object **)&newClass);
@@ -209,6 +219,13 @@ struct object *objectUnionCreate(const char *name,
 	newUnion->size = largestSize;
 	newUnion->align = largestMemberAlign;
 
+	if (name) {
+		if (NULL == mapObjectGet(objectRegistry, name))
+			mapObjectInsert(objectRegistry, name, (struct object *)newUnion);
+		else
+			goto fail;
+	}
+
 	return (struct object *)newUnion;
 fail:
 	objectDestroy((struct object **)&newUnion);
@@ -241,9 +258,6 @@ struct object *objectForwardDeclarationCreate(const char *name) {
 
 	return (struct object *)retVal;
 }
-MAP_TYPE_DEF(struct object *, Object);
-MAP_TYPE_FUNCS(struct object *, Object);
-static __thread mapObject objectRegistry = NULL;
 struct object typeBool = {TYPE_Bool};
 struct object typeU0 = {TYPE_U0};
 struct object typeU8i = {TYPE_U8i};
