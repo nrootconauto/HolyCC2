@@ -1,8 +1,7 @@
 #include <assert.h>
-#include <cacheingLexer.h>
-#include <cacheingLexerItems.h>
 #include <holyCParser.h>
 #include <holyCType.h>
+#include <lexer.h>
 #include <stdio.h>
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
@@ -13,11 +12,10 @@ static void precParserTests() {
 	const char *text = "0 + 1 + 2 + 3";
 	__auto_type textStr = strCharAppendData(NULL, text, strlen(text));
 
-	__auto_type lex = lexerCreate((struct __vec *)textStr, holyCLexerTemplates(),
-	                              charCmp, skipWhitespace);
+	__auto_type lexItems = lexText((struct __vec *)textStr, NULL);
 
 	struct parserNode *node =
-	    parseExpression(llLexerItemFirst(lexerGetItems(lex)), NULL, NULL);
+	    parseExpression(llLexerItemFirst(lexItems), NULL, NULL);
 	assert(node);
 	{
 		/**
@@ -58,11 +56,11 @@ static void precParserTests() {
 
 		textStr = strCharAppendData(NULL, text, strlen(text));
 		int err;
-		lexerUpdate(lex, (struct __vec *)textStr, &err);
+		lexItems = lexText((struct __vec *)textStr, &err);
 		assert(!err);
 
 		struct parserNode *node =
-		    parseExpression(llLexerItemFirst(lexerGetItems(lex)), NULL, NULL);
+		    parseExpression(llLexerItemFirst(lexItems), NULL, NULL);
 		assert(node);
 		{
 			assert(node->type == NODE_BINOP);
@@ -94,10 +92,10 @@ static void precParserTests() {
 	text = "a,b,c";
 	textStr = strCharAppendData(NULL, text, strlen(text));
 	int err;
-	lexerUpdate(lex, (struct __vec *)textStr, &err);
+	lexItems = lexText((struct __vec *)textStr, &err);
 	assert(!err);
 
-	node = parseExpression(llLexerItemFirst(lexerGetItems(lex)), NULL, NULL);
+	node = parseExpression(llLexerItemFirst(lexItems), NULL, NULL);
 	assert(node);
 	{
 		assert(node->type == NODE_COMMA_SEQ);
@@ -115,10 +113,10 @@ static void precParserTests() {
 	text = "*++a,a++.b.c++";
 	textStr = strCharAppendData(NULL, text, strlen(text));
 	err = 0;
-	lexerUpdate(lex, (struct __vec *)textStr, &err);
+	lexItems = lexText((struct __vec *)textStr, &err);
 	assert(!err);
 
-	node = parseExpression(llLexerItemFirst(lexerGetItems(lex)), NULL, NULL);
+	node = parseExpression(llLexerItemFirst(lexItems), NULL, NULL);
 	assert(node);
 	{
 		assert(node->type = NODE_COMMA_SEQ);
@@ -171,9 +169,9 @@ static void precParserTests() {
 	text = "c=!(a+1*3)+ ++b";
 	textStr = strCharAppendData(NULL, text, strlen(text));
 	err = 0;
-	lexerUpdate(lex, (struct __vec *)textStr, &err);
+	lexItems = lexText((struct __vec *)textStr, &err);
 	assert(!err);
-	node = parseExpression(llLexerItemFirst(lexerGetItems(lex)), NULL, NULL);
+	node = parseExpression(lexItems, NULL, NULL);
 	assert(node);
 	{
 		// c =
@@ -231,9 +229,9 @@ static void precParserTests() {
 	text = "a(b(),,c)";
 	textStr = strCharAppendData(NULL, text, strlen(text));
 	err = 0;
-	lexerUpdate(lex, (struct __vec *)textStr, &err);
+	lexItems = lexText((struct __vec *)textStr, &err);
 	assert(!err);
-	node = parseExpression(llLexerItemFirst(lexerGetItems(lex)), NULL, NULL);
+	node = parseExpression(lexItems, NULL, NULL);
 	assert(node);
 	{
 		assert(node->type == NODE_FUNC_CALL);
@@ -261,9 +259,8 @@ static void varDeclTests() {
 	const char *text = "I64i x=10";
 	__auto_type textStr = strCharAppendData(NULL, text, strlen(text));
 
-	__auto_type lex = lexerCreate((struct __vec *)textStr, holyCLexerTemplates(),
-	                              charCmp, skipWhitespace);
-	__auto_type decl = parseVarDecls(llLexerItemFirst(lexerGetItems(lex)), NULL);
+	__auto_type lexItems = lexText((struct __vec *)textStr, NULL);
+	__auto_type decl = parseVarDecls(lexItems, NULL);
 	assert(decl);
 	{
 		assert(decl->type == NODE_VAR_DECL);
@@ -282,10 +279,10 @@ static void varDeclTests() {
 	textStr = strCharAppendData(NULL, text, strlen(text));
 
 	int err = 0;
-	lexerUpdate(lex, (struct __vec *)textStr, &err);
+	lexItems = lexText((struct __vec *)textStr, &err);
 	assert(!err);
 
-	decl = parseVarDecls(llLexerItemFirst(lexerGetItems(lex)), NULL);
+	decl = parseVarDecls(lexItems, NULL);
 	assert(decl);
 	{
 		assert(decl->type == NODE_VAR_DECL);
@@ -317,10 +314,10 @@ static void varDeclTests() {
 	textStr = strCharAppendData(NULL, text, strlen(text));
 
 	err = 0;
-	lexerUpdate(lex, (struct __vec *)textStr, &err);
+	lexItems = lexText((struct __vec *)textStr, &err);
 	assert(!err);
 
-	decl = parseVarDecls(llLexerItemFirst(lexerGetItems(lex)), NULL);
+	decl = parseVarDecls(lexItems, NULL);
 	assert(decl);
 	{
 		assert(decl->type == NODE_VAR_DECLS);
@@ -353,12 +350,12 @@ static void varDeclTests() {
 	textStr = strCharAppendData(NULL, text, strlen(text));
 
 	err = 0;
-	lexerUpdate(lex, (struct __vec *)textStr, &err);
+	lexItems = lexText((struct __vec *)textStr, &err);
 
 	int i = 0;
 
 	assert(!err);
-	decl = parseVarDecls(llLexerItemFirst(lexerGetItems(lex)), NULL);
+	decl = parseVarDecls(lexItems, NULL);
 	{
 		assert(decl->type == NODE_VAR_DECL);
 		struct parserNodeVarDecl *decl2 = (void *)decl;
@@ -396,10 +393,10 @@ static void varDeclTests() {
 	textStr = strCharAppendData(NULL, text, strlen(text));
 
 	err = 0;
-	lexerUpdate(lex, (struct __vec *)textStr, &err);
+	lexItems = lexText((struct __vec *)textStr, &err);
 	assert(!err);
 
-	decl = parseVarDecls(llLexerItemFirst(lexerGetItems(lex)), NULL);
+	decl = parseVarDecls(lexItems, NULL);
 	assert(decl);
 	{
 		assert(decl->type == NODE_VAR_DECL);
@@ -427,10 +424,8 @@ void classParserTests() {
 	                   "}";
 	__auto_type textStr = strCharAppendData(NULL, text, strlen(text));
 
-	__auto_type lex = lexerCreate((struct __vec *)textStr, holyCLexerTemplates(),
-	                              charCmp, skipWhitespace);
-
-	__auto_type cls = parseClass(llLexerItemFirst(lexerGetItems(lex)), NULL);
+	__auto_type lexItems = lexText((struct __vec *)textStr, NULL);
+	__auto_type cls = parseClass(lexItems, NULL);
 	assert(cls);
 	{
 		assert(cls->type == NODE_CLASS_DEF);

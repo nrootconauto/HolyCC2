@@ -1,26 +1,6 @@
 #pragma once
 #include <stringParser.h>
-enum intType {
-	INT_UINT,
-	INT_SINT,
-	INT_ULONG,
-	INT_SLONG,
-};
-struct lexerInt {
-	enum intType type;
-	int base;
-	union {
-		signed int sInt;
-		unsigned int uInt;
-		signed long sLong;
-		unsigned long uLong;
-	} value;
-};
-struct lexerFloating {
-	unsigned long base;
-	unsigned long frac;
-	int exponet;
-};
+
 const void *skipWhitespace(struct __vec *text, long from);
 void *findNextLine(struct __vec *text, long pos);
 void *findEndOfLine(struct __vec *text, long pos);

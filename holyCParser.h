@@ -1,7 +1,6 @@
 #pragma once
 #include <str.h>
-#include <cacheingLexerItems.h>
-#include <cacheingLexer.h>
+#include <lexer.h>
 #include <holyCType.h>
 enum parserNodeType {
  NODE_BINOP,
@@ -102,7 +101,6 @@ struct parserNodeUnionDef {
  struct object *type;
 };
 struct parserNode *parseExpression(llLexerItem start,llLexerItem end,llLexerItem *result);
-strLexerItemTemplate holyCLexerTemplates();
 void parserNodeDestroy(struct parserNode **node);
 struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end);
 struct parserNode *parseClass(llLexerItem start, llLexerItem *end);

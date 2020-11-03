@@ -1,6 +1,5 @@
 #include <assert.h>
-#include <cacheingLexer.h>
-#include <cacheingLexerItems.h>
+#include <lexer.h>
 #include <holyCParser.h>
 #include <holyCType.h>
 #define DEBUG_PRINT_ENABLE 1
@@ -24,119 +23,6 @@ static char *strClone(const char *str) {
 	strcpy(retVal, str);
 	return retVal;
 }
-static struct __lexerItemTemplate kwTemplate;
-static struct __lexerItemTemplate opTemplate;
-static struct __lexerItemTemplate intTemplate;
-static struct __lexerItemTemplate strTemplate;
-static struct __lexerItemTemplate nameTemplate;
-static strLexerItemTemplate templates;
-static void initTemplates() __attribute__((constructor));
-static void initTemplates() {
-	const char *keywords[] = {
-	    "if",
-	    "else",
-	    //
-	    "for",
-	    "while",
-	    "do",
-	    "break",
-	    //
-	    "goto",
-	    //
-	    "return",
-	    //
-	    "switch",
-	    "default",
-	    "case",
-	    //
-	    "class",
-	    "union",
-	    //
-	    "static",
-	    "public",
-	    "extern",
-	    "_extern",
-	    "import",
-	    "_import",
-	    "public",
-	    //
-	    ";",
-	    "{",
-	    "}",
-	};
-	__auto_type kwCount = sizeof(keywords) / sizeof(*keywords);
-
-	const char *operators[] = {
-	    "++",
-	    "--",
-	    //
-	    "(",
-	    ")",
-	    "[",
-	    "]",
-	    //
-	    ".",
-	    "->",
-	    //
-	    "!",
-	    "~",
-	    //
-	    "*",
-	    "&",
-	    //
-	    "/",
-	    "%",
-	    //
-	    "+",
-	    "-",
-	    //
-	    "<<",
-	    ">>",
-	    //
-	    "<",
-	    ">",
-	    //
-	    ">=",
-	    "<=",
-	    //
-	    "==",
-	    "!=",
-	    //
-	    "^",
-	    "|",
-	    //
-	    "&&",
-	    "^^",
-	    "||",
-	    //
-	    "=",
-	    "+=",
-	    "-=",
-	    "*=",
-	    "/=",
-	    "%=",
-	    "<<=",
-	    ">>=",
-	    "&=",
-	    "^=",
-	    "|=",
-	    //
-	    ",",
-	};
-	__auto_type opCount = sizeof(operators) / sizeof(*operators);
-	kwTemplate = keywordTemplateCreate(keywords, kwCount);
-	opTemplate = keywordTemplateCreate(operators, opCount);
-	intTemplate = intTemplateCreate();
-	nameTemplate = nameTemplateCreate(keywords, kwCount);
-	strTemplate = stringTemplateCreate();
-
-	struct __lexerItemTemplate *templates2[] = {
-	    &kwTemplate, &opTemplate, &intTemplate, &nameTemplate, &strTemplate};
-	__auto_type templateCount = sizeof(templates2) / sizeof(*templates2);
-	templates =
-	    strLexerItemTemplateAppendData(NULL, (void *)templates2, templateCount);
-}
-strLexerItemTemplate holyCLexerTemplates() { return templates; }
 static struct parserNode *expectOp(llLexerItem _item, const char *text) {
 	if (_item == NULL)
 		return NULL;

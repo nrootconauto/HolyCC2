@@ -1,6 +1,5 @@
 #include <assert.h>
-#include <cacheingLexer.h>
-#include <cacheingLexerItems.h>
+#include <lexer.h>
 #include <ctype.h>
 #include <limits.h>
 #include <stdio.h>
@@ -55,57 +54,6 @@ static llLexerItem expectString(llLexerItem node,
 	assert(0 == strcmp((char *)value2->text, value));
 
 	return llLexerItemNext(node);
-}
-static enum cacheBlobRetCode updateBlob(void *data, llLexerItem start,
-                                        llLexerItem end, llLexerItem *start2,
-                                        llLexerItem *end2,
-                                        enum cacheBlobFlags flags) {
-	enum cacheBlobFlags *expected = data;
-	assert(*expected == flags);
-	return CACHE_BLOB_RET_KEEP;
-}
-void cacheingLexerBlobTests() {
-	enum cacheBlobFlags expected = CACHE_FLAG_INSERT;
-	struct cacheBlobTemplate blobTemplate;
-	blobTemplate.killData = NULL;
-	blobTemplate.mask = CACHE_FLAG_REMOVE | CACHE_FLAG_INSERT;
-	blobTemplate.update = updateBlob;
-
-	__auto_type nameTemplate = nameTemplateCreate(NULL, 0);
-	__auto_type templates = strLexerItemTemplateResize(NULL, 1);
-	templates[0] = &nameTemplate;
-
-	const char *text = "a  c d";
-	__auto_type str = strCharAppendData(NULL, (char *)text, strlen(text));
-	__auto_type lexer =
-	    lexerCreate((struct __vec *)str, templates, charEq, skipWhitespace);
-	{
-		__auto_type items = lexerGetItems(lexer);
-		__auto_type node = __llGetFirst(items);
-		node = expectName(node, &nameTemplate, "a");
-		node = expectName(node, &nameTemplate, "c");
-		node = expectName(node, &nameTemplate, "d");
-	}
-	/**
-	 * Create a blob
-	 */
-	__auto_type firstItem = llLexerItemFirst(lexerGetItems(lexer));
-	__auto_type thirdItem = llLexerItemNext(llLexerItemNext(firstItem));
-	__auto_type blob1 =
-	    blobCreate(&blobTemplate, firstItem, thirdItem, &expected);
-
-	text = "a b c d";
-	str = strCharAppendData(NULL, (char *)text, strlen(text));
-	int err;
-	lexerUpdate(lexer, (struct __vec *)str, &err);
-	assert(!err);
-	{
-		__auto_type node = llLexerItemFirst(lexerGetItems(lexer));
-		node = expectName(node, &nameTemplate, "a");
-		node = expectName(node, &nameTemplate, "b");
-		node = expectName(node, &nameTemplate, "c");
-		assert(node == blob1->end);
-	}
 }
 void cachingLexerTests() {
 	__auto_type kwCount = sizeof(keywords) / sizeof(*keywords);

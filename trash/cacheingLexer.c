@@ -37,36 +37,27 @@ static int longCmp(long a, long b) {
 }
 LL_TYPE_DEF(void *, Ptr);
 LL_TYPE_FUNCS(void *, Ptr);
+struct ptrPair {
+	void *a, *b;
+};
+LL_TYPE_DEF(struct ptrPair, PtrPair);
+LL_TYPE_FUNCS(struct ptrPair, PtrPair);
+static int ptrPairCmpInsert(const void *a, const void *b) {
+	const struct ptrPair *A = a, *B = b;
+	return ptrPtrCmp(&A->a, &B->a);
+}
+static int ptrPairCmpGet(const void *a, const void *b) {
+	const struct ptrPair *B = b;
+	return ptrPtrCmp(a, &B->a);
+}
+static __thread llPtrPair blobMappings = NULL;
 static __thread llPtr toUpdate = NULL;
-static void toUpdateDestroy() __attribute__((destructor));
-static void toUpdateDestroy() {
+static void workingDataDestroy() __attribute__((destructor));
+static void workingDataDestroy() {
+	llPtrPairDestroy(&blobMappings, NULL);
 	llPtrDestroy(&toUpdate, NULL);
 	toUpdate = NULL;
-}
-struct __lexerCacheBlob *blobCreate(struct cacheBlobTemplate *template,
-                                    llLexerItem start, llLexerItem end,
-                                    void *data) {
-	struct __lexerCacheBlob *retVal = malloc(sizeof(struct __lexerCacheBlob));
-	retVal->data = data;
-	retVal->start = start;
-	retVal->end = end;
-	retVal->template = template;
-	retVal->flags = 0;
-
-	for (__auto_type node = start; node != end; node = llLexerItemNext(node)) {
-		__auto_type item = llLexerItemValuePtr(node);
-		if (item->blob == NULL) {
-			item->blob = retVal;
-		} else {
-			__auto_type oldBlob = item->blob;
-			for (__auto_type par = oldBlob->parent; par != NULL; par = par->parent)
-				oldBlob = par;
-
-			oldBlob->parent = retVal;
-		}
-	}
-
-	return retVal;
+	blobMappings = NULL;
 }
 static int lexerCacheBlobUpdateInsert(struct __lexerCacheBlob *blob,
                                       llLexerItem inserted) {
@@ -94,7 +85,7 @@ static int lexerCacheBlobUpdateRemove(struct __lexerCacheBlob *blob,
                                       llLexerItem toRemove) {
 	__auto_type old = blob->flags;
 
-	if (blob->end == toRemove)
+	if (llLexerItemPrev(blob->end ) == toRemove)
 		blob->end = llLexerItemPrev(blob->end);
 	if (blob->end == blob->start)
 		goto destroy;
@@ -137,13 +128,45 @@ static void llLexerItemKillSlice(llLexerItem start, llLexerItem end) {
 void *lexerItemValuePtr(const struct __lexerItem *item) {
 	return (void *)item + sizeof(struct __lexerItem);
 }
+LL_TYPE_DEF(struct __lexerCacheBlob *, CacheBlob);
+LL_TYPE_FUNCS(struct __lexerCacheBlob *, CacheBlob);
 struct __lexer {
 	struct __vec *oldSource;
 	llLexerItem oldItems;
 	strLexerItemTemplate templates;
+	llCacheBlob blobs;
 	int (*charCmp)(const void *, const void *);
 	const void *(*whitespaceSkip)(struct __vec *source, long pos);
 };
+struct __lexerCacheBlob *blobCreate(struct __lexer *lexer,
+                                    struct cacheBlobTemplate *template,
+                                    llLexerItem start, llLexerItem end,
+                                    void *data) {
+	struct __lexerCacheBlob *retVal = malloc(sizeof(struct __lexerCacheBlob));
+	retVal->data = data;
+	retVal->start = start;
+	retVal->end = end;
+	retVal->template = template;
+	retVal->flags = 0;
+
+	for (__auto_type node = start; node != end; node = llLexerItemNext(node)) {
+		__auto_type item = llLexerItemValuePtr(node);
+		if (item->blob == NULL) {
+			item->blob = retVal;
+		} else {
+			__auto_type oldBlob = item->blob;
+			for (__auto_type par = oldBlob->parent; par != NULL; par = par->parent)
+				oldBlob = par;
+
+			oldBlob->parent = retVal;
+		}
+	}
+
+	llInsertListAfter(llCacheBlobFirst(lexer->blobs),
+	                                 llCacheBlobCreate(retVal));
+
+	return retVal;
+}
 static void killLexerItemsNode(void *item) {
 	struct __lexerItem *ptr = item;
 	if (ptr->template->killItemData != NULL)
@@ -534,6 +557,19 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 	               __vecSize(newData), 1,
 	               lexer->charCmp); // TODO update item size
 
+	llCacheBlob blobClone=NULL;
+	for(__auto_type blob=llCacheBlobFirst(lexer->blobs);blob!=NULL;blob=llCacheBlobNext(blob)) {
+	 struct __lexerCacheBlob *clone=malloc(sizeof(struct __lexerCacheBlob ));
+	 memcpy(clone,*llCacheBlobValuePtr(blob),sizeof(*clone));
+	 llCacheBlobInsert(blobClone,llCacheBlobCreate(clone),ptrPtrCmp);
+	 
+	 /**
+		* Make associative pair
+		*/
+	 struct ptrPair pair ={*llCacheBlobValuePtr(blob),clone};
+	 blobMappings=llPtrPairInsert(blobMappings,llPtrPairCreate(pair),ptrPairCmpInsert);
+	}
+	
 	llLexerItem currentItem = __llGetFirst(lexer->oldItems);
 	llLexerItem retVal = NULL;
 	long newPos = 0;
@@ -596,9 +632,10 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 				__auto_type res = getLexerCanidate(lexer, newData, newPos, NULL, err);
 				if (res != NULL) {
 					if (llLexerItemValuePtr(res)->template != template) {
-					 __auto_type killData=llLexerItemValuePtr(res)->template->killItemData;
-					 if(killData)
-						    killData(llLexerItemValuePtr(res));
+						__auto_type killData =
+						    llLexerItemValuePtr(res)->template->killItemData;
+						if (killData)
+							killData(llLexerItemValuePtr(res));
 						goto findNewItems;
 					}
 				}
@@ -821,7 +858,7 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 		}
 		}
 	}
-	toUpdateDestroy();
+	workingDataDestroy();
 	toUpdate = NULL;
 
 	lexer->oldSource = __vecAppendItem(NULL, newData, __vecSize(newData));
@@ -829,7 +866,8 @@ void lexerUpdate(struct __lexer *lexer, struct __vec *newData, int *err) {
 
 	return;
 error : {
-	toUpdateDestroy();
+	workingDataDestroy();
 	llLexerItemDestroy(&retVal, killLexerItemsNode);
 }
 }
+

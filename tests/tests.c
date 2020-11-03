@@ -2,15 +2,14 @@ void llTests();
 void strTests();
 void graphTests();
 void mapTests();
-void diffTests();
 void subGraphTests();
-void cachingLexerTests();
 void preprocessorTests();
 void eventPoolTests();
 void precParserTests();
 void graphDominanceTests();
 void graphColoringTests();
 void parserTests();
+void lexerTests();
 int main() {
 	// strTests();
 	// graphDominanceTests();
@@ -27,8 +26,7 @@ int main() {
 	  preprocessorTests();
 	  eventPoolTests();
 	  */
-	diffTests();
-	cachingLexerTests();
+	lexerTests();
 	parserTests();
 	// typeParserTests();
 	return 0;
