@@ -27,6 +27,12 @@ enum parserNodeType {
 };
 STR_TYPE_DEF(struct parserNode *,ParserNode);
 STR_TYPE_FUNCS(struct parserNode *,ParserNode);
+struct variable {
+ char *name;
+ struct object *type;
+ strParserNode refs;
+};
+void variableDestroy(struct variable *var);
 struct parserNode {
  enum parserNodeType type;
 };
@@ -130,7 +136,11 @@ struct parserNodeFor {
 struct parserNodeWhile {
  struct parserNode base;
  struct parserNode *cond,*body;
-}
+};
+struct parserNodeVar {
+ struct parserNode base;
+ struct variable *var;
+};
 struct parserNode *parseExpression(llLexerItem start,llLexerItem end,llLexerItem *result);
 void parserNodeDestroy(struct parserNode **node);
 struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end);

@@ -23,6 +23,7 @@ list(APPEND sources "graphColoring.c")
 list(APPEND sources "holyCType.c")
 list(APPEND sources "holyCParser.c")
 list(APPEND sources "lexer.c")
+list(APPEND sources "parserB.c")
 
 set(tests "")
 list(APPEND tests "tests/tests.c")

@@ -4,6 +4,7 @@
 #include <lexer.h>
 #define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
+#include <hashTable.h>
 static char *strCopy(const char *text) {
 	char *retVal = malloc(strlen(text) + 1);
 	strcpy(retVal, text);
