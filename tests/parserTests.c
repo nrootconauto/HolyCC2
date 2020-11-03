@@ -480,13 +480,37 @@ void classParserTests() {
 	}
 }
 void keywordTests() {
- const char *text = "if(1) {a;} else {b;}";
+	 const char *text = "if(1) {a;} else {b;}";
 	__auto_type textStr = strCharAppendData(NULL, text, strlen(text));
 
-	__auto_type lexItems = lexText((struct __vec *)textStr, NULL);
+	int err;
+	__auto_type lexItems = lexText((struct __vec *)textStr, &err);
+	assert(!err);
+	
+	__auto_type ifStmt =parseIf(lexItems ,NULL);
+	assert(ifStmt);
+	{
+	 struct parserNodeIf *node=(void*)ifStmt;
+	 assert(node->base.type==NODE_IF);
+	 assert(node->cond->type==NODE_LIT_INT);
+	 assert(node->body->type==NODE_SCOPE);
+	 
+	 struct parserNodeScope *scope=(void*)node->body;
+	 assert(1==strParserNodeSize(scope->smts) );
+	 assert(scope->smts[0]->type==NODE_NAME);
+	 struct parserNodeName *name=(void*)scope->smts[0];
+	 assert(0==strcmp(name->text,"a"));
+	 
+	 scope=(void*)node->el;
+	 assert(1==strParserNodeSize(scope->smts) );
+	 assert(scope->smts[0]->type==NODE_NAME);
+	 name=(void*)scope->smts[0];
+	 assert(0==strcmp(name->text,"b"));
+	}
 }
 void parserTests() {
 	precParserTests();
 	varDeclTests();
 	classParserTests();
+	keywordTests();
 }

@@ -84,8 +84,7 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end,
 	} else if (item->template == &nameTemplate) {
 		return nameParse(start, end, result);
 	} else {
-		DEBUG_PRINT("op:%s\n", *(const char **)lexerItemValuePtr(item))
-		assert(0);
+		return NULL;
 	}
 
 	// TODO add float template.
@@ -1134,6 +1133,9 @@ struct parserNode *parseScope(llLexerItem start, llLexerItem *end) {
 	parserNodeDestroy(&lC);
 	parserNodeDestroy(&rC);
 
+	if (end != NULL)
+		*end = start;
+
 	if (nodes != NULL) {
 		struct parserNodeScope scope;
 		scope.base.type = NODE_SCOPE;
@@ -1147,6 +1149,15 @@ struct parserNode *parseScope(llLexerItem start, llLexerItem *end) {
 
 struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 	__auto_type originalStart = start;
+	__auto_type semi = expectKeyword(start, ";");
+	if (semi) {
+		parserNodeDestroy(&semi);
+		if (end != NULL)
+			*end = llLexerItemNext(start);
+
+		return NULL;
+	}
+
 	__auto_type varDecls = parseVarDecls(start, end);
 	if (varDecls)
 		return varDecls;
