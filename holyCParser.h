@@ -24,9 +24,11 @@ enum parserNodeType {
  NODE_DO,
  NODE_WHILE,
  NODE_FOR,
+ NODE_VAR,
 };
 STR_TYPE_DEF(struct parserNode *,ParserNode);
 STR_TYPE_FUNCS(struct parserNode *,ParserNode);
+struct parserNode ;
 struct variable {
  char *name;
  struct object *type;

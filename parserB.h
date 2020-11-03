@@ -14,7 +14,8 @@ struct scope {
 LL_TYPE_FUNCS(struct scope, Scope);
 
 void variableDestroy(struct variable *var);
-void scopeDestroy(void *s);
+void scopeDestroy(struct scope *s);
 void enterScope();
 void leaveScope();
 void addVar(const struct parserNode *name, struct object *type) ;
+struct variable *getVar(const struct parserNode *name);

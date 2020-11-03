@@ -1,17 +1,16 @@
 #include <assert.h>
 #include <hashTable.h>
 #include <parserB.h>
+#include <string.h>
 void variableDestroy(struct variable *var) {
 	free(var->name);
 	objectDestroy(&var->type);
 	strParserNodeDestroy(&var->refs);
 }
-void scopeDestroy(void *s) {
-	struct scope *scope = s;
+void scopeDestroy(struct scope *scope) {
 	mapVarDestroy(scope->vars, (void (*)(void *))variableDestroy);
 	llScopeDestroy(&scope->subScopes, (void (*)(void *))scopeDestroy);
 }
-static llScope masterScope = NULL;
 static llScope currentScope = NULL;
 void enterScope() {
 	struct scope new;
@@ -25,6 +24,8 @@ void enterScope() {
 	} else {
 		llInsertListAfter(llScopeValuePtr(currentScope)->subScopes, newNode);
 		llScopeValuePtr(currentScope)->subScopes = newNode;
+
+		currentScope = newNode;
 	}
 }
 void leaveScope() {
@@ -60,7 +61,7 @@ struct variable *getVar(const struct parserNode *name) {
 		    mapVarGet(llScopeValuePtr(scope)->vars, name2->text);
 		if (find) {
 			find->refs =
-			    strParserNodeAppendItem(find->refs, (struct parserNode*)name);
+			    strParserNodeAppendItem(find->refs, (struct parserNode *)name);
 			return find;
 		}
 	}
@@ -69,6 +70,14 @@ struct variable *getVar(const struct parserNode *name) {
 	return NULL;
 }
 static void killParserData() __attribute__((destructor));
-static void killParserData() { scopeDestroy(masterScope); masterScope=NULL;}
+static void killParserData() {
+	llScope top = currentScope;
+	for (; currentScope != NULL;
+	     currentScope = llScopeValuePtr(currentScope)->parent)
+		top = currentScope;
+
+	scopeDestroy(llScopeValuePtr(top));
+	currentScope = NULL;
+}
 static void initParserData() __attribute__((constructor));
-static void initParserData() {enterScope();}
+static void initParserData() { enterScope(); }

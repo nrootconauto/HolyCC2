@@ -5,6 +5,7 @@
 #define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 #include <hashTable.h>
+#include <parserB.h>
 static char *strCopy(const char *text) {
 	char *retVal = malloc(strlen(text) + 1);
 	strcpy(retVal, text);
@@ -83,7 +84,16 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end,
 
 		return ALLOCATE(lit);
 	} else if (item->template == &nameTemplate) {
-		return nameParse(start, end, result);
+		__auto_type name = nameParse(start, end, result);
+		__auto_type find = getVar(name);
+		if (find) {
+			struct parserNodeVar var;
+			var.base.type = NODE_VAR;
+			var.var = find;
+
+			return ALLOCATE(var);
+		}
+		return name;
 	} else {
 		return NULL;
 	}
@@ -1116,6 +1126,7 @@ struct parserNode *parseScope(llLexerItem start, llLexerItem *end) {
 
 	strParserNode nodes = NULL;
 	if (lC) {
+		enterScope();
 
 		start = llLexerItemNext(start);
 		for (; start != NULL;) {
@@ -1126,6 +1137,7 @@ struct parserNode *parseScope(llLexerItem start, llLexerItem *end) {
 				if (expr)
 					nodes = strParserNodeAppendItem(nodes, expr);
 			} else {
+				leaveScope();
 				start = llLexerItemNext(start);
 				break;
 			}
@@ -1160,8 +1172,19 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 	}
 
 	__auto_type varDecls = parseVarDecls(start, end);
-	if (varDecls)
+	if (varDecls) {
+		if (varDecls->type == NODE_VAR_DECL) {
+			struct parserNodeVarDecl *decl = (void *)varDecls;
+			addVar(decl->name, decl->type);
+		} else if (varDecls->type == NODE_VAR_DECLS) {
+			struct parserNodeVarDecls *decls = (void *)varDecls;
+			for (long i = 0; i != strParserNodeSize(decls->decls); i++) {
+				struct parserNodeVarDecl *decl = (void *)decls->decls[i];
+				addVar(decl->name, decl->type);
+			}
+		}
 		return varDecls;
+	}
 
 	start = originalStart;
 	__auto_type expr = parseExpression(start, NULL, end);
