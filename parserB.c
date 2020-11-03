@@ -1,10 +1,6 @@
 #include <assert.h>
 #include <hashTable.h>
 #include <parserB.h>
-MAP_TYPE_DEF(struct variable, Var);
-MAP_TYPE_FUNCS(struct variable, Var);
-LL_TYPE_DEF(struct scope, Scope);
-LL_TYPE_FUNCS(struct scope, Scope);
 void variableDestroy(struct variable *var) {
 	free(var->name);
 	objectDestroy(&var->type);
