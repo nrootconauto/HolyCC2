@@ -19,6 +19,8 @@ enum parserNodeType {
  NODE_META_DATA,
  NODE_CLASS_DEF,
  NODE_UNION_DEF,
+ NODE_IF,
+ NODE_SCOPE,
 };
 STR_TYPE_DEF(struct parserNode *,ParserNode);
 STR_TYPE_FUNCS(struct parserNode *,ParserNode);
@@ -94,15 +96,29 @@ struct parserNodeClassDef {
  struct parserNode base;
  struct parserNode *name;
  struct object *type;
- strParserNode decls;
 };
 struct parserNodeUnionDef {
  struct parserNode base;
  struct parserNode *name;
  struct object *type;
- strParserNode decls;
+};
+struct parserNodeIf {
+ struct parserNode base;
+ struct parserNode *cond;
+ struct parserNode *body;
+ /**
+	* else if's are if statements present in el
+	* if(cond) body else [if-statement]
+	*/
+ struct parserNode *el;
+};
+struct parserNodeScope {
+ struct parserNode base;
+ strParserNode smts;
 };
 struct parserNode *parseExpression(llLexerItem start,llLexerItem end,llLexerItem *result);
 void parserNodeDestroy(struct parserNode **node);
 struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end);
 struct parserNode *parseClass(llLexerItem start, llLexerItem *end);
+struct parserNode *parseIf(llLexerItem start, llLexerItem *end);
+struct parserNode *parseStatement(llLexerItem start, llLexerItem *end);

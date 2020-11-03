@@ -746,7 +746,7 @@ struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end) {
 	if (base) {
 		struct parserNodeName *baseName = (void *)base;
 		baseType = objectByName(baseName->text);
-		foundType = 1;
+		foundType = baseType != NULL;
 	} else {
 		__auto_type cls = parseClass(start, &start);
 		if (cls != NULL) {
@@ -1107,6 +1107,124 @@ end:
 	parserNodeDestroy(&cls);
 	parserNodeDestroy(&un);
 	parserNodeDestroy(&baseName);
+
+	return retVal;
+}
+struct parserNode *parseScope(llLexerItem start, llLexerItem *end) {
+	struct parserNode *lC = NULL, *rC = NULL;
+	lC = expectKeyword(start, "{");
+
+	strParserNode nodes = NULL;
+	if (lC) {
+
+		start = llLexerItemNext(start);
+		for (; start != NULL;) {
+			rC = expectKeyword(start, "}");
+
+			if (!rC) {
+				__auto_type expr = parseStatement(start, &start);
+				if (expr)
+					nodes = strParserNodeAppendItem(nodes, expr);
+			} else {
+				start = llLexerItemNext(start);
+				break;
+			}
+		}
+	}
+	parserNodeDestroy(&lC);
+	parserNodeDestroy(&rC);
+
+	if (nodes != NULL) {
+		struct parserNodeScope scope;
+		scope.base.type = NODE_SCOPE;
+		scope.smts = nodes;
+
+		return ALLOCATE(scope);
+	}
+
+	return NULL;
+}
+
+struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
+	__auto_type originalStart = start;
+	__auto_type varDecls = parseVarDecls(start, end);
+	if (varDecls)
+		return varDecls;
+
+	start = originalStart;
+	__auto_type expr = parseExpression(start, NULL, end);
+	if (expr)
+		return expr;
+
+	start = originalStart;
+	__auto_type ifStat = parseIf(start, end);
+	if (ifStat)
+		return ifStat;
+
+	start = originalStart;
+	__auto_type scope = parseScope(start, end);
+	if (scope)
+		return scope;
+
+	return NULL;
+}
+struct parserNode *parseIf(llLexerItem start, llLexerItem *end) {
+	__auto_type kwIf = expectKeyword(start, "if");
+	struct parserNode *lP = NULL, *rP = NULL, *cond = NULL, *elKw = NULL,
+	                  *elBody = NULL;
+
+	struct parserNode *retVal = NULL;
+	if (kwIf) {
+		start = llLexerItemNext(start);
+
+		lP = expectOp(start, "(");
+		if (!lP)
+			goto fail;
+		start = llLexerItemNext(start);
+
+		cond = parseExpression(start, NULL, &start);
+		if (!cond)
+			goto fail;
+
+		rP = expectOp(start, ")");
+		if (!rP)
+			goto fail;
+		start = llLexerItemNext(start);
+
+		__auto_type body = parseStatement(start, &start);
+
+		elKw = expectKeyword(start, "else");
+		start = llLexerItemNext(start);
+		if (elKw) {
+			elBody = parseStatement(start, NULL);
+		}
+
+		struct parserNodeIf ifNode;
+		ifNode.base.type = NODE_IF;
+		ifNode.cond = cond;
+		ifNode.body = body;
+		ifNode.el = elBody;
+
+		// Dont free cond ahead
+		cond = NULL;
+
+		retVal = ALLOCATE(ifNode);
+	}
+
+	goto end;
+fail:
+	retVal = NULL;
+
+end:;
+	struct parserNode *toFree[] = {
+	    lP,
+	    rP,
+	    cond,
+	    elBody,
+	};
+	__auto_type count = sizeof(toFree) / sizeof(*toFree);
+	for (int i = 0; i != count; i++)
+		parserNodeDestroy(&toFree[i]);
 
 	return retVal;
 }

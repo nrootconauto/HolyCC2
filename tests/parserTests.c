@@ -479,6 +479,12 @@ void classParserTests() {
 		}
 	}
 }
+void keywordTests() {
+ const char *text = "if(1) {a;} else {b;}";
+	__auto_type textStr = strCharAppendData(NULL, text, strlen(text));
+
+	__auto_type lexItems = lexText((struct __vec *)textStr, NULL);
+}
 void parserTests() {
 	precParserTests();
 	varDeclTests();
