@@ -98,10 +98,12 @@ const char *operators[] = {
     ",",
 };
 static void sortKeywords() __attribute__((constructor));
+static int kwSortPred(const void *a, const void *b) {
+	return strcmp(*(const char **)a, *(const char **)b);
+}
 static void sortKeywords() {
 	__auto_type count = sizeof(keywords) / sizeof(*keywords);
-	qsort(keywords, count, sizeof(*keywords),
-	      (int (*)(const void *, const void *))strcmp);
+	qsort(keywords, count, sizeof(*keywords), kwSortPred);
 }
 static long countAlnum(const struct __vec *data, long pos) {
 	long alNumCount = 0;
@@ -272,6 +274,7 @@ static struct __vec *floatingLex(const struct __vec *vec, long pos, long *end,
 	struct lexerFloating f;
 	f.base = 0;
 	f.frac = 0;
+	f.zerosBeforeBase = 0;
 	f.exponet = 0;
 
 	__auto_type alnumCount = countAlnum(vec, pos);
@@ -297,27 +300,30 @@ static struct __vec *floatingLex(const struct __vec *vec, long pos, long *end,
 		sscanf((char *)slice, "%lu", &f.base);
 		__vecDestroy(slice);
 
-		currPtr += (exponetIndex != -1) ? alnumCount : exponetIndex + 1;
+		currPtr += (exponetIndex == -1) ? alnumCount : exponetIndex + 1;
 	}
 
 	if (*currPtr == '.')
 		goto dot;
-	else if (exponetIndex)
+	else if (exponetIndex != -1)
 		goto exponet;
 	else
 		return NULL;
 dot : {
 	currPtr++;
-	__auto_type alnumCount = countAlnum(vec, currPtr - (char *)vec);
-	for (int i = 0; i != alnumCount; i++)
-		if (!isdigit(currPtr[i]))
-			goto malformed;
+	while (*currPtr == '0')
+		currPtr++, f.zerosBeforeBase++;
 
-	__auto_type slice = __vecAppendItem(NULL, currPtr, alnumCount);
+	long digitCount = 0;
+	for (; isdigit(currPtr[digitCount]); digitCount++)
+		;
+
+	__auto_type slice = __vecAppendItem(NULL, currPtr, digitCount);
+	slice = __vecAppendItem(slice, "\0", 1);
 	sscanf((char *)slice, "%lu", &f.frac);
 	__vecDestroy(slice);
 
-	currPtr += alnumCount;
+	currPtr += digitCount;
 
 	if (currPtr < endPtr)
 		goto returnLabel;
@@ -338,6 +344,7 @@ exponet : {
 			goto malformed;
 
 	__auto_type slice = __vecAppendItem(NULL, currPtr, alnumCount);
+	slice = __vecAppendItem(slice, "\0", 1);
 	sscanf((char *)slice, "%d", &f.exponet);
 	__vecDestroy(slice);
 	f.exponet *= mult;
@@ -478,7 +485,7 @@ llLexerItem lexText(const struct __vec *text, int *err) {
 	llLexerItem retVal = NULL;
 	int err2;
 
-	__auto_type len = strlen((char *)text);
+	__auto_type len = __vecSize(text);
 	long pos = 0;
 	while (pos < len) {
 		pos = (char *)skipWhitespace(text, pos) - (char *)text;
@@ -500,17 +507,16 @@ llLexerItem lexText(const struct __vec *text, int *err) {
 					__vecDestroy(find);
 				} else {
 					itemTemplate = templates[i];
-					end = maximumEnd;
+					maximumEnd = end;
 					value = find;
 				}
 			}
 		}
-		
-		if(maximumEnd==pos)
-		 goto fail;
+
+		if (maximumEnd == pos)
+			goto fail;
 
 		if (value != NULL) {
-			pos = maximumEnd;
 			struct lexerItem newItem;
 			newItem.start = pos;
 			newItem.end = maximumEnd;
@@ -518,19 +524,21 @@ llLexerItem lexText(const struct __vec *text, int *err) {
 
 			char buffer[sizeof(newItem) + __vecSize(value)];
 			*(struct lexerItem *)buffer = newItem;
-			memcpy(buffer + __vecSize(value), value, __vecSize(value));
+			memcpy(buffer + sizeof(newItem), value, __vecSize(value));
 
 			__auto_type newNode =
 			    __llCreate(buffer, sizeof(newItem) + __vecSize(value));
 			llLexerItemInsertListAfter(retVal, newNode);
 			retVal = newNode;
+
+			pos = maximumEnd;
 		} else
 			goto fail;
 	}
 
 	if (err != NULL)
 		*err = 0;
-	return llLexerItemFirst(retVal) ;
+	return llLexerItemFirst(retVal);
 fail : {
 	llLexerItemDestroy2(&retVal);
 	if (err != NULL)
