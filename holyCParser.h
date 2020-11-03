@@ -21,6 +21,9 @@ enum parserNodeType {
  NODE_UNION_DEF,
  NODE_IF,
  NODE_SCOPE,
+ NODE_DO,
+ NODE_WHILE,
+ NODE_FOR,
 };
 STR_TYPE_DEF(struct parserNode *,ParserNode);
 STR_TYPE_FUNCS(struct parserNode *,ParserNode);
@@ -116,6 +119,18 @@ struct parserNodeScope {
  struct parserNode base;
  strParserNode smts;
 };
+struct parserNodeDo {
+ struct parserNode base;
+ struct parserNode *cond,*body;
+};
+struct parserNodeFor {
+ struct parserNode base;
+ struct parserNode *init,*cond,*inc,*body;
+};
+struct parserNodeWhile {
+ struct parserNode base;
+ struct parserNode *cond,*body;
+}
 struct parserNode *parseExpression(llLexerItem start,llLexerItem end,llLexerItem *result);
 void parserNodeDestroy(struct parserNode **node);
 struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end);

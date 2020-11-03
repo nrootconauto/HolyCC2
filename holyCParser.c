@@ -1179,6 +1179,160 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 
 	return NULL;
 }
+struct parserNode *parseWhile(llLexerItem start, llLexerItem *end) {
+	struct parserNode *kwWhile = NULL, *lP = NULL, *rP = NULL, *cond = NULL,
+	                  *body = NULL, *retVal = NULL;
+	struct parserNode *toFree[] = {
+	    lP,
+	    rP,
+	    kwWhile,
+	};
+	__auto_type count = sizeof(toFree) / sizeof(*toFree);
+	kwWhile = expectKeyword(start, "while");
+	if (kwWhile) {
+		start = llLexerItemNext(start);
+
+		lP = expectOp(start, "(");
+		if (!lP)
+			goto fail;
+		start = llLexerItemNext(start);
+
+		cond = parseExpression(start, NULL, &start);
+		if (!cond)
+			goto fail;
+
+		rP = expectOp(start, ")");
+		if (!rP)
+			goto fail;
+		start = llLexerItemNext(start);
+
+		body = parseStatement(start, &start);
+	}
+	struct parserNodeWhile node;
+	node.base.type = NODE_WHILE;
+	node.body = body;
+	node.cond = cond;
+
+	retVal = ALLOCATE(node);
+	goto end;
+fail:
+	parserNodeDestroy(&cond);
+	parserNodeDestroy(&body);
+end:
+	for (int i = 0; i != count; i++)
+		parserNodeDestroy(&toFree[i]);
+
+	if (end != NULL)
+		*end = start;
+
+	return retVal;
+}
+struct parserNode *parseFor(llLexerItem start, llLexerItem *end) {
+	struct parserNode *lP = NULL, *rP = NULL, *kwFor = NULL, *semi1 = NULL,
+	                  *semi2 = NULL, *cond = NULL, *inc = NULL, *body = NULL,
+	                  *init = NULL;
+	struct parserNode *toFree[] = {
+	    lP, rP, kwFor, semi1, semi2,
+	};
+	__auto_type count = sizeof(toFree) / sizeof(*toFree);
+
+	struct parserNode *retVal = NULL;
+
+	kwFor = expectKeyword(start, "for");
+	if (kwFor) {
+		start = llLexerItemNext(start);
+
+		lP = expectOp(start, "(");
+		start = llLexerItemNext(start);
+
+		__auto_type originalStart = start;
+		init = parseVarDecls(originalStart, &start);
+		if (!init)
+			init = parseExpression(originalStart, NULL, &start);
+
+		semi1 = expectKeyword(start, ";");
+		start = llLexerItemNext(start);
+
+		cond = parseExpression(start, NULL, &start);
+
+		semi2 = expectKeyword(start, ";");
+		start = llLexerItemNext(start);
+
+		rP = expectOp(start, ")");
+		start = llLexerItemNext(start);
+
+		body = parseStatement(start, &start);
+
+		struct parserNodeFor forStmt;
+		forStmt.base.type = NODE_FOR;
+		forStmt.body = body;
+		forStmt.cond = cond;
+		forStmt.init = init;
+		forStmt.inc = inc;
+
+		retVal = ALLOCATE(forStmt);
+		goto end;
+	}
+fail:
+	parserNodeDestroy(&body);
+	parserNodeDestroy(&inc);
+	parserNodeDestroy(&cond);
+	parserNodeDestroy(&init);
+end:
+	for (int i = 0; i != count; i++)
+		parserNodeDestroy(&toFree[i]);
+
+	if (end != NULL)
+		*end = start;
+
+	return retVal;
+}
+struct parserNode *parseDo(llLexerItem start, llLexerItem *end) {
+	__auto_type kwDo = expectKeyword(start, "do");
+	if (kwDo == NULL)
+		return NULL;
+
+	struct parserNode *body = NULL, *cond = NULL, *kwWhile = NULL, *lP = NULL,
+	                  *rP = NULL;
+	struct parserNode *retVal = NULL;
+	struct parserNode *toFree[] = {lP, rP, kwWhile, kwDo};
+	__auto_type count = sizeof(toFree) / sizeof(*toFree);
+
+	start = llLexerItemNext(start);
+	body = parseStatement(start, &start);
+	kwWhile = expectKeyword(start, "while");
+	if (kwWhile) {
+		start = llLexerItemNext(start);
+		lP = expectOp(start, "(");
+		if (!lP)
+			goto fail;
+		start = llLexerItemNext(start);
+
+		cond = parseExpression(start, NULL, &start);
+
+		rP = expectOp(start, ")");
+		if (!rP)
+			goto fail;
+		start = llLexerItemNext(start);
+	}
+	struct parserNodeDo doNode;
+	doNode.base.type = NODE_DO;
+	doNode.body = body;
+	doNode.cond = cond;
+
+	goto end;
+fail:
+	parserNodeDestroy(&cond);
+	parserNodeDestroy(&body);
+end:
+	for (long i = 0; i != count; i++)
+		parserNodeDestroy(&toFree[i]);
+
+	if (end != NULL)
+		*end = start;
+
+	return retVal;
+}
 struct parserNode *parseIf(llLexerItem start, llLexerItem *end) {
 	__auto_type kwIf = expectKeyword(start, "if");
 	struct parserNode *lP = NULL, *rP = NULL, *cond = NULL, *elKw = NULL,
