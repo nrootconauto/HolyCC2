@@ -45,7 +45,7 @@ void addVar(const struct parserNode *name, struct object *type) {
 
 	__auto_type scope = llScopeValuePtr(currentScope);
 	__auto_type find = mapVarGet(scope->vars, var.name);
-	if (!find) {
+	if (find) {
 		// TODO whine about re-declaration
 	} else {
 		mapVarInsert(scope->vars, var.name, var);

@@ -1160,20 +1160,8 @@ struct parserNode *parseScope(llLexerItem start, llLexerItem *end) {
 	return NULL;
 }
 
-struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
-	__auto_type originalStart = start;
-	__auto_type semi = expectKeyword(start, ";");
-	if (semi) {
-		parserNodeDestroy(&semi);
-		if (end != NULL)
-			*end = llLexerItemNext(start);
-
-		return NULL;
-	}
-
-	__auto_type varDecls = parseVarDecls(start, end);
-	if (varDecls) {
-		if (varDecls->type == NODE_VAR_DECL) {
+static void addDeclsToScope(struct parserNode *varDecls) {
+ if (varDecls->type == NODE_VAR_DECL) {
 			struct parserNodeVarDecl *decl = (void *)varDecls;
 			addVar(decl->name, decl->type);
 		} else if (varDecls->type == NODE_VAR_DECLS) {
@@ -1183,6 +1171,24 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 				addVar(decl->name, decl->type);
 			}
 		}
+}
+struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
+loop:;
+	__auto_type originalStart = start;
+	__auto_type semi = expectKeyword(start, ";");
+	if (semi) {
+		parserNodeDestroy(&semi);
+		if (end != NULL)
+			*end = llLexerItemNext(start);
+
+		start = llLexerItemNext(start);
+		goto loop;
+	}
+
+	__auto_type varDecls = parseVarDecls(start, end);
+	if (varDecls) {
+		addDeclsToScope(varDecls);
+		
 		return varDecls;
 	}
 
@@ -1200,6 +1206,10 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 	__auto_type scope = parseScope(start, end);
 	if (scope)
 		return scope;
+
+	__auto_type forStmt = parseFor(originalStart, end);
+	if (forStmt)
+		return forStmt;
 
 	return NULL;
 }
@@ -1263,16 +1273,21 @@ struct parserNode *parseFor(llLexerItem start, llLexerItem *end) {
 	struct parserNode *retVal = NULL;
 
 	kwFor = expectKeyword(start, "for");
+	int leaveScope2 = 0;
 	if (kwFor) {
 		start = llLexerItemNext(start);
 
 		lP = expectOp(start, "(");
+		enterScope();
+		leaveScope2 = 1;
 		start = llLexerItemNext(start);
 
 		__auto_type originalStart = start;
 		init = parseVarDecls(originalStart, &start);
 		if (!init)
 			init = parseExpression(originalStart, NULL, &start);
+		else 
+		 addDeclsToScope(init);
 
 		semi1 = expectKeyword(start, ";");
 		start = llLexerItemNext(start);
@@ -1281,6 +1296,8 @@ struct parserNode *parseFor(llLexerItem start, llLexerItem *end) {
 
 		semi2 = expectKeyword(start, ";");
 		start = llLexerItemNext(start);
+
+		inc = parseExpression(start, NULL, &start);
 
 		rP = expectOp(start, ")");
 		start = llLexerItemNext(start);
@@ -1303,6 +1320,9 @@ fail:
 	parserNodeDestroy(&cond);
 	parserNodeDestroy(&init);
 end:
+	if (leaveScope2)
+		leaveScope();
+
 	for (int i = 0; i != count; i++)
 		parserNodeDestroy(&toFree[i]);
 

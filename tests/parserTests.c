@@ -2,6 +2,7 @@
 #include <holyCParser.h>
 #include <holyCType.h>
 #include <lexer.h>
+#include <parserB.h>
 #include <stdio.h>
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
@@ -418,7 +419,7 @@ static void varDeclTests() {
 	}
 }
 void classParserTests() {
-	const char *text = "class x {\n"
+	const char *text = "class class_x {\n"
 	                   "    I64i a dft_val 10,b,c;\n"
 	                   "    U8i d;\n"
 	                   "};";
@@ -433,7 +434,7 @@ void classParserTests() {
 
 		assert(clsDef->name->type == NODE_NAME);
 		struct parserNodeName *name = (void *)clsDef->name;
-		assert(0 == strcmp(name->text, "x"));
+		assert(0 == strcmp(name->text, "class_x"));
 
 		struct objectClass *clsType = (void *)clsDef->type;
 		assert(clsType->base.type == TYPE_CLASS);
@@ -451,11 +452,11 @@ void classParserTests() {
 			}
 		}
 	}
-	text = "class foo {\n"
+	text = "class class_foo {\n"
 	       "I64i x;"
 	       "} a,b,c";
 	textStr = strCharAppendData(NULL, text, strlen(text));
-	
+
 	int err;
 	lexItems = lexText((struct __vec *)textStr, &err);
 	assert(!err);
@@ -471,8 +472,8 @@ void classParserTests() {
 		for (long i = 0; i != 3; i++) {
 			assert(decls2->decls[i]->type == NODE_VAR_DECL);
 			struct parserNodeVarDecl *decl = (void *)decls2->decls[i];
-			assert(decl->type==objectByName("foo"));
-			
+			assert(decl->type == objectByName("class_foo"));
+
 			struct parserNodeName *name = (void *)decl->name;
 			assert(name->base.type == NODE_NAME);
 			assert(0 == strcmp(name->text, names[i]));
@@ -480,32 +481,59 @@ void classParserTests() {
 	}
 }
 void keywordTests() {
-	 const char *text = "if(1) {a;} else {b;}";
+	const char *text = "if(1) {a;} else {b;}";
 	__auto_type textStr = strCharAppendData(NULL, text, strlen(text));
 
 	int err;
 	__auto_type lexItems = lexText((struct __vec *)textStr, &err);
 	assert(!err);
-	
-	__auto_type ifStmt =parseIf(lexItems ,NULL);
+
+	__auto_type ifStmt = parseIf(lexItems, NULL);
 	assert(ifStmt);
 	{
-	 struct parserNodeIf *node=(void*)ifStmt;
-	 assert(node->base.type==NODE_IF);
-	 assert(node->cond->type==NODE_LIT_INT);
-	 assert(node->body->type==NODE_SCOPE);
-	 
-	 struct parserNodeScope *scope=(void*)node->body;
-	 assert(1==strParserNodeSize(scope->smts) );
-	 assert(scope->smts[0]->type==NODE_NAME);
-	 struct parserNodeName *name=(void*)scope->smts[0];
-	 assert(0==strcmp(name->text,"a"));
-	 
-	 scope=(void*)node->el;
-	 assert(1==strParserNodeSize(scope->smts) );
-	 assert(scope->smts[0]->type==NODE_NAME);
-	 name=(void*)scope->smts[0];
-	 assert(0==strcmp(name->text,"b"));
+		struct parserNodeIf *node = (void *)ifStmt;
+		assert(node->base.type == NODE_IF);
+		assert(node->cond->type == NODE_LIT_INT);
+		assert(node->body->type == NODE_SCOPE);
+
+		struct parserNodeScope *scope = (void *)node->body;
+		assert(1 == strParserNodeSize(scope->smts));
+		assert(scope->smts[0]->type == NODE_NAME);
+		struct parserNodeName *name = (void *)scope->smts[0];
+		assert(0 == strcmp(name->text, "a"));
+
+		scope = (void *)node->el;
+		assert(1 == strParserNodeSize(scope->smts));
+		assert(scope->smts[0]->type == NODE_NAME);
+		name = (void *)scope->smts[0];
+		assert(0 == strcmp(name->text, "b"));
+	}
+
+	text = "I64i x; for(I64i x=0;x!=10;++x) {x;}";
+	textStr = strCharAppendData(NULL, text, strlen(text));
+
+	lexItems = lexText((struct __vec *)textStr, &err);
+	assert(!err);
+
+	__auto_type x1 = parseStatement(lexItems, &lexItems);
+	__auto_type forStmt = parseStatement(lexItems, &lexItems);
+	{
+		assert(x1->type == NODE_VAR_DECL);
+		struct parserNodeVarDecl *var = (void *)x1;
+		__auto_type x1V = getVar(var->name);
+
+		assert(forStmt->type == NODE_FOR);
+		struct parserNodeFor *forStmt2 = (void *)forStmt;
+		assert(forStmt2->init->type == NODE_VAR_DECL);
+		assert(forStmt2->cond->type == NODE_BINOP);
+		assert(forStmt2->inc->type == NODE_UNOP);
+		assert(forStmt2->body->type == NODE_SCOPE);
+
+		struct parserNodeScope *scope = (void *)forStmt2->body;
+		assert(1 == strParserNodeSize(scope->smts));
+		assert(scope->smts[0]->type == NODE_VAR);
+		struct parserNodeVar *var2 = (void *)scope->smts[0];
+		assert(var2->var != x1V);
 	}
 }
 void parserTests() {
