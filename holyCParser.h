@@ -150,3 +150,4 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end);
 struct parserNode *parseIf(llLexerItem start, llLexerItem *end);
 struct parserNode *parseStatement(llLexerItem start, llLexerItem *end);
 struct parserNode *parseFor(llLexerItem start, llLexerItem *end) ;
+struct parserNode *parseWhile(llLexerItem start, llLexerItem *end);

@@ -535,6 +535,21 @@ void keywordTests() {
 		struct parserNodeVar *var2 = (void *)scope->smts[0];
 		assert(var2->var != x1V);
 	}
+	
+	text = "while(1) {1+1;}";
+	textStr = strCharAppendData(NULL, text, strlen(text)); 
+	
+	lexItems = lexText((struct __vec *)textStr, &err);
+	assert(!err);
+	
+	__auto_type whileStmt=parseStatement(lexItems,NULL);
+	{
+	 assert(whileStmt->type==NODE_WHILE);
+	 
+	 struct parserNodeWhile *node=(void*)whileStmt;
+	 assert(node->cond->type==NODE_LIT_INT);
+	 assert(node->body->type==NODE_SCOPE);
+	}
 }
 void parserTests() {
 	precParserTests();

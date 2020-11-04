@@ -1161,16 +1161,16 @@ struct parserNode *parseScope(llLexerItem start, llLexerItem *end) {
 }
 
 static void addDeclsToScope(struct parserNode *varDecls) {
- if (varDecls->type == NODE_VAR_DECL) {
-			struct parserNodeVarDecl *decl = (void *)varDecls;
+	if (varDecls->type == NODE_VAR_DECL) {
+		struct parserNodeVarDecl *decl = (void *)varDecls;
+		addVar(decl->name, decl->type);
+	} else if (varDecls->type == NODE_VAR_DECLS) {
+		struct parserNodeVarDecls *decls = (void *)varDecls;
+		for (long i = 0; i != strParserNodeSize(decls->decls); i++) {
+			struct parserNodeVarDecl *decl = (void *)decls->decls[i];
 			addVar(decl->name, decl->type);
-		} else if (varDecls->type == NODE_VAR_DECLS) {
-			struct parserNodeVarDecls *decls = (void *)varDecls;
-			for (long i = 0; i != strParserNodeSize(decls->decls); i++) {
-				struct parserNodeVarDecl *decl = (void *)decls->decls[i];
-				addVar(decl->name, decl->type);
-			}
 		}
+	}
 }
 struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 loop:;
@@ -1188,7 +1188,7 @@ loop:;
 	__auto_type varDecls = parseVarDecls(start, end);
 	if (varDecls) {
 		addDeclsToScope(varDecls);
-		
+
 		return varDecls;
 	}
 
@@ -1210,6 +1210,10 @@ loop:;
 	__auto_type forStmt = parseFor(originalStart, end);
 	if (forStmt)
 		return forStmt;
+
+	__auto_type whileStmt = parseWhile(originalStart, end);
+	if (whileStmt)
+		return whileStmt;
 
 	return NULL;
 }
@@ -1241,7 +1245,8 @@ struct parserNode *parseWhile(llLexerItem start, llLexerItem *end) {
 		start = llLexerItemNext(start);
 
 		body = parseStatement(start, &start);
-	}
+	} else
+		goto fail;
 	struct parserNodeWhile node;
 	node.base.type = NODE_WHILE;
 	node.body = body;
@@ -1286,8 +1291,8 @@ struct parserNode *parseFor(llLexerItem start, llLexerItem *end) {
 		init = parseVarDecls(originalStart, &start);
 		if (!init)
 			init = parseExpression(originalStart, NULL, &start);
-		else 
-		 addDeclsToScope(init);
+		else
+			addDeclsToScope(init);
 
 		semi1 = expectKeyword(start, ";");
 		start = llLexerItemNext(start);
