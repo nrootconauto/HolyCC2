@@ -1,6 +1,6 @@
 #include <assert.h>
-#include <holyCParser.h>
-#include <holyCType.h>
+#include <parserA.h>
+#include <object.h>
 #include <lexer.h>
 #include <parserB.h>
 #include <stdio.h>

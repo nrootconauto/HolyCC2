@@ -1,6 +1,6 @@
 #include <hashTable.h>
-#include <holyCParser.h>
-#include <holyCType.h>
+#include <parserA.h>
+#include <object.h>
 #include <string.h>
 MAP_TYPE_DEF(struct object *, Object);
 MAP_TYPE_FUNCS(struct object *, Object);

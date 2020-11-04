@@ -1,7 +1,7 @@
 #pragma once
 #include <str.h>
 #include <lexer.h>
-#include <holyCType.h>
+#include <object.h>
 enum parserNodeType {
  NODE_BINOP,
  NODE_UNOP,

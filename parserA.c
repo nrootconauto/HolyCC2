@@ -1,6 +1,6 @@
 #include <assert.h>
-#include <holyCParser.h>
-#include <holyCType.h>
+#include <parserA.h>
+#include <object.h>
 #include <lexer.h>
 #define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
