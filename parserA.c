@@ -1,7 +1,7 @@
 #include <assert.h>
-#include <parserA.h>
-#include <object.h>
 #include <lexer.h>
+#include <object.h>
+#include <parserA.h>
 #define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 #include <hashTable.h>
@@ -637,6 +637,9 @@ LEFT_ASSOC_OP(prec3, prec2Recur, "*", "%", "/");
 LEFT_ASSOC_OP(prec2, prec1Recur, "`", "<<", ">>");
 
 static struct parserNode *expectKeyword(llLexerItem __item, const char *text) {
+	if (__item == NULL)
+		return NULL;
+
 	__auto_type item = llLexerItemValuePtr(__item);
 
 	if (item->template == &kwTemplate) {
@@ -1173,7 +1176,6 @@ static void addDeclsToScope(struct parserNode *varDecls) {
 	}
 }
 struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
-loop:;
 	__auto_type originalStart = start;
 	__auto_type semi = expectKeyword(start, ";");
 	if (semi) {
@@ -1181,41 +1183,68 @@ loop:;
 		if (end != NULL)
 			*end = llLexerItemNext(start);
 
-		start = llLexerItemNext(start);
-		goto loop;
+		return NULL;
 	}
+	struct parserNode *retVal = NULL;
 
 	__auto_type varDecls = parseVarDecls(start, end);
 	if (varDecls) {
 		addDeclsToScope(varDecls);
 
-		return varDecls;
+		retVal = varDecls;
+		goto end;
 	}
 
 	start = originalStart;
 	__auto_type expr = parseExpression(start, NULL, end);
-	if (expr)
-		return expr;
+	if (expr) {
+		retVal = expr;
+		goto end;
+	}
 
 	start = originalStart;
 	__auto_type ifStat = parseIf(start, end);
-	if (ifStat)
-		return ifStat;
+	if (ifStat) {
+		retVal = ifStat;
+		goto end;
+	}
 
 	start = originalStart;
 	__auto_type scope = parseScope(start, end);
-	if (scope)
-		return scope;
+	if (scope) {
+		retVal = scope;
+		goto end;
+	}
 
 	__auto_type forStmt = parseFor(originalStart, end);
-	if (forStmt)
-		return forStmt;
+	if (forStmt) {
+		retVal = forStmt;
+		goto end;
+	}
 
 	__auto_type whileStmt = parseWhile(originalStart, end);
-	if (whileStmt)
-		return whileStmt;
+	if (whileStmt) {
+		retVal = whileStmt;
+		goto end;
+	}
+
+	__auto_type doStmt = parseDo(originalStart, end);
+	if (doStmt) {
+		retVal = doStmt;
+		goto end;
+	}
 
 	return NULL;
+end : {
+	if (end) {
+		__auto_type semi = expectKeyword(*end, ";");
+		if (semi) {
+			*end = llLexerItemNext(*end);
+			parserNodeDestroy(&semi);
+		}
+	}
+	return retVal;
+}
 }
 struct parserNode *parseWhile(llLexerItem start, llLexerItem *end) {
 	struct parserNode *kwWhile = NULL, *lP = NULL, *rP = NULL, *cond = NULL,
@@ -1369,6 +1398,7 @@ struct parserNode *parseDo(llLexerItem start, llLexerItem *end) {
 	doNode.body = body;
 	doNode.cond = cond;
 
+	retVal = ALLOCATE(doNode);
 	goto end;
 fail:
 	parserNodeDestroy(&cond);

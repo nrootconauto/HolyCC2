@@ -550,6 +550,21 @@ void keywordTests() {
 	 assert(node->cond->type==NODE_LIT_INT);
 	 assert(node->body->type==NODE_SCOPE);
 	}
+	
+	text = "do ; while(1)";
+	textStr = strCharAppendData(NULL, text, strlen(text));
+	
+	lexItems = lexText((struct __vec *)textStr, &err);
+	assert(!err);
+	
+	__auto_type doStmt=parseStatement(lexItems,NULL);
+	{
+	 assert(doStmt->type==NODE_DO);
+	 struct parserNodeDo *doNode=(void*)doStmt;
+	 assert(doNode->body==NULL);
+	 assert(doNode->cond->type==NODE_LIT_INT);
+	}
+	
 }
 void parserTests() {
 	precParserTests();
