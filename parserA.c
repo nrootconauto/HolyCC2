@@ -1472,3 +1472,122 @@ end:;
 
 	return retVal;
 }
+/**
+ * Switch section
+ */
+static strParserNode switchStack = NULL;
+static void switchStackDestroy() __attribute__((destructor));
+static void switchStackDestroy() { strParserNodeDestroy(&switchStack); }
+static long getNextCaseValue(struct parserNode *parent) {
+	struct parserNode *entry = NULL;
+
+	if (parent->type == NODE_SWITCH) {
+		struct parserNodeSwitch *node = (void *)parent;
+
+		__auto_type len = strParserNodeSize(node->caseSubcases);
+		if (len > 0) {
+			entry = node->caseSubcases[len - 1];
+			goto getValue;
+		} else {
+			return 0;
+		}
+	} else if (parent->type == NODE_SUBSWITCH) {
+		struct parserNodeSubSwitch *node = (void *)parent;
+		__auto_type len = strParserNodeSize(node->caseSubcases);
+		if (len > 0) {
+			entry = node->caseSubcases[len - 1];
+			goto getValue;
+		} else {
+			return 0;
+		}
+	} else {
+		assert(0);
+	}
+getValue : {
+	if (entry->type == NODE_CASE) {
+		struct parserNodeCase *node = (void *)entry;
+		return node->value + 1;
+	} else if (entry->type == NODE_SUBSWITCH) {
+		return getNextCaseValue(entry);
+	} else {
+		assert(0);
+	}
+	return -1;
+}
+}
+static struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
+	struct parserNode *colon1 = NULL, *retVal = NULL;
+
+	__auto_type name = nameParse(start, NULL, &start);
+	if (name == NULL)
+		return NULL;
+	colon1 = expectKeyword(start, ":");
+	if (!colon1)
+		goto end;
+
+	struct parserNodeName *name2 = (void *)name;
+	if (0 == strcmp(name2->text, "end") && 0 != strParserNodeSize(switchStack)) {
+		switchStack =
+		    strParserNodeResize(switchStack, strParserNodeSize(switchStack) - 1);
+	} else if (0 == strcmp(name2->text, "start") &&
+	           0 != strParserNodeSize(switchStack)) {
+		switchStack = strParserNodeAppendItem(switchStack, retVal);
+	}
+	struct parserNodeLabel dummy;
+	dummy.base.type = NODE_LABEL;
+	dummy.name = name;
+	retVal = ALLOCATE(dummy);
+end:
+	parserNodeDestroy(&colon1);
+
+	return retVal;
+}
+static struct parserNode *parseCase(llLexerItem start, llLexerItem *end) {
+	struct parserNode *kwCase = NULL, *colon = NULL;
+	struct parserNode *retVal = NULL;
+	kwCase = expectKeyword(start, "case");
+	if (kwCase) {
+		/**
+		 * Get parent switch
+		 */
+		struct parserNode *parent = NULL;
+		if (strParserNodeSize(switchStack) == 0) {
+			// TODO whine
+		} else {
+			parent = switchStack[strParserNodeSize(switchStack) - 1];
+		}
+
+		start = llLexerItemNext(start);
+
+		int gotInt = 0;
+		long caseValue = -1;
+		if (start != NULL) {
+			if (llLexerItemValuePtr(start)->template == &intTemplate) {
+				gotInt = 1;
+				struct lexerInt *i = lexerItemValuePtr(llLexerItemValuePtr(start));
+				caseValue = i->value.sLong;
+			} else if (parent) {
+				caseValue = getNextCaseValue(parent);
+			}
+		}
+
+		colon = expectKeyword(start, ":");
+		if (colon)
+			start = llLexerItemNext(start);
+
+		struct parserNodeCase caseNode;
+		caseNode.base.type = NODE_CASE;
+		caseNode.parent = parent;
+		caseNode.value = caseValue;
+
+		retVal = ALLOCATE(caseNode);
+	}
+end:
+	if (end)
+		*end = start;
+
+	parserNodeDestroy(&kwCase);
+	parserNodeDestroy(&colon);
+
+	return retVal;
+}

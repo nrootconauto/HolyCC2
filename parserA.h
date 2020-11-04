@@ -25,6 +25,12 @@ enum parserNodeType {
  NODE_WHILE,
  NODE_FOR,
  NODE_VAR,
+ NODE_CASE,
+ NODE_DEFAULT,
+ NODE_LABEL,
+ NODE_SWITCH,
+ NODE_SUBSWITCH,
+ NODE_LABEL,
 };
 STR_TYPE_DEF(struct parserNode *,ParserNode);
 STR_TYPE_FUNCS(struct parserNode *,ParserNode);
@@ -142,6 +148,30 @@ struct parserNodeWhile {
 struct parserNodeVar {
  struct parserNode base;
  struct variable *var;
+};
+struct parserNodeSwitch {
+ struct parserNode base;
+ strParserNode caseSubcases;
+ struct parserNode *dft;
+};
+struct parserNodeCase {
+ struct parserNode base;
+ struct parserNode *parent;
+ long value;
+};
+/**
+ * start:/end:
+ */
+struct parserNodeLabel {
+ struct parserNode base;
+ struct parserNode *name;
+};
+struct parserNodeSubSwitch {
+ struct parserNode base;
+ struct parserNode *parent;
+ struct parserNode *start;
+ struct parserNode *end;
+ strParserNode caseSubcases;
 };
 struct parserNode *parseExpression(llLexerItem start,llLexerItem end,llLexerItem *result);
 void parserNodeDestroy(struct parserNode **node);
