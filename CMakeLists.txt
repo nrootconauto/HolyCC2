@@ -41,5 +41,5 @@ list(APPEND tests "tests/graphColoringTests.c")
 
 add_executable(holycc2 ${sources} ${tests})
 target_include_directories(holycc2 PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/ext/skinny_mutex)
-target_link_Libraries(holycc2 dill pthread)
+target_link_Libraries(holycc2 pthread)
 install(TARGETS holycc2 RUNTIME DESTINATION bin)

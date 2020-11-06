@@ -1,5 +1,4 @@
 #include <graph.h>
-#include <libdill.h>
 #include <linkedList.h>
 #include <readersWritersLock.h>
 #include <stdbool.h>
@@ -32,7 +31,7 @@ struct __graphNode *__graphNodeCreate(void *value, long itemSize, int version) {
 	return retVal;
 }
 enum dir { DIR_FORWARD, DIR_BACKWARD };
-static coroutine void forwardVisit(struct __graphNode *node,
+static  void forwardVisit(struct __graphNode *node,
                                    void (*visit)(struct __graphNode *, void *),
                                    void *data) {
 	visit(node, data);
@@ -197,7 +196,7 @@ static void __graphNodeDetach(struct __graphNode *in, struct __graphNode *out,
 	__graphEdgeKill(in, out, NULL, alwaysTrue, killEdge);
 }
 
-static coroutine void __graphNodeKillConnections(struct __graphNode *a,
+static void __graphNodeKillConnections(struct __graphNode *a,
                                                  struct __graphNode *b,
                                                  void (*killEdge)(void *)) {
 	__graphNodeDetach(a, b, killEdge);
@@ -225,7 +224,6 @@ void __graphNodeKill(struct __graphNode *node, void (*killNode)(void *item),
 	node->outgoing = NULL;
 	rwWriteEnd(node->lock);
 	//
-	__auto_type b = bundle();
 	for (int i = 0; i != strGraphEdgePSize(connectionPtrs); i++) {
 		__auto_type connection1 = connectionPtrs[i];
 		__auto_type notNode =
@@ -236,14 +234,12 @@ void __graphNodeKill(struct __graphNode *node, void (*killNode)(void *item),
 		                      // connections to self will also be removed
 		for (__auto_type connection2 = __llGetFirst(notNode->outgoing);
 		     connection2 != NULL; connection2 = __llNext(connection2)) {
-			bundle_go(b, __graphNodeKillConnections(node, __llValuePtr(connection2),
-			                                        killEdge));
-			bundle_go(b, __graphNodeKillConnections(__llValuePtr(connection2), node,
-			                                        killEdge));
+			__graphNodeKillConnections(node, __llValuePtr(connection2),
+			                                        killEdge);
+			__graphNodeKillConnections(__llValuePtr(connection2), node,
+			                                        killEdge);
 		}
 	}
-	bundle_wait(b, -1);
-	hclose(b);
 	//
 	rwLockDestroy(node->lock);
 	//

@@ -27,7 +27,6 @@ enum parserNodeType {
  NODE_VAR,
  NODE_CASE,
  NODE_DEFAULT,
- NODE_LABEL,
  NODE_SWITCH,
  NODE_SUBSWITCH,
  NODE_LABEL,
@@ -131,7 +130,7 @@ struct parserNodeIf {
 };
 struct parserNodeScope {
  struct parserNode base;
- strParserNode smts;
+ strParserNode stmts;
 };
 struct parserNodeDo {
  struct parserNode base;
@@ -153,6 +152,7 @@ struct parserNodeSwitch {
  struct parserNode base;
  strParserNode caseSubcases;
  struct parserNode *dft;
+ struct parserNode *body;
 };
 struct parserNodeCase {
  struct parserNode base;
@@ -170,7 +170,7 @@ struct parserNodeSubSwitch {
  struct parserNode base;
  struct parserNode *parent;
  struct parserNode *start;
- struct parserNode *end;
+  struct parserNode *end;
  strParserNode caseSubcases;
 };
 struct parserNode *parseExpression(llLexerItem start,llLexerItem end,llLexerItem *result);
@@ -182,3 +182,6 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end);
 struct parserNode *parseFor(llLexerItem start, llLexerItem *end) ;
 struct parserNode *parseWhile(llLexerItem start, llLexerItem *end);
 struct parserNode *parseDo(llLexerItem start, llLexerItem *end) ;
+struct parserNode *parseSwitch(llLexerItem start, llLexerItem *end);
+struct parserNode *parseCase(llLexerItem start, llLexerItem *end);
+struct parserNode *parseLabel(llLexerItem start, llLexerItem *end);

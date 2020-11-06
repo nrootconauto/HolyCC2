@@ -1,5 +1,4 @@
 #pragma once
-#include <stdlib.h>
 struct __ll;
 #define LL_TYPE_DEF(type, suffix) typedef struct __ll *ll##suffix;
 #define LL_TYPE_FUNCS(type, suffix)                                            \

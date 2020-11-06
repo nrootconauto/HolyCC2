@@ -1,4 +1,3 @@
-#include <libdill.h>
 #include <linkedList.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -109,7 +108,7 @@ void *__llValuePtr(const struct __ll *node) {
 
 	return (void *)node + sizeof(struct __ll);
 }
-static coroutine void __llKillRight(struct __ll *node,
+static  void __llKillRight(struct __ll *node,
                                     void (*killFunc)(void *)) {
 	for (__auto_type current = node->prev; current != NULL;) {
 		__auto_type prev = current->prev;
@@ -119,7 +118,7 @@ static coroutine void __llKillRight(struct __ll *node,
 		current = prev;
 	}
 }
-static coroutine void __llKillLeft(struct __ll *node,
+static void __llKillLeft(struct __ll *node,
                                    void (*killFunc)(void *)) {
 	for (__auto_type current = node->next; current != NULL;) {
 		__auto_type next = current->next;
@@ -132,13 +131,10 @@ static coroutine void __llKillLeft(struct __ll *node,
 void __llDestroy(struct __ll *node, void (*killFunc)(void *)) {
 	if (node == NULL)
 		return;
-	int b = bundle();
-	bundle_go(b, __llKillLeft(node, killFunc));
-	bundle_go(b, __llKillRight(node, killFunc));
+	 __llKillLeft(node, killFunc);
+	 __llKillRight(node, killFunc);
 	if (killFunc)
 		killFunc(__llValuePtr(node));
-	bundle_wait(b, -1);
-	hclose(b);
 }
 struct __ll *__llNext(const struct __ll *node) {
 	if (node == NULL)

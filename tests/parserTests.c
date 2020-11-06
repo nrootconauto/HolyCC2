@@ -120,50 +120,50 @@ static void precParserTests() {
 	node = parseExpression(llLexerItemFirst(lexItems), NULL, NULL);
 	assert(node);
 	{
-		assert(node->type = NODE_COMMA_SEQ);
+		assert(node->type == NODE_COMMA_SEQ);
 		struct parserNodeCommaSeq *seq = (void *)node;
 		assert(strParserNodeSize(seq->items) == 2);
 
 		struct parserNodeUnop *unop = (void *)seq->items[0];
 		struct parserNodeOpTerm *op = (void *)unop->op;
-		assert(op->base.type = NODE_OP);
+		assert(op->base.type == NODE_OP);
 		assert(0 == strcmp(op->text, "*"));
 		assert(unop->isSuffix == 0);
 
 		unop = (void *)unop->a;
 		op = (void *)unop->op;
-		assert(op->base.type = NODE_OP);
+		assert(op->base.type == NODE_OP);
 		assert(0 == strcmp(op->text, "++"));
 		assert(unop->isSuffix == 0);
 
 		struct parserNodeName *name = (void *)unop->a;
-		assert(name->base.type = NODE_NAME);
+		assert(name->base.type == NODE_NAME);
 		assert(0 == strcmp(name->text, "a"));
 
 		unop = (void *)seq->items[1];
 		op = (void *)unop->op;
-		assert(op->base.type = NODE_OP);
+		assert(op->base.type == NODE_OP);
 		assert(0 == strcmp(op->text, "++"));
 		assert(unop->isSuffix == 1);
 
 		struct parserNodeBinop *binop = (void *)unop->a;
 		name = (void *)binop->b;
-		assert(name->base.type = NODE_NAME);
+		assert(name->base.type == NODE_NAME);
 		assert(0 == strcmp(name->text, "c"));
 
 		binop = (void *)binop->a;
 		name = (void *)binop->b;
-		assert(name->base.type = NODE_NAME);
+		assert(name->base.type == NODE_NAME);
 		assert(0 == strcmp(name->text, "b"));
 
 		unop = (void *)binop->a;
 		op = (void *)unop->op;
-		assert(op->base.type = NODE_OP);
+		assert(op->base.type == NODE_OP);
 		assert(0 == strcmp(op->text, "++"));
 		assert(unop->isSuffix == 1);
 
 		name = (void *)unop->a;
-		assert(name->base.type = NODE_NAME);
+		assert(name->base.type == NODE_NAME);
 		assert(0 == strcmp(name->text, "a"));
 	}
 
@@ -267,11 +267,11 @@ static void varDeclTests() {
 		assert(decl->type == NODE_VAR_DECL);
 		struct parserNodeVarDecl *declNode = (void *)decl;
 		struct parserNodeName *name = (void *)declNode->name;
-		assert(name->base.type = NODE_NAME);
+		assert(name->base.type == NODE_NAME);
 		assert(0 == strcmp(name->text, "x"));
 
 		struct parserNodeLitInt *dftVal = (void *)declNode->dftVal;
-		assert(dftVal->base.type = NODE_LIT_INT);
+		assert(dftVal->base.type == NODE_LIT_INT);
 		assert(dftVal->value.value.sInt == 10);
 
 		assert(objectByName("I64i") == declNode->type);
@@ -305,7 +305,7 @@ static void varDeclTests() {
 
 		for (int i = 0; i != 2; i++) {
 			struct objectPtr *ptr = (void *)type;
-			assert(ptr->base.type = TYPE_PTR);
+			assert(ptr->base.type == TYPE_PTR);
 			type = (void *)ptr->type;
 		}
 
@@ -497,15 +497,15 @@ void keywordTests() {
 		assert(node->body->type == NODE_SCOPE);
 
 		struct parserNodeScope *scope = (void *)node->body;
-		assert(1 == strParserNodeSize(scope->smts));
-		assert(scope->smts[0]->type == NODE_NAME);
-		struct parserNodeName *name = (void *)scope->smts[0];
+		assert(1 == strParserNodeSize(scope->stmts));
+		assert(scope->stmts[0]->type == NODE_NAME);
+		struct parserNodeName *name = (void *)scope->stmts[0];
 		assert(0 == strcmp(name->text, "a"));
 
 		scope = (void *)node->el;
-		assert(1 == strParserNodeSize(scope->smts));
-		assert(scope->smts[0]->type == NODE_NAME);
-		name = (void *)scope->smts[0];
+		assert(1 == strParserNodeSize(scope->stmts));
+		assert(scope->stmts[0]->type == NODE_NAME);
+		name = (void *)scope->stmts[0];
 		assert(0 == strcmp(name->text, "b"));
 	}
 
@@ -530,9 +530,9 @@ void keywordTests() {
 		assert(forStmt2->body->type == NODE_SCOPE);
 
 		struct parserNodeScope *scope = (void *)forStmt2->body;
-		assert(1 == strParserNodeSize(scope->smts));
-		assert(scope->smts[0]->type == NODE_VAR);
-		struct parserNodeVar *var2 = (void *)scope->smts[0];
+		assert(1 == strParserNodeSize(scope->stmts));
+		assert(scope->stmts[0]->type == NODE_VAR);
+		struct parserNodeVar *var2 = (void *)scope->stmts[0];
 		assert(var2->var != x1V);
 	}
 	
@@ -564,7 +564,13 @@ void keywordTests() {
 	 assert(doNode->body==NULL);
 	 assert(doNode->cond->type==NODE_LIT_INT);
 	}
-	
+
+	text="switch(1) {"
+	  "case :\n"
+	  "case 3:\n"
+	  "case :\n"
+	  "}";
+	textStr=strCharAppendData(NULL,text,strlen(text));
 }
 void parserTests() {
 	precParserTests();

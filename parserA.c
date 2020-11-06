@@ -1155,7 +1155,7 @@ struct parserNode *parseScope(llLexerItem start, llLexerItem *end) {
 	if (nodes != NULL) {
 		struct parserNodeScope scope;
 		scope.base.type = NODE_SCOPE;
-		scope.smts = nodes;
+		scope.stmts = nodes;
 
 		return ALLOCATE(scope);
 	}
@@ -1232,6 +1232,24 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 	if (doStmt) {
 		retVal = doStmt;
 		goto end;
+	}
+
+	__auto_type caseStmt=parseCase(originalStart,end);
+	if(caseStmt) {
+	  retVal=caseStmt;
+	  goto end;
+	}
+
+	__auto_type labStmt=parseLabel(originalStart,end);
+	if(labStmt) {
+	  retVal=labStmt;
+	  goto end;
+	}
+
+	__auto_type stStatement=parseSwitch(originalStart,end);
+	if(stStatement) {
+	  retVal=stStatement;
+	  goto end;
 	}
 
 	return NULL;
@@ -1515,7 +1533,58 @@ getValue : {
 	return -1;
 }
 }
-static struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
+struct parserNode *parseSwitch(llLexerItem start,llLexerItem *end) {
+  struct parserNode *kw=NULL,*lP=NULL,*rP=NULL,*exp=NULL,*body=NULL,*retVal=NULL;
+  struct parserNode *toFree[]={kw,lP,rP};
+  __auto_type count=sizeof(toFree)/sizeof(toFree);
+
+  kw=expectKeyword(start,"switch");
+  int success=0;
+  if(kw) {
+    success=1;
+    start=llLexerItemNext(start);
+
+    lP=expectOp(start,"(");
+    if(!lP)
+    success=0;
+
+    exp=parseExpression(start,NULL,&start);
+    if(!exp)
+      success=0;
+
+    rP=expectOp(start,")");
+    if(!rP)
+      success=0;
+
+    body=parseStatement(start,&start);
+  }
+  if(!success) {
+    parserNodeDestroy(&exp);
+    parserNodeDestroy(&exp);
+  } else {
+    struct parserNodeSwitch swit;
+    swit.base.type=NODE_SWITCH;
+    swit.body=body;
+    swit.caseSubcases=NULL;
+    swit.dft=NULL;
+
+    retVal=ALLOCATE(swit);
+  }
+
+  for(int i=0;i!=count;i++)
+    parserNodeDestroy(&toFree[i]);
+  
+  return retVal;
+}
+static long searchForNode(const strParserNode nodes,const struct parserNode *node) {
+  long retVal=0;
+  for(long i=0;i!=strParserNodeSize(nodes);i++)
+    if(nodes[i]==node)
+      return i;
+
+  return -1;
+}
+struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 	struct parserNode *colon1 = NULL, *retVal = NULL;
 
 	__auto_type name = nameParse(start, NULL, &start);
@@ -1525,8 +1594,17 @@ static struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 	if (!colon1)
 		goto end;
 
+
+	struct parserNodeLabel lab;
+	lab.base.type=NODE_LABEL;
+	lab.name=name;
+	retVal=ALLOCATE(lab);
+	
 	struct parserNodeName *name2 = (void *)name;
 	if (0 == strcmp(name2->text, "end") && 0 != strParserNodeSize(switchStack)) {
+	  //Create sub-switch
+	  struct parserNodeSubSwitch sub;
+	  //Pop
 		switchStack =
 		    strParserNodeResize(switchStack, strParserNodeSize(switchStack) - 1);
 	} else if (0 == strcmp(name2->text, "start") &&
@@ -1542,7 +1620,7 @@ end:
 
 	return retVal;
 }
-static struct parserNode *parseCase(llLexerItem start, llLexerItem *end) {
+struct parserNode *parseCase(llLexerItem start, llLexerItem *end) {
 	struct parserNode *kwCase = NULL, *colon = NULL;
 	struct parserNode *retVal = NULL;
 	kwCase = expectKeyword(start, "case");
@@ -1581,6 +1659,15 @@ static struct parserNode *parseCase(llLexerItem start, llLexerItem *end) {
 		caseNode.value = caseValue;
 
 		retVal = ALLOCATE(caseNode);
+	} else {
+	  kwCase=expectKeyword(start, "default");
+	  if(kwCase) {
+	    start=llLexerItemNext(start);
+
+	    colon=expectKeyword(start, ":");
+	    if(colon)
+	      start=llLexerItemNext(start);
+	  }
 	}
 end:
 	if (end)
