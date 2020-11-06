@@ -2,6 +2,7 @@
 #include <lexer.h>
 #include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
 struct lexer {
 	llLexerItem currentItems;
 };
@@ -39,6 +40,7 @@ static const char *keywords[] = {
     ";",
     "{",
     "}",
+    ":",
 };
 const char *operators[] = {
     "++",

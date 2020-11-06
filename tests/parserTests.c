@@ -569,8 +569,39 @@ void keywordTests() {
 	  "case :\n"
 	  "case 3:\n"
 	  "case :\n"
+	  "default :"
 	  "}";
 	textStr=strCharAppendData(NULL,text,strlen(text));
+
+	lexItems=lexText((struct __vec*)textStr, &err);
+	assert(!err);
+
+	__auto_type switStmt= parseSwitch(lexItems, NULL);
+	assert(switStmt);
+	{
+	  assert(switStmt->type==NODE_SWITCH);
+	  struct parserNodeSwitch *swit=(void*)switStmt;
+	  assert(swit->exp->type==NODE_LIT_INT);
+
+	  assert(3==strParserNodeSize(swit->caseSubcases));
+	  for(int i=0;i!=3;i++)
+	    assert(swit->caseSubcases[i]->type==NODE_CASE);
+
+	  struct parserNodeCase *cs=(void*)swit->caseSubcases[0];
+	  assert(cs->parent==switStmt);
+	  assert(cs->value==0);
+
+	  cs=(void*)swit->caseSubcases[1];
+	  assert(cs->parent==switStmt);
+	  assert(cs->value==3);
+
+	  cs=(void*)swit->caseSubcases[2];
+	  assert(cs->parent==switStmt);
+	  assert(cs->value==4);
+
+	  assert(swit->dft!=NULL);
+	  assert(swit->dft->type==NODE_DEFAULT);
+	}
 }
 void parserTests() {
 	precParserTests();

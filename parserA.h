@@ -153,6 +153,7 @@ struct parserNodeSwitch {
  strParserNode caseSubcases;
  struct parserNode *dft;
  struct parserNode *body;
+  struct parserNode *exp;
 };
 struct parserNodeCase {
  struct parserNode base;
@@ -172,6 +173,11 @@ struct parserNodeSubSwitch {
  struct parserNode *start;
   struct parserNode *end;
  strParserNode caseSubcases;
+		struct parserNode *dft;
+};
+struct parserNodeDefault  {
+		struct parserNode base;
+		struct parserNode *parent;
 };
 struct parserNode *parseExpression(llLexerItem start,llLexerItem end,llLexerItem *result);
 void parserNodeDestroy(struct parserNode **node);

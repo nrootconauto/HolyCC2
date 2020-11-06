@@ -1556,20 +1556,24 @@ struct parserNode *parseSwitch(llLexerItem start,llLexerItem *end) {
     if(!rP)
       success=0;
 
-    body=parseStatement(start,&start);
-  }
-  if(!success) {
-    parserNodeDestroy(&exp);
-    parserNodeDestroy(&exp);
-  } else {
     struct parserNodeSwitch swit;
     swit.base.type=NODE_SWITCH;
     swit.body=body;
     swit.caseSubcases=NULL;
     swit.dft=NULL;
-
+    swit.exp=exp;
     retVal=ALLOCATE(swit);
+
+    //Push to stack
+    switchStack=strParserNodeAppendItem(switchStack, retVal);
+
+    body=parseStatement(start,&start);
   }
+  if(!success)
+    parserNodeDestroy(&retVal);
+  if(kw)
+    switchStack= strParserNodeResize(switchStack,strParserNodeSize(switchStack)-1);
+    
 
   for(int i=0;i!=count;i++)
     parserNodeDestroy(&toFree[i]);
@@ -1636,21 +1640,22 @@ struct parserNode *parseCase(llLexerItem start, llLexerItem *end) {
 		}
 
 		start = llLexerItemNext(start);
-
-		int gotInt = 0;
+int gotInt = 0;
 		long caseValue = -1;
 		if (start != NULL) {
 			if (llLexerItemValuePtr(start)->template == &intTemplate) {
 				gotInt = 1;
 				struct lexerInt *i = lexerItemValuePtr(llLexerItemValuePtr(start));
 				caseValue = i->value.sLong;
+
+				start=llLexerItemNext(start);
 			} else if (parent) {
 				caseValue = getNextCaseValue(parent);
 			}
 		}
 
 		colon = expectKeyword(start, ":");
-		if (colon)
+		if (colon) 
 			start = llLexerItemNext(start);
 
 		struct parserNodeCase caseNode;
@@ -1659,6 +1664,14 @@ struct parserNode *parseCase(llLexerItem start, llLexerItem *end) {
 		caseNode.value = caseValue;
 
 		retVal = ALLOCATE(caseNode);
+
+		if(parent->type==NODE_SWITCH) {
+					struct parserNodeSwitch *swit=(void*)parent;
+					swit->caseSubcases=strParserNodeAppendItem(swit->caseSubcases,retVal);
+			} else if(parent->type==NODE_SUBSWITCH) {
+					struct parserNodeSubSwitch *sub=(void*)parent;
+					sub->caseSubcases=strParserNodeAppendItem(sub->caseSubcases,retVal);
+			}
 	} else {
 	  kwCase=expectKeyword(start, "default");
 	  if(kwCase) {
@@ -1668,6 +1681,27 @@ struct parserNode *parseCase(llLexerItem start, llLexerItem *end) {
 	    if(colon)
 	      start=llLexerItemNext(start);
 	  }
+			struct parserNode *parent=NULL;
+			if (strParserNodeSize(switchStack) == 0) {
+					// TODO whine
+			} else {
+					parent = switchStack[strParserNodeSize(switchStack) - 1];
+			}
+			
+			struct parserNodeDefault dftNode;
+			dftNode.base.type=NODE_DEFAULT;
+			dftNode.parent=parent;
+			retVal=ALLOCATE(dftNode);
+
+			if(parent) {
+							if(parent->type==NODE_SWITCH) {
+					struct parserNodeSwitch *swit=(void*)parent;
+					swit->dft=retVal;
+			} else if(parent->type==NODE_SUBSWITCH) {
+					struct parserNodeSubSwitch *sub=(void*)parent;
+					sub->dft=retVal;
+			}
+					}
 	}
 end:
 	if (end)
@@ -1675,6 +1709,6 @@ end:
 
 	parserNodeDestroy(&kwCase);
 	parserNodeDestroy(&colon);
-
+	
 	return retVal;
 }
