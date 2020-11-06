@@ -1195,6 +1195,12 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 		goto end;
 	}
 
+	__auto_type labStmt=parseLabel(originalStart,end);
+	if(labStmt) {
+	  retVal=labStmt;
+	  goto end;
+	}
+	
 	start = originalStart;
 	__auto_type expr = parseExpression(start, NULL, end);
 	if (expr) {
@@ -1237,12 +1243,6 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 	__auto_type caseStmt=parseCase(originalStart,end);
 	if(caseStmt) {
 	  retVal=caseStmt;
-	  goto end;
-	}
-
-	__auto_type labStmt=parseLabel(originalStart,end);
-	if(labStmt) {
-	  retVal=labStmt;
 	  goto end;
 	}
 
@@ -1590,14 +1590,15 @@ static long searchForNode(const strParserNode nodes,const struct parserNode *nod
 }
 struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 	struct parserNode *colon1 = NULL, *retVal = NULL;
-
+	__auto_type originalStart=start;
+	
 	__auto_type name = nameParse(start, NULL, &start);
 	if (name == NULL)
 		return NULL;
 	colon1 = expectKeyword(start, ":");
 	if (!colon1)
 		goto end;
-
+	start=llLexerItemNext(start);
 
 	struct parserNodeLabel lab;
 	lab.base.type=NODE_LABEL;
@@ -1613,13 +1614,37 @@ struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 		    strParserNodeResize(switchStack, strParserNodeSize(switchStack) - 1);
 	} else if (0 == strcmp(name2->text, "start") &&
 	           0 != strParserNodeSize(switchStack)) {
-		switchStack = strParserNodeAppendItem(switchStack, retVal);
+			//Create sub-switch
+			struct parserNodeSubSwitch sub;
+			sub.base.type = NODE_SUBSWITCH;
+			sub.caseSubcases=NULL;
+			sub.dft=NULL;
+			sub.end=NULL;
+			sub.start=retVal;
+struct parserNode *top=switchStack[strParserNodeSize(switchStack)-1];
+	struct parserNode *sub2 = ALLOCATE(sub);
+			retVal=sub2;
+	if(top->type
+				==NODE_SWITCH) {
+			struct parserNodeSwitch *swit=(void*)top;
+			swit->caseSubcases=strParserNodeAppendItem(swit->caseSubcases,sub2);
+	} else if(top->type
+											==NODE_SUBSWITCH) {
+			struct parserNodeSubSwitch *sub=(void*)top;
+			sub->caseSubcases=strParserNodeAppendItem(sub->caseSubcases,sub2);
 	}
-	struct parserNodeLabel dummy;
-	dummy.base.type = NODE_LABEL;
-	dummy.name = name;
-	retVal = ALLOCATE(dummy);
+	
+
+			switchStack = strParserNodeAppendItem(switchStack, retVal);
+	}
+	;
 end:
+	//Check if success
+	if(!retVal)
+			start=originalStart;
+	if(end!=NULL)
+			*end=start;
+	
 	parserNodeDestroy(&colon1);
 
 	return retVal;
@@ -1680,7 +1705,9 @@ int gotInt = 0;
 	    colon=expectKeyword(start, ":");
 	    if(colon)
 	      start=llLexerItemNext(start);
-	  }
+	  } else
+					goto end;
+			
 			struct parserNode *parent=NULL;
 			if (strParserNodeSize(switchStack) == 0) {
 					// TODO whine

@@ -602,6 +602,31 @@ void keywordTests() {
 	  assert(swit->dft!=NULL);
 	  assert(swit->dft->type==NODE_DEFAULT);
 	}
+
+	text="switch(1) {"
+			"start:\n"
+	  "case :\n"
+	  "default :\n"
+			"end:\n"
+	  "}";
+	textStr=strCharAppendData(NULL,text,strlen(text));
+
+	lexItems=lexText((struct __vec*)textStr, &err);
+	assert(!err);
+	
+	switStmt=parseSwitch(lexItems, NULL);
+	assert(switStmt);
+	{
+			assert(switStmt->type==NODE_SWITCH);
+
+			struct parserNodeSwitch *swit=(void*)switStmt;
+			assert(1==strParserNodeSize(swit->caseSubcases) );
+
+			assert(swit->caseSubcases[0]->type==NODE_SUBSWITCH);
+			struct parserNodeSubSwitch *sub=(void*)swit->caseSubcases[0];
+			assert(1==strParserNodeSize(sub->caseSubcases)) ;
+			assert(sub->dft!=NULL);
+	}
 }
 void parserTests() {
 	precParserTests();
