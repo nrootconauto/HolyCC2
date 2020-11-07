@@ -38,4 +38,10 @@ void strTests() {
 	str2 = strCharSetIntersection(str2, str3, chrFind, NULL);
 	assert(strCharSize(str2) == 3);
 	assert(0 == strncmp(str2, "456", 3));
+	// Union
+	str2 = strCharAppendData(NULL, "abd", 3);
+	str3 = strCharAppendData(NULL, "ace", 3);
+	str2=strCharSetUnion(str2, str3, chrFind);
+	assert(strCharSize(str2) == 5);
+	assert(0 == strncmp(str2, "abcde", 5));
 }

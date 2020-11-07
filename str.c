@@ -262,3 +262,37 @@ struct __vec *__vecSetIntersection(struct __vec *a, const struct __vec *b,
 
 	return __vecResize(a, result);
 }
+//https://www.cplusplus.com/reference/algorithm/set_union/
+struct __vec *__vecSetUnion(struct __vec *a,struct __vec *b,long itemSize,int(*pred)(const void*,const void*)) {
+		void * s1=a;
+		void * s2=b;
+		void * e1=s1+__vecSize(a);
+		void * e2=s2+__vecSize(b);
+
+		a=__vecResize(a, __vecSize(a)+__vecSize(b));
+		void *r=a;
+		while(1) {
+				if(s1==e1) {
+						memcpy(r, s2, e2-s2);
+						r+=e2-s2;
+						return __vecResize(a, r-(void*)a);
+				}
+				if(s2==e2) {
+						memcpy(r, s1, e2-s1);
+						r+=e1-s1;
+						return __vecResize(a, r-(void*)a);
+				}
+				if(pred(s2,s1)>0) {
+						memcpy(r, s1, itemSize);
+						s1+=itemSize;
+				} else if(pred(s1,s2)>0) {
+						memcpy(r, s2, itemSize);
+						s2+=itemSize;
+				} else {
+						memcpy(r, s1, itemSize);
+						s1+=itemSize;
+						s2+=itemSize;
+				}
+				r+=itemSize;
+		}
+}

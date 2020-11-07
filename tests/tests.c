@@ -11,7 +11,7 @@ void graphColoringTests();
 void parserTests();
 void lexerTests();
 int main() {
-	// strTests();
+	strTests();
 	// graphDominanceTests();
 	// graphColoringTests();
 	/**
