@@ -11,7 +11,9 @@ struct defineMacro {
 };
 struct fileMapping {
  char *fileName;
+		//Represents the index of the text mapping strTextModify
  long mappingIndexStart,mappingIndexEnd;
+		//fileOffset/fileEndOffset is position in preprocessed text
  long fileOffset,fileEndOffset;
 };
 STR_TYPE_DEF(struct fileMapping ,FileMappings);

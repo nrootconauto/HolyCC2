@@ -107,7 +107,7 @@ struct __vec;
 	} \
 	inline str##suffix str##suffix##SetUnion(                             \
 	    str##suffix a, const str##suffix b,                                      \
-	    int (*pred)(const void *, const void *)) __attribute__((always_inline));;	\
+	    int (*pred)(const void *, const void *)) __attribute__((always_inline));	\
 inline str##suffix str##suffix##SetUnion(																															\
 	    str##suffix a, const str##suffix b,                                      \
 	    int (*pred)(const void *, const void *)) {         \
