@@ -220,6 +220,13 @@ static int includeMacroLex(struct __vec **text_, FILE **prependLinesTo,
 	struct includeMacro retVal;
 	retVal.fileName =
 	    __vecAppendItem(NULL, (char *)filename.text, __vecSize(filename.text));
+	
+	FILE *after=tmpfile();
+	long lineLen=strlen(*(char**)text_);
+	fwrite(*(char**)text_+*end, 1, lineLen-*end, after);
+	concatFile(after,*prependLinesTo);
+	*prependLinesTo=after;
+	
 	if (result != NULL)
 		*result = retVal;
 	return 1;
