@@ -4,6 +4,7 @@
 #include <diagMsg.h>
 #include <stdlib.h>
 #include <parserA.h>
+#include <hashTable.h>
 static char *strClone(const char *text) {
 		long len=strlen(text);
 		char *retVal=malloc(len+1);
@@ -58,15 +59,22 @@ STR_TYPE_FUNCS(enum textAttr, TextAttr);
 struct diagInst {
 		strLong lineStarts;
 		enum outputType diagType;
-		strTextModify mappings;
 		enum diagState state;
 		long stateStart,stateEnd;
 		FILE *dumpTo;
 		FILE *sourceFile;
 		char *fileName;
 		strDiagQoute stateQoutes;
-}; 
-
+		strTextModify mappings;
+};
+MAP_TYPE_DEF(struct diagInst, Inst);
+MAP_TYPE_FUNCS(struct diagInst, Inst);
+static __thread mapInst insts=NULL;
+//TODO implement file mappings
+static __thread strFileMappings fileMappings;
+static struct diagInst *diagInst(long where) {
+		
+}
 static void putAttrANSI(FILE *f,const strTextAttr attrs) {
 		fprintf(f, "\e[");
 		for(long i=0;i!=strTextAttrSize(attrs);i++) {
@@ -395,7 +403,7 @@ void diagNoteStart(struct diagInst *inst,long start,long end) {
 void diagWarnStart(struct diagInst *inst,long start,long end) {
 		diagStateStart(inst,start,end,"warning",FG_COLOR_YELLOW);
 }
-struct diagInst *diagInstCreate(enum outputType type,const strTextModify mappings,const char *fileName,FILE *sourceFile,FILE *dumpToFile) {
+void diagInstCreate(enum outputType type,const strTextModify mappings,const char *fileName,FILE *sourceFile,FILE *dumpToFile) {
 		struct diagInst retVal;
 		retVal.dumpTo=dumpToFile;
 		retVal.diagType=type;
@@ -406,14 +414,16 @@ struct diagInst *diagInstCreate(enum outputType type,const strTextModify mapping
 		retVal.stateQoutes=NULL;
 		retVal.sourceFile=sourceFile;
 
-		struct diagInst *r=malloc(sizeof(retVal));
-		memcpy(r, &retVal, sizeof(retVal));
-		return r;
+		mapInstInsert(insts, fileName, retVal);
 }
-void diagInstDestroy(struct diagInst *inst) {
+static void diagInstDestroy(struct diagInst *inst) {
 		free(inst->fileName);
 		strTextModifyDestroy(&inst->mappings);
 		strLongDestroy(&inst->lineStarts);
 		strDiagQouteDestroy2(&inst->stateQoutes);
 		free(inst);
+}
+static void destroyDiags() __attribute__((destructor)) ;
+static void destroyDiags() {
+		mapInstDestroy(insts, (void(*)(void*))diagInstDestroy);
 }

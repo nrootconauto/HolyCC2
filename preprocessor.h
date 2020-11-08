@@ -21,3 +21,4 @@ STR_TYPE_FUNCS(struct fileMapping ,FileMappings);
 FILE *createPreprocessedFile(const char *fileName, strTextModify *mappings,strFileMappings *fileMappings,
                              int *err);
 void fileMappingsDestroy(strFileMappings *mappings);
+const char *fileNameFromPos(const strFileMappings mappings,long pos);

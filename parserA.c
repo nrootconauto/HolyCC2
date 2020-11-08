@@ -6,6 +6,7 @@
 #include <debugPrint.h>
 #include <hashTable.h>
 #include <parserB.h>
+#include <diagMsg.h>
 static char *strCopy(const char *text) {
 	char *retVal = malloc(strlen(text) + 1);
 	strcpy(retVal, text);

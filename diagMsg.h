@@ -1,17 +1,17 @@
 #include <textMapper.h>
 #include <stdio.h>
+#include <preprocessor.h>
 enum outputType {
 		DIAG_ANSI_TERM,
 		DIAG_DOL_DOC,
 };
 struct  diagInst;
-void diagHighlight(struct diagInst *inst,long start,long end);
-void diagEndMsg(struct diagInst *inst);
-void diagErrorStart(struct diagInst *inst,long start,long end) ;
-void diagPushText(struct diagInst *inst,const char *text);
-void diagPushQoutedText(struct diagInst *inst,long start,long  end) ;
-void diagWarnStart(struct diagInst *inst,long start,long end);
-void diagNoteStart(struct diagInst *inst,long start,long end);
-void diagErrorStart(struct diagInst *inst,long start,long end);
-void diagInstDestroy(struct diagInst *inst);
-struct diagInst *diagInstCreate(enum outputType type,const strTextModify mappings,const char *fileName,FILE *sourceFile,FILE *dumpToFile);
+void diagHighlight(long start,long end);
+void diagEndMsg();
+void diagErrorStart(long start,long end) ;
+void diagPushText(const char *text);
+void diagPushQoutedText(long start,long  end) ;
+void diagWarnStart(long start,long end);
+void diagNoteStart(long start,long end);
+void diagErrorStart(long start,long end);
+void diagInstCreate(enum outputType type,const strTextModify mappings,const char *fileName,FILE *sourceFile,FILE *dumpToFile);

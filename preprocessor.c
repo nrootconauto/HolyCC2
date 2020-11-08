@@ -812,3 +812,45 @@ void fileMappingsDestroy(strFileMappings *mappings) {
 	for (long i = 0; i != strFileMappingsSize(*mappings); i++)
 		free(mappings[0][i].fileName);
 }
+//
+//File mappings can contain file mappings within them
+//This find the innermost mapping which represents the included file at a point
+//The inner most mapping's start is closest to pos beause nested #includes move forward
+//The end is also closest to the position
+//#include "a" #include "b"
+//[  a text    [   pos    ] ]
+static struct fileMapping *innerMostFileMapping(strFileMappings mappings,long lowerBoundI,long upperBoundI,const struct fileMapping *m,long pos) {
+		long largestIndex=-1,smallestOffsetStart=-1,smallestOffsetEnd=-1;
+		for (long i=lowerBoundI;i!=upperBoundI;i++) {
+				if(largestIndex==-1)
+						largestIndex=i;
+
+				long offset=pos-mappings[i].fileOffset;
+				//Start must be closest
+				if(offset>=smallestOffsetStart||smallestOffsetStart==-1) {
+						smallestOffsetStart=offset ;
+
+						//End must be closest
+						offset=mappings[i].fileEndOffset-pos;
+						if(offset<=smallestOffsetEnd||smallestOffsetEnd==-1) {
+								smallestOffsetEnd=offset;
+								largestIndex=i;
+						}
+				}
+		}
+		
+		assert(largestIndex!=-1);
+		return &mappings[largestIndex];
+}
+const char *fileNameFromPos( strFileMappings mappings,long pos) {
+		long lower=-1,upper=strFileMappingsSize(mappings);
+		for(long i=0;i!=strFileMappingsSize(mappings);i++) {
+				if(mappings[i].fileOffset<=pos&&lower==-1)
+						lower=i;
+
+				if(mappings[i].fileEndOffset>pos) {
+						upper=i;
+				} else break;
+		}
+		return innerMostFileMapping(mappings, lower, upper+1, mappings, pos)->fileName;
+}

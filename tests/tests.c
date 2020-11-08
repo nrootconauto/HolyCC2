@@ -12,6 +12,7 @@ void parserTests();
 void lexerTests();
 int main() {
 	strTests();
+	preprocessorTests();
 	// graphDominanceTests();
 	// graphColoringTests();
 	/**
@@ -23,7 +24,7 @@ int main() {
 	  
 	  subGraphTests();
 
-	  preprocessorTests();
+	  
 	  eventPoolTests();
 	  */
 	lexerTests();
