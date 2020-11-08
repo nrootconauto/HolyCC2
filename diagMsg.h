@@ -14,4 +14,4 @@ void diagPushQoutedText(long start,long  end) ;
 void diagWarnStart(long start,long end);
 void diagNoteStart(long start,long end);
 void diagErrorStart(long start,long end);
-void diagInstCreate(enum outputType type,const strTextModify mappings,const char *fileName,FILE *sourceFile,FILE *dumpToFile);
+void diagInstCreate(enum outputType type,const strFileMappings fileMappings,const strTextModify mappings,const char *fileName,FILE *dumpToFile);

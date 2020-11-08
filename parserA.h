@@ -157,8 +157,10 @@ struct parserNodeSwitch {
 };
 struct parserNodeCase {
  struct parserNode base;
- struct parserNode *parent;
- long value;
+		struct parserNode *label;
+		struct parserNode *parent;
+		long valueLower;
+		long valueUpper;
 };
 /**
  * start:/end:

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <parserA.h>
 #include <hashTable.h>
+#include <assert.h>
 static char *strClone(const char *text) {
 		long len=strlen(text);
 		char *retVal=malloc(len+1);
@@ -65,15 +66,21 @@ struct diagInst {
 		FILE *sourceFile;
 		char *fileName;
 		strDiagQoute stateQoutes;
-		strTextModify mappings;
 };
 MAP_TYPE_DEF(struct diagInst, Inst);
 MAP_TYPE_FUNCS(struct diagInst, Inst);
 static __thread mapInst insts=NULL;
 //TODO implement file mappings
-static __thread strFileMappings fileMappings;
-static struct diagInst *diagInst(long where) {
-		
+static strFileMappings fileMappings;
+static strTextModify  mappings;
+static struct diagInst *currentInst=NULL;
+static int errCount=0;
+static struct diagInst *diagInstByPos(long where) {
+		__auto_type name=fileNameFromPos(fileMappings, where);
+
+		__auto_type find= mapInstGet(insts, name);
+		assert(find!=NULL);
+		return find;
 }
 static void putAttrANSI(FILE *f,const strTextAttr attrs) {
 		fprintf(f, "\e[");
@@ -318,26 +325,31 @@ static void qouteLine(struct diagInst *inst,long start,long end,strDiagQoute qou
 		start=end;
 		strDiagQouteDestroy(&clone);		
 }
-void diagPushText(struct diagInst *inst,const char *text) {
-		fprintf(inst->dumpTo, "%s",text );
+void diagPushText(const char *text) {
+		assert(currentInst!=NULL);
+		fprintf(currentInst->dumpTo, "%s",text );
 }
-void diagPushQoutedText(struct diagInst *inst,long start,long  end) {
-		setAttrs(inst,ATTR_BOLD, 0);
+void diagPushQoutedText(long start,long  end) {
+		assert(currentInst!=NULL);
+		
+		setAttrs(currentInst,ATTR_BOLD, 0);
 
 		char buffer[end-start+1];
 		buffer[end-start]='\0';
-		fread(buffer, 1, end-start, inst->sourceFile);
-		fprintf(inst->dumpTo, "'%s'", buffer);
+		fread(buffer, 1, end-start, currentInst->sourceFile);
+		fprintf(currentInst->dumpTo, "'%s'", buffer);
 
-		setAttrs(inst,ATTR_NORMAL, 0);
-		endAttrs(inst);
+		setAttrs(currentInst,ATTR_NORMAL, 0);
+		endAttrs(currentInst);
 }
-void diagHighlight(struct diagInst *inst,long start,long end) {
-		if(inst->state!=DIAG_NONE) {
+void diagHighlight(long start,long end) {
+		assert(NULL!=currentInst);
+		
+		if(currentInst->state!=DIAG_NONE) {
 				//Chose color based on state
 				enum textAttr other=ATTR_BOLD;
 				enum textAttr color=ATTR_NORMAL;
-				switch(inst->state) {
+				switch(currentInst->state) {
 				case DIAG_ERR:
 						color=FG_COLOR_RED;break;
 				case DIAG_NOTE:
@@ -355,7 +367,7 @@ void diagHighlight(struct diagInst *inst,long start,long end) {
 				qoute.start=start;
 				qoute.end=end;
 
-				inst->stateQoutes=strDiagQouteAppendItem(inst->stateQoutes, qoute);
+				currentInst->stateQoutes=strDiagQouteAppendItem(currentInst->stateQoutes, qoute);
 		}		
 }
 static void strDiagQouteDestroy2(strDiagQoute *str) {
@@ -365,65 +377,78 @@ static void strDiagQouteDestroy2(strDiagQoute *str) {
 		strDiagQouteDestroy(str);
 }
 //TODO implement included files
-void diagEndMsg(struct diagInst *inst) {
-		if(inst->state!=DIAG_NONE) {
-				qouteLine(inst, inst->stateStart, inst->stateEnd, inst->stateQoutes); //TODO
-
-				strDiagQouteDestroy2(&inst->stateQoutes);
-		}
-		inst->stateQoutes=NULL;
-		inst->state=DIAG_NONE;
-}
-static void diagStateStart(struct diagInst *inst,long start,long end,const char *text,enum textAttr color) {
-if(inst->state!=DIAG_NONE)
-				diagEndMsg(inst);
+void diagEndMsg() {
+		assert(currentInst!=NULL);
 		
-		long where=mapToSource(start, inst->mappings, 0);
+		if(currentInst->state!=DIAG_NONE) {
+				qouteLine(currentInst, currentInst->stateStart, currentInst->stateEnd, currentInst->stateQoutes); //TODO
+
+				strDiagQouteDestroy2(&currentInst->stateQoutes);
+		}
+		currentInst->stateQoutes=NULL;
+		currentInst->state=DIAG_NONE;
+
+		currentInst=NULL;
+}
+static void diagStateStart(long start,long end,enum diagState state,const char *text,enum textAttr color) {
+		currentInst=diagInstByPos(start);
+		assert(currentInst!=NULL);
+		
+		if(currentInst->state!=DIAG_NONE)
+		diagEndMsg();
+		
+		long where=mapToSource(start, mappings, 0);
 	
-		setAttrs(inst, inst->dumpTo, ATTR_BOLD,0);
+		setAttrs(currentInst, currentInst->dumpTo, ATTR_BOLD,0);
 		long ln,col;
-		getLineCol(inst, start, &ln, &col);
-		fprintf(inst->dumpTo, "%s:%li,%li: ", inst->fileName, ln+1,col+1);
-		endAttrs(inst);
+		getLineCol(currentInst, start, &ln, &col);
+		fprintf(currentInst->dumpTo, "%s:%li,%li: ", currentInst->fileName, ln+1,col+1);
+		endAttrs(currentInst);
 
-		setAttrs(inst, inst->dumpTo, color,ATTR_BOLD,0);
-		fprintf(inst->dumpTo, "%s: ",text);
-		endAttrs(inst);
+		setAttrs(currentInst, currentInst->dumpTo, color,ATTR_BOLD,0);
+		fprintf(currentInst->dumpTo, "%s: ",text);
+		endAttrs(currentInst);
 
-		inst->state=DIAG_ERR;
-		inst->stateStart=start;
-		inst->stateEnd=end;
+		currentInst->state=state;
+		currentInst->stateStart=start;
+		currentInst->stateEnd=end;
 }
-void diagErrorStart(struct diagInst *inst,long start,long end) {
-		diagStateStart(inst,start,end,"error",FG_COLOR_RED);
+void diagErrorStart(long start,long end) {
+		errCount++;
+		diagStateStart(start,end,DIAG_ERR,"error",FG_COLOR_RED);
 }
-void diagNoteStart(struct diagInst *inst,long start,long end) {
-		diagStateStart(inst,start,end,"note",FG_COLOR_BLUE);
+void diagNoteStart(long start,long end) {
+		diagStateStart(start,end,DIAG_NOTE,"note",FG_COLOR_BLUE);
 }
-void diagWarnStart(struct diagInst *inst,long start,long end) {
-		diagStateStart(inst,start,end,"warning",FG_COLOR_YELLOW);
+void diagWarnStart(long start,long end) {
+		diagStateStart(start,end,DIAG_WARN,"warning",FG_COLOR_YELLOW);
 }
-void diagInstCreate(enum outputType type,const strTextModify mappings,const char *fileName,FILE *sourceFile,FILE *dumpToFile) {
-		struct diagInst retVal;
-		retVal.dumpTo=dumpToFile;
-		retVal.diagType=type;
-		retVal.fileName=strClone(fileName);
-		retVal.lineStarts=fileLinesIndexes(sourceFile);
-		retVal.mappings=strTextModifyAppendData(NULL, mappings, strTextModifySize(mappings));
-		retVal.state=DIAG_NONE;
-		retVal.stateQoutes=NULL;
-		retVal.sourceFile=sourceFile;
+void diagInstCreate(enum outputType type,const strFileMappings fileMappings,const strTextModify mappings,const char *fileName,FILE *dumpToFile) {
+		for(long i=0;i!=strFileMappingsSize(fileMappings);i++) {
+				FILE *file=fopen(fileMappings[i].fileName, "r");
 
-		mapInstInsert(insts, fileName, retVal);
+				struct diagInst retVal;
+				retVal.dumpTo=dumpToFile;
+				retVal.diagType=type;
+				retVal.fileName=strClone(fileMappings[i].fileName);
+				retVal.lineStarts=fileLinesIndexes(file);
+				retVal.state=DIAG_NONE;
+				retVal.stateQoutes=NULL;
+				retVal.sourceFile=file;
+				
+				mapInstInsert(insts, fileName, retVal);
+		}
 }
 static void diagInstDestroy(struct diagInst *inst) {
 		free(inst->fileName);
-		strTextModifyDestroy(&inst->mappings);
 		strLongDestroy(&inst->lineStarts);
 		strDiagQouteDestroy2(&inst->stateQoutes);
 		free(inst);
+		fclose(inst->sourceFile);
+
 }
 static void destroyDiags() __attribute__((destructor)) ;
 static void destroyDiags() {
-		mapInstDestroy(insts, (void(*)(void*))diagInstDestroy);
+		if(insts!=NULL)
+				mapInstDestroy(insts, (void(*)(void*))diagInstDestroy);
 }

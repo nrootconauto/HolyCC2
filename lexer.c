@@ -41,6 +41,7 @@ static const char *keywords[] = {
     "{",
     "}",
     ":",
+				"..."
 };
 const char *operators[] = {
     "++",

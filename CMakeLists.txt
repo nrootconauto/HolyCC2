@@ -24,7 +24,7 @@ list(APPEND sources "object.c")
 list(APPEND sources "parserA.c")
 list(APPEND sources "lexer.c")
 list(APPEND sources "parserB.c")
-#list(APPEND sources "diagMsg.c")
+list(APPEND sources "diagMsg.c")
 
 set(tests "")
 list(APPEND tests "tests/tests.c")

@@ -589,15 +589,15 @@ void keywordTests() {
 
 	  struct parserNodeCase *cs=(void*)swit->caseSubcases[0];
 	  assert(cs->parent==switStmt);
-	  assert(cs->value==0);
+	  assert(cs->valueLower==0);
 
 	  cs=(void*)swit->caseSubcases[1];
 	  assert(cs->parent==switStmt);
-	  assert(cs->value==3);
+	  assert(cs->valueLower==3);
 
 	  cs=(void*)swit->caseSubcases[2];
 	  assert(cs->parent==switStmt);
-	  assert(cs->value==4);
+	  assert(cs->valueLower==4);
 
 	  assert(swit->dft!=NULL);
 	  assert(swit->dft->type==NODE_DEFAULT);
