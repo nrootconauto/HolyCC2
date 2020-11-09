@@ -10,6 +10,7 @@ void graphDominanceTests();
 void graphColoringTests();
 void parserTests();
 void lexerTests();
+void parserDiagTests();
 int main() {
 	strTests();
 	preprocessorTests();
@@ -29,6 +30,7 @@ int main() {
 	  */
 	lexerTests();
 	parserTests();
+	parserDiagTests();
 	// typeParserTests();
 	return 0;
 }

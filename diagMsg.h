@@ -6,6 +6,7 @@ enum outputType {
 		DIAG_DOL_DOC,
 };
 struct  diagInst;
+long diagInputSize();
 void diagHighlight(long start,long end);
 void diagEndMsg();
 void diagErrorStart(long start,long end) ;

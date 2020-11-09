@@ -56,6 +56,14 @@ static void whineExpectedCondExpr(llLexerItem start,llLexerItem end,struct objec
 		free(typeText);
 }
 static void whineExpectedExpr(llLexerItem item) {
+		if(item==NULL) {
+				long end=diagInputSize();
+				diagErrorStart(end, end);
+				diagPushText("Expected expression but got end of input.");
+				diagErrorStart(end, end);
+				return ;
+		}
+		
 		__auto_type item2=llLexerItemValuePtr(item);
 		diagErrorStart(item2->start, item2->end);
 
@@ -69,9 +77,19 @@ static void whineExpectedExpr(llLexerItem item) {
 		diagEndMsg();
 }
 static void whineExpected(llLexerItem item,const char *text) {
+		char buffer[256];
+
+		if(item==NULL) {
+				long end=diagInputSize();
+				diagErrorStart(end, end);
+				sprintf(buffer, "Expected '%s',got end of input.",text);
+				diagPushText(buffer);
+				diagEndMsg();
+				return ;
+		}
+		
 		__auto_type item2=llLexerItemValuePtr(item);
 		diagErrorStart(item2->start, item2->end);
-		char buffer[256];
 		sprintf(buffer, "Expected '%s', got " , text);
 		diagPushText(buffer);
 		diagPushText(",got ");
@@ -1318,6 +1336,11 @@ static void addDeclsToScope(struct parserNode *varDecls) {
 	}
 }
 struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
+		//If end is NULL,make a dummy version for testing for ";" ahead
+		llLexerItem endDummy;
+		if(!end)
+				end=&endDummy;
+		
 	__auto_type originalStart = start;
 	__auto_type semi = expectKeyword(start, ";");
 	if (semi) {

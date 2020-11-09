@@ -859,5 +859,7 @@ const char *fileNameFromPos( strFileMappings mappings,long pos) {
 						upper=i;
 				} else break;
 		}
+		if(lower==-1)
+				lower=strFileMappingsSize(mappings)-1;
 		return innerMostFileMapping(mappings, lower, upper+1, mappings, pos)->fileName;
 }

@@ -76,6 +76,12 @@ static strTextModify  mappings;
 static struct diagInst *currentInst=NULL;
 static int errCount=0;
 static struct diagInst *diagInstByPos(long where) {
+		if(where==diagInputSize()) {
+				if(where-1>=0){
+						where--;
+				} 
+		}
+		
 		__auto_type name=fileNameFromPos(fileMappings, where);
 
 		__auto_type find= mapInstGet(insts, name);
@@ -85,20 +91,23 @@ static struct diagInst *diagInstByPos(long where) {
 static void putAttrANSI(FILE *f,const strTextAttr attrs) {
 		fprintf(f, "\e[");
 		for(long i=0;i!=strTextAttrSize(attrs);i++) {
+				if(i!=0)
+						fprintf(f,";");
+				
 				__auto_type a=attrs[i];
 				switch(a) {
 				case ATTR_REVERSE:
-						fprintf(f, "7;");break;
+						fprintf(f, "7");break;
 				case ATTR_HIDDEN:
-						fprintf(f, "8;");break;
+						fprintf(f, "8");break;
 				case ATTR_BLINK:
-								fprintf(f, "5;");break;
+								fprintf(f, "5");break;
 				case ATTR_UNDER:
-						fprintf(f, "4;");break;
+						fprintf(f, "4");break;
 				case ATTR_BOLD:
-						fprintf(f, "1;");break;
+						fprintf(f, "1");break;
 				case ATTR_NORMAL:
-						fprintf(f, "0;");break;
+						fprintf(f, "0");break;
 				case FG_COLOR_BLACK...FG_COLOR_WHITE:
 						fprintf(f, "%i", 30+a-FG_COLOR_BLACK);break;
 				case BG_COLOR_BLACK...BG_COLOR_WHITE:
@@ -110,7 +119,7 @@ static void putAttrANSI(FILE *f,const strTextAttr attrs) {
 }
 static void endAttrs(struct diagInst *inst) {
 		if(inst->diagType==DIAG_ANSI_TERM)
-			;
+			fprintf(inst->dumpTo, "\e[0m");
 }
 static void setAttrs(struct diagInst *inst,...) {
 		va_list list;
@@ -118,7 +127,10 @@ static void setAttrs(struct diagInst *inst,...) {
 		
 		strTextAttr attrs=NULL;
 		for(int firstRun=1;;firstRun=0) {
-				attrs=strTextAttrAppendItem(attrs, va_arg(list,enum textAttr));
+				__auto_type i= va_arg(list,enum textAttr);
+				if(i==0)
+						break;
+				attrs=strTextAttrAppendItem(attrs, i);
 		}
 
 		if(inst->diagType==DIAG_ANSI_TERM) {
@@ -189,9 +201,9 @@ static void getLineCol(struct diagInst *inst,long where,long *line,long *col) {
 		
 	found: {
 		if(line !=NULL)
-								*line=line2+1;
+								*line=line2;
 		if(col!=NULL)
-				*col=where-inst->lineStarts[line2]+1;
+				*col=where-inst->lineStarts[line2];
 		}
 }
 static long fileSize(FILE *f) {
@@ -327,7 +339,9 @@ static void qouteLine(struct diagInst *inst,long start,long end,strDiagQoute qou
 }
 void diagPushText(const char *text) {
 		assert(currentInst!=NULL);
+		setAttrs(currentInst, ATTR_BOLD,0);
 		fprintf(currentInst->dumpTo, "%s",text );
+		endAttrs(currentInst);
 }
 void diagPushQoutedText(long start,long  end) {
 		assert(currentInst!=NULL);
@@ -387,7 +401,8 @@ void diagEndMsg() {
 		}
 		currentInst->stateQoutes=NULL;
 		currentInst->state=DIAG_NONE;
-
+		endAttrs(currentInst);
+		
 		currentInst=NULL;
 }
 static void diagStateStart(long start,long end,enum diagState state,const char *text,enum textAttr color) {
@@ -396,10 +411,11 @@ static void diagStateStart(long start,long end,enum diagState state,const char *
 		
 		if(currentInst->state!=DIAG_NONE)
 		diagEndMsg();
-		
-		long where=mapToSource(start, mappings, 0);
+
+		//1st insert is the initial source so ignore initial source
+		long where=mapToSource(start, mappings, 1);
 	
-		setAttrs(currentInst, currentInst->dumpTo, ATTR_BOLD,0);
+		setAttrs(currentInst, color, ATTR_BOLD,0);
 		long ln,col;
 		getLineCol(currentInst, start, &ln, &col);
 		fprintf(currentInst->dumpTo, "%s:%li,%li: ", currentInst->fileName, ln+1,col+1);
@@ -423,7 +439,13 @@ void diagNoteStart(long start,long end) {
 void diagWarnStart(long start,long end) {
 		diagStateStart(start,end,DIAG_WARN,"warning",FG_COLOR_YELLOW);
 }
-void diagInstCreate(enum outputType type,const strFileMappings fileMappings,const strTextModify mappings,const char *fileName,FILE *dumpToFile) {
+static void destroyDiags() __attribute__((destructor)) ;
+void diagInstCreate(enum outputType type,const strFileMappings __fileMappings,const strTextModify __mappings,const char *fileName,FILE *dumpToFile) {
+		destroyDiags();
+		mappings=__mappings;
+		fileMappings=__fileMappings;
+		
+		insts=mapInstCreate();
 		for(long i=0;i!=strFileMappingsSize(fileMappings);i++) {
 				FILE *file=fopen(fileMappings[i].fileName, "r");
 
@@ -443,12 +465,16 @@ static void diagInstDestroy(struct diagInst *inst) {
 		free(inst->fileName);
 		strLongDestroy(&inst->lineStarts);
 		strDiagQouteDestroy2(&inst->stateQoutes);
-		free(inst);
 		fclose(inst->sourceFile);
-
 }
-static void destroyDiags() __attribute__((destructor)) ;
 static void destroyDiags() {
 		if(insts!=NULL)
 				mapInstDestroy(insts, (void(*)(void*))diagInstDestroy);
+}
+long diagInputSize() {
+		long last=strFileMappingsSize(fileMappings)-1;
+		if(last>=0)
+				return fileMappings[last].fileEndOffset;
+
+		return 0;
 }

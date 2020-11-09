@@ -551,7 +551,7 @@ void keywordTests() {
 	 assert(node->body->type==NODE_SCOPE);
 	}
 	
-	text = "do ; while(1)";
+	text = "do ; while(1);";
 	textStr = strCharAppendData(NULL, text, strlen(text));
 	
 	lexItems = lexText((struct __vec *)textStr, &err);
