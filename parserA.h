@@ -30,6 +30,7 @@ enum parserNodeType {
  NODE_SWITCH,
  NODE_SUBSWITCH,
  NODE_LABEL,
+	NODE_TYPE_CAST,
 };
 STR_TYPE_DEF(struct parserNode *,ParserNode);
 STR_TYPE_FUNCS(struct parserNode *,ParserNode);
@@ -53,16 +54,18 @@ struct parserNodeOpTerm {
  const char *text;
 };
 struct parserNodeUnop {
- struct parserNode base;
- struct parserNode *a;
- struct parserNode *op;
- long isSuffix;
+		struct parserNode base;
+		struct parserNode *a;
+		struct parserNode *op;
+		long isSuffix;
+		struct object *type;
 };
 struct parserNodeBinop {
- struct parserNode base;
- struct parserNode *a;
- struct parserNode *op;
- struct parserNode *b;
+		struct parserNode base;
+		struct parserNode *a;
+		struct parserNode *op;
+		struct parserNode *b;
+		struct object *type;
 };
 struct parserNodeName {
  struct parserNode base;
@@ -79,9 +82,10 @@ struct parserNodeLitStr {
  int isChar;
 };
 struct parserNodeFuncCall {
- struct parserNode base;
- struct parserNode *func;
- strParserNode args;
+		struct parserNode base;
+		struct parserNode *func;
+		strParserNode args;
+		struct object *type;
 };
 struct parserNodeCommaSeq {
  struct parserNode base;
@@ -180,6 +184,11 @@ struct parserNodeSubSwitch {
 struct parserNodeDefault  {
 		struct parserNode base;
 		struct parserNode *parent;
+};
+struct parserNodeTypeCast {
+		struct parserNode base;
+		struct parserNode *exp;
+		struct object *type;
 };
 struct parserNode *parseExpression(llLexerItem start,llLexerItem end,llLexerItem *result);
 void parserNodeDestroy(struct parserNode **node);

@@ -347,6 +347,22 @@ static void varDeclTests() {
 			assert(type->type == TYPE_I64i);
 		}
 	}
+	//Type cast
+	text = "10(U8i)";
+	textStr = strCharAppendData(NULL, text, strlen(text));
+		err = 0;
+	lexItems = lexText((struct __vec *)textStr, &err);
+	assert(!err);
+	__auto_type cast= parseExpression(lexItems, NULL, NULL);
+	assert(cast);
+	{
+			assert(cast->type==NODE_TYPE_CAST);
+			struct parserNodeTypeCast *cast2=(void*)cast;
+			assert(cast2->exp->type==NODE_LIT_INT);
+			assert(cast2->type==objectByName("U8i"));
+	}
+	//
+	
 	text = "I64i (*func)(I64i(*foo)(),I64i x)";
 	textStr = strCharAppendData(NULL, text, strlen(text));
 

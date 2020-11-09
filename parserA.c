@@ -461,6 +461,11 @@ end:
 
 	return exp;
 }
+static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end,
+                                       struct object *baseType,
+                                       struct parserNode **name,
+                                       struct parserNode **dftVal,
+                                       strParserNode *metaDatas);
 static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end,
                                      llLexerItem *result) {
 	if (start == NULL)
@@ -513,9 +518,48 @@ static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end,
 				goto loop1;
 			}
 		}
+
+		// Check for typecast before func call
+		struct parserNode *lP=expectOp(result2,"(");
+		if(lP) {
+				llLexerItem end2=findOtherSide(result2, NULL);
+				if(end2){
+						__auto_type item=llLexerItemValuePtr(llLexerItemNext(result2));
+						if(item->template==&nameTemplate) {
+								__auto_type baseType= objectByName((char*)lexerItemValuePtr(item));
+								if(baseType!=NULL) {
+										strParserNode dims;
+										long ptrLevel;
+										struct parserNode *name;
+										llLexerItem end3;
+
+										struct parserNode *dft;
+										strParserNode metas=NULL;
+										__auto_type type= parseVarDeclTail(start, &end3, baseType, &name, &dft, &metas);
+										result2=end2;
+										
+										//Create type
+										strParserNodeDestroy2(&metas);
+										parserNodeDestroy(&name);
+
+										struct parserNodeTypeCast cast;
+										cast.base.type=NODE_TYPE_CAST;
+										cast.exp=head;
+										cast.type=type;
+
+										head=ALLOCATE(cast);
+
+										//Move past ")"
+										result2=llLexerItemNext(end2);
+										goto loop1;
+								}
+						}
+				}
+		}
+		parserNodeDestroy(&lP);
 		int success;
 		__auto_type funcCallArgs =
-		    pairOperator("(", ")", result2, end, &result2, &success);
+				pairOperator("(", ")", result2, end, &result2, &success);
 		if (success) {
 			struct parserNodeFuncCall newNode;
 			newNode.base.type = NODE_FUNC_CALL;
