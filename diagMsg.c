@@ -312,9 +312,8 @@ static void qouteLine(struct diagInst *inst,long start,long end,strDiagQoute qou
 										hitEnds=strLongAppendItem(hitEnds, i);
 								}
 				}
-				//If found no boundary ahead,write out rest of line
+				//If found no boundary ahead,break
 				if(closestIdx==-1) {
-						fprintf(inst->dumpTo, "%s", buffer+searchPos-lineStart);
 						break;
 				}
 
@@ -357,6 +356,10 @@ static void qouteLine(struct diagInst *inst,long start,long end,strDiagQoute qou
 				oldPos=closestPos;
 				searchPos=closestPos+1;
 		}
+
+		//Write out rest of text
+		fprintf(inst->dumpTo, "%s", buffer+oldPos);
+		endAttrs(inst);
 
 		start=end;
 		strDiagQouteDestroy(&clone);		
