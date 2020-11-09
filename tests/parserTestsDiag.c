@@ -34,5 +34,17 @@ void parserDiagTests() {
 		createFile(text);
 		int err;
 		__auto_type items= lexText(__vecAppendItem(NULL, text, strlen(text)),&err);
+		assert(!err);			
+		parseStatement(items, NULL);
+		//
+		//"if" missing ")"
+		//
+		text=
+				"if(1+2 {\n"
+				"    foo();\n"
+				"}";
+		createFile(text);
+		items= lexText(__vecAppendItem(NULL, text, strlen(text)),&err);
+		assert(!err);
 		parseStatement(items, NULL);
 }

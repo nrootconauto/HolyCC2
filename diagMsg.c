@@ -121,6 +121,11 @@ static void endAttrs(struct diagInst *inst) {
 		if(inst->diagType==DIAG_ANSI_TERM)
 			fprintf(inst->dumpTo, "\e[0m");
 }
+static void setAttrsVec(struct diagInst *inst,strTextAttr attrs) {
+		if(inst->diagType==DIAG_ANSI_TERM) {
+				putAttrANSI(inst->dumpTo, attrs);
+		}
+} 
 static void setAttrs(struct diagInst *inst,...) {
 		va_list list;
 		va_start(list, inst);
@@ -146,10 +151,10 @@ static long firstOf(const char *buffer,long index,const char *chrs) {
 				__auto_type find=strchr(buffer+index,chrs[i]);
 				if(find!=NULL)
 						if(minFind>find||minFind==NULL)
-						find=minFind;
+						minFind=find;
 						}
 
-		if(minFind!=0)
+		if(minFind!=NULL)
 				return (minFind-buffer)/sizeof(char);
 
 		return -1;
@@ -167,23 +172,26 @@ static strLong fileLinesIndexes(FILE *file) {
 		const long bufferSize=1024;
 		char buffer[bufferSize+1];
 		buffer[bufferSize]='\0';
+		fseek(file,0,SEEK_SET);
+		fread(buffer, 1,bufferSize ,file);
 
 		long bufferOffset=0;
 		long bufferFilePos=0;
-		int hitEnd=0;
-		while(ftell(file)!=end) {
+		long find;
+		for(;;) {
 				long find=firstOf(buffer, bufferOffset, "\n\r");
-
-				if(find==-1&&hitEnd)
-						break;
 				
 				if(find==-1) {
 						long len=fread(buffer, 1,bufferSize ,file);
-						hitEnd=bufferSize!=len;
-
+						
 						bufferFilePos+=len;
+
+						if(len!=bufferSize)
+								break;
 				} else {
 						retVal=strLongAppendItem(retVal, find+bufferFilePos);
+						bufferOffset=find+1;
+						
 				}
 		}
 
@@ -192,7 +200,7 @@ static strLong fileLinesIndexes(FILE *file) {
 static void getLineCol(struct diagInst *inst,long where,long *line,long *col) {
 		long line2=0;
 		for(long i=1;i!=strLongSize(inst->lineStarts);i++) {
-				if(inst->lineStarts[i]<=where) {
+				if(inst->lineStarts[i]<where) {
 						line2=i;
 						goto found;
 				} else
@@ -239,60 +247,82 @@ static int textAttrCmp(const void *a,const void *b) {
 		return *(enum textAttr*)a-*(enum textAttr*)b;
 }
 static void qouteLine(struct diagInst *inst,long start,long end,strDiagQoute qoutes) {
+		
 		//Line end of line
 		long line,col;
-		getLineCol(inst,start,&line,&col);
+		getLineCol(inst,end,&line,&col);
 		long lineEnd;
 		if(line+1>=strLongSize(inst->lineStarts))
 				lineEnd=fileSize(inst->sourceFile);
 		else
 				lineEnd=inst->lineStarts[line+1];
 
+		//Start of line
+		getLineCol(inst,start,&line,&col);
+		long lineStart=inst->lineStarts[line];
+		
 		//Sort qoutes
 		__auto_type clone= strDiagQouteAppendData(NULL, qoutes,strDiagQouteSize(qoutes) );
 		qsort(clone, strDiagQouteSize(clone), sizeof(*clone), qouteSort);
 
-		char buffer[lineEnd-start+1];
-		fseek(inst->sourceFile,start,SEEK_SET);
-		buffer[lineEnd-start]='\0';
+		char buffer[lineEnd-lineStart+1];
+		fseek(inst->sourceFile,lineStart,SEEK_SET);
+		buffer[lineEnd-lineStart]='\0';
+		fread(buffer, 1, lineEnd-lineStart, inst->sourceFile);
 
 		strTextAttr current=NULL;
 		strTextAttr attrs=NULL;
 		strLong currentlyIn=NULL;
-		for(long pos=start;pos<lineEnd;) {
+		long oldPos=lineStart;
+		for(long searchPos=lineStart;searchPos<lineEnd;) {
 				long newPos;
 				strLong hitStarts  __attribute__((cleanup(strLongDestroy)));hitStarts =NULL;
 				strLong hitEnds  __attribute__((cleanup(strLongDestroy)));hitEnds =NULL;
 				//Find next boundary(start/end) of qoute at pos
-				long closestIdx=-1,closestPos=-1;
+				//closesPos is made to point to end of buffer so all compares with initial value will be lower 
+				long closestIdx=-1,closestPos=lineEnd-lineStart+1;
 				for(long i=0;i!=strDiagQouteSize(qoutes);i++) {
 						//starts
-						if(qoutes[i].start>=pos)
-								if(closestIdx-pos<qoutes[i].start-pos) {
-										closestIdx=qoutes[i].start;
+						if(qoutes[i].start>=searchPos)
+								if(closestPos-searchPos>=qoutes[i].start-searchPos) {
+										closestIdx=i;
 										closestPos=qoutes[i].start;
-												
-										if(pos==qoutes[i].start)
-												hitStarts=strLongAppendItem(hitStarts, i);
+
+										//If closer,will hit the closest so clear hitStarts
+										if(closestPos-searchPos>qoutes[i].start-searchPos)
+												hitStarts=strLongResize(hitStarts, 0);
+										
+										hitStarts=strLongAppendItem(hitStarts, i);
 								}
 
 								
 						//ends
-						if(qoutes[i].end>=pos)
-								if(closestIdx-pos<qoutes[i].end-pos) {
-										closestIdx=qoutes[i].end;
+						if(qoutes[i].end>=searchPos)
+								if(closestPos-searchPos>=qoutes[i].end-searchPos) {
+										closestIdx=i;
 										closestPos=qoutes[i].end;
-												
-										if(pos==qoutes[i].end)
-												hitEnds=strLongAppendItem(hitEnds, i);
+
+										//If closer,will hit the closest so clear hitEnds
+										if(closestPos-searchPos>qoutes[i].end-searchPos) {
+												//End is closest than start as ends are checked after starts
+												hitStarts=strLongResize(hitStarts, 0);
+												hitEnds=strLongResize(hitEnds, 0);
+										}
+
+										hitEnds=strLongAppendItem(hitEnds, i);
 								}
 				}
 				//If found no boundary ahead,write out rest of line
 				if(closestIdx==-1) {
-						fprintf(inst->dumpTo, "%s", buffer+pos);
+						fprintf(inst->dumpTo, "%s", buffer+searchPos-lineStart);
 						break;
 				}
 
+				//Write out text from old position to new position
+				if(closestIdx!=-1)
+						for(long i=oldPos;i!=closestPos;i++)
+								fputc(buffer[i-lineStart],currentInst->dumpTo);
+				
 				//Add hit starts/remove hit ends
 				currentlyIn=strLongSetDifference(currentlyIn, hitEnds, longPtrCmp);
 				currentlyIn=strLongSetUnion(currentlyIn, hitStarts, longPtrCmp);
@@ -318,20 +348,14 @@ static void qouteLine(struct diagInst *inst,long start,long end,strDiagQoute qou
 				}
 
 				//Set attrs
-				setAttrs(inst, inst->dumpTo, attrs,0);
+				setAttrsVec(inst, attrs);
+				
 				if(strTextAttrSize(attrs)==0) {
 						setAttrs(inst, ATTR_NORMAL,0);
 				}
 
-				//Write text from pos to first bound
-				for(long i=pos;i!=closestPos;i++) {
-						if(i>=lineEnd)
-								break;
-
-						fputc(buffer[pos-start], inst->dumpTo);
-				}
-
-				pos=closestPos;
+				oldPos=closestPos;
+				searchPos=closestPos+1;
 		}
 
 		start=end;
@@ -350,6 +374,7 @@ void diagPushQoutedText(long start,long  end) {
 
 		char buffer[end-start+1];
 		buffer[end-start]='\0';
+		fseek(currentInst->sourceFile,start,SEEK_SET);
 		fread(buffer, 1, end-start, currentInst->sourceFile);
 		fprintf(currentInst->dumpTo, "'%s'", buffer);
 
@@ -402,6 +427,7 @@ void diagEndMsg() {
 		currentInst->stateQoutes=NULL;
 		currentInst->state=DIAG_NONE;
 		endAttrs(currentInst);
+		fprintf(currentInst->dumpTo, "\n");
 		
 		currentInst=NULL;
 }
