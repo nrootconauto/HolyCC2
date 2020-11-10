@@ -646,8 +646,8 @@ void keywordTests() {
 }
 static void funcTests() {
 		const char *text=
-				"U0 foo(I64 a,I64 b);\n"
-				"U0 foo(I64 a,I64 b) {'Hi World';}\n";
+				"U0 foo(I64i a,I64i b);\n"
+				"U0 foo(I64i a,I64i b) {\"Hi World\";}\n";
 		__auto_type textStr=strCharAppendData(NULL,text,strlen(text));
 		int err;
 		__auto_type lexItems=lexText((struct __vec*)textStr, &err);
@@ -691,4 +691,5 @@ void parserTests() {
 	varDeclTests();
 	classParserTests();
 	keywordTests();
+	funcTests();
 }

@@ -1482,6 +1482,11 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 	}
 	struct parserNode *retVal = NULL;
 
+	__auto_type func= parseFunction(originalStart,end);
+	if(func) {
+			return func;
+	}
+
 	__auto_type varDecls = parseVarDecls(start, end);
 	if (varDecls) {
 		addDeclsToScope(varDecls);
@@ -1495,12 +1500,6 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 		
 		retVal = varDecls;
 		goto end;
-	}
-
-	__auto_type func= parseFunction(originalStart,end);
-	if(func) {
-			retVal=func;
-			goto end;
 	}
 
 	__auto_type labStmt=parseLabel(originalStart,end);
@@ -2287,11 +2286,24 @@ struct parserNode *parseFunction(llLexerItem start,llLexerItem *end) {
 		strParserNode args=NULL;
 		long count=sizeof(toKill)/sizeof(*toKill);
 		lP=expectOp(start, "(");
-		for(;;) {
+		if(!lP)
+				goto fail;
+		start=llLexerItemNext(start);
+		
+		for(int firstRun=1;;firstRun=0) {
 				rP=expectOp(start, ")");
-				if(rP)
+				if(rP) {
+						start=llLexerItemNext(start);
 						break;
-
+				}
+				if(!firstRun) {
+						__auto_type comma=expectOp(start, ",");
+						if(comma==NULL)
+								whineExpected(start, ",");
+						else
+								start=llLexerItemNext(start);
+				}
+				
 				struct parserNode *decl= parseSingleVarDecl(start, &start);
 				if(decl)
 						args=strParserNodeAppendItem(args, decl);
@@ -2301,7 +2313,7 @@ struct parserNode *parseFunction(llLexerItem start,llLexerItem *end) {
 		for(long i=0;i!=ptrLevel;i++)
 				retType=objectPtrCreate(retType);
 		
-		strFuncArg fargs;
+		strFuncArg fargs=NULL;
 		for(long i=0;i!=strParserNodeSize(args);i++) {
 				if(args[i]->type!=NODE_VAR_DECL) {
 						//TODO whine
@@ -2359,7 +2371,8 @@ struct parserNode *parseFunction(llLexerItem start,llLexerItem *end) {
 				assignPosByLexerItems(retVal, originalStart, NULL);
 
 		strParserNodeDestroy(&args);
-		
+
+		addFunc(name, funcType, retVal);
 		return retVal;
 	fail:
 		parserNodeDestroy(&name);

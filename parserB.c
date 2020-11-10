@@ -18,7 +18,7 @@ void enterScope() {
 	new.parent = currentScope;
 	new.subScopes = NULL;
 	new.vars = mapVarCreate();
-	new.funcs=NULL;
+	new.funcs=mapFuncCreate();
 
 	__auto_type newNode = llScopeCreate(new);
 	if (currentScope == NULL) {
@@ -140,7 +140,7 @@ void addFunc(const struct parserNode *name,const struct object *type,struct pars
 		__auto_type find = mapFuncGet(currentScopeFuncs  , name2->text);
 		if(!find) {
 				struct function dummy;
-				dummy.isForwardDecl=func==NULL;
+				dummy.isForwardDecl=func->type==NODE_FUNC_FORWARD_DECL;
 				dummy.refs=NULL;
 				dummy.type=(struct object*)type;
 				dummy.node=func;

@@ -490,8 +490,11 @@ llLexerItem lexText(const struct __vec *text, int *err) {
 
 	__auto_type len = __vecSize(text);
 	long pos = 0;
-	while (pos < len) {
+	for (;;) {
 		pos = (char *)skipWhitespace(text, pos) - (char *)text;
+		if(pos >= len)
+				break;
+		
 		__auto_type tCount = sizeof(templates) / sizeof(*templates);
 
 		long maximumEnd = pos;
