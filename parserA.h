@@ -31,6 +31,7 @@ enum parserNodeType {
  NODE_SUBSWITCH,
  NODE_LABEL,
 	NODE_TYPE_CAST,
+	NODE_ARRAY_ACCESS
 };
 STR_TYPE_DEF(struct parserNode *,ParserNode);
 STR_TYPE_FUNCS(struct parserNode *,ParserNode);
@@ -41,16 +42,16 @@ struct variable {
  strParserNode refs;
 };
 void variableDestroy(struct variable *var);
-struct parserNode {
- enum parserNodeType type;
-};
 struct sourcePos {
  long start;
  long end;
 };
+struct parserNode {
+		enum parserNodeType type;
+		struct sourcePos pos;
+};
 struct parserNodeOpTerm {
  struct parserNode base;
- struct sourcePos pos;
  const char *text;
 };
 struct parserNodeUnop {
@@ -69,7 +70,6 @@ struct parserNodeBinop {
 };
 struct parserNodeName {
  struct parserNode base;
- struct sourcePos pos;
  char *text;
 };
 struct parserNodeLitInt {
@@ -93,7 +93,6 @@ struct parserNodeCommaSeq {
 };
 struct parserNodeKeyword {
  struct parserNode base;
- struct sourcePos pos;
  const char *text;
 };
 struct parserNodeMetaData {
@@ -184,6 +183,11 @@ struct parserNodeSubSwitch {
 struct parserNodeDefault  {
 		struct parserNode base;
 		struct parserNode *parent;
+};
+struct parserNodeArrayAccess {
+		struct parserNode base;
+		struct parserNode *exp;
+		struct parserNode *index;
 };
 struct parserNodeTypeCast {
 		struct parserNode base;

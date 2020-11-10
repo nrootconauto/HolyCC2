@@ -144,6 +144,7 @@ struct object *objectClassCreate(const struct parserNode *name,
 		newClass->name = (struct parserNode*)name;
 		newClass->base.type = TYPE_CLASS;
 		newClass->base.link = 0;
+		newClass->methods=NULL;
 		newClass->members = NULL;
 
 		long largestMemberAlign = 0;

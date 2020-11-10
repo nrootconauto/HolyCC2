@@ -48,11 +48,18 @@ struct object {
 	enum holyCTypeKind type;
 	enum linkage link;
 };
+struct objectMethod {
+		struct parserNode *name;
+		struct object *type;
+};
+LL_TYPE_DEF(struct objectMethod, Method);
+LL_TYPE_FUNCS(struct objectMethod, Method);
 struct objectClass {
 	struct object base;
 	struct parserNode *name;
 	strObjectMember members;
-	long align;
+		llMethod methods;
+		long align;
 	long size;
 };
 struct objectUnion {
