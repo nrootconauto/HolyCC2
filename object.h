@@ -128,3 +128,4 @@ extern struct object typeF64;
 
 void strFuncArgDestroy2(strFuncArg *args) ;
 char *object2Str(struct object *obj);
+int objectEqual(const struct object *a,const struct object *b);

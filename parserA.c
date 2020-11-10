@@ -152,7 +152,9 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end,
 		struct parserNodeLitInt lit;
 		lit.base.type = NODE_LIT_INT;
 		lit.value = *(struct lexerInt *)lexerItemValuePtr(item);
-
+		lit.base.pos.start=item->start;
+		lit.base.pos.end=item->end;
+		
 		return ALLOCATE(lit);
 	} else if (item->template == &strTemplate) {
 		if (result != NULL)
@@ -163,18 +165,37 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end,
 		lit.base.type = NODE_LIT_STR;
 		lit.text = strClone((char *)str.text);
 		lit.isChar = str.isChar;
+		lit.base.pos.start=item->start;
+		lit.base.pos.end=item->end;
 
 		return ALLOCATE(lit);
 	} else if (item->template == &nameTemplate) {
 		__auto_type name = nameParse(start, end, result);
-		__auto_type find = getVar(name);
-		if (find) {
+		//Look for var
+		__auto_type findVar = getVar(name);
+		if (findVar) {
 			struct parserNodeVar var;
 			var.base.type = NODE_VAR;
-			var.var = find;
-
+			var.var = findVar;
+			var.base.pos.start=name->pos.start;
+			var.base.pos.end=name->pos.end;
+			
 			return ALLOCATE(var);
 		}
+
+		//Look for func
+		__auto_type findFunc=getFunc(name);
+		if(findFunc) {
+				struct parserNodeFuncRef ref;
+				ref.base.pos.start=name->pos.start;
+				ref.base.pos.end=name->pos.end;
+				ref.base.type=NODE_FUNC_REF;
+				ref.func=findFunc;
+				ref.name=name;
+
+				return ALLOCATE(ref);
+		}
+		
 		return name;
 	} else {
 		return NULL;
@@ -1372,7 +1393,19 @@ end:
 	}
 	return retVal;
 }
-struct parserNode *parseScope(llLexerItem start, llLexerItem *end) {
+static void addDeclsToScope(struct parserNode *varDecls) {
+	if (varDecls->type == NODE_VAR_DECL) {
+		struct parserNodeVarDecl *decl = (void *)varDecls;
+		addVar(decl->name, decl->type);
+	} else if (varDecls->type == NODE_VAR_DECLS) {
+		struct parserNodeVarDecls *decls = (void *)varDecls;
+		for (long i = 0; i != strParserNodeSize(decls->decls); i++) {
+			struct parserNodeVarDecl *decl = (void *)decls->decls[i];
+			addVar(decl->name, decl->type);
+		}
+	}
+}
+struct parserNode *parseScope(llLexerItem start, llLexerItem *end,strParserNode vars) {
 		__auto_type originalStart=start;
 
 		struct parserNode *lC = NULL, *rC = NULL;
@@ -1381,6 +1414,10 @@ struct parserNode *parseScope(llLexerItem start, llLexerItem *end) {
 	strParserNode nodes = NULL;
 	if (lC) {
 		enterScope();
+
+		//Add vars to scope
+		for(long i=0;i!=strParserNodeSize(vars);i++)
+				addDeclsToScope(vars[i]);
 
 		start = llLexerItemNext(start);
 
@@ -1428,19 +1465,6 @@ struct parserNode *parseScope(llLexerItem start, llLexerItem *end) {
 
 	return NULL;
 }
-
-static void addDeclsToScope(struct parserNode *varDecls) {
-	if (varDecls->type == NODE_VAR_DECL) {
-		struct parserNodeVarDecl *decl = (void *)varDecls;
-		addVar(decl->name, decl->type);
-	} else if (varDecls->type == NODE_VAR_DECLS) {
-		struct parserNodeVarDecls *decls = (void *)varDecls;
-		for (long i = 0; i != strParserNodeSize(decls->decls); i++) {
-			struct parserNodeVarDecl *decl = (void *)decls->decls[i];
-			addVar(decl->name, decl->type);
-		}
-	}
-}
 struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 		//If end is NULL,make a dummy version for testing for ";" ahead
 		llLexerItem endDummy;
@@ -1473,6 +1497,12 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 		goto end;
 	}
 
+	__auto_type func= parseFunction(originalStart,end);
+	if(func) {
+			retVal=func;
+			goto end;
+	}
+
 	__auto_type labStmt=parseLabel(originalStart,end);
 	if(labStmt) {
 	  retVal=labStmt;
@@ -1501,7 +1531,7 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 	}
 
 	start = originalStart;
-	__auto_type scope = parseScope(start, end);
+	__auto_type scope = parseScope(start, end,NULL);
 	if (scope) {
 		retVal = scope;
 		goto end;
@@ -2225,4 +2255,116 @@ end:
 	parserNodeDestroy(&colon);
 	
 	return retVal;
+}
+struct parserNode *parseFunction(llLexerItem start,llLexerItem *end) {
+		__auto_type originalStart=start;
+		struct parserNode *name=nameParse(start, NULL, &start);
+		if(!name)
+				return NULL;
+		parserNodeDestroy(&name);
+		
+		struct parserNodeName *nm=(void*)name;
+		__auto_type baseType=objectByName(nm->text);
+		if(!baseType)
+				return NULL;
+
+		long ptrLevel=0;
+		for(;;) {
+				__auto_type star =expectOp(start, "*");
+				if(!star)
+						break;
+				
+				parserNodeDestroy(&star);
+				ptrLevel++,start=llLexerItemNext(start);
+		}
+
+		name= nameParse(start, NULL, &start);
+		if(!name)
+				return NULL;
+
+		struct parserNode* lP=NULL,*rP=NULL; 
+		struct parserNode *toKill[]={lP,rP};
+		strParserNode args=NULL;
+		long count=sizeof(toKill)/sizeof(*toKill);
+		lP=expectOp(start, "(");
+		for(;;) {
+				rP=expectOp(start, ")");
+				if(rP)
+						break;
+
+				struct parserNode *decl= parseSingleVarDecl(start, &start);
+				if(decl)
+						args=strParserNodeAppendItem(args, decl);
+		}
+
+		struct object *retType=baseType;
+		for(long i=0;i!=ptrLevel;i++)
+				retType=objectPtrCreate(retType);
+		
+		strFuncArg fargs;
+		for(long i=0;i!=strParserNodeSize(args);i++) {
+				if(args[i]->type!=NODE_VAR_DECL) {
+						//TODO whine
+						continue;
+				}
+				struct parserNodeVarDecl *decl=(void*)args[i];
+				struct objectFuncArg arg;
+				arg.dftVal=decl->dftVal;
+				arg.name=decl->name;
+				arg.type=decl->type;
+
+				//TODO whine on metadata
+				strParserNodeDestroy2(&decl->metaData);
+
+				fargs=strFuncArgAppendItem(fargs, arg);
+		}
+
+		struct object *funcType;
+		funcType=objectFuncCreate(retType, fargs);
+		strFuncArgDestroy(&fargs);
+		
+		struct parserNode *retVal=NULL;
+		__auto_type scope=parseScope(start, end, args);
+		if(!scope) {
+				//If no scope follows,is a forward declaration
+				__auto_type semi=expectKeyword(start, ";"); 
+				if(!semi)
+						whineExpected(start, ";");
+				else
+						start=llLexerItemNext(start);
+
+				struct parserNodeFuncForwardDec forward;
+				forward.base.type=NODE_FUNC_FORWARD_DECL;
+				forward.funcType=funcType;
+				forward.name=name;
+				
+				retVal=ALLOCATE(forward);
+		} else {
+				//Has a function body
+				struct parserNodeFuncDef func;
+				func.base.type=NODE_FUNC_DEF;
+				func.bodyScope=scope;
+				func.funcType=funcType;
+				func.name=name;
+				
+				retVal=ALLOCATE(func);
+		}
+
+		if(end)
+				*end=start;
+
+		if(end)
+				assignPosByLexerItems(retVal, originalStart, *end);
+		else
+				assignPosByLexerItems(retVal, originalStart, NULL);
+
+		strParserNodeDestroy(&args);
+		
+		return retVal;
+	fail:
+		parserNodeDestroy(&name);
+		strParserNodeDestroy2(&args);
+		for(long i=0;i!=count;i++)
+				parserNodeDestroy(&toKill[i]);
+		return NULL;
 }

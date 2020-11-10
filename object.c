@@ -328,3 +328,44 @@ void strFuncArgDestroy2(strFuncArg *args) {
 char *object2Str(struct object *obj) {
 		return NULL;
 }
+int objectEqual(const struct object *a,const struct object *b) {
+		if(a->type!=b->type)
+				return 0;
+		if(a->type==TYPE_PTR) {
+				struct objectPtr *aBase=(void*)a,*bBase=(void*)b;
+				return objectEqual(aBase->type, bBase->type);
+		} else if(a->type==TYPE_CLASS) {
+				return a==b;
+		} else if (a->type==TYPE_UNION) {
+				return a==b;
+		} else if(a->type==TYPE_UNION) {
+				return a==b;
+		} else if(a->type==TYPE_FUNCTION) {
+				struct objectFunction *aFunc=(void*)a,*bFunc=(void*)b;
+				if(strFuncArgSize(aFunc->args)!=strFuncArgSize(bFunc->args))
+						return 0;
+
+				for(long i=0;i!=strFuncArgSize(aFunc->args);i++) {
+						if(!objectEqual(aFunc->args[i].type, bFunc->args[i].type))
+								return 0;
+
+						return 1;
+				}
+		} else if(a->type==TYPE_ARRAY) {
+				struct objectArray *aArr=(void*)a,*bArr=(void*)b;
+
+				//Only checks constant dim
+				if(aArr->dim->type==NODE_LIT_INT) {
+						if(bArr->dim->type==NODE_LIT_INT) {
+								struct parserNodeLitInt *aInt=(void*)aArr->dim;
+								struct parserNodeLitInt *bInt=(void*)bArr->dim;
+								if(aInt->value.value.sInt==bInt->value.value.sInt)
+										return 1;
+						}
+				}
+
+				return 0;
+		}
+
+				return 1;
+}

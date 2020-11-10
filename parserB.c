@@ -2,6 +2,7 @@
 #include <hashTable.h>
 #include <parserB.h>
 #include <string.h>
+#include <diagMsg.h>
 void variableDestroy(struct variable *var) {
 	free(var->name);
 	objectDestroy(&var->type);
@@ -17,6 +18,7 @@ void enterScope() {
 	new.parent = currentScope;
 	new.subScopes = NULL;
 	new.vars = mapVarCreate();
+	new.funcs=NULL;
 
 	__auto_type newNode = llScopeCreate(new);
 	if (currentScope == NULL) {
@@ -81,3 +83,73 @@ static void killParserData() {
 }
 static void initParserData() __attribute__((constructor));
 static void initParserData() { enterScope(); }
+
+struct function *getFunc(const struct parserNode *name) {
+		struct parserNodeName *name2=(void*)name;
+		assert(name2->base.type==NODE_NAME);
+		
+		for(llScope scope=currentScope;scope!=NULL;scope=llScopeValuePtr(scope)->parent) {
+				__auto_type find= mapFuncGet(llScopeValuePtr(scope)->funcs, name2->text);
+				if(!find)
+						continue;
+
+				find->refs=strParserNodeAppendItem(find->refs, (struct parserNode*)name);
+				return find;
+		}
+		return NULL;
+}
+void addFunc(const struct parserNode *name,const struct object *type,struct parserNode *func) {
+		struct parserNodeName *name2=(void*)name;
+		__auto_type currentScopeFuncs= llScopeValuePtr(currentScope) ->funcs;
+		
+		__auto_type conflict= mapFuncGet(currentScopeFuncs  , name2->text);
+		if(conflict) {
+				if(!conflict->isForwardDecl) {
+						//Whine about redeclaration
+						diagErrorStart(name2->base.pos.start,name2->base.pos.end);
+						char buffer[1024];
+						sprintf(buffer, "Redeclaration of function '%s'.",name2->text);
+						diagPushText(buffer);
+						diagHighlight(name2->base.pos.start, name2->base.pos.end);
+						diagEndMsg();
+
+						__auto_type firstRef=conflict->refs[0]; 
+						diagNoteStart(firstRef->pos.start, firstRef->pos.end);
+						diagPushText("Declared here:");
+						diagHighlight(firstRef->pos.start, firstRef->pos.end);
+						diagEndMsg();
+				} else if(conflict->isForwardDecl) {
+						if(!objectEqual(conflict->type,type)) {
+								//Whine about conflicting type
+								diagErrorStart(name2->base.pos.start,name2->base.pos.end);
+								diagPushText("Conflicting types for ");
+								diagPushQoutedText(name2->base.pos.start,name2->base.pos.end);
+								diagPushText(".");
+								diagEndMsg();
+								
+								__auto_type firstRef=conflict->refs[0]; 
+								diagNoteStart(firstRef->pos.start, firstRef->pos.end);
+								diagPushText("Declared here:");
+								diagHighlight(firstRef->pos.start, firstRef->pos.end);
+								diagEndMsg();
+						}
+				}
+		}
+		
+	loop:;
+		__auto_type find = mapFuncGet(currentScopeFuncs  , name2->text);
+		if(!find) {
+				struct function dummy;
+				dummy.isForwardDecl=func==NULL;
+				dummy.refs=NULL;
+				dummy.type=(struct object*)type;
+				dummy.node=func;
+				dummy.name=malloc(strlen(name2->text)+1);
+				strcpy(dummy.name, name2->text);
+				
+				mapFuncInsert(currentScopeFuncs,name2->text,dummy);
+				goto loop;
+		}
+
+		find->refs=strParserNodeAppendItem(find->refs, (struct parserNode*)name);
+}

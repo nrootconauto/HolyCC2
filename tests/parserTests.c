@@ -644,6 +644,48 @@ void keywordTests() {
 			assert(sub->dft!=NULL);
 	}
 }
+static void funcTests() {
+		const char *text=
+				"U0 foo(I64 a,I64 b);\n"
+				"U0 foo(I64 a,I64 b) {'Hi World';}\n";
+		__auto_type textStr=strCharAppendData(NULL,text,strlen(text));
+		int err;
+		__auto_type lexItems=lexText((struct __vec*)textStr, &err);
+
+		__auto_type forward=parseStatement(lexItems, &lexItems);
+		assert(forward);
+		struct objectFunction *funcType1=NULL;
+		{
+				assert(forward->type==NODE_FUNC_FORWARD_DECL);
+				struct parserNodeFuncForwardDec *forward2=(void*)forward;
+				assert(forward2->name->type==NODE_NAME);
+
+				funcType1=(void*)forward2->funcType;
+				assert(funcType1->base.type==TYPE_FUNCTION);
+				assert(funcType1->retType==&typeU0);
+
+				assert(strFuncArgSize(funcType1->args)==2);
+				assert(funcType1->args[0].name->type==NODE_NAME);
+				assert(funcType1->args[1].name->type==NODE_NAME);
+				assert(funcType1->args[0].type==&typeI64i);
+				assert(funcType1->args[1].type==&typeI64i);
+		}
+		
+		__auto_type def=parseStatement(lexItems, NULL);
+		assert(def);
+		{
+				assert(def->type==NODE_FUNC_DEF);
+				struct parserNodeFuncDef *def2=(void*)def;
+
+				assert(def2->name->type==NODE_NAME);
+				assert(objectEqual(def2->funcType,(struct object*)funcType1));
+
+				assert(def2->bodyScope->type==NODE_SCOPE);
+				struct parserNodeScope *scope=(void*)def2->bodyScope;
+				assert(1==strParserNodeSize(scope->stmts) );
+				assert(scope->stmts[0]->type==NODE_LIT_STR);
+		}
+}
 void parserTests() {
 	precParserTests();
 	varDeclTests();

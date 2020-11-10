@@ -149,14 +149,34 @@ struct object *assignTypeToOp(struct parserNode *node) {
 				
 				//TODO add method support
 				if(funcType->type!=TYPE_FUNCTION) {
-						struct parserNodeOpTerm *op=(void*)call->lP;
-						diagErrorStart(op->pos.start,op->pos. end);
+						diagErrorStart(call->func->pos.start,call->func->pos. end);
 						char buffer[1024];
 						char *typeName=object2Str(funcType);
 						sprintf(buffer, "Type '%s' isn't callable.", typeName);
 						diagEndMsg();
 
 						free(typeName);
+
+				callFail:
+						call->type=&typeI64i;
+						return &typeI64i;
+				} else  {
+						struct objectFunction *func=(void*)funcType;
+						if( strFuncArgSize(func->args)<strParserNodeSize( call->args) ) {
+								diagErrorStart(call->func->pos.start, call->func->pos.end);
+
+								//Get start/end of excess arguments
+								long excessS=call->args[strFuncArgSize( func->args)]->pos.start;
+								long excessE=call->args[strParserNodeSize( call->args)-1]->pos.end;
+								
+								//TODO note function definition
+								char buffer[1024];
+								char *name=object2Str((void*)func);
+								sprintf(buffer,"Too many args to function of type '%s'.", name);
+								diagPushText(buffer);
+								diagHighlight(excessS, excessE);
+								diagEndMsg();
+						}
 				}
 		} else if(node->type==NODE_TYPE_CAST) {
 				struct parserNodeTypeCast *cast=(void*)node;

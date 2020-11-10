@@ -3,35 +3,38 @@
 #include <lexer.h>
 #include <object.h>
 enum parserNodeType {
- NODE_BINOP,
- NODE_UNOP,
- NODE_INT,
- NODE_STR,
- NODE_NAME,
- NODE_OP,
- NODE_FUNC_CALL,
- NODE_COMMA_SEQ,
- NODE_LIT_INT,
- NODE_LIT_STR,
- NODE_KW,
- NODE_VAR_DECL,
- NODE_VAR_DECLS,
- NODE_META_DATA,
- NODE_CLASS_DEF,
- NODE_UNION_DEF,
- NODE_IF,
- NODE_SCOPE,
- NODE_DO,
- NODE_WHILE,
- NODE_FOR,
- NODE_VAR,
- NODE_CASE,
- NODE_DEFAULT,
- NODE_SWITCH,
- NODE_SUBSWITCH,
- NODE_LABEL,
-	NODE_TYPE_CAST,
-	NODE_ARRAY_ACCESS
+		NODE_BINOP,
+		NODE_UNOP,
+		NODE_INT,
+		NODE_STR,
+		NODE_NAME,
+		NODE_OP,
+		NODE_FUNC_CALL,
+		NODE_COMMA_SEQ,
+		NODE_LIT_INT,
+		NODE_LIT_STR,
+		NODE_KW,
+		NODE_VAR_DECL,
+		NODE_VAR_DECLS,
+		NODE_META_DATA,
+		NODE_CLASS_DEF,
+		NODE_UNION_DEF,
+		NODE_IF,
+		NODE_SCOPE,
+		NODE_DO,
+		NODE_WHILE,
+		NODE_FOR,
+		NODE_VAR,
+		NODE_CASE,
+		NODE_DEFAULT,
+		NODE_SWITCH,
+		NODE_SUBSWITCH,
+		NODE_LABEL,
+		NODE_TYPE_CAST,
+		NODE_ARRAY_ACCESS,
+		NODE_FUNC_DEF,
+		NODE_FUNC_FORWARD_DECL,
+		NODE_FUNC_REF,
 };
 STR_TYPE_DEF(struct parserNode *,ParserNode);
 STR_TYPE_FUNCS(struct parserNode *,ParserNode);
@@ -40,6 +43,13 @@ struct variable {
  char *name;
  struct object *type;
  strParserNode refs;
+};
+struct function {
+		char *name;
+		struct object *type;
+		strParserNode refs;
+		int isForwardDecl;
+		struct parserNode *node;
 };
 void variableDestroy(struct variable *var);
 struct sourcePos {
@@ -194,6 +204,22 @@ struct parserNodeTypeCast {
 		struct parserNode *exp;
 		struct object *type;
 };
+struct parserNodeFuncDef {
+		struct parserNode base;
+		struct object *funcType;
+		struct parserNode *name;
+		struct parserNode *bodyScope;
+};
+struct parserNodeFuncRef {
+		struct parserNode base;
+		struct function *func;
+		struct parserNode *name;
+};
+struct parserNodeFuncForwardDec {
+		struct parserNode base;
+		struct parserNode *name;
+		struct object *funcType;
+};
 struct parserNode *parseExpression(llLexerItem start,llLexerItem end,llLexerItem *result);
 void parserNodeDestroy(struct parserNode **node);
 struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end);
@@ -206,3 +232,4 @@ struct parserNode *parseDo(llLexerItem start, llLexerItem *end) ;
 struct parserNode *parseSwitch(llLexerItem start, llLexerItem *end);
 struct parserNode *parseCase(llLexerItem start, llLexerItem *end);
 struct parserNode *parseLabel(llLexerItem start, llLexerItem *end);
+struct parserNode *parseFunction(llLexerItem start,llLexerItem *end);
