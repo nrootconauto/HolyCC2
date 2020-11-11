@@ -280,7 +280,7 @@ static void qouteLine(struct diagInst *inst,long start,long end,strDiagQoute qou
 				strLong hitEnds  __attribute__((cleanup(strLongDestroy)));hitEnds =NULL;
 				//Find next boundary(start/end) of qoute at pos
 				//closesPos is made to point to end of buffer so all compares with initial value will be lower 
-				long closestIdx=-1,closestPos=lineEnd-lineStart+1;
+				long closestIdx=-1,closestPos=lineEnd+1;
 				for(long i=0;i!=strDiagQouteSize(qoutes);i++) {
 						//starts
 						if(qoutes[i].start>=searchPos)
@@ -358,7 +358,7 @@ static void qouteLine(struct diagInst *inst,long start,long end,strDiagQoute qou
 		}
 
 		//Write out rest of text
-		fprintf(inst->dumpTo, "%s", buffer+oldPos);
+		fprintf(inst->dumpTo, "%s", buffer+oldPos-lineStart);
 		endAttrs(inst);
 
 		start=end;

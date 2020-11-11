@@ -1836,7 +1836,7 @@ struct parserNode *parseIf(llLexerItem start, llLexerItem *end) {
 		if (!rP) {
 				failed=1;
 				whineExpected(start,")");
-		}
+		} else 
 		start = llLexerItemNext(start);
 
 		__auto_type body = parseStatement(start, &start);

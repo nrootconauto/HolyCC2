@@ -292,6 +292,7 @@ struct object *assignTypeToOp(struct parserNode *node) {
 						char buffer[1024];
 						char *typeName=object2Str(funcType);
 						sprintf(buffer, "Type '%s' isn't callable.", typeName);
+						diagHighlight(call->func->pos.start,call->func->pos. end);
 						diagPushText(buffer);
 						diagEndMsg();
 						noteItem(call->func);
