@@ -232,26 +232,39 @@ struct object *assignTypeToOp(struct parserNode *node) {
 				
 				__auto_type aType=assignTypeToOp(unop->a);
 				if(!isArith(aType)) {
-				invalidUnop:;
 						struct parserNodeOpTerm *op=(void*) unop->op;
-						assert(op->base.type==NODE_OP);
-
-						diagErrorStart(op->base.pos.start, op->base.pos.end);
-						diagPushText("Invalid operands to operator.");
-						diagHighlight( op->base.pos.start, op->base.pos.end);
-
-						char buffer[1024];
-						char *name=object2Str(aType);
-						sprintf(buffer,"Operand is of type '%s'.",name);
-						free(name);
-						diagPushText(buffer);
-						diagEndMsg();
-
-						noteItem(unop->a);
+	
+						//
+						//Check if "&" on function(which is valid),used for function ptr's
+						//
+						if(0==strcmp(op->text,"&")) {
+								//Make a func-ptr
+								__auto_type ptr=objectPtrCreate(aType); 
+								unop->type=ptr;
+								return ptr;
+						} else {
+								//Not a function pointer or arithmetic
+						invalidUnop:;
 						
-						//Dummy value
-						unop->type=&typeI64i;
-						return &typeI64i;
+								assert(op->base.type==NODE_OP);
+
+								diagErrorStart(op->base.pos.start, op->base.pos.end);
+								diagPushText("Invalid operands to operator.");
+								diagHighlight( op->base.pos.start, op->base.pos.end);
+
+								char buffer[1024];
+								char *name=object2Str(aType);
+								sprintf(buffer,"Operand is of type '%s'.",name);
+								free(name);
+								diagPushText(buffer);
+								diagEndMsg();
+
+								noteItem(unop->a);
+						
+								//Dummy value
+								unop->type=&typeI64i;
+								return &typeI64i;
+						}
 				}
 
 				//Promote,but...

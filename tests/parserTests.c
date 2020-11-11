@@ -889,8 +889,8 @@ static void typeTests() {
 				assert(fPtr->a->type==NODE_FUNC_REF);
 
 				assert(fPtr->type->type==TYPE_PTR);
-				struct objectPtr *ptr=(void*)fPtr;
-				assert(ptr->type->type==TYPE_FUNCTION);
+				struct objectPtr *ptr=(void*)fPtr->type;
+				assert( ptr->type->type==TYPE_FUNCTION);
 		}
 }
 void parserTests() {
