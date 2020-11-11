@@ -892,6 +892,31 @@ static void typeTests() {
 				struct objectPtr *ptr=(void*)fPtr->type;
 				assert( ptr->type->type==TYPE_FUNCTION);
 		}
+		//
+		// Assign cast-to-result
+		//
+		text=
+				"{\n"
+				"    U16i x=14;\n"
+				"    x=10;\n"
+				"}";
+		createFile(text);
+		textStr=strCharAppendData(NULL, text, strlen(text));
+		lexItems=lexText((struct __vec*)textStr, &err);
+		assert(!err);
+		assert(lexItems);
+		scope=parseStatement(lexItems, NULL);
+		assert(scope);
+		{
+				struct parserNodeScope *scope2=	(void*)scope;
+				assert(scope2->stmts[1]->type==NODE_BINOP);
+				struct parserNodeBinop *binop=(void*)scope2->stmts[1];
+				assert(binop->a->type==NODE_VAR);
+
+				assert(binop->b->type==NODE_TYPE_CAST);
+				struct parserNodeTypeCast *cast=(void*)binop->b;
+				assert(cast->type==&typeU16i);
+		}
 }
 void parserTests() {
 	precParserTests();

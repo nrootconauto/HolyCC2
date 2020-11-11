@@ -186,17 +186,20 @@ struct object *assignTypeToOp(struct parserNode *node) {
 				int aArih=isArith(aType);
 				int bArih=isArith(bType);
 				if(aArih&&bArih) {
-						__auto_type resType= promotionType(aType, bType);
-						if(aType!=resType) {
-								//Dont promote left value on assign
-								if(!isAssignOp(binop->op))
-										binop->a= promoteIfNeeded(binop->a, resType);
+						//Dont promote left value on assign
+						if(isAssignOp(binop->op)) {
+								binop->b= promoteIfNeeded(binop->b, assignTypeToOp(binop->a));
 								
-								binop->b= promoteIfNeeded(binop->b, resType);
+								binop->type=assignTypeToOp(binop->a);
+								return binop->type;
 						}
+						//Not an assign
+						__auto_type resType= promotionType(aType, bType);	
+						binop->b= promoteIfNeeded(binop->b, resType);
+						binop->a= promoteIfNeeded(binop->a, resType);
 
-						binop->type=resType;
-						return resType;
+						binop->type=assignTypeToOp(binop->a);
+						return binop->type;
 				}else if(aArih||bArih) {
 				binopInvalid:;
 						//Both are no compatible with arithmetic operators,so if one isnt,whine
