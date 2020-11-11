@@ -260,8 +260,8 @@ struct object *assignTypeToOp(struct parserNode *node) {
 				if(!mapSetGet(incOps, op->text))
 						unop->a=promoteIfNeeded(unop->a, &typeI64i);
 				
-				unop->type=aType;
-				return aType;
+				unop->type=assignTypeToOp(unop->a);
+				return unop->type;
 		} else if(node->type==NODE_FUNC_CALL) {
 				struct parserNodeFuncCall *call=(void*)node;
 				if(call->type!=NULL)

@@ -734,6 +734,9 @@ static void funcTests() {
 		}
 }
 static void typeTests() {
+		//
+		// Binop
+		//
 		const char *text=
 				"{\n"
 				"F64 x=10;\n"
@@ -754,6 +757,140 @@ static void typeTests() {
 				assert(scope2->stmts[1]->type==NODE_BINOP);
 				struct parserNodeBinop *binop=(void*)scope2->stmts[1];
 				assert(binop->type==&typeF64);
+		}
+		//
+		// Comma
+		//
+		text=
+				"{\n"
+				"F64 x=10;\n"
+				"1+x,10;\n"
+				"}";
+		createFile(text);
+		textStr=strCharAppendData(NULL, text, strlen(text));
+		lexItems=lexText((struct __vec*)textStr, &err);
+		assert(!err);
+		assert(lexItems);
+		scope=parseStatement(lexItems, NULL);
+		assert(scope);
+		{
+				struct parserNodeScope *scope2=	(void*)scope;
+				assert(scope2->stmts[1]->type==NODE_COMMA_SEQ);
+				struct parserNodeCommaSeq *comma=(void*)scope2->stmts[1];
+				assert(comma->type==&typeI64i);
+		}
+
+		//
+		// Func call
+		//
+		text=
+				"{\n"
+				"    U8i foo(I64i x);\n"
+				"    foo(10);\n"
+				"}";
+		createFile(text);
+		textStr=strCharAppendData(NULL, text, strlen(text));
+		lexItems=lexText((struct __vec*)textStr, &err);
+		assert(!err);
+		assert(lexItems);
+		scope=parseStatement(lexItems, NULL);
+		assert(scope);
+		{
+				struct parserNodeScope *scope2=	(void*)scope;
+				assert(scope2->stmts[1]->type==NODE_FUNC_CALL);
+				struct parserNodeFuncCall *call=(void*)scope2->stmts[1];
+				assert(call->type==&typeU8i);
+		}
+		//
+		// Unop with promotion
+		//
+		text=
+				"{\n"
+				"    U16i x=14;\n"
+				"    ~x;\n"
+				"}";
+		createFile(text);
+		textStr=strCharAppendData(NULL, text, strlen(text));
+		lexItems=lexText((struct __vec*)textStr, &err);
+		assert(!err);
+		assert(lexItems);
+		scope=parseStatement(lexItems, NULL);
+		assert(scope);
+		{
+				struct parserNodeScope *scope2=	(void*)scope;
+				assert(scope2->stmts[1]->type==NODE_UNOP);
+				struct parserNodeUnop *unop=(void*)scope2->stmts[1];
+				assert(unop->type==&typeI64i);
+				
+				//Check for promotion of argument(typecast U16i to I64i)
+				assert(unop->a->type==NODE_TYPE_CAST);
+		}
+		//
+		// Unop WITHOUT promotion(because increment assigns value to variable)
+		//
+		text=
+				"{\n"
+				"    U16i x=14;\n"
+				"    ++x;\n"
+				"}";
+		createFile(text);
+		textStr=strCharAppendData(NULL, text, strlen(text));
+		lexItems=lexText((struct __vec*)textStr, &err);
+		assert(!err);
+		assert(lexItems);
+		scope=parseStatement(lexItems, NULL);
+		assert(scope);
+		{
+				struct parserNodeScope *scope2=	(void*)scope;
+				assert(scope2->stmts[1]->type==NODE_UNOP);
+				struct parserNodeUnop *unop=(void*)scope2->stmts[1];
+				assert(unop->type==&typeU16i);
+		}
+		//
+		// Variable
+		//
+		text=
+				"{\n"
+				"    U16i x=14;\n"
+				"    x;\n"
+				"}";
+		createFile(text);
+		textStr=strCharAppendData(NULL, text, strlen(text));
+		lexItems=lexText((struct __vec*)textStr, &err);
+		assert(!err);
+		assert(lexItems);
+		scope=parseStatement(lexItems, NULL);
+		assert(scope);
+		{
+				struct parserNodeScope *scope2=	(void*)scope;
+				assert(scope2->stmts[1]->type==NODE_VAR);
+				struct parserNodeVar *var=(void*)scope2->stmts[1];
+				assert(var->var->type==&typeU16i);
+		}
+		//
+		// Function
+		//
+		text=
+				"{\n"
+				"    U16i foo();\n"
+				"    &foo;\n"
+				"}";
+		createFile(text);
+		textStr=strCharAppendData(NULL, text, strlen(text));
+		lexItems=lexText((struct __vec*)textStr, &err);
+		assert(!err);
+		assert(lexItems);
+		scope=parseStatement(lexItems, NULL);
+		assert(scope);
+		{
+				struct parserNodeScope *scope2=	(void*)scope;
+				assert(scope2->stmts[1]->type==NODE_UNOP);
+				struct parserNodeUnop *fPtr=(void*)scope2->stmts[1];
+				assert(fPtr->a->type==NODE_FUNC_REF);
+
+				assert(fPtr->type->type==TYPE_PTR);
+				struct objectPtr *ptr=(void*)fPtr;
+				assert(ptr->type->type==TYPE_FUNCTION);
 		}
 }
 void parserTests() {
