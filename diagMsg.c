@@ -189,7 +189,7 @@ static strLong fileLinesIndexes(FILE *file) {
 						if(len!=bufferSize)
 								break;
 				} else {
-						retVal=strLongAppendItem(retVal, find+bufferFilePos);
+						retVal=strLongAppendItem(retVal, find+bufferFilePos+1);
 						bufferOffset=find+1;
 						
 				}
@@ -246,8 +246,32 @@ static int longPtrCmp(const void *a,const void *b) {
 static int textAttrCmp(const void *a,const void *b) {
 		return *(enum textAttr*)a-*(enum textAttr*)b;
 }
-static void qouteLine(struct diagInst *inst,long start,long end,strDiagQoute qoutes) {
+static long goBeforeNewLine(FILE *fp,long where) {
+		long retVal=where;
+		__auto_type originalOffset=ftell(fp);
 		
+		if(where-1>0) {
+				fseek(fp, where-1, SEEK_SET);
+
+				
+				for(char chr=fgetc(fp);chr=='\n'||chr=='\r';chr=fgetc(fp)) {
+						//Move back -1 to compensate for moving forward on fgetc(fp)
+						if(ftell(fp)-2>=0) {
+								fseek(fp,-2,SEEK_CUR);
+								retVal=ftell(fp);
+						} else break;
+				}
+		}
+		//Measure from start of file
+		fseek(fp, 0, SEEK_SET);
+		long fileStart=ftell(fp);
+
+		//Seek to original pos
+		fseek(fp,originalOffset,SEEK_SET);
+
+		return retVal-fileStart;
+}
+static void qouteLine(struct diagInst *inst,long start,long end,strDiagQoute qoutes) {
 		//Line end of line
 		long line,col;
 		getLineCol(inst,end,&line,&col);
@@ -255,7 +279,7 @@ static void qouteLine(struct diagInst *inst,long start,long end,strDiagQoute qou
 		if(line+1>=strLongSize(inst->lineStarts))
 				lineEnd=fileSize(inst->sourceFile);
 		else
-				lineEnd=inst->lineStarts[line+1];
+				lineEnd=goBeforeNewLine(inst->sourceFile,inst->lineStarts[line+1])+1; 
 
 		//Start of line
 		getLineCol(inst,start,&line,&col);
@@ -423,8 +447,9 @@ void diagEndMsg() {
 		assert(currentInst!=NULL);
 		
 		if(currentInst->state!=DIAG_NONE) {
+				fprintf(currentInst->dumpTo, "\n```\n");
 				qouteLine(currentInst, currentInst->stateStart, currentInst->stateEnd, currentInst->stateQoutes); //TODO
-
+				fprintf(currentInst->dumpTo, "\n```");
 				strDiagQouteDestroy2(&currentInst->stateQoutes);
 		}
 		currentInst->stateQoutes=NULL;
