@@ -536,6 +536,7 @@ static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end,
 				unop.base.type = NODE_UNOP;
 				unop.isSuffix = 1;
 				unop.op = ptr;
+				unop.type=NULL;
 				unop.base.pos.start=head->pos.start;
 				unop.base.pos.end=ptr->pos.end;
 
@@ -561,6 +562,7 @@ static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end,
 				binop.b = next;
 				binop.base.pos.start=head->pos.start;
 				binop.base.pos.end=head->pos.end;
+				binop.type=NULL;
 						
 				head = ALLOCATE(binop);
 				goto loop1;
@@ -618,6 +620,7 @@ static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end,
 			newNode.args = NULL;
 			newNode.base.pos.start=startP;
 			newNode.base.pos.end=endP;
+			newNode.type=NULL;
 			
 			if (funcCallArgs != NULL) {
 				if (funcCallArgs->type == NODE_COMMA_SEQ) {
@@ -642,6 +645,7 @@ static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end,
 			access.index=array;
 			access.base.pos.start=startP;
 			access.base.pos.end=endP;
+			access.type=NULL;
 			
 			head = ALLOCATE(access);
 
@@ -697,6 +701,7 @@ static struct parserNode *prec1Recur(llLexerItem start, llLexerItem end,
 			unop.op = opStack[i];
 			unop.base.pos.start=tail->pos. end;
 			unop.base.pos.end=opStack[i]->pos.start;
+			unop.type=NULL;
 			tail = ALLOCATE(unop);
 		} 
 	}
@@ -731,6 +736,7 @@ static struct parserNode *binopLeftAssoc(
 		binop.b = tail[i].b;
 		binop.base.pos.start=head->pos.start;
 		binop.base.pos.end=tail[i].b->pos.end;
+		binop.type=NULL;
 		
 		head = ALLOCATE(binop);
 	}
@@ -775,6 +781,7 @@ static struct parserNode *binopRightAssoc(
 		binop.base.type = NODE_BINOP;
 		binop.base.pos.start=left->pos.start;
 		binop.base.pos.start=right->pos.end;
+		binop.type=NULL;
 
 		right = ALLOCATE(binop);
 	}

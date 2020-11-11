@@ -198,6 +198,7 @@ struct parserNodeArrayAccess {
 		struct parserNode base;
 		struct parserNode *exp;
 		struct parserNode *index;
+		struct object *type;
 };
 struct parserNodeTypeCast {
 		struct parserNode base;
