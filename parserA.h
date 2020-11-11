@@ -100,6 +100,7 @@ struct parserNodeFuncCall {
 struct parserNodeCommaSeq {
  struct parserNode base;
  strParserNode items;
+		struct object *type;
 };
 struct parserNodeKeyword {
  struct parserNode base;

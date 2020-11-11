@@ -24,3 +24,6 @@ void addVar(const struct parserNode *name, struct object *type) ;
 struct variable *getVar(const struct parserNode *name);
 struct function *getFunc(const struct parserNode *name);
 void addFunc(const struct parserNode *name,const struct object *type,struct parserNode *func);
+
+void initParserData();
+void killParserData();

@@ -156,6 +156,25 @@ struct object *assignTypeToOp(struct parserNode *node) {
 		} else if(node->type==NODE_VAR) {
 				struct parserNodeVar *var=(void*)node;
 				return var->var->type;
+		} else if(node->type==NODE_COMMA_SEQ) {
+				struct parserNodeCommaSeq *seq=(void*)node;
+				if(seq->type)
+						return seq->type;
+				
+				long len=strParserNodeSize(seq->items);
+				for(long i=0;i!=len;i++) 
+						if(seq->items[i])
+								assignTypeToOp(seq->items[i]);
+
+				if(len)
+						if(seq->items[len-1]!=NULL) {
+								seq->type=assignTypeToOp(seq->items[len-1]);
+								return seq->type;
+						}
+
+				//else if no last type,use U0
+				seq->type=&typeU0;
+				return &typeU0;
 		} if(node->type==NODE_BINOP) {
 				struct parserNodeBinop *binop=(void*)node;
 				if(binop->type!=NULL)
@@ -257,6 +276,7 @@ struct object *assignTypeToOp(struct parserNode *node) {
 						char buffer[1024];
 						char *typeName=object2Str(funcType);
 						sprintf(buffer, "Type '%s' isn't callable.", typeName);
+						diagPushText(buffer);
 						diagEndMsg();
 						noteItem(call->func);
 
@@ -365,3 +385,4 @@ struct object *assignTypeToOp(struct parserNode *node) {
 		// Couldn't detirmine type
 		return &typeI64i;
 }
+

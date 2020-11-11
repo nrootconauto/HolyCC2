@@ -7,6 +7,7 @@
 #include <hashTable.h>
 #include <parserB.h>
 #include <diagMsg.h>
+#include <exprParser.h>
 static char *strCopy(const char *text) {
 	char *retVal = malloc(strlen(text) + 1);
 	strcpy(retVal, text);
@@ -309,6 +310,7 @@ static struct parserNode *precCommaRecur(llLexerItem start, llLexerItem end,
 	struct parserNodeCommaSeq seq;
 	seq.base.type = NODE_COMMA_SEQ;
 	seq.items = NULL;
+	seq.type = NULL;
 	seq.base.pos.start=llLexerItemValuePtr(start)->start;
 	
 	__auto_type node = NULL;
@@ -391,7 +393,11 @@ success:
 }
 struct parserNode *parseExpression(llLexerItem start, llLexerItem end,
                                    llLexerItem *result) {
-	return precCommaRecur(start, end, result);
+		__auto_type res=precCommaRecur(start, end, result);
+		if(res)
+				assignTypeToOp(res);
+
+		return res;
 }
 struct pnPair {
 	struct parserNode *a, *b;

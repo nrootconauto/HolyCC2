@@ -71,8 +71,8 @@ struct variable *getVar(const struct parserNode *name) {
 
 	return NULL;
 }
-static void killParserData() __attribute__((destructor));
-static void killParserData() {
+ void killParserData() __attribute__((destructor));
+ void killParserData() {
 	llScope top = currentScope;
 	for (; currentScope != NULL;
 	     currentScope = llScopeValuePtr(currentScope)->parent)
@@ -81,8 +81,8 @@ static void killParserData() {
 	scopeDestroy(llScopeValuePtr(top));
 	currentScope = NULL;
 }
-static void initParserData() __attribute__((constructor));
-static void initParserData() { enterScope(); }
+ void initParserData() __attribute__((constructor));
+ void initParserData() { enterScope(); }
 
 struct function *getFunc(const struct parserNode *name) {
 		struct parserNodeName *name2=(void*)name;

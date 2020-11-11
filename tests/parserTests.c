@@ -4,6 +4,32 @@
 #include <lexer.h>
 #include <parserB.h>
 #include <stdio.h>
+#include <preprocessor.h>
+#include <diagMsg.h>
+static FILE *file;
+static void createFile(const char *text) {
+		if(file!=NULL)
+				fclose(file);
+
+		char buffer[1024];
+		strcpy(buffer, tmpnam(NULL));
+		
+		file=fopen(buffer, "w");
+		fwrite(text, 1, strlen(text), file);
+		fclose(file);
+
+		file=fopen(buffer, "r");
+		strTextModify mods;
+		strFileMappings fMappings;
+		int err;
+		FILE *res=createPreprocessedFile(buffer, &mods, &fMappings, &err);
+		assert(!err);
+		diagInstCreate(DIAG_ANSI_TERM,  fMappings, mods, buffer, stdout);
+		file=res;
+
+		killParserData();
+		initParserData();
+}
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
 static int charCmp(const void *a, const void *b) {
@@ -13,6 +39,7 @@ static void precParserTests() {
 	const char *text = "0 + 1 + 2 + 3";
 	__auto_type textStr = strCharAppendData(NULL, text, strlen(text));
 
+	createFile(text);
 	__auto_type lexItems = lexText((struct __vec *)textStr, NULL);
 
 	struct parserNode *node =
@@ -54,7 +81,8 @@ static void precParserTests() {
 			text = "a=b=c=d";
 		else if (i == 1)
 			text = "a=(b)=(c)=(d)";
-
+		createFile(text);
+		
 		textStr = strCharAppendData(NULL, text, strlen(text));
 		int err;
 		lexItems = lexText((struct __vec *)textStr, &err);
@@ -91,6 +119,7 @@ static void precParserTests() {
 	}
 	strCharDestroy(&textStr);
 	text = "a,b,c";
+	createFile(text);
 	textStr = strCharAppendData(NULL, text, strlen(text));
 	int err;
 	lexItems = lexText((struct __vec *)textStr, &err);
@@ -112,6 +141,7 @@ static void precParserTests() {
 	}
 	strCharDestroy(&textStr);
 	text = "*++a,a++.b.c++";
+	createFile(text);
 	textStr = strCharAppendData(NULL, text, strlen(text));
 	err = 0;
 	lexItems = lexText((struct __vec *)textStr, &err);
@@ -168,6 +198,7 @@ static void precParserTests() {
 	}
 
 	text = "c=!(a+1*3)+ ++b";
+	createFile(text);
 	textStr = strCharAppendData(NULL, text, strlen(text));
 	err = 0;
 	lexItems = lexText((struct __vec *)textStr, &err);
@@ -228,6 +259,7 @@ static void precParserTests() {
 	}
 	strCharDestroy(&textStr);
 	text = "a(b(),,c)";
+	createFile(text);
 	textStr = strCharAppendData(NULL, text, strlen(text));
 	err = 0;
 	lexItems = lexText((struct __vec *)textStr, &err);
@@ -258,6 +290,7 @@ static void precParserTests() {
 }
 static void varDeclTests() {
 	const char *text = "I64i x=10";
+	createFile(text);
 	__auto_type textStr = strCharAppendData(NULL, text, strlen(text));
 
 	__auto_type lexItems = lexText((struct __vec *)textStr, NULL);
@@ -277,6 +310,7 @@ static void varDeclTests() {
 		assert(objectByName("I64i") == declNode->type);
 	}
 	text = "I64i **x[1][2][3]";
+	createFile(text);
 	textStr = strCharAppendData(NULL, text, strlen(text));
 
 	int err = 0;
@@ -312,6 +346,7 @@ static void varDeclTests() {
 		assert(type == objectByName("I64i"));
 	}
 	text = "I64i a=1,*b=2,c=3";
+	createFile(text);
 	textStr = strCharAppendData(NULL, text, strlen(text));
 
 	err = 0;
@@ -349,6 +384,7 @@ static void varDeclTests() {
 	}
 	//Type cast
 	text = "10(U8i)";
+	createFile(text);
 	textStr = strCharAppendData(NULL, text, strlen(text));
 		err = 0;
 	lexItems = lexText((struct __vec *)textStr, &err);
@@ -364,6 +400,7 @@ static void varDeclTests() {
 	//
 	
 	text = "I64i (*func)(I64i(*foo)(),I64i x)";
+	createFile(text);
 	textStr = strCharAppendData(NULL, text, strlen(text));
 
 	err = 0;
@@ -407,6 +444,7 @@ static void varDeclTests() {
 	}
 
 	text = "I64i x dft_val 10 format \"%s\"";
+	createFile(text);
 	textStr = strCharAppendData(NULL, text, strlen(text));
 
 	err = 0;
@@ -439,6 +477,7 @@ void classParserTests() {
 	                   "    I64i a dft_val 10,b,c;\n"
 	                   "    U8i d;\n"
 	                   "};";
+	createFile(text);
 	__auto_type textStr = strCharAppendData(NULL, text, strlen(text));
 
 	__auto_type lexItems = lexText((struct __vec *)textStr, NULL);
@@ -471,6 +510,7 @@ void classParserTests() {
 	text = "class class_foo {\n"
 	       "I64i x;"
 	       "} a,b,c";
+	createFile(text);
 	textStr = strCharAppendData(NULL, text, strlen(text));
 
 	int err;
@@ -498,6 +538,7 @@ void classParserTests() {
 }
 void keywordTests() {
 	const char *text = "if(1) {a;} else {b;}";
+	createFile(text);
 	__auto_type textStr = strCharAppendData(NULL, text, strlen(text));
 
 	int err;
@@ -526,6 +567,7 @@ void keywordTests() {
 	}
 
 	text = "I64i x; for(I64i x=0;x!=10;++x) {x;}";
+	createFile(text);
 	textStr = strCharAppendData(NULL, text, strlen(text));
 
 	lexItems = lexText((struct __vec *)textStr, &err);
@@ -553,6 +595,7 @@ void keywordTests() {
 	}
 	
 	text = "while(1) {1+1;}";
+	createFile(text);
 	textStr = strCharAppendData(NULL, text, strlen(text)); 
 	
 	lexItems = lexText((struct __vec *)textStr, &err);
@@ -568,6 +611,7 @@ void keywordTests() {
 	}
 	
 	text = "do ; while(1);";
+	createFile(text);
 	textStr = strCharAppendData(NULL, text, strlen(text));
 	
 	lexItems = lexText((struct __vec *)textStr, &err);
@@ -587,6 +631,7 @@ void keywordTests() {
 	  "case :\n"
 	  "default :"
 	  "}";
+	createFile(text);
 	textStr=strCharAppendData(NULL,text,strlen(text));
 
 	lexItems=lexText((struct __vec*)textStr, &err);
@@ -625,6 +670,7 @@ void keywordTests() {
 	  "default :\n"
 			"end:\n"
 	  "}";
+	createFile(text);
 	textStr=strCharAppendData(NULL,text,strlen(text));
 
 	lexItems=lexText((struct __vec*)textStr, &err);
@@ -648,6 +694,7 @@ static void funcTests() {
 		const char *text=
 				"U0 foo(I64i a,I64i b);\n"
 				"U0 foo(I64i a,I64i b) {\"Hi World\";}\n";
+		createFile(text);
 		__auto_type textStr=strCharAppendData(NULL,text,strlen(text));
 		int err;
 		__auto_type lexItems=lexText((struct __vec*)textStr, &err);
@@ -686,10 +733,34 @@ static void funcTests() {
 				assert(scope->stmts[0]->type==NODE_LIT_STR);
 		}
 }
+static void typeTests() {
+		const char *text=
+				"{\n"
+				"F64 x=10;\n"
+				"1+x;\n"
+				"}";
+		createFile(text);
+		__auto_type textStr=strCharAppendData(NULL, text, strlen(text));
+		int err;
+		__auto_type lexItems=lexText((struct __vec*)textStr, &err);
+		assert(!err);
+		__auto_type scope=parseStatement(lexItems, NULL);
+		assert(scope);
+		{
+				assert(scope->type==NODE_SCOPE);
+				struct parserNodeScope *scope2=(void*)scope;
+
+				assert(2==strParserNodeSize(scope2->stmts));
+				assert(scope2->stmts[1]->type==NODE_BINOP);
+				struct parserNodeBinop *binop=(void*)scope2->stmts[1];
+				assert(binop->type==&typeF64);
+		}
+}
 void parserTests() {
 	precParserTests();
 	varDeclTests();
 	classParserTests();
 	keywordTests();
 	funcTests();
+	typeTests();
 }
