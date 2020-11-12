@@ -2270,7 +2270,7 @@ end:
 }
 struct parserNode *parseFunction(llLexerItem start,llLexerItem *end) {
 		__auto_type originalStart=start;
-		struct parserNode *name=nameParse(start, NULL, &start);
+ 	struct parserNode *name=nameParse(start, NULL, &start);
 		if(!name)
 				return NULL;
 		parserNodeDestroy(&name);
@@ -2311,9 +2311,10 @@ struct parserNode *parseFunction(llLexerItem start,llLexerItem *end) {
 				}
 				if(!firstRun) {
 						__auto_type comma=expectOp(start, ",");
-						if(comma==NULL)
+						if(comma==NULL) {
 								whineExpected(start, ",");
-						else
+								break;
+						} else
 								start=llLexerItemNext(start);
 				}
 				

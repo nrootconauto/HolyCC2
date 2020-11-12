@@ -35,6 +35,7 @@ enum parserNodeType {
 		NODE_FUNC_DEF,
 		NODE_FUNC_FORWARD_DECL,
 		NODE_FUNC_REF,
+		NODE_MEMBER_ACCESS,
 };
 STR_TYPE_DEF(struct parserNode *,ParserNode);
 STR_TYPE_FUNCS(struct parserNode *,ParserNode);
@@ -215,6 +216,11 @@ struct parserNodeFuncDef {
 struct parserNodeFuncRef {
 		struct parserNode base;
 		struct function *func;
+		struct parserNode *name;
+};
+struct parserNodeMemberAccess {
+		struct parserNode base;
+		struct parserNode *exp;
 		struct parserNode *name;
 };
 struct parserNodeFuncForwardDec {

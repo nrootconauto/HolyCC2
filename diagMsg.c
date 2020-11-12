@@ -279,7 +279,7 @@ static void qouteLine(struct diagInst *inst,long start,long end,strDiagQoute qou
 		if(line+1>=strLongSize(inst->lineStarts))
 				lineEnd=fileSize(inst->sourceFile);
 		else
-				lineEnd=goBeforeNewLine(inst->sourceFile,inst->lineStarts[line+1])+1; 
+				lineEnd=goBeforeNewLine(inst->sourceFile,inst->lineStarts[line+1])+1;
 
 		//Start of line
 		getLineCol(inst,start,&line,&col);
