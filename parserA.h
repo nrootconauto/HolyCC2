@@ -5,7 +5,6 @@
 enum parserNodeType {
 		NODE_BINOP,
 		NODE_UNOP,
-		NODE_INT,
 		NODE_STR,
 		NODE_NAME,
 		NODE_OP,

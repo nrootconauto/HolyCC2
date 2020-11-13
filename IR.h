@@ -4,6 +4,7 @@
 #include <str.h>
 #include <linkedList.h>
 #include <graph.h>
+#include <lexer.h>
 enum IRFlag {
 		IR_FLAG_EQZ,
 		IR_FLAG_NEQZ,
@@ -27,6 +28,7 @@ enum IRConnType {
 		IR_CONN_COND_TRUE,
 		IR_CONN_COND_FALSE,
 		IR_CONN_COND,
+		IR_CONN_FUNC_ARG,
 };
 enum IRNodeType {
 		IR_STATEMENT,
@@ -80,9 +82,15 @@ enum IRNodeType {
 		//
 		IR_VALUE,
 		IR_LABEL,
+		//
+		IR_FUNC_CALL,
 };
+struct IRNode;
+MAP_TYPE_DEF(void*, IRNodeAttr);
+MAP_TYPE_FUNCS(void*, IRNodeAttr);
 struct IRNode {
 		enum IRNodeType type;
+		mapIRNodeAttr attrs; //NULL by defualt
 };
 GRAPH_TYPE_DEF(struct IRNode, enum IRConnType, IR);
 GRAPH_TYPE_FUNCS(struct IRNode, enum IRConnType, IR);
@@ -94,6 +102,8 @@ enum IRValueType {
 		IR_VAL_INDIRECT,
 		IR_VAL_VAR_REF,
 		IR_VAL_OPRESULT,
+		IR_VAL_FUNC,
+		IR_VAL_INT_LIT,
 };
 struct IRValue;
 struct IRValOpResult {
@@ -120,12 +130,12 @@ enum IRVarType {
 		IR_VAR_VAR,
 		IR_VAR_MEMBER,
 };
-
 struct IRVar {
 		enum IRVarType type;
 		union {
 				struct variable *var;
 				struct parserNodeMemberAccess *member;
+				struct lexerInt intLit;
 		} value;
 };
 struct IRVarRef {
@@ -141,6 +151,8 @@ struct IRValue {
 				struct IRValMemGlobal __global;
 				struct IRValIndirect indir;
 				struct IRValOpResult opRes;
+				struct function *func;
+				struct lexerInt intLit;
 		} value;
 };
 struct IRNodeAssign {
@@ -199,5 +211,9 @@ struct IRNodeLabel {
 };
 struct IRNodeStatement {
 		struct IRNode base;
+};
+struct IRNodeFuncCall {
+		struct IRNode base;
+		strGraphNodeIRP incomingArgs;
 };
 char *IR2Str();
