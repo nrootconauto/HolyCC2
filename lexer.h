@@ -2,6 +2,7 @@
 #include <linkedList.h>
 #include <str.h>
 #include <stringParser.h>
+#include <stdint.h>
 struct lexer;
 enum intType {
 	INT_UINT,
@@ -13,10 +14,10 @@ struct lexerInt {
 	enum intType type;
 	int base;
 	union {
-		signed int sInt;
-		unsigned int uInt;
-		signed long sLong;
-		unsigned long uLong;
+		int32_t sInt;
+		uint32_t uInt;
+		int64_t sLong;
+		uint64_t uLong;
 	} value;
 };
 struct lexerFloating {

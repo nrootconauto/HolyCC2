@@ -147,7 +147,7 @@ static struct __vec *intLex(const struct __vec *new, long pos, long *end,
 	if (err != NULL)
 		*err = 0;
 
-	unsigned long valueU = 0;
+	uint64_t valueU = 0;
 	int base = 10;
 
 	__auto_type New = (char *)new + pos;
@@ -254,8 +254,8 @@ dumpU : {
 	struct lexerInt retVal;
 
 	retVal.base = base;
-	retVal.type = (UINT_MAX <= valueU) ? INT_SLONG : INT_SINT;
-	if (INT_MAX < valueU)
+	retVal.type = (UINT64_MAX <= valueU) ? INT_SLONG : INT_SINT;
+	if (INT64_MAX < valueU)
 		retVal.value.sLong = valueU;
 	else
 		retVal.value.sInt = valueU;
