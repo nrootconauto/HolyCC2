@@ -11,6 +11,7 @@ void graphColoringTests();
 void parserTests();
 void lexerTests();
 void parserDiagTests();
+void base64Tests();
 int main() {
 	strTests();
 	preprocessorTests();
@@ -31,6 +32,7 @@ int main() {
 	lexerTests();
 	parserTests();
 	parserDiagTests();
+	base64Tests();
 	// typeParserTests();
 	return 0;
 }

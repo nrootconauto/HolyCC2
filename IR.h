@@ -29,6 +29,7 @@ enum IRConnType {
 		IR_CONN_COND_FALSE,
 		IR_CONN_COND,
 		IR_CONN_FUNC_ARG,
+		IR_CONN_SIMD_ARG,
 };
 enum IRNodeType {
 		IR_TYPECAST,
@@ -108,11 +109,9 @@ enum IRValueType {
 		IR_VAL_REG,
 		IR_VAL_INDIRECT,
 		IR_VAL_VAR_REF,
-		IR_VAL_OPRESULT,
 		IR_VAL_FUNC,
 		IR_VAL_INT_LIT,
 		IR_VAL_STR_LIT,
-		IR_VAL_MEM_LABEL,
 };
 struct IRValue;
 struct IRValOpResult {
@@ -247,4 +246,4 @@ struct IRNodeStatementEnd {
 		struct IRNode base;
 };
 char *IR2Str();
-graphNodeIR parserNode2IR(const struct parserNode *node) ;
+graphNodeIR parserNode2IRStmt(const struct parserNode *node) ;
