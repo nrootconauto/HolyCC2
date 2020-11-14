@@ -113,7 +113,9 @@ inline str##suffix str##suffix##SetUnion(																															\
 	    int (*pred)(const void *, const void *)) {         \
 		return (str##suffix)__vecSetUnion(                                  \
 		    (struct __vec *)a, (struct __vec *)b, sizeof(type), pred);       \
-	}
+	} \
+	inline str##suffix str##suffix##Pop(str##suffix str,type *res)  __attribute__((always_inline)); \
+	inline str##suffix str##suffix##Pop(str##suffix str,type *res) {long size=str##suffix##Size(str); if(res!=NULL) *res=str[size-1];return str##suffix##Resize(str,size-1);}
 struct __vec *__vecAppendItem(struct __vec *a, const void *item, long itemSize);
 struct __vec *__vecReserve(struct __vec *a, long capacity);
 struct __vec *__vecConcat(struct __vec *a, const struct __vec *b);

@@ -31,6 +31,8 @@ enum IRConnType {
 		IR_CONN_FUNC_ARG,
 };
 enum IRNodeType {
+		IR_TYPECAST,
+		//
 		IR_STATEMENT,
 		//
 		IR_INC,
@@ -229,6 +231,14 @@ struct IRNodeJumpTable {
 		struct IRNode base;
 		long startIndex;
 		strGraphNodeIRP labels;
+};
+struct IRNodeSubSwit {
+		struct IRNode base;
+};
+struct IRNodeTypeCast {
+		struct IRNode base;
+		struct object *in;
+		struct object *out;
 };
 char *IR2Str();
 graphNodeIR parserNode2IR(const struct parserNode *node,int createStatement) ;

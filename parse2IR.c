@@ -3,7 +3,6 @@
 #include <linkedList.h>
 #include <hashTable.h>
 #include <assert.h>
-#include <parse2IR.h>
 #include <stdio.h>
 #include <exprParser.h>
 #include <stdarg.h>
@@ -476,7 +475,11 @@ static graphNodeIR createValueFromLabel(graphNodeIR lab)  {
 //
 // Groups consecutive elemetns in "mini" jump tables,this prevents gaint jump-tables
 // 
-graphNodeIR __createSwitchCodeAfterBody(graphNodeIR cond,struct parserNode *node) {
+static graphNodeIR  __createSwitchCodeAfterBody(graphNodeIR cond,const struct parserNode *node) {
+		__auto_type entry=createLabel();
+		connectCurrentsToNode(entry);
+		setCurrentNodes(currentGen,entry, NULL);
+		
 		strParserNode cases=NULL;
 		struct parserNode *dft=NULL;
 
@@ -704,6 +707,8 @@ graphNodeIR __createSwitchCodeAfterBody(graphNodeIR cond,struct parserNode *node
 				graphNodeIRKill(&node, IRNodeDestroy, NULL);
 		}
 		strParserNodeDestroy(&subs);
+
+		return entry;
 }
 graphNodeIR parserNode2IR(const struct parserNode *node,int createStatement) {
 		graphNodeIR retVal=NULL;
@@ -796,12 +801,15 @@ graphNodeIR parserNode2IR(const struct parserNode *node,int createStatement) {
 				setCurrentNodes(currentGen,GRAPHN_ALLOCATE(lab),NULL);
 				return currentGen->currentNodes[0];
 		};
+		case NODE_VAR_DECL:
+		case NODE_VAR_DECLS:
 		case NODE_OP:
 		case NODE_NAME:
 		case NODE_META_DATA:
 		case NODE_KW:
 		case NODE_FUNC_DEF:
 		case NODE_FUNC_FORWARD_DECL:
+		case NODE_UNION_DEF:
 		case NODE_CLASS_DEF: {
 				// Classes dont exist in code
 				return NULL;
@@ -1010,7 +1018,7 @@ graphNodeIR parserNode2IR(const struct parserNode *node,int createStatement) {
 				lab.base.type=IR_LABEL;
 
 				__auto_type ptrStr=ptr2Str(labNode);
-				mapParserNodeInsert(currentGen->labels, ptrStr, (struct parserNode*)node);
+				mapParserNodeInsert(currentGen->labelsByParserNode, ptrStr, (struct parserNode*)node);
 				strCharDestroy(&ptrStr);
 				
 				return GRAPHN_ALLOCATE(lab);
@@ -1045,7 +1053,7 @@ graphNodeIR parserNode2IR(const struct parserNode *node,int createStatement) {
 				}
 		}
 		case NODE_MEMBER_ACCESS: {
-				return insertVar(node);
+				return insertVar(node, 0);
 		}
 		case NODE_SCOPE: {
 				struct parserNodeScope *scope=(void*)node;
@@ -1060,7 +1068,57 @@ graphNodeIR parserNode2IR(const struct parserNode *node,int createStatement) {
 				return top;
 		}
 		case NODE_SUBSWITCH: {
+				struct IRNodeSubSwit subSwitNode;
+				subSwitNode.base.attrs=NULL;
+				subSwitNode.base.type=IR_SUB_SWITCH_START_LABEL;
+
+				return GRAPHN_ALLOCATE(subSwitNode);
+		}
+		case NODE_SWITCH: {
+				struct parserNodeSwitch *swit=(void*)node;
+				__auto_type condRes= parserNode2IR(swit->exp, 1);
+				__auto_type condVar=createVirtVar(assignTypeToOp(swit->exp));
+				IRAssign(createVarRef(condVar), condRes);
+				return __createSwitchCodeAfterBody(createVarRef(condVar), node);
+		}
+		case NODE_TYPE_CAST: {
+				struct parserNodeTypeCast *pnCast=(void*)node;
 				
+				struct IRNodeTypeCast cast;
+				cast.base.attrs=NULL;
+				cast.base.type=IR_TYPECAST;
+				cast.in=assignTypeToOp(pnCast->exp) ;
+				cast.out=pnCast->type;
+
+				return GRAPHN_ALLOCATE(cast);
+		}
+		case NODE_VAR: {
+				struct parserNodeVar *var=(void*)node;
+				return createVarRef(var->var);
+		}
+		case NODE_WHILE: {
+				struct parserNodeWhile *wh=(void*)node;
+				
+				__auto_type cond=parserNode2IR(wh->cond, 1);
+
+				__auto_type startLab=createLabel();
+				__auto_type endLab=createLabel();
+				__auto_type cJmp=IRCondJump(cond, NULL, endLab);
+
+				//Create scope for break statement
+				struct IRGenScopeStack scope;
+				scope.type=SCOPE_TYPE_LOOP;
+				scope.value.loop.next=startLab;
+				scope.value.loop.exit=endLab;
+				currentGen->scopes=strScopeStackAppendItem(currentGen->scopes, scope);
+
+				//Body
+				parserNode2IR(wh->body, 1);
+				
+				//Pop
+				currentGen->scopes=strScopeStackPop(currentGen->scopes,NULL);
+
+				return cond;
 		}
 		}
 }
