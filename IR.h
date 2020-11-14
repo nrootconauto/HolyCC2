@@ -85,6 +85,8 @@ enum IRNodeType {
 		IR_LABEL,
 		//
 		IR_FUNC_CALL,
+		//
+		IR_SUB_SWITCH_START_LABEL,
 };
 struct IRNode;
 MAP_TYPE_DEF(void*, IRNodeAttr);
@@ -159,7 +161,7 @@ struct IRValue {
 				struct {
 						struct object *type;
 				} __virtVar;
-				char *memLabel;
+				graphNodeIR memLabel;
 		} value;
 };
 struct IRNodeAssign {
