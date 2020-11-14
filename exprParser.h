@@ -1,3 +1,3 @@
 #pragma once
 struct parserNode;
-struct object *assignTypeToOp(struct parserNode *node);
+struct object *assignTypeToOp(const struct parserNode *node);

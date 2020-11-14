@@ -84,12 +84,12 @@ struct __ll;
 	inline void ll##suffix##InsertListAfter(ll##suffix node, ll##suffix item) {  \
 		llInsertListAfter(node, item);                                             \
 	} \
+	inline ll##suffix ll##suffix##Find(																																				\
+																																				const ll##suffix node, const void *data,	\
+																																				int (*pred)(const void *, const void *)) __attribute__((always_inline)); \
 	inline ll##suffix ll##suffix##Find(                                     \
-	    const ll##suffix node, const void *data,                                 \
-	    int (*pred)(const void *, const void *)) __attribute__((always_inline)); \
-	inline ll##suffix ll##suffix##Find(                                     \
-	    const ll##suffix node, const void *data,                                 \
-	    int (*pred)(const void *, const void *)) {return (ll##suffix)__llFind((struct __ll*)node,data,pred);}
+																																			const ll##suffix node, const void *data,	\
+																																				int (*pred)(const void *, const void *)) {return (ll##suffix)__llFind((struct __ll*)node,data,pred);}
 void __llDestroy(struct __ll *node, void (*killFunc)(void *));
 void *__llValuePtr(const struct __ll *node);
 struct __ll *__llRemoveNode(struct __ll *node);

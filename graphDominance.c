@@ -3,6 +3,7 @@
 #include <linkedList.h>
 #include <stdio.h>
 #include <str.h>
+#include <stdlib.h>
 static int alwaysTrue(const struct __graphNode *node,
                       const struct __graphEdge *edge, const void *data) {
 	return 1;
@@ -40,7 +41,7 @@ static void visitNode(struct __graphNode *node, void *visited) {
 	}
 }
 static struct graphDominators *
-llDominatorsFind(llDominators list, const struct __graphNode *node) {
+llDominatorsFind2(llDominators list, const struct __graphNode *node) {
 	return llDominatorsValuePtr(
 	    llDominatorsFindRight(llDominatorsFirst(list), node, llDominatorCmp));
 }
@@ -77,7 +78,7 @@ llDominators graphComputeDominatorsPerNode(struct __graphNode *start) {
 			if (allNodes[i] == start)
 				continue;
 
-			__auto_type currentNode = llDominatorsFind(list, allNodes[i]);
+			__auto_type currentNode = llDominatorsFind2(list, allNodes[i]);
 			__auto_type old = strGraphNodePAppendData(
 			    NULL, (const struct __graphNode **)currentNode->dominators,
 			    strGraphNodePSize(currentNode->dominators));
@@ -89,7 +90,7 @@ llDominators graphComputeDominatorsPerNode(struct __graphNode *start) {
 			for (long i = 0; i != strGraphEdgePSize(preds); i++) {
 				__auto_type incoming = __graphEdgeIncoming(preds[i]);
 
-				__auto_type current = llDominatorsFind(list, incoming);
+				__auto_type current = llDominatorsFind2(list, incoming);
 
 				// Intersection begins with first set,so append to current items
 				if (i == 0) {
@@ -154,7 +155,7 @@ static int nodeEqual(const void *b, const void *data) {
 }
 struct __graphNode *graphDominatorIdom(const llDominators doms,
                                        struct __graphNode *node) {
-	__auto_type entry = llDominatorsFind(doms, node);
+	__auto_type entry = llDominatorsFind2(doms, node);
 	__auto_type clone = strGraphNodePAppendData(
 	    NULL, (const struct __graphNode **)entry->dominators,
 	    strGraphNodePSize(entry->dominators));
@@ -168,7 +169,7 @@ struct __graphNode *graphDominatorIdom(const llDominators doms,
 				if (clone[i2] == node)
 					continue;
 
-				__auto_type i2Doms = llDominatorsFind(doms, clone[i2]);
+				__auto_type i2Doms = llDominatorsFind2(doms, clone[i2]);
 				/**
 				 * clone[i] in [doms]
 				 */

@@ -33,7 +33,8 @@ enum IRConnType {
 enum IRNodeType {
 		IR_TYPECAST,
 		//
-		IR_STATEMENT,
+		IR_STATEMENT_START,
+		IR_STATEMENT_END,
 		//
 		IR_INC,
 		IR_DEC,
@@ -110,6 +111,7 @@ enum IRValueType {
 		IR_VAL_OPRESULT,
 		IR_VAL_FUNC,
 		IR_VAL_INT_LIT,
+		IR_VAL_STR_LIT,
 		IR_VAL_MEM_LABEL,
 };
 struct IRValue;
@@ -160,6 +162,7 @@ struct IRValue {
 				struct IRValOpResult opRes;
 				struct function *func;
 				struct lexerInt intLit;
+				const char *strLit;
 				struct {
 						struct object *type;
 				} __virtVar;
@@ -220,9 +223,6 @@ struct IRNodeArrayAccess {
 struct IRNodeLabel {
 		struct IRNode base;
 };
-struct IRNodeStatement {
-		struct IRNode base;
-};
 struct IRNodeFuncCall {
 		struct IRNode base;
 		strGraphNodeIRP incomingArgs;
@@ -240,5 +240,11 @@ struct IRNodeTypeCast {
 		struct object *in;
 		struct object *out;
 };
+struct IRNodeStatementStart {
+		struct IRNode base;
+};
+struct IRNodeStatementEnd {
+		struct IRNode base;
+};
 char *IR2Str();
-graphNodeIR parserNode2IR(const struct parserNode *node,int createStatement) ;
+graphNodeIR parserNode2IR(const struct parserNode *node) ;

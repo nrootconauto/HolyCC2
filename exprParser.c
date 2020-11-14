@@ -5,7 +5,7 @@
 #include <hashTable.h>
 #include <stdio.h>
 #include <parserB.h>
-struct object * assignTypeToOp(struct parserNode *node);
+struct object * assignTypeToOp(const struct parserNode *node);
 static int isArith(struct object *type) {
 		if(
 					type==&typeU8i
@@ -149,7 +149,7 @@ static void incompatTypes(struct parserNode *node,struct object *expected) {
 		
 		free(haveName),free(expectedName);
 }
-struct object *assignTypeToOp(struct parserNode *node) {
+struct object *assignTypeToOp(const struct parserNode *node) {
 		if(node->type==NODE_FUNC_REF) {
 				struct parserNodeFuncRef *ref=(void*)node;
 				return ref->func->type;
