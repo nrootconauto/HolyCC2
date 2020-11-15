@@ -57,6 +57,23 @@ graphNodeIR createBinop(graphNodeIR a,graphNodeIR b,enum IRNodeType type) {
 
 		return GRAPHN_ALLOCATE(lab);
 }
+graphNodeIR createStmtStart() {
+		struct IRNodeStatementStart start;
+		start.base.attrs=NULL;
+		start.base.type=IR_STATEMENT_START;
+		start.end=NULL;
+
+		return GRAPHN_ALLOCATE(start);
+}
+graphNodeIR createStmtEnd(graphNodeIR start) {
+		struct IRNodeStatementStart end;
+		end.base.attrs=NULL;
+		end.base.type=IR_STATEMENT_START;
+
+		__auto_type retVal=GRAPHN_ALLOCATE(end);
+		((struct IRNodeStatementStart*)graphNodeIRValuePtr(start))->end=retVal;
+		return retVal;
+}
 struct variable *createVirtVar(struct object *type) {
 		struct variable var;
 		var.name=NULL;
@@ -113,3 +130,53 @@ graphNodeIR createValueFromLabel(graphNodeIR lab) {
 		return GRAPHN_ALLOCATE(lab);
 } 
 __thread mapIRVarRefs IRVars;
+void  IRNodeDestroy(void * item) {
+		struct IRNode *node=item;
+}
+static int ptrPtrCmp(const void *a,const void *b) {
+		if(*(void**)a>*(void**)b)
+				return 1;
+		else if(*(void**)a<*(void**)b)
+				return -1;
+		else
+				return 0;
+}
+strGraphNodeP getStatementNodes(const graphNodeIR stmtStart,const graphNodeIR stmtEnd) {
+		//
+		//Visit all nodes from start->end node of statement
+		//
+		strGraphNodeIRP heads=graphNodeIROutgoingNodes(stmtStart);
+		strGraphNodeIRP allNodes=NULL;
+		while(strGraphNodeIRPSize(heads)) {
+				strGraphNodeIRP unvisitedHeads=NULL;
+				//Add unvisted to visited,
+				for(size_t i=0;i!=strGraphNodeIRPSize(heads);i++) {
+						if(NULL==strGraphNodeIRPSortedFind(allNodes, heads[i], ptrPtrCmp)) {
+								allNodes=strGraphNodeIRPSortedInsert(allNodes, heads[i], ptrPtrCmp);
+								unvisitedHeads=strGraphNodeIRPSortedInsert(unvisitedHeads, heads[i], ptrPtrCmp);
+						}
+				}
+
+				strGraphNodeIRPDestroy(&heads);
+				heads=NULL;
+				//Add outgoing heads to heads
+				for(size_t i=0;i!=strGraphNodeIRPSize(unvisitedHeads);i++) {
+						__auto_type newHeads=graphNodeIROutgoingNodes(unvisitedHeads[i]);
+						for(size_t i=0;i!=strGraphNodeIRPSize(newHeads);i++) {
+								//Dont add end node,we want to stop at end node
+								if(graphNodeIRValuePtr(newHeads[i])->type==IR_STATEMENT_END)
+										continue;
+								
+								//Dont re-insert same head
+								if(NULL==strGraphNodeIRPSortedFind(heads, newHeads[i], ptrPtrCmp))
+											heads=strGraphNodeIRPSortedInsert(heads, newHeads[i], ptrPtrCmp);
+						}
+
+						strGraphNodeIRPDestroy(&newHeads);
+				}
+		}
+
+		return allNodes;
+}
+
+

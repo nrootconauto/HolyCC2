@@ -26,9 +26,9 @@ struct IRAttrHash {
 		struct IRAttr base;
 		 strChar hash;
 };
-llIRAttr createHashAttr(const char *text) {
+static llIRAttr createHashAttr(const char *text) {
 		struct IRAttrHash attr;
-		attr.base.name=IR_ATTR_SUB_EXPR_HASH;
+		attr.base.name=(void*)IR_ATTR_SUB_EXPR_HASH;
 		attr.hash=strClone(text);
 
 		return __llCreate(&attr, sizeof(attr));
@@ -286,43 +286,7 @@ static int ptrPtrCmp(const void *a,const void *b) {
 		else
 				return 0;
 }
-static strGraphNodeP getStatementNodes(graphNodeIR stmtStart,graphNodeIR stmtEnd) {
-//
-		//Visit all nodes from start->end node of statement
-		//
-		strGraphNodeIRP heads=graphNodeIROutgoingNodes(stmtStart);
-		strGraphNodeIRP allNodes=NULL;
-		while(strGraphNodeIRPSize(heads)) {
-				strGraphNodeIRP unvisitedHeads=NULL;
-				//Add unvisted to visited,
-				for(size_t i=0;i!=strGraphNodeIRPSize(heads);i++) {
-						if(NULL==strGraphNodeIRPSortedFind(allNodes, heads[i], ptrPtrCmp)) {
-								allNodes=strGraphNodeIRPSortedInsert(allNodes, heads[i], ptrPtrCmp);
-								unvisitedHeads=strGraphNodeIRPSortedInsert(unvisitedHeads, heads[i], ptrPtrCmp);
-						}
-				}
 
-				strGraphNodeIRPDestroy(&heads);
-				heads=NULL;
-				//Add outgoing heads to heads
-				for(size_t i=0;i!=strGraphNodeIRPSize(unvisitedHeads);i++) {
-						__auto_type newHeads=graphNodeIROutgoingNodes(unvisitedHeads[i]);
-						for(size_t i=0;i!=strGraphNodeIRPSize(newHeads);i++) {
-								//Dont add end node,we want to stop at end node
-								if(graphNodeIRValuePtr(newHeads[i])->type==IR_STATEMENT_END)
-										continue;
-								
-								//Dont re-insert same head
-								if(NULL==strGraphNodeIRPSortedFind(heads, newHeads[i], ptrPtrCmp))
-											heads=strGraphNodeIRPSortedInsert(heads, newHeads[i], ptrPtrCmp);
-						}
-
-						strGraphNodeIRPDestroy(&newHeads);
-				}
-		}
-
-		return allNodes;
-}
 STR_TYPE_DEF(char *,Str);
 STR_TYPE_FUNCS(char *,Str);
 GRAPH_TYPE_DEF(const char *, void*, Dummy);
@@ -418,12 +382,55 @@ static void removeSubExprs() {
 						goto end;
 				}
 				//
-				// Now that we have a topological sort,we can
+				// Now that we have a topological sort,we can start from the "tops" and work our way
+				// to the bottom while replacing the instances of the represented nodes with references
+				// to the first computation to avoid recomputation
 				//
+				for(long i2=0;i2!=strGraphNodeIRPSize(sorted);i2++) {
+						__auto_type hashAttr=llIRAttrFind(graphNodeIRValuePtr(sorted[i2])->attrs , IR_ATTR_SUB_EXPR_HASH ,  IRAttrGetPred);
+						assert(hashAttr);
+
+						__auto_type refs=*mapSubExprsGet(subExprRegistry, __llValuePtr(hashAttr));
+
+						graphNodeIR firstRef=NULL;
+						for(long i3=0;i3!=strSubExprSize(refs);i3++) {
+								if(i2==0) {
+										//Only compute once,so the first element will be the only computation
+										firstRef=refs[i3].node;
+										continue;
+								}
+
+								__auto_type outgoing=graphNodeIROutgoing(refs[i3].node);
+								//"Copy" connections from outgoing to refs[i3].node outgoing neigbors 
+								for(long e=0;e!=strGraphEdgeIRPSize(outgoing);e++) {
+										graphNodeIRConnect(firstRef, graphEdgeIROutgoing(outgoing[e]), *graphEdgeIRValuePtr(outgoing[e]));
+
+										//Remove the outgoing connection from the "old" node so we can kill the redundant expr graph later
+										graphEdgeIRKill(refs[i3].node, graphEdgeIROutgoing(outgoing[e]), NULL, NULL, NULL);
+								}				
+								strGraphEdgeIRPDestroy(&outgoing);
+						
+								//Disconnect node from graph
+								graphNodeIRKillGraph(&refs[i3].node, IRNodeDestroy, NULL);
+						}
+				}
 		}
-		
 	end:
 		strGraphNodePDestroy(&nodes);
 		mapGNDummyDestroy(hashToNode, NULL);
 		strStrDestroy(&repeatedKeys);
 }
+void clearSubExprs() {
+		if(subExprRegistry!=NULL)
+				mapSubExprsDestroy(subExprRegistry, (void(*)(void*))strSubExprDestroy);
+
+		subExprRegistry=mapSubExprsCreate();
+}
+void findSubExprs(const graphNodeIR node) {
+		const struct IRNodeStatementStart *start=(void*)graphNodeIRValuePtr(node);
+		__auto_type end=start->end;
+		__auto_type nodes=getStatementNodes(node, end);
+		for(long i=0;i!=strGraphNodeIRPSize(nodes);i++) {
+				hashNode(nodes[i]);
+		}
+} 

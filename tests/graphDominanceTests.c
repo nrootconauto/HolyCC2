@@ -177,7 +177,6 @@ void graphDominanceTests() {
 		assert(threeFronts->dominators[0] == four);
 	}
 	{
-			//http://pages.cs.wisc.edu/~fischer/cs701.f05/lectures/Lecture22.pdf
 			__auto_type one = graphNodeIntCreate(1, 0);
 			__auto_type two = graphNodeIntCreate(2, 0);
 			__auto_type three = graphNodeIntCreate(3, 0);
