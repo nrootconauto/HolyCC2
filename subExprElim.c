@@ -5,6 +5,7 @@
 #include <stdarg.h>
 #include <base64.h>
 #include <topoSort.h>
+#include <subExprElim.h>
 STR_TYPE_DEF(char ,Char);
 STR_TYPE_FUNCS(char ,Char);
 static strChar ptr2Str(const void* a) {
@@ -82,15 +83,6 @@ STR_TYPE_FUNCS(struct subExpr, SubExpr);
 MAP_TYPE_DEF(strSubExpr, SubExprs);
 MAP_TYPE_FUNCS(strSubExpr, SubExprs);
 static __thread mapSubExprs subExprRegistry=NULL;
-void subExprFinderDeinit() {
-		if(subExprRegistry!=NULL)
-				mapSubExprsDestroy(subExprRegistry, (void(*)(void*))strSubExprDestroy);
-				
-}
-void subExprFinderInit() {
-		subExprFinderDeinit();
-		subExprRegistry=mapSubExprsCreate();
-}
 static strChar hashNode(graphNodeIR node) {
 		__auto_type val=graphNodeIRValuePtr(node);
 
@@ -296,7 +288,7 @@ MAP_TYPE_FUNCS(graphNodeDummy,GNDummy);
 
 STR_TYPE_DEF(strGraphNodeDummyP, DummyBlob);
 STR_TYPE_FUNCS(strGraphNodeDummyP, DummyBlob);
-static void removeSubExprs() {
+void removeSubExprs() {
 		long count;
 		mapSubExprsKeys(subExprRegistry, NULL, &count);
 		const char *keys[count];
@@ -420,9 +412,12 @@ static void removeSubExprs() {
 		mapGNDummyDestroy(hashToNode, NULL);
 		strStrDestroy(&repeatedKeys);
 }
+static void strSubExprDestroy2(void *item) {
+		strSubExprDestroy(item);
+}
 void clearSubExprs() {
 		if(subExprRegistry!=NULL)
-				mapSubExprsDestroy(subExprRegistry, (void(*)(void*))strSubExprDestroy);
+				mapSubExprsDestroy(subExprRegistry, strSubExprDestroy2);
 
 		subExprRegistry=mapSubExprsCreate();
 }

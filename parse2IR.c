@@ -407,7 +407,8 @@ static int caseCmp(const void *a,const void *b) {
 		assert(B->base.type==NODE_CASE);
 
 		return A->valueLower-B->valueLower;
-}static void copyConnectionsIncomingTo(strGraphEdgeIRP incoming,graphNodeIR to) {
+}
+static void copyConnectionsIncomingTo(strGraphEdgeIRP incoming,graphNodeIR to) {
 		for(long i=0;i!=strGraphEdgeIRPSize(incoming);i++) {
 			__auto_type eV=*graphEdgeIRValuePtr(incoming[i]);
 			__auto_type inNode=graphEdgeIRIncoming(incoming[i]);

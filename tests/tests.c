@@ -13,6 +13,7 @@ void lexerTests();
 void parserDiagTests();
 void base64Tests();
 void topoSortTests();
+void subExprElimTests();
 int main() {
 	strTests();
 	preprocessorTests();
@@ -35,6 +36,7 @@ int main() {
 	parserDiagTests();
 	base64Tests();
 	topoSortTests();
+	subExprElimTests();
 	// typeParserTests();
 	return 0;
 }
