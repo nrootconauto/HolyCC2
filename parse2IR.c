@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <exprParser.h>
 #include <stdarg.h>
-
+#include <base64.h>
 static int ptrPtrCmp(const void *a,const void *b) {
 		if(*(void**)a>*(void**)b)
 				return 1;
@@ -15,17 +15,12 @@ static int ptrPtrCmp(const void *a,const void *b) {
 		else
 				return 0;
 }
-
+STR_TYPE_DEF(char ,Char);
+STR_TYPE_FUNCS(char ,Char);
 MAP_TYPE_DEF(enum IRNodeType,IRNodeType);
 MAP_TYPE_FUNCS(enum IRNodeType,IRNodeType);
 #define ALLOCATE(x) ({typeof(&x) ptr=malloc(sizeof(x));memcpy(ptr,&x,sizeof(x));ptr;})
 #define GRAPHN_ALLOCATE(x) ({__graphNodeCreate(&x,sizeof(x),0);})
-struct IRVarRefs {
-		struct IRVar var;
-		long refs;
-};
-MAP_TYPE_DEF(struct IRVarRefs,IRVarRefs);
-MAP_TYPE_FUNCS(struct IRVarRefs,IRVarRefs);
 MAP_TYPE_DEF(struct parserNode*,ParserNode);
 MAP_TYPE_FUNCS(struct parserNode*,ParserNode);
 enum scopeType {
@@ -51,13 +46,22 @@ MAP_TYPE_FUNCS(struct IRValue,StrMemLabel);
 MAP_TYPE_DEF(graphNodeIR,IRNodeByPtr);
 MAP_TYPE_FUNCS(graphNodeIR,IRNodeByPtr);
 struct IRGenInst {
-		mapIRVarRefs vars;
 		mapIRNodeByPtr casesByParserNode;
 		mapParserNode labelsByParserNode;
 		strGraphNodeIRP currentNodes;
 		strScopeStack scopes;
 		mapStrMemLabel strLabels;
 };
+static __thread struct IRGenInst *currentGen=NULL;
+
+static strChar ptr2Str(const void *a) {
+		__auto_type res= base64Enc((const char*)&a, sizeof(a));
+		__auto_type retVal=strCharAppendData(NULL, res, strlen(a)+1);
+		free(res);
+
+		return retVal;
+}
+ 
 static void setCurrentNodes(struct IRGenInst *inst,...) {
 		if(inst->currentNodes)
 				strGraphNodeIRPDestroy(&inst->currentNodes);
@@ -74,14 +78,11 @@ static void setCurrentNodes(struct IRGenInst *inst,...) {
 		}
 		va_end(list);
 }
-static struct IRGenInst *currentGen=NULL;
 static void connectCurrentsToNode(graphNodeIR node) {
 		for(long i=0;i!=strGraphNodeIRPSize(currentGen-> currentNodes);i++) {
 				graphNodeIRConnect(currentGen-> currentNodes[i], node, IR_CONN_FLOW);
 		}
 }
-STR_TYPE_DEF(char , Char);
-STR_TYPE_FUNCS(char , Char);
 static strChar strClone(const char *str) {
 		strChar buffer=strCharResize(NULL,strlen(str)+1);
 		strcpy(buffer, str);
@@ -230,13 +231,6 @@ static graphNodeIR insertVar(const struct parserNode *node,int makeNewVer) {
 				val.val.value.var.SSANum=find->refs	;
 		
 		return GRAPHN_ALLOCATE(val);
-}
-static strChar ptr2Str(const void *ptr) {
-		long len=sprintf(NULL, "%p", ptr);
-		char buffer[len+1];
-		sprintf(buffer, "%p", ptr);
-
-		return strCharAppendData(NULL, buffer, strlen(buffer)+1);
 }
 //
 // Assign operations  take 2 inputs "a" and "b","b" is the dest,"a" is the source
@@ -414,81 +408,6 @@ static int caseCmp(const void *a,const void *b) {
 
 		return A->valueLower-B->valueLower;
 }
-static graphNodeIR createIntLit(int64_t lit) {
-		struct IRNodeValue val;
-		val.base.attrs=NULL;
-		val.base.type=IR_VALUE;
-		val.val.type=IR_VAL_INT_LIT;
-		val.val.value.intLit.base=10;
-		val.val.value.intLit.type=INT_SLONG;
-		val.val.value.intLit.value.sLong=lit;
-
-		return GRAPHN_ALLOCATE(val);
-}
-static graphNodeIR createBinop(graphNodeIR a,graphNodeIR b,enum IRNodeType type) {
-		struct IRNodeBinop binop2;
-		binop2.base.type=type;
-		binop2.base.attrs=NULL;
-		
-		__auto_type retVal=GRAPHN_ALLOCATE(binop2);
-		graphNodeIRConnect(a, retVal, IR_CONN_SOURCE_A);
-		graphNodeIRConnect(b, retVal, IR_CONN_SOURCE_B);
-
-		return retVal;
-}
-static graphNodeIR createLabel() {
-		struct IRNodeLabel lab;
-		lab.base.attrs=NULL;
-		lab.base.type=IR_LABEL;
-
-		return GRAPHN_ALLOCATE(lab);
-}
-static struct variable *createVirtVar(struct object *type) {
-		struct variable var;
-		var.name=NULL;
-		var.refs=NULL;
-		var.type=type;
-		__auto_type alloced=ALLOCATE(var);
-		
-		struct IRVarRefs refs;
-		refs.var.type=IR_VAR_VAR;
-		refs.var.value.var=alloced;
-		refs.refs=0;
-		
-		__auto_type ptrStr=ptr2Str(alloced);
-		mapIRVarRefsInsert(currentGen->vars, ptrStr, refs); 
-		strCharDestroy(&ptrStr);
-		
-		return alloced;
-}
-static graphNodeIR createVarRef(struct variable *var) {
-		__auto_type ptrStr=ptr2Str(var);
-		__auto_type find= mapIRVarRefsGet(currentGen->vars, ptrStr); 
-		strCharDestroy(&ptrStr);
-		//TODO add on not find
-		assert(find);
-
-		struct IRNodeValue val;
-		val.base.attrs=NULL;
-		val.base.type=IR_VALUE;
-		val.val.type=IR_VAL_VAR_REF;
-		
-		val.val.value.var.SSANum=find->refs;
-
-		return GRAPHN_ALLOCATE(val);
-}
-
-static graphNodeIR createJmp(graphNodeIR to) {
-		struct IRNodeJump jmp;
-		jmp.base.attrs=NULL;
-		jmp.forward=-1;
-		jmp.base.type=IR_JUMP;
-
-		__auto_type retVal= GRAPHN_ALLOCATE(jmp);
-		graphNodeIRConnect(to, retVal, IR_CONN_FLOW);
-
-		return retVal;
-}
 
 void  IRNodeDestroy(void * item) {
 		struct IRNode *node=item;
@@ -507,15 +426,6 @@ static void copyConnectionsOutcomingTo(strGraphEdgeIRP outgoing,graphNodeIR to) 
 			graphNodeIRConnect(outNode,to, eV);
 		}
 }
-static graphNodeIR createValueFromLabel(graphNodeIR lab)  {
-		struct IRNodeValue val;
-		val.base.attrs=NULL;
-		val.base.type=IR_VALUE;
-		val.val.type=__IR_VAL_LABEL;
-		val.val.value.memLabel=lab;
-
-		return GRAPHN_ALLOCATE(lab);
-} 
 //
 // Groups consecutive elemetns in "mini" jump tables,this prevents gaint jump-tables
 // 
@@ -562,7 +472,7 @@ static graphNodeIR  __createSwitchCodeAfterBody(graphNodeIR cond,const struct pa
 						miniTab.startIndex=consecStart;
 						
 						long start=i-consecCaseLen;
-						strGraphNodeIRP labels=NULL;
+ 					strGraphNodeIRP labels=NULL;
 						for(long i2=start;i2!=i;i2++) {
 								
 								//Create copies of ranged labels,if 1 value,it is still a range of line

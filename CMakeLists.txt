@@ -28,6 +28,7 @@ list(APPEND sources "diagMsg.c")
 list(APPEND sources "exprParser.c")
 list(APPEND sources "parse2IR.c")
 list(APPEND sources "base64.c")
+list(APPEND sources "topoSort.c")
 
 set(tests "")
 list(APPEND tests "tests/tests.c")
