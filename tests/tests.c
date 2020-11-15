@@ -16,7 +16,7 @@ void topoSortTests();
 int main() {
 	strTests();
 	preprocessorTests();
-	// graphDominanceTests();
+	graphDominanceTests();
 	// graphColoringTests();
 	/**
 

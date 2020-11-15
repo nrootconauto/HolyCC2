@@ -141,7 +141,9 @@ struct __graphEdge;
 	inline strGraphNode##suffix##P graphNode##suffix##OutgoingNodes(const graphNode##suffix node) __attribute__((always_inline)); \
 	inline strGraphNode##suffix##P graphNode##suffix##OutgoingNodes(const graphNode##suffix node) { return __graphNodeOutgoingNodes(node);} \
 	inline strGraphNode##suffix##P graphNode##suffix##IncomingNodes(const graphNode##suffix node) __attribute__((always_inline)); \
-	inline strGraphNode##suffix##P graphNode##suffix##IncomingNodes(const graphNode##suffix node) { return __graphNodeIncomingNodes(node);}
+	inline strGraphNode##suffix##P graphNode##suffix##IncomingNodes(const graphNode##suffix node) { return __graphNodeIncomingNodes(node);} \
+	inline strGraphNode##suffix##P graphNode##suffix##AllNodes(const graphNode##suffix node) __attribute__((always_inline)); \
+	inline strGraphNode##suffix##P graphNode##suffix##AllNodes(const graphNode##suffix node) { return __graphNodeVisitAll((struct __graphNode*)node);}
 void __graphKillAll(struct __graphNode *start, void (*killFunc)(void *),
                     void (*killEdge)(void *));
 void __graphNodeKill(struct __graphNode *node, void (*killNode)(void *item),
@@ -181,3 +183,4 @@ int __graphIsConnectedTo(const struct __graphNode *from,
                          const struct __graphNode *to);
 strGraphNodeP __graphNodeIncomingNodes(const struct __graphNode *node);
 strGraphNodeP __graphNodeOutgoingNodes(const struct __graphNode *node);
+strGraphNodeP __graphNodeVisitAll(const struct __graphNode *start);

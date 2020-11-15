@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <base64.h>
+#include <topoSort.h>
 STR_TYPE_DEF(char ,Char);
 STR_TYPE_FUNCS(char ,Char);
 static strChar ptr2Str(const void* a) {
@@ -285,8 +286,8 @@ static int ptrPtrCmp(const void *a,const void *b) {
 		else
 				return 0;
 }
-static void subExprRemoveFromStmt(graphNodeIR stmtStart,graphNodeIR stmtEnd) {
-		//
+static strGraphNodeP getStatementNodes(graphNodeIR stmtStart,graphNodeIR stmtEnd) {
+//
 		//Visit all nodes from start->end node of statement
 		//
 		strGraphNodeIRP heads=graphNodeIROutgoingNodes(stmtStart);
@@ -319,4 +320,110 @@ static void subExprRemoveFromStmt(graphNodeIR stmtStart,graphNodeIR stmtEnd) {
 						strGraphNodeIRPDestroy(&newHeads);
 				}
 		}
+
+		return allNodes;
+}
+STR_TYPE_DEF(char *,Str);
+STR_TYPE_FUNCS(char *,Str);
+GRAPH_TYPE_DEF(const char *, void*, Dummy);
+GRAPH_TYPE_FUNCS(const char *, void*, Dummy);
+MAP_TYPE_DEF(graphNodeDummy,GNDummy);
+MAP_TYPE_FUNCS(graphNodeDummy,GNDummy);
+
+STR_TYPE_DEF(strGraphNodeDummyP, DummyBlob);
+STR_TYPE_FUNCS(strGraphNodeDummyP, DummyBlob);
+static void removeSubExprs() {
+		long count;
+		mapSubExprsKeys(subExprRegistry, NULL, &count);
+		const char *keys[count];
+		mapSubExprsKeys(subExprRegistry, keys, NULL);
+
+		strStr repeatedKeys=strStrReserve(NULL, count/2);
+		
+		//Filter out keys that only appear once
+		for(long i=0;i!=count;i++) {
+				__auto_type find= *mapSubExprsGet(subExprRegistry, keys[i]);
+				if(strSubExprSize(find)==1)
+						continue;
+
+				repeatedKeys=strStrAppendItem(repeatedKeys, (char*)keys[i]);
+		}
+
+		mapGNDummy hashToNode=mapGNDummyCreate();
+		//Make dummy nodes for repeated keys
+		for(long i=0;i!=strStrSize(repeatedKeys);i++) {
+				mapGNDummyInsert(hashToNode, repeatedKeys[i],graphNodeDummyCreate(repeatedKeys[i], 0));
+		}
+		//Connect nodes
+		for(long i=0;i!=strStrSize(repeatedKeys);i++) {
+				__auto_type find= *mapSubExprsGet(subExprRegistry, repeatedKeys[i]);
+				__auto_type fromNode=mapGNDummyGet(hashToNode, repeatedKeys[i]);
+				
+				//Create connenctions(if said connection exists as a repeated item)
+				for(long i2=0;i2!=strSubExprSize(find);i2++) {
+						__auto_type out=graphNodeDummyOutgoingNodes(find[i2].node);
+						for(long i3=0;i3!=strGraphNodeIRPSize(out);i3++) {
+								//Hash of said node
+								__auto_type hashAttr=llIRAttrFind(graphNodeIRValuePtr(out[i3])->attrs , IR_ATTR_SUB_EXPR_HASH ,  IRAttrGetPred);
+								if(!hashAttr)
+										continue;
+								
+								const char *hash=((struct IRAttrHash *)__llValuePtr(hashAttr))->hash;
+
+								//Ensure is connected to repeated item
+								if(NULL==mapGNDummyGet(hashToNode, hash))
+										continue;
+
+								//Connect(if said connection doesnt already exist)
+								__auto_type toNode=mapGNDummyGet(hashToNode, hash);								
+								if(graphNodeDummyConnectedTo(*fromNode, *toNode))
+										continue;
+								graphNodeDummyConnect(*fromNode, *toNode, NULL);
+						}
+						
+						strGraphNodeIRPDestroy(&out);
+				}
+		}
+
+		//
+		// Nodes may occor in sepratre "blobs"(graphs)
+		// We need to find all the blobs and topologically sort all of them
+		//
+
+		//Find all nodes
+		strGraphNodeP nodes=strGraphNodePResize(NULL, strStrSize(repeatedKeys));
+		for(long i=0;i!=strStrSize(repeatedKeys);i++) {
+				nodes[i]=*mapGNDummyGet(hashToNode, repeatedKeys[i]);
+		}
+		qsort(nodes, strStrSize(repeatedKeys), sizeof(*nodes), ptrPtrCmp);
+
+		//Locate the blobs within the nodes,first locate a blob,remove its nodes from nodes,then repeat until no more nodes
+		strDummyBlob blobs=NULL;
+		while(strGraphNodePSize(nodes)) {
+				__auto_type blob=graphNodeDummyAllNodes(nodes[0]);
+				nodes=strGraphNodeDummyPSetDifference(nodes, blob, ptrPtrCmp);
+				blobs=strDummyBlobAppendItem(blobs, blob);
+		} 
+
+		//
+		// Now we topologically sort the blob to find the "tops" and "bottom"
+		// So we
+		//
+		for(long i=0;i!=strDummyBlobSize(blobs);i++) {
+				// Topological sort
+		
+				__auto_type sorted=topoSort(nodes);
+				if(!sorted) {
+						// I hope you never reach here lol
+						goto end;
+				}
+				//
+				// Now that we have a topological sort,we can
+				//
+		}
+		
+	end:
+		strGraphNodePDestroy(&nodes);
+		mapGNDummyDestroy(hashToNode, NULL);
+		strStrDestroy(&repeatedKeys);
 }

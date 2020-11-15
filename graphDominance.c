@@ -66,7 +66,8 @@ llDominators graphComputeDominatorsPerNode(struct __graphNode *start) {
 		tmp.node = allNodes[i];
 		if (allNodes[i] == start)
 			tmp.dominators = strGraphNodePAppendItem(NULL, start);
-
+		else
+				tmp.dominators=strGraphNodePAppendData(NULL, (void*)allNodes, strGraphNodePSize(allNodes));
 		__auto_type newNode = llDominatorsCreate(tmp);
 		list = llDominatorsInsert(list, newNode, llDominatorCmpInsert);
 	}

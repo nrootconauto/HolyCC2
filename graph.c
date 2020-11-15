@@ -252,27 +252,31 @@ static int __graphAllPred(const struct __graphNode *node, const struct __graphEd
                           const void *data) {
 	return 1;
 }
+
 static void __graphVisitAppend(struct __graphNode *node, void *data) {
 	strGraphNodeP *allNodes = data;
 	*allNodes = strGraphNodePSortedInsert(*allNodes, node, ptrCompare);
 }
-void __graphKillAll(struct __graphNode *start, void (*killFunc)(void *),
-                    void (*killEdge)(void *)) {
-	strGraphNodeP allNodesForward __attribute__((cleanup(strGraphNodePDestroy)));
-	allNodesForward = NULL;
-	__graphNodeVisitForward(start, &allNodesForward, __graphAllPred,
-	                        __graphVisitAppend);
-	for (int i = 0; i != strGraphNodePSize(allNodesForward); i++) {
-		__graphNodeKill(allNodesForward[i], killFunc, killEdge);
-	}
-	//
+strGraphNodeP __graphNodeVisitAll(const struct __graphNode *start) {
+		strGraphNodeP allNodesForward __attribute__((cleanup(strGraphNodePDestroy)));
+		allNodesForward = NULL;
+		__graphNodeVisitForward((struct __graphNode*)start, &allNodesForward, __graphAllPred,
+																										__graphVisitAppend);
+		
 	strGraphNodeP allNodesBackward __attribute__((cleanup(strGraphNodePDestroy)));
 	allNodesBackward = NULL;
-	__graphNodeVisitBackward(start, allNodesBackward, __graphAllPred,
+	__graphNodeVisitBackward((struct __graphNode*)start, allNodesBackward, __graphAllPred,
 	                         __graphVisitAppend);
-	for (int i = 0; i != strGraphNodePSize(allNodesBackward); i++) {
-		__graphNodeKill(allNodesBackward[i], killFunc, killEdge);
+
+	return strGraphNodePSetUnion(allNodesForward, allNodesBackward, ptrCompare);
+}
+void __graphKillAll(struct __graphNode *start, void (*killFunc)(void *),
+                    void (*killEdge)(void *)) {
+		strGraphNodeP allNodes=__graphNodeVisitAll(start);
+	for (int i = 0; i != strGraphNodePSize(allNodes); i++) {
+		__graphNodeKill(allNodes[i], killFunc, killEdge);
 	}
+	strGraphNodePDestroy(&allNodes);
 }
 struct __graphEdge *__graphNodeConnect(struct __graphNode *a,
                                        struct __graphNode *b, void *data,
