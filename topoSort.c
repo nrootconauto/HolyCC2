@@ -30,7 +30,7 @@ strGraphNodeP topoSort(strGraphNodeP nodes) {
 				struct GNCount count;
 				count.node=nodes[i];
 				count.inDegree=strGraphNodePSize(incoming);
-				strGNCountSortedFind(counts,  count, GNCountCmp);
+				counts=strGNCountSortedInsert(counts,  count, GNCountCmp);
 				
 				if(strGraphNodePSize(incoming)==0) {
 						__auto_type newNode=llGNCreate(nodes[i]);
@@ -46,7 +46,8 @@ strGraphNodeP topoSort(strGraphNodeP nodes) {
 		//
 		long count=0;
 		while(llGNSize(queue)) {
-				__auto_type last= llGNRemove(llGNLast(queue));
+				__auto_type last=llGNLast(queue);
+				queue= llGNRemove(last);
 				__auto_type node= *llGNValuePtr(last);
 
 				//Append to retVal;
@@ -67,10 +68,10 @@ strGraphNodeP topoSort(strGraphNodeP nodes) {
 								//newNode is first element
 								queue=newNode;
 						}
-
-						//inc count
-						count++;
 				}
+
+				//inc count
+				count++;
 				
 				llGNDestroy(&last, NULL);
 				strGraphNodePDestroy(&outgoing);

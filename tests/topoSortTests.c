@@ -19,7 +19,7 @@ static void validateTopoSort(strGraphNodeIntP res) {
 				long curIndex=findIndex(res, res[i]);
 				for(long i2=0;i2!=strGraphNodePSize(outgoing);i2++) {
 						long outIndex=findIndex(res, outgoing[i2]);
-						assert(curIndex>outIndex);
+						assert(curIndex<outIndex);
 				}
 		}
 }
