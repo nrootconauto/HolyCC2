@@ -93,11 +93,16 @@ enum IRNodeType {
 		IR_SUB_SWITCH_START_LABEL,
 };
 struct IRNode;
-MAP_TYPE_DEF(void*, IRNodeAttr);
-MAP_TYPE_FUNCS(void*, IRNodeAttr);
+struct IRAttr {
+		void *name;
+};
+LL_TYPE_DEF(struct IRAttr,IRAttr);
+LL_TYPE_FUNCS(struct IRAttr,IRAttr);
+int IRAttrInsertPred(const void*a ,const void* b);
+int IRAttrGetPred(const void* key ,const void* b);
 struct IRNode {
 		enum IRNodeType type;
-		mapIRNodeAttr attrs; //NULL by defualt
+		llIRAttr attrs; //NULL by defualt
 };
 GRAPH_TYPE_DEF(struct IRNode, enum IRConnType, IR);
 GRAPH_TYPE_FUNCS(struct IRNode, enum IRConnType, IR);
@@ -105,9 +110,7 @@ enum IRValueType {
 		__IR_VAL_MEM_FRAME,
 		__IR_VAL_MEM_GLOBAL,
 		__IR_VAL_LABEL,
-		IR_VAL_MEM,
 		IR_VAL_REG,
-		IR_VAL_INDIRECT,
 		IR_VAL_VAR_REF,
 		IR_VAL_FUNC,
 		IR_VAL_INT_LIT,
@@ -118,8 +121,8 @@ struct IRValOpResult {
 		graphNodeIR  node;
 };
 struct IRValIndirect {
-		struct IRValue *base;
-		struct IRValue *index;
+		graphNodeIR base;
+		graphNodeIR index;
 		long scale;
 };
 struct IRValReg {
@@ -162,9 +165,6 @@ struct IRValue {
 				struct function *func;
 				struct lexerInt intLit;
 				const char *strLit;
-				struct {
-						struct object *type;
-				} __virtVar;
 				graphNodeIR memLabel;
 		} value;
 };
@@ -247,3 +247,14 @@ struct IRNodeStatementEnd {
 };
 char *IR2Str();
 graphNodeIR parserNode2IRStmt(const struct parserNode *node) ;
+graphNodeIR createIntLit(int64_t lit);
+graphNodeIR createBinop(graphNodeIR a,graphNodeIR b,enum IRNodeType type);
+graphNodeIR createLabel();
+graphNodeIR createJmp(graphNodeIR to);
+struct IRVarRefs {
+		struct IRVar var;
+		long refs;
+};
+MAP_TYPE_DEF(struct IRVarRefs,IRVarRefs);
+MAP_TYPE_FUNCS(struct IRVarRefs,IRVarRefs);
+extern __thread mapIRVarRefs IRVars;

@@ -318,6 +318,22 @@ strGraphEdgeP __graphNodeOutgoing(const struct __graphNode *node) {
 	}
 	return retVal;
 }
+strGraphNodeP __graphNodeOutgoingNodes(const struct __graphNode *node) {
+		strGraphNodeP retVal = NULL;
+	for (__auto_type node2 = __llGetFirst(node->outgoing); node2 != NULL;
+	     node2 = __llNext(node2)) {
+		retVal = strGraphNodePAppendItem(retVal, __graphEdgeOutgoing(__llValuePtr(node2)));
+	}
+	return retVal;
+}
+strGraphNodeP __graphNodeIncomingNodes(const struct __graphNode *node) {
+		strGraphNodeP retVal = NULL;
+	for (__auto_type node2 = __llGetFirst(node->incoming); node2 != NULL;
+	     node2 = __llNext(node2)) {
+		retVal = strGraphNodePAppendItem(retVal, __graphEdgeIncoming(__llValuePtr(node2)));
+	}
+	return retVal;
+}
 strGraphEdgeP __graphNodeIncoming(const struct __graphNode *node) {
 	strGraphEdgeP retVal = NULL;
 	for (__auto_type node2 = __llGetFirst(node->incoming); node2 != NULL;
@@ -352,3 +368,4 @@ int __graphIsConnectedTo(const struct __graphNode *from,
 	}
 	return 0;
 }
+
