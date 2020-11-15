@@ -3,12 +3,27 @@
 GRAPH_TYPE_DEF(int, void*, Int);
 GRAPH_TYPE_FUNCS(int, void*, Int);
 //https://www.geeksforgeeks.org/topological-sorting-indegree-based-solution/?ref=lbp
+static long findIndex(strGraphNodeIntP nodes,graphNodeInt node) {
+		long index=0;
+		for(;index!=strGraphNodePSize(nodes);index++) {
+				if(nodes[index]==node)
+						break;
+		}
+		assert(index!=strGraphNodePSize(nodes));
+		return index;
+}
 static void validateTopoSort(strGraphNodeIntP res) {
 		for(long i=0;i!=strGraphNodePSize(res);i++) {
-				__auto_type outgoing; 
+				__auto_type outgoing=graphNodeIntOutgoingNodes(res[i]);
+
+				long curIndex=findIndex(res, res[i]);
+				for(long i2=0;i2!=strGraphNodePSize(outgoing);i2++) {
+						long outIndex=findIndex(res, outgoing[i2]);
+						assert(curIndex>outIndex);
+				}
 		}
 }
-int topoSortTests() {
+void topoSortTests() {
 		__auto_type zero=graphNodeIntCreate(0, 0);
 		__auto_type one=graphNodeIntCreate(1, 0);
 		__auto_type two=graphNodeIntCreate(2, 0);
@@ -33,4 +48,6 @@ int topoSortTests() {
 
 		__auto_type res=topoSort(vec);
 		assert(res);
+
+		validateTopoSort(res);
 }

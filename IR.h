@@ -251,6 +251,9 @@ graphNodeIR createIntLit(int64_t lit);
 graphNodeIR createBinop(graphNodeIR a,graphNodeIR b,enum IRNodeType type);
 graphNodeIR createLabel();
 graphNodeIR createJmp(graphNodeIR to);
+graphNodeIR createVarRef(struct variable *var);
+graphNodeIR createValueFromLabel(graphNodeIR lab);
+struct variable *createVirtVar(struct object *type);
 struct IRVarRefs {
 		struct IRVar var;
 		long refs;

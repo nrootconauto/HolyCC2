@@ -200,8 +200,8 @@ static graphNodeIR insertVar(const struct parserNode *node,int makeNewVer) {
 				return NULL;
 
 	loop:;
-		__auto_type find=mapIRVarRefsGet(currentGen->vars, hash) ;
-		if(!find) {
+		__auto_type find=mapIRVarRefsGet(IRVars, hash) ;
+		if(!find){
 				struct IRVar retVal;
 				if(node->type== NODE_MEMBER_ACCESS) {
 						retVal.type=IR_VAR_MEMBER;
@@ -215,7 +215,7 @@ static graphNodeIR insertVar(const struct parserNode *node,int makeNewVer) {
 				struct IRVarRefs refs;
 				refs.refs=0;
 				refs.var=retVal;
-				mapIRVarRefsInsert(currentGen->vars, hash, refs);
+				mapIRVarRefsInsert(IRVars, hash, refs);
 		
 				strCharDestroy(&hash);
 				goto loop;
@@ -258,7 +258,7 @@ graphNodeIR IRAssign(graphNodeIR to,graphNodeIR fromValue) {
 						} else if(val->val.value.var.var.type==IR_VAR_MEMBER) {
 								ptrStr=ptr2Str(val->val.value.var.var.value.member);
 						}
-					__auto_type find=	mapIRVarRefsGet(currentGen->vars, ptrStr);
+					__auto_type find=	mapIRVarRefsGet(IRVars, ptrStr);
 						strCharDestroy(&ptrStr);
 
 						assert(find);

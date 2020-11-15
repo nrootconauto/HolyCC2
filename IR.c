@@ -103,7 +103,7 @@ struct variable *createVirtVar(struct object *type) {
 
 		return retVal;
 }
-static graphNodeIR createValueFromLabel(graphNodeIR lab) {
+graphNodeIR createValueFromLabel(graphNodeIR lab) {
 		struct IRNodeValue val;
 		val.base.attrs=NULL;
 		val.base.type=IR_VALUE;
@@ -112,4 +112,4 @@ static graphNodeIR createValueFromLabel(graphNodeIR lab) {
 
 		return GRAPHN_ALLOCATE(lab);
 } 
-extern __thread mapIRVarRefs IRVars;
+__thread mapIRVarRefs IRVars;
