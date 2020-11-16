@@ -1,15 +1,17 @@
 #include <assert.h>
 #include <subExprElim.h>
+struct variable* a;
 //Assumes "a" is 3,only "+" is implemented
 static int evalIRNode(graphNodeIR node) {
 		struct IRNode *ir=graphNodeIRValuePtr(node);
 		switch(ir->type) {
 		case IR_VALUE: {
-				struct IRValue *value=(void*)ir;
+				struct IRNodeValue *__value=(void*)ir;
+				struct IRValue *value=&__value->val;
 				switch(value-> type) {
 				case IR_VAL_VAR_REF: {
 						assert(value->value.var.var.type==IR_VAR_VAR);
-						if(0==strcmp(value->value.var.var.value.var->name,"a"))
+						if(value->value.var.var.value.var==a)
 								return 3; 
 				}
 				case IR_VAL_INT_LIT: {
@@ -36,7 +38,7 @@ void subExprElimTests() {
 		//a+1+a+1+a+1
 		{
 				initIR();
-		__auto_type a=createVirtVar(&typeI64i);
+				a	=createVirtVar(&typeI64i);
 		__auto_type one1=createIntLit(1);
 		__auto_type one2=createIntLit(1);
 		__auto_type one3=createIntLit(1);
@@ -65,6 +67,7 @@ void subExprElimTests() {
 		findSubExprs(start);
 		removeSubExprs();
 
+		__auto_type s2o= graphNodeIROutgoingNodes(sum2);
 		__auto_type tail=graphNodeIRIncomingNodes(end);
 		assert(strGraphNodeIRPSize(tail)==1);
 		assert(4+4+4==evalIRNode(tail[0]));

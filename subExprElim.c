@@ -84,6 +84,50 @@ STR_TYPE_FUNCS(struct subExpr, SubExpr);
 MAP_TYPE_DEF(strSubExpr, SubExprs);
 MAP_TYPE_FUNCS(strSubExpr, SubExprs);
 static __thread mapSubExprs subExprRegistry=NULL;
+
+static int ptrPtrCmp(const void *a,const void *b) {
+		if(*(void**)a>*(void**)b)
+				return 1;
+		else if(*(void**)a<*(void**)b)
+				return -1;
+		else
+				return 0;
+}
+static int subExprCmp(const void * a,const void * b) {
+		const struct subExpr *A=a,*B=b;
+		return ptrPtrCmp(&A->node, &B->node);
+}
+static void registerItemHash(graphNodeIR node,const char *text,struct subExpr expr) {
+		__auto_type attrsPtr=&graphNodeIRValuePtr(node)->attrs;
+
+		//Check if item already has hash attr(hence was registered already,we dont want to rehash elems)
+		int find=0;
+		__auto_type find2=mapSubExprsGet(subExprRegistry, text);
+		if(find2) {
+				for(long i=0;i!=strSubExprSize(*find2);i++) {
+						if(find2[0][i].node==node){
+								find=1;
+								break;
+						} else if(find2[0][i].node>node)
+								break;
+				}
+		}
+		
+		if(!find) {
+				//Assign hash to node
+				__auto_type newNode=createHashAttr(text); 
+				llIRAttrInsert(*attrsPtr,newNode,IRAttrInsertPred);
+				*attrsPtr=newNode;
+
+				//Register find
+				if(find2) {
+						*find2=strSubExprSortedInsert(*find2, expr, subExprCmp);
+				}else {
+						mapSubExprsInsert(subExprRegistry, text,  strSubExprAppendItem(NULL, expr));
+				}
+		}
+}
+
 static strChar hashNode(graphNodeIR node) {
 		__auto_type val=graphNodeIRValuePtr(node);
 
@@ -208,18 +252,8 @@ static strChar hashNode(graphNodeIR node) {
 						sub.type=SUB_EXPR_UNOP;
 						sub.subItems.unop=graphEdgeIRIncoming(a);
 
-						//Register expression
-						__auto_type find=mapSubExprsGet(subExprRegistry, retVal);
-						if(find==NULL){
-								mapSubExprsInsert(subExprRegistry, retVal, strSubExprAppendItem(NULL, sub));
-						} else {
-								*find=strSubExprAppendItem(*find, sub);
-						}
-
 						//Assign hash to node
-						__auto_type newNode=createHashAttr(retVal); 
-						IRAttrInsertPred(newNode, graphNodeIRValuePtr(node)->attrs);
-						graphNodeIRValuePtr(node)->attrs=newNode;
+						registerItemHash(node, retVal,sub);
 				}
 						
 				return retVal;
@@ -252,18 +286,7 @@ static strChar hashNode(graphNodeIR node) {
 						sub.subItems.binop.a=graphEdgeIRIncoming(a);
 						sub.subItems.binop.b=graphEdgeIRIncoming(b);
 
-						//Register expression
-						__auto_type find=mapSubExprsGet(subExprRegistry, retVal);
-						if(find==NULL){
-								mapSubExprsInsert(subExprRegistry, retVal, strSubExprAppendItem(NULL, sub));
-						} else {
-								*find=strSubExprAppendItem(*find, sub);
-						}
-						
-						//Assign hash to node
-						__auto_type newNode=createHashAttr(retVal); 
-						llIRAttrInsert(graphNodeIRValuePtr(node)->attrs,newNode,IRAttrInsertPred);
-						graphNodeIRValuePtr(node)->attrs=newNode;
+						registerItemHash(node, retVal,sub);
 				}
 				
 				strCharDestroy(&aHash);
@@ -271,15 +294,6 @@ static strChar hashNode(graphNodeIR node) {
 				return retVal;
 		}
 }
-static int ptrPtrCmp(const void *a,const void *b) {
-		if(*(void**)a>*(void**)b)
-				return 1;
-		else if(*(void**)a<*(void**)b)
-				return -1;
-		else
-				return 0;
-}
-
 STR_TYPE_DEF(char *,Str);
 STR_TYPE_FUNCS(char *,Str);
 GRAPH_TYPE_DEF(const char *, void*, Dummy);
@@ -413,10 +427,12 @@ void removeSubExprs() {
 								strGraphEdgeIRPDestroy(&outgoing);
 								
 								//Disconnect node from start stmt
-								strGraphNodeIRP untilStart=NULL;
+								strGraphNodeIRP untilStart=strGraphNodeIRPAppendItem(NULL, refs[i3].node);
 								graphNodeIRVisitBackward(refs[i3].node, &untilStart, visitUntillStartStmt,visitNodeAppendItem);
 								for(long i=0;i!=strGraphNodeIRPSize(untilStart);i++)
 										graphNodeIRKill(&untilStart[i], IRNodeDestroy, NULL);
+								
+								strGraphNodeIRPDestroy(&untilStart);
 						}
 				}
 		}

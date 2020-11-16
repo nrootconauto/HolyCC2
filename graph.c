@@ -329,7 +329,7 @@ strGraphNodeP __graphNodeOutgoingNodes(const struct __graphNode *node) {
 		strGraphNodeP retVal = NULL;
 	for (__auto_type node2 = __llGetFirst(node->outgoing); node2 != NULL;
 	     node2 = __llNext(node2)) {
-		retVal = strGraphNodePAppendItem(retVal, __graphEdgeOutgoing(__llValuePtr(node2)));
+		retVal = strGraphNodePAppendItem(retVal, __graphEdgeOutgoing(llGraphEdgeValuePtr(node2)));
 	}
 	return retVal;
 }
@@ -337,7 +337,7 @@ strGraphNodeP __graphNodeIncomingNodes(const struct __graphNode *node) {
 		strGraphNodeP retVal = NULL;
 	for (__auto_type node2 = __llGetFirst(node->incoming); node2 != NULL;
 	     node2 = __llNext(node2)) {
-		retVal = strGraphNodePAppendItem(retVal, __graphEdgeIncoming(__llValuePtr(node2)));
+			retVal = strGraphNodePAppendItem(retVal, __graphEdgeIncoming(llGraphEdgeValuePtr(*llLLValuePtr(node2))));
 	}
 	return retVal;
 }
