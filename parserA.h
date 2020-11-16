@@ -39,9 +39,10 @@ STR_TYPE_DEF(struct parserNode *,ParserNode);
 STR_TYPE_FUNCS(struct parserNode *,ParserNode);
 struct parserNode ;
 struct variable {
- char *name;
- struct object *type;
- strParserNode refs;
+		char *name;
+		struct object *type;
+		strParserNode refs;
+		int isGlobal;
 };
 struct function {
 		char *name;

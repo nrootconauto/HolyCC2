@@ -39,7 +39,8 @@ void addVar(const struct parserNode *name, struct object *type) {
 	struct variable var;
 	var.type = type;
 	var.refs = strParserNodeAppendItem(NULL, (struct parserNode *)name);
-
+	var.isGlobal=llScopeValuePtr(currentScope)->parent==NULL;
+	
 	assert(name->type == NODE_NAME);
 	struct parserNodeName *name2 = (void *)name;
 	var.name = malloc(strlen(name2->text) + 1);
