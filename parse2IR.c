@@ -136,11 +136,14 @@ static void visitNode(struct __graphNode *node,void *data) {
 		if(NULL==strGraphNodeIRPSortedFind(visited, (void*)node, ptrPtrCmp))
 				visited=strGraphNodeIRPSortedInsert(visited, node, ptrPtrCmp);
 }
+static __thread graphNodeIR currentStatement=NULL;
 static void enterStatement()  {
+		assert(currentStatement==NULL);
+		
 		struct IRNodeStatementStart start;
 		start.base.attrs=NULL;
 		start.base.type=IR_STATEMENT_START;
-
+		
 		__auto_type node=GRAPHN_ALLOCATE(start);
 		connectCurrentsToNode(node);
 		setCurrentNodes(currentGen, node,NULL);
@@ -153,6 +156,10 @@ static void leaveStatement()  {
 		__auto_type node=GRAPHN_ALLOCATE(end);
 		connectCurrentsToNode(node);
 		setCurrentNodes(currentGen, node,NULL);
+
+		((struct IRNodeStatementStart*) graphNodeIRValuePtr(currentStatement))->end=node;
+		
+		currentStatement=NULL;
 }
 static char *IRVarHash(const struct parserNode *node) {
 		if(node->type==NODE_VAR) {

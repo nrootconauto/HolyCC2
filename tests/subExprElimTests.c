@@ -2,38 +2,6 @@
 #include <subExprElim.h>
 struct variable* a;
 //Assumes "a" is 3,only "+" is implemented
-static int evalIRNode(graphNodeIR node) {
-		struct IRNode *ir=graphNodeIRValuePtr(node);
-		switch(ir->type) {
-		case IR_VALUE: {
-				struct IRNodeValue *__value=(void*)ir;
-				struct IRValue *value=&__value->val;
-				switch(value-> type) {
-				case IR_VAL_VAR_REF: {
-						assert(value->value.var.var.type==IR_VAR_VAR);
-						if(value->value.var.var.value.var==a)
-								return 3; 
-				}
-				case IR_VAL_INT_LIT: {
-						return value->value.intLit.value.sInt;
-				}
-						default:
-								assert(0);
-				} 
-		}
-		case IR_ADD: {
-				__auto_type incoming =graphNodeIRIncomingNodes(node);
-				int sum=0;
-				for(int i=0;i!=2;i++)
-						sum+=evalIRNode(incoming[i]);
-				
-				return sum;
-		}
-				default:
-						assert(0);
-		}
-		return 0;
-}
 void subExprElimTests() {
 		//a+1+a+1+a+1
 		{
