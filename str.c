@@ -21,7 +21,7 @@ void __vecDestroy(struct __vec *a) {
 }
 struct __vec *__vecResize(struct __vec *a, long size) {
 	if (a == NULL) {
-		a = malloc(2 * sizeof(long));
+		a = malloc(2 * sizeof(long)+size);
 		memset(a, 0, 2 * sizeof(long));
 		if (a == NULL)
 			return NULL;
@@ -269,18 +269,22 @@ struct __vec *__vecSetUnion(struct __vec *a,struct __vec *b,long itemSize,int(*p
 		void * e1=s1+__vecSize(a);
 		void * e2=s2+__vecSize(b);
 
-		a=__vecResize(a, __vecSize(a)+__vecSize(b));
-		void *r=a;
+		__auto_type retVal=__vecResize(NULL, __vecSize(a)+__vecSize(b));
+		void *r=retVal;
 		while(1) {
 				if(s1==e1) {
 						memcpy(r, s2, e2-s2);
 						r+=e2-s2;
-						return __vecResize(a, r-(void*)a);
+
+						__vecDestroy(a);
+						return __vecResize(retVal, r-(void*)retVal);
 				}
 				if(s2==e2) {
-						memcpy(r, s1, e2-s1);
+						memcpy(r, s1, e1-s1);
 						r+=e1-s1;
-						return __vecResize(a, r-(void*)a);
+
+						__vecDestroy(a);
+						return __vecResize(retVal, r-(void*)retVal);
 				}
 				if(pred(s2,s1)>0) {
 						memcpy(r, s1, itemSize);

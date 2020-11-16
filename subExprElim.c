@@ -369,7 +369,7 @@ void removeSubExprs() {
 		for(long i=0;i!=strDummyBlobSize(blobs);i++) {
 				// Topological sort
 		
-				__auto_type sorted=topoSort(nodes);
+				__auto_type sorted=topoSort(blobs[i]);
 				if(!sorted) {
 						// I hope you never reach here lol
 						goto end;
@@ -380,14 +380,14 @@ void removeSubExprs() {
 				// to the first computation to avoid recomputation
 				//
 				for(long i2=0;i2!=strGraphNodeIRPSize(sorted);i2++) {
-						__auto_type hashAttr=llIRAttrFind(graphNodeIRValuePtr(sorted[i2])->attrs , IR_ATTR_SUB_EXPR_HASH ,  IRAttrGetPred);
+						__auto_type hashAttr=*graphNodeDummyValuePtr(sorted[i2]);
 						assert(hashAttr);
 
-						__auto_type refs=*mapSubExprsGet(subExprRegistry, __llValuePtr(hashAttr));
+						__auto_type refs=*mapSubExprsGet(subExprRegistry, hashAttr);
 
 						graphNodeIR firstRef=NULL;
 						for(long i3=0;i3!=strSubExprSize(refs);i3++) {
-								if(i2==0) {
+								if(i3==0) {
 										//Only compute once,so the first element will be the only computation
 										firstRef=refs[i3].node;
 										continue;
@@ -402,9 +402,9 @@ void removeSubExprs() {
 										graphEdgeIRKill(refs[i3].node, graphEdgeIROutgoing(outgoing[e]), NULL, NULL, NULL);
 								}				
 								strGraphEdgeIRPDestroy(&outgoing);
-						
-								//Disconnect node from graph
-								graphNodeIRKillGraph(&refs[i3].node, IRNodeDestroy, NULL);
+								
+						//Disconnect node from graph
+						graphNodeIRKillGraph(&refs[i3].node, IRNodeDestroy, NULL);
 						}
 				}
 		}

@@ -50,7 +50,7 @@ void subExprElimTests() {
 		__auto_type binop3=createBinop(a3, one3, IR_ADD);
 		
 		__auto_type sum1= createBinop(binop1,binop2 ,  IR_ADD);
-		__auto_type sum2= createBinop(sum1,binop3 ,  IR_ADD);
+		__auto_type sum2= createBinop(sum1,binop3,  IR_ADD);
 
 		__auto_type start=createStmtStart();
 		__auto_type end=createStmtEnd(start);

@@ -258,7 +258,7 @@ static void __graphVisitAppend(struct __graphNode *node, void *data) {
 	*allNodes = strGraphNodePSortedInsert(*allNodes, node, ptrCompare);
 }
 strGraphNodeP __graphNodeVisitAll(const struct __graphNode *start) {
-		strGraphNodeP allNodesForward __attribute__((cleanup(strGraphNodePDestroy)));
+		strGraphNodeP allNodesForward =NULL;
 		allNodesForward = strGraphNodePAppendItem(NULL, (void*)start);
 		__graphNodeVisitForward((struct __graphNode*)start, &allNodesForward, __graphAllPred,
 																										__graphVisitAppend);
