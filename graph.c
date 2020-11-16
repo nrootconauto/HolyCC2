@@ -259,15 +259,16 @@ static void __graphVisitAppend(struct __graphNode *node, void *data) {
 }
 strGraphNodeP __graphNodeVisitAll(const struct __graphNode *start) {
 		strGraphNodeP allNodesForward __attribute__((cleanup(strGraphNodePDestroy)));
-		allNodesForward = NULL;
+		allNodesForward = strGraphNodePAppendItem(NULL, (void*)start);
 		__graphNodeVisitForward((struct __graphNode*)start, &allNodesForward, __graphAllPred,
 																										__graphVisitAppend);
 		
 	strGraphNodeP allNodesBackward __attribute__((cleanup(strGraphNodePDestroy)));
 	allNodesBackward = NULL;
-	__graphNodeVisitBackward((struct __graphNode*)start, allNodesBackward, __graphAllPred,
+	__graphNodeVisitBackward((struct __graphNode*)start, &allNodesBackward, __graphAllPred,
 	                         __graphVisitAppend);
 
+	
 	return strGraphNodePSetUnion(allNodesForward, allNodesBackward, ptrCompare);
 }
 void __graphKillAll(struct __graphNode *start, void (*killFunc)(void *),

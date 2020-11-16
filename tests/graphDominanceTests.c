@@ -189,6 +189,6 @@ void graphDominanceTests() {
 			__auto_type oneFronts=llDomFrontierValuePtr(
 																																															llDomFrontierFindRight(llDomFrontierFirst(doms), one, llDomFrontierCmp));
 			assert(strGraphNodeIntPSize(oneFronts->dominators)==1);
-			assert(oneFronts->dominators[0]==two);
+			assert(oneFronts->dominators[0]==one);
 	}
 }

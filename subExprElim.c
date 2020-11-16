@@ -48,7 +48,7 @@ static graphEdgeIR getNodeByLab(strGraphEdgeP edges,enum IRConnType type) {
 						strCharAppendData(NULL,buffer,strlen(buffer)+1);						\
 })
 static strChar intLit2Str(const struct lexerInt *i) {
-		strChar retVal=strCharResize(NULL, 8);
+		strChar retVal=strCharReserve(NULL, 8);
 		retVal=strCharAppendData(retVal, "INT:", strlen("INT:"));
 		
 		__auto_type clone=*i;
@@ -61,6 +61,7 @@ static strChar intLit2Str(const struct lexerInt *i) {
 				retVal=strCharAppendItem(retVal, digits[i]);
 		}
 
+		retVal=strCharAppendItem(retVal, '\0');
 		return retVal;
 }
 enum subExprType {
@@ -235,11 +236,11 @@ static strChar hashNode(graphNodeIR node) {
 				
 				strChar retVal=NULL;
 				if(aHash &&bHash) {
-						long len=sprintf(NULL, "%s [%s][%s]", op,aHash, bHash);
+						long len=snprintf(NULL,0, "%s [%s][%s]", op,aHash, bHash);
 						char buffer[len];
 						sprintf(buffer, "%s [%s][%s]", op,aHash, bHash);
 
-						retVal=strCharAppendItem(NULL, strlen(buffer)+1);
+						retVal=strCharAppendData(NULL, buffer,strlen(buffer)+1);
 				}
 				strGraphEdgeIRPDestroy(&incoming);
 
@@ -261,7 +262,7 @@ static strChar hashNode(graphNodeIR node) {
 						
 						//Assign hash to node
 						__auto_type newNode=createHashAttr(retVal); 
-						IRAttrInsertPred(newNode, graphNodeIRValuePtr(node)->attrs);
+						llIRAttrInsert(graphNodeIRValuePtr(node)->attrs,newNode,IRAttrInsertPred);
 						graphNodeIRValuePtr(node)->attrs=newNode;
 				}
 				

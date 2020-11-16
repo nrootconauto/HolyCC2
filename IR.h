@@ -266,3 +266,4 @@ void  IRNodeDestroy(void * item);
 strGraphNodeP getStatementNodes(graphNodeIR stmtStart,graphNodeIR stmtEnd);
 graphNodeIR createStmtEnd(graphNodeIR start);
 graphNodeIR createStmtStart();
+void initIR();

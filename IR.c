@@ -1,6 +1,7 @@
 #include <IR.h>
 #include <base64.h>
 #include <assert.h>
+#include <subExprElim.h>
 #define ALLOCATE(x) ({typeof(&x) ptr=malloc(sizeof(x));memcpy(ptr,&x,sizeof(x));ptr;})
 #define GRAPHN_ALLOCATE(x) ({__graphNodeCreate(&x,sizeof(x),0);})
 static int ptrCmp(const void *a,const void *b) {
@@ -23,7 +24,7 @@ STR_TYPE_DEF(char,Char);
 STR_TYPE_FUNCS(char,Char);
 static strChar ptr2Str(const void *a) {
 		__auto_type res= base64Enc((const char*)&a, sizeof(a));
-		__auto_type retVal=strCharAppendData(NULL, res, strlen(a)+1);
+		__auto_type retVal=strCharAppendData(NULL, res, strlen(res)+1);
 		free(res);
 
 		return retVal;
@@ -105,7 +106,9 @@ struct variable *createVirtVar(struct object *type) {
 		val.val.type=IR_VAL_VAR_REF;
 		
 		val.val.value.var.SSANum=find->refs;
-
+		val.val.value.var.var.type=IR_VAR_VAR;
+		val.val.value.var.var.value.var=var;
+		
 		return GRAPHN_ALLOCATE(val);
 }
 
@@ -178,5 +181,7 @@ strGraphNodeP getStatementNodes(const graphNodeIR stmtStart,const graphNodeIR st
 
 		return allNodes;
 }
-
-
+void initIR() {
+		clearSubExprs();
+		IRVars=mapIRVarRefsCreate();
+}
