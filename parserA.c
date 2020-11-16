@@ -128,16 +128,121 @@ static struct parserNode *expectOp(llLexerItem _item, const char *text) {
 	}
 	return NULL;
 }
-void parserNodeDestroy(struct parserNode **node) {
-	// TODO implement
-}
-static struct parserNode *nameParse(llLexerItem start, llLexerItem end,
-                                    llLexerItem *result);
 static void strParserNodeDestroy2(strParserNode *nodes) {
 	for (long i = 0; i != strParserNodeSize(*nodes); i++)
 		parserNodeDestroy(&nodes[0][i]);
 	strParserNodeDestroy(nodes);
 }
+void parserNodeDestroy(struct parserNode **__node) {
+		if(__node==NULL)
+				return;
+		struct parserNode *node=*__node;
+		if(node->type==NODE_GOTO) {
+				parserNodeDestroy(&((struct parserNodeGoto*)node)->labelName);
+				free(node);
+		} else if(node->type==NODE_RETURN) {
+				parserNodeDestroy(&((struct parserNodeReturn*)node)->value);
+				free(node);
+		} else if(node->type==NODE_OP) {
+				free(node);
+		} else if(node->type==NODE_UNOP) {
+				__auto_type un=(struct parserNodeUnop*)node;
+				parserNodeDestroy(&un->a);
+				parserNodeDestroy(&un->op);
+				free(node);
+		} else if(node->type==NODE_BINOP) {
+				__auto_type bin=(struct parserNodeBinop*)node;
+				parserNodeDestroy(&bin->a);
+				parserNodeDestroy(&bin->b);
+				parserNodeDestroy(&bin->op);
+				free(node);
+		} else if(node->type==NODE_NAME) {
+				__auto_type name=(struct parserNodeName*)node;
+				free(name->text);
+				free(node);
+		} else if(node->type==NODE_LIT_INT) {
+				__auto_type i=(struct parserNodeLitInt*)node;
+				free(node);
+		} else if(node->type==NODE_LIT_STR) {
+				__auto_type str=(struct parserNodeLitStr*)node;
+				free(str->text);
+				free(node);
+		} else if(node->type==NODE_FUNC_CALL) {
+				__auto_type call=(struct parserNodeFuncCall*)node;
+				parserNodeDestroy(&call->func);
+				strParserNodeDestroy2(&call->args);
+				free(node);
+		} else if(node->type==NODE_COMMA_SEQ) {
+				__auto_type seq=(struct parserNodeCommaSeq*)node;
+				strParserNodeDestroy2(&seq->items);
+				free(node);
+		} else if(node->type==NODE_KW) {
+				__auto_type kw=(struct parserNodeKeyword*)node;
+				free(node);
+		} else if(node->type==NODE_META_DATA) {
+				__auto_type md=(struct parserNodeMetaData*)node;
+				parserNodeDestroy(&md->name);
+				parserNodeDestroy(&md->value);
+				free(node);
+		} else if(node->type==NODE_VAR_DECL) {
+				__auto_type decl=(struct parserNodeVarDecl*)node;
+				parserNodeDestroy(&decl->name);
+				parserNodeDestroy(&decl->dftVal);
+				strParserNodeDestroy2(&decl->metaData);
+				free(node);
+		} else if(node->type==NODE_VAR_DECLS) {
+				__auto_type decls=(struct parserNodeVarDecls*)node;
+				strParserNodeDestroy2(&decls->decls);
+				free(node);
+		} else if(node->type==NODE_CLASS_DEF) {
+				__auto_type cls=(struct parserNodeClassDef*)node;
+				parserNodeDestroy(&cls->name);
+				free(node);
+		} else if(node->type==NODE_UNION_DEF) {
+				__auto_type un=(struct parserNodeUnionDef*)node;
+				parserNodeDestroy(&un->name);
+				free(node);
+		} else if(node->type==NODE_IF) {
+				__auto_type __if=(struct parserNodeIf*)node;
+				parserNodeDestroy(&__if->body);
+				parserNodeDestroy(&__if->cond);
+				parserNodeDestroy(&__if->el);
+				free(node);
+		} else if(node->type==NODE_SCOPE) {
+				__auto_type scope=(struct parserNodeScope*)node;
+				strParserNodeDestroy2(&scope->stmts);
+				free(node);
+		} else if(node->type==NODE_DO) {
+				__auto_type __do=(struct parserNodeDo*)node;
+				parserNodeDestroy(&__do->body);
+				parserNodeDestroy(&__do->cond);
+				free(node);
+		} else if(node->type==NODE_FOR) {
+				__auto_type __for=(struct parserNodeFor*)node;
+				parserNodeDestroy(&__for->body);
+				parserNodeDestroy(&__for->cond);
+				parserNodeDestroy(&__for->inc);
+				parserNodeDestroy(&__for->init);
+				free(node);
+		} else if(node->type==NODE_WHILE) {
+				__auto_type __while=(struct parserNodeWhile*)node;
+				parserNodeDestroy(&__while->body);
+				parserNodeDestroy(&__while->cond);
+				free(node);
+		} else if(node->type==NODE_VAR) {;
+				free(node);
+		} else if(node->type==NODE_SWITCH) {;
+				__auto_type __switch=(struct parserNodeSwitch*)node;
+				parserNodeDestroy(&__switch->dft);
+				parserNodeDestroy(&__switch->body);
+				parserNodeDestroy(&__switch->exp);
+				strParserNodeDestroy2(&__switch->caseSubcases);
+				free(node);
+		} else if(node->type==NODE_CASE) {
+		}
+}
+static struct parserNode *nameParse(llLexerItem start, llLexerItem end,
+                                    llLexerItem *result);
 static struct parserNode *parenRecur(llLexerItem start, llLexerItem end,
                                      llLexerItem *result);
 static struct parserNode *literalRecur(llLexerItem start, llLexerItem end,
