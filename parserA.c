@@ -2268,6 +2268,105 @@ end:
 	
 	return retVal;
 }
+//
+// Stack of current function info
+//
+struct currentFunctionInfo {
+		struct object *retType;
+		long retTypeBegin,retTypeEnd;
+};
+STR_TYPE_DEF(struct currentFunctionInfo,FuncInfoStack);
+STR_TYPE_FUNCS(struct currentFunctionInfo,FuncInfoStack);
+
+static __thread strFuncInfoStack currentFuncsStack=NULL;
+
+static void deinitFuncStack() __attribute__((destructor)); 
+static void deinitFuncStack() {
+		strFuncInfoStackDestroy(&currentFuncsStack);
+}
+struct parserNode *parseReturn(llLexerItem start,llLexerItem *end) {
+		struct parserNode *ret __attribute__((cleanup(parserNodeDestroy)))=expectKeyword(start, "return");
+		if(ret) {
+				start=llLexerItemNext(start);
+				//Ensrue if in function
+				if(strFuncInfoStackSize(currentFuncsStack)==0) {
+						diagErrorStart(ret->pos.start, ret->pos.end);
+						diagPushText("Return appearing in non-function.");
+						diagHighlight(ret->pos.start, ret->pos.end);
+						diagEndMsg();
+
+						//Expect expression then semi
+						parseExpression(start, NULL, &start);
+						__auto_type semi=expectKeyword(start, ";");
+						if(!semi)
+								whineExpected(start, ";");
+						else
+								start=llLexerItemNext(start);
+						parserNodeDestroy(&semi);
+
+						goto end;
+				}
+				__auto_type top=&currentFuncsStack[strFuncInfoStackSize(currentFuncsStack)-1];				
+
+				struct parserNode *retVal=parseExpression(start, NULL, &start);
+				//Check for semicolon
+				if(!retVal) {
+						start=llLexerItemNext(start);
+
+						//Warn if current return type isn't void
+						if(top->retType!=&typeU0) {
+								diagWarnStart(ret->pos.start, ret->pos.end);
+								diagPushText("Empty return on non-U0 function.");
+								diagHighlight(ret->pos.start, ret->pos.end);
+								diagEndMsg();
+						}
+
+						retVal=NULL;
+				}  else {
+						//Ensure if current function inst void
+						if(top->retType==&typeU0) {
+								diagErrorStart(ret->pos.start, ret->pos.end);
+								diagPushText("Attempting to return a value when the return type is U0.");
+								diagHighlight(ret->pos.start, ret->pos.end);
+								diagEndMsg();
+
+								//Goto end(because fail)
+								parserNodeDestroy(&retVal);
+								goto end;
+						} else if(!objectIsCompat(top->retType, assignTypeToOp(retVal))) {
+								//Whine because types are compable
+								//Error
+								diagErrorStart(ret->pos.start, ret->pos.end);
+								__auto_type res=object2Str(assignTypeToOp(retVal));
+								diagPushText("Attempting to return incompatable type '%s'.");
+								diagHighlight(retVal->pos.start, retVal->pos.end);
+								diagEndMsg();
+								free(res);
+
+								//Note
+								diagNoteStart(top->retTypeBegin, top->retTypeEnd);
+								diagPushText("Return type defined here:");
+								diagHighlight(top->retTypeBegin, top->retTypeEnd);
+								diagEndMsg();
+
+								//goto end(beacuse of fail)
+								parserNodeDestroy(&retVal);
+								goto end;
+						}
+				}
+
+				struct parserNodeReturn node;
+				node.base.type=NODE_RETURN;
+				node.base.pos.start=ret->pos.start;
+				node.base.pos.end=retVal->pos.end;
+				node.value=retVal;
+
+				return ALLOCATE(node);
+		}
+				
+		end:
+		return NULL;
+}
 struct parserNode *parseFunction(llLexerItem start,llLexerItem *end) {
 		__auto_type originalStart=start;
  	struct parserNode *name=nameParse(start, NULL, &start);
@@ -2348,6 +2447,13 @@ struct parserNode *parseFunction(llLexerItem start,llLexerItem *end) {
 		struct object *funcType;
 		funcType=objectFuncCreate(retType, fargs);
 		strFuncArgDestroy(&fargs);
+
+		//Enter the function
+		struct currentFunctionInfo info;
+		info.retTypeBegin=nm->base.pos.start;
+		info.retTypeEnd=name->pos.start;
+		info.retType=retType;
+		currentFuncsStack=strFuncInfoStackAppendItem(currentFuncsStack, info);
 		
 		struct parserNode *retVal=NULL;
 		__auto_type scope=parseScope(start, end, args);
@@ -2376,6 +2482,9 @@ struct parserNode *parseFunction(llLexerItem start,llLexerItem *end) {
 				retVal=ALLOCATE(func);
 		}
 
+		//Leave the function
+		currentFuncsStack=strFuncInfoStackPop(currentFuncsStack, NULL);
+		
 		if(end)
 				*end=start;
 

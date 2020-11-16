@@ -34,6 +34,7 @@ enum parserNodeType {
 		NODE_FUNC_FORWARD_DECL,
 		NODE_FUNC_REF,
 		NODE_MEMBER_ACCESS,
+		NODE_RETURN,
 };
 STR_TYPE_DEF(struct parserNode *,ParserNode);
 STR_TYPE_FUNCS(struct parserNode *,ParserNode);
@@ -59,6 +60,10 @@ struct sourcePos {
 struct parserNode {
 		enum parserNodeType type;
 		struct sourcePos pos;
+};
+struct parserNodeReturn {
+		struct parserNode base;
+		struct parserNode *value;
 };
 struct parserNodeOpTerm {
  struct parserNode base;

@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <parserB.h>
 struct object * assignTypeToOp(const struct parserNode *node);
-static int isArith(struct object *type) {
+static int isArith(const struct object *type) {
 		if(
 					type==&typeU8i
 					||type==&typeU16i
@@ -23,6 +23,11 @@ static int isArith(struct object *type) {
 				return 1;
 		}
 		return 0;
+}
+int objectIsCompat(const struct object *a,const struct object *b) {
+		if(objectEqual(a, b))
+				return 1;
+		return isArith(a)&&isArith(b);
 }
 MAP_TYPE_DEF(void*, Set);
 MAP_TYPE_FUNCS(void*, Set);
