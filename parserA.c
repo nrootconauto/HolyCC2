@@ -1514,7 +1514,12 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 		retVal = varDecls;
 		goto end;
 	}
-
+	__auto_type retStmt=parseReturn(originalStart, end);
+	if(retStmt) {
+			retVal=retStmt;
+			goto end;
+	}
+	
 	__auto_type labStmt=parseLabel(originalStart,end);
 	if(labStmt) {
 	  retVal=labStmt;

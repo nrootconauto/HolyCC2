@@ -245,3 +245,4 @@ struct parserNode *parseSwitch(llLexerItem start, llLexerItem *end);
 struct parserNode *parseCase(llLexerItem start, llLexerItem *end);
 struct parserNode *parseLabel(llLexerItem start, llLexerItem *end);
 struct parserNode *parseFunction(llLexerItem start,llLexerItem *end);
+struct parserNode *parseReturn(llLexerItem start,llLexerItem *end);
