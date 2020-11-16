@@ -1514,6 +1514,13 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 		retVal = varDecls;
 		goto end;
 	}
+
+	__auto_type gotoStmt=parseGoto(start, end);
+	if(gotoStmt) {
+			retVal=gotoStmt;
+			goto end;
+	}
+	
 	__auto_type retStmt=parseReturn(originalStart, end);
 	if(retStmt) {
 			retVal=retStmt;
@@ -2289,6 +2296,36 @@ static void deinitFuncStack() __attribute__((destructor));
 static void deinitFuncStack() {
 		strFuncInfoStackDestroy(&currentFuncsStack);
 }
+struct parserNode *parseGoto(llLexerItem start,llLexerItem *end) {
+		struct parserNode *gt __attribute__((cleanup(parserNodeDestroy)))=expectKeyword(start, "goto");
+		struct parserNode *retVal=NULL;
+		if(gt) {
+				start=llLexerItemNext(start);
+				__auto_type nm=nameParse(start, NULL, &start);
+				if(!nm) {
+						//Whine about expected name
+						diagErrorStart(gt->pos.start, gt->pos.end);
+						diagPushText("Expected name after goto.");
+						diagHighlight(gt->pos.start, gt->pos.end);;
+						diagEndMsg();
+						goto end;
+				}
+
+				struct parserNodeGoto node;
+				node.base.pos.start=gt->pos.start;
+				node.base.pos.end=nm->pos.end;
+				node.base.type=NODE_GOTO;
+				node.labelName=nm;
+
+				retVal=ALLOCATE(node);
+		}
+
+	end:
+		if(end)
+			*end=start;
+
+		return retVal;
+}
 struct parserNode *parseReturn(llLexerItem start,llLexerItem *end) {
 		struct parserNode *ret __attribute__((cleanup(parserNodeDestroy)))=expectKeyword(start, "return");
 		if(ret) {
@@ -2366,10 +2403,14 @@ struct parserNode *parseReturn(llLexerItem start,llLexerItem *end) {
 				node.base.pos.end=retVal->pos.end;
 				node.value=retVal;
 
+				if(end)
+						*end=start;
 				return ALLOCATE(node);
 		}
 				
 		end:
+		if(end)
+				*end=start;
 		return NULL;
 }
 struct parserNode *parseFunction(llLexerItem start,llLexerItem *end) {

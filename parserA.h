@@ -35,6 +35,7 @@ enum parserNodeType {
 		NODE_FUNC_REF,
 		NODE_MEMBER_ACCESS,
 		NODE_RETURN,
+		NODE_GOTO,
 };
 STR_TYPE_DEF(struct parserNode *,ParserNode);
 STR_TYPE_FUNCS(struct parserNode *,ParserNode);
@@ -60,6 +61,10 @@ struct sourcePos {
 struct parserNode {
 		enum parserNodeType type;
 		struct sourcePos pos;
+};
+struct parserNodeGoto {
+		struct parserNode base;
+		struct parserNode *labelName;
 };
 struct parserNodeReturn {
 		struct parserNode base;
@@ -246,3 +251,4 @@ struct parserNode *parseCase(llLexerItem start, llLexerItem *end);
 struct parserNode *parseLabel(llLexerItem start, llLexerItem *end);
 struct parserNode *parseFunction(llLexerItem start,llLexerItem *end);
 struct parserNode *parseReturn(llLexerItem start,llLexerItem *end);
+struct parserNode *parseGoto(llLexerItem start,llLexerItem *end);
