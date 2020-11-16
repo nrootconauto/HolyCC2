@@ -289,6 +289,15 @@ MAP_TYPE_FUNCS(graphNodeDummy,GNDummy);
 
 STR_TYPE_DEF(strGraphNodeDummyP, DummyBlob);
 STR_TYPE_FUNCS(strGraphNodeDummyP, DummyBlob);
+static int visitUntillStartStmt(const struct __graphNode *node,const struct __graphEdge *edge,const void * data) {
+		struct IRNode *item= graphNodeIRValuePtr((void*)node);
+		return item->type!=IR_STATEMENT_START;
+}
+static void visitNodeAppendItem(struct __graphNode *node,void * data) {
+		strGraphNodeIRP *nodes=data;
+		if(NULL==strGraphNodeIRPSortedFind(*nodes, data, ptrPtrCmp))
+				*nodes=strGraphNodeIRPSortedInsert(*nodes, node, ptrPtrCmp);
+}
 void removeSubExprs() {
 		long count;
 		mapSubExprsKeys(subExprRegistry, NULL, &count);
@@ -403,8 +412,11 @@ void removeSubExprs() {
 								}				
 								strGraphEdgeIRPDestroy(&outgoing);
 								
-						//Disconnect node from graph
-						graphNodeIRKillGraph(&refs[i3].node, IRNodeDestroy, NULL);
+								//Disconnect node from start stmt
+								strGraphNodeIRP untilStart=NULL;
+								graphNodeIRVisitBackward(refs[i3].node, &untilStart, visitUntillStartStmt,visitNodeAppendItem);
+								for(long i=0;i!=strGraphNodeIRPSize(untilStart);i++)
+										graphNodeIRKill(&untilStart[i], IRNodeDestroy, NULL);
 						}
 				}
 		}

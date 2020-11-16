@@ -10,9 +10,13 @@ struct __graphEdge {
 	struct __graphNode *to;
 	unsigned int valuePresent : 1;
 };
+LL_TYPE_DEF(struct __graphEdge,GraphEdge);
+LL_TYPE_FUNCS(struct __graphEdge,GraphEdge);
+LL_TYPE_DEF(llGraphEdge,LL);
+LL_TYPE_FUNCS(llGraphEdge,LL);
 struct __graphNode {
-	struct __ll *outgoing; // struct __graphEdge + data
-	struct __ll *incoming; // struct __ll* (which points to item in outgoing)
+	llGraphEdge outgoing; // struct __graphEdge + data
+	llLL incoming; // struct __ll* (which points to item in outgoing)
 	int version;
 	struct rwLock *lock;
 	unsigned int killable : 1;
@@ -209,10 +213,10 @@ void __graphNodeKill(struct __graphNode *node, void (*killNode)(void *item),
 	//
 	rwWriteStart(node->lock);
 	for (int i = 0; i != 2; i++) {
-		__auto_type connections = (i == 0) ? node->incoming : node->outgoing;
+ 		__auto_type connections = (i == 0) ? node->outgoing: node->incoming;
 		for (__auto_type node = __llGetFirst(connections); node != NULL;) {
 			__auto_type toKill = __llFindRight(node, NULL, llpredAlwaysTrue);
-			strGraphEdgePAppendItem(
+			connectionPtrs=strGraphEdgePAppendItem(
 			    connectionPtrs, __graphEdgeByDirection(
 			                        toKill, (i == 0) ? DIR_FORWARD : DIR_BACKWARD));
 			node = __llNext(toKill);
@@ -220,8 +224,6 @@ void __graphNodeKill(struct __graphNode *node, void (*killNode)(void *item),
 				break;
 		}
 	}
-	node->incoming = NULL;
-	node->outgoing = NULL;
 	rwWriteEnd(node->lock);
 	//
 	for (int i = 0; i != strGraphEdgePSize(connectionPtrs); i++) {
@@ -232,15 +234,15 @@ void __graphNodeKill(struct __graphNode *node, void (*killNode)(void *item),
 		        : connection1
 		              ->from; // If is a self reference,will defualt to self,so
 		                      // connections to self will also be removed
-		for (__auto_type connection2 = __llGetFirst(notNode->outgoing);
-		     connection2 != NULL; connection2 = __llNext(connection2)) {
-			__graphNodeKillConnections(node, __llValuePtr(connection2),
+			__graphNodeKillConnections(node,notNode,
 			                                        killEdge);
-			__graphNodeKillConnections(__llValuePtr(connection2), node,
+			__graphNodeKillConnections(notNode, node,
 			                                        killEdge);
-		}
 	}
 	//
+	
+	node->incoming = NULL;
+	node->outgoing = NULL;
 	rwLockDestroy(node->lock);
 	//
 	strGraphEdgePDestroy(&connectionPtrs);
