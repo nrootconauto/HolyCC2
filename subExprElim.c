@@ -25,15 +25,8 @@ static const char *IR_ATTR_SUB_EXPR_HASH="subExprHash";
 static const char *IR_ATTR_TOPO_SORT="topolgoicalSort";
 struct IRAttrHash {
 		struct IRAttr base;
-		 strChar hash;
+		const char *mapKeyPtr;
 };
-static llIRAttr createHashAttr(const char *text) {
-		struct IRAttrHash attr;
-		attr.base.name=(void*)IR_ATTR_SUB_EXPR_HASH;
-		attr.hash=strClone(text);
-
-		return __llCreate(&attr, sizeof(attr));
-}
 static graphEdgeIR getNodeByLab(strGraphEdgeP edges,enum IRConnType type) {
 		for(long i=0;strGraphEdgePSize(edges);i++)
 				if(type==*graphEdgeIRValuePtr(edges[i]))
@@ -97,7 +90,7 @@ static int subExprCmp(const void * a,const void * b) {
 		const struct subExpr *A=a,*B=b;
 		return ptrPtrCmp(&A->node, &B->node);
 }
-static void registerItemHash(graphNodeIR node,const char *text,struct subExpr expr) {
+static const char *registerItemHash(graphNodeIR node,const char *text,struct subExpr *expr) {
 		__auto_type attrsPtr=&graphNodeIRValuePtr(node)->attrs;
 
 		//Check if item already has hash attr(hence was registered already,we dont want to rehash elems)
@@ -114,21 +107,36 @@ static void registerItemHash(graphNodeIR node,const char *text,struct subExpr ex
 		}
 		
 		if(!find) {
-				//Assign hash to node
-				__auto_type newNode=createHashAttr(text); 
-				llIRAttrInsert(*attrsPtr,newNode,IRAttrInsertPred);
-				*attrsPtr=newNode;
+				
 
 				//Register find
-				if(find2) {
-						*find2=strSubExprSortedInsert(*find2, expr, subExprCmp);
-				}else {
-						mapSubExprsInsert(subExprRegistry, text,  strSubExprAppendItem(NULL, expr));
+				if(expr) { 
+						if(find2) {
+								*find2=strSubExprSortedInsert(*find2, *expr, subExprCmp);
+						}else {
+								mapSubExprsInsert(subExprRegistry, text,  strSubExprAppendItem(NULL, *expr));
+						}
+				} else {
+						//Insert a null if no expression provided,this can be used to insert dummy expressions
+						if(!find2)
+								mapSubExprsInsert(subExprRegistry, text,NULL);
 				}
+
+				//Assign hash to node
+				struct IRAttrHash attr;
+				attr.base.name=(void*)IR_ATTR_SUB_EXPR_HASH;
+				//Use map hash key pointer to save memory by not copying sting
+				attr.mapKeyPtr=mapSubExprsValueKey(mapSubExprsGet(subExprRegistry, text));
+
+				__auto_type newNode= __llCreate(&attr, sizeof(attr));
+				llIRAttrInsert(*attrsPtr,newNode,IRAttrInsertPred);
+				*attrsPtr=newNode;
 		}
+
+		return mapSubExprsValueKey(mapSubExprsGet(subExprRegistry, text));
 }
 
-static strChar hashNode(graphNodeIR node) {
+static const char *hashNode(graphNodeIR node) {
 		__auto_type val=graphNodeIRValuePtr(node);
 
 		const char *op=NULL;
@@ -188,7 +196,10 @@ static strChar hashNode(graphNodeIR node) {
 				struct IRNodeValue *value=(void*)val;
 				switch(value->val.type) {
 				case IR_VAL_FUNC: {
-						return ptr2Str(value->val.value.func);
+						__auto_type hash=ptr2Str(value->val.value.func);
+						__auto_type retVal=registerItemHash(node, hash, NULL);
+						strCharDestroy(&hash);
+						return retVal;
 				}
 				case IR_VAL_REG: {
 						//Im not implemented
@@ -197,29 +208,51 @@ static strChar hashNode(graphNodeIR node) {
 				case IR_VAL_VAR_REF: {
 						strChar ptrStr=NULL;
 						
-						if(value->val.value.var.var.type==IR_VAR_VAR)
-								return ptr2Str(value->val.value.var.var.value.var);
-						else if (value->val.value.var.var.type==IR_VAR_MEMBER)
-								return ptr2Str(value->val.value.var.var.value.member);
+						if(value->val.value.var.var.type==IR_VAR_VAR) {
+								__auto_type hash=ptr2Str(value->val.value.var.var.value.var);
+								__auto_type retVal=registerItemHash(node, hash, NULL);
+								strCharDestroy(&hash);
+								return retVal;
+						}
+						else if (value->val.value.var.var.type==IR_VAR_MEMBER) {
+								__auto_type hash=ptr2Str(value->val.value.var.var.value.member);
+								__auto_type retVal=registerItemHash(node, hash, NULL);
+								strCharDestroy(&hash);
+								return retVal;
+						}
 
 						assert(ptrStr!=NULL);
-
-						__auto_type retVal=STR_FROM_FORMAT("VAR[%s]:%li", ptrStr,value->val.value.var.SSANum); 
-						strCharDestroy(&ptrStr);
-
+				}
+				case IR_VAL_INT_LIT: {
+						__auto_type hash=intLit2Str(&value->val.value.intLit);
+						__auto_type retVal=registerItemHash(node, hash, NULL);
+						strCharDestroy(&hash);
 						return retVal;
 				}
-				case IR_VAL_INT_LIT:
-						return intLit2Str(&value->val.value.intLit);
 				case IR_VAL_STR_LIT: {
-						return STR_FROM_FORMAT("STR[%s]",value->val.value.strLit); 
+						__auto_type hash=STR_FROM_FORMAT("STR[%s]",value->val.value.strLit);
+						__auto_type retVal=registerItemHash(node, hash, NULL);
+						strCharDestroy(&hash);
+						return retVal;
 				}
-				case __IR_VAL_LABEL:
-						return ptr2Str(value->val.value.__label);
-				case __IR_VAL_MEM_GLOBAL:
-						return STR_FROM_FORMAT("GM[%li:%i]", value->val.value.__frame.offset,value->val.value.__frame.width);
-				case __IR_VAL_MEM_FRAME:;
-						return ptr2Str(value->val.value.__global.symbol);
+				case __IR_VAL_LABEL:{
+						__auto_type hash=ptr2Str(value->val.value.__label);
+						__auto_type retVal=registerItemHash(node, hash, NULL);
+						strCharDestroy(&hash);
+						return retVal;
+				}
+				case __IR_VAL_MEM_GLOBAL: {
+						__auto_type hash=STR_FROM_FORMAT("GM[%li:%i]", value->val.value.__frame.offset,value->val.value.__frame.width);
+						__auto_type retVal=registerItemHash(node, hash, NULL);
+						strCharDestroy(&hash);
+						return retVal;
+				}
+				case __IR_VAL_MEM_FRAME: {
+						__auto_type hash=ptr2Str(value->val.value.__global.symbol);
+						__auto_type retVal=registerItemHash(node, hash, NULL);
+						strCharDestroy(&hash);
+						return retVal;
+				}
 				}
 		}
 		default:
@@ -242,9 +275,9 @@ static strChar hashNode(graphNodeIR node) {
 						retVal=strCharAppendItem(NULL, strlen(buffer)+1);
 				}
 				
-				strCharDestroy(&aHash);
 				strGraphEdgeIRPDestroy(&incoming);
 
+				const char *retVal2=NULL; 
 				if(retVal) {
 						//Create sub-expression
 						struct subExpr sub;
@@ -253,10 +286,10 @@ static strChar hashNode(graphNodeIR node) {
 						sub.subItems.unop=graphEdgeIRIncoming(a);
 
 						//Assign hash to node
-						registerItemHash(node, retVal,sub);
+						retVal2=registerItemHash(node, retVal,&sub);
 				}
 						
-				return retVal;
+				return retVal2;
   }
   binopHash: {
 				__auto_type incoming=graphNodeIRIncoming(node);
@@ -278,6 +311,7 @@ static strChar hashNode(graphNodeIR node) {
 				}
 				strGraphEdgeIRPDestroy(&incoming);
 
+				const char *retVal2=NULL;
 				if(retVal) {
 						//Create sub-expression
 						struct subExpr sub;
@@ -286,12 +320,10 @@ static strChar hashNode(graphNodeIR node) {
 						sub.subItems.binop.a=graphEdgeIRIncoming(a);
 						sub.subItems.binop.b=graphEdgeIRIncoming(b);
 
-						registerItemHash(node, retVal,sub);
+						retVal2=registerItemHash(node, retVal,&sub);
 				}
 				
-				strCharDestroy(&aHash);
-				strCharDestroy(&bHash);
-				return retVal;
+				return retVal2;
 		}
 }
 STR_TYPE_DEF(char *,Str);
@@ -348,7 +380,7 @@ void removeSubExprs() {
 								if(!hashAttr)
 										continue;
 								
-								const char *hash=((struct IRAttrHash *)__llValuePtr(hashAttr))->hash;
+								const char *hash=((struct IRAttrHash *)__llValuePtr(hashAttr))->mapKeyPtr;
 
 								//Ensure is connected to repeated item
 								if(NULL==mapGNDummyGet(hashToNode, hash))
@@ -426,7 +458,7 @@ void removeSubExprs() {
 								}				
 								strGraphEdgeIRPDestroy(&outgoing);
 								
-								//Disconnect node from start stmt
+								//Disconnect node from start stmt(including current node)
 								strGraphNodeIRP untilStart=strGraphNodeIRPAppendItem(NULL, refs[i3].node);
 								graphNodeIRVisitBackward(refs[i3].node, &untilStart, visitUntillStartStmt,visitNodeAppendItem);
 								for(long i=0;i!=strGraphNodeIRPSize(untilStart);i++)
