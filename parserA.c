@@ -134,9 +134,10 @@ static void strParserNodeDestroy2(strParserNode *nodes) {
 	strParserNodeDestroy(nodes);
 }
 void parserNodeDestroy(struct parserNode **__node) {
-		if(__node==NULL)
-				return;
 		struct parserNode *node=*__node;
+		if(node==NULL)
+				return;
+		
 		if(node->type==NODE_GOTO) {
 				parserNodeDestroy(&((struct parserNodeGoto*)node)->labelName);
 				free(node);
@@ -239,6 +240,49 @@ void parserNodeDestroy(struct parserNode **__node) {
 				strParserNodeDestroy2(&__switch->caseSubcases);
 				free(node);
 		} else if(node->type==NODE_CASE) {
+				__auto_type cs=(struct parserNodeCase*)node;
+				parserNodeDestroy(&cs->label);
+				free(node);
+		} else if(node->type==NODE_LABEL) {
+				__auto_type lab=(struct parserNodeLabel*)node;
+				parserNodeDestroy(&lab->name);
+				free(node);
+		} else if(node->type==NODE_SUBSWITCH) {
+				__auto_type sub=(struct parserNodeSubSwitch*)node;
+				parserNodeDestroy(&sub->dft);
+				parserNodeDestroy(&sub->start);
+				parserNodeDestroy(&sub->end);
+				strParserNodeDestroy2(&sub->caseSubcases);
+				free(node);
+		} else if(node->type==NODE_DEFAULT) {
+				free(node);
+		} else if(node->type==NODE_ARRAY_ACCESS) {
+				__auto_type acs=(struct parserNodeArrayAccess*)node;
+				parserNodeDestroy(&acs->exp);
+				parserNodeDestroy(&acs->index);
+				free(node);
+		} else if(node->type==NODE_TYPE_CAST) {
+				__auto_type tc=(struct parserNodeTypeCast*)node;
+				parserNodeDestroy(&tc->exp);
+				free(node);
+		} else if(node->type==NODE_FUNC_DEF) {
+				__auto_type def=(struct parserNodeFuncDef*)node;
+				parserNodeDestroy(&def->name);
+				parserNodeDestroy(&def->bodyScope);
+				free(node);
+		} else if(node->type==NODE_FUNC_REF) {
+				__auto_type ref=(struct parserNodeFuncRef*)node;
+				parserNodeDestroy(&ref->name);
+				free(node);
+		} else if(node->type==NODE_MEMBER_ACCESS) {
+				__auto_type acs=(struct parserNodeMemberAccess*)node;
+				parserNodeDestroy(&acs->name);
+				parserNodeDestroy(&acs->exp);
+				free(node);
+		} else if(node->type==NODE_FUNC_FORWARD_DECL) {
+				__auto_type fwd=(struct parserNodeFuncForwardDec*)node;
+				parserNodeDestroy(&fwd->name);
+				free(node);
 		}
 }
 static struct parserNode *nameParse(llLexerItem start, llLexerItem end,
