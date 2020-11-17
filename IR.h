@@ -30,6 +30,7 @@ enum IRConnType {
 		IR_CONN_COND,
 		IR_CONN_FUNC_ARG,
 		IR_CONN_SIMD_ARG,
+		IR_CONN_FUNC,
 };
 enum IRNodeType {
 		IR_TYPECAST,
@@ -89,8 +90,14 @@ enum IRNodeType {
 		IR_LABEL,
 		//
 		IR_FUNC_CALL,
+		IR_FUNC_RETURN,
+		IR_FUNC_START,
+		IR_FUNC_END,
 		//
 		IR_SUB_SWITCH_START_LABEL,
+		//
+		IR_ADDR_OF,
+		IR_DERREF,
 };
 struct IRNode;
 struct IRAttr {
@@ -132,7 +139,7 @@ struct IRValReg {
 };
 struct IRValMemFrame {
 		long offset;
-		int width;
+		struct object *type;
 };
 struct IRValMemGlobal {
 		struct variable *symbol;
@@ -246,6 +253,14 @@ struct IRNodeStatementStart {
 struct IRNodeStatementEnd {
 		struct IRNode base;
 };
+struct IRNodeFuncStart {
+		struct IRNode base;
+		graphNodeIR end;
+		struct function *func;
+};
+struct IRNodeFuncEnd {
+		struct IRNode base;
+};
 char *IR2Str();
 graphNodeIR parserNode2IRStmt(const struct parserNode *node) ;
 graphNodeIR createIntLit(int64_t lit);
@@ -267,3 +282,4 @@ strGraphNodeP getStatementNodes(graphNodeIR stmtStart,graphNodeIR stmtEnd);
 graphNodeIR createStmtEnd(graphNodeIR start);
 graphNodeIR createStmtStart();
 void initIR();
+strGraphEdgeIRP IRGetConnsOfType(strGraphEdgeIRP conns,enum IRConnType type);

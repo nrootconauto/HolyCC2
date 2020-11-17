@@ -1,7 +1,7 @@
 #include <IR.h>
 #include <base64.h>
 #include <assert.h>
-#include <subExprElim.h>
+#include <exprParser.h>
 #define ALLOCATE(x) ({typeof(&x) ptr=malloc(sizeof(x));memcpy(ptr,&x,sizeof(x));ptr;})
 #define GRAPHN_ALLOCATE(x) ({__graphNodeCreate(&x,sizeof(x),0);})
 static int ptrCmp(const void *a,const void *b) {
@@ -184,4 +184,59 @@ strGraphNodeP getStatementNodes(const graphNodeIR stmtStart,const graphNodeIR st
 void initIR() {
 		clearSubExprs();
 		IRVars=mapIRVarRefsCreate();
+}
+graphNodeIR createFuncStart(const struct function *func) {
+		struct IRNodeFuncStart start;
+		start.base.attrs=NULL;
+		start.base.type=IR_FUNC_START;
+		start.end=NULL;
+		start.func=(void*)func;
+		
+		return GRAPHN_ALLOCATE(start);
+} 
+graphNodeIR createFuncEnd(graphNodeIR start) {
+		struct IRNodeFuncEnd end;
+		end.base.attrs=NULL;
+		end.base.type=IR_FUNC_END;
+
+		((struct IRNodeFuncStart*)graphNodeIRValuePtr(start))->end=start;
+		return GRAPHN_ALLOCATE(end);
+}
+strGraphEdgeIRP IRGetConnsOfType(strGraphEdgeIRP conns,enum IRConnType type) {
+		strGraphEdgeIRP retVal=NULL;
+		for(long i=0;i!=strGraphEdgeIRPSize(conns);i++) {
+				if(*graphEdgeIRValuePtr(conns[i])==type)
+						retVal=strGraphEdgeIRPAppendItem(retVal, conns[i]);
+		}
+
+		return retVal;
+}
+static struct object *typeU8P=NULL;
+static void init() __attribute__((constructor)); 
+static void init() {
+		typeU8P=objectPtrCreate(&typeU8i);
+};
+struct object *IRValuegetType(struct IRValue *node) {
+		switch(node->type) {
+		case IR_VAL_VAR_REF: {
+				if(node->value.var.var.type==IR_VAR_VAR)
+						return node->value.var.var.value.var->type;
+				else if(node->value.var.var.type==IR_VAR_MEMBER)
+						return  assignTypeToOp((void*)node->value.var.var.value.member);
+				return NULL;
+		}
+		case IR_VAL_STR_LIT:
+				return typeU8P;
+		case IR_VAL_INT_LIT:
+				return &typeI64i;
+		case __IR_VAL_MEM_FRAME:
+				return node->value.__frame.type;
+		case __IR_VAL_MEM_GLOBAL:
+				return node->value.__global.symbol->type;
+		case __IR_VAL_LABEL:
+		case IR_VAL_REG:
+		case IR_VAL_FUNC:
+				//?
+				return NULL;
+		}
 }

@@ -793,13 +793,17 @@ static graphNodeIR __parserNode2IRNoStmt(const struct parserNode *node) {
 				setCurrentNodes(currentGen,GRAPHN_ALLOCATE(lab),NULL);
 				return currentGen->currentNodes[0];
 		};
+		case NODE_FUNC_DEF:{
+				struct parserNodeFuncDef *def=(void*)node;
+				def->bodyScope;
+		}
+
 		case NODE_VAR_DECL:
 		case NODE_VAR_DECLS:
 		case NODE_OP:
 		case NODE_NAME:
 		case NODE_META_DATA:
 		case NODE_KW:
-		case NODE_FUNC_DEF:
 		case NODE_FUNC_FORWARD_DECL:
 		case NODE_UNION_DEF:
 		case NODE_CLASS_DEF: {
@@ -928,11 +932,15 @@ static graphNodeIR __parserNode2IRNoStmt(const struct parserNode *node) {
 						args=strGraphNodeIRPAppendItem(args, arg);
 				}
 
+				//Connect args
 				call.incomingArgs=args;
 				graphNodeIR callNode=GRAPHN_ALLOCATE(call);
 				for(long i=0;i!=strGraphNodeIRPSize(args);i++) {
 						graphNodeIRConnect(args[i], callNode, IR_CONN_FUNC_ARG);
 				}
+				
+				//Connect func
+				graphNodeIRConnect(parserNode2IRStmt(call2->func), callNode, IR_CONN_FUNC);
 				
 				return callNode;
 		}
