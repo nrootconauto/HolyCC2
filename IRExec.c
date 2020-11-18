@@ -7,30 +7,14 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <exprParser.h>
+#include <intExponet.h>
+#include <IRExec.h>
 static char *ptr2Str(const void *a) {
 		return base64Enc((void*)&a, sizeof(a));
 }
 MAP_TYPE_DEF(graphNodeIR,Func);
 MAP_TYPE_FUNCS(graphNodeIR,Func);
 static __thread mapFunc funcs=NULL;
-
-enum IREvalValType {
-		IREVAL_VAL_INT,
-		IREVAL_VAL_PTR,
-		IREVAL_VAL_DFT,
-		IREVAL_VAL_FLT
-};
-struct IREvalVal {
-		enum IREvalValType type;
-		union {
-				struct {
-						long value;
-						enum IREvalValType type;
-				} ptr;
-				double flt;
-				int64_t i;
-		}value;
-};
 MAP_TYPE_DEF(struct IREvalVal,VarVal);
 MAP_TYPE_FUNCS(struct IREvalVal,VarVal);
 static __thread mapVarVal varVals=NULL;
@@ -40,13 +24,41 @@ static void initEvalIRNode(graphNodeIR node) {
 
 		varVals=mapVarValCreate();
 }
-static struct IREvalVal dftValuePtrType(enum IREvalValType ptrType) {
+static struct IREvalVal dftValueType(enum IREvalValType type) {
 		struct IREvalVal retVal;
-		retVal.type=IREVAL_VAL_PTR;
-		retVal.value.ptr.value=0;
-		retVal.value.ptr.type=ptrType;
-
+		retVal.type=type;
+		switch(type) {
+		case IREVAL_VAL_DFT:
+				//?
+				break;
+		case IREVAL_VAL_FLT:
+				retVal.value.flt=0;
+				break;
+		case IREVAL_VAL_INT:
+				retVal.value.i=0;
+				break;
+		case IREVAL_VAL_PTR:
+				retVal.value.ptr.type=IREVAL_VAL_INT;
+				retVal.value.ptr.value=0;
+				}
+		
 		return retVal;
+}
+static struct IREvalVal  *arrayAccessHash(struct IREvalVal *array,struct IREvalVal *index,enum IREvalValType type) {
+		__auto_type aHash=ptr2Str(array);
+		__auto_type iHash=ptr2Str(index);
+		long len=snprintf(NULL,0,"%s[%s]",aHash,iHash);
+		char buffer[len+1];
+		sprintf(buffer, "%s[%s]",aHash,iHash);
+
+	loop:;
+		__auto_type find=mapVarValGet(varVals, buffer);
+		if(!find) {
+				mapVarValInsert(varVals, buffer, dftValueType(type));
+				goto loop;
+		}
+
+		return find;
 }
 static struct IREvalVal *valueHash(struct IRValue *value,enum IREvalValType type) {
 		if(value->type==IR_VAL_VAR_REF) {
@@ -78,7 +90,7 @@ static struct IREvalVal *valueHash(struct IRValue *value,enum IREvalValType type
 				if(!find) {
 						//Assert that value exists if refernceing dft type
 						assert(type!=IREVAL_VAL_DFT);
-						mapVarValInsert(varVals, buffer, dftValuePtrType(type));
+						mapVarValInsert(varVals, buffer, dftValueType(type));
 						goto loopLoc;
 				} else {
 						return mapVarValGet(varVals, buffer);
@@ -97,7 +109,7 @@ static struct IREvalVal *valueHash(struct IRValue *value,enum IREvalValType type
 						//Assert that value exists if refernceing dft type
 						assert(type!=IREVAL_VAL_DFT);
 						
-						mapVarValInsert(varVals, buffer, dftValuePtrType(type));
+						mapVarValInsert(varVals, buffer, dftValueType(type));
 						goto loopGlob;
 				} else {
 						return mapVarValGet(varVals, buffer);
@@ -158,7 +170,6 @@ static struct IREvalVal maskInt2Width(struct IREvalVal input,int width,int *succ
 
 		return input;
 }
-static struct IREvalVal evalIRNode(graphNodeIR node,int *success);
 static int getBinopArgs(graphNodeIR node,struct IREvalVal *arg1,struct IREvalVal *arg2) {
 __auto_type incoming =graphNodeIRIncoming(node);
 	int success;
@@ -225,7 +236,11 @@ __auto_type incoming =graphNodeIRIncoming(node);
 								return valueIntCreate(0);}																																	\
 				})
 
-static struct IREvalVal evalIRNode(graphNodeIR node,int *success) {
+//TODO implement me
+static struct IREvalVal evalIRCallFunc(struct function *func) {
+		return valueIntCreate(0);
+}
+struct IREvalVal evalIRNode(graphNodeIR node,int *success) {
 		struct IRNode *ir=graphNodeIRValuePtr(node);
 		switch(ir->type) {
 		case IR_VALUE: {
@@ -458,39 +473,72 @@ static struct IREvalVal evalIRNode(graphNodeIR node,int *success) {
 				return retVal;
 		}
 		case IR_POW: {
-				__auto_type incoming =graphNodeIRIncomingNodes(node);
-				long total=pow(evalIRNode(incoming[0]), evalIRNode(incoming[1]));
-				return total;
+				struct IREvalVal a,b; 
+				if(!getBinopArgs(node, &a, &b))
+						goto fail;
+
+				if(a.type!=a.type)
+						goto fail;
+
+				struct IREvalVal retVal;
+				if(a.type==IREVAL_VAL_INT) {
+						if(a.value.i<0)
+								retVal=valueIntCreate(intExpS(a.value.i, b.value.i));
+						else
+								retVal=valueIntCreate(intExpU(a.value.i, b.value.i));
+				} else if(a.type==IREVAL_VAL_FLT) {
+						__auto_type res=pow(a.value.flt,b.value.flt);
+						if(success) *success=1;
+				}
+				
+				if(success) *success=1;
+				return retVal;
 		}
 		case IR_LOAD: {
 				__auto_type incoming =graphNodeIRIncomingNodes(node);
-				return *valueHash(&((struct IRNodeValue*)graphNodeIRValuePtr(incoming[0]))->val);
-		}
-		case IR_SPILL: {
-				__auto_type incoming =graphNodeIRIncomingNodes(node);
-				__auto_type outgoing =graphNodeIROutgoingNodes(node);
-				__auto_type valNode= &((struct IRNodeValue*)graphNodeIRValuePtr(incoming[0]))->val;
-				assert(valNode->type==IR_VALUE);
-				*valueHash(valNode)=evalIRNode(incoming[0]);
+				__auto_type retVal=valueHash(&((struct IRNodeValue*)graphNodeIRValuePtr(incoming[0]))->val, IREVAL_VAL_DFT);
+				if(!retVal)
+						goto fail;
+
+				if(success) *success=1;
+				return *retVal;
 		}
 		case IR_FUNC_CALL: {
+				/**
 				struct IRNodeFuncCall *call=(void*)graphNodeIRValuePtr(node);
-				__auto_type incoming =graphNodeIRIncomingNodes(node);
 
-				long vals[strGraphNodeIRPSize(call->incomingArgs)];
+				struct IREvalVal vals[strGraphNodeIRPSize(call->incomingArgs)];
 				for(long i=0;i!=strGraphNodeIRPSize(call->incomingArgs);i++) {
-						vals[i]=evalIRNode(call->incomingArgs[i]);
+						int success2;
+						vals[i]=evalIRNode(call->incomingArgs[i],&success2);
+						if(!success2)
+								goto fail;
 				}
-				__auto_type valNode= &((struct IRNodeValue*)graphNodeIRValuePtr(incoming[0]))->val;
-				assert(valNode->type==IR_VALUE);
-				valueHash(struct IRValue *value)
+
+				__auto_type incoming=graphNodeIRIncoming(node); 
+				__auto_type in=IRGetConnsOfType(incoming, IR_CONN_FUNC);
+				assert(strGraphEdgeIRPSize(in)==1);
+
+				int success2;
+				__auto_type func=evalIRNode(graphEdgeIRIncoming(in[0]), &success2);
+
+				strGraphEdgeIRPDestroy(&incoming);
+				strGraphEdgeIRPDestroy(&in);
+				if(!success2) goto fail;
+				*/
+				goto fail;
 		}
-		case IR_ARRAY_ACCESS:
+		case IR_ARRAY_ACCESS: {
+				struct IREvalVal a,b;
+				if(!getBinopArgs(node, &a, &b))
+						goto fail;
+				return *arrayAccessHash(&a, &b, a.type);
+		}
+		case IR_SIMD:
 		default:
-						assert(0);
+				goto fail;
 		}
 		fail:
-						*success=1;
-						return valueIntCreate(0);
-		return 0;
+		*success=1;
+		return valueIntCreate(0);
 }
