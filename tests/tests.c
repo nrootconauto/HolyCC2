@@ -15,7 +15,7 @@ void base64Tests();
 void topoSortTests();
 void subExprElimTests();
 int main() {
-		strTests();
+		//strTests();
 		//preprocessorTests();
 		//graphDominanceTests();
 	// graphColoringTests();

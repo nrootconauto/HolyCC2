@@ -142,6 +142,9 @@ hashObject(struct object *obj,int *alreadyExists) {
 		}
 	end:
 		if(alreadyExists) *alreadyExists=0;
+		if(NULL==mapObjectGet(objectRegistry, retVal)) {
+				mapObjectInsert(objectRegistry, retVal, obj);
+		} else if(alreadyExists) *alreadyExists=1;
 		
 		obj->name=retVal;
 		return obj->name;
