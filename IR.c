@@ -2,6 +2,7 @@
 #include <base64.h>
 #include <assert.h>
 #include <exprParser.h>
+#include <subExprElim.h>
 #define ALLOCATE(x) ({typeof(&x) ptr=malloc(sizeof(x));memcpy(ptr,&x,sizeof(x));ptr;})
 #define GRAPHN_ALLOCATE(x) ({__graphNodeCreate(&x,sizeof(x),0);})
 static int ptrCmp(const void *a,const void *b) {

@@ -144,14 +144,14 @@ struct object *IRValuegetType(struct IRValue *node) {
 				return NULL;
 		}
 }
-static struct IREvalVal valueIntCreate(long i) {
+struct IREvalVal IREValValIntCreate(long i) {
 		struct IREvalVal val;
 		val.type=IREVAL_VAL_INT;
-		val.value.i=i;
+		val.value.i=i; 
 		
 		return val;
 }
-static struct IREvalVal valueFltCreate(double f) {
+struct IREvalVal IREvalValFltCreate(double f) {
 		struct IREvalVal val;
 		val.type=IREVAL_VAL_FLT;
 		val.value.flt=f;
@@ -160,7 +160,7 @@ static struct IREvalVal valueFltCreate(double f) {
 }
 static struct IREvalVal maskInt2Width(struct IREvalVal input,int width,int *success) {
 		if(input.type!=IREVAL_VAL_INT)
-				if(success) {*success=0; return valueIntCreate(0);};
+				if(success) {*success=0; return IREValValIntCreate(0);};
 
 		//Clear first bits,then xor to clear the remaining "tail" that wasnt cleared
 		__auto_type oldVal=input;
@@ -173,9 +173,9 @@ static struct IREvalVal maskInt2Width(struct IREvalVal input,int width,int *succ
 static int getBinopArgs(graphNodeIR node,struct IREvalVal *arg1,struct IREvalVal *arg2) {
 __auto_type incoming =graphNodeIRIncoming(node);
 	int success;
-	__auto_type a=evalIRNode(graphEdgeIROutgoing(incoming[0]),&success);
+	__auto_type a=IREvalNode(graphEdgeIROutgoing(incoming[0]),&success);
 	if(!success) goto fail;
-	__auto_type b=evalIRNode(graphEdgeIROutgoing(incoming[1]),&success);
+	__auto_type b=IREvalNode(graphEdgeIROutgoing(incoming[1]),&success);
 	if(!success) goto fail;
 	
 	if(*graphEdgeIRValuePtr(incoming[0])==IR_CONN_SOURCE_B) {
@@ -198,10 +198,10 @@ __auto_type incoming =graphNodeIRIncoming(node);
 		assert(a.type==b.type);																																															\
 		if(a.type==IREVAL_VAL_INT) {																																										\
 				if(success) *successPtr=1;																																										\
-				return valueIntCreate(a.value.i op b.value.i);																					\
+				return IREValValIntCreate(a.value.i op b.value.i);																					\
 		} else {																																																													\
 				if(success) *successPtr=0;																		\
-				return valueIntCreate(0);																			\
+				return IREValValIntCreate(0);																			\
 		}																																													\
 })
 #define BINOP_ARITH(op,successPtr) ({																																			\
@@ -210,13 +210,13 @@ __auto_type incoming =graphNodeIRIncoming(node);
 						assert(a.type==b.type);																																											\
 						if(a.type==IREVAL_VAL_INT) {																																						\
 								if(success) *successPtr=1;																																						\
-								return valueIntCreate(a.value.i op b.value.i);}																	\
+								return IREValValIntCreate(a.value.i op b.value.i);}																	\
 						else if(a.type==IREVAL_VAL_FLT) {																																	\
 								if(success) *successPtr=1;																																						\
-								return valueFltCreate(a.value.flt op b.value.flt);														\
+								return IREvalValFltCreate(a.value.flt op b.value.flt);														\
 						}																																																																	\
 						else {																																																												\
-								if(success) *successPtr=0; return valueIntCreate(0);												\
+								if(success) *successPtr=0; return IREValValIntCreate(0);												\
 						}																																																																	\
 				})
 #define BINOP_LOG(op,successPtr) ({																																\
@@ -225,22 +225,22 @@ __auto_type incoming =graphNodeIRIncoming(node);
 						assert(a.type==b.type);																																						\
 						if(a.type==IREVAL_VAL_INT) {																																	\
 								if(success) *successPtr=1;																																	\
-								return valueIntCreate(!!(a.value.i) op !!(a.value.i));					\
+								return IREValValIntCreate(!!(a.value.i) op !!(a.value.i));					\
 						}																																																												\
 						else if(a.type==IREVAL_VAL_FLT) {																												\
 								if(success) *successPtr=1;																																	\
-								return valueFltCreate(!!(a.value.flt) op !!(a.value.flt)); \
+								return IREvalValFltCreate(!!(a.value.flt) op !!(a.value.flt)); \
 						}																																																												\
 						else {																																																							\
 								if(success) *successPtr=0;																																	\
-								return valueIntCreate(0);}																																	\
+								return IREValValIntCreate(0);}																																	\
 				})
 
 //TODO implement me
 static struct IREvalVal evalIRCallFunc(struct function *func) {
-		return valueIntCreate(0);
+		return IREValValIntCreate(0);
 }
-struct IREvalVal evalIRNode(graphNodeIR node,int *success) {
+struct IREvalVal IREvalNode(graphNodeIR node,int *success) {
 		struct IRNode *ir=graphNodeIRValuePtr(node);
 		switch(ir->type) {
 		case IR_VALUE: {
@@ -253,7 +253,7 @@ struct IREvalVal evalIRNode(graphNodeIR node,int *success) {
 				}
 				case IR_VAL_INT_LIT: {
 						if(success) *success=1;
-						return valueIntCreate(value->value.intLit.value.sLong);
+						return IREValValIntCreate(value->value.intLit.value.sLong);
 				}
 				case IR_VAL_FUNC:
 				case IR_VAL_REG: {
@@ -276,7 +276,7 @@ struct IREvalVal evalIRNode(graphNodeIR node,int *success) {
 				assert(left->type==IR_VALUE);
 				struct IRNodeValue *val=(void*)left;
 
-				__auto_type value=evalIRNode(incoming[0],success);
+				__auto_type value=IREvalNode(incoming[0],success);
 				__auto_type assignTo=valueHash(&val->val,IREVAL_VAL_DFT);
 				if(assignTo) {
 						*assignTo=value;
@@ -293,11 +293,11 @@ struct IREvalVal evalIRNode(graphNodeIR node,int *success) {
 						goto fail;
 				
 				if(success) *success=1;
-				return  valueIntCreate(a.value.i&b.value.i);
+				return  IREValValIntCreate(a.value.i&b.value.i);
 		}
 		case IR_BNOT: {
 				__auto_type incoming =graphNodeIRIncomingNodes(node);
-				__auto_type val=evalIRNode(incoming[0],success);
+				__auto_type val=IREvalNode(incoming[0],success);
 				if(!success)
 						goto fail;
 
@@ -380,7 +380,7 @@ struct IREvalVal evalIRNode(graphNodeIR node,int *success) {
 		case IR_LNOT:  {
 				__auto_type incoming =graphNodeIRIncomingNodes(node);
 
-				__auto_type total=evalIRNode(incoming[0],success);
+				__auto_type total=IREvalNode(incoming[0],success);
 				if(!success)
 						goto fail;
 				
@@ -417,7 +417,7 @@ struct IREvalVal evalIRNode(graphNodeIR node,int *success) {
 		}
 		case IR_NEG: {
 				__auto_type incoming =graphNodeIRIncomingNodes(node);
-				__auto_type a=evalIRNode(incoming[0], success);
+				__auto_type a=IREvalNode(incoming[0], success);
 				if(!success)
 						goto fail;
 				
@@ -436,7 +436,7 @@ struct IREvalVal evalIRNode(graphNodeIR node,int *success) {
 		}
 		case IR_POS: {
 				__auto_type incoming =graphNodeIRIncomingNodes(node);
-				__auto_type a=evalIRNode(incoming[0],success);
+				__auto_type a=IREvalNode(incoming[0],success);
 
 				if(a.type==IREVAL_VAL_INT||a.type==IREVAL_VAL_FLT) {
 						if(success) *success=1;
@@ -448,7 +448,7 @@ struct IREvalVal evalIRNode(graphNodeIR node,int *success) {
 		case IR_TYPECAST: {
 				__auto_type incoming =graphNodeIRIncomingNodes(node);
 
-				__auto_type a=evalIRNode(incoming[0], success);
+				__auto_type a=IREvalNode(incoming[0], success);
 				__auto_type cast=(struct IRNodeTypeCast*)graphNodeIRValuePtr(node);
 
 				//Evaluator only works on ints/floats,it doesnt compute pointer-casts.
@@ -457,13 +457,13 @@ struct IREvalVal evalIRNode(graphNodeIR node,int *success) {
 						goto fail;
 				}
 
-				struct IREvalVal retVal=valueIntCreate(0);
+				struct IREvalVal retVal=IREValValIntCreate(0);
 				//Int->F64
 				if(cast->out==&typeF64&&a.type==IREVAL_VAL_INT) {
-						retVal=valueFltCreate(a.value.i);
+						retVal=IREvalValFltCreate(a.value.i);
 				} else if(a.type==IREVAL_VAL_INT&&cast->in==&typeF64) {
 						//Cast is either int or float(can't cast classes/unions),so
-						retVal=valueIntCreate(a.value.i);
+						retVal=IREValValIntCreate(a.value.i);
 				} else goto fail;
 
 				if(success)
@@ -483,9 +483,9 @@ struct IREvalVal evalIRNode(graphNodeIR node,int *success) {
 				struct IREvalVal retVal;
 				if(a.type==IREVAL_VAL_INT) {
 						if(a.value.i<0)
-								retVal=valueIntCreate(intExpS(a.value.i, b.value.i));
+								retVal=IREValValIntCreate(intExpS(a.value.i, b.value.i));
 						else
-								retVal=valueIntCreate(intExpU(a.value.i, b.value.i));
+								retVal=IREValValIntCreate(intExpU(a.value.i, b.value.i));
 				} else if(a.type==IREVAL_VAL_FLT) {
 						__auto_type res=pow(a.value.flt,b.value.flt);
 						if(success) *success=1;
@@ -510,7 +510,7 @@ struct IREvalVal evalIRNode(graphNodeIR node,int *success) {
 				struct IREvalVal vals[strGraphNodeIRPSize(call->incomingArgs)];
 				for(long i=0;i!=strGraphNodeIRPSize(call->incomingArgs);i++) {
 						int success2;
-						vals[i]=evalIRNode(call->incomingArgs[i],&success2);
+						vals[i]=IREvalNode(call->incomingArgs[i],&success2);
 						if(!success2)
 								goto fail;
 				}
@@ -520,7 +520,7 @@ struct IREvalVal evalIRNode(graphNodeIR node,int *success) {
 				assert(strGraphEdgeIRPSize(in)==1);
 
 				int success2;
-				__auto_type func=evalIRNode(graphEdgeIRIncoming(in[0]), &success2);
+				__auto_type func=IREvalNode(graphEdgeIRIncoming(in[0]), &success2);
 
 				strGraphEdgeIRPDestroy(&incoming);
 				strGraphEdgeIRPDestroy(&in);
@@ -532,6 +532,7 @@ struct IREvalVal evalIRNode(graphNodeIR node,int *success) {
 				struct IREvalVal a,b;
 				if(!getBinopArgs(node, &a, &b))
 						goto fail;
+				
 				return *arrayAccessHash(&a, &b, a.type);
 		}
 		case IR_SIMD:
@@ -540,5 +541,12 @@ struct IREvalVal evalIRNode(graphNodeIR node,int *success) {
 		}
 		fail:
 		*success=1;
-		return valueIntCreate(0);
+		return IREValValIntCreate(0);
+}
+void IREValSetVarVal(const struct variable *var,struct IREvalVal value) {
+		struct IRValue ref;
+		ref.type=IR_VAL_VAR_REF;
+		ref.value.var.var.type=IR_VAR_VAR;
+		ref.value.var.var.value.var=(void*)var;
+		*valueHash(&ref, value.type)=value;
 }

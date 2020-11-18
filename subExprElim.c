@@ -242,9 +242,11 @@ static const char *hashNode(graphNodeIR node) {
 						return retVal;
 				}
 				case __IR_VAL_MEM_GLOBAL: {
-						__auto_type hash=STR_FROM_FORMAT("GM[%li:%i]", value->val.value.__frame.offset,value->val.value.__frame.width);
+						__auto_type typePtr=ptr2Str(value->val.value.__frame.type);
+						__auto_type hash=STR_FROM_FORMAT("GM[%li:%s]", value->val.value.__frame.offset,typePtr);
 						__auto_type retVal=registerItemHash(node, hash, NULL);
 						strCharDestroy(&hash);
+						free(typePtr);
 						return retVal;
 				}
 				case __IR_VAL_MEM_FRAME: {

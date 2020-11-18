@@ -32,6 +32,7 @@ list(APPEND sources "topoSort.c")
 list(APPEND sources "IR.c")
 list(APPEND sources "subExprElim.c")
 list(APPEND sources "intExponet.c")
+list(APPEND sources "IRExec.c")
 
 set(tests "")
 list(APPEND tests "tests/tests.c")

@@ -24,11 +24,6 @@ static int isArith(const struct object *type) {
 		}
 		return 0;
 }
-int objectIsCompat(const struct object *a,const struct object *b) {
-		if(objectEqual(a, b))
-				return 1;
-		return isArith(a)&&isArith(b);
-}
 MAP_TYPE_DEF(void*, Set);
 MAP_TYPE_FUNCS(void*, Set);
 static mapSet assignOps=NULL;

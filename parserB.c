@@ -5,7 +5,6 @@
 #include <diagMsg.h>
 void variableDestroy(struct variable *var) {
 	free(var->name);
-	objectDestroy(&var->type);
 	strParserNodeDestroy(&var->refs);
 }
 void scopeDestroy(struct scope *scope) {

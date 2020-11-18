@@ -355,7 +355,6 @@ static void init() {
 }
 static void deinit() __attribute__((destructor));
 static void deinit() {
-		objectDestroy(&U0Ptr);
 		mapIRNodeTypeDestroy(assign2IRType, NULL);
 		mapIRNodeTypeDestroy(binop2IRType, NULL);
 }
