@@ -18,7 +18,7 @@ static __thread mapFunc funcs=NULL;
 MAP_TYPE_DEF(struct IREvalVal,VarVal);
 MAP_TYPE_FUNCS(struct IREvalVal,VarVal);
 static __thread mapVarVal varVals=NULL;
-static void initEvalIRNode(graphNodeIR node) {
+void IREValInit() {
 		if(varVals)
 				mapVarValDestroy(varVals, NULL);
 
@@ -64,14 +64,25 @@ static struct IREvalVal *valueHash(struct IRValue *value,enum IREvalValType type
 		if(value->type==IR_VAL_VAR_REF) {
 		if(value-> value.var.var.type==IR_VAR_VAR) {
 				__auto_type ptrStr=ptr2Str(value->value.var.var.value.var);
+		loopVar:;
 				__auto_type find=mapVarValGet(varVals, ptrStr);
+				if(!find) {
+						mapVarValInsert(varVals, ptrStr, dftValueType(type));
+						goto loopVar;
+				}
 				free(ptrStr);
 				
 				assert(find);
 				return find;
 		} else if(value->value.var.var.type==IR_VAR_MEMBER) {
 				__auto_type ptrStr=ptr2Str(value->value.var.var.value.member);
+				
+		loopMember:;
 				__auto_type find=mapVarValGet(varVals, ptrStr);
+				if(!find) {
+						mapVarValInsert(varVals, ptrStr, dftValueType(type));
+						goto loopMember;
+				}
 				free(ptrStr);
 				
 				assert(find);
@@ -173,9 +184,9 @@ static struct IREvalVal maskInt2Width(struct IREvalVal input,int width,int *succ
 static int getBinopArgs(graphNodeIR node,struct IREvalVal *arg1,struct IREvalVal *arg2) {
 __auto_type incoming =graphNodeIRIncoming(node);
 	int success;
-	__auto_type a=IREvalNode(graphEdgeIROutgoing(incoming[0]),&success);
+	__auto_type a=IREvalNode(graphEdgeIRIncoming(incoming[0]),&success);
 	if(!success) goto fail;
-	__auto_type b=IREvalNode(graphEdgeIROutgoing(incoming[1]),&success);
+	__auto_type b=IREvalNode(graphEdgeIRIncoming(incoming[1]),&success);
 	if(!success) goto fail;
 	
 	if(*graphEdgeIRValuePtr(incoming[0])==IR_CONN_SOURCE_B) {

@@ -9,6 +9,7 @@ void subExprElimTests() {
 		
 		//a+1+a+1+a+1
 		{
+				IREValInit();
 				initIR();
 				a	=createVirtVar(&typeI64i);
 				IREValSetVarVal(a,IREValValIntCreate(3));
