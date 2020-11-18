@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <str.h>
+#include <hashTable.h>
+#include <base64.h>
 struct __graphNode;
 struct __graphEdge {
 	struct __graphNode *from;
@@ -375,4 +377,52 @@ int __graphIsConnectedTo(const struct __graphNode *from,
 	}
 	return 0;
 }
+static char *ptr2Str(const void *a) {
+		return base64Enc((void*)&a, sizeof(a));
+}
+GRAPH_TYPE_DEF(struct __graphNode*, struct __graphEdge*, Mapping);
+GRAPH_TYPE_FUNCS(struct __graphNode*,struct __graphEdge*, Mapping);
+MAP_TYPE_DEF(graphNodeMapping, GraphNode);
+MAP_TYPE_FUNCS(graphNodeMapping, GraphNode);
+static graphNodeMapping cloneGraphFromNodes(strGraphNodeP nodes) {
+		__auto_type map=mapGraphNodeCreate();
+		char *keys[strGraphNodePSize(nodes)];
+		//Create keys and insert
+		for(long i=0;i!=strGraphNodePSize(nodes);i++) {
+				keys[i]=ptr2Str(nodes[i]);
+				mapGraphNodeInsert(map, keys[i], graphNodeMappingCreate(nodes[i], 0));
+		}
 
+		//"Clone" the connections by mapping ptrs to nodes and connecting
+		for(long i=0;i!=strGraphNodePSize(nodes);i++) {
+				__auto_type current=*mapGraphNodeGet(map, keys[i]);
+
+				__auto_type out=__graphNodeOutgoingNodes(nodes[i]);
+				__auto_type in=__graphNodeIncomingNodes(nodes[i]);
+
+				//Connect outgoing
+				for(long i=0;i!=strGraphNodePSize(out);i++) {
+						char *key=ptr2Str(out[i]);
+						__auto_type find=*mapGraphNodeGet(map, key);
+						if(find)
+								__graphNodeConnect(current,find,&out,sizeof(out[i]));
+						free(key);
+				}
+
+				//Connect outgoing
+				for(long i=0;i!=strGraphNodePSize(in);i++) {
+						char *key=ptr2Str(in[i]);
+						__auto_type find=*mapGraphNodeGet(map, key);
+						if(find)
+								__graphNodeConnect(current,find,&in[i],sizeof(in[i]));
+						free(key);
+				}
+		}
+
+		__auto_type retVal=*mapGraphNodeGet(map, keys[0]);
+		for(long i=0;i!=strGraphNodePSize(nodes);i++)
+				free(keys);
+		mapGraphNodeDestroy(map, NULL);
+		
+		return retVal;
+}

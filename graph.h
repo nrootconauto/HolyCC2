@@ -1,5 +1,6 @@
 #include <linkedList.h>
 #include <str.h>
+#include <hashTable.h>
 #pragma once
 struct __graphNode;
 struct __graphEdge;
@@ -184,3 +185,8 @@ int __graphIsConnectedTo(const struct __graphNode *from,
 strGraphNodeP __graphNodeIncomingNodes(const struct __graphNode *node);
 strGraphNodeP __graphNodeOutgoingNodes(const struct __graphNode *node);
 strGraphNodeP __graphNodeVisitAll(const struct __graphNode *start);
+GRAPH_TYPE_DEF(struct __graphNode*, struct __graphEdge*, Mapping);
+GRAPH_TYPE_FUNCS(struct __graphNode*,struct __graphEdge*, Mapping);
+MAP_TYPE_DEF(graphNodeMapping, GraphNode);
+MAP_TYPE_FUNCS(graphNodeMapping, GraphNode);
+graphNodeMapping cloneGraphFromNodes(strGraphNodeP nodes)
