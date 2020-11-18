@@ -118,7 +118,7 @@ struct object *IRValuegetType(struct IRValue *node) {
 				return NULL;
 		}
 		case IR_VAL_STR_LIT:
-				return typeU8P;
+				return objectPtrCreate(&typeU8i);
 		case IR_VAL_INT_LIT:
 				return &typeI64i;
 		case __IR_VAL_MEM_FRAME:
@@ -183,26 +183,46 @@ __auto_type incoming =graphNodeIRIncoming(node);
 
 #define BINOP_BIT(op,successPtr) ({																																					\
 						struct IREvalVal a,b;																																													\
-		if(!getBinopArgs(node, &a, &b)) *successPtr=0;																								\
+		if(!getBinopArgs(node, &a, &b)) if(success) *successPtr=0;																								\
 		assert(a.type==b.type);																																															\
-		if(a.type==IREVAL_VAL_INT) {*successPtr=1; return valueIntCreate(a.value.i op b.value.i);}	\
-		else {successPtr=0; return valueIntCreate(0);}																								\
-				})
+		if(a.type==IREVAL_VAL_INT) {																																										\
+				if(success) *successPtr=1;																																										\
+				return valueIntCreate(a.value.i op b.value.i);																					\
+		} else {																																																													\
+				if(success) *successPtr=0;																		\
+				return valueIntCreate(0);																			\
+		}																																													\
+})
 #define BINOP_ARITH(op,successPtr) ({																																			\
 						struct IREvalVal a,b;																																													\
-		if(!getBinopArgs(node, &a, &b)) *successPtr=0;																								\
-		assert(a.type==b.type);																																															\
-		if(a.type==IREVAL_VAL_INT) {*successPtr=1; return valueIntCreate(a.value.i op b.value.i);}	\
-		else if(a.type==IREVAL_VAL_FLT) {*successPtr=1;return valueFltCreate(a.value.flt op b.value.flt);} \
-		else {successPtr=0; return valueIntCreate(0);}																								\
+						if(!getBinopArgs(node, &a, &b)) if(success) *successPtr=0;								\
+						assert(a.type==b.type);																																											\
+						if(a.type==IREVAL_VAL_INT) {																																						\
+								if(success) *successPtr=1;																																						\
+								return valueIntCreate(a.value.i op b.value.i);}																	\
+						else if(a.type==IREVAL_VAL_FLT) {																																	\
+								if(success) *successPtr=1;																																						\
+								return valueFltCreate(a.value.flt op b.value.flt);														\
+						}																																																																	\
+						else {																																																												\
+								if(success) *successPtr=0; return valueIntCreate(0);												\
+						}																																																																	\
 				})
-#define BINOP_LOG(op,successPtr) ({																																					\
-						struct IREvalVal a,b;																																													\
-		if(!getBinopArgs(node, &a, &b)) *successPtr=0;																								\
-		assert(a.type==b.type);																																															\
-		if(a.type==IREVAL_VAL_INT) {*successPtr=1; return valueIntCreate(!!(a.value.i) op !!(a.value.i));}	\
-		else if(a.type==IREVAL_VAL_FLT) {*successPtr=1;return valueFltCreate(!!(a.value.flt) op !!(a.value.flt));} \
-		else {successPtr=0; return valueIntCreate(0);}																								\
+#define BINOP_LOG(op,successPtr) ({																																\
+						struct IREvalVal a,b;																																								\
+						if(!getBinopArgs(node, &a, &b)) if(success) *successPtr=0;			\
+						assert(a.type==b.type);																																						\
+						if(a.type==IREVAL_VAL_INT) {																																	\
+								if(success) *successPtr=1;																																	\
+								return valueIntCreate(!!(a.value.i) op !!(a.value.i));					\
+						}																																																												\
+						else if(a.type==IREVAL_VAL_FLT) {																												\
+								if(success) *successPtr=1;																																	\
+								return valueFltCreate(!!(a.value.flt) op !!(a.value.flt)); \
+						}																																																												\
+						else {																																																							\
+								if(success) *successPtr=0;																																	\
+								return valueIntCreate(0);}																																	\
 				})
 
 static struct IREvalVal evalIRNode(graphNodeIR node,int *success) {
@@ -213,9 +233,11 @@ static struct IREvalVal evalIRNode(graphNodeIR node,int *success) {
 				struct IRValue *value=&__value->val;
 				switch(value-> type) {
 				case IR_VAL_VAR_REF: {
+						if(success) *success=1;
 						return *valueHash(value,IREVAL_VAL_DFT);
 				}
 				case IR_VAL_INT_LIT: {
+						if(success) *success=1;
 						return valueIntCreate(value->value.intLit.value.sLong);
 				}
 				case IR_VAL_FUNC:
@@ -223,7 +245,7 @@ static struct IREvalVal evalIRNode(graphNodeIR node,int *success) {
 						//TODO implement me
 				}
 						default:
-								assert(0);
+								if(success) *success=0;
 				} 
 		}
 		case IR_ADD: {
@@ -238,8 +260,15 @@ static struct IREvalVal evalIRNode(graphNodeIR node,int *success) {
 				__auto_type left=graphNodeIRValuePtr(outgoing[0]);
 				assert(left->type==IR_VALUE);
 				struct IRNodeValue *val=(void*)left;
-				
-				*valueHash(&val->val,IREVAL_VAL_DFT)=evalIRNode(incoming[0]);
+
+				__auto_type value=evalIRNode(incoming[0],success);
+				__auto_type assignTo=valueHash(&val->val,IREVAL_VAL_DFT);
+				if(assignTo) {
+						*assignTo=value;
+						if(success) *success=1;
+				} else
+						if(success) *success=0;
+				return value;
 		}
 		case IR_BAND: {
 				struct IREvalVal a,b;
@@ -248,14 +277,22 @@ static struct IREvalVal evalIRNode(graphNodeIR node,int *success) {
 				if(a.type!=b.type||a.type!=IREVAL_VAL_INT)
 						goto fail;
 				
+				if(success) *success=1;
 				return  valueIntCreate(a.value.i&b.value.i);
 		}
 		case IR_BNOT: {
 				__auto_type incoming =graphNodeIRIncomingNodes(node);
-				inc
+				__auto_type val=evalIRNode(incoming[0],success);
+				if(!success)
+						goto fail;
 
-				long total=~evalIRNode(incoming[0]);
-				return total;
+				if(val.type==IREVAL_VAL_INT)
+						val.value.i=~val.value.i;
+				else
+						goto fail;
+
+				if(success) *success=1;
+				return val;
 		}
 		case IR_BOR:  {
 				BINOP_BIT(|,success);
@@ -273,8 +310,10 @@ static struct IREvalVal evalIRNode(graphNodeIR node,int *success) {
 
 				if(valHash->type==IREVAL_VAL_INT) {
 						valHash->value.i--;
+						if(success) *success=1;
 				} else if(valHash->type==IREVAL_VAL_FLT) {
 						valHash->value.flt--;
+						if(success) *success=1;
 				} else if(success)
 						*success=0;
 				
@@ -309,8 +348,10 @@ static struct IREvalVal evalIRNode(graphNodeIR node,int *success) {
 
 				if(valHash->type==IREVAL_VAL_INT) {
 						valHash->value.i++;
+						if(success) *success=1;
 				} else if(valHash->type==IREVAL_VAL_FLT) {
 						valHash->value.flt++;
+						if(success) *success=1;
 				} else if(success)
 						*success=0;
 				
@@ -323,7 +364,19 @@ static struct IREvalVal evalIRNode(graphNodeIR node,int *success) {
 		}
 		case IR_LNOT:  {
 				__auto_type incoming =graphNodeIRIncomingNodes(node);
-				long total=!evalIRNode(incoming[0]);
+
+				__auto_type total=evalIRNode(incoming[0],success);
+				if(!success)
+						goto fail;
+				
+				if(total.type==IREVAL_VAL_INT||total.type==IREVAL_VAL_FLT) {
+						if(success) *success=1;
+						if(total.type==IREVAL_VAL_INT) {
+								total.value.i=!total.value.i;
+						} else if(total.type==IREVAL_VAL_FLT) {
+								total.value.flt=!total.value.flt;
+						}
+				} else goto fail;
 				return total;
 		}
 		case IR_LOR: {
@@ -350,9 +403,14 @@ static struct IREvalVal evalIRNode(graphNodeIR node,int *success) {
 		case IR_NEG: {
 				__auto_type incoming =graphNodeIRIncomingNodes(node);
 				__auto_type a=evalIRNode(incoming[0], success);
-				if(a.type==IREVAL_VAL_INT||a.type==IREVAL_VAL_FLT)
+				if(!success)
+						goto fail;
+				
+				if(a.type==IREVAL_VAL_INT||a.type==IREVAL_VAL_FLT){
 						if(success) *success=1;
-
+				} else
+								goto  fail;
+				
 				if(a.type==IREVAL_VAL_INT)
 						a.value.i=-a.value.i;
 				if(a.type==IREVAL_VAL_FLT)
@@ -365,8 +423,9 @@ static struct IREvalVal evalIRNode(graphNodeIR node,int *success) {
 				__auto_type incoming =graphNodeIRIncomingNodes(node);
 				__auto_type a=evalIRNode(incoming[0],success);
 
-				if(a.type==IREVAL_VAL_INT||a.type==IREVAL_VAL_FLT)
+				if(a.type==IREVAL_VAL_INT||a.type==IREVAL_VAL_FLT) {
 						if(success) *success=1;
+				} else goto fail;
 
 				strGraphNodeIRPDestroy(&incoming);
 				return a;
@@ -387,12 +446,16 @@ static struct IREvalVal evalIRNode(graphNodeIR node,int *success) {
 				//Int->F64
 				if(cast->out==&typeF64&&a.type==IREVAL_VAL_INT) {
 						retVal=valueFltCreate(a.value.i);
-				} else if(a.type==IREVAL_VAL_INT) {
-						//Cast is either int or float(can't cast classes/unions)
-				}
-				if(a.type==IREVAL_VAL_INT&&)
+				} else if(a.type==IREVAL_VAL_INT&&cast->in==&typeF64) {
+						//Cast is either int or float(can't cast classes/unions),so
+						retVal=valueIntCreate(a.value.i);
+				} else goto fail;
+
+				if(success)
+						*success=1;
+				
 				strGraphNodeIRPDestroy(&incoming);
-				return total;
+				return retVal;
 		}
 		case IR_POW: {
 				__auto_type incoming =graphNodeIRIncomingNodes(node);
