@@ -10,17 +10,23 @@ MAP_TYPE_FUNCS(struct object *, Object);
 STR_TYPE_DEF(char,Char);
 STR_TYPE_FUNCS(char,Char);
 static __thread mapObject objectRegistry = NULL;
-static char *strClone(const char *str) {
+/* This function clones a string. */
+static char * /*Free with `free`*/
+strClone(const char *str) {
 		__auto_type len = strlen(str);
 		char *retVal = malloc(len + 1);
 		strcpy(retVal, str);
 		return retVal;
 }
-static char* ptr2Str(const void *a) {
+static char* /* Free with `free`*/
+ptr2Str(const void *a) {
 		return base64Enc((void*)&a, sizeof(a));
 }
-
-static const char *hashObject(struct object *obj,int *alreadyExists) {
+/**
+	* This function hashes an object,*it also assigns the hash to the object if it doesn't exit.*
+	*/
+static const char */* Dont free me*/
+hashObject(struct object *obj,int *alreadyExists) {
 		if(obj->name) {
 				if(alreadyExists) *alreadyExists=1;
 				return obj->name;
@@ -140,7 +146,11 @@ static const char *hashObject(struct object *obj,int *alreadyExists) {
 		obj->name=retVal;
 		return obj->name;
 }
-long objectAlign(const struct object *type, int *success) {
+/**
+	* This conmputes the align of a type.
+	*/
+long /*Align of the object,think padding. */
+objectAlign(const struct object *type, int *success) {
 		if (success != NULL)
 				*success = 1;
 
@@ -186,9 +196,13 @@ long objectAlign(const struct object *type, int *success) {
 		}
 		}
 }
+/**
+	* What do you think it does.
+	*/
 void objectMemberAttrDestroy(struct objectMemberAttr *attr) {
 		free(attr->name);
 		// TODO free expression
+		parserNodeDestroy(&attr->value);
 }
 void objectMemberDestroy(struct objectMember *member) {
 		free(member->name);
@@ -197,7 +211,10 @@ void objectMemberDestroy(struct objectMember *member) {
 
 		strObjectMemberAttrDestroy(&member->attrs);
 }
-void objectDestroy(struct object **type) {
+/**
+	* This destroys an object. It doesn't free sub-objects,that is done when the registry is destroyed
+	*/
+static void objectDestroy(struct object **type) {
 		struct object *type2 = *type;
 		switch (type2->type) {
 		case TYPE_CLASS: {
@@ -220,7 +237,11 @@ void objectDestroy(struct object **type) {
 		default:;
 		}
 }
-long objectSize(const struct object *type, int *success) {
+/**
+	* This gets the size of an object.
+	*/
+long /*Size of the object.*/
+objectSize(const struct object *type, int *success) {
 		if (success != NULL)
 				*success = 1;
 
@@ -265,7 +286,11 @@ long objectSize(const struct object *type, int *success) {
 		assert(0);
 		return 0;
 }
-struct object *objectClassCreate(const struct parserNode *name,
+/**
+	* Makes a class,See `struct objectMember`. This also registers said class.
+	*/
+struct object * /*This created class.*/
+objectClassCreate(const struct parserNode *name,
                                  const struct objectMember *members,
                                  long count) {
 		struct objectClass *newClass = malloc(sizeof(struct objectClass));
@@ -318,7 +343,11 @@ struct object *objectClassCreate(const struct parserNode *name,
 		objectDestroy((struct object **)&newClass);
 		return NULL;
 }
-struct object *objectUnionCreate(const struct parserNode *name,
+/**
+	* This creates a union and registers it too.
+	*/
+struct object * /*The union being returned. */
+objectUnionCreate(const struct parserNode *name /*Can be `NULL` for empty union.*/,
                                  const struct objectMember *members,
                                  long count) {
 		int success;
@@ -369,7 +398,11 @@ struct object *objectUnionCreate(const struct parserNode *name,
 		objectDestroy((struct object **)&newUnion);
 		return NULL;
 }
-struct object *objectPtrCreate(struct object *baseType) {
+/**
+	* Creates a pointer type.
+	*/
+struct object */* The newly created type.*/
+objectPtrCreate(struct object *baseType) {
 		//Check if item is in registry prior to making a new one
 		
 		struct objectPtr *ptr = malloc(sizeof(struct objectPtr));
@@ -385,7 +418,11 @@ struct object *objectPtrCreate(struct object *baseType) {
 		
 		return *mapObjectGet(objectRegistry, hash);
 }
-struct object *objectArrayCreate(struct object *baseType,
+/**
+	* This creates an array type. parserA.h defines `struct parserNode`.
+	*/
+struct object * /*Array type.*/
+objectArrayCreate(struct object *baseType,
                                  struct parserNode *dim) {
 		struct objectArray *array = malloc(sizeof(struct objectArray));
 		array->base.type = TYPE_ARRAY;
@@ -400,7 +437,11 @@ struct object *objectArrayCreate(struct object *baseType,
 		
 		return *mapObjectGet(objectRegistry, key);
 }
-struct object *objectForwardDeclarationCreate(const struct parserNode *name,enum holyCTypeKind type) {
+/**
+	* This function takes `TYPE_CLASS`/`TYPE_UNION` for forward declarations.
+	*/
+struct object * /*This returns a forward declaration.*/
+objectForwardDeclarationCreate(const struct parserNode *name,enum holyCTypeKind type /* See `TYPE_CLASS`/`TYPE_UNION`.*/) {
 		struct objectForwardDeclaration *retVal =
 				malloc(sizeof(struct objectForwardDeclaration));
 		retVal->base.type = TYPE_FORWARD;
@@ -479,14 +520,22 @@ static void initObjectRegistry() {
 		typeF64.name=NULL;
 		hashObject(&typeF64,NULL);
 }
-struct object *objectByName(const char *name) {
+/**
+	* Takes a name and gets an object by said name. 
+	*/
+struct object * /*This object,`NULL` if not-registerd. Creating objects will register them.*/
+objectByName(const char *name) {
 		__auto_type find = mapObjectGet(objectRegistry, name);
 		if (find == NULL)
 				return NULL;
 
 		return *find;
 }
-struct object *objectFuncCreate(struct object *retType, strFuncArg args) {
+/**
+	* This creates a function type.
+	*/
+struct object * /* The created function type.*/
+objectFuncCreate(struct object *retType, strFuncArg args) {
 		struct objectFunction func;
 		func.base.link = 0;
 		func.base.type = TYPE_FUNCTION;
@@ -510,10 +559,19 @@ void strFuncArgDestroy2(strFuncArg *args) {
 	}
 	strFuncArgDestroy(args);
 }
-char *object2Str(struct object *obj) {
+/**
+	* This turns a object into a readable string, Dont use this for hashing, see `hashObject`. This produces readable representations of objects that exclude  defualt arguemnt types for readabilty.
+	*/
+char */* Free me with `free`.*/ object2Str(struct object *obj) {
 		return NULL;
 }
-int objectEqual(const struct object *a,const struct object *b) {
+/**
+	* This compares if objects are equal.
+	*/
+int /*Returns 0 if not equal.*/ objectEqual(const struct object *a,const struct object *b) {
+		if(a==b)
+				return 1;
+		
 		if(a->type!=b->type)
 				return 0;
 		if(a->type==TYPE_PTR) {
@@ -554,7 +612,11 @@ int objectEqual(const struct object *a,const struct object *b) {
 
 				return 1;
 }
-static int isArith(const struct object *type) {
+/**
+	* If the said type can be used with arithmetic expressions,it returns non-0. Pointer arithmetic counts as arithmetic
+	*/
+static int /*Non-0 if arithmetic type*/
+isArith(const struct object *type) {
 		if(
 					type==&typeU8i
 					||type==&typeU16i
@@ -572,7 +634,10 @@ static int isArith(const struct object *type) {
 		}
 		return 0;
 }
-int objectIsCompat(const struct object *a,const struct object *b) {
+/**
+	* This compares if objects are compatable with each other.
+	*/
+int /*Non-0 if types are compatible. */ objectIsCompat(const struct object *a,const struct object *b) {
 		if(objectEqual(a, b))
 				return 1;
 		return isArith(a)&&isArith(b);

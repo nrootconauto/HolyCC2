@@ -107,7 +107,6 @@ struct object *objectClassCreate(const struct parserNode *name,
                                  const struct objectMember *members,
                                  long count);
 long objectSize(const struct object *type, int *success);
-void objectDestroy(struct object **type);
 void objectMemberDestroy(struct objectMember *member);
 void objectMemberAttrDestroy(struct objectMemberAttr *attr);
 long objectAlign(const struct object *type, int *success);
