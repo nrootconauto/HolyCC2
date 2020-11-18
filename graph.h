@@ -189,4 +189,4 @@ GRAPH_TYPE_DEF(struct __graphNode*, struct __graphEdge*, Mapping);
 GRAPH_TYPE_FUNCS(struct __graphNode*,struct __graphEdge*, Mapping);
 MAP_TYPE_DEF(graphNodeMapping, GraphNode);
 MAP_TYPE_FUNCS(graphNodeMapping, GraphNode);
-graphNodeMapping cloneGraphFromNodes(strGraphNodeP nodes)
+graphNodeMapping cloneGraphFromNodes(strGraphNodeP nodes);

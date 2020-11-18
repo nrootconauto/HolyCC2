@@ -6,6 +6,7 @@
 #include <str.h>
 #include <hashTable.h>
 #include <base64.h>
+
 struct __graphNode;
 struct __graphEdge {
 	struct __graphNode *from;
@@ -380,11 +381,7 @@ int __graphIsConnectedTo(const struct __graphNode *from,
 static char *ptr2Str(const void *a) {
 		return base64Enc((void*)&a, sizeof(a));
 }
-GRAPH_TYPE_DEF(struct __graphNode*, struct __graphEdge*, Mapping);
-GRAPH_TYPE_FUNCS(struct __graphNode*,struct __graphEdge*, Mapping);
-MAP_TYPE_DEF(graphNodeMapping, GraphNode);
-MAP_TYPE_FUNCS(graphNodeMapping, GraphNode);
-static graphNodeMapping cloneGraphFromNodes(strGraphNodeP nodes) {
+graphNodeMapping cloneGraphFromNodes(strGraphNodeP nodes) {
 		__auto_type map=mapGraphNodeCreate();
 		char *keys[strGraphNodePSize(nodes)];
 		//Create keys and insert
