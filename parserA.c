@@ -134,6 +134,8 @@ static void strParserNodeDestroy2(strParserNode *nodes) {
 	strParserNodeDestroy(nodes);
 }
 void parserNodeDestroy(struct parserNode **__node) {
+		if(!__node)
+				return;
 		struct parserNode *node=*__node;
 		if(node==NULL)
 				return;
@@ -566,11 +568,12 @@ static strPNPair tailBinop(llLexerItem start, llLexerItem end,
                                                       llLexerItem *)) {
 	strPNPair retVal = NULL;
 	for (; start != NULL;) {
-		struct parserNode *op __attribute__((cleanup(parserNodeDestroy)));
+		struct parserNode *op;
 		for (long i = 0; i != opCount; i++) {
 			op = expectOp(start, ops[i]);
-			if (op != NULL)
-				break;
+			if (op != NULL) {
+					break;
+			}
 		}
 		if (op == NULL)
 			break;
@@ -1124,7 +1127,7 @@ struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end) {
 	}
 
 	if (foundType) {
-		strParserNode decls __attribute__((cleanup(strParserNodeDestroy2)));
+		strParserNode decls __attribute__((cleanup(strParserNodeDestroy)));
 		decls = NULL;
 
 		for (int firstRun = 1;; firstRun = 0) {
@@ -1225,7 +1228,7 @@ static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end,
 			whineExpected(start, ")");
 		} else {
 				start = llLexerItemNext(start);
-				failed=1;
+				failed=0;
 		}
 
 		struct parserNode *l2 __attribute__((cleanup(parserNodeDestroy)));
@@ -1237,7 +1240,7 @@ static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end,
 				failed=1;
 		}	
 
-		strFuncArg args __attribute__((cleanup(strFuncArgDestroy2)));
+		strFuncArg args __attribute__((cleanup(strFuncArgDestroy)));
 		args = NULL;
 		for (int firstRun = 1;; firstRun = 0) {
 			struct parserNode *r2 __attribute__((cleanup(parserNodeDestroy)));
@@ -1374,7 +1377,7 @@ static strObjectMember parseMembers(llLexerItem start, llLexerItem *end) {
 
 			members = strObjectMemberAppendItem(members, member);
 		}
-		strParserNodeDestroy2(&decls2);
+		strParserNodeDestroy(&decls2);
 
 		if (end != NULL)
 			*end = start;
@@ -2564,15 +2567,16 @@ struct parserNode *parseReturn(llLexerItem start,llLexerItem *end) {
 }
 struct parserNode *parseFunction(llLexerItem start,llLexerItem *end) {
 		__auto_type originalStart=start;
- 	struct parserNode *name=nameParse(start, NULL, &start);
+ 	struct parserNode *name =nameParse(start, NULL, &start);
 		if(!name)
 				return NULL;
-		parserNodeDestroy(&name);
 		
 		struct parserNodeName *nm=(void*)name;
 		__auto_type baseType=objectByName(nm->text);
-		if(!baseType)
+		if(!baseType) {
+				parserNodeDestroy(&name);
 				return NULL;
+		}
 
 		long ptrLevel=0;
 		for(;;) {
@@ -2584,6 +2588,7 @@ struct parserNode *parseFunction(llLexerItem start,llLexerItem *end) {
 				ptrLevel++,start=llLexerItemNext(start);
 		}
 
+		parserNodeDestroy(&name);
 		name= nameParse(start, NULL, &start);
 		if(!name)
 				return NULL;

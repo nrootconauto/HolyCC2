@@ -52,7 +52,7 @@ hashObject(struct object *obj,int *alreadyExists) {
 				retVal=strClone("I64i"); goto end;
 		case TYPE_ARRAY: {
 				struct objectArray *arr=(void*)obj;
-				const char *baseH =hashObject(obj, NULL);
+				const char *baseH =hashObject(arr->type, NULL);
 				//If integer dim
 				if(arr->dim->type==NODE_LIT_INT) {
 						struct parserNodeLitInt *lint=(void*)arr->dim;
@@ -541,6 +541,7 @@ struct object * /* The created function type.*/
 objectFuncCreate(struct object *retType, strFuncArg args) {
 		struct objectFunction func;
 		func.base.link = 0;
+		func.base.name=NULL;
 		func.base.type = TYPE_FUNCTION;
 	func.args = strFuncArgAppendData(NULL, args, strFuncArgSize(args));
 	func.retType = retType;

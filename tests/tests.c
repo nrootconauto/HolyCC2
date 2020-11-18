@@ -15,10 +15,10 @@ void base64Tests();
 void topoSortTests();
 void subExprElimTests();
 int main() {
-		//strTests();
-		//preprocessorTests();
-		//graphDominanceTests();
-	// graphColoringTests();
+		strTests();
+		preprocessorTests();
+		graphDominanceTests();
+	graphColoringTests();
 	/**
 
 	  llTests();
@@ -31,8 +31,8 @@ int main() {
 	  
 	  eventPoolTests();
 	  */
-	//lexerTests();
-	//parserTests();
+	lexerTests();
+	parserTests();
 	//parserDiagTests();
 	//base64Tests();
 	//	topoSortTests();
