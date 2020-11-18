@@ -216,7 +216,7 @@ static void init() __attribute__((constructor));
 static void init() {
 		typeU8P=objectPtrCreate(&typeU8i);
 };
-struct object *IRValuegetType(struct IRValue *node) {
+struct object *IRValueGetType(struct IRValue *node) {
 		switch(node->type) {
 		case IR_VAL_VAR_REF: {
 				if(node->value.var.var.type==IR_VAR_VAR)

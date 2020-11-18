@@ -3,14 +3,142 @@
 #include <object.h>
 #include <string.h>
 #include <assert.h>
+#include <base64.h>
+#include <stdio.h>
 MAP_TYPE_DEF(struct object *, Object);
 MAP_TYPE_FUNCS(struct object *, Object);
+STR_TYPE_DEF(char,Char);
+STR_TYPE_FUNCS(char,Char);
 static __thread mapObject objectRegistry = NULL;
 static char *strClone(const char *str) {
 		__auto_type len = strlen(str);
 		char *retVal = malloc(len + 1);
 		strcpy(retVal, str);
 		return retVal;
+}
+static char* ptr2Str(const void *a) {
+		return base64Enc((void*)&a, sizeof(a));
+}
+
+static const char *hashObject(struct object *obj,int *alreadyExists) {
+		if(obj->name) {
+				if(alreadyExists) *alreadyExists=1;
+				return obj->name;
+		}
+		
+		char *retVal=NULL;
+		switch(obj->type) {
+		case TYPE_U8i:
+				retVal=strClone("U8i");goto end;
+		case TYPE_U16i:
+				retVal= strClone("U16i");goto end;
+		case TYPE_U32i:
+				retVal=strClone("U32i"); goto end;
+		case TYPE_U64i:
+				retVal=strClone("U64i"); goto end;
+		case TYPE_I8i:
+				retVal= strClone("I8i"); goto end;
+		case TYPE_I16i:
+				retVal= strClone("I16i"); goto end;
+		case TYPE_I32i:
+				retVal= strClone("I32i"); goto end;
+		case TYPE_I64i:
+				retVal=strClone("I64i"); goto end;
+		case TYPE_ARRAY: {
+				struct objectArray *arr=(void*)obj;
+				const char *baseH =hashObject(obj, NULL);
+				//If integer dim
+				if(arr->dim->type==NODE_LIT_INT) {
+						struct parserNodeLitInt *lint=(void*)arr->dim;
+						long len=snprintf(NULL, 0, "%s[%lli]", baseH,(long long)lint->value.value.sLong);
+						char buffer[len+1];
+						sprintf(buffer, "%s[%lli]", baseH,(long long)lint->value.value.sLong);
+
+						retVal=strClone(buffer);
+						goto end;
+				} else {
+						//Isn't an int-dim
+						__auto_type dimStr=ptr2Str(arr->dim);
+						long len=snprintf(NULL, 0, "%s[%p]", baseH,arr->dim);
+						char buffer[len+1];
+						sprintf(buffer, "%s[%p]", baseH,arr->dim);
+
+						free(dimStr);
+						retVal= strClone(buffer);
+						goto end;
+				}
+		}
+		case TYPE_Bool: {
+				retVal=strClone("Bool"); goto end;
+		}
+		case TYPE_FORWARD: {
+				struct objectForwardDeclaration *fwd=(void*)obj;
+
+				const char *typeStr=NULL;
+				if(obj->type==TYPE_CLASS)
+						typeStr="class";
+				else if(obj->type==TYPE_UNION)
+						typeStr="union";
+				
+				struct parserNodeName *name=(void*)fwd->name;
+				long len=snprintf(NULL, 0, "FWD(%s):%s", typeStr,name->text);
+				char buffer[len+1];
+				sprintf(buffer, "FWD(%s):%s", typeStr,name->text);
+
+				retVal=strClone(buffer); goto end;
+		}
+		case TYPE_CLASS:
+				retVal=ptr2Str(obj); goto end;
+		case TYPE_F64:
+				retVal=strClone("F64"); goto end;
+		case TYPE_FUNCTION: {
+				struct objectFunction *func=(void*)obj;
+				__auto_type retType=hashObject(func->retType, NULL);
+				
+				strChar argStr=NULL;
+				for(long i=0;i!=strFuncArgSize(func->args);i++) {
+						__auto_type dftValStr=ptr2Str(func->args[i].dftVal);
+
+						const char *argName=NULL;
+						struct parserNodeName *name=(void*)func->args[i].name;
+						if(name)
+								if(name->base.type==NODE_NAME)
+										argName=name->text;
+						
+						long len=snprintf(NULL,0,"%s %s=%s",hashObject(func->args[i].type, NULL),argName,dftValStr);
+						char buffer[len+1];
+						sprintf(buffer,"%s %s=%s",hashObject(func->args[i].type, NULL),argName,dftValStr);
+
+						argStr=strCharAppendData(argStr, buffer, strlen(buffer));
+				}
+
+				long len=snprintf(NULL, 0, "%s(*)(%s)",retVal,argStr);
+				char buffer[len+1];
+				sprintf(buffer, "%s(*)(%s)",retVal,argStr);
+				
+				strCharDestroy(&argStr);
+				retVal=strClone(buffer); goto end;
+		}
+		case TYPE_PTR:  {
+				struct objectPtr *ptr=(void*)obj;
+				const char *base=hashObject(ptr->type, NULL);
+
+				long len=snprintf(NULL, 0, "%s*", base);
+				char buffer[len+1];
+				sprintf(buffer,"%s*", base);
+
+				retVal=strClone(buffer); goto end;
+		}
+		case TYPE_U0:
+				retVal=strClone("U0"); goto end;
+		case TYPE_UNION:
+				retVal=ptr2Str(obj); goto end;
+		}
+	end:
+		if(alreadyExists) *alreadyExists=0;
+		
+		obj->name=retVal;
+		return obj->name;
 }
 long objectAlign(const struct object *type, int *success) {
 		if (success != NULL)
@@ -184,6 +312,7 @@ struct object *objectClassCreate(const struct parserNode *name,
 						goto fail;
 		}
 
+		hashObject((void*)newClass, NULL);
 		return (struct object *)newClass;
 	fail:
 		objectDestroy((struct object **)&newClass);
@@ -234,18 +363,27 @@ struct object *objectUnionCreate(const struct parserNode *name,
 						goto fail;
 		}
 
+		hashObject((void*)newUnion, NULL);
 		return (struct object *)newUnion;
 	fail:
 		objectDestroy((struct object **)&newUnion);
 		return NULL;
 }
 struct object *objectPtrCreate(struct object *baseType) {
+		//Check if item is in registry prior to making a new one
+		
 		struct objectPtr *ptr = malloc(sizeof(struct objectPtr));
 		ptr->base.link = 0;
 		ptr->base.type = TYPE_PTR;
 		ptr->type = baseType;
+		ptr->base.name=NULL;
 
-		return (struct object *)ptr;
+		int alreadyExists;
+		__auto_type hash=hashObject((void*)ptr, &alreadyExists);
+		if(alreadyExists)
+				objectDestroy((void*)&ptr);
+		
+		return *mapObjectGet(objectRegistry, hash);
 }
 struct object *objectArrayCreate(struct object *baseType,
                                  struct parserNode *dim) {
@@ -255,7 +393,12 @@ struct object *objectArrayCreate(struct object *baseType,
 		array->dim = dim;
 		array->type = baseType;
 
-		return (struct object *)array;
+		int alreadyExists;
+		__auto_type key=hashObject((void*)array, &alreadyExists);
+		if(alreadyExists)
+				objectDestroy((void*)&array);
+		
+		return *mapObjectGet(objectRegistry, key);
 }
 struct object *objectForwardDeclarationCreate(const struct parserNode *name,enum holyCTypeKind type) {
 		struct objectForwardDeclaration *retVal =
@@ -265,7 +408,12 @@ struct object *objectForwardDeclarationCreate(const struct parserNode *name,enum
 		retVal->name = (struct parserNode*)name;
 		retVal->type=type;
 
-		return (struct object *)retVal;
+		int alreadyExists;
+		__auto_type hash=hashObject((void*)retVal, &alreadyExists);
+		if(alreadyExists)
+				objectDestroy((void*)&retVal);
+		
+		return *mapObjectGet(objectRegistry, hash);
 }
 struct object typeBool = {TYPE_Bool};
 struct object typeU0 = {TYPE_U0};
@@ -285,20 +433,51 @@ static void destroyObjectRegistry() {
 }
 static void initObjectRegistry() {
 		objectRegistry = mapObjectCreate();
-		/**
-			* Register intristic types
-			*/
-		mapObjectInsert(objectRegistry, "Bool", &typeBool);
-		mapObjectInsert(objectRegistry, "U0", &typeU0);
-		mapObjectInsert(objectRegistry, "U8i", &typeU8i);
-		mapObjectInsert(objectRegistry, "U16i", &typeU16i);
-		mapObjectInsert(objectRegistry, "U32i", &typeU32i);
-		mapObjectInsert(objectRegistry, "U64i", &typeU64i);
-		mapObjectInsert(objectRegistry, "I8i", &typeI8i);
-		mapObjectInsert(objectRegistry, "I16i", &typeI16i);
-		mapObjectInsert(objectRegistry, "I32i", &typeI32i);
-		mapObjectInsert(objectRegistry, "I64i", &typeI64i);
-		mapObjectInsert(objectRegistry, "F64", &typeF64);
+		
+		//hashObject assigns name to type
+		typeBool.type=TYPE_Bool;
+		typeBool.name=NULL;
+		hashObject(&typeBool, NULL);
+		
+		typeU0.type=TYPE_U0;
+		typeU0.name=NULL;
+		hashObject(&typeU0, NULL);
+
+		typeU8i.type=TYPE_U8i;
+		typeU8i.name=NULL;
+		hashObject(&typeU8i,NULL);
+
+		typeU16i.type=TYPE_U16i;
+		typeU16i.name=NULL;
+		hashObject(&typeU16i,NULL);
+
+		typeU32i.type=TYPE_U32i;
+		typeU32i.name=NULL;
+		hashObject(&typeU32i,NULL);
+
+		typeU64i.type=TYPE_U64i;
+		typeU64i.name=NULL;
+		hashObject(&typeU64i,NULL);
+
+		typeI8i.type=TYPE_I8i;
+		typeI8i.name=NULL;
+		hashObject(&typeI8i,NULL);
+
+		typeI16i.type=TYPE_I16i;
+		typeI16i.name=NULL;
+		hashObject(&typeI16i,NULL);
+
+		typeI32i.type=TYPE_I32i;
+		typeI32i.name=NULL;
+		hashObject(&typeI32i,NULL);
+
+		typeI64i.type=TYPE_I64i;
+		typeI64i.name=NULL;
+		hashObject(&typeI64i,NULL);
+
+		typeF64.type=TYPE_F64;
+		typeF64.name=NULL;
+		hashObject(&typeF64,NULL);
 }
 struct object *objectByName(const char *name) {
 		__auto_type find = mapObjectGet(objectRegistry, name);
@@ -316,7 +495,13 @@ struct object *objectFuncCreate(struct object *retType, strFuncArg args) {
 
 	void *retVal = malloc(sizeof(struct objectFunction));
 	memcpy(retVal, &func, sizeof(struct objectFunction));
-	return retVal;
+
+	int alreadyExists;
+	__auto_type key=hashObject((void*)retVal, &alreadyExists);
+	if(alreadyExists)
+			objectDestroy((void*)&retVal);
+	
+	return *mapObjectGet(objectRegistry, key);
 }
 void strFuncArgDestroy2(strFuncArg *args) {
 	for (long i = 0; i != strFuncArgSize(*args); i++) {

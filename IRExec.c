@@ -107,12 +107,8 @@ static struct IREvalVal *valueHash(struct IRValue *value,enum IREvalValType type
 		assert(0);
 		return NULL;
 }
-static struct object *typeU8P=NULL;
-static void init() __attribute__((constructor)); 
-static void init() {
-		typeU8P=objectPtrCreate(&typeU8i);
-};
-static struct object *getType(struct IRValue *node) {
+
+struct object *IRValuegetType(struct IRValue *node) {
 		switch(node->type) {
 		case IR_VAL_VAR_REF: {
 				if(node->value.var.var.type==IR_VAR_VAR)
