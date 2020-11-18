@@ -42,6 +42,12 @@ void llTests() {
 	__auto_type last = llIntLast(one);
 	assert(*llIntValuePtr(llIntFindLeft(last, &tmp, orderPred)) == 3);
 	assert(llIntFindLeft(two, &tmp, orderPred) == NULL);
+
+	//Find bi-dir
+	tmp=4;
+	assert(!llIntFind(one, &tmp, orderPred));
+	tmp=2;
+	assert(llIntFind(five, &two, orderPred));
 	//
 	llIntDestroy(&ll, NULL);
 }

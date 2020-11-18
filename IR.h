@@ -259,6 +259,17 @@ struct IRNodeFuncStart {
 struct IRNodeFuncEnd {
 		struct IRNode base;
 };
+struct IRPathPair {
+		graphNodeIR path;
+		struct IRVarRef *ref;
+};
+STR_TYPE_DEF(struct IRPathPair , IRPathPair);
+STR_TYPE_FUNCS(struct IRPathPair , IRPathPair);
+struct IRNodeChoose {
+		struct IRNode base;
+		strIRPathPair paths;
+};
+
 char *IR2Str();
 graphNodeIR parserNode2IRStmt(const struct parserNode *node) ;
 graphNodeIR createIntLit(int64_t lit);

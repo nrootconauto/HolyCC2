@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <str.h>
 #include <stdlib.h>
+#include <base64.h>
+#include <assert.h>
 static int alwaysTrue(const struct __graphNode *node,
                       const struct __graphEdge *edge, const void *data) {
 	return 1;
@@ -251,4 +253,66 @@ llDomFrontier graphDominanceFrontiers(struct __graphNode *start,
 
 	strGraphNodePDestroy(&allNodes);
 	return fronts;
+}
+static char* ptr2Str(const void *a) {
+		return base64Enc((void*)&a, sizeof(a));
+}
+static void connnectIdoms(mapGraphNode nodes,llDominators valids,llDominators BNode) {
+		strGraphNodeP B=llDominatorsValuePtr(BNode)->dominators;
+
+		struct __graphNode *bFirst=*strGraphNodePSortedFind(B, llDominatorsValuePtr(BNode)->node, ptrPtrCmp);
+		__auto_type incomingNodes=__graphNodeIncomingNodes(bFirst);
+		
+		//Check if A contains B
+		for(long i=0;i!=strGraphNodePSize(incomingNodes);i++) {
+				__auto_type find=llDominatorsFind(valids, incomingNodes[i], llDominatorCmp);
+				if(find) {
+						__auto_type str=ptr2Str(llDominatorsValuePtr(find)->node);
+						__auto_type node= mapGraphNodeGet(nodes, str);
+						assert(node);
+						graphNodeMappingConnect(*node, bFirst, NULL);
+				}
+		}
+}
+graphNodeMapping createDomTree(llDominators doms) {
+		mapGraphNode map=mapGraphNodeCreate();
+		
+		for(__auto_type node=llDominatorsFirst(doms);node!=NULL;node=llDominatorsNext(node)) {
+				__auto_type node2=llDominatorsValuePtr(node)->node;
+				char *str=ptr2Str(node2);
+				mapGraphNodeInsert(map, str, graphNodeMappingCreate(node2, 0));
+				free(str);
+		}
+
+		//Connect idoms
+		for(__auto_type node=llDominatorsFirst(doms);node!=NULL;node=llDominatorsNext(node))
+				connnectIdoms(map, doms, node);
+
+		//See Below
+		long count;
+		mapGraphNodeKeys(map, NULL, &count);
+		const char *toCheck[count];
+		mapGraphNodeKeys(map, (void*)toCheck, NULL);
+		
+		//Find the firstNode to have no incoming nodes,this is the master node(of one of the master nodes).
+		graphNodeMapping firstNode=NULL;
+		for(long i=0;i!=count;i++) {
+				__auto_type find= *mapGraphNodeGet(map, toCheck[i]);
+
+				//Check if no incoming
+				__auto_type in=graphNodeMappingIncomingNodes(find);
+				long len=strGraphNodeMappingPSize(in);
+				strGraphNodeMappingPDestroy(&in);
+				if(len==0) {
+						firstNode=find;
+						break;
+				}
+		}
+		if(count) {
+				assert(firstNode);
+		}
+		
+		mapGraphNodeDestroy(map, NULL);
+
+		return firstNode;
 }

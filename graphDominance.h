@@ -22,3 +22,4 @@ llDomFrontier graphDominanceFrontiers(struct __graphNode *start,
 struct __graphNode *graphDominatorIdom(const llDominators doms,
                                    struct __graphNode *node);
 int llDomFrontierCmp(const void *a, const void *b);
+graphNodeMapping createDomTree(llDominators doms);
