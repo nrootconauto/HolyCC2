@@ -157,6 +157,9 @@ void *__vecSortedFind(const struct __vec *a, const void *item, long itemSize,
 struct __vec *__vecRemoveIf(struct __vec *a, long itemSize,
                             int predicate(const void *, const void *),
                             const void *data) {
+		if(a==NULL)
+				return NULL;
+		
 	__auto_type size = __vecSize(a);
 	void *first = a, *last = (void *)a + size;
 	__auto_type result = first;

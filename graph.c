@@ -1,5 +1,4 @@
 #include <graph.h>
-#include <linkedList.h>
 #include <readersWritersLock.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -13,15 +12,11 @@ struct __graphEdge {
 	struct __graphNode *to;
 	unsigned int valuePresent : 1;
 };
-LL_TYPE_DEF(struct __graphEdge,GraphEdge);
-LL_TYPE_FUNCS(struct __graphEdge,GraphEdge);
-LL_TYPE_DEF(llGraphEdge,LL);
-LL_TYPE_FUNCS(llGraphEdge,LL);
 struct __graphNode {
-	llGraphEdge outgoing; // struct __graphEdge + data
-	llLL incoming; // struct __ll* (which points to item in outgoing)
-	int version;
-	struct rwLock *lock;
+		strGraphEdgeP incoming;
+		strGraphEdgeP outgoing;
+		int version;
+		struct rwLock *lock;
 	unsigned int killable : 1;
 };
 static int ptrCompare(const void *a, const void *b) {
@@ -43,15 +38,13 @@ static  void forwardVisit(struct __graphNode *node,
                                    void *data) {
 	visit(node, data);
 }
-static struct __graphEdge *__graphEdgeByDirection(struct __ll *edge,
+static strGraphEdgeP __graphEdgeByDirection(const struct __graphNode *node,
                                                   enum dir d) {
-	if (d == DIR_FORWARD)
-		return __llValuePtr(edge);
-	else
-		return __llValuePtr(*(struct __ll **)__llValuePtr(edge));
+		__auto_type vec=(d==DIR_FORWARD)?node->outgoing:node->incoming;
+		return vec;
 }
-STR_TYPE_DEF(struct __ll *, LLP);
-STR_TYPE_FUNCS(struct __ll *, LLP);
+STR_TYPE_DEF(long ,Long);
+STR_TYPE_FUNCS(long ,Long);
 static void __graphNodeVisitDirPred(struct __graphNode *node, void *data,
                                     int(pred)(const struct __graphNode *,
                                               const struct __graphEdge *,
@@ -64,7 +57,7 @@ static void __graphNodeVisitDirPred(struct __graphNode *node, void *data,
 	toVisit = NULL;
 	strGraphNodeP stack __attribute__((cleanup(strGraphNodePDestroy)));
 	stack = NULL;
-	strLLP stackIndexes __attribute__((cleanup(strLLPDestroy)));
+	strLong stackIndexes __attribute__((cleanup(strLongDestroy)));
 	stackIndexes = NULL;
 	//
 	__auto_type connections =
@@ -73,19 +66,21 @@ static void __graphNodeVisitDirPred(struct __graphNode *node, void *data,
 		return;
 	// Start at node
 	stack = strGraphNodePAppendItem(stack, node);
-	stackIndexes = strLLPAppendItem(stackIndexes, __llGetFirst(connections));
+	stackIndexes = strLongAppendItem(stackIndexes, 0);
 	//
 	while (strGraphNodePSize(stack) != 0) {
 		__auto_type topNode = stack[strGraphNodePSize(stack) - 1];
-		__auto_type topIndex = stackIndexes[strLLPSize(stackIndexes) - 1];
-		if (topIndex == NULL)
+		__auto_type topIndex = stackIndexes[strLongSize(stackIndexes) - 1];
+
+		__auto_type edges=__graphEdgeByDirection(topNode, d);
+		if (topIndex >= strGraphEdgePSize(edges))
 			goto next;
-		__auto_type edge = __graphEdgeByDirection(topIndex, d);
-		__auto_type connection = (d == DIR_FORWARD) ? edge->to : edge->from;
+		 
+		__auto_type connection = (d == DIR_FORWARD) ? edges[topIndex]->to : edges[topIndex]->from;
 		//
 		int cond = 1;
 		if (pred != NULL)
-			cond = pred(connection, edge, data);
+			cond = pred(connection, edges[topIndex], data);
 		//
 		if (cond) {
 			__auto_type find =
@@ -98,26 +93,34 @@ static void __graphNodeVisitDirPred(struct __graphNode *node, void *data,
 				stack = strGraphNodePAppendItem(stack, connection);
 				__auto_type connection2 =
 				    (d == DIR_FORWARD) ? connection->outgoing : connection->incoming;
+				// Push new index
 				stackIndexes =
-				    strLLPAppendItem(stackIndexes, __llGetFirst(connection2));
+				    strLongAppendItem(stackIndexes, 0);
 				if (connection2 == NULL)
 					goto next;
 			} else
 				goto next;
 		} else {
+				long nextIndex;
 		next:;
+			 nextIndex = stackIndexes[strLongSize(stackIndexes)-1]+1;
 			// Go to next node on top
-			__auto_type nextIndex = __llNext(topIndex);
-			if (nextIndex == NULL) {
+			__auto_type top=stack[strGraphNodePSize(stack)-1];
+			__auto_type edges=(d==DIR_FORWARD)?top->outgoing:top->incoming;
+			if (nextIndex >= strGraphEdgePSize(edges)) {
 				// Past all nodes,so pop
-				stackIndexes = strLLPResize(stackIndexes, strLLPSize(stackIndexes) - 1);
-				stack = strGraphNodePResize(stack, strGraphNodePSize(stack) - 1);
-				if (strGraphNodePSize(stack) == 0 || strLLPSize(stackIndexes) == 0)
-					continue;
-				nextIndex = __llNext(stackIndexes[strLLPSize(stackIndexes) - 1]);
-			}
-			// Put next item on top of stack nodes
-			stackIndexes[strLLPSize(stackIndexes) - 1] = nextIndex;
+				stackIndexes = strLongPop(stackIndexes, NULL);
+				stack = strGraphNodePPop(stack, NULL);
+				if (strGraphNodePSize(stack) == 0 || strLongSize(stackIndexes) == 0)
+						break;
+				
+				//
+				//Go to next item,goto next to check if at top of "new" stack
+				//
+				stackIndexes[strLongSize(stackIndexes) - 1]++;
+				continue;
+			} else 
+					stackIndexes[strLongSize(stackIndexes) - 1]++;
 		}
 	}
 	if (visit != NULL) {
@@ -140,25 +143,31 @@ void __graphNodeVisitBackward(struct __graphNode *node, void *data,
                               void (*visit)(struct __graphNode *, void *)) {
 	__graphNodeVisitDirPred(node, data, pred, visit, DIR_BACKWARD);
 }
-static struct __ll *__graphEdgeKillAllPred(struct __ll *ll,
-                                           struct __graphNode *from,
+static int edgeToPred(const void *a,const void *b) {
+		const struct __graphEdge *A=*(void**)a;
+		const struct __graphNode *B=b;
+		return A->to==B;
+}
+static int edgeFromPred(const void *a,const void *b) {
+		const struct __graphEdge *A=*(void**)a;
+		const struct __graphNode *B=b;
+		return A->from==B;
+}
+static void __graphEdgeKillAllPred(struct __graphNode *from,
                                            struct __graphNode *to, void *data,
                                            int (*pred)(void *, void *),
-                                           void (*kill)(void *), enum dir d) {
-	if (ll == NULL)
-		return NULL;
-	ll = __llGetFirst(ll);
-	for (__auto_type node = ll; node != NULL;) {
-		__auto_type next = __llNext(node);
-		struct __graphEdge *edge = __graphEdgeByDirection(node, d);
-		__auto_type value = sizeof(struct __graphEdge) + (void *)edge;
-		//
-		if (to != NULL)
-			if (edge->to != to)
-				goto endLoop;
-		if (from != NULL)
-			if (edge->from != from)
-				goto endLoop;
+                                           void (*kill)(void *)) {
+		__auto_type out=from->outgoing;
+		for (long i = 0; i != strGraphEdgePSize(out);i++) {
+		  __auto_type edges = __graphEdgeByDirection(from, DIR_FORWARD);
+				__auto_type value = __graphEdgeValuePtr(out[i]);
+				//
+				if (to != NULL)
+						if (out[i]->to != to)
+								goto endLoop;
+				if (from != NULL)
+						if (out[i]->from != from)
+								goto endLoop;
 		//
 		int kill2 = 0;
 		if (kill == NULL) {
@@ -169,32 +178,33 @@ static struct __ll *__graphEdgeKillAllPred(struct __ll *ll,
 		if (kill2) {
 			//
 			if (kill != NULL) {
-				if (edge->valuePresent)
+				if (out[i]->valuePresent)
 					kill(value);
 			}
 			//
-			ll = __llRemoveNode(node);
-			__llDestroy(node, kill);
 		}
-	endLoop:
-		node = next;
+		endLoop:;
 	}
-	return ll;
+
+		from->outgoing=strGraphEdgePRemoveIf(from->outgoing,edgeToPred,to);
+		to->incoming=strGraphEdgePRemoveIf(to->incoming,edgeFromPred,from);
 }
 void __graphEdgeKill(struct __graphNode *in, struct __graphNode *out,
                      void *data, int (*pred)(void *, void *),
                      void (*kill)(void *)) {
 	// out's incoming's elements point to __graphEdge(which are destroyed when
 	// in->outgoing is destroyed below)
-	rwWriteStart(out->lock);
-	out->incoming = __graphEdgeKillAllPred(out->incoming, in, out, data, pred,
-	                                       NULL, DIR_BACKWARD);
-	rwWriteEnd(out->lock);
-	//
-	rwWriteStart(in->lock);
-	in->outgoing = __graphEdgeKillAllPred(in->outgoing, in, out, data, pred, kill,
-	                                      DIR_FORWARD);
+
+		rwWriteStart(in->lock);
+		rwWriteStart(out->lock);
+	__graphEdgeKillAllPred(in, out, data, pred,
+	                                       kill);
+	__graphEdgeKillAllPred(out, in, data, pred, kill);
 	rwWriteEnd(in->lock);
+	rwWriteEnd(out->lock);
+
+	//
+	
 	//
 }
 static int alwaysTrue(void *a, void *b) { return 1; }
@@ -214,20 +224,12 @@ void __graphNodeKill(struct __graphNode *node, void (*killNode)(void *item),
                      void (*killEdge)(void *item)) {
 	strGraphEdgeP connectionPtrs = NULL;
 	//
-	rwWriteStart(node->lock);
+	rwReadStart(node->lock);
 	for (int i = 0; i != 2; i++) {
  		__auto_type connections = (i == 0) ? node->outgoing: node->incoming;
-		for (__auto_type node = __llGetFirst(connections); node != NULL;) {
-			__auto_type toKill = __llFindRight(node, NULL, llpredAlwaysTrue);
-			connectionPtrs=strGraphEdgePAppendItem(
-			    connectionPtrs, __graphEdgeByDirection(
-			                        toKill, (i == 0) ? DIR_FORWARD : DIR_BACKWARD));
-			node = __llNext(toKill);
-			if (toKill == NULL)
-				break;
-		}
+			connectionPtrs=strGraphEdgePSetUnion(connectionPtrs, connections, ptrCompare);
 	}
-	rwWriteEnd(node->lock);
+	rwReadEnd(node->lock);
 	//
 	for (int i = 0; i != strGraphEdgePSize(connectionPtrs); i++) {
 		__auto_type connection1 = connectionPtrs[i];
@@ -287,30 +289,27 @@ void __graphKillAll(struct __graphNode *start, void (*killFunc)(void *),
 struct __graphEdge *__graphNodeConnect(struct __graphNode *a,
                                        struct __graphNode *b, void *data,
                                        long itemSize) {
-	struct __graphEdge newEdge;
-	newEdge.from = a;
-	newEdge.to = b;
-	newEdge.valuePresent = data != NULL;
 	//
-	struct __ll *newEdgeLL = NULL;
-	struct __ll *newEdgeLL2 = NULL;
+	struct __graphEdge *newEdgeNode = NULL;
 	if (data == NULL) {
-		newEdgeLL = __llCreate(&newEdge, sizeof(struct __graphEdge));
+			newEdgeNode = malloc(sizeof(struct __graphEdge));
 	} else {
-		char buffer[itemSize + sizeof(struct __graphEdge)];
-		memcpy(buffer, &newEdge, sizeof(struct __graphEdge));
-		memcpy(buffer + sizeof(struct __graphEdge), data, itemSize);
-		newEdgeLL = __llCreate(buffer, itemSize + sizeof(struct __graphEdge));
+			newEdgeNode = malloc(sizeof(struct __graphEdge)+itemSize);
+			memcpy(newEdgeNode+1, data,itemSize);
 	}
-	newEdgeLL2 = __llCreate(&newEdgeLL, sizeof(struct __ll *));
+
+	newEdgeNode->from=a;
+	newEdgeNode->to=b;
+	newEdgeNode->valuePresent=data!=NULL;
+	
 	rwWriteStart(a->lock);
-	a->outgoing = __llInsert(a->outgoing, newEdgeLL, ptrCompare);
+	a->outgoing = strGraphEdgePSortedInsert(a->outgoing, newEdgeNode, ptrCompare);
 	rwWriteEnd(a->lock);
 	//
 	rwWriteStart(b->lock);
-	b->incoming = __llInsert(b->incoming, newEdgeLL2, ptrCompare);
+	b->incoming = strGraphEdgePSortedInsert(b->incoming, newEdgeNode, ptrCompare);
 	rwWriteEnd(b->lock);
-	return __llValuePtr(newEdgeLL);
+	return newEdgeNode;
 }
 void __graphNodeReadLock(struct __graphNode *node) { rwReadStart(node->lock); }
 void __graphNodeReadUnlock(struct __graphNode *node) { rwReadEnd(node->lock); }
@@ -321,37 +320,25 @@ void __graphNodeWriteUnlock(struct __graphNode *node) {
 	rwWriteEnd(node->lock);
 }
 strGraphEdgeP __graphNodeOutgoing(const struct __graphNode *node) {
-	strGraphEdgeP retVal = NULL;
-	for (__auto_type node2 = __llGetFirst(node->outgoing); node2 != NULL;
-	     node2 = __llNext(node2)) {
-		retVal = strGraphEdgePAppendItem(retVal, __llValuePtr(node2));
-	}
-	return retVal;
+	return strGraphEdgePAppendData(NULL, (void*)node->outgoing, strGraphEdgePSize(node->outgoing));
 }
 strGraphNodeP __graphNodeOutgoingNodes(const struct __graphNode *node) {
-		strGraphNodeP retVal = NULL;
-	for (__auto_type node2 = __llGetFirst(node->outgoing); node2 != NULL;
-	     node2 = __llNext(node2)) {
-		retVal = strGraphNodePAppendItem(retVal, __graphEdgeOutgoing(llGraphEdgeValuePtr(node2)));
-	}
-	return retVal;
+		strGraphNodeP retVal=strGraphNodePResize(NULL, strGraphEdgePSize(node->outgoing));
+		for(long i=0;i!=strGraphEdgePSize(node->outgoing);i++)
+				retVal[i]=node->outgoing[i]->to;
+
+		return retVal;
 }
 strGraphNodeP __graphNodeIncomingNodes(const struct __graphNode *node) {
-		strGraphNodeP retVal = NULL;
-	for (__auto_type node2 = __llGetFirst(node->incoming); node2 != NULL;
-	     node2 = __llNext(node2)) {
-			retVal = strGraphNodePAppendItem(retVal, __graphEdgeIncoming(llGraphEdgeValuePtr(*llLLValuePtr(node2))));
-	}
+		strGraphNodeP retVal=strGraphNodePResize(NULL, strGraphEdgePSize(node->incoming));
+		for(long i=0;i!=strGraphEdgePSize(node->incoming);i++)
+				retVal[i]=node->incoming[i]->from;
+
+		return retVal;
 	return retVal;
 }
 strGraphEdgeP __graphNodeIncoming(const struct __graphNode *node) {
-	strGraphEdgeP retVal = NULL;
-	for (__auto_type node2 = __llGetFirst(node->incoming); node2 != NULL;
-	     node2 = __llNext(node2)) {
-		retVal = strGraphEdgePAppendItem(
-		    retVal, __llValuePtr(*(struct __ll **)__llValuePtr(node2)));
-	}
-	return retVal;
+		return strGraphEdgePAppendData(NULL, (void*)node->incoming, strGraphEdgePSize(node->incoming));
 }
 struct __graphNode *__graphEdgeOutgoing(const struct __graphEdge *edge) {
 	return edge->to;
@@ -370,10 +357,8 @@ void *__graphNodeValuePtr(const struct __graphNode *node) {
 int __graphIsConnectedTo(const struct __graphNode *from,
                          const struct __graphNode *to) {
 
-	for (__auto_type first = __llGetFirst(from->outgoing); first != NULL;
-	     first = __llNext(first)) {
-		__auto_type edge = (struct __graphEdge *)__llValuePtr(first);
-		if (edge->to == to)
+		for (long i=0;i!=strGraphEdgePSize(from->outgoing);i++) {
+		if (from->outgoing[i]->to == to)
 			return 1;
 	}
 	return 0;

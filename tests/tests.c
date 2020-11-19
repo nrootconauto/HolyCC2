@@ -18,6 +18,7 @@ int main() {
 		strTests();
 		preprocessorTests();
 		base64Tests();
+		graphTests();
 		graphDominanceTests();
 		graphColoringTests();
 	/**
@@ -25,7 +26,7 @@ int main() {
 	  llTests();
 	  mapTests();
 	  strTests();
-	  graphTests();
+	  
 	  
 	  subGraphTests();
 

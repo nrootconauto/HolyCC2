@@ -453,7 +453,8 @@ void removeSubExprs() {
 								__auto_type outgoing=graphNodeIROutgoing(refs[i3].node);
 								//"Copy" connections from outgoing to refs[i3].node outgoing neigbors 
 								for(long e=0;e!=strGraphEdgeIRPSize(outgoing);e++) {
-										graphNodeIRConnect(firstRef, graphEdgeIROutgoing(outgoing[e]), *graphEdgeIRValuePtr(outgoing[e]));
+										__auto_type n=graphEdgeIROutgoing(outgoing[e]);
+										graphNodeIRConnect(firstRef, n, *graphEdgeIRValuePtr(outgoing[e]));
 
 										//Remove the outgoing connection from the "old" node so we can kill the redundant expr graph later
 										graphEdgeIRKill(refs[i3].node, graphEdgeIROutgoing(outgoing[e]), NULL, NULL, NULL);
