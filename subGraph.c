@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <subGraph.h>
-typedef int(*geCmpType)(const struct __graphEdge **,const struct __graphEdge **b);
+typedef int (*geCmpType)(const struct __graphEdge **,
+                         const struct __graphEdge **b);
 // https://github.com/sdiemert/subgraph-isomorphism/blob/master/index.js
 #define INT_BITS (sizeof(int) * 8)
 STR_TYPE_DEF(unsigned int, Bits);
@@ -185,9 +186,11 @@ static strGraphEdgeP edgesConnectedToNode(struct __graphNode *from,
 
 	for (int i = 0; i != size; i++)
 		if (to != __graphEdgeOutgoing(outgoing[i]))
-				toRemove = strGraphEdgePSortedInsert(toRemove, outgoing[i], (geCmpType)edgeComp);
+			toRemove =
+			    strGraphEdgePSortedInsert(toRemove, outgoing[i], (geCmpType)edgeComp);
 
-	outgoing = strGraphEdgePSetDifference(outgoing, toRemove, (geCmpType)edgeComp);
+	outgoing =
+	    strGraphEdgePSetDifference(outgoing, toRemove, (geCmpType)edgeComp);
 	strGraphEdgePDestroy(&toRemove);
 	return outgoing;
 }

@@ -9,40 +9,22 @@ struct lexer {
 void *lexerItemValuePtr(struct lexerItem *item) {
 	return (void *)item + sizeof(struct lexerItem);
 }
-static const char *keywords[] = {
-    "if",
-    "else",
-    //
-    "for",
-    "while",
-    "do",
-    "break",
-    //
-    "goto",
-    //
-    "return",
-    //
-    "switch",
-    "default",
-    "case",
-    //
-    "class",
-    "union",
-    //
-    "static",
-    "public",
-    "extern",
-    "_extern",
-    "import",
-    "_import",
-    "public",
-    //
-    ";",
-    "{",
-    "}",
-    ":",
-				"..."
-};
+static const char *keywords[] = {"if", "else",
+                                 //
+                                 "for", "while", "do", "break",
+                                 //
+                                 "goto",
+                                 //
+                                 "return",
+                                 //
+                                 "switch", "default", "case",
+                                 //
+                                 "class", "union",
+                                 //
+                                 "static", "public", "extern", "_extern",
+                                 "import", "_import", "public",
+                                 //
+                                 ";", "{", "}", ":", "..."};
 const char *operators[] = {
     "++",
     "--",
@@ -492,9 +474,9 @@ llLexerItem lexText(const struct __vec *text, int *err) {
 	long pos = 0;
 	for (;;) {
 		pos = (char *)skipWhitespace(text, pos) - (char *)text;
-		if(pos >= len)
-				break;
-		
+		if (pos >= len)
+			break;
+
 		__auto_type tCount = sizeof(templates) / sizeof(*templates);
 
 		long maximumEnd = pos;

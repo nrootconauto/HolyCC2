@@ -178,21 +178,21 @@ void preprocessorTests() {
 	//
 	// Check file name by pos
 	//
-	__auto_type dummyFile3=uniqueFileName();
-	__auto_type dummyFile4=uniqueFileName();
-	sprintf(buffer,"#include \"%s\"abc", dummyFile4);
-	__auto_type file3= fopen(dummyFile3, "w");
+	__auto_type dummyFile3 = uniqueFileName();
+	__auto_type dummyFile4 = uniqueFileName();
+	sprintf(buffer, "#include \"%s\"abc", dummyFile4);
+	__auto_type file3 = fopen(dummyFile3, "w");
 	fwrite(buffer, 1, strlen(buffer), file3);
-	sprintf(buffer,"123");
-__auto_type file4= fopen(dummyFile4, "w");
+	sprintf(buffer, "123");
+	__auto_type file4 = fopen(dummyFile4, "w");
 	fwrite(buffer, 1, strlen(buffer), file4);
-	fclose(file3),fclose(file4);
+	fclose(file3), fclose(file4);
 	resultFile =
 	    createPreprocessedFile(dummyFile3, &mappings, &mappingsPerFile, &err);
-	resultStr=file2Str(resultFile);
-	assert(0==strcmp((char*)resultStr,"123abc"));
-	assert(0==strcmp((char*)dummyFile4,fileNameFromPos(mappingsPerFile, 1)));
-	assert(0==strcmp((char*)dummyFile3,fileNameFromPos(mappingsPerFile, 3)));
+	resultStr = file2Str(resultFile);
+	assert(0 == strcmp((char *)resultStr, "123abc"));
+	assert(0 == strcmp((char *)dummyFile4, fileNameFromPos(mappingsPerFile, 1)));
+	assert(0 == strcmp((char *)dummyFile3, fileNameFromPos(mappingsPerFile, 3)));
 	//
 	remove(dummyFileName1);
 	remove(dummyFileName2);

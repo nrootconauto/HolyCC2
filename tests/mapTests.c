@@ -53,13 +53,13 @@ void mapTests() {
 		buffer[1] = '\0';
 		mapIntRemove(map, buffer, NULL);
 		assert(NULL == mapIntGet(map, buffer));
-		
+
 		long kcount;
-		const char *keys[count-i-1];
+		const char *keys[count - i - 1];
 		mapIntKeys(map, keys, &kcount);
-		assert(kcount == count-i-1);
-		for (long i2 = 0; i2 != count-i-1; i2++) {
-			assert(chars[i+1+i2] == keys[i2][0]);
+		assert(kcount == count - i - 1);
+		for (long i2 = 0; i2 != count - i - 1; i2++) {
+			assert(chars[i + 1 + i2] == keys[i2][0]);
 		}
 	}
 	//

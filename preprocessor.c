@@ -220,13 +220,13 @@ static int includeMacroLex(struct __vec **text_, FILE **prependLinesTo,
 	struct includeMacro retVal;
 	retVal.fileName =
 	    __vecAppendItem(NULL, (char *)filename.text, __vecSize(filename.text));
-	
-	FILE *after=tmpfile();
-	long lineLen=strlen(*(char**)text_);
-	fwrite(*(char**)text_+*end, 1, lineLen-*end, after);
-	concatFile(after,*prependLinesTo);
-	*prependLinesTo=after;
-	
+
+	FILE *after = tmpfile();
+	long lineLen = strlen(*(char **)text_);
+	fwrite(*(char **)text_ + *end, 1, lineLen - *end, after);
+	concatFile(after, *prependLinesTo);
+	*prependLinesTo = after;
+
 	if (result != NULL)
 		*result = retVal;
 	return 1;
@@ -820,46 +820,49 @@ void fileMappingsDestroy(strFileMappings *mappings) {
 		free(mappings[0][i].fileName);
 }
 //
-//File mappings can contain file mappings within them
-//This find the innermost mapping which represents the included file at a point
-//The inner most mapping's start is closest to pos beause nested #includes move forward
-//The end is also closest to the position
-//#include "a" #include "b"
-//[  a text    [   pos    ] ]
-static struct fileMapping *innerMostFileMapping(strFileMappings mappings,long lowerBoundI,long upperBoundI,const struct fileMapping *m,long pos) {
-		long largestIndex=-1,smallestOffsetStart=-1,smallestOffsetEnd=-1;
-		for (long i=lowerBoundI;i!=upperBoundI;i++) {
-				if(largestIndex==-1)
-						largestIndex=i;
+// File mappings can contain file mappings within them
+// This find the innermost mapping which represents the included file at a point
+// The inner most mapping's start is closest to pos beause nested #includes move
+// forward The end is also closest to the position #include "a" #include "b" [  a
+//text    [   pos    ] ]
+static struct fileMapping *
+innerMostFileMapping(strFileMappings mappings, long lowerBoundI,
+                     long upperBoundI, const struct fileMapping *m, long pos) {
+	long largestIndex = -1, smallestOffsetStart = -1, smallestOffsetEnd = -1;
+	for (long i = lowerBoundI; i != upperBoundI; i++) {
+		if (largestIndex == -1)
+			largestIndex = i;
 
-				long offset=pos-mappings[i].fileOffset;
-				//Start must be closest
-				if(offset>=smallestOffsetStart||smallestOffsetStart==-1) {
-						smallestOffsetStart=offset ;
+		long offset = pos - mappings[i].fileOffset;
+		// Start must be closest
+		if (offset >= smallestOffsetStart || smallestOffsetStart == -1) {
+			smallestOffsetStart = offset;
 
-						//End must be closest
-						offset=mappings[i].fileEndOffset-pos;
-						if(offset<=smallestOffsetEnd||smallestOffsetEnd==-1) {
-								smallestOffsetEnd=offset;
-								largestIndex=i;
-						}
-				}
+			// End must be closest
+			offset = mappings[i].fileEndOffset - pos;
+			if (offset <= smallestOffsetEnd || smallestOffsetEnd == -1) {
+				smallestOffsetEnd = offset;
+				largestIndex = i;
+			}
 		}
-		
-		assert(largestIndex!=-1);
-		return &mappings[largestIndex];
+	}
+
+	assert(largestIndex != -1);
+	return &mappings[largestIndex];
 }
-const char *fileNameFromPos( strFileMappings mappings,long pos) {
-		long lower=-1,upper=strFileMappingsSize(mappings);
-		for(long i=0;i!=strFileMappingsSize(mappings);i++) {
-				if(mappings[i].fileOffset<=pos&&lower==-1)
-						lower=i;
+const char *fileNameFromPos(strFileMappings mappings, long pos) {
+	long lower = -1, upper = strFileMappingsSize(mappings);
+	for (long i = 0; i != strFileMappingsSize(mappings); i++) {
+		if (mappings[i].fileOffset <= pos && lower == -1)
+			lower = i;
 
-				if(mappings[i].fileEndOffset>pos) {
-						upper=i;
-				} else break;
-		}
-		if(lower==-1)
-				lower=strFileMappingsSize(mappings)-1;
-		return innerMostFileMapping(mappings, lower, upper+1, mappings, pos)->fileName;
+		if (mappings[i].fileEndOffset > pos) {
+			upper = i;
+		} else
+			break;
+	}
+	if (lower == -1)
+		lower = strFileMappingsSize(mappings) - 1;
+	return innerMostFileMapping(mappings, lower, upper + 1, mappings, pos)
+	    ->fileName;
 }

@@ -20,7 +20,7 @@ void graphDominanceCheck(graphNodeInt node, const llDominators doms, int *items,
 }
 void graphDominanceTests() {
 	{
-			//https://en.wikipedia.org/wiki/Dominator_(graph_theory)
+		// https://en.wikipedia.org/wiki/Dominator_(graph_theory)
 		__auto_type one = graphNodeIntCreate(1, 0);
 		__auto_type two = graphNodeIntCreate(2, 0);
 		__auto_type three = graphNodeIntCreate(3, 0);
@@ -55,32 +55,32 @@ void graphDominanceTests() {
 		assert(two == graphDominatorIdom(doms, three));
 		assert(one == graphDominatorIdom(doms, two));
 
-		//Test dominator tree.
-		__auto_type domTree=createDomTree(doms);
-		assert(*graphNodeMappingValuePtr(domTree)==one);
-		
-		__auto_type outgoing=graphNodeMappingOutgoingNodes(domTree);
-		assert(strGraphNodeMappingPSize(outgoing)==1);
-		assert(*graphNodeMappingValuePtr(outgoing[0])==two);
-		__auto_type two2=outgoing[0];
-		
+		// Test dominator tree.
+		__auto_type domTree = createDomTree(doms);
+		assert(*graphNodeMappingValuePtr(domTree) == one);
+
+		__auto_type outgoing = graphNodeMappingOutgoingNodes(domTree);
+		assert(strGraphNodeMappingPSize(outgoing) == 1);
+		assert(*graphNodeMappingValuePtr(outgoing[0]) == two);
+		__auto_type two2 = outgoing[0];
+
 		strGraphNodeMappingPDestroy(&outgoing);
-		
-		graphNodeInt expected[]={three,four,five,six};
-		for(int i=0;i!=sizeof(expected)/sizeof(*expected);i++) {
-				__auto_type outgoing=graphNodeMappingOutgoingNodes(two2);
 
-				int success=0;
-				for(int i2=0;i2!=strGraphNodeMappingPSize(outgoing);i2++)
-						if(*graphNodeMappingValuePtr(outgoing[i2])==expected[i])
-								success=1;
+		graphNodeInt expected[] = {three, four, five, six};
+		for (int i = 0; i != sizeof(expected) / sizeof(*expected); i++) {
+			__auto_type outgoing = graphNodeMappingOutgoingNodes(two2);
 
-				assert(success);
-				strGraphNodeMappingPDestroy(&outgoing);
+			int success = 0;
+			for (int i2 = 0; i2 != strGraphNodeMappingPSize(outgoing); i2++)
+				if (*graphNodeMappingValuePtr(outgoing[i2]) == expected[i])
+					success = 1;
+
+			assert(success);
+			strGraphNodeMappingPDestroy(&outgoing);
 		}
 	}
 	{
-			//https://www.cs.rice.edu/~keith/EMBED/dom.pdf
+		// https://www.cs.rice.edu/~keith/EMBED/dom.pdf
 		__auto_type one = graphNodeIntCreate(1, 0);
 		__auto_type two = graphNodeIntCreate(2, 0);
 		__auto_type three = graphNodeIntCreate(3, 0);
@@ -101,7 +101,7 @@ void graphDominanceTests() {
 		graphNodeIntConnect(one, two, NULL);
 
 		graphNodeIntConnect(five, one, NULL);
-		
+
 		__auto_type doms = graphComputeDominatorsPerNode(six);
 		int six2[] = {6};
 
@@ -180,27 +180,30 @@ void graphDominanceTests() {
 		//
 		// Dominator tree test
 		//
-		__auto_type domTree=createDomTree(doms);
+		__auto_type domTree = createDomTree(doms);
 		assert(domTree);
-		assert(*graphNodeMappingValuePtr(domTree)==a);
-		
-		__auto_type out=graphNodeMappingOutgoingNodes(domTree);
-		assert(strGraphNodeMappingPSize(out)==2);
-		assert(*graphNodeMappingValuePtr(out[0])==b||*graphNodeMappingValuePtr(out[1])==b);
-		assert(*graphNodeMappingValuePtr(out[0])==f||*graphNodeMappingValuePtr(out[1])==f);
+		assert(*graphNodeMappingValuePtr(domTree) == a);
 
-		__auto_type bMapped=(*graphNodeMappingValuePtr(out[1])==b)?out[1]:out[0];
-		__auto_type out2=graphNodeMappingOutgoingNodes(bMapped);
-		graphNodeInt expected[]={c,d,e};
-		for(long i=0;i!=sizeof(expected)/sizeof(*expected);i++) {
-				int success=0;
-				for(long i2=0;i2!=strGraphNodePSize(out2);i2++) {
-						__auto_type n=graphNodeMappingValuePtr(out2[i2]);
-						if(*n==expected[i])
-								success=1;
-				}
+		__auto_type out = graphNodeMappingOutgoingNodes(domTree);
+		assert(strGraphNodeMappingPSize(out) == 2);
+		assert(*graphNodeMappingValuePtr(out[0]) == b ||
+		       *graphNodeMappingValuePtr(out[1]) == b);
+		assert(*graphNodeMappingValuePtr(out[0]) == f ||
+		       *graphNodeMappingValuePtr(out[1]) == f);
 
-				assert(success);
+		__auto_type bMapped =
+		    (*graphNodeMappingValuePtr(out[1]) == b) ? out[1] : out[0];
+		__auto_type out2 = graphNodeMappingOutgoingNodes(bMapped);
+		graphNodeInt expected[] = {c, d, e};
+		for (long i = 0; i != sizeof(expected) / sizeof(*expected); i++) {
+			int success = 0;
+			for (long i2 = 0; i2 != strGraphNodePSize(out2); i2++) {
+				__auto_type n = graphNodeMappingValuePtr(out2[i2]);
+				if (*n == expected[i])
+					success = 1;
+			}
+
+			assert(success);
 		}
 	}
 	{
@@ -228,18 +231,18 @@ void graphDominanceTests() {
 		assert(threeFronts->dominators[0] == four);
 	}
 	{
-			__auto_type one = graphNodeIntCreate(1, 0);
-			__auto_type two = graphNodeIntCreate(2, 0);
-			__auto_type three = graphNodeIntCreate(3, 0);
-			graphNodeIntConnect(one, two, NULL);
-			graphNodeIntConnect(two, three, NULL);
-			graphNodeIntConnect(three, two, NULL);
-			
-			__auto_type doms = graphComputeDominatorsPerNode(one);
-			__auto_type fronts = graphDominanceFrontiers(one, doms);
-			__auto_type oneFronts=llDomFrontierValuePtr(
-																																															llDomFrontierFindRight(llDomFrontierFirst(doms), one, llDomFrontierCmp));
-			assert(strGraphNodeIntPSize(oneFronts->dominators)==1);
-			assert(oneFronts->dominators[0]==one);
+		__auto_type one = graphNodeIntCreate(1, 0);
+		__auto_type two = graphNodeIntCreate(2, 0);
+		__auto_type three = graphNodeIntCreate(3, 0);
+		graphNodeIntConnect(one, two, NULL);
+		graphNodeIntConnect(two, three, NULL);
+		graphNodeIntConnect(three, two, NULL);
+
+		__auto_type doms = graphComputeDominatorsPerNode(one);
+		__auto_type fronts = graphDominanceFrontiers(one, doms);
+		__auto_type oneFronts = llDomFrontierValuePtr(llDomFrontierFindRight(
+		    llDomFrontierFirst(doms), one, llDomFrontierCmp));
+		assert(strGraphNodeIntPSize(oneFronts->dominators) == 1);
+		assert(oneFronts->dominators[0] == one);
 	}
 }

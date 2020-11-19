@@ -25,7 +25,7 @@ struct __ll;
 	inline type *ll##suffix##ValuePtr(const ll##suffix Node)                     \
 	    __attribute__((always_inline));                                          \
 	inline type *ll##suffix##ValuePtr(const ll##suffix Node) {                   \
-		return (type *)__llValuePtr(Node);                                     \
+		return (type *)__llValuePtr(Node);                                         \
 	}                                                                            \
 	inline ll##suffix ll##suffix##Next(const ll##suffix Node)                    \
 	    __attribute__((always_inline));                                          \
@@ -83,13 +83,15 @@ struct __ll;
 	    __attribute__((always_inline));                                          \
 	inline void ll##suffix##InsertListAfter(ll##suffix node, ll##suffix item) {  \
 		llInsertListAfter(node, item);                                             \
-	} \
-	inline ll##suffix ll##suffix##Find(																																				\
-																																				const ll##suffix node, const void *data,	\
-																																				int (*pred)(const void *, const void *)) __attribute__((always_inline)); \
-	inline ll##suffix ll##suffix##Find(                                     \
-																																			const ll##suffix node, const void *data,	\
-																																				int (*pred)(const void *, const void *)) {return (ll##suffix)__llFind((struct __ll*)node,data,pred);}
+	}                                                                            \
+	inline ll##suffix ll##suffix##Find(const ll##suffix node, const void *data,  \
+	                                   int (*pred)(const void *, const void *))  \
+	    __attribute__((always_inline));                                          \
+	inline ll##suffix ll##suffix##Find(                                          \
+	    const ll##suffix node, const void *data,                                 \
+	    int (*pred)(const void *, const void *)) {                               \
+		return (ll##suffix)__llFind((struct __ll *)node, data, pred);              \
+	}
 void __llDestroy(struct __ll *node, void (*killFunc)(void *));
 void *__llValuePtr(const struct __ll *node);
 struct __ll *__llRemoveNode(struct __ll *node);
@@ -111,4 +113,5 @@ void llInsertListAfter(struct __ll *a, struct __ll *b);
 void llInsertListBefore(struct __ll *a, struct __ll *b);
 struct __ll *__llValueResize(struct __ll *list, long newSize);
 long __llItemSize(const struct __ll *list);
-struct __ll* __llFind(const struct __ll *list,const void *data,int(*pred)(const void *,const void*));
+struct __ll *__llFind(const struct __ll *list, const void *data,
+                      int (*pred)(const void *, const void *));

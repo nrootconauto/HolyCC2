@@ -1,13 +1,15 @@
+#include <assert.h>
+#include <base64.h>
 #include <graph.h>
 #include <graphDominance.h>
 #include <linkedList.h>
 #include <stdio.h>
-#include <str.h>
 #include <stdlib.h>
-#include <base64.h>
-#include <assert.h>
-typedef int(*geCmpType)(const struct __graphEdge**,const struct __graphEdge**);
-typedef int(*gnCmpType)(const struct __graphNode**,const struct __graphNode**);
+#include <str.h>
+typedef int (*geCmpType)(const struct __graphEdge **,
+                         const struct __graphEdge **);
+typedef int (*gnCmpType)(const struct __graphNode **,
+                         const struct __graphNode **);
 
 static int alwaysTrue(const struct __graphNode *node,
                       const struct __graphEdge *edge, const void *data) {
@@ -42,7 +44,8 @@ static int llDominatorCmpInsert(const void *a, const void *b) {
 static void visitNode(struct __graphNode *node, void *visited) {
 	strGraphNodeP *visited2 = visited;
 	if (NULL == strGraphNodePSortedFind(*visited2, node, (gnCmpType)ptrPtrCmp)) {
-		*visited2 = strGraphNodePSortedInsert(*visited2, node, (gnCmpType)ptrPtrCmp);
+		*visited2 =
+		    strGraphNodePSortedInsert(*visited2, node, (gnCmpType)ptrPtrCmp);
 	}
 }
 static struct graphDominators *
@@ -53,7 +56,8 @@ llDominatorsFind2(llDominators list, const struct __graphNode *node) {
 static strGraphNodeP uniqueUnion(strGraphNodeP items,
                                  const strGraphNodeP other) {
 	for (long i = 0; i != strGraphNodePSize(other); i++) {
-		if (NULL == strGraphNodePSortedFind(items, other[i], (gnCmpType)ptrPtrCmp)) {
+		if (NULL ==
+		    strGraphNodePSortedFind(items, other[i], (gnCmpType)ptrPtrCmp)) {
 			items = strGraphNodePSortedInsert(items, other[i], (gnCmpType)ptrPtrCmp);
 		}
 	}
@@ -72,7 +76,8 @@ llDominators graphComputeDominatorsPerNode(struct __graphNode *start) {
 		if (allNodes[i] == start)
 			tmp.dominators = strGraphNodePAppendItem(NULL, start);
 		else
-				tmp.dominators=strGraphNodePAppendData(NULL, (void*)allNodes, strGraphNodePSize(allNodes));
+			tmp.dominators = strGraphNodePAppendData(NULL, (void *)allNodes,
+			                                         strGraphNodePSize(allNodes));
 		__auto_type newNode = llDominatorsCreate(tmp);
 		list = llDominatorsInsert(list, newNode, llDominatorCmpInsert);
 	}
@@ -111,9 +116,10 @@ llDominators graphComputeDominatorsPerNode(struct __graphNode *start) {
 			}
 
 			// Ensure current items include current node
-			if (NULL == strGraphNodePSortedFind(currentItems, allNodes[i], (gnCmpType)ptrPtrCmp))
-				currentItems =
-				    strGraphNodePSortedInsert(currentItems, allNodes[i], (gnCmpType)ptrPtrCmp);
+			if (NULL == strGraphNodePSortedFind(currentItems, allNodes[i],
+			                                    (gnCmpType)ptrPtrCmp))
+				currentItems = strGraphNodePSortedInsert(currentItems, allNodes[i],
+				                                         (gnCmpType)ptrPtrCmp);
 
 			if (referencesComputedNode) {
 				currentNode->dominators = currentItems;
@@ -160,13 +166,13 @@ static int nodeEqual(const void *data, const struct __graphNode **b) {
 	return (struct __graphNode *)data == *b;
 }
 static strGraphNodeP graphDominatorIdoms(const llDominators doms,
-                                       struct __graphNode *node) {
+                                         struct __graphNode *node) {
 	__auto_type entry = llDominatorsFind2(doms, node);
 	__auto_type clone = strGraphNodePAppendData(
 	    NULL, (const struct __graphNode **)entry->dominators,
 	    strGraphNodePSize(entry->dominators));
-	//Remove node from self
-	clone = strGraphNodePRemoveIf(clone, node,nodeEqual);
+	// Remove node from self
+	clone = strGraphNodePRemoveIf(clone, node, nodeEqual);
 
 	for (int changed = 1; changed;) {
 		changed = 0;
@@ -179,8 +185,8 @@ static strGraphNodeP graphDominatorIdoms(const llDominators doms,
 				/**
 				 * clone[i] in [doms]
 				 */
-				__auto_type find =
-						strGraphNodePSortedFind(i2Doms->dominators, clone[i], (gnCmpType)ptrPtrCmp);
+				__auto_type find = strGraphNodePSortedFind(i2Doms->dominators, clone[i],
+				                                           (gnCmpType)ptrPtrCmp);
 				if (find != NULL) {
 					/**
 					 * Every node dominates itself,so ignore removing node that dominates
@@ -189,7 +195,7 @@ static strGraphNodeP graphDominatorIdoms(const llDominators doms,
 					if (*find == clone[i2])
 						continue;
 
-					clone = strGraphNodePRemoveIf(clone, clone[i],nodeEqual);
+					clone = strGraphNodePRemoveIf(clone, clone[i], nodeEqual);
 					changed = 1;
 					goto next;
 				}
@@ -199,16 +205,17 @@ static strGraphNodeP graphDominatorIdoms(const llDominators doms,
 	}
 	__auto_type len = strGraphNodePSize(clone);
 	qsort(clone, len, sizeof(struct __graphNode *), domsLenCmp);
-	
+
 	return clone;
 }
 struct __graphNode *graphDominatorIdom(const llDominators doms,
-																																							struct __graphNode *node) {
-		strGraphNodeP  idoms __attribute__((cleanup(strGraphNodePDestroy)))=graphDominatorIdoms(doms, node);
-		if(strGraphNodePSize(idoms)==0)
-				return NULL;
+                                       struct __graphNode *node) {
+	strGraphNodeP idoms __attribute__((cleanup(strGraphNodePDestroy))) =
+	    graphDominatorIdoms(doms, node);
+	if (strGraphNodePSize(idoms) == 0)
+		return NULL;
 
-		return idoms[strGraphNodePSize(idoms)-1];
+	return idoms[strGraphNodePSize(idoms) - 1];
 }
 llDomFrontier graphDominanceFrontiers(struct __graphNode *start,
                                       const llDominators doms) {
@@ -258,67 +265,70 @@ llDomFrontier graphDominanceFrontiers(struct __graphNode *start,
 	strGraphNodePDestroy(&allNodes);
 	return fronts;
 }
-static char* ptr2Str(const void *a) {
-		return base64Enc((void*)&a, sizeof(a));
-}
-static void connnectIdoms(mapGraphNode nodes,llDominators valids,llDominators BNode) {
-		strGraphNodeP B=llDominatorsValuePtr(BNode)->dominators;
+static char *ptr2Str(const void *a) { return base64Enc((void *)&a, sizeof(a)); }
+static void connnectIdoms(mapGraphNode nodes, llDominators valids,
+                          llDominators BNode) {
+	strGraphNodeP B = llDominatorsValuePtr(BNode)->dominators;
 
-		struct __graphNode *bFirst=*strGraphNodePSortedFind(B, llDominatorsValuePtr(BNode)->node, (gnCmpType)ptrPtrCmp);
+	struct __graphNode *bFirst = *strGraphNodePSortedFind(
+	    B, llDominatorsValuePtr(BNode)->node, (gnCmpType)ptrPtrCmp);
 
-		char *str=ptr2Str(bFirst);
-		graphNodeMapping bNodeMapped=*mapGraphNodeGet(nodes, str);
-		free(str);
-		
-		__auto_type idoms=graphDominatorIdoms(valids, bFirst);
-		
-		//Connect immediate dominators of B
-		for(long i=0;i!=strGraphNodePSize(idoms);i++) {
-						__auto_type str=ptr2Str(idoms[i]);
-						__auto_type node= mapGraphNodeGet(nodes, str);
-						assert(node);
-						graphNodeMappingConnect(*node, bNodeMapped, NULL);
-		}
+	char *str = ptr2Str(bFirst);
+	graphNodeMapping bNodeMapped = *mapGraphNodeGet(nodes, str);
+	free(str);
+
+	__auto_type idoms = graphDominatorIdoms(valids, bFirst);
+
+	// Connect immediate dominators of B
+	for (long i = 0; i != strGraphNodePSize(idoms); i++) {
+		__auto_type str = ptr2Str(idoms[i]);
+		__auto_type node = mapGraphNodeGet(nodes, str);
+		assert(node);
+		graphNodeMappingConnect(*node, bNodeMapped, NULL);
+	}
 }
 graphNodeMapping createDomTree(llDominators doms) {
-		mapGraphNode map=mapGraphNodeCreate();
-		
-		for(__auto_type node=llDominatorsFirst(doms);node!=NULL;node=llDominatorsNext(node)) {
-				__auto_type node2=llDominatorsValuePtr(node)->node;
-				char *str=ptr2Str(node2);
-				mapGraphNodeInsert(map, str, graphNodeMappingCreate(node2, 0));
-				free(str);
+	mapGraphNode map = mapGraphNodeCreate();
+
+	for (__auto_type node = llDominatorsFirst(doms); node != NULL;
+	     node = llDominatorsNext(node)) {
+		__auto_type node2 = llDominatorsValuePtr(node)->node;
+		char *str = ptr2Str(node2);
+		mapGraphNodeInsert(map, str, graphNodeMappingCreate(node2, 0));
+		free(str);
+	}
+
+	// Connect idoms
+	for (__auto_type node = llDominatorsFirst(doms); node != NULL;
+	     node = llDominatorsNext(node))
+		connnectIdoms(map, doms, node);
+
+	// See Below
+	long count;
+	mapGraphNodeKeys(map, NULL, &count);
+	const char *toCheck[count];
+	mapGraphNodeKeys(map, (void *)toCheck, NULL);
+
+	// Find the firstNode to have no incoming nodes,this is the master node(of one
+	// of the master nodes).
+	graphNodeMapping firstNode = NULL;
+	for (long i = 0; i != count; i++) {
+		__auto_type find = *mapGraphNodeGet(map, toCheck[i]);
+
+		// Check if no incoming
+		__auto_type in = graphNodeMappingIncomingNodes(find);
+		long len = strGraphNodeMappingPSize(in);
+		strGraphNodeMappingPDestroy(&in);
+		if (len == 0) {
+			firstNode = find;
+			break;
 		}
+	}
+	if (count) {
+		assert(firstNode);
+	}
 
-		//Connect idoms
-		for(__auto_type node=llDominatorsFirst(doms);node!=NULL;node=llDominatorsNext(node))
-				connnectIdoms(map, doms, node);
+	mapGraphNodeDestroy(map, NULL);
 
-		//See Below
-		long count;
-		mapGraphNodeKeys(map, NULL, &count);
-		const char *toCheck[count];
-		mapGraphNodeKeys(map, (void*)toCheck, NULL);
-		
-		//Find the firstNode to have no incoming nodes,this is the master node(of one of the master nodes).
-		graphNodeMapping firstNode=NULL;
-		for(long i=0;i!=count;i++) {
-				__auto_type find= *mapGraphNodeGet(map, toCheck[i]);
-
-				//Check if no incoming
-				__auto_type in=graphNodeMappingIncomingNodes(find);
-				long len=strGraphNodeMappingPSize(in);
-				strGraphNodeMappingPDestroy(&in);
-				if(len==0) {
-						firstNode=find;
-						break;
-				}
-		}
-		if(count) {
-				assert(firstNode);
-		}
-		
-		mapGraphNodeDestroy(map, NULL);
-
-		return firstNode;
+	return firstNode;
 }

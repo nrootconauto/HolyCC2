@@ -9,7 +9,7 @@ struct __ll {
 };
 void *__llValuePtr(const struct __ll *node);
 void llInsertListAfter(struct __ll *a, struct __ll *b) {
-		struct __ll *oldNext = NULL;
+	struct __ll *oldNext = NULL;
 	__auto_type bEnd = __llGetEnd(b);
 	__auto_type bStart = __llGetFirst(b);
 	if (a != NULL) {
@@ -108,8 +108,7 @@ void *__llValuePtr(const struct __ll *node) {
 
 	return (void *)node + sizeof(struct __ll);
 }
-static  void __llKillRight(struct __ll *node,
-                                    void (*killFunc)(void *)) {
+static void __llKillRight(struct __ll *node, void (*killFunc)(void *)) {
 	for (__auto_type current = node->prev; current != NULL;) {
 		__auto_type prev = current->prev;
 		if (killFunc)
@@ -118,8 +117,7 @@ static  void __llKillRight(struct __ll *node,
 		current = prev;
 	}
 }
-static void __llKillLeft(struct __ll *node,
-                                   void (*killFunc)(void *)) {
+static void __llKillLeft(struct __ll *node, void (*killFunc)(void *)) {
 	for (__auto_type current = node->next; current != NULL;) {
 		__auto_type next = current->next;
 		if (killFunc)
@@ -131,8 +129,8 @@ static void __llKillLeft(struct __ll *node,
 void __llDestroy(struct __ll *node, void (*killFunc)(void *)) {
 	if (node == NULL)
 		return;
-	 __llKillLeft(node, killFunc);
-	 __llKillRight(node, killFunc);
+	__llKillLeft(node, killFunc);
+	__llKillRight(node, killFunc);
 	if (killFunc)
 		killFunc(__llValuePtr(node));
 }
@@ -220,25 +218,28 @@ struct __ll *__llValueResize(struct __ll *list, long newSize) {
 	return list;
 }
 long __llItemSize(const struct __ll *list) { return list->itemSize; }
-struct __ll* __llFind(const struct __ll *list,const void *data,int(*pred)(const void *,const void*)) {
-		int prev=0;
-		while(list!=NULL) {
-				int cmp=pred(data,__llValuePtr(list)); 
-				if(cmp==0) {
-						return (struct __ll*)list;
-				}
-				//prev is used to check if not moving backwards and forwards forever if value is between next node and curr
-				else if(cmp<0&&(cmp==prev||prev==0)) {
-						list=__llPrev(list);
-						continue;
-				}
-				//prev is used to check if not moving backwards and forwards forever if value is between previous node and curr
-				else if(cmp>0&&(cmp==prev||prev==0)) {
-						list=__llNext(list);
-						continue;
-				}
-				return NULL;
+struct __ll *__llFind(const struct __ll *list, const void *data,
+                      int (*pred)(const void *, const void *)) {
+	int prev = 0;
+	while (list != NULL) {
+		int cmp = pred(data, __llValuePtr(list));
+		if (cmp == 0) {
+			return (struct __ll *)list;
 		}
-		
+		// prev is used to check if not moving backwards and forwards forever if
+		// value is between next node and curr
+		else if (cmp < 0 && (cmp == prev || prev == 0)) {
+			list = __llPrev(list);
+			continue;
+		}
+		// prev is used to check if not moving backwards and forwards forever if
+		// value is between previous node and curr
+		else if (cmp > 0 && (cmp == prev || prev == 0)) {
+			list = __llNext(list);
+			continue;
+		}
 		return NULL;
+	}
+
+	return NULL;
 }

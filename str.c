@@ -21,7 +21,7 @@ void __vecDestroy(struct __vec *a) {
 }
 struct __vec *__vecResize(struct __vec *a, long size) {
 	if (a == NULL) {
-		a = malloc(2 * sizeof(long)+size);
+		a = malloc(2 * sizeof(long) + size);
 		memset(a, 0, 2 * sizeof(long));
 		if (a == NULL)
 			return NULL;
@@ -157,14 +157,14 @@ void *__vecSortedFind(const struct __vec *a, const void *item, long itemSize,
 struct __vec *__vecRemoveIf(struct __vec *a, long itemSize,
                             int predicate(const void *, const void *),
                             const void *data) {
-		if(a==NULL)
-				return NULL;
-		
+	if (a == NULL)
+		return NULL;
+
 	__auto_type size = __vecSize(a);
 	void *first = a, *last = (void *)a + size;
 	__auto_type result = first;
 	while (first != last) {
-			if (!predicate(data,first)) {
+		if (!predicate(data, first)) {
 			memcpy(result, first, itemSize);
 			result += itemSize;
 		}
@@ -242,7 +242,7 @@ struct __vec *__vecSetIntersection(struct __vec *a, const struct __vec *b,
 		else if (pred(first1, first2) > 0)
 			first2 += itemSize;
 		else {
-			moveBuffer[result / itemSize] = (first1 - (void *)a)/itemSize;
+			moveBuffer[result / itemSize] = (first1 - (void *)a) / itemSize;
 			first1 += itemSize, first2 += itemSize, result += itemSize;
 		}
 	}
@@ -265,41 +265,42 @@ struct __vec *__vecSetIntersection(struct __vec *a, const struct __vec *b,
 
 	return __vecResize(a, result);
 }
-//https://www.cplusplus.com/reference/algorithm/set_union/
-struct __vec *__vecSetUnion(struct __vec *a,struct __vec *b,long itemSize,int(*pred)(const void*,const void*)) {
-		void * s1=a;
-		void * s2=b;
-		void * e1=s1+__vecSize(a);
-		void * e2=s2+__vecSize(b);
+// https://www.cplusplus.com/reference/algorithm/set_union/
+struct __vec *__vecSetUnion(struct __vec *a, struct __vec *b, long itemSize,
+                            int (*pred)(const void *, const void *)) {
+	void *s1 = a;
+	void *s2 = b;
+	void *e1 = s1 + __vecSize(a);
+	void *e2 = s2 + __vecSize(b);
 
-		__auto_type retVal=__vecResize(NULL, __vecSize(a)+__vecSize(b));
-		void *r=retVal;
-		while(1) {
-				if(s1==e1) {
-						memcpy(r, s2, e2-s2);
-						r+=e2-s2;
+	__auto_type retVal = __vecResize(NULL, __vecSize(a) + __vecSize(b));
+	void *r = retVal;
+	while (1) {
+		if (s1 == e1) {
+			memcpy(r, s2, e2 - s2);
+			r += e2 - s2;
 
-						__vecDestroy(a);
-						return __vecResize(retVal, r-(void*)retVal);
-				}
-				if(s2==e2) {
-						memcpy(r, s1, e1-s1);
-						r+=e1-s1;
-
-						__vecDestroy(a);
-						return __vecResize(retVal, r-(void*)retVal);
-				}
-				if(pred(s2,s1)>0) {
-						memcpy(r, s1, itemSize);
-						s1+=itemSize;
-				} else if(pred(s1,s2)>0) {
-						memcpy(r, s2, itemSize);
-						s2+=itemSize;
-				} else {
-						memcpy(r, s1, itemSize);
-						s1+=itemSize;
-						s2+=itemSize;
-				}
-				r+=itemSize;
+			__vecDestroy(a);
+			return __vecResize(retVal, r - (void *)retVal);
 		}
+		if (s2 == e2) {
+			memcpy(r, s1, e1 - s1);
+			r += e1 - s1;
+
+			__vecDestroy(a);
+			return __vecResize(retVal, r - (void *)retVal);
+		}
+		if (pred(s2, s1) > 0) {
+			memcpy(r, s1, itemSize);
+			s1 += itemSize;
+		} else if (pred(s1, s2) > 0) {
+			memcpy(r, s2, itemSize);
+			s2 += itemSize;
+		} else {
+			memcpy(r, s1, itemSize);
+			s1 += itemSize;
+			s2 += itemSize;
+		}
+		r += itemSize;
+	}
 }

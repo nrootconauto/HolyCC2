@@ -1,6 +1,6 @@
+#include <hashTable.h>
 #include <linkedList.h>
 #include <str.h>
-#include <hashTable.h>
 #pragma once
 struct __graphNode;
 struct __graphEdge;
@@ -138,13 +138,25 @@ struct __graphEdge;
 	inline int graphNode##suffix##ConnectedTo(const graphNode##suffix from,      \
 	                                          const graphNode##suffix to) {      \
 		return __graphIsConnectedTo(from, to);                                     \
-	} \
-	inline strGraphNode##suffix##P graphNode##suffix##OutgoingNodes(const graphNode##suffix node) __attribute__((always_inline)); \
-	inline strGraphNode##suffix##P graphNode##suffix##OutgoingNodes(const graphNode##suffix node) { return __graphNodeOutgoingNodes(node);} \
-	inline strGraphNode##suffix##P graphNode##suffix##IncomingNodes(const graphNode##suffix node) __attribute__((always_inline)); \
-	inline strGraphNode##suffix##P graphNode##suffix##IncomingNodes(const graphNode##suffix node) { return __graphNodeIncomingNodes(node);} \
-	inline strGraphNode##suffix##P graphNode##suffix##AllNodes(const graphNode##suffix node) __attribute__((always_inline)); \
-	inline strGraphNode##suffix##P graphNode##suffix##AllNodes(const graphNode##suffix node) { return __graphNodeVisitAll((struct __graphNode*)node);}
+	}                                                                            \
+	inline strGraphNode##suffix##P graphNode##suffix##OutgoingNodes(             \
+	    const graphNode##suffix node) __attribute__((always_inline));            \
+	inline strGraphNode##suffix##P graphNode##suffix##OutgoingNodes(             \
+	    const graphNode##suffix node) {                                          \
+		return __graphNodeOutgoingNodes(node);                                     \
+	}                                                                            \
+	inline strGraphNode##suffix##P graphNode##suffix##IncomingNodes(             \
+	    const graphNode##suffix node) __attribute__((always_inline));            \
+	inline strGraphNode##suffix##P graphNode##suffix##IncomingNodes(             \
+	    const graphNode##suffix node) {                                          \
+		return __graphNodeIncomingNodes(node);                                     \
+	}                                                                            \
+	inline strGraphNode##suffix##P graphNode##suffix##AllNodes(                  \
+	    const graphNode##suffix node) __attribute__((always_inline));            \
+	inline strGraphNode##suffix##P graphNode##suffix##AllNodes(                  \
+	    const graphNode##suffix node) {                                          \
+		return __graphNodeVisitAll((struct __graphNode *)node);                    \
+	}
 void __graphKillAll(struct __graphNode *start, void (*killFunc)(void *),
                     void (*killEdge)(void *));
 void __graphNodeKill(struct __graphNode *node, void (*killNode)(void *item),
@@ -185,8 +197,8 @@ int __graphIsConnectedTo(const struct __graphNode *from,
 strGraphNodeP __graphNodeIncomingNodes(const struct __graphNode *node);
 strGraphNodeP __graphNodeOutgoingNodes(const struct __graphNode *node);
 strGraphNodeP __graphNodeVisitAll(const struct __graphNode *start);
-GRAPH_TYPE_DEF(struct __graphNode*, struct __graphEdge*, Mapping);
-GRAPH_TYPE_FUNCS(struct __graphNode*,struct __graphEdge*, Mapping);
+GRAPH_TYPE_DEF(struct __graphNode *, struct __graphEdge *, Mapping);
+GRAPH_TYPE_FUNCS(struct __graphNode *, struct __graphEdge *, Mapping);
 MAP_TYPE_DEF(graphNodeMapping, GraphNode);
 MAP_TYPE_FUNCS(graphNodeMapping, GraphNode);
 graphNodeMapping cloneGraphFromNodes(strGraphNodeP nodes);

@@ -43,10 +43,10 @@ void llTests() {
 	assert(*llIntValuePtr(llIntFindLeft(last, &tmp, orderPred)) == 3);
 	assert(llIntFindLeft(two, &tmp, orderPred) == NULL);
 
-	//Find bi-dir
-	tmp=4;
+	// Find bi-dir
+	tmp = 4;
 	assert(!llIntFind(one, &tmp, orderPred));
-	tmp=2;
+	tmp = 2;
 	assert(llIntFind(five, &two, orderPred));
 	//
 	llIntDestroy(&ll, NULL);

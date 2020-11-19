@@ -1,8 +1,7 @@
 #pragma once
+#include <graph.h>
 #include <linkedList.h>
 #include <str.h>
-#include <linkedList.h>
-#include <graph.h>
 struct graphDominators {
 	struct __graphNode *node;
 	strGraphNodeP dominators;
@@ -15,11 +14,11 @@ struct graphDomFrontier {
 	struct __graphNode *node;
 	strGraphNodeP dominators;
 };
-LL_TYPE_DEF(struct graphDominatorFrontier , DomFrontier);
-LL_TYPE_FUNCS(struct graphDomFrontier , DomFrontier);
+LL_TYPE_DEF(struct graphDominatorFrontier, DomFrontier);
+LL_TYPE_FUNCS(struct graphDomFrontier, DomFrontier);
 llDomFrontier graphDominanceFrontiers(struct __graphNode *start,
                                       const llDominators doms);
 struct __graphNode *graphDominatorIdom(const llDominators doms,
-                                   struct __graphNode *node);
+                                       struct __graphNode *node);
 int llDomFrontierCmp(const void *a, const void *b);
 graphNodeMapping createDomTree(llDominators doms);

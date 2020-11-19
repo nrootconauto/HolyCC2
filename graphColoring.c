@@ -2,8 +2,10 @@
 #include <readersWritersLock.h>
 #define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
-typedef int(*gnCmpType)(const struct __graphNode **,const struct __graphNode **);
-typedef int(*geCmpType)(const struct __graphEdge **,const struct __graphEdge **);
+typedef int (*gnCmpType)(const struct __graphNode **,
+                         const struct __graphNode **);
+typedef int (*geCmpType)(const struct __graphEdge **,
+                         const struct __graphEdge **);
 static int degree(const struct __graphNode *node) {
 	__auto_type out = __graphNodeOutgoing(node);
 	__auto_type in = __graphNodeIncoming(node);
@@ -75,7 +77,7 @@ struct __predPair {
 	llData data;
 	strGraphNodeP preds;
 };
-static int predHasColor(const void *data,const int *item) {
+static int predHasColor(const void *data, const int *item) {
 	const struct __predPair *pair = data;
 	for (long i = 0; i != strGraphNodePSize(pair->preds); i++) {
 		__auto_type color = llDataGet(pair->data, pair->preds[i]);
@@ -104,7 +106,7 @@ static int getColor(llData data, struct vertexInfo *nodeInfo) {
 
 	struct __predPair pair;
 	pair.preds = nodeInfo->prev;
-	colors2 = strIntRemoveIf(colors2,  &pair,predHasColor);
+	colors2 = strIntRemoveIf(colors2, &pair, predHasColor);
 
 	int minColor = colors2[0];
 	DEBUG_PRINT("NODE %i has Min color %i\n",
@@ -165,18 +167,22 @@ llVertexColor graphColor(const struct __graphNode *node) {
 			__auto_type u = llDataGet(datas, __graphEdgeOutgoing(out[i2]));
 
 			if (v->pri > u->pri)
-					v->succ = strGraphNodePSortedInsert(v->succ, u->node, (gnCmpType)ptrPtrCmp);
+				v->succ =
+				    strGraphNodePSortedInsert(v->succ, u->node, (gnCmpType)ptrPtrCmp);
 			else if (v->pri < u->pri)
-					v->prev = strGraphNodePSortedInsert(v->succ, u->node, (gnCmpType)ptrPtrCmp);
+				v->prev =
+				    strGraphNodePSortedInsert(v->succ, u->node, (gnCmpType)ptrPtrCmp);
 		}
 
 		for (long i2 = 0; i2 != strGraphEdgePSize(in); i2++) {
 			__auto_type u = llDataGet(datas, __graphEdgeIncoming(in[i2]));
 
 			if (v->pri > u->pri)
-				v->succ = strGraphNodePSortedInsert(v->succ, u->node, (gnCmpType)ptrPtrCmp);
+				v->succ =
+				    strGraphNodePSortedInsert(v->succ, u->node, (gnCmpType)ptrPtrCmp);
 			else if (v->pri < u->pri)
-					v->prev = strGraphNodePSortedInsert(v->succ, u->node, (gnCmpType)ptrPtrCmp);
+				v->prev =
+				    strGraphNodePSortedInsert(v->succ, u->node, (gnCmpType)ptrPtrCmp);
 		}
 
 		v->counter = strGraphNodePSize(v->prev);

@@ -1,8 +1,8 @@
 #pragma once
 #include <linkedList.h>
+#include <stdint.h>
 #include <str.h>
 #include <stringParser.h>
-#include <stdint.h>
 struct lexer;
 enum intType {
 	INT_UINT,
@@ -28,7 +28,8 @@ struct lexerFloating {
 };
 struct lexerItem;
 struct lexerItemTemplate {
-	struct __vec *(*lexItem)(const struct __vec *str, long pos, long *end, int *err);
+	struct __vec *(*lexItem)(const struct __vec *str, long pos, long *end,
+	                         int *err);
 	void (*killItemData)(void *item);
 };
 struct lexerItem {
@@ -46,5 +47,5 @@ extern struct lexerItemTemplate nameTemplate;
 extern struct lexerItemTemplate opTemplate;
 extern struct lexerItemTemplate kwTemplate;
 
-llLexerItem lexText(const struct __vec *text, int *err) ;
+llLexerItem lexText(const struct __vec *text, int *err);
 void *lexerItemValuePtr(struct lexerItem *item);

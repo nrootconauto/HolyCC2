@@ -2,7 +2,7 @@
 #include <linkedList.h>
 #include <str.h>
 enum holyCTypeKind {
- TYPE_Bool,
+	TYPE_Bool,
 	TYPE_U0,
 	TYPE_U8i,
 	TYPE_U16i,
@@ -21,12 +21,12 @@ enum holyCTypeKind {
 	TYPE_FUNCTION,
 };
 enum linkage {
- LINKAGE_STATIC=1,
- LINKAGE_PUBLIC,
- LINKAGE_EXTERN,
- LINKAGE__EXTERN,
- LINKAGE_IMPORT,
- LINKAGE__IMPORT,
+	LINKAGE_STATIC = 1,
+	LINKAGE_PUBLIC,
+	LINKAGE_EXTERN,
+	LINKAGE__EXTERN,
+	LINKAGE_IMPORT,
+	LINKAGE__IMPORT,
 };
 struct objectMemberAttr {
 	char *name;
@@ -45,13 +45,13 @@ struct objectMember {
 STR_TYPE_DEF(struct objectMember, ObjectMember);
 STR_TYPE_FUNCS(struct objectMember, ObjectMember);
 struct object {
-		enum holyCTypeKind type;
-		enum linkage link;
-		char *name;
+	enum holyCTypeKind type;
+	enum linkage link;
+	char *name;
 };
 struct objectMethod {
-		struct parserNode *name;
-		struct object *type;
+	struct parserNode *name;
+	struct object *type;
 };
 LL_TYPE_DEF(struct objectMethod, Method);
 LL_TYPE_FUNCS(struct objectMethod, Method);
@@ -59,8 +59,8 @@ struct objectClass {
 	struct object base;
 	struct parserNode *name;
 	strObjectMember members;
-		llMethod methods;
-		long align;
+	llMethod methods;
+	long align;
 	long size;
 };
 struct objectUnion {
@@ -75,14 +75,14 @@ struct objectPtr {
 	struct object *type;
 };
 struct objectArray {
-		struct object base;
-		struct object *type;
-		struct parserNode *dim;
+	struct object base;
+	struct object *type;
+	struct parserNode *dim;
 };
 struct objectForwardDeclaration {
-		struct object base;
-		struct parserNode *name;
-		enum holyCTypeKind type;
+	struct object base;
+	struct parserNode *name;
+	enum holyCTypeKind type;
 };
 struct objectFuncArg {
 	struct object *type;
@@ -110,7 +110,8 @@ long objectSize(const struct object *type, int *success);
 void objectMemberDestroy(struct objectMember *member);
 void objectMemberAttrDestroy(struct objectMemberAttr *attr);
 long objectAlign(const struct object *type, int *success);
-struct object *objectForwardDeclarationCreate(const struct parserNode  *name,enum holyCTypeKind type);
+struct object *objectForwardDeclarationCreate(const struct parserNode *name,
+                                              enum holyCTypeKind type);
 struct object *objectByName(const char *name);
 struct object *objectFuncCreate(struct object *retType, strFuncArg args);
 
@@ -126,7 +127,7 @@ extern struct object typeI32i;
 extern struct object typeI64i;
 extern struct object typeF64;
 
-void strFuncArgDestroy2(strFuncArg *args) ;
+void strFuncArgDestroy2(strFuncArg *args);
 char *object2Str(struct object *obj);
-int objectEqual(const struct object *a,const struct object *b);
-int objectIsCompat(const struct object *a,const struct object *b);
+int objectEqual(const struct object *a, const struct object *b);
+int objectIsCompat(const struct object *a, const struct object *b);

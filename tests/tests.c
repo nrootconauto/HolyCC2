@@ -15,27 +15,27 @@ void base64Tests();
 void topoSortTests();
 void subExprElimTests();
 int main() {
-		strTests();
-		preprocessorTests();
-		base64Tests();
-		graphTests();
-		graphDominanceTests();
-		graphColoringTests();
+	strTests();
+	preprocessorTests();
+	base64Tests();
+	graphTests();
+	graphDominanceTests();
+	graphColoringTests();
 	/**
 
 	  llTests();
 	  mapTests();
 	  strTests();
-	  
-	  
+
+
 	  subGraphTests();
 
-	  
+
 	  eventPoolTests();
 	  */
 	lexerTests();
 	parserTests();
-	//parserDiagTests();
+	// parserDiagTests();
 	topoSortTests();
 	subExprElimTests();
 	return 0;

@@ -4,10 +4,10 @@
 #include <parserA.h>
 #define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
-#include <hashTable.h>
-#include <parserB.h>
 #include <diagMsg.h>
 #include <exprParser.h>
+#include <hashTable.h>
+#include <parserB.h>
 static char *strCopy(const char *text) {
 	char *retVal = malloc(strlen(text) + 1);
 	strcpy(retVal, text);
@@ -21,12 +21,13 @@ static char *strCopy(const char *text) {
 		memcpy($retVal, &x, len);                                                  \
 		$retVal;                                                                   \
 	})
-static void assignPosByLexerItems(struct parserNode *node,llLexerItem start,llLexerItem end) {
-		node->pos.start=llLexerItemValuePtr(start)->start;
-		if(end)
-				node->pos.end=llLexerItemValuePtr(end)->end;
-		else
-				node->pos.start=llLexerItemValuePtr(llLexerItemLast(start))->end;
+static void assignPosByLexerItems(struct parserNode *node, llLexerItem start,
+                                  llLexerItem end) {
+	node->pos.start = llLexerItemValuePtr(start)->start;
+	if (end)
+		node->pos.end = llLexerItemValuePtr(end)->end;
+	else
+		node->pos.start = llLexerItemValuePtr(llLexerItemLast(start))->end;
 }
 static char *strClone(const char *str) {
 	__auto_type len = strlen(str);
@@ -34,79 +35,81 @@ static char *strClone(const char *str) {
 	strcpy(retVal, str);
 	return retVal;
 }
-//Expected a type that can used as a condition
-static void getStartEndPos(llLexerItem start,llLexerItem end,long *startP,long *endP) {
-		long endI,startI;
-		if(end==NULL) 
-				endI=llLexerItemValuePtr(llLexerItemLast(start))->end; 
-		else
-				endI=llLexerItemValuePtr(end)->end;
-		startI=llLexerItemValuePtr(start)->start;
+// Expected a type that can used as a condition
+static void getStartEndPos(llLexerItem start, llLexerItem end, long *startP,
+                           long *endP) {
+	long endI, startI;
+	if (end == NULL)
+		endI = llLexerItemValuePtr(llLexerItemLast(start))->end;
+	else
+		endI = llLexerItemValuePtr(end)->end;
+	startI = llLexerItemValuePtr(start)->start;
 
-		if(startP)
-				*startP=startI;
-		if(endP)
-				*endP=startI;
+	if (startP)
+		*startP = startI;
+	if (endP)
+		*endP = startI;
 }
-static void whineExpectedCondExpr(llLexerItem start,llLexerItem end,struct object *type) {
-		long startI,endI;
-		getStartEndPos(start,end,&startI,&endI);
-		
-		__auto_type typeText=object2Str(type);
+static void whineExpectedCondExpr(llLexerItem start, llLexerItem end,
+                                  struct object *type) {
+	long startI, endI;
+	getStartEndPos(start, end, &startI, &endI);
 
-		diagErrorStart(startI, endI);
-		char buffer[1024];
-		sprintf(buffer,"Type '%s' cannot be used as condition.",typeText);
-		diagPushText(buffer);
-		diagHighlight(startI, endI);
-		diagEndMsg();
+	__auto_type typeText = object2Str(type);
 
-		free(typeText);
+	diagErrorStart(startI, endI);
+	char buffer[1024];
+	sprintf(buffer, "Type '%s' cannot be used as condition.", typeText);
+	diagPushText(buffer);
+	diagHighlight(startI, endI);
+	diagEndMsg();
+
+	free(typeText);
 }
 static void whineExpectedExpr(llLexerItem item) {
-		if(item==NULL) {
-				long end=diagInputSize();
-				diagErrorStart(end, end);
-				diagPushText("Expected expression but got end of input.");
-				diagErrorStart(end, end);
-				return ;
-		}
-		
-		__auto_type item2=llLexerItemValuePtr(item);
-		diagErrorStart(item2->start, item2->end);
+	if (item == NULL) {
+		long end = diagInputSize();
+		diagErrorStart(end, end);
+		diagPushText("Expected expression but got end of input.");
+		diagErrorStart(end, end);
+		return;
+	}
 
-		diagHighlight(item2->start,item2->end);
-		diagPushText("Expected an expression,got ");
-		
-		diagPushQoutedText(item2->start, item2->end);
-		diagPushText(".");
+	__auto_type item2 = llLexerItemValuePtr(item);
+	diagErrorStart(item2->start, item2->end);
 
-		diagHighlight(item2->start,item2->end);
-		diagEndMsg();
+	diagHighlight(item2->start, item2->end);
+	diagPushText("Expected an expression,got ");
+
+	diagPushQoutedText(item2->start, item2->end);
+	diagPushText(".");
+
+	diagHighlight(item2->start, item2->end);
+	diagEndMsg();
 }
-static void whineExpected(llLexerItem item,const char *text) {
-		char buffer[256];
+static void whineExpected(llLexerItem item, const char *text) {
+	char buffer[256];
 
-		if(item==NULL) {
-				long end=diagInputSize();
-				diagErrorStart(end, end);
-				sprintf(buffer, "Expected '%s',got end of input.",text);
-				diagPushText(buffer);
-				diagEndMsg();
-				return ;
-		}
-		
-		__auto_type item2=llLexerItemValuePtr(item);
-		diagErrorStart(item2->start, item2->end);
-		sprintf(buffer, "Expected '%s', got " , text);
+	if (item == NULL) {
+		long end = diagInputSize();
+		diagErrorStart(end, end);
+		sprintf(buffer, "Expected '%s',got end of input.", text);
 		diagPushText(buffer);
-		diagPushText(",got ");
-		diagPushQoutedText(item2->start, item2->end);
-		diagPushText(".");
-
-		diagHighlight(item2->start,item2->end);
-
 		diagEndMsg();
+		return;
+	}
+
+	__auto_type item2 = llLexerItemValuePtr(item);
+	diagErrorStart(item2->start, item2->end);
+	sprintf(buffer, "Expected '%s', got ", text);
+	diagPushText(buffer);
+	diagPushText(",got ");
+	diagPushQoutedText(item2->start, item2->end);
+	diagPushText(".");
+
+	diagHighlight(item2->start, item2->end);
+
+	diagEndMsg();
 }
 static struct parserNode *expectOp(llLexerItem _item, const char *text) {
 	if (_item == NULL)
@@ -134,158 +137,160 @@ static void strParserNodeDestroy2(strParserNode *nodes) {
 	strParserNodeDestroy(nodes);
 }
 void parserNodeDestroy(struct parserNode **__node) {
-		if(!__node)
-				return;
-		struct parserNode *node=*__node;
-		if(node==NULL)
-				return;
-		
-		if(node->type==NODE_GOTO) {
-				parserNodeDestroy(&((struct parserNodeGoto*)node)->labelName);
-				free(node);
-		} else if(node->type==NODE_RETURN) {
-				parserNodeDestroy(&((struct parserNodeReturn*)node)->value);
-				free(node);
-		} else if(node->type==NODE_OP) {
-				free(node);
-		} else if(node->type==NODE_UNOP) {
-				__auto_type un=(struct parserNodeUnop*)node;
-				parserNodeDestroy(&un->a);
-				parserNodeDestroy(&un->op);
-				free(node);
-		} else if(node->type==NODE_BINOP) {
-				__auto_type bin=(struct parserNodeBinop*)node;
-				parserNodeDestroy(&bin->a);
-				parserNodeDestroy(&bin->b);
-				parserNodeDestroy(&bin->op);
-				free(node);
-		} else if(node->type==NODE_NAME) {
-				__auto_type name=(struct parserNodeName*)node;
-				free(name->text);
-				free(node);
-		} else if(node->type==NODE_LIT_INT) {
-				__auto_type i=(struct parserNodeLitInt*)node;
-				free(node);
-		} else if(node->type==NODE_LIT_STR) {
-				__auto_type str=(struct parserNodeLitStr*)node;
-				free(str->text);
-				free(node);
-		} else if(node->type==NODE_FUNC_CALL) {
-				__auto_type call=(struct parserNodeFuncCall*)node;
-				parserNodeDestroy(&call->func);
-				strParserNodeDestroy2(&call->args);
-				free(node);
-		} else if(node->type==NODE_COMMA_SEQ) {
-				__auto_type seq=(struct parserNodeCommaSeq*)node;
-				strParserNodeDestroy2(&seq->items);
-				free(node);
-		} else if(node->type==NODE_KW) {
-				__auto_type kw=(struct parserNodeKeyword*)node;
-				free(node);
-		} else if(node->type==NODE_META_DATA) {
-				__auto_type md=(struct parserNodeMetaData*)node;
-				parserNodeDestroy(&md->name);
-				parserNodeDestroy(&md->value);
-				free(node);
-		} else if(node->type==NODE_VAR_DECL) {
-				__auto_type decl=(struct parserNodeVarDecl*)node;
-				parserNodeDestroy(&decl->name);
-				parserNodeDestroy(&decl->dftVal);
-				strParserNodeDestroy2(&decl->metaData);
-				free(node);
-		} else if(node->type==NODE_VAR_DECLS) {
-				__auto_type decls=(struct parserNodeVarDecls*)node;
-				strParserNodeDestroy2(&decls->decls);
-				free(node);
-		} else if(node->type==NODE_CLASS_DEF) {
-				__auto_type cls=(struct parserNodeClassDef*)node;
-				parserNodeDestroy(&cls->name);
-				free(node);
-		} else if(node->type==NODE_UNION_DEF) {
-				__auto_type un=(struct parserNodeUnionDef*)node;
-				parserNodeDestroy(&un->name);
-				free(node);
-		} else if(node->type==NODE_IF) {
-				__auto_type __if=(struct parserNodeIf*)node;
-				parserNodeDestroy(&__if->body);
-				parserNodeDestroy(&__if->cond);
-				parserNodeDestroy(&__if->el);
-				free(node);
-		} else if(node->type==NODE_SCOPE) {
-				__auto_type scope=(struct parserNodeScope*)node;
-				strParserNodeDestroy2(&scope->stmts);
-				free(node);
-		} else if(node->type==NODE_DO) {
-				__auto_type __do=(struct parserNodeDo*)node;
-				parserNodeDestroy(&__do->body);
-				parserNodeDestroy(&__do->cond);
-				free(node);
-		} else if(node->type==NODE_FOR) {
-				__auto_type __for=(struct parserNodeFor*)node;
-				parserNodeDestroy(&__for->body);
-				parserNodeDestroy(&__for->cond);
-				parserNodeDestroy(&__for->inc);
-				parserNodeDestroy(&__for->init);
-				free(node);
-		} else if(node->type==NODE_WHILE) {
-				__auto_type __while=(struct parserNodeWhile*)node;
-				parserNodeDestroy(&__while->body);
-				parserNodeDestroy(&__while->cond);
-				free(node);
-		} else if(node->type==NODE_VAR) {;
-				free(node);
-		} else if(node->type==NODE_SWITCH) {;
-				__auto_type __switch=(struct parserNodeSwitch*)node;
-				parserNodeDestroy(&__switch->dft);
-				parserNodeDestroy(&__switch->body);
-				parserNodeDestroy(&__switch->exp);
-				strParserNodeDestroy2(&__switch->caseSubcases);
-				free(node);
-		} else if(node->type==NODE_CASE) {
-				__auto_type cs=(struct parserNodeCase*)node;
-				parserNodeDestroy(&cs->label);
-				free(node);
-		} else if(node->type==NODE_LABEL) {
-				__auto_type lab=(struct parserNodeLabel*)node;
-				parserNodeDestroy(&lab->name);
-				free(node);
-		} else if(node->type==NODE_SUBSWITCH) {
-				__auto_type sub=(struct parserNodeSubSwitch*)node;
-				parserNodeDestroy(&sub->dft);
-				parserNodeDestroy(&sub->start);
-				parserNodeDestroy(&sub->end);
-				strParserNodeDestroy2(&sub->caseSubcases);
-				free(node);
-		} else if(node->type==NODE_DEFAULT) {
-				free(node);
-		} else if(node->type==NODE_ARRAY_ACCESS) {
-				__auto_type acs=(struct parserNodeArrayAccess*)node;
-				parserNodeDestroy(&acs->exp);
-				parserNodeDestroy(&acs->index);
-				free(node);
-		} else if(node->type==NODE_TYPE_CAST) {
-				__auto_type tc=(struct parserNodeTypeCast*)node;
-				parserNodeDestroy(&tc->exp);
-				free(node);
-		} else if(node->type==NODE_FUNC_DEF) {
-				__auto_type def=(struct parserNodeFuncDef*)node;
-				parserNodeDestroy(&def->name);
-				parserNodeDestroy(&def->bodyScope);
-				free(node);
-		} else if(node->type==NODE_FUNC_REF) {
-				__auto_type ref=(struct parserNodeFuncRef*)node;
-				parserNodeDestroy(&ref->name);
-				free(node);
-		} else if(node->type==NODE_MEMBER_ACCESS) {
-				__auto_type acs=(struct parserNodeMemberAccess*)node;
-				parserNodeDestroy(&acs->name);
-				parserNodeDestroy(&acs->exp);
-				free(node);
-		} else if(node->type==NODE_FUNC_FORWARD_DECL) {
-				__auto_type fwd=(struct parserNodeFuncForwardDec*)node;
-				parserNodeDestroy(&fwd->name);
-				free(node);
-		}
+	if (!__node)
+		return;
+	struct parserNode *node = *__node;
+	if (node == NULL)
+		return;
+
+	if (node->type == NODE_GOTO) {
+		parserNodeDestroy(&((struct parserNodeGoto *)node)->labelName);
+		free(node);
+	} else if (node->type == NODE_RETURN) {
+		parserNodeDestroy(&((struct parserNodeReturn *)node)->value);
+		free(node);
+	} else if (node->type == NODE_OP) {
+		free(node);
+	} else if (node->type == NODE_UNOP) {
+		__auto_type un = (struct parserNodeUnop *)node;
+		parserNodeDestroy(&un->a);
+		parserNodeDestroy(&un->op);
+		free(node);
+	} else if (node->type == NODE_BINOP) {
+		__auto_type bin = (struct parserNodeBinop *)node;
+		parserNodeDestroy(&bin->a);
+		parserNodeDestroy(&bin->b);
+		parserNodeDestroy(&bin->op);
+		free(node);
+	} else if (node->type == NODE_NAME) {
+		__auto_type name = (struct parserNodeName *)node;
+		free(name->text);
+		free(node);
+	} else if (node->type == NODE_LIT_INT) {
+		__auto_type i = (struct parserNodeLitInt *)node;
+		free(node);
+	} else if (node->type == NODE_LIT_STR) {
+		__auto_type str = (struct parserNodeLitStr *)node;
+		free(str->text);
+		free(node);
+	} else if (node->type == NODE_FUNC_CALL) {
+		__auto_type call = (struct parserNodeFuncCall *)node;
+		parserNodeDestroy(&call->func);
+		strParserNodeDestroy2(&call->args);
+		free(node);
+	} else if (node->type == NODE_COMMA_SEQ) {
+		__auto_type seq = (struct parserNodeCommaSeq *)node;
+		strParserNodeDestroy2(&seq->items);
+		free(node);
+	} else if (node->type == NODE_KW) {
+		__auto_type kw = (struct parserNodeKeyword *)node;
+		free(node);
+	} else if (node->type == NODE_META_DATA) {
+		__auto_type md = (struct parserNodeMetaData *)node;
+		parserNodeDestroy(&md->name);
+		parserNodeDestroy(&md->value);
+		free(node);
+	} else if (node->type == NODE_VAR_DECL) {
+		__auto_type decl = (struct parserNodeVarDecl *)node;
+		parserNodeDestroy(&decl->name);
+		parserNodeDestroy(&decl->dftVal);
+		strParserNodeDestroy2(&decl->metaData);
+		free(node);
+	} else if (node->type == NODE_VAR_DECLS) {
+		__auto_type decls = (struct parserNodeVarDecls *)node;
+		strParserNodeDestroy2(&decls->decls);
+		free(node);
+	} else if (node->type == NODE_CLASS_DEF) {
+		__auto_type cls = (struct parserNodeClassDef *)node;
+		parserNodeDestroy(&cls->name);
+		free(node);
+	} else if (node->type == NODE_UNION_DEF) {
+		__auto_type un = (struct parserNodeUnionDef *)node;
+		parserNodeDestroy(&un->name);
+		free(node);
+	} else if (node->type == NODE_IF) {
+		__auto_type __if = (struct parserNodeIf *)node;
+		parserNodeDestroy(&__if->body);
+		parserNodeDestroy(&__if->cond);
+		parserNodeDestroy(&__if->el);
+		free(node);
+	} else if (node->type == NODE_SCOPE) {
+		__auto_type scope = (struct parserNodeScope *)node;
+		strParserNodeDestroy2(&scope->stmts);
+		free(node);
+	} else if (node->type == NODE_DO) {
+		__auto_type __do = (struct parserNodeDo *)node;
+		parserNodeDestroy(&__do->body);
+		parserNodeDestroy(&__do->cond);
+		free(node);
+	} else if (node->type == NODE_FOR) {
+		__auto_type __for = (struct parserNodeFor *)node;
+		parserNodeDestroy(&__for->body);
+		parserNodeDestroy(&__for->cond);
+		parserNodeDestroy(&__for->inc);
+		parserNodeDestroy(&__for->init);
+		free(node);
+	} else if (node->type == NODE_WHILE) {
+		__auto_type __while = (struct parserNodeWhile *)node;
+		parserNodeDestroy(&__while->body);
+		parserNodeDestroy(&__while->cond);
+		free(node);
+	} else if (node->type == NODE_VAR) {
+		;
+		free(node);
+	} else if (node->type == NODE_SWITCH) {
+		;
+		__auto_type __switch = (struct parserNodeSwitch *)node;
+		parserNodeDestroy(&__switch->dft);
+		parserNodeDestroy(&__switch->body);
+		parserNodeDestroy(&__switch->exp);
+		strParserNodeDestroy2(&__switch->caseSubcases);
+		free(node);
+	} else if (node->type == NODE_CASE) {
+		__auto_type cs = (struct parserNodeCase *)node;
+		parserNodeDestroy(&cs->label);
+		free(node);
+	} else if (node->type == NODE_LABEL) {
+		__auto_type lab = (struct parserNodeLabel *)node;
+		parserNodeDestroy(&lab->name);
+		free(node);
+	} else if (node->type == NODE_SUBSWITCH) {
+		__auto_type sub = (struct parserNodeSubSwitch *)node;
+		parserNodeDestroy(&sub->dft);
+		parserNodeDestroy(&sub->start);
+		parserNodeDestroy(&sub->end);
+		strParserNodeDestroy2(&sub->caseSubcases);
+		free(node);
+	} else if (node->type == NODE_DEFAULT) {
+		free(node);
+	} else if (node->type == NODE_ARRAY_ACCESS) {
+		__auto_type acs = (struct parserNodeArrayAccess *)node;
+		parserNodeDestroy(&acs->exp);
+		parserNodeDestroy(&acs->index);
+		free(node);
+	} else if (node->type == NODE_TYPE_CAST) {
+		__auto_type tc = (struct parserNodeTypeCast *)node;
+		parserNodeDestroy(&tc->exp);
+		free(node);
+	} else if (node->type == NODE_FUNC_DEF) {
+		__auto_type def = (struct parserNodeFuncDef *)node;
+		parserNodeDestroy(&def->name);
+		parserNodeDestroy(&def->bodyScope);
+		free(node);
+	} else if (node->type == NODE_FUNC_REF) {
+		__auto_type ref = (struct parserNodeFuncRef *)node;
+		parserNodeDestroy(&ref->name);
+		free(node);
+	} else if (node->type == NODE_MEMBER_ACCESS) {
+		__auto_type acs = (struct parserNodeMemberAccess *)node;
+		parserNodeDestroy(&acs->name);
+		parserNodeDestroy(&acs->exp);
+		free(node);
+	} else if (node->type == NODE_FUNC_FORWARD_DECL) {
+		__auto_type fwd = (struct parserNodeFuncForwardDec *)node;
+		parserNodeDestroy(&fwd->name);
+		free(node);
+	}
 }
 static struct parserNode *nameParse(llLexerItem start, llLexerItem end,
                                     llLexerItem *result);
@@ -304,9 +309,9 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end,
 		struct parserNodeLitInt lit;
 		lit.base.type = NODE_LIT_INT;
 		lit.value = *(struct lexerInt *)lexerItemValuePtr(item);
-		lit.base.pos.start=item->start;
-		lit.base.pos.end=item->end;
-		
+		lit.base.pos.start = item->start;
+		lit.base.pos.end = item->end;
+
 		return ALLOCATE(lit);
 	} else if (item->template == &strTemplate) {
 		if (result != NULL)
@@ -317,37 +322,37 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end,
 		lit.base.type = NODE_LIT_STR;
 		lit.text = strClone((char *)str.text);
 		lit.isChar = str.isChar;
-		lit.base.pos.start=item->start;
-		lit.base.pos.end=item->end;
+		lit.base.pos.start = item->start;
+		lit.base.pos.end = item->end;
 
 		return ALLOCATE(lit);
 	} else if (item->template == &nameTemplate) {
 		__auto_type name = nameParse(start, end, result);
-		//Look for var
+		// Look for var
 		__auto_type findVar = getVar(name);
 		if (findVar) {
 			struct parserNodeVar var;
 			var.base.type = NODE_VAR;
 			var.var = findVar;
-			var.base.pos.start=name->pos.start;
-			var.base.pos.end=name->pos.end;
-			
+			var.base.pos.start = name->pos.start;
+			var.base.pos.end = name->pos.end;
+
 			return ALLOCATE(var);
 		}
 
-		//Look for func
-		__auto_type findFunc=getFunc(name);
-		if(findFunc) {
-				struct parserNodeFuncRef ref;
-				ref.base.pos.start=name->pos.start;
-				ref.base.pos.end=name->pos.end;
-				ref.base.type=NODE_FUNC_REF;
-				ref.func=findFunc;
-				ref.name=name;
+		// Look for func
+		__auto_type findFunc = getFunc(name);
+		if (findFunc) {
+			struct parserNodeFuncRef ref;
+			ref.base.pos.start = name->pos.start;
+			ref.base.pos.end = name->pos.end;
+			ref.base.type = NODE_FUNC_REF;
+			ref.func = findFunc;
+			ref.name = name;
 
-				return ALLOCATE(ref);
+			return ALLOCATE(ref);
 		}
-		
+
 		return name;
 	} else {
 		return NULL;
@@ -453,17 +458,17 @@ static llLexerItem findOtherSide(llLexerItem start, llLexerItem end) {
 }
 static struct parserNode *precCommaRecur(llLexerItem start, llLexerItem end,
                                          llLexerItem *result) {
-		__auto_type originalStart=start;
-		
-		if (start == NULL)
+	__auto_type originalStart = start;
+
+	if (start == NULL)
 		return NULL;
 
 	struct parserNodeCommaSeq seq;
 	seq.base.type = NODE_COMMA_SEQ;
 	seq.items = NULL;
 	seq.type = NULL;
-	seq.base.pos.start=llLexerItemValuePtr(start)->start;
-	
+	seq.base.pos.start = llLexerItemValuePtr(start)->start;
+
 	__auto_type node = NULL;
 	for (; start != NULL && start != end;) {
 		__auto_type comma = expectOp(start, ",");
@@ -489,10 +494,11 @@ static struct parserNode *precCommaRecur(llLexerItem start, llLexerItem end,
 		// Append last item
 		seq.items = strParserNodeAppendItem(seq.items, node);
 
-		if(start)
-				seq.base.pos.end=llLexerItemValuePtr(start)->end;
+		if (start)
+			seq.base.pos.end = llLexerItemValuePtr(start)->end;
 		else
-				seq.base.pos.end=llLexerItemValuePtr(llLexerItemLast(originalStart))->end;
+			seq.base.pos.end =
+			    llLexerItemValuePtr(llLexerItemLast(originalStart))->end;
 		return ALLOCATE(seq);
 	}
 }
@@ -523,8 +529,8 @@ static struct parserNode *parenRecur(llLexerItem start, llLexerItem end,
 		if (!right)
 			goto fail;
 
-		retVal->pos.start= left->pos.start;
-		retVal->pos.end= right->pos.end;
+		retVal->pos.start = left->pos.start;
+		retVal->pos.end = right->pos.end;
 		if (result != NULL)
 			*result = start;
 
@@ -544,11 +550,11 @@ success:
 }
 struct parserNode *parseExpression(llLexerItem start, llLexerItem end,
                                    llLexerItem *result) {
-		__auto_type res=precCommaRecur(start, end, result);
-		if(res)
-				assignTypeToOp(res);
+	__auto_type res = precCommaRecur(start, end, result);
+	if (res)
+		assignTypeToOp(res);
 
-		return res;
+	return res;
 }
 struct pnPair {
 	struct parserNode *a, *b;
@@ -572,7 +578,7 @@ static strPNPair tailBinop(llLexerItem start, llLexerItem end,
 		for (long i = 0; i != opCount; i++) {
 			op = expectOp(start, ops[i]);
 			if (op != NULL) {
-					break;
+				break;
 			}
 		}
 		if (op == NULL)
@@ -618,7 +624,8 @@ static struct parserNode *nameParse(llLexerItem start, llLexerItem end,
 }
 static struct parserNode *pairOperator(const char *left, const char *right,
                                        llLexerItem start, llLexerItem end,
-                                       llLexerItem *result, int *success,long *startP,long *endP) {
+                                       llLexerItem *result, int *success,
+                                       long *startP, long *endP) {
 	if (success != NULL)
 		*success = 0;
 
@@ -653,14 +660,14 @@ end:
 	if (r == NULL)
 		parserNodeDestroy(&exp), exp = NULL;
 
-	if(l&&startP)
-			*startP=l->pos.start;
-	if(r&&endP)
-			*endP=r->pos.end;
-	
+	if (l && startP)
+		*startP = l->pos.start;
+	if (r && endP)
+		*endP = r->pos.end;
+
 	parserNodeDestroy(&l);
 	parserNodeDestroy(&r);
-	
+
 	return exp;
 }
 static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end,
@@ -694,9 +701,9 @@ static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end,
 				unop.base.type = NODE_UNOP;
 				unop.isSuffix = 1;
 				unop.op = ptr;
-				unop.type=NULL;
-				unop.base.pos.start=head->pos.start;
-				unop.base.pos.end=ptr->pos.end;
+				unop.type = NULL;
+				unop.base.pos.start = head->pos.start;
+				unop.base.pos.end = ptr->pos.end;
 
 				head = ALLOCATE(unop);
 				goto loop1;
@@ -718,68 +725,69 @@ static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end,
 				binop.base.type = NODE_BINOP;
 				binop.op = ptr;
 				binop.b = next;
-				binop.base.pos.start=head->pos.start;
-				binop.base.pos.end=head->pos.end;
-				binop.type=NULL;
-						
+				binop.base.pos.start = head->pos.start;
+				binop.base.pos.end = head->pos.end;
+				binop.type = NULL;
+
 				head = ALLOCATE(binop);
 				goto loop1;
 			}
 		}
 
 		// Check for typecast before func call
-		struct parserNode *lP=expectOp(result2,"(");
-		if(lP) {
-				llLexerItem end2=findOtherSide(result2, NULL);
-				if(end2){
-						__auto_type item=llLexerItemValuePtr(llLexerItemNext(result2));
-						if(item->template==&nameTemplate) {
-								__auto_type baseType= objectByName((char*)lexerItemValuePtr(item));
-								if(baseType!=NULL) {
-										strParserNode dims;
-										long ptrLevel;
-										struct parserNode *name;
-										llLexerItem end3;
+		struct parserNode *lP = expectOp(result2, "(");
+		if (lP) {
+			llLexerItem end2 = findOtherSide(result2, NULL);
+			if (end2) {
+				__auto_type item = llLexerItemValuePtr(llLexerItemNext(result2));
+				if (item->template == &nameTemplate) {
+					__auto_type baseType = objectByName((char *)lexerItemValuePtr(item));
+					if (baseType != NULL) {
+						strParserNode dims;
+						long ptrLevel;
+						struct parserNode *name;
+						llLexerItem end3;
 
-										struct parserNode *dft;
-										strParserNode metas=NULL;
-										__auto_type type= parseVarDeclTail(start, &end3, baseType, &name, &dft, &metas);
-										result2=end2;
-										
-										//Create type
-										strParserNodeDestroy2(&metas);
-										parserNodeDestroy(&name);
+						struct parserNode *dft;
+						strParserNode metas = NULL;
+						__auto_type type =
+						    parseVarDeclTail(start, &end3, baseType, &name, &dft, &metas);
+						result2 = end2;
 
-										struct parserNodeTypeCast cast;
-										cast.base.type=NODE_TYPE_CAST;
-										cast.exp=head;
-										cast.type=type;
-										cast.base.pos.start=lP->pos.start;
-										cast.base.pos.end=llLexerItemValuePtr(end2)->end;
-										
-										head=ALLOCATE(cast);
+						// Create type
+						strParserNodeDestroy2(&metas);
+						parserNodeDestroy(&name);
 
-										//Move past ")"
-										result2=llLexerItemNext(end2);
-										goto loop1;
-								}
-						}
+						struct parserNodeTypeCast cast;
+						cast.base.type = NODE_TYPE_CAST;
+						cast.exp = head;
+						cast.type = type;
+						cast.base.pos.start = lP->pos.start;
+						cast.base.pos.end = llLexerItemValuePtr(end2)->end;
+
+						head = ALLOCATE(cast);
+
+						// Move past ")"
+						result2 = llLexerItemNext(end2);
+						goto loop1;
+					}
 				}
+			}
 		}
 		parserNodeDestroy(&lP);
 		int success;
-		long startP,endP;
-		__auto_type funcCallArgs =
-				pairOperator("(", ")", result2, end, &result2, &success,&startP,&endP);
+		long startP, endP;
+		__auto_type funcCallArgs = pairOperator("(", ")", result2, end, &result2,
+		                                        &success, &startP, &endP);
 		if (success) {
 			struct parserNodeFuncCall newNode;
 			newNode.base.type = NODE_FUNC_CALL;
 			newNode.func = head;
 			newNode.args = NULL;
-			newNode.base.pos.start=startP;
-			newNode.base.pos.end=endP;
-			newNode.type=NULL;
-			
+			newNode.base.pos.start = startP;
+			newNode.base.pos.end = endP;
+			newNode.type = NULL;
+
 			if (funcCallArgs != NULL) {
 				if (funcCallArgs->type == NODE_COMMA_SEQ) {
 					struct parserNodeCommaSeq *seq = (void *)funcCallArgs;
@@ -794,17 +802,17 @@ static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end,
 			goto loop1;
 		}
 		__auto_type oldResult2 = result2;
-		__auto_type array =
-				pairOperator("[", "]", result2, end, &result2, &success,&startP,&endP);
+		__auto_type array = pairOperator("[", "]", result2, end, &result2, &success,
+		                                 &startP, &endP);
 		if (success) {
 			struct parserNodeArrayAccess access;
 			access.exp = head;
 			access.base.type = NODE_BINOP;
-			access.index=array;
-			access.base.pos.start=startP;
-			access.base.pos.end=endP;
-			access.type=NULL;
-			
+			access.index = array;
+			access.base.pos.start = startP;
+			access.base.pos.end = endP;
+			access.type = NULL;
+
 			head = ALLOCATE(access);
 
 			goto loop1;
@@ -857,11 +865,11 @@ static struct parserNode *prec1Recur(llLexerItem start, llLexerItem end,
 			unop.a = tail;
 			unop.isSuffix = 0;
 			unop.op = opStack[i];
-			unop.base.pos.start=tail->pos. end;
-			unop.base.pos.end=opStack[i]->pos.start;
-			unop.type=NULL;
+			unop.base.pos.start = tail->pos.end;
+			unop.base.pos.end = opStack[i]->pos.start;
+			unop.type = NULL;
 			tail = ALLOCATE(unop);
-		} 
+		}
 	}
 
 	if (result != NULL)
@@ -892,10 +900,10 @@ static struct parserNode *binopLeftAssoc(
 		binop.a = head;
 		binop.op = tail[i].a;
 		binop.b = tail[i].b;
-		binop.base.pos.start=head->pos.start;
-		binop.base.pos.end=tail[i].b->pos.end;
-		binop.type=NULL;
-		
+		binop.base.pos.start = head->pos.start;
+		binop.base.pos.end = tail[i].b->pos.end;
+		binop.type = NULL;
+
 		head = ALLOCATE(binop);
 	}
 end:
@@ -937,9 +945,9 @@ static struct parserNode *binopRightAssoc(
 		binop.op = tail[i].a;
 		binop.b = right;
 		binop.base.type = NODE_BINOP;
-		binop.base.pos.start=left->pos.start;
-		binop.base.pos.start=right->pos.end;
-		binop.type=NULL;
+		binop.base.pos.start = left->pos.start;
+		binop.base.pos.start = right->pos.end;
+		binop.type = NULL;
 
 		right = ALLOCATE(binop);
 	}
@@ -1051,7 +1059,8 @@ static void getPtrsAndDims(llLexerItem start, llLexerItem *end,
 		if (left == NULL)
 			break;
 
-		__auto_type dim = pairOperator("[", "]", start, NULL, &start, NULL,NULL,NULL);
+		__auto_type dim =
+		    pairOperator("[", "]", start, NULL, &start, NULL, NULL, NULL);
 		dims2 = strParserNodeAppendItem(dims2, dim);
 	}
 
@@ -1077,7 +1086,7 @@ static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end,
                                        struct parserNode **dftVal,
                                        strParserNode *metaDatas);
 struct parserNode *parseSingleVarDecl(llLexerItem start, llLexerItem *end) {
-		__auto_type originalStart=start;
+	__auto_type originalStart = start;
 	struct parserNode *base __attribute__((cleanup(parserNodeDestroy)));
 	base = nameParse(start, NULL, &start);
 	if (base != NULL) {
@@ -1091,17 +1100,17 @@ struct parserNode *parseSingleVarDecl(llLexerItem start, llLexerItem *end) {
 		decl.type = parseVarDeclTail(start, end, baseType, &decl.name, &decl.dftVal,
 		                             &decl.metaData);
 
-		if(end)
-				assignPosByLexerItems((struct parserNode*)&decl,originalStart,*end);
+		if (end)
+			assignPosByLexerItems((struct parserNode *)&decl, originalStart, *end);
 		else
-				assignPosByLexerItems((struct parserNode*)&decl,originalStart,NULL);
+			assignPosByLexerItems((struct parserNode *)&decl, originalStart, NULL);
 		return ALLOCATE(decl);
 	}
 	return NULL;
 }
 struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end) {
-		__auto_type originalStart=start;
-		
+	__auto_type originalStart = start;
+
 	struct parserNode *base __attribute__((cleanup(parserNodeDestroy)));
 	struct object *baseType = NULL;
 	int foundType = 0;
@@ -1158,11 +1167,13 @@ struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end) {
 			retVal.base.type = NODE_VAR_DECLS;
 			retVal.decls = strParserNodeAppendData(
 			    NULL, (const struct parserNode **)decls, strParserNodeSize(decls));
-			if(end)
-					assignPosByLexerItems((struct parserNode *)&retVal, originalStart, *end);
+			if (end)
+				assignPosByLexerItems((struct parserNode *)&retVal, originalStart,
+				                      *end);
 			else
-					assignPosByLexerItems((struct parserNode *)&retVal, originalStart, NULL);
-			
+				assignPosByLexerItems((struct parserNode *)&retVal, originalStart,
+				                      NULL);
+
 			return ALLOCATE(retVal);
 		}
 	}
@@ -1202,9 +1213,9 @@ static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end,
                                        struct parserNode **name,
                                        struct parserNode **dftVal,
                                        strParserNode *metaDatas) {
-		int failed=0;
-		
-		if (metaDatas != NULL)
+	int failed = 0;
+
+	if (metaDatas != NULL)
 		*metaDatas = NULL;
 
 	__auto_type funcPtrLeft = expectOp(start, "(");
@@ -1224,21 +1235,21 @@ static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end,
 		__auto_type r = expectOp(start, ")");
 		if (r == NULL) {
 			parserNodeDestroy(&r);
-			failed=1;
+			failed = 1;
 			whineExpected(start, ")");
 		} else {
-				start = llLexerItemNext(start);
-				failed=0;
+			start = llLexerItemNext(start);
+			failed = 0;
 		}
 
 		struct parserNode *l2 __attribute__((cleanup(parserNodeDestroy)));
 		l2 = expectOp(start, "(");
-		if(l2) {
-		start = llLexerItemNext(start);
+		if (l2) {
+			start = llLexerItemNext(start);
 		} else {
-				whineExpected(start, ")");
-				failed=1;
-		}	
+			whineExpected(start, ")");
+			failed = 1;
+		}
 
 		strFuncArg args __attribute__((cleanup(strFuncArgDestroy)));
 		args = NULL;
@@ -1254,10 +1265,10 @@ static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end,
 			if (!firstRun) {
 				struct parserNode *comma __attribute__((cleanup(parserNodeDestroy)));
 				comma = expectOp(start, ",");
-				if (comma == NULL){
-						whineExpected(start, ",");
+				if (comma == NULL) {
+					whineExpected(start, ",");
 				} else
-						start = llLexerItemNext(start);
+					start = llLexerItemNext(start);
 			}
 
 			struct parserNodeVarDecl *argDecl =
@@ -1388,40 +1399,40 @@ static strObjectMember parseMembers(llLexerItem start, llLexerItem *end) {
 	return NULL;
 }
 static void referenceType(struct object *type) {
-		struct parserNodeName *existingName=NULL;
-		if(type->type==TYPE_CLASS) {
-				struct objectClass *cls=(void*)type;
-				existingName=(void*)cls->name;
-		} else if(type->type==TYPE_UNION) {
-				struct objectUnion *un=(void*)type;
-				existingName=(void*)un->name;
-		} else if(type->type==TYPE_FORWARD) {
-				struct objectForwardDeclaration *f=(void*)type;
-				existingName=(void*)f->name;
-		}
-								
-		if(existingName) {
-				assert(existingName->base.type==NODE_NAME);
-				diagNoteStart(existingName->base.pos.start, existingName->base.pos.end);
-				diagPushText("Previous definition here:");
-				diagHighlight(existingName->base.pos.start, existingName->base.pos.end);
-				diagEndMsg();
-		}
+	struct parserNodeName *existingName = NULL;
+	if (type->type == TYPE_CLASS) {
+		struct objectClass *cls = (void *)type;
+		existingName = (void *)cls->name;
+	} else if (type->type == TYPE_UNION) {
+		struct objectUnion *un = (void *)type;
+		existingName = (void *)un->name;
+	} else if (type->type == TYPE_FORWARD) {
+		struct objectForwardDeclaration *f = (void *)type;
+		existingName = (void *)f->name;
+	}
+
+	if (existingName) {
+		assert(existingName->base.type == NODE_NAME);
+		diagNoteStart(existingName->base.pos.start, existingName->base.pos.end);
+		diagPushText("Previous definition here:");
+		diagHighlight(existingName->base.pos.start, existingName->base.pos.end);
+		diagEndMsg();
+	}
 }
 struct parserNode *parseClass(llLexerItem start, llLexerItem *end) {
-		__auto_type originalStart = start;
-		__auto_type baseName = nameParse(start, NULL, &start);
-		struct parserNode *cls = NULL, *un = NULL;
-		struct object *retValObj = NULL;
-		struct parserNode *retVal = NULL;
-		
-		struct object *baseType = NULL;
-		if (baseName != NULL) {
-				struct parserNodeName *name2 = (void *)baseName;
-				baseType = objectByName(name2->text);
-				if (baseType == NULL)
-						goto end;
-		}
+	__auto_type originalStart = start;
+	__auto_type baseName = nameParse(start, NULL, &start);
+	struct parserNode *cls = NULL, *un = NULL;
+	struct object *retValObj = NULL;
+	struct parserNode *retVal = NULL;
+
+	struct object *baseType = NULL;
+	if (baseName != NULL) {
+		struct parserNodeName *name2 = (void *)baseName;
+		baseType = objectByName(name2->text);
+		if (baseType == NULL)
+			goto end;
+	}
 	cls = expectKeyword(start, "class");
 	un = expectKeyword(start, "union");
 
@@ -1435,52 +1446,53 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end) {
 		    expectKeyword(start, "{");
 		start = llLexerItemNext(start);
 		if (l == NULL) {
-				//Is a forward declaration(!?!)
-				__auto_type semi=expectKeyword(start, ";");
-				if(semi) {
-						start=llLexerItemNext(start);
+			// Is a forward declaration(!?!)
+			__auto_type semi = expectKeyword(start, ";");
+			if (semi) {
+				start = llLexerItemNext(start);
 
-						struct parserNodeName *name=(void*)name2;
-						__auto_type type=objectByName(name->text);
-						if(NULL==type) {
-								objectForwardDeclarationCreate(name2,(cls!=NULL)?TYPE_CLASS:TYPE_UNION);
-						} else if(cls) {
-								if(type->type!=TYPE_CLASS)
-										goto incompat ;
-						} else if(un) {
-								if(type->type!=TYPE_UNION)
-										goto incompat ;
-						} else if(type->type==TYPE_FORWARD) {
-								struct objectForwardDeclaration *f=(void*)type;
-								if(f->type != (cls!=NULL)?TYPE_CLASS:TYPE_UNION)
-										goto incompat;
-						} else {
-								//Whine about forward declaration of incompatible existing type
-								
-						incompat:;
-								diagErrorStart(name->base.pos.start, name->base.pos.end);
-								diagPushText("Forward declaration ");
-								diagPushQoutedText(name->base.pos.start, name->base.pos.end);
-								diagPushText(" conflicts with existing type.");
-								diagHighlight(name->base.pos.start, name->base.pos.end);
-								diagEndMsg();
+				struct parserNodeName *name = (void *)name2;
+				__auto_type type = objectByName(name->text);
+				if (NULL == type) {
+					objectForwardDeclarationCreate(name2, (cls != NULL) ? TYPE_CLASS
+					                                                    : TYPE_UNION);
+				} else if (cls) {
+					if (type->type != TYPE_CLASS)
+						goto incompat;
+				} else if (un) {
+					if (type->type != TYPE_UNION)
+						goto incompat;
+				} else if (type->type == TYPE_FORWARD) {
+					struct objectForwardDeclaration *f = (void *)type;
+					if (f->type != (cls != NULL) ? TYPE_CLASS : TYPE_UNION)
+						goto incompat;
+				} else {
+					// Whine about forward declaration of incompatible existing type
 
-								referenceType(type);
-						}
+				incompat:;
+					diagErrorStart(name->base.pos.start, name->base.pos.end);
+					diagPushText("Forward declaration ");
+					diagPushQoutedText(name->base.pos.start, name->base.pos.end);
+					diagPushText(" conflicts with existing type.");
+					diagHighlight(name->base.pos.start, name->base.pos.end);
+					diagEndMsg();
+
+					referenceType(type);
 				}
-				goto end;
+			}
+			goto end;
 		}
 
 		strObjectMember members __attribute__((cleanup(strObjectMemberDestroy))) =
 		    NULL;
-		int findOtherSide=0;
-		for (int firstRun=1;;firstRun=0) {
+		int findOtherSide = 0;
+		for (int firstRun = 1;; firstRun = 0) {
 			struct parserNode *r __attribute__((cleanup(parserNodeDestroy))) =
 			    expectKeyword(start, "}");
 			if (r != NULL) {
-					findOtherSide=1;
-					start = llLexerItemNext(start);
-					break;
+				findOtherSide = 1;
+				start = llLexerItemNext(start);
+				break;
 			}
 
 			__auto_type newMembers = parseMembers(start, &start);
@@ -1490,7 +1502,7 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end) {
 			if (kw != NULL) {
 				start = llLexerItemNext(start);
 			} else {
-					whineExpected(start, ";");
+				whineExpected(start, ";");
 			}
 			parserNodeDestroy(&kw);
 		}
@@ -1503,18 +1515,18 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end) {
 		// Whine is type of same name already exists
 		int alreadyExists = 0;
 		if (objectByName(((struct parserNodeName *)name2)->text)) {
-				__auto_type name=((struct parserNodeName *)name2);
+			__auto_type name = ((struct parserNodeName *)name2);
 
-				diagErrorStart(name->base.pos.start, name->base.pos.end);
-				diagPushText("Type ");
-				diagPushQoutedText(name->base.pos.start, name->base.pos.end);
-				diagPushText("already exists!");
-				diagHighlight(name->base.pos.start, name->base.pos.end);
-				diagEndMsg();
+			diagErrorStart(name->base.pos.start, name->base.pos.end);
+			diagPushText("Type ");
+			diagPushQoutedText(name->base.pos.start, name->base.pos.end);
+			diagPushText("already exists!");
+			diagHighlight(name->base.pos.start, name->base.pos.end);
+			diagEndMsg();
 
-				referenceType(objectByName(name->text));
-				
-				alreadyExists = 1;
+			referenceType(objectByName(name->text));
+
+			alreadyExists = 1;
 		}
 
 		if (!alreadyExists) {
@@ -1550,11 +1562,11 @@ end:
 	parserNodeDestroy(&un);
 	parserNodeDestroy(&baseName);
 
-	if(retVal) {
-			if(end)
-					assignPosByLexerItems(retVal, originalStart, *end);
-			else
-					assignPosByLexerItems(retVal, originalStart,NULL);
+	if (retVal) {
+		if (end)
+			assignPosByLexerItems(retVal, originalStart, *end);
+		else
+			assignPosByLexerItems(retVal, originalStart, NULL);
 	}
 	return retVal;
 }
@@ -1570,23 +1582,24 @@ static void addDeclsToScope(struct parserNode *varDecls) {
 		}
 	}
 }
-struct parserNode *parseScope(llLexerItem start, llLexerItem *end,strParserNode vars) {
-		__auto_type originalStart=start;
+struct parserNode *parseScope(llLexerItem start, llLexerItem *end,
+                              strParserNode vars) {
+	__auto_type originalStart = start;
 
-		struct parserNode *lC = NULL, *rC = NULL;
+	struct parserNode *lC = NULL, *rC = NULL;
 	lC = expectKeyword(start, "{");
 
 	strParserNode nodes = NULL;
 	if (lC) {
 		enterScope();
 
-		//Add vars to scope
-		for(long i=0;i!=strParserNodeSize(vars);i++)
-				addDeclsToScope(vars[i]);
+		// Add vars to scope
+		for (long i = 0; i != strParserNodeSize(vars); i++)
+			addDeclsToScope(vars[i]);
 
 		start = llLexerItemNext(start);
 
-		int foundOtherSide=0;
+		int foundOtherSide = 0;
 		for (; start != NULL;) {
 			rC = expectKeyword(start, "}");
 
@@ -1595,19 +1608,19 @@ struct parserNode *parseScope(llLexerItem start, llLexerItem *end,strParserNode 
 				if (expr)
 					nodes = strParserNodeAppendItem(nodes, expr);
 			} else {
-					foundOtherSide=1;
-					leaveScope();
-					start = llLexerItemNext(start);
-					break;
+				foundOtherSide = 1;
+				leaveScope();
+				start = llLexerItemNext(start);
+				break;
 			}
 		}
-		
-		if(!foundOtherSide) {
-				struct parserNodeKeyword *kw=(void*)lC;
-				diagErrorStart(kw->base.pos.start,kw->base.pos.end);
-				diagPushText("Expecte other '}'.");
-				diagHighlight(kw->base.pos.start,kw->base.pos.end);
-				diagEndMsg();
+
+		if (!foundOtherSide) {
+			struct parserNodeKeyword *kw = (void *)lC;
+			diagErrorStart(kw->base.pos.start, kw->base.pos.end);
+			diagPushText("Expecte other '}'.");
+			diagHighlight(kw->base.pos.start, kw->base.pos.end);
+			diagEndMsg();
 		}
 	}
 	parserNodeDestroy(&lC);
@@ -1617,25 +1630,25 @@ struct parserNode *parseScope(llLexerItem start, llLexerItem *end,strParserNode 
 		*end = start;
 
 	if (nodes != NULL) {
-			struct parserNodeScope scope;
-			scope.base.type = NODE_SCOPE;
-			scope.stmts = nodes;
-			if(end)
-					assignPosByLexerItems((struct parserNode*)&scope, originalStart, *end);
-			else
-					assignPosByLexerItems((struct parserNode*)&scope, originalStart,NULL);
-		
-			return ALLOCATE(scope);
+		struct parserNodeScope scope;
+		scope.base.type = NODE_SCOPE;
+		scope.stmts = nodes;
+		if (end)
+			assignPosByLexerItems((struct parserNode *)&scope, originalStart, *end);
+		else
+			assignPosByLexerItems((struct parserNode *)&scope, originalStart, NULL);
+
+		return ALLOCATE(scope);
 	}
 
 	return NULL;
 }
 struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
-		//If end is NULL,make a dummy version for testing for ";" ahead
-		llLexerItem endDummy;
-		if(!end)
-				end=&endDummy;
-		
+	// If end is NULL,make a dummy version for testing for ";" ahead
+	llLexerItem endDummy;
+	if (!end)
+		end = &endDummy;
+
 	__auto_type originalStart = start;
 	__auto_type semi = expectKeyword(start, ";");
 	if (semi) {
@@ -1647,54 +1660,54 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 	}
 	struct parserNode *retVal = NULL;
 
-	__auto_type func= parseFunction(originalStart,end);
-	if(func) {
-			return func;
+	__auto_type func = parseFunction(originalStart, end);
+	if (func) {
+		return func;
 	}
 
 	__auto_type varDecls = parseVarDecls(start, end);
 	if (varDecls) {
 		addDeclsToScope(varDecls);
 
-		if(end){
-				__auto_type semi=expectKeyword(*end, ";");
-				if(!semi)
-						whineExpected(*end, ";");
-				parserNodeDestroy(&semi);
+		if (end) {
+			__auto_type semi = expectKeyword(*end, ";");
+			if (!semi)
+				whineExpected(*end, ";");
+			parserNodeDestroy(&semi);
 		}
-		
+
 		retVal = varDecls;
 		goto end;
 	}
 
-	__auto_type gotoStmt=parseGoto(start, end);
-	if(gotoStmt) {
-			retVal=gotoStmt;
-			goto end;
+	__auto_type gotoStmt = parseGoto(start, end);
+	if (gotoStmt) {
+		retVal = gotoStmt;
+		goto end;
 	}
-	
-	__auto_type retStmt=parseReturn(originalStart, end);
-	if(retStmt) {
-			retVal=retStmt;
-			goto end;
+
+	__auto_type retStmt = parseReturn(originalStart, end);
+	if (retStmt) {
+		retVal = retStmt;
+		goto end;
 	}
-	
-	__auto_type labStmt=parseLabel(originalStart,end);
-	if(labStmt) {
-	  retVal=labStmt;
-	  goto end;
+
+	__auto_type labStmt = parseLabel(originalStart, end);
+	if (labStmt) {
+		retVal = labStmt;
+		goto end;
 	}
-	
+
 	start = originalStart;
 	__auto_type expr = parseExpression(start, NULL, end);
 	if (expr) {
-			if(end){
-					__auto_type semi=expectKeyword(*end, ";");
-					if(!semi)
-							whineExpected(*end, ";");
-					parserNodeDestroy(&semi);
-			}
-			
+		if (end) {
+			__auto_type semi = expectKeyword(*end, ";");
+			if (!semi)
+				whineExpected(*end, ";");
+			parserNodeDestroy(&semi);
+		}
+
 		retVal = expr;
 		goto end;
 	}
@@ -1707,7 +1720,7 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 	}
 
 	start = originalStart;
-	__auto_type scope = parseScope(start, end,NULL);
+	__auto_type scope = parseScope(start, end, NULL);
 	if (scope) {
 		retVal = scope;
 		goto end;
@@ -1727,27 +1740,27 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 
 	__auto_type doStmt = parseDo(originalStart, end);
 	if (doStmt) {
-			if(end){
-					__auto_type semi=expectKeyword(*end, ";");
-					if(!semi)
-							whineExpected(*end, ";");
-					parserNodeDestroy(&semi);
-			}
-			
+		if (end) {
+			__auto_type semi = expectKeyword(*end, ";");
+			if (!semi)
+				whineExpected(*end, ";");
+			parserNodeDestroy(&semi);
+		}
+
 		retVal = doStmt;
 		goto end;
 	}
 
-	__auto_type caseStmt=parseCase(originalStart,end);
-	if(caseStmt) {
-	  retVal=caseStmt;
-	  goto end;
+	__auto_type caseStmt = parseCase(originalStart, end);
+	if (caseStmt) {
+		retVal = caseStmt;
+		goto end;
 	}
 
-	__auto_type stStatement=parseSwitch(originalStart,end);
-	if(stStatement) {
-	  retVal=stStatement;
-	  goto end;
+	__auto_type stStatement = parseSwitch(originalStart, end);
+	if (stStatement) {
+		retVal = stStatement;
+		goto end;
 	}
 
 	return NULL;
@@ -1763,8 +1776,8 @@ end : {
 }
 }
 struct parserNode *parseWhile(llLexerItem start, llLexerItem *end) {
-		__auto_type originalStart=start;
-		
+	__auto_type originalStart = start;
+
 	struct parserNode *kwWhile = NULL, *lP = NULL, *rP = NULL, *cond = NULL,
 	                  *body = NULL, *retVal = NULL;
 	struct parserNode *toFree[] = {
@@ -1775,30 +1788,30 @@ struct parserNode *parseWhile(llLexerItem start, llLexerItem *end) {
 	__auto_type count = sizeof(toFree) / sizeof(*toFree);
 	kwWhile = expectKeyword(start, "while");
 
-	int failed=0;
+	int failed = 0;
 	if (kwWhile) {
 		start = llLexerItemNext(start);
 
 		lP = expectOp(start, "(");
 		if (!lP) {
-				failed=1;
-				whineExpected(start, "(");
+			failed = 1;
+			whineExpected(start, "(");
 		} else
-		start = llLexerItemNext(start);
+			start = llLexerItemNext(start);
 
 		cond = parseExpression(start, NULL, &start);
 		if (!cond) {
-				failed=1;
-				whineExpectedExpr(start);
+			failed = 1;
+			whineExpectedExpr(start);
 		}
 
 		rP = expectOp(start, ")");
-		if (! rP) {
-				failed=1;
-				whineExpected(start,")");
+		if (!rP) {
+			failed = 1;
+			whineExpected(start, ")");
 		}
 		start = llLexerItemNext(start);
-		
+
 		body = parseStatement(start, &start);
 	} else
 		goto fail;
@@ -1806,11 +1819,11 @@ struct parserNode *parseWhile(llLexerItem start, llLexerItem *end) {
 	node.base.type = NODE_WHILE;
 	node.body = body;
 	node.cond = cond;
-	if(end)
-			assignPosByLexerItems((struct parserNode*)&node, originalStart, *end);
+	if (end)
+		assignPosByLexerItems((struct parserNode *)&node, originalStart, *end);
 	else
-			assignPosByLexerItems((struct parserNode*)&node, originalStart, NULL);
-	
+		assignPosByLexerItems((struct parserNode *)&node, originalStart, NULL);
+
 	retVal = ALLOCATE(node);
 	goto end;
 fail:
@@ -1826,8 +1839,8 @@ end:
 	return retVal;
 }
 struct parserNode *parseFor(llLexerItem start, llLexerItem *end) {
-		__auto_type originalStart=start;
-		
+	__auto_type originalStart = start;
+
 	struct parserNode *lP = NULL, *rP = NULL, *kwFor = NULL, *semi1 = NULL,
 	                  *semi2 = NULL, *cond = NULL, *inc = NULL, *body = NULL,
 	                  *init = NULL;
@@ -1878,10 +1891,10 @@ struct parserNode *parseFor(llLexerItem start, llLexerItem *end) {
 		forStmt.inc = inc;
 
 		retVal = ALLOCATE(forStmt);
-		if(end)
-				assignPosByLexerItems(retVal, originalStart, *end);
+		if (end)
+			assignPosByLexerItems(retVal, originalStart, *end);
 		else
-				assignPosByLexerItems(retVal, originalStart, NULL);
+			assignPosByLexerItems(retVal, originalStart, NULL);
 		goto end;
 	}
 fail:
@@ -1902,8 +1915,8 @@ end:
 	return retVal;
 }
 struct parserNode *parseDo(llLexerItem start, llLexerItem *end) {
-		__auto_type originalStart=start;
-		
+	__auto_type originalStart = start;
+
 	__auto_type kwDo = expectKeyword(start, "do");
 	if (kwDo == NULL)
 		return NULL;
@@ -1917,46 +1930,45 @@ struct parserNode *parseDo(llLexerItem start, llLexerItem *end) {
 	start = llLexerItemNext(start);
 	body = parseStatement(start, &start);
 
-	int failed=0;
-	
+	int failed = 0;
+
 	kwWhile = expectKeyword(start, "while");
-	if(kwWhile) {
+	if (kwWhile) {
 		start = llLexerItemNext(start);
 	} else {
-			failed=1;
-			whineExpected(start, "while");
+		failed = 1;
+		whineExpected(start, "while");
 	}
-	
-		lP = expectOp(start, "(");
-		if (!lP) {
-			failed=1;
-			whineExpected(start, "(");
-		} else
-				start = llLexerItemNext(start);
 
-		cond = parseExpression(start, NULL, &start);
-		if(cond==NULL) {
-				failed=1;
-				whineExpectedExpr(start);
-		}
-		
-		rP = expectOp(start, ")");
-		if (!rP) {
-				failed=1;
-				whineExpected(start, ")");
-		}
+	lP = expectOp(start, "(");
+	if (!lP) {
+		failed = 1;
+		whineExpected(start, "(");
+	} else
 		start = llLexerItemNext(start);
-		
+
+	cond = parseExpression(start, NULL, &start);
+	if (cond == NULL) {
+		failed = 1;
+		whineExpectedExpr(start);
+	}
+
+	rP = expectOp(start, ")");
+	if (!rP) {
+		failed = 1;
+		whineExpected(start, ")");
+	}
+	start = llLexerItemNext(start);
+
 	struct parserNodeDo doNode;
 	doNode.base.type = NODE_DO;
 	doNode.body = body;
 	doNode.cond = cond;
-	if(end)
-				assignPosByLexerItems((struct parserNode*)&doNode,originalStart, *end);
+	if (end)
+		assignPosByLexerItems((struct parserNode *)&doNode, originalStart, *end);
 	else
-			assignPosByLexerItems((struct parserNode*)&doNode, originalStart,NULL);
+		assignPosByLexerItems((struct parserNode *)&doNode, originalStart, NULL);
 
-	
 	retVal = ALLOCATE(doNode);
 	goto end;
 fail:
@@ -1972,36 +1984,36 @@ end:
 	return retVal;
 }
 struct parserNode *parseIf(llLexerItem start, llLexerItem *end) {
-		__auto_type originalStart=start;
-		
-		__auto_type kwIf = expectKeyword(start, "if");
+	__auto_type originalStart = start;
+
+	__auto_type kwIf = expectKeyword(start, "if");
 	struct parserNode *lP = NULL, *rP = NULL, *cond = NULL, *elKw = NULL,
 	                  *elBody = NULL;
 
 	struct parserNode *retVal = NULL;
-	int failed=0;
+	int failed = 0;
 	if (kwIf) {
 		start = llLexerItemNext(start);
 
 		lP = expectOp(start, "(");
 		if (!lP) {
-				failed=1;
-				whineExpected(start,"(");
+			failed = 1;
+			whineExpected(start, "(");
 		}
 		start = llLexerItemNext(start);
 
 		cond = parseExpression(start, NULL, &start);
 		if (!cond) {
-				failed=1;
-				whineExpectedExpr(start);
+			failed = 1;
+			whineExpectedExpr(start);
 		}
 
 		rP = expectOp(start, ")");
 		if (!rP) {
-				failed=1;
-				whineExpected(start,")");
-		} else 
-		start = llLexerItemNext(start);
+			failed = 1;
+			whineExpected(start, ")");
+		} else
+			start = llLexerItemNext(start);
 
 		__auto_type body = parseStatement(start, &start);
 
@@ -2009,23 +2021,23 @@ struct parserNode *parseIf(llLexerItem start, llLexerItem *end) {
 		start = llLexerItemNext(start);
 		if (elKw) {
 			elBody = parseStatement(start, NULL);
-			failed|=elBody==NULL;
+			failed |= elBody == NULL;
 		}
-		
+
 		struct parserNodeIf ifNode;
 		ifNode.base.type = NODE_IF;
 		ifNode.cond = cond;
 		ifNode.body = body;
 		ifNode.el = elBody;
 
-		if(end)
-				assignPosByLexerItems((struct parserNode*)&ifNode, originalStart, *end);
+		if (end)
+			assignPosByLexerItems((struct parserNode *)&ifNode, originalStart, *end);
 		else
-				assignPosByLexerItems((struct parserNode*)&ifNode, originalStart,NULL);
-		
+			assignPosByLexerItems((struct parserNode *)&ifNode, originalStart, NULL);
+
 		// Dont free cond ahead
 		cond = NULL;
-		elBody=NULL;
+		elBody = NULL;
 
 		retVal = ALLOCATE(ifNode);
 	}
@@ -2081,7 +2093,7 @@ static long getNextCaseValue(struct parserNode *parent) {
 getValue : {
 	if (entry->type == NODE_CASE) {
 		struct parserNodeCase *node = (void *)entry;
-		return node->valueUpper+1;
+		return node->valueUpper + 1;
 	} else if (entry->type == NODE_SUBSWITCH) {
 		return getNextCaseValue(entry);
 	} else {
@@ -2090,338 +2102,338 @@ getValue : {
 	return -1;
 }
 }
-struct parserNode *parseSwitch(llLexerItem start,llLexerItem *end) {
-		__auto_type originalStart=start;
-		
-  struct parserNode *kw=NULL,*lP=NULL,*rP=NULL,*exp=NULL,*body=NULL,*retVal=NULL;
-  struct parserNode *toFree[]={kw,lP,rP};
-  __auto_type count=sizeof(toFree)/sizeof(toFree);
+struct parserNode *parseSwitch(llLexerItem start, llLexerItem *end) {
+	__auto_type originalStart = start;
 
-  kw=expectKeyword(start,"switch");
-  int success=0;
-  if(kw) {
-    success=1;
-    start=llLexerItemNext(start);
+	struct parserNode *kw = NULL, *lP = NULL, *rP = NULL, *exp = NULL,
+	                  *body = NULL, *retVal = NULL;
+	struct parserNode *toFree[] = {kw, lP, rP};
+	__auto_type count = sizeof(toFree) / sizeof(toFree);
 
-    lP=expectOp(start,"(");
-    if(!lP) {
-						success=0;
-						whineExpected(start,"(");
-				} else
-						start=llLexerItemNext(start);
+	kw = expectKeyword(start, "switch");
+	int success = 0;
+	if (kw) {
+		success = 1;
+		start = llLexerItemNext(start);
 
-    exp=parseExpression(start,NULL,&start);
-    if(!exp)
-      success=0;
+		lP = expectOp(start, "(");
+		if (!lP) {
+			success = 0;
+			whineExpected(start, "(");
+		} else
+			start = llLexerItemNext(start);
 
-    rP=expectOp(start,")");
-    if(!rP) {
-      success=0;
-						whineExpected(start,")");
-				} else
-						start=llLexerItemNext(start);
+		exp = parseExpression(start, NULL, &start);
+		if (!exp)
+			success = 0;
 
-    struct parserNodeSwitch swit;
-    swit.base.type=NODE_SWITCH;
-    swit.body=body;
-    swit.caseSubcases=NULL;
-    swit.dft=NULL;
-    swit.exp=exp;
-    retVal=ALLOCATE(swit);
+		rP = expectOp(start, ")");
+		if (!rP) {
+			success = 0;
+			whineExpected(start, ")");
+		} else
+			start = llLexerItemNext(start);
 
-    //Push to stack
-				long oldStackSize=strParserNodeSize(switchStack);
-				switchStack=strParserNodeAppendItem(switchStack, retVal);
+		struct parserNodeSwitch swit;
+		swit.base.type = NODE_SWITCH;
+		swit.body = body;
+		swit.caseSubcases = NULL;
+		swit.dft = NULL;
+		swit.exp = exp;
+		retVal = ALLOCATE(swit);
 
-    body=parseStatement(start,&start);
-				
-				if(!success)
-						parserNodeDestroy(&retVal);
+		// Push to stack
+		long oldStackSize = strParserNodeSize(switchStack);
+		switchStack = strParserNodeAppendItem(switchStack, retVal);
 
-				//Whine about unterminated sub switches
-				//+1 ignores current switch entry
-				for(long i=oldStackSize+1;i!=strParserNodeSize(switchStack);i++) {
-						assert(switchStack[i]->type==NODE_SUBSWITCH);
+		body = parseStatement(start, &start);
 
-						struct parserNodeSubSwitch *sub=(void*)switchStack[i];
-						assert(sub->start->type==NODE_LABEL);
-						struct parserNodeLabel *lab=(void*)sub->start;
-						struct parserNodeName *name=(void*)lab->name;
+		if (!success)
+			parserNodeDestroy(&retVal);
 
-						diagErrorStart(  name->base.pos.start,name->base.pos.end);
-						diagPushText("Unterminated sub-switch.");
-						diagHighlight(  name->base.pos.start,name->base.pos.end);
-						diagEndMsg();
+		// Whine about unterminated sub switches
+		//+1 ignores current switch entry
+		for (long i = oldStackSize + 1; i != strParserNodeSize(switchStack); i++) {
+			assert(switchStack[i]->type == NODE_SUBSWITCH);
 
-						struct parserNodeKeyword *kw2=(void*)kw;
-						diagNoteStart(  kw2->base.pos.start,kw2->base.pos.end);
-						diagPushText("From here:");
-						diagHighlight(  kw2->base.pos.start,kw2->base.pos.end);
-						diagEndMsg();
-				}
-				
-				switchStack = strParserNodeResize(switchStack,oldStackSize);
-  }
-    
+			struct parserNodeSubSwitch *sub = (void *)switchStack[i];
+			assert(sub->start->type == NODE_LABEL);
+			struct parserNodeLabel *lab = (void *)sub->start;
+			struct parserNodeName *name = (void *)lab->name;
 
-  for(int i=0;i!=count;i++)
-    parserNodeDestroy(&toFree[i]);
+			diagErrorStart(name->base.pos.start, name->base.pos.end);
+			diagPushText("Unterminated sub-switch.");
+			diagHighlight(name->base.pos.start, name->base.pos.end);
+			diagEndMsg();
 
-		if(retVal) {
-				if(end)
-						assignPosByLexerItems(retVal, originalStart, *end);
-				else
-						assignPosByLexerItems(retVal, originalStart, NULL);
+			struct parserNodeKeyword *kw2 = (void *)kw;
+			diagNoteStart(kw2->base.pos.start, kw2->base.pos.end);
+			diagPushText("From here:");
+			diagHighlight(kw2->base.pos.start, kw2->base.pos.end);
+			diagEndMsg();
 		}
-  return retVal;
-}
-static long searchForNode(const strParserNode nodes,const struct parserNode *node) {
-  long retVal=0;
-  for(long i=0;i!=strParserNodeSize(nodes);i++)
-    if(nodes[i]==node)
-      return i;
 
-  return -1;
+		switchStack = strParserNodeResize(switchStack, oldStackSize);
+	}
+
+	for (int i = 0; i != count; i++)
+		parserNodeDestroy(&toFree[i]);
+
+	if (retVal) {
+		if (end)
+			assignPosByLexerItems(retVal, originalStart, *end);
+		else
+			assignPosByLexerItems(retVal, originalStart, NULL);
+	}
+	return retVal;
+}
+static long searchForNode(const strParserNode nodes,
+                          const struct parserNode *node) {
+	long retVal = 0;
+	for (long i = 0; i != strParserNodeSize(nodes); i++)
+		if (nodes[i] == node)
+			return i;
+
+	return -1;
 }
 struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 	struct parserNode *colon1 = NULL, *retVal = NULL;
-	__auto_type originalStart=start;
-	
+	__auto_type originalStart = start;
+
 	__auto_type name = nameParse(start, NULL, &start);
 	if (name == NULL)
 		return NULL;
 	colon1 = expectKeyword(start, ":");
 	if (!colon1)
 		goto end;
-	start=llLexerItemNext(start);
+	start = llLexerItemNext(start);
 
 	struct parserNodeLabel lab;
-	lab.base.type=NODE_LABEL;
-	lab.name=name;
-	retVal=ALLOCATE(lab);
-	
+	lab.base.type = NODE_LABEL;
+	lab.name = name;
+	retVal = ALLOCATE(lab);
+
 	struct parserNodeName *name2 = (void *)name;
 	if (0 == strcmp(name2->text, "end") && 0 != strParserNodeSize(switchStack)) {
-	  //Create sub-switch
-	  struct parserNodeSubSwitch sub;
-	  //Pop
+		// Create sub-switch
+		struct parserNodeSubSwitch sub;
+		// Pop
 		switchStack =
 		    strParserNodeResize(switchStack, strParserNodeSize(switchStack) - 1);
 	} else if (0 == strcmp(name2->text, "start") &&
 	           0 != strParserNodeSize(switchStack)) {
-			//Create sub-switch
-			struct parserNodeSubSwitch sub;
-			sub.base.type = NODE_SUBSWITCH;
-			sub.caseSubcases=NULL;
-			sub.dft=NULL;
-			sub.end=NULL;
-			sub.start=retVal;
-struct parserNode *top=switchStack[strParserNodeSize(switchStack)-1];
-	struct parserNode *sub2 = ALLOCATE(sub);
-			retVal=sub2;
-	if(top->type
-				==NODE_SWITCH) {
-			struct parserNodeSwitch *swit=(void*)top;
-			swit->caseSubcases=strParserNodeAppendItem(swit->caseSubcases,sub2);
-	} else if(top->type
-											==NODE_SUBSWITCH) {
-			struct parserNodeSubSwitch *sub=(void*)top;
-			sub->caseSubcases=strParserNodeAppendItem(sub->caseSubcases,sub2);
-	}
-	
+		// Create sub-switch
+		struct parserNodeSubSwitch sub;
+		sub.base.type = NODE_SUBSWITCH;
+		sub.caseSubcases = NULL;
+		sub.dft = NULL;
+		sub.end = NULL;
+		sub.start = retVal;
+		struct parserNode *top = switchStack[strParserNodeSize(switchStack) - 1];
+		struct parserNode *sub2 = ALLOCATE(sub);
+		retVal = sub2;
+		if (top->type == NODE_SWITCH) {
+			struct parserNodeSwitch *swit = (void *)top;
+			swit->caseSubcases = strParserNodeAppendItem(swit->caseSubcases, sub2);
+		} else if (top->type == NODE_SUBSWITCH) {
+			struct parserNodeSubSwitch *sub = (void *)top;
+			sub->caseSubcases = strParserNodeAppendItem(sub->caseSubcases, sub2);
+		}
 
-			switchStack = strParserNodeAppendItem(switchStack, retVal);
-	}
-	;
+		switchStack = strParserNodeAppendItem(switchStack, retVal);
+	};
 end:
-	//Check if success
-	if(!retVal)
-			start=originalStart;
-	if(end!=NULL)
-			*end=start;
+	// Check if success
+	if (!retVal)
+		start = originalStart;
+	if (end != NULL)
+		*end = start;
 
-	if(retVal) {
-			if(end)
-					assignPosByLexerItems(retVal, originalStart, *end);
-			else
-					assignPosByLexerItems(retVal, originalStart,NULL);
+	if (retVal) {
+		if (end)
+			assignPosByLexerItems(retVal, originalStart, *end);
+		else
+			assignPosByLexerItems(retVal, originalStart, NULL);
 	}
-	
+
 	parserNodeDestroy(&colon1);
 
 	return retVal;
 }
-static void ensureCaseDoesntExist(long valueLow,long valueHigh,long rangeStart,long rangeEnd) {
-		long len=strParserNodeSize(switchStack);
-		for(long i=len-1;i>=0;i--) {
-				strParserNode cases=NULL;
-				if(switchStack[i]->type==NODE_SWITCH) {
-						cases=((struct parserNodeSwitch*)switchStack[i])->caseSubcases;
-				} else if(switchStack[i]->type==NODE_SUBSWITCH) {
-						cases=((struct parserNodeSubSwitch*)switchStack[i])->caseSubcases;
-				} else assert(0);
+static void ensureCaseDoesntExist(long valueLow, long valueHigh,
+                                  long rangeStart, long rangeEnd) {
+	long len = strParserNodeSize(switchStack);
+	for (long i = len - 1; i >= 0; i--) {
+		strParserNode cases = NULL;
+		if (switchStack[i]->type == NODE_SWITCH) {
+			cases = ((struct parserNodeSwitch *)switchStack[i])->caseSubcases;
+		} else if (switchStack[i]->type == NODE_SUBSWITCH) {
+			cases = ((struct parserNodeSubSwitch *)switchStack[i])->caseSubcases;
+		} else
+			assert(0);
 
-				for(long i=0;i!=strParserNodeSize(cases);i++) {
-						if(cases[i]->type==NODE_CASE) {
-								struct parserNodeCase *cs=(void*)cases[i];
+		for (long i = 0; i != strParserNodeSize(cases); i++) {
+			if (cases[i]->type == NODE_CASE) {
+				struct parserNodeCase *cs = (void *)cases[i];
 
-								int consumed=0;
-								//Check if high is in range
-								consumed|=valueHigh<cs->valueUpper&&valueHigh<=cs->valueLower;
-								//Check if low is in range
-								consumed|=valueLow>=cs->valueUpper&&valueLow<=cs->valueLower;
-								//Check if range is consumed
-								consumed|=valueHigh>=cs->valueUpper&&valueLow<=cs->valueLower;
-								if(consumed) {
-										struct parserNodeKeyword *kw=(void*)cs->label;
-										diagErrorStart(rangeStart,rangeEnd);
-										diagPushText("Conflicting case statements.");
-										diagHighlight(rangeStart, rangeEnd);
-										diagEndMsg();
+				int consumed = 0;
+				// Check if high is in range
+				consumed |= valueHigh < cs->valueUpper && valueHigh <= cs->valueLower;
+				// Check if low is in range
+				consumed |= valueLow >= cs->valueUpper && valueLow <= cs->valueLower;
+				// Check if range is consumed
+				consumed |= valueHigh >= cs->valueUpper && valueLow <= cs->valueLower;
+				if (consumed) {
+					struct parserNodeKeyword *kw = (void *)cs->label;
+					diagErrorStart(rangeStart, rangeEnd);
+					diagPushText("Conflicting case statements.");
+					diagHighlight(rangeStart, rangeEnd);
+					diagEndMsg();
 
-										diagNoteStart(kw->base.pos.start, kw->base.pos.end);
-										diagPushText("Previous case here: ");
-										diagHighlight(kw->base.pos.start, kw->base.pos.end);
-										diagEndMsg();
-										goto end;
-								}
-						}
+					diagNoteStart(kw->base.pos.start, kw->base.pos.end);
+					diagPushText("Previous case here: ");
+					diagHighlight(kw->base.pos.start, kw->base.pos.end);
+					diagEndMsg();
+					goto end;
 				}
+			}
 		}
-	end:;
-		
+	}
+end:;
 }
-static void whineCaseNoSwitch(const struct parserNode * kw,long start,long end) {
-		diagErrorStart(start, end);
-		const struct parserNodeKeyword *kw2=(void*)kw;
-		char buffer[128];
-		sprintf(buffer, "Unexpected '%s'. Not in switch statement. ", kw2->text);
-		diagPushText(buffer);
-		diagHighlight(start,end);
-		diagEndMsg();
+static void whineCaseNoSwitch(const struct parserNode *kw, long start,
+                              long end) {
+	diagErrorStart(start, end);
+	const struct parserNodeKeyword *kw2 = (void *)kw;
+	char buffer[128];
+	sprintf(buffer, "Unexpected '%s'. Not in switch statement. ", kw2->text);
+	diagPushText(buffer);
+	diagHighlight(start, end);
+	diagEndMsg();
 }
 struct parserNode *parseCase(llLexerItem start, llLexerItem *end) {
-		__auto_type originalStart=start;
-		
-		struct parserNode *kwCase = NULL, *colon = NULL,*dotdotdot=NULL;
+	__auto_type originalStart = start;
+
+	struct parserNode *kwCase = NULL, *colon = NULL, *dotdotdot = NULL;
 	struct parserNode *retVal = NULL;
-	int failed=0;
+	int failed = 0;
 	kwCase = expectKeyword(start, "case");
 	/**
-		 * Get parent switch
-		 */
-		struct parserNode *parent = NULL;
-		if (strParserNodeSize(switchStack) == 0) {
-		} else {
-			parent = switchStack[strParserNodeSize(switchStack) - 1];
-		}
+	 * Get parent switch
+	 */
+	struct parserNode *parent = NULL;
+	if (strParserNodeSize(switchStack) == 0) {
+	} else {
+		parent = switchStack[strParserNodeSize(switchStack) - 1];
+	}
 	if (kwCase) {
 		start = llLexerItemNext(start);
-		
-		//Used later
-		__auto_type valueStart=start;
-		
+
+		// Used later
+		__auto_type valueStart = start;
+
 		int gotInt = 0;
-	long caseValue = -1,caseValueUpper=-1;
+		long caseValue = -1, caseValueUpper = -1;
 		if (start != NULL) {
 			if (llLexerItemValuePtr(start)->template == &intTemplate) {
 				gotInt = 1;
 				struct lexerInt *i = lexerItemValuePtr(llLexerItemValuePtr(start));
 				caseValue = i->value.sLong;
 
-				start=llLexerItemNext(start);
+				start = llLexerItemNext(start);
 			} else if (parent) {
 				caseValue = getNextCaseValue(parent);
 			}
 		}
 
-		dotdotdot=expectKeyword(start, "...");
-		if(dotdotdot) {
-				start=llLexerItemNext(start);
-				if(start) {
-						if (llLexerItemValuePtr(start)->template == &intTemplate) {
-								struct lexerInt *i = lexerItemValuePtr(llLexerItemValuePtr(start));
-								caseValueUpper = i->value.sLong;
+		dotdotdot = expectKeyword(start, "...");
+		if (dotdotdot) {
+			start = llLexerItemNext(start);
+			if (start) {
+				if (llLexerItemValuePtr(start)->template == &intTemplate) {
+					struct lexerInt *i = lexerItemValuePtr(llLexerItemValuePtr(start));
+					caseValueUpper = i->value.sLong;
 
-								start=llLexerItemNext(start);
-						} else {
-								failed=1;
-						}
+					start = llLexerItemNext(start);
+				} else {
+					failed = 1;
 				}
+			}
 		}
-		
+
 		colon = expectKeyword(start, ":");
-		if (colon) { 
+		if (colon) {
 			start = llLexerItemNext(start);
 		} else {
-				failed=1;
-				whineExpected(start, ":");
+			failed = 1;
+			whineExpected(start, ":");
 		}
 
-		long startP,endP;
-			getStartEndPos(valueStart,start,&startP,&endP);
-		if(parent==NULL)
-				whineCaseNoSwitch(kwCase,startP,endP);
-		
-		caseValueUpper=(caseValueUpper==-1)?caseValue:caseValue+1;
-	
-				ensureCaseDoesntExist(caseValue, caseValueUpper,startP,endP);
+		long startP, endP;
+		getStartEndPos(valueStart, start, &startP, &endP);
+		if (parent == NULL)
+			whineCaseNoSwitch(kwCase, startP, endP);
+
+		caseValueUpper = (caseValueUpper == -1) ? caseValue : caseValue + 1;
+
+		ensureCaseDoesntExist(caseValue, caseValueUpper, startP, endP);
 
 		struct parserNodeCase caseNode;
 		caseNode.base.type = NODE_CASE;
 		caseNode.parent = parent;
 		caseNode.valueLower = caseValue;
-		caseNode.valueUpper=caseValueUpper;
+		caseNode.valueUpper = caseValueUpper;
 		retVal = ALLOCATE(caseNode);
-		if(end)
-				assignPosByLexerItems(retVal, originalStart, *end);
+		if (end)
+			assignPosByLexerItems(retVal, originalStart, *end);
 		else
-				assignPosByLexerItems(retVal, originalStart, NULL);
+			assignPosByLexerItems(retVal, originalStart, NULL);
 
-		if(parent->type==NODE_SWITCH) {
-					struct parserNodeSwitch *swit=(void*)parent;
-					swit->caseSubcases=strParserNodeAppendItem(swit->caseSubcases,retVal);
-			} else if(parent->type==NODE_SUBSWITCH) {
-					struct parserNodeSubSwitch *sub=(void*)parent;
-					sub->caseSubcases=strParserNodeAppendItem(sub->caseSubcases,retVal);
-			}
+		if (parent->type == NODE_SWITCH) {
+			struct parserNodeSwitch *swit = (void *)parent;
+			swit->caseSubcases = strParserNodeAppendItem(swit->caseSubcases, retVal);
+		} else if (parent->type == NODE_SUBSWITCH) {
+			struct parserNodeSubSwitch *sub = (void *)parent;
+			sub->caseSubcases = strParserNodeAppendItem(sub->caseSubcases, retVal);
+		}
 	} else {
-			__auto_type defStart=start;
-	  kwCase=expectKeyword(start, "default");
-	  if(kwCase) {
-	    start=llLexerItemNext(start);
+		__auto_type defStart = start;
+		kwCase = expectKeyword(start, "default");
+		if (kwCase) {
+			start = llLexerItemNext(start);
 
-	    colon=expectKeyword(start, ":");
-	    if(colon) {
-	      start=llLexerItemNext(start);
-					} else {
-							whineExpected(start, ":");
-					}
-	  } else
-					goto end;
-			
-			struct parserNodeDefault dftNode;
-			dftNode.base.type=NODE_DEFAULT;
-			dftNode.parent=parent;
-			retVal=ALLOCATE(dftNode);
-			if(end)
-					assignPosByLexerItems(retVal, originalStart, *end);
-			else
-					assignPosByLexerItems(retVal, originalStart, NULL);;
-
-			long startP,endP;
-			getStartEndPos(start,start,&startP,&endP);
-			if(parent==NULL) {
-				whineCaseNoSwitch(kwCase,startP,endP);
-			} else  {
-					if(parent->type==NODE_SWITCH) {
-							struct parserNodeSwitch *swit=(void*)parent;
-							swit->dft=retVal;
-							} else if(parent->type==NODE_SUBSWITCH) {
-							struct parserNodeSubSwitch *sub=(void*)parent;
-							sub->dft=retVal;
-					}
+			colon = expectKeyword(start, ":");
+			if (colon) {
+				start = llLexerItemNext(start);
+			} else {
+				whineExpected(start, ":");
 			}
+		} else
+			goto end;
+
+		struct parserNodeDefault dftNode;
+		dftNode.base.type = NODE_DEFAULT;
+		dftNode.parent = parent;
+		retVal = ALLOCATE(dftNode);
+		if (end)
+			assignPosByLexerItems(retVal, originalStart, *end);
+		else
+			assignPosByLexerItems(retVal, originalStart, NULL);
+		;
+
+		long startP, endP;
+		getStartEndPos(start, start, &startP, &endP);
+		if (parent == NULL) {
+			whineCaseNoSwitch(kwCase, startP, endP);
+		} else {
+			if (parent->type == NODE_SWITCH) {
+				struct parserNodeSwitch *swit = (void *)parent;
+				swit->dft = retVal;
+			} else if (parent->type == NODE_SUBSWITCH) {
+				struct parserNodeSubSwitch *sub = (void *)parent;
+				sub->dft = retVal;
+			}
+		}
 	}
 end:
 	if (end)
@@ -2429,278 +2441,281 @@ end:
 
 	parserNodeDestroy(&dotdotdot);
 	parserNodeDestroy(&colon);
-	
+
 	return retVal;
 }
 //
 // Stack of current function info
 //
 struct currentFunctionInfo {
-		struct object *retType;
-		long retTypeBegin,retTypeEnd;
+	struct object *retType;
+	long retTypeBegin, retTypeEnd;
 };
-STR_TYPE_DEF(struct currentFunctionInfo,FuncInfoStack);
-STR_TYPE_FUNCS(struct currentFunctionInfo,FuncInfoStack);
+STR_TYPE_DEF(struct currentFunctionInfo, FuncInfoStack);
+STR_TYPE_FUNCS(struct currentFunctionInfo, FuncInfoStack);
 
-static __thread strFuncInfoStack currentFuncsStack=NULL;
+static __thread strFuncInfoStack currentFuncsStack = NULL;
 
-static void deinitFuncStack() __attribute__((destructor)); 
-static void deinitFuncStack() {
-		strFuncInfoStackDestroy(&currentFuncsStack);
+static void deinitFuncStack() __attribute__((destructor));
+static void deinitFuncStack() { strFuncInfoStackDestroy(&currentFuncsStack); }
+struct parserNode *parseGoto(llLexerItem start, llLexerItem *end) {
+	struct parserNode *gt __attribute__((cleanup(parserNodeDestroy))) =
+	    expectKeyword(start, "goto");
+	struct parserNode *retVal = NULL;
+	if (gt) {
+		start = llLexerItemNext(start);
+		__auto_type nm = nameParse(start, NULL, &start);
+		if (!nm) {
+			// Whine about expected name
+			diagErrorStart(gt->pos.start, gt->pos.end);
+			diagPushText("Expected name after goto.");
+			diagHighlight(gt->pos.start, gt->pos.end);
+			;
+			diagEndMsg();
+			goto end;
+		}
+
+		struct parserNodeGoto node;
+		node.base.pos.start = gt->pos.start;
+		node.base.pos.end = nm->pos.end;
+		node.base.type = NODE_GOTO;
+		node.labelName = nm;
+
+		retVal = ALLOCATE(node);
+	}
+
+end:
+	if (end)
+		*end = start;
+
+	return retVal;
 }
-struct parserNode *parseGoto(llLexerItem start,llLexerItem *end) {
-		struct parserNode *gt __attribute__((cleanup(parserNodeDestroy)))=expectKeyword(start, "goto");
-		struct parserNode *retVal=NULL;
-		if(gt) {
-				start=llLexerItemNext(start);
-				__auto_type nm=nameParse(start, NULL, &start);
-				if(!nm) {
-						//Whine about expected name
-						diagErrorStart(gt->pos.start, gt->pos.end);
-						diagPushText("Expected name after goto.");
-						diagHighlight(gt->pos.start, gt->pos.end);;
-						diagEndMsg();
-						goto end;
-				}
+struct parserNode *parseReturn(llLexerItem start, llLexerItem *end) {
+	struct parserNode *ret __attribute__((cleanup(parserNodeDestroy))) =
+	    expectKeyword(start, "return");
+	if (ret) {
+		start = llLexerItemNext(start);
+		// Ensrue if in function
+		if (strFuncInfoStackSize(currentFuncsStack) == 0) {
+			diagErrorStart(ret->pos.start, ret->pos.end);
+			diagPushText("Return appearing in non-function.");
+			diagHighlight(ret->pos.start, ret->pos.end);
+			diagEndMsg();
 
-				struct parserNodeGoto node;
-				node.base.pos.start=gt->pos.start;
-				node.base.pos.end=nm->pos.end;
-				node.base.type=NODE_GOTO;
-				node.labelName=nm;
+			// Expect expression then semi
+			parseExpression(start, NULL, &start);
+			__auto_type semi = expectKeyword(start, ";");
+			if (!semi)
+				whineExpected(start, ";");
+			else
+				start = llLexerItemNext(start);
+			parserNodeDestroy(&semi);
 
-				retVal=ALLOCATE(node);
+			goto end;
 		}
+		__auto_type top =
+		    &currentFuncsStack[strFuncInfoStackSize(currentFuncsStack) - 1];
 
-	end:
-		if(end)
-			*end=start;
+		struct parserNode *retVal = parseExpression(start, NULL, &start);
+		// Check for semicolon
+		if (!retVal) {
+			start = llLexerItemNext(start);
 
-		return retVal;
-}
-struct parserNode *parseReturn(llLexerItem start,llLexerItem *end) {
-		struct parserNode *ret __attribute__((cleanup(parserNodeDestroy)))=expectKeyword(start, "return");
-		if(ret) {
-				start=llLexerItemNext(start);
-				//Ensrue if in function
-				if(strFuncInfoStackSize(currentFuncsStack)==0) {
-						diagErrorStart(ret->pos.start, ret->pos.end);
-						diagPushText("Return appearing in non-function.");
-						diagHighlight(ret->pos.start, ret->pos.end);
-						diagEndMsg();
+			// Warn if current return type isn't void
+			if (top->retType != &typeU0) {
+				diagWarnStart(ret->pos.start, ret->pos.end);
+				diagPushText("Empty return on non-U0 function.");
+				diagHighlight(ret->pos.start, ret->pos.end);
+				diagEndMsg();
+			}
 
-						//Expect expression then semi
-						parseExpression(start, NULL, &start);
-						__auto_type semi=expectKeyword(start, ";");
-						if(!semi)
-								whineExpected(start, ";");
-						else
-								start=llLexerItemNext(start);
-						parserNodeDestroy(&semi);
-
-						goto end;
-				}
-				__auto_type top=&currentFuncsStack[strFuncInfoStackSize(currentFuncsStack)-1];				
-
-				struct parserNode *retVal=parseExpression(start, NULL, &start);
-				//Check for semicolon
-				if(!retVal) {
-						start=llLexerItemNext(start);
-
-						//Warn if current return type isn't void
-						if(top->retType!=&typeU0) {
-								diagWarnStart(ret->pos.start, ret->pos.end);
-								diagPushText("Empty return on non-U0 function.");
-								diagHighlight(ret->pos.start, ret->pos.end);
-								diagEndMsg();
-						}
-
-						retVal=NULL;
-				}  else {
-						//Ensure if current function inst void
-						if(top->retType==&typeU0) {
-								diagErrorStart(ret->pos.start, ret->pos.end);
-								diagPushText("Attempting to return a value when the return type is U0.");
-								diagHighlight(ret->pos.start, ret->pos.end);
-								diagEndMsg();
-
-								//Goto end(because fail)
-								parserNodeDestroy(&retVal);
-								goto end;
-						} else if(!objectIsCompat(top->retType, assignTypeToOp(retVal))) {
-								//Whine because types are compable
-								//Error
-								diagErrorStart(ret->pos.start, ret->pos.end);
-								__auto_type res=object2Str(assignTypeToOp(retVal));
-								diagPushText("Attempting to return incompatable type '%s'.");
-								diagHighlight(retVal->pos.start, retVal->pos.end);
-								diagEndMsg();
-								free(res);
-
-								//Note
-								diagNoteStart(top->retTypeBegin, top->retTypeEnd);
-								diagPushText("Return type defined here:");
-								diagHighlight(top->retTypeBegin, top->retTypeEnd);
-								diagEndMsg();
-
-								//goto end(beacuse of fail)
-								parserNodeDestroy(&retVal);
-								goto end;
-						}
-				}
-
-				struct parserNodeReturn node;
-				node.base.type=NODE_RETURN;
-				node.base.pos.start=ret->pos.start;
-				node.base.pos.end=retVal->pos.end;
-				node.value=retVal;
-
-				if(end)
-						*end=start;
-				return ALLOCATE(node);
-		}
-				
-		end:
-		if(end)
-				*end=start;
-		return NULL;
-}
-struct parserNode *parseFunction(llLexerItem start,llLexerItem *end) {
-		__auto_type originalStart=start;
- 	struct parserNode *name =nameParse(start, NULL, &start);
-		if(!name)
-				return NULL;
-		
-		struct parserNodeName *nm=(void*)name;
-		__auto_type baseType=objectByName(nm->text);
-		if(!baseType) {
-				parserNodeDestroy(&name);
-				return NULL;
-		}
-
-		long ptrLevel=0;
-		for(;;) {
-				__auto_type star =expectOp(start, "*");
-				if(!star)
-						break;
-				
-				parserNodeDestroy(&star);
-				ptrLevel++,start=llLexerItemNext(start);
-		}
-
-		parserNodeDestroy(&name);
-		name= nameParse(start, NULL, &start);
-		if(!name)
-				return NULL;
-
-		struct parserNode* lP=NULL,*rP=NULL; 
-		struct parserNode *toKill[]={lP,rP};
-		strParserNode args=NULL;
-		long count=sizeof(toKill)/sizeof(*toKill);
-		lP=expectOp(start, "(");
-		if(!lP)
-				goto fail;
-		start=llLexerItemNext(start);
-		
-		for(int firstRun=1;;firstRun=0) {
-				rP=expectOp(start, ")");
-				if(rP) {
-						start=llLexerItemNext(start);
-						break;
-				}
-				if(!firstRun) {
-						__auto_type comma=expectOp(start, ",");
-						if(comma==NULL) {
-								whineExpected(start, ",");
-								break;
-						} else
-								start=llLexerItemNext(start);
-				}
-				
-				struct parserNode *decl= parseSingleVarDecl(start, &start);
-				if(decl)
-						args=strParserNodeAppendItem(args, decl);
-		}
-
-		struct object *retType=baseType;
-		for(long i=0;i!=ptrLevel;i++)
-				retType=objectPtrCreate(retType);
-		
-		strFuncArg fargs=NULL;
-		for(long i=0;i!=strParserNodeSize(args);i++) {
-				if(args[i]->type!=NODE_VAR_DECL) {
-						//TODO whine
-						continue;
-				}
-				struct parserNodeVarDecl *decl=(void*)args[i];
-				struct objectFuncArg arg;
-				arg.dftVal=decl->dftVal;
-				arg.name=decl->name;
-				arg.type=decl->type;
-
-				//TODO whine on metadata
-				strParserNodeDestroy2(&decl->metaData);
-
-				fargs=strFuncArgAppendItem(fargs, arg);
-		}
-
-		struct object *funcType;
-		funcType=objectFuncCreate(retType, fargs);
-		strFuncArgDestroy(&fargs);
-
-		//Enter the function
-		struct currentFunctionInfo info;
-		info.retTypeBegin=nm->base.pos.start;
-		info.retTypeEnd=name->pos.start;
-		info.retType=retType;
-		currentFuncsStack=strFuncInfoStackAppendItem(currentFuncsStack, info);
-		
-		struct parserNode *retVal=NULL;
-		__auto_type scope=parseScope(start, end, args);
-		if(!scope) {
-				//If no scope follows,is a forward declaration
-				__auto_type semi=expectKeyword(start, ";"); 
-				if(!semi)
-						whineExpected(start, ";");
-				else
-						start=llLexerItemNext(start);
-
-				struct parserNodeFuncForwardDec forward;
-				forward.base.type=NODE_FUNC_FORWARD_DECL;
-				forward.funcType=funcType;
-				forward.name=name;
-				
-				retVal=ALLOCATE(forward);
+			retVal = NULL;
 		} else {
-				//Has a function body
-				struct parserNodeFuncDef func;
-				func.base.type=NODE_FUNC_DEF;
-				func.bodyScope=scope;
-				func.funcType=funcType;
-				func.name=name;
-				
-				retVal=ALLOCATE(func);
+			// Ensure if current function inst void
+			if (top->retType == &typeU0) {
+				diagErrorStart(ret->pos.start, ret->pos.end);
+				diagPushText(
+				    "Attempting to return a value when the return type is U0.");
+				diagHighlight(ret->pos.start, ret->pos.end);
+				diagEndMsg();
+
+				// Goto end(because fail)
+				parserNodeDestroy(&retVal);
+				goto end;
+			} else if (!objectIsCompat(top->retType, assignTypeToOp(retVal))) {
+				// Whine because types are compable
+				// Error
+				diagErrorStart(ret->pos.start, ret->pos.end);
+				__auto_type res = object2Str(assignTypeToOp(retVal));
+				diagPushText("Attempting to return incompatable type '%s'.");
+				diagHighlight(retVal->pos.start, retVal->pos.end);
+				diagEndMsg();
+				free(res);
+
+				// Note
+				diagNoteStart(top->retTypeBegin, top->retTypeEnd);
+				diagPushText("Return type defined here:");
+				diagHighlight(top->retTypeBegin, top->retTypeEnd);
+				diagEndMsg();
+
+				// goto end(beacuse of fail)
+				parserNodeDestroy(&retVal);
+				goto end;
+			}
 		}
 
-		//Leave the function
-		currentFuncsStack=strFuncInfoStackPop(currentFuncsStack, NULL);
-		
-		if(end)
-				*end=start;
+		struct parserNodeReturn node;
+		node.base.type = NODE_RETURN;
+		node.base.pos.start = ret->pos.start;
+		node.base.pos.end = retVal->pos.end;
+		node.value = retVal;
 
-		if(end)
-				assignPosByLexerItems(retVal, originalStart, *end);
-		else
-				assignPosByLexerItems(retVal, originalStart, NULL);
+		if (end)
+			*end = start;
+		return ALLOCATE(node);
+	}
 
-		strParserNodeDestroy(&args);
-
-		addFunc(name, funcType, retVal);
-		return retVal;
-	fail:
-		parserNodeDestroy(&name);
-		strParserNodeDestroy2(&args);
-		for(long i=0;i!=count;i++)
-				parserNodeDestroy(&toKill[i]);
+end:
+	if (end)
+		*end = start;
+	return NULL;
+}
+struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
+	__auto_type originalStart = start;
+	struct parserNode *name = nameParse(start, NULL, &start);
+	if (!name)
 		return NULL;
+
+	struct parserNodeName *nm = (void *)name;
+	__auto_type baseType = objectByName(nm->text);
+	if (!baseType) {
+		parserNodeDestroy(&name);
+		return NULL;
+	}
+
+	long ptrLevel = 0;
+	for (;;) {
+		__auto_type star = expectOp(start, "*");
+		if (!star)
+			break;
+
+		parserNodeDestroy(&star);
+		ptrLevel++, start = llLexerItemNext(start);
+	}
+
+	parserNodeDestroy(&name);
+	name = nameParse(start, NULL, &start);
+	if (!name)
+		return NULL;
+
+	struct parserNode *lP = NULL, *rP = NULL;
+	struct parserNode *toKill[] = {lP, rP};
+	strParserNode args = NULL;
+	long count = sizeof(toKill) / sizeof(*toKill);
+	lP = expectOp(start, "(");
+	if (!lP)
+		goto fail;
+	start = llLexerItemNext(start);
+
+	for (int firstRun = 1;; firstRun = 0) {
+		rP = expectOp(start, ")");
+		if (rP) {
+			start = llLexerItemNext(start);
+			break;
+		}
+		if (!firstRun) {
+			__auto_type comma = expectOp(start, ",");
+			if (comma == NULL) {
+				whineExpected(start, ",");
+				break;
+			} else
+				start = llLexerItemNext(start);
+		}
+
+		struct parserNode *decl = parseSingleVarDecl(start, &start);
+		if (decl)
+			args = strParserNodeAppendItem(args, decl);
+	}
+
+	struct object *retType = baseType;
+	for (long i = 0; i != ptrLevel; i++)
+		retType = objectPtrCreate(retType);
+
+	strFuncArg fargs = NULL;
+	for (long i = 0; i != strParserNodeSize(args); i++) {
+		if (args[i]->type != NODE_VAR_DECL) {
+			// TODO whine
+			continue;
+		}
+		struct parserNodeVarDecl *decl = (void *)args[i];
+		struct objectFuncArg arg;
+		arg.dftVal = decl->dftVal;
+		arg.name = decl->name;
+		arg.type = decl->type;
+
+		// TODO whine on metadata
+		strParserNodeDestroy2(&decl->metaData);
+
+		fargs = strFuncArgAppendItem(fargs, arg);
+	}
+
+	struct object *funcType;
+	funcType = objectFuncCreate(retType, fargs);
+	strFuncArgDestroy(&fargs);
+
+	// Enter the function
+	struct currentFunctionInfo info;
+	info.retTypeBegin = nm->base.pos.start;
+	info.retTypeEnd = name->pos.start;
+	info.retType = retType;
+	currentFuncsStack = strFuncInfoStackAppendItem(currentFuncsStack, info);
+
+	struct parserNode *retVal = NULL;
+	__auto_type scope = parseScope(start, end, args);
+	if (!scope) {
+		// If no scope follows,is a forward declaration
+		__auto_type semi = expectKeyword(start, ";");
+		if (!semi)
+			whineExpected(start, ";");
+		else
+			start = llLexerItemNext(start);
+
+		struct parserNodeFuncForwardDec forward;
+		forward.base.type = NODE_FUNC_FORWARD_DECL;
+		forward.funcType = funcType;
+		forward.name = name;
+
+		retVal = ALLOCATE(forward);
+	} else {
+		// Has a function body
+		struct parserNodeFuncDef func;
+		func.base.type = NODE_FUNC_DEF;
+		func.bodyScope = scope;
+		func.funcType = funcType;
+		func.name = name;
+
+		retVal = ALLOCATE(func);
+	}
+
+	// Leave the function
+	currentFuncsStack = strFuncInfoStackPop(currentFuncsStack, NULL);
+
+	if (end)
+		*end = start;
+
+	if (end)
+		assignPosByLexerItems(retVal, originalStart, *end);
+	else
+		assignPosByLexerItems(retVal, originalStart, NULL);
+
+	strParserNodeDestroy(&args);
+
+	addFunc(name, funcType, retVal);
+	return retVal;
+fail:
+	parserNodeDestroy(&name);
+	strParserNodeDestroy2(&args);
+	for (long i = 0; i != count; i++)
+		parserNodeDestroy(&toKill[i]);
+	return NULL;
 }
