@@ -164,18 +164,18 @@ void graphDominanceTests() {
 		__auto_type fFronts = llDomFrontierValuePtr(
 		    llDomFrontierFindRight(first, f, llDomFrontierCmp));
 
-		assert(strGraphNodePSize(aFronts->dominators) == 0);
-		assert(strGraphNodePSize(fFronts->dominators) == 0);
+		assert(strGraphNodePSize(aFronts->nodes) == 0);
+		assert(strGraphNodePSize(fFronts->nodes) == 0);
 
-		assert(strGraphNodePSize(bFronts->dominators) == 1);
-		assert(strGraphNodePSize(cFronts->dominators) == 1);
-		assert(strGraphNodePSize(dFronts->dominators) == 1);
-		assert(strGraphNodePSize(eFronts->dominators) == 1);
+		assert(strGraphNodePSize(bFronts->nodes) == 1);
+		assert(strGraphNodePSize(cFronts->nodes) == 1);
+		assert(strGraphNodePSize(dFronts->nodes) == 1);
+		assert(strGraphNodePSize(eFronts->nodes) == 1);
 
-		assert(bFronts->dominators[0] == f);
-		assert(cFronts->dominators[0] == e);
-		assert(dFronts->dominators[0] == e);
-		assert(eFronts->dominators[0] == f);
+		assert(bFronts->nodes[0] == f);
+		assert(cFronts->nodes[0] == e);
+		assert(dFronts->nodes[0] == e);
+		assert(eFronts->nodes[0] == f);
 
 		//
 		// Dominator tree test
@@ -225,10 +225,10 @@ void graphDominanceTests() {
 		__auto_type threeFronts = llDomFrontierValuePtr(
 		    llDomFrontierFindRight(first, three, llDomFrontierCmp));
 
-		assert(strGraphNodePSize(twoFronts->dominators) == 1);
-		assert(strGraphNodePSize(threeFronts->dominators) == 1);
-		assert(twoFronts->dominators[0] == four);
-		assert(threeFronts->dominators[0] == four);
+		assert(strGraphNodePSize(twoFronts->nodes) == 1);
+		assert(strGraphNodePSize(threeFronts->nodes) == 1);
+		assert(twoFronts->nodes[0] == four);
+		assert(threeFronts->nodes[0] == four);
 	}
 	{
 		__auto_type one = graphNodeIntCreate(1, 0);
@@ -242,7 +242,7 @@ void graphDominanceTests() {
 		__auto_type fronts = graphDominanceFrontiers(one, doms);
 		__auto_type oneFronts = llDomFrontierValuePtr(llDomFrontierFindRight(
 		    llDomFrontierFirst(doms), one, llDomFrontierCmp));
-		assert(strGraphNodeIntPSize(oneFronts->dominators) == 1);
-		assert(oneFronts->dominators[0] == one);
+		assert(strGraphNodeIntPSize(oneFronts->nodes) == 1);
+		assert(oneFronts->nodes[0] == one);
 	}
 }

@@ -11,7 +11,7 @@ LL_TYPE_FUNCS(struct graphDominators, Dominators);
 llDominators graphComputeDominatorsPerNode(struct __graphNode *start);
 struct graphDomFrontier {
 	struct __graphNode *node;
-	strGraphNodeP dominators;
+	strGraphNodeP nodes;
 };
 LL_TYPE_DEF(struct graphDominatorFrontier, DomFrontier);
 LL_TYPE_FUNCS(struct graphDomFrontier, DomFrontier);

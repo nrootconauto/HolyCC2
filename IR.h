@@ -292,3 +292,5 @@ graphNodeIR createStmtEnd(graphNodeIR start);
 graphNodeIR createStmtStart();
 void initIR();
 strGraphEdgeIRP IRGetConnsOfType(strGraphEdgeIRP conns, enum IRConnType type);
+void IRInsertBefore(graphNodeIR insertBefore, graphNodeIR entry,
+																				graphNodeIR exit, enum IRConnType connType);

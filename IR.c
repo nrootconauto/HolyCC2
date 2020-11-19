@@ -249,3 +249,34 @@ struct object *IRValueGetType(struct IRValue *node) {
 		return NULL;
 	}
 }
+void IRInsertBefore(graphNodeIR insertBefore, graphNodeIR entry,
+                         graphNodeIR exit, enum IRConnType connType) {
+	__auto_type incoming = graphNodeIRIncoming(insertBefore);
+
+	for (long i = 0; i != strGraphEdgeIRPSize(incoming); i++) {
+		// Connect incoming to entry
+		graphNodeIRConnect(entry, graphEdgeIRIncoming(incoming[i]),
+		                   *graphEdgeIRValuePtr(incoming[i]));
+
+		// Disconnect for insertBefore
+		graphEdgeIRKill(graphEdgeIRIncoming(incoming[i]), insertBefore, NULL, NULL,
+		                NULL);
+	}
+void IRInsertAfter(graphNodeIR insertBefore, graphNodeIR entry,
+                         graphNodeIR exit, enum IRConnType connType) {
+	__auto_type incoming = graphNodeIRIncoming(insertBefore);
+
+	for (long i = 0; i != strGraphEdgeIRPSize(incoming); i++) {
+		// Connect incoming to entry
+		graphNodeIRConnect(entry, graphEdgeIRIncoming(incoming[i]),
+		                   *graphEdgeIRValuePtr(incoming[i]));
+
+		// Disconnect for insertBefore
+		graphEdgeIRKill(graphEdgeIRIncoming(incoming[i]), insertBefore, NULL, NULL,
+		                NULL);
+	}
+	
+	// Connect exit to insertBefore
+	graphNodeIRConnect(exit, insertBefore, connType);
+	strGraphEdgeIRPDestroy(&incoming);
+}
