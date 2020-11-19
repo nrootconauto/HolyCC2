@@ -250,33 +250,36 @@ struct object *IRValueGetType(struct IRValue *node) {
 	}
 }
 void IRInsertBefore(graphNodeIR insertBefore, graphNodeIR entry,
+																				graphNodeIR exit, enum IRConnType connType) {
+		__auto_type incoming = graphNodeIRIncoming(insertBefore);
+
+		for (long i = 0; i != strGraphEdgeIRPSize(incoming); i++) {
+				// Connect incoming to entry
+				graphNodeIRConnect(entry, graphEdgeIRIncoming(incoming[i]),
+																							*graphEdgeIRValuePtr(incoming[i]));
+
+				// Disconnect for insertBefore
+				graphEdgeIRKill(graphEdgeIRIncoming(incoming[i]), insertBefore, NULL, NULL,
+																				NULL);
+		}
+		// Connect exit to insertBefore
+		graphNodeIRConnect(exit, insertBefore, connType);
+		strGraphEdgeIRPDestroy(&incoming);
+}
+void IRInsertAfter(graphNodeIR insertAfter, graphNodeIR entry,
                          graphNodeIR exit, enum IRConnType connType) {
-	__auto_type incoming = graphNodeIRIncoming(insertBefore);
+	__auto_type outgoing = graphNodeIROutgoing(insertAfter);
 
-	for (long i = 0; i != strGraphEdgeIRPSize(incoming); i++) {
-		// Connect incoming to entry
-		graphNodeIRConnect(entry, graphEdgeIRIncoming(incoming[i]),
-		                   *graphEdgeIRValuePtr(incoming[i]));
+	for (long i = 0; i != strGraphEdgeIRPSize(outgoing); i++) {
+			// Connect outgoing to entry
+			graphNodeIRConnect(exit, graphEdgeIROutgoing(outgoing[i]),
+																						*graphEdgeIRValuePtr(outgoing[i]));
 
-		// Disconnect for insertBefore
-		graphEdgeIRKill(graphEdgeIRIncoming(incoming[i]), insertBefore, NULL, NULL,
-		                NULL);
+			// Disconnect for insertBefore
+			graphEdgeIRKill(graphEdgeIROutgoing(outgoing[i]), insertAfter, NULL, NULL,
+																			NULL);
 	}
-void IRInsertAfter(graphNodeIR insertBefore, graphNodeIR entry,
-                         graphNodeIR exit, enum IRConnType connType) {
-	__auto_type incoming = graphNodeIRIncoming(insertBefore);
 
-	for (long i = 0; i != strGraphEdgeIRPSize(incoming); i++) {
-		// Connect incoming to entry
-		graphNodeIRConnect(entry, graphEdgeIRIncoming(incoming[i]),
-		                   *graphEdgeIRValuePtr(incoming[i]));
-
-		// Disconnect for insertBefore
-		graphEdgeIRKill(graphEdgeIRIncoming(incoming[i]), insertBefore, NULL, NULL,
-		                NULL);
-	}
-	
-	// Connect exit to insertBefore
-	graphNodeIRConnect(exit, insertBefore, connType);
-	strGraphEdgeIRPDestroy(&incoming);
+	graphNodeIRConnect(entry, insertAfter, connType);
+	strGraphEdgeIRPDestroy(&outgoing);
 }

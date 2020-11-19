@@ -294,3 +294,5 @@ void initIR();
 strGraphEdgeIRP IRGetConnsOfType(strGraphEdgeIRP conns, enum IRConnType type);
 void IRInsertBefore(graphNodeIR insertBefore, graphNodeIR entry,
 																				graphNodeIR exit, enum IRConnType connType);
+void IRInsertAfter(graphNodeIR insertAfter, graphNodeIR entry,
+																			graphNodeIR exit, enum IRConnType connType);

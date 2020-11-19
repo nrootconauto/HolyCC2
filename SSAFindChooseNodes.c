@@ -18,8 +18,10 @@ static graphNodeIR createChoose(graphNodeIR insertAfter,
 	choose.base.type = IR_CHOOSE;
 	choose.paths =
 	    strIRPathPairAppendData(NULL, pathPairs, strIRPathPairSize(pathPairs));
-
+	
 	__auto_type retVal = GRAPHN_ALLOCATE(choose);
+
+	IRInsertAfter(insertAfter,)
 	return retVal;
 }
 static int ptrPtrCmp(const void *a, const void *b) {
