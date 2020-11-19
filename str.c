@@ -164,7 +164,7 @@ struct __vec *__vecRemoveIf(struct __vec *a, long itemSize,
 	void *first = a, *last = (void *)a + size;
 	__auto_type result = first;
 	while (first != last) {
-		if (!predicate(first, data)) {
+			if (!predicate(data,first)) {
 			memcpy(result, first, itemSize);
 			result += itemSize;
 		}

@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <exprParser.h>
 #include <subExprElim.h>
+typedef  int(*gnIRCmpType)(const graphNodeIR*,const graphNodeIR*);
 #define ALLOCATE(x) ({typeof(&x) ptr=malloc(sizeof(x));memcpy(ptr,&x,sizeof(x));ptr;})
 #define GRAPHN_ALLOCATE(x) ({__graphNodeCreate(&x,sizeof(x),0);})
 static int ptrCmp(const void *a,const void *b) {
@@ -155,9 +156,9 @@ strGraphNodeP getStatementNodes(const graphNodeIR stmtStart,const graphNodeIR st
 				strGraphNodeIRP unvisitedHeads=NULL;
 				//Add unvisted to visited,
 				for(size_t i=0;i!=strGraphNodeIRPSize(heads);i++) {
-						if(NULL==strGraphNodeIRPSortedFind(allNodes, heads[i], ptrPtrCmp)) {
-								allNodes=strGraphNodeIRPSortedInsert(allNodes, heads[i], ptrPtrCmp);
-								unvisitedHeads=strGraphNodeIRPSortedInsert(unvisitedHeads, heads[i], ptrPtrCmp);
+						if(NULL==strGraphNodeIRPSortedFind(allNodes, heads[i], (gnIRCmpType)ptrPtrCmp)) {
+								allNodes=strGraphNodeIRPSortedInsert(allNodes, heads[i], (gnIRCmpType)ptrPtrCmp);
+								unvisitedHeads=strGraphNodeIRPSortedInsert(unvisitedHeads, heads[i], (gnIRCmpType)ptrPtrCmp);
 						}
 				}
 
@@ -172,8 +173,8 @@ strGraphNodeP getStatementNodes(const graphNodeIR stmtStart,const graphNodeIR st
 										continue;
 								
 								//Dont re-insert same head
-								if(NULL==strGraphNodeIRPSortedFind(heads, newHeads[i], ptrPtrCmp))
-											heads=strGraphNodeIRPSortedInsert(heads, newHeads[i], ptrPtrCmp);
+								if(NULL==strGraphNodeIRPSortedFind(heads, newHeads[i],  (gnIRCmpType)ptrPtrCmp))
+											heads=strGraphNodeIRPSortedInsert(heads, newHeads[i], (gnIRCmpType)ptrPtrCmp);
 						}
 
 						strGraphNodeIRPDestroy(&newHeads);

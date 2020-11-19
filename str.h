@@ -43,12 +43,12 @@ struct __vec;
 		return (str##suffix)__vecResize((struct __vec *)vec, size * sizeof(type)); \
 	}                                                                            \
 	inline str##suffix str##suffix##SortedInsert(                                \
-	    str##suffix vec, type item, int (*pred)(const void *, const void *))     \
+	    str##suffix vec, type item, int (*pred)(const type *, const type *))     \
 	    __attribute__((always_inline));                                          \
 	inline str##suffix str##suffix##SortedInsert(                                \
-	    str##suffix vec, type item, int (*pred)(const void *, const void *)) {   \
+	    str##suffix vec, type item, int (*pred)(const type *, const type *)) {   \
 		return (str##suffix)__vecSortedInsert((struct __vec *)vec, &item,          \
-		                                      sizeof(item), pred);                 \
+		                                      sizeof(item), (int (*)(const void *, const void *))pred);										\
 	}                                                                            \
 	inline str##suffix str##suffix##AppendData(str##suffix vec,                  \
 	                                           const type *data, long count)     \
@@ -62,57 +62,56 @@ struct __vec;
 		return vec;                                                                \
 	}                                                                            \
 	inline type *str##suffix##SortedFind(str##suffix vec, const type data,       \
-	                                     int pred(const void *, const void *))   \
+	                                     int pred(const type *, const type *))   \
 	    __attribute__((always_inline));                                          \
 	inline type *str##suffix##SortedFind(str##suffix vec, const type data,       \
-	                                     int pred(const void *, const void *)) { \
-		return __vecSortedFind((struct __vec *)vec, &data, sizeof(type), pred);    \
+	                                     int pred(const type *, const type *)) { \
+		return __vecSortedFind((struct __vec *)vec, &data, sizeof(type), (int (*)(const void *, const void *))pred);    \
 	}                                                                            \
 	inline str##suffix str##suffix##SetDifference(                               \
-	    str##suffix vec, str##suffix vec2, int pred(const void *, const void *)) \
+	    str##suffix vec, str##suffix vec2, int pred(const type *, const type *)) \
 	    __attribute__((always_inline));                                          \
 	inline str##suffix str##suffix##SetDifference(                               \
 	    str##suffix vec, str##suffix vec2,                                       \
-	    int pred(const void *, const void *)) {                                  \
+	    int pred(const type *, const type *)) {                                  \
 		return (str##suffix)__vecSetDifference(                                    \
-		    (struct __vec *)vec, (struct __vec *)vec2, sizeof(type), pred);        \
+																																									(struct __vec *)vec, (struct __vec *)vec2, sizeof(type), (int (*)(const void*,const void *))pred);	\
 	}                                                                            \
 	inline str##suffix str##suffix##RemoveIf(                                    \
-	    str##suffix vec, int pred(const void *, const void *), void const *data) \
+																																										str##suffix vec, void const *data,int pred(const void *, const type *)) \
 	    __attribute__((always_inline));                                          \
 	inline str##suffix str##suffix##RemoveIf(                                    \
-	    str##suffix vec, int pred(const void *, const void *),                   \
-	    const void *data) {                                                      \
+	    str##suffix vec, void const *data,int pred(const void *, const type *)) {                                                      \
 		return (str##suffix)__vecRemoveIf((struct __vec *)vec, sizeof(type),     \
-		                                    pred, data);                           \
+																																				(int(*)(const void *,const void *))pred, data);	\
 	}                                                                            \
 	inline str##suffix str##suffix##Unique(                                      \
-	    str##suffix str, int (*pred)(const void *, const void *),                \
+	    str##suffix str, int (*pred)(const type *, const type *),                \
 	    void (*kill)(void *)) __attribute__((always_inline));                    \
 	inline str##suffix str##suffix##Unique(                                      \
-	    str##suffix str, int (*pred)(const void *, const void *),                \
+	    str##suffix str, int (*pred)(const type *, const type *),                \
 	    void (*kill)(void *)) {                                                  \
-		return (str##suffix)__vecUnique((struct __vec *)str, sizeof(type), pred,   \
+			return (str##suffix)__vecUnique((struct __vec *)str, sizeof(type), (int(*)(const void *,const void *))pred,	\
 		                                kill);                                     \
 	}                                                                            \
 	inline str##suffix str##suffix##SetIntersection(                             \
 	    str##suffix a, const str##suffix b,                                      \
-	    int (*pred)(const void *, const void *), void (*kill)(void *))           \
+	    int (*pred)(const type *, const type *), void (*kill)(void *))           \
 	    __attribute__((always_inline));                                          \
 	inline str##suffix str##suffix##SetIntersection(                             \
 	    str##suffix a, const str##suffix b,                                      \
-	    int (*pred)(const void *, const void *), void (*kill)(void *)) {         \
+	    int (*pred)(const type *, const type *), void (*kill)(void *)) {         \
 		return (str##suffix)__vecSetIntersection(                                  \
-		    (struct __vec *)a, (struct __vec *)b, sizeof(type), pred, kill);       \
+		    (struct __vec *)a, (struct __vec *)b, sizeof(type), (int(*)(const void *,const void *))pred, kill);       \
 	} \
 	inline str##suffix str##suffix##SetUnion(                             \
 	    str##suffix a, const str##suffix b,                                      \
-	    int (*pred)(const void *, const void *)) __attribute__((always_inline));	\
+	    int (*pred)(const type *, const type *)) __attribute__((always_inline));	\
 inline str##suffix str##suffix##SetUnion(																															\
 	    str##suffix a, const str##suffix b,                                      \
-	    int (*pred)(const void *, const void *)) {         \
+	    int (*pred)(const type *, const type *)) {         \
 		return (str##suffix)__vecSetUnion(                                  \
-		    (struct __vec *)a, (struct __vec *)b, sizeof(type), pred);       \
+		    (struct __vec *)a, (struct __vec *)b, sizeof(type), (int(*)(const void *,const void *))pred);       \
 	} \
 	inline str##suffix str##suffix##Pop(str##suffix str,type *res)  __attribute__((always_inline)); \
 	inline str##suffix str##suffix##Pop(str##suffix str,type *res) {long size=str##suffix##Size(str); if(res!=NULL) *res=str[size-1];return str##suffix##Resize(str,size-1);}

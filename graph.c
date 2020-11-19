@@ -5,13 +5,15 @@
 #include <str.h>
 #include <hashTable.h>
 #include <base64.h>
-
+typedef int(*geCmpType)(const struct __graphEdge **,const struct __graphEdge **);
+typedef int(*gnCmpType)(const struct __graphNode **,const struct __graphNode **);
 struct __graphNode;
 struct __graphEdge {
 	struct __graphNode *from;
 	struct __graphNode *to;
 	unsigned int valuePresent : 1;
 };
+
 struct __graphNode {
 		strGraphEdgeP incoming;
 		strGraphEdgeP outgoing;
@@ -73,7 +75,7 @@ static void __graphNodeVisitDirPred(struct __graphNode *node, void *data,
 		__auto_type topIndex = stackIndexes[strLongSize(stackIndexes) - 1];
 
 		__auto_type edges=__graphEdgeByDirection(topNode, d);
-		if (topIndex >= strGraphEdgePSize(edges))
+		if (topIndex == strGraphEdgePSize(edges))
 			goto next;
 		 
 		__auto_type connection = (d == DIR_FORWARD) ? edges[topIndex]->to : edges[topIndex]->from;
@@ -84,11 +86,11 @@ static void __graphNodeVisitDirPred(struct __graphNode *node, void *data,
 		//
 		if (cond) {
 			__auto_type find =
-			    strGraphNodePSortedFind(visited, connection, ptrCompare);
+					strGraphNodePSortedFind(visited, connection, (gnCmpType)ptrCompare);
 			if (find == NULL) {
-				visited = strGraphNodePSortedInsert(visited, connection, ptrCompare);
+				visited = strGraphNodePSortedInsert(visited, connection, (gnCmpType)ptrCompare);
 				// Push to node-to-visit
-				toVisit = strGraphNodePSortedInsert(toVisit, connection, ptrCompare);
+				toVisit = strGraphNodePSortedInsert(toVisit, connection, (gnCmpType)ptrCompare);
 				// Push node and index
 				stack = strGraphNodePAppendItem(stack, connection);
 				__auto_type connection2 =
@@ -143,15 +145,15 @@ void __graphNodeVisitBackward(struct __graphNode *node, void *data,
                               void (*visit)(struct __graphNode *, void *)) {
 	__graphNodeVisitDirPred(node, data, pred, visit, DIR_BACKWARD);
 }
-static int edgeToPred(const void *a,const void *b) {
-		const struct __graphEdge *A=*(void**)a;
-		const struct __graphNode *B=b;
-		return A->to==B;
+static int edgeToPred(const void *a,const struct __graphEdge **b) {
+		const struct __graphEdge *B=*(void**)b;
+		const struct __graphNode *A=a;
+		return B->to==A;
 }
-static int edgeFromPred(const void *a,const void *b) {
-		const struct __graphEdge *A=*(void**)a;
-		const struct __graphNode *B=b;
-		return A->from==B;
+static int edgeFromPred(const void *a,const struct __graphEdge **b) {
+		const struct __graphEdge *B=*b;
+		const struct __graphNode *A=a;
+		return B->from==A;
 }
 static void __graphEdgeKillAllPred(struct __graphNode *from,
                                            struct __graphNode *to, void *data,
@@ -186,11 +188,11 @@ static void __graphEdgeKillAllPred(struct __graphNode *from,
 		endLoop:;
 	}
 
-		from->outgoing=strGraphEdgePRemoveIf(from->outgoing,edgeToPred,to);
-		to->incoming=strGraphEdgePRemoveIf(to->incoming,edgeFromPred,from);
+		from->outgoing=strGraphEdgePRemoveIf(from->outgoing,to,edgeToPred);
+		to->incoming=strGraphEdgePRemoveIf(to->incoming,from,edgeFromPred);
 }
 void __graphEdgeKill(struct __graphNode *in, struct __graphNode *out,
-                     void *data, int (*pred)(void *, void *),
+																					void *data, int (*pred)(void *, void *),
                      void (*kill)(void *)) {
 	// out's incoming's elements point to __graphEdge(which are destroyed when
 	// in->outgoing is destroyed below)
@@ -227,7 +229,7 @@ void __graphNodeKill(struct __graphNode *node, void (*killNode)(void *item),
 	rwReadStart(node->lock);
 	for (int i = 0; i != 2; i++) {
  		__auto_type connections = (i == 0) ? node->outgoing: node->incoming;
-			connectionPtrs=strGraphEdgePSetUnion(connectionPtrs, connections, ptrCompare);
+			connectionPtrs=strGraphEdgePSetUnion(connectionPtrs, connections, (geCmpType)ptrCompare);
 	}
 	rwReadEnd(node->lock);
 	//
@@ -262,7 +264,7 @@ static int __graphAllPred(const struct __graphNode *node, const struct __graphEd
 
 static void __graphVisitAppend(struct __graphNode *node, void *data) {
 	strGraphNodeP *allNodes = data;
-	*allNodes = strGraphNodePSortedInsert(*allNodes, node, ptrCompare);
+	*allNodes = strGraphNodePSortedInsert(*allNodes, node, (gnCmpType)ptrCompare);
 }
 strGraphNodeP __graphNodeVisitAll(const struct __graphNode *start) {
 		strGraphNodeP allNodesForward =NULL;
@@ -276,7 +278,7 @@ strGraphNodeP __graphNodeVisitAll(const struct __graphNode *start) {
 	                         __graphVisitAppend);
 
 	
-	return strGraphNodePSetUnion(allNodesForward, allNodesBackward, ptrCompare);
+	return strGraphNodePSetUnion(allNodesForward, allNodesBackward, (gnCmpType)ptrCompare);
 }
 void __graphKillAll(struct __graphNode *start, void (*killFunc)(void *),
                     void (*killEdge)(void *)) {
@@ -303,11 +305,11 @@ struct __graphEdge *__graphNodeConnect(struct __graphNode *a,
 	newEdgeNode->valuePresent=data!=NULL;
 	
 	rwWriteStart(a->lock);
-	a->outgoing = strGraphEdgePSortedInsert(a->outgoing, newEdgeNode, ptrCompare);
+	a->outgoing = strGraphEdgePSortedInsert(a->outgoing, newEdgeNode, (geCmpType)ptrCompare);
 	rwWriteEnd(a->lock);
 	//
 	rwWriteStart(b->lock);
-	b->incoming = strGraphEdgePSortedInsert(b->incoming, newEdgeNode, ptrCompare);
+	b->incoming = strGraphEdgePSortedInsert(b->incoming, newEdgeNode, (geCmpType)ptrCompare);
 	rwWriteEnd(b->lock);
 	return newEdgeNode;
 }

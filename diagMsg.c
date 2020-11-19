@@ -240,11 +240,11 @@ static int qouteSort(const void *a,const void *b) {
 		res=longCmp(A->end, B->end);
 		return res;
 }
-static int longPtrCmp(const void *a,const void *b) {
-		return longCmp(*(long*)a, *(long*)b);
+static int longPtrCmp(const long *a,const long *b) {
+		return longCmp(*a, *b);
 }
-static int textAttrCmp(const void *a,const void *b) {
-		return *(enum textAttr*)a-*(enum textAttr*)b;
+static int textAttrCmp(const enum textAttr *a,const enum textAttr *b) {
+		return *a-*b;
 }
 static long goBeforeNewLine(FILE *fp,long where) {
 		long retVal=where;

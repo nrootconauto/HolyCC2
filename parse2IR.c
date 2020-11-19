@@ -7,6 +7,8 @@
 #include <exprParser.h>
 #include <stdarg.h>
 #include <base64.h>
+typedef int(*gnIRCmpType)(const graphNodeIR*,const graphNodeIR *);
+typedef int(*pnCmpType)(const struct parserNode **,const struct parserNode **);
 static int ptrPtrCmp(const void *a,const void *b) {
 		if(*(void**)a>*(void**)b)
 				return 1;
@@ -129,12 +131,12 @@ static int visitNotVisitedOperand(const struct __graphNode *node,const struct __
 				return 0;
 		}
 		
-		return NULL==strGraphNodeIRPSortedFind(visited, (void*)node, ptrPtrCmp);
+		return NULL==strGraphNodeIRPSortedFind(visited, (void*)node, (gnIRCmpType)ptrPtrCmp);
 }
 static void visitNode(struct __graphNode *node,void *data) {
 		strGraphNodeIRP visited=(void*)data;
-		if(NULL==strGraphNodeIRPSortedFind(visited, (void*)node, ptrPtrCmp))
-				visited=strGraphNodeIRPSortedInsert(visited, node, ptrPtrCmp);
+		if(NULL==strGraphNodeIRPSortedFind(visited, (void*)node,  (gnIRCmpType)ptrPtrCmp))
+				visited=strGraphNodeIRPSortedInsert(visited, node,  (gnIRCmpType)ptrPtrCmp);
 }
 static __thread graphNodeIR currentStatement=NULL;
 static void enterStatement()  {
@@ -570,8 +572,8 @@ static graphNodeIR  __createSwitchCodeAfterBody(graphNodeIR cond,const struct pa
 				if(cs->parent->type!=NODE_SUBSWITCH)
 						continue;
 				
-				if(NULL==strParserNodeSortedFind(subs, cs->parent, ptrPtrCmp))
-						subs=strParserNodeSortedInsert(subs, cs->parent, ptrPtrCmp);
+				if(NULL==strParserNodeSortedFind(subs, cs->parent, (pnCmpType)ptrPtrCmp))
+						subs=strParserNodeSortedInsert(subs, cs->parent, (pnCmpType)ptrPtrCmp);
 		}
 		__auto_type jmpBack=createVirtVar(U0Ptr);
 		for(long i=0;i!=strParserNodeSize(subs);i++) {

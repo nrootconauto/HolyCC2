@@ -8,6 +8,17 @@
 #include <subExprElim.h>
 STR_TYPE_DEF(char ,Char);
 STR_TYPE_FUNCS(char ,Char);
+STR_TYPE_DEF(char *,Str);
+STR_TYPE_FUNCS(char *,Str);
+GRAPH_TYPE_DEF(const char *, void*, Dummy);
+GRAPH_TYPE_FUNCS(const char *, void*, Dummy);
+MAP_TYPE_DEF(graphNodeDummy,GNDummy);
+MAP_TYPE_FUNCS(graphNodeDummy,GNDummy);
+struct subExpr;
+typedef int(*gnIRCmpType)(const graphNodeIR*,const graphNodeIR*);
+typedef int(*gnDummyCmpType)(const graphNodeDummy*,const graphNodeDummy*);
+typedef int(*subExprCmpType)(const struct subExpr*,const struct subExpr*);
+
 static strChar ptr2Str(const void* a) {
 		__auto_type txt=base64Enc((void*)&a, sizeof(a));
 		__auto_type retVal=strCharAppendData(NULL, txt,strlen(txt)+1);
@@ -112,7 +123,7 @@ static const char *registerItemHash(graphNodeIR node,const char *text,struct sub
 				//Register find
 				if(expr) { 
 						if(find2) {
-								*find2=strSubExprSortedInsert(*find2, *expr, subExprCmp);
+								*find2=strSubExprSortedInsert(*find2, *expr, (subExprCmpType) subExprCmp);
 						}else {
 								mapSubExprsInsert(subExprRegistry, text,  strSubExprAppendItem(NULL, *expr));
 						}
@@ -328,12 +339,6 @@ static const char *hashNode(graphNodeIR node) {
 				return retVal2;
 		}
 }
-STR_TYPE_DEF(char *,Str);
-STR_TYPE_FUNCS(char *,Str);
-GRAPH_TYPE_DEF(const char *, void*, Dummy);
-GRAPH_TYPE_FUNCS(const char *, void*, Dummy);
-MAP_TYPE_DEF(graphNodeDummy,GNDummy);
-MAP_TYPE_FUNCS(graphNodeDummy,GNDummy);
 
 STR_TYPE_DEF(strGraphNodeDummyP, DummyBlob);
 STR_TYPE_FUNCS(strGraphNodeDummyP, DummyBlob);
@@ -343,8 +348,8 @@ static int visitUntillStartStmt(const struct __graphNode *node,const struct __gr
 }
 static void visitNodeAppendItem(struct __graphNode *node,void * data) {
 		strGraphNodeIRP *nodes=data;
-		if(NULL==strGraphNodeIRPSortedFind(*nodes, data, ptrPtrCmp))
-				*nodes=strGraphNodeIRPSortedInsert(*nodes, node, ptrPtrCmp);
+		if(NULL==strGraphNodeIRPSortedFind(*nodes, data, (gnIRCmpType)ptrPtrCmp))
+				*nodes=strGraphNodeIRPSortedInsert(*nodes, node, (gnIRCmpType)ptrPtrCmp);
 }
 void removeSubExprs() {
 		long count;
@@ -415,7 +420,7 @@ void removeSubExprs() {
 		strDummyBlob blobs=NULL;
 		while(strGraphNodePSize(nodes)) {
 				__auto_type blob=graphNodeDummyAllNodes(nodes[0]);
-				nodes=strGraphNodeDummyPSetDifference(nodes, blob, ptrPtrCmp);
+				nodes=strGraphNodeDummyPSetDifference(nodes, blob, (gnDummyCmpType)ptrPtrCmp);
 				blobs=strDummyBlobAppendItem(blobs, blob);
 		} 
 
