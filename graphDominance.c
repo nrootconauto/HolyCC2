@@ -220,7 +220,7 @@ llDomFrontier graphDominanceFrontiers(struct __graphNode *start,
 	llDomFrontier fronts = NULL;
 	for (long i = 0; i != strGraphNodePSize(allNodes); i++) {
 		struct graphDomFrontier tmp;
-		tmp.dominators = NULL;
+		tmp.nodes = NULL;
 		tmp.node = allNodes[i];
 
 		fronts = llDomFrontierInsert(fronts, llDomFrontierCreate(tmp),
@@ -238,8 +238,8 @@ llDomFrontier graphDominanceFrontiers(struct __graphNode *start,
 					__auto_type find = llDomFrontierFindRight(llDomFrontierFirst(fronts),
 					                                          runner, llDomFrontierCmp);
 					__auto_type value = llDomFrontierValuePtr(find);
-					value->dominators =
-					    strGraphNodePAppendItem(value->dominators, allNodes[b]);
+					value->nodes=
+					    strGraphNodePAppendItem(value->nodes, allNodes[b]);
 					printf("RUNNER %i += %i\n", *(int *)__graphNodeValuePtr(runner),
 					       *(int *)__graphNodeValuePtr(allNodes[b]));
 

@@ -56,7 +56,7 @@ static strChar intLit2Str(const struct lexerInt *i) {
 	strChar retVal = strCharReserve(NULL, 8);
 	retVal = strCharAppendData(retVal, "INT:", strlen("INT:"));
 
-	__auto_type clone = *i;
+	struct lexerInt clone = *i;
 	// Dump hex
 	while (clone.value.uLong != 0) {
 		int i = clone.value.uLong & 0x0fl;
