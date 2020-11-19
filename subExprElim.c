@@ -247,7 +247,7 @@ static const char *hashNode(graphNodeIR node) {
 						__auto_type retVal=registerItemHash(node, hash, NULL);
 						strCharDestroy(&hash);
 						free(typePtr);
-						return retVal;
+						return retVal; 
 				}
 				case __IR_VAL_MEM_FRAME: {
 						__auto_type hash=ptr2Str(value->val.value.__global.symbol);

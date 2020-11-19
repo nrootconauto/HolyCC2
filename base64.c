@@ -25,11 +25,17 @@ char *base64Enc(const  char *buffer,long count) {
 				//
 				uint64_t bytes=0;
 				int byteCount=sextetsPerRun*6/8;
-				for(int i=0;i!=byteCount;i++) {
-						if(count>i+bit/8)
-								bytes|=buffer[i+bit/8]<<(8*(byteCount-1-i));
-				}
-				
+				long remaining=count-bit/8;
+				if(remaining>3)
+						remaining=3;
+				memcpy(&bytes, &buffer[bit/8], remaining);
+
+				uint64_t bytesSwapped=0;
+				((char*)&bytesSwapped)[0]=((char*)&bytes)[2];
+				((char*)&bytesSwapped)[1]=((char*)&bytes)[1];
+				((char*)&bytesSwapped)[2]=((char*)&bytes)[0];
+
+				bytes=bytesSwapped;
 				//SH
 				for(int i2=sextetsPerRun-1;i2>=0;i2--) {
 						if(!(count>bit/8))

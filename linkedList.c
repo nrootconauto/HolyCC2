@@ -223,19 +223,21 @@ long __llItemSize(const struct __ll *list) { return list->itemSize; }
 struct __ll* __llFind(const struct __ll *list,const void *data,int(*pred)(const void *,const void*)) {
 		int prev=0;
 		while(list!=NULL) {
-		int cmp=pred(data,__llValuePtr(list)); 
-		if(cmp==0) {
-				return (struct __ll*)list;
-		}
-		//prev is used to check if not moving backwards and forwards forever if value is between next node and curr
-		else if(cmp<0&&(cmp==prev||prev==0)) {
-				list=__llPrev(list);
-		}
-		//prev is used to check if not moving backwards and forwards forever if value is between previous node and curr
-		else if(cmp>0&&(cmp==prev||prev==0)) {
-				list=__llNext(list);
-		}
-		return NULL;
+				int cmp=pred(data,__llValuePtr(list)); 
+				if(cmp==0) {
+						return (struct __ll*)list;
+				}
+				//prev is used to check if not moving backwards and forwards forever if value is between next node and curr
+				else if(cmp<0&&(cmp==prev||prev==0)) {
+						list=__llPrev(list);
+						continue;
+				}
+				//prev is used to check if not moving backwards and forwards forever if value is between previous node and curr
+				else if(cmp>0&&(cmp==prev||prev==0)) {
+						list=__llNext(list);
+						continue;
+				}
+				return NULL;
 		}
 		
 		return NULL;

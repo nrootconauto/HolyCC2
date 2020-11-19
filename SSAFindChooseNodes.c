@@ -42,26 +42,7 @@ static int ptrPtrCmp(const void *a,const void *b) {
 				return -1;
 		return 0;
 }
-GRAPH_TYPE_DEF(struct __graphNode *, void*, Dominator);
-GRAPH_TYPE_FUNCS(struct __graphNode *, void*, Dominator);
 
-static void connnectIdoms(mapGraphNode nodes,llDominators valids,llDominators BNode) {
-		strGraphNodeP B=llDominatorsValuePtr(BNode)->dominators;
-
-		struct __graphNode *bFirst=*strGraphNodePSortedFind(B, llDominatorsValuePtr(BNode)->node, ptrPtrCmp);
-		__auto_type incomingNodes=__graphNodeIncomingNodes(bFirst);
-		
-		//Check if A contains B
-		for(long i=0;i!=strGraphNodePSize(incomingNodes);i++) {
-				__auto_type find=llDominatorsFind(valids, incomingNodes[i], llDominatorCmp);
-				if(find) {
-						__auto_type str=ptr2Str(llDominatorsValuePtr(find)->node);
-						__auto_type node= mapGraphNodeGet(nodes, str);
-						assert(node);
-						graphNodeMappingConnect(*node, bFirst, NULL);
-				}
-		}
-}
 static graphNodeMapping createDomTree(llDominators doms) {
 		mapGraphNode map=mapGraphNodeCreate();
 
