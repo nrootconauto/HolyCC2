@@ -9,8 +9,7 @@ struct GNCount {
 };
 STR_TYPE_DEF(struct GNCount, GNCount);
 STR_TYPE_FUNCS(struct GNCount, GNCount);
-static int GNCountCmp(const void *a, const void *b) {
-	const struct GNCount *A = a, *B = b;
+static int GNCountCmp(const struct GNCount *A, const struct GNCount *B) {
 	if (A->node > B->node)
 		return 1;
 	else if (A->node < B->node)

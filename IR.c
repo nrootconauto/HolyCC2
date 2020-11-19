@@ -19,11 +19,11 @@ static int ptrCmp(const void *a, const void *b) {
 	else
 		return 0;
 }
-int IRAttrInsertPred(const void *a, const void *b) {
+int IRAttrInsertPred(const struct IRAttr *a, const struct IRAttr *b) {
 	const struct IRAttr *A = a, *B = b;
 	return ptrCmp(A->name, B->name);
 }
-int IRAttrGetPred(const void *key, const void *b) {
+int IRAttrGetPred(const void *key, const struct IRAttr *b) {
 	const struct IRAttr *B = b;
 	return ptrCmp(key, B->name);
 }

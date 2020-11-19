@@ -23,22 +23,16 @@ static int ptrPtrCmp(const void *a, const void *b) {
 	else
 		return 0;
 }
-int llDominatorCmp(const void *a, const void *b) {
-	const struct graphDominators *B = b;
+int llDominatorCmp(const void *a, const struct graphDominators *b) {
+ 	return ptrPtrCmp(&a, &b->node);
+}
+int llDomFrontierCmp(const void *a, const struct graphDomFrontier *B) {
 	return ptrPtrCmp(&a, &B->node);
 }
-int llDomFrontierCmp(const void *a, const void *b) {
-	const struct graphDomFrontier *B = b;
-	return ptrPtrCmp(&a, &B->node);
-}
-static int llDomFrontierCmpInsert(const void *a, const void *b) {
-	const struct graphDomFrontier *A = a;
-	const struct graphDomFrontier *B = b;
+static int llDomFrontierCmpInsert(const struct graphDomFrontier *A, const struct graphDomFrontier *B) {
 	return ptrPtrCmp(&A->node, &B->node);
 }
-static int llDominatorCmpInsert(const void *a, const void *b) {
-	const struct graphDominators *A = a;
-	const struct graphDominators *B = b;
+static int llDominatorCmpInsert(const struct graphDominators *A,const struct graphDominators *B) {
 	return ptrPtrCmp(&A->node, &B->node);
 }
 static void visitNode(struct __graphNode *node, void *visited) {

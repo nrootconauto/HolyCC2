@@ -103,8 +103,8 @@ struct IRAttr {
 };
 LL_TYPE_DEF(struct IRAttr, IRAttr);
 LL_TYPE_FUNCS(struct IRAttr, IRAttr);
-int IRAttrInsertPred(const void *a, const void *b);
-int IRAttrGetPred(const void *key, const void *b);
+int IRAttrInsertPred(const struct IRAttr *a, const struct IRAttr *b);
+int IRAttrGetPred(const void *key, const struct IRAttr *b);
 struct IRNode {
 	enum IRNodeType type;
 	llIRAttr attrs; // NULL by defualt
