@@ -15,11 +15,11 @@ void base64Tests();
 void topoSortTests();
 void subExprElimTests();
 int main() {
-		//		strTests();
-		//	preprocessorTests();
+		strTests();
+		preprocessorTests();
 		base64Tests();
 		graphDominanceTests();
-		//graphColoringTests();
+		graphColoringTests();
 	/**
 
 	  llTests();
@@ -32,11 +32,10 @@ int main() {
 	  
 	  eventPoolTests();
 	  */
-	//lexerTests();
-	//parserTests();
+	lexerTests();
+	parserTests();
 	//parserDiagTests();
-	//	topoSortTests();
-	//subExprElimTests();
-	// typeParserTests();
+	topoSortTests();
+	subExprElimTests();
 	return 0;
 }

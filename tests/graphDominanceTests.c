@@ -176,6 +176,32 @@ void graphDominanceTests() {
 		assert(cFronts->dominators[0] == e);
 		assert(dFronts->dominators[0] == e);
 		assert(eFronts->dominators[0] == f);
+
+		//
+		// Dominator tree test
+		//
+		__auto_type domTree=createDomTree(doms);
+		assert(domTree);
+		assert(*graphNodeMappingValuePtr(domTree)==a);
+		
+		__auto_type out=graphNodeMappingOutgoingNodes(domTree);
+		assert(strGraphNodeMappingPSize(out)==2);
+		assert(*graphNodeMappingValuePtr(out[0])==b||*graphNodeMappingValuePtr(out[1])==b);
+		assert(*graphNodeMappingValuePtr(out[0])==f||*graphNodeMappingValuePtr(out[1])==f);
+
+		__auto_type bMapped=(*graphNodeMappingValuePtr(out[1])==b)?out[1]:out[0];
+		__auto_type out2=graphNodeMappingOutgoingNodes(bMapped);
+		graphNodeInt expected[]={c,d,e};
+		for(long i=0;i!=sizeof(expected)/sizeof(*expected);i++) {
+				int success=0;
+				for(long i2=0;i2!=strGraphNodePSize(out2);i2++) {
+						__auto_type n=graphNodeMappingValuePtr(out2[i2]);
+						if(*n==expected[i])
+								success=1;
+				}
+
+				assert(success);
+		}
 	}
 	{
 		__auto_type one = graphNodeIntCreate(1, 0);
