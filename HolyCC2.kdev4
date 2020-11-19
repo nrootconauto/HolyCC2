@@ -1,3 +1,4 @@
 [Project]
-Name=HolyCC2
+CreatedFrom=CMakeLists.txt
 Manager=KDevCMakeManager
+Name=HolyCC2
