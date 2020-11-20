@@ -117,7 +117,8 @@ void graphTests() {
 				graphNodeInt expected2[]={a,b,c,d};
 				for(long i=0;i!=4;i++) {
 						for(long i2=0;i2!=4;i2++) {
-								if(expected2[i]==*graphNodeMappingValuePtr(all[i2]))
+								__auto_type n=*graphNodeMappingValuePtr(allMap1[i2]);
+								if(expected2[i]==n)
 										expected2[i]=NULL;
 						}
 				}

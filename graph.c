@@ -404,27 +404,26 @@ graphNodeMapping createGraphMap(strGraphNodeP nodes,int preserveConnections) {
 								__graphNodeConnect(current, find, &out, sizeof(out[i]));
 								free(key);
 						}
+				}
+				// Connect incoming
+				for (long i = 0; i != strGraphNodePSize(in); i++) {
+						char *key = ptr2Str(in[i]);
+						__auto_type find = *mapGraphNodeGet(map, key);
 
-						// Connect incoming
-						for (long i = 0; i != strGraphNodePSize(in); i++) {
-								char *key = ptr2Str(in[i]);
-								__auto_type find = *mapGraphNodeGet(map, key);
-
-								//If not preserve connections,ignore multiple connections
-								if(!preserveConnections)
-										if(__graphIsConnectedTo(current,find))
-												continue;
+						//If not preserve connections,ignore multiple connections
+						if(!preserveConnections)
+								if(__graphIsConnectedTo(find,current))
+										continue;
 			
-								if (find)
-										__graphNodeConnect(current, find, &in[i], sizeof(in[i]));
-								free(key);
-						}
+						if (find)
+								__graphNodeConnect(find,current, &in[i], sizeof(in[i]));
+						free(key);
 				}
 		}
 		
 		__auto_type retVal = *mapGraphNodeGet(map, keys[0]);
 		for (long i = 0; i != strGraphNodePSize(nodes); i++)
-				free(keys);
+				free(keys[i]);
 		mapGraphNodeDestroy(map, NULL);
 		
 		return retVal;
