@@ -297,4 +297,6 @@ graphNodeIR createCondJmp(graphNodeIR cond,graphNodeIR t,graphNodeIR f) {
 		graphNodeIRConnect(cond, retVal, IR_CONN_SOURCE_A);
 		graphNodeIRConnect(retVal,t, IR_CONN_COND_TRUE);
 		graphNodeIRConnect(retVal,f, IR_CONN_COND_TRUE);
+
+		return retVal;
 }

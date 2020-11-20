@@ -110,12 +110,7 @@ static int jumpOrAssignedVar(void *data,struct __graphNode *node) {
 		//
 				strGraphEdgeIRP in __attribute__((cleanup(strGraphEdgeIRPDestroy)))= graphNodeIRIncoming((graphNodeIR)node);
 				strGraphEdgeIRP dstConns __attribute__((cleanup(strGraphEdgeIRPDestroy)))=IRGetConnsOfType(in, IR_CONN_DEST);
-		if(strGraphEdgeIRPSize(dstConns)==0)
-				return 1;
-		if(graphNodeIRValuePtr(graphEdgeIRIncoming(in[0]))->type==IR_CHOOSE)
-				return 0;
-
-		return 1;
+		return 0!=strGraphEdgeIRPSize(dstConns);
 }
 static graphNodeMapping filterJumpsAndVars(strGraphNodeIRP nodes,graphNodeIR enterNode,struct IRVar *var) {
 		//First find the references to the var and jumps.

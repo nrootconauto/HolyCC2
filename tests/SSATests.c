@@ -33,6 +33,8 @@ void SSATests() {
 		__auto_type cond=createIntLit(101);
 		__auto_type aB_FCJmp=createCondJmp(cond, bEnter ,fEnter);
 		__auto_type bC_DCJmp=createCondJmp(cond, cEnter ,dEnter);
+		graphNodeIRConnect(aExit,aB_FCJmp,IR_CONN_FLOW);
+		graphNodeIRConnect(bExit,bC_DCJmp,IR_CONN_FLOW);
 		graphNodeIRConnect(cExit, eEnter, IR_CONN_FLOW);
 		graphNodeIRConnect(dExit, eEnter, IR_CONN_FLOW);
 		graphNodeIRConnect(eExit, fEnter, IR_CONN_FLOW);
