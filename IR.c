@@ -284,13 +284,17 @@ void IRInsertAfter(graphNodeIR insertAfter, graphNodeIR entry,
 	strGraphEdgeIRPDestroy(&outgoing);
 }
 graphNodeIR createAssign(graphNodeIR in,graphNodeIR dst) {
-		struct IRNodeAssign assign;
-		assign.base.attrs=NULL;
-		assign.base.type=IR_ASSIGN;
-		__auto_type retVal=GRAPHN_ALLOCATE(assign);
-		
-		graphNodeIRConnect(in, retVal, IR_CONN_SOURCE_A);
-		graphNodeIRConnect(retVal, dst, IR_CONN_DEST);
+		graphNodeIRConnect(in,dst, IR_CONN_DEST);
+		return dst;
+}
+graphNodeIR createCondJmp(graphNodeIR cond,graphNodeIR t,graphNodeIR f) {
+		struct IRNodeCondJump cJmp;
+		cJmp.base.attrs=NULL;
+		cJmp.base.type=IR_COND_JUMP;
+		cJmp.cond=-1;//TODO
 
-		return retVal;
+		graphNodeIR retVal=GRAPHN_ALLOCATE(cJmp);
+		graphNodeIRConnect(cond, retVal, IR_CONN_SOURCE_A);
+		graphNodeIRConnect(retVal,t, IR_CONN_COND_TRUE);
+		graphNodeIRConnect(retVal,f, IR_CONN_COND_TRUE);
 }

@@ -299,3 +299,4 @@ void IRInsertBefore(graphNodeIR insertBefore, graphNodeIR entry,
 void IRInsertAfter(graphNodeIR insertAfter, graphNodeIR entry,
 																			graphNodeIR exit, enum IRConnType connType);
 graphNodeIR createAssign(graphNodeIR in,graphNodeIR dst);
+graphNodeIR createCondJmp(graphNodeIR cond,graphNodeIR t,graphNodeIR f);

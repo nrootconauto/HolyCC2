@@ -4,6 +4,7 @@
 #include <graphDominance.h>
 #include <hashTable.h>
 #include <topoSort.h>
+#include <SSA.h>
 #define GRAPHN_ALLOCATE(x) ({ __graphNodeCreate(&x, sizeof(x), 0); })
 typedef int(*strGN_IRCmpType)(const strGraphNodeIRP *,const strGraphNodeIRP *);
 
@@ -11,7 +12,7 @@ static char *ptr2Str(const void *a) { return base64Enc((void *)&a, sizeof(a)); }
 MAP_TYPE_DEF(struct IRVarRef, VarRef);
 MAP_TYPE_FUNCS(struct IRVarRef, VarRef);
 static __thread mapVarRef varRefs = NULL;
-static graphNodeIR createChoose(graphNodeIR insertAfter,
+static graphNodeIR createChoose(graphNodeIR insertBefore,
                                 strIRPathPair pathPairs) {
 		//Make the choose node
 		struct IRNodeChoose choose;
@@ -36,7 +37,7 @@ static graphNodeIR createChoose(graphNodeIR insertAfter,
 
 	graphNodeIRConnect(chooseNode, valueNode, IR_CONN_DEST);
 	
-	IRInsertAfter(insertAfter, chooseNode, valueNode, IR_CONN_FLOW);
+	IRInsertBefore(insertBefore, chooseNode, valueNode, IR_CONN_FLOW);
 	return valueNode;
 }
 static int ptrPtrCmp(const void *a, const void *b) {
@@ -69,8 +70,14 @@ GRAPH_TYPE_FUNCS(struct SSANode,void*, SSANode);
 
 MAP_TYPE_DEF(strGraphNodeIRP, ChooseIncomings);
 MAP_TYPE_FUNCS(strGraphNodeIRP, ChooseIncomings);
-static int isJumpOrVarAndNotChoosed(void *data,struct __graphNode *node) {
-		struct IRVar *expectedVar=data;
+
+
+struct varAndEnterPair {
+		graphNodeIR enter;
+		struct IRVar *var;
+};
+static int jumpOrAssignedVar(void *data,struct __graphNode *node) {		
+		struct IRVar *expectedVar=((struct varAndEnterPair*)data)->var;
 
 		struct IRNode *ir=graphNodeIRValuePtr((graphNodeIR)node);
 		if(ir->type==IR_VALUE) {
@@ -81,7 +88,7 @@ static int isJumpOrVarAndNotChoosed(void *data,struct __graphNode *node) {
 										//TODO check equal
 								} else if(expectedVar->type==IR_VAR_VAR) {
 										if(expectedVar->value.var==val->val.value.var.var.value.var)
-												goto checkForChoosed;
+												goto checkForAssign;
 								}
 						}
 				}
@@ -92,8 +99,12 @@ static int isJumpOrVarAndNotChoosed(void *data,struct __graphNode *node) {
 		else if(ir->type==IR_ENTRY)
 				return 1;
 
+		//Check if enter-node
+		if(((struct varAndEnterPair*)data)->enter==node)
+				return 1;
+		
 		return 0;
-	checkForChoosed:;
+	checkForAssign:;
 		//
 		// Check if assigned to choose node
 		//
@@ -106,9 +117,12 @@ static int isJumpOrVarAndNotChoosed(void *data,struct __graphNode *node) {
 
 		return 1;
 }
-static graphNodeMapping filterJumpsAndVars(strGraphNodeIRP nodes,struct IRVar *var) {
+static graphNodeMapping filterJumpsAndVars(strGraphNodeIRP nodes,graphNodeIR enterNode,struct IRVar *var) {
 		//First find the references to the var and jumps.
-		return createFilteredGraph(nodes , var,isJumpOrVarAndNotChoosed);
+		struct varAndEnterPair pair;
+		pair.enter=enterNode;
+		pair.var=var;
+		return createFilteredGraph(nodes , &pair,jumpOrAssignedVar);
 }
 /**
 	* Returns list of new varaible references
@@ -187,7 +201,7 @@ static int IRVarCmp(const struct IRVar *a,const struct IRVar *b) {
 
 		return 0;
 }
-void IRToSSA(strGraphNodeIRP nodes) {
+void IRToSSA(strGraphNodeIRP nodes,graphNodeIR enter) {
 		if(strGraphNodeIRPSize(nodes)==0)
 				return;
 		//
@@ -205,18 +219,21 @@ void IRToSSA(strGraphNodeIRP nodes) {
 						allVars=strIRVarSortedInsert(allVars, val->val.value.var.var, IRVarCmp);
 				}
 		}
-
 		//
 		// Find SSA choose nodes for all vars
 		//
 		strGraphNodeIRP newNodes=NULL;
 		for(long i=0;i!=strIRVarSize(allVars);i++) {
-				__auto_type filtered2= filterJumpsAndVars(nodes, &allVars[i]);				
+				//Find enter node in map
+				
+				
+				__auto_type filtered2= filterJumpsAndVars(nodes,enter, &allVars[i]);				
 				strGraphNodeIRP chooses =IRSSAFindChooseNodes(filtered2);
 
 				newNodes=strGraphNodeIRPConcat(newNodes, chooses);
 		}
-		
+
+	end:
 		strIRVarDestroy(&allVars);
 		graphNodeMappingKillGraph(&filteredVars, NULL, NULL);
 		strGraphNodeMappingPDestroy(&filteredVarsNodes);
