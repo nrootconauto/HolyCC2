@@ -448,13 +448,13 @@ static void __filterTransparentKill(graphNodeMapping node) {
 		
 		graphNodeMappingKill(&node, NULL, NULL);
 }
-graphNodeMapping createFilteredGraph(strGraphNodeP nodes,int(*pred)(struct __graphNode *)) {
+graphNodeMapping createFilteredGraph(strGraphNodeP nodes,void *data,int(*pred)(void *data,struct __graphNode *)) {
 		__auto_type clone=createGraphMap(nodes,0);
 		__auto_type cloneNodes=__graphNodeVisitAll(clone);
 
 		graphNodeMapping retVal=NULL;
 		for(long i=0;i!=strGraphNodeMappingPSize(cloneNodes);i++)
-				if(!pred(*graphNodeMappingValuePtr(cloneNodes[i])))
+				if(!pred(data,*graphNodeMappingValuePtr(cloneNodes[i])))
 						__filterTransparentKill(cloneNodes[i]); //Takes a mapped node!!!
 				else if(retVal==NULL)
 						retVal=cloneNodes[i];

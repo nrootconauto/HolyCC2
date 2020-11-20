@@ -34,11 +34,10 @@ static graphNodeIR createChoose(graphNodeIR insertAfter,
 	//Create node
 	__auto_type valueNode=GRAPHN_ALLOCATE(value);
 
-	//Create the assign node
-	__auto_type assignNode=createAssign(chooseNode, valueNode);
+	graphNodeIRConnect(chooseNode, valueNode, IR_CONN_DEST);
 	
 	IRInsertAfter(insertAfter, chooseNode, valueNode, IR_CONN_FLOW);
-	return assignNode;
+	return valueNode;
 }
 static int ptrPtrCmp(const void *a, const void *b) {
 	if (*(void **)a > *(void **)b)
@@ -70,30 +69,68 @@ GRAPH_TYPE_FUNCS(struct SSANode,void*, SSANode);
 
 MAP_TYPE_DEF(strGraphNodeIRP, ChooseIncomings);
 MAP_TYPE_FUNCS(strGraphNodeIRP, ChooseIncomings);
+static int isJumpOrVarAndNotChoosed(void *data,struct __graphNode *node) {
+		struct IRVar *expectedVar=data;
 
-static strGraphNodeP IRSSAFindChooseNodes(strGraphNodeMappingP nodes) {
+		struct IRNode *ir=graphNodeIRValuePtr((graphNodeIR)node);
+		if(ir->type==IR_VALUE) {
+				struct IRNodeValue *val=(void*)ir;
+				if(val->val.type==IR_VAL_VAR_REF) {
+						if(expectedVar->type==val->val.value.var.var.type) {
+								if(expectedVar->type==IR_VAR_MEMBER) {
+										//TODO check equal
+								} else if(expectedVar->type==IR_VAR_VAR) {
+										if(expectedVar->value.var==val->val.value.var.var.value.var)
+												goto checkForChoosed;
+								}
+						}
+				}
+		} else if(ir->type==IR_LABEL)
+				return 1;
+		else if(ir->type==IR_STATEMENT_START)
+				return 1;
+		else if(ir->type==IR_ENTRY)
+				return 1;
+
+		return 0;
+	checkForChoosed:;
+		//
+		// Check if assigned to choose node
+		//
+				strGraphEdgeIRP in __attribute__((cleanup(strGraphEdgeIRPDestroy)))= graphNodeIRIncoming((graphNodeIR)node);
+				strGraphEdgeIRP dstConns __attribute__((cleanup(strGraphEdgeIRPDestroy)))=IRGetConnsOfType(in, IR_CONN_DEST);
+		if(strGraphEdgeIRPSize(dstConns)==0)
+				return 1;
+		if(graphNodeIRValuePtr(graphEdgeIRIncoming(in[0]))->type==IR_CHOOSE)
+				return 0;
+
+		return 1;
+}
+static graphNodeMapping filterJumpsAndVars(strGraphNodeIRP nodes,struct IRVar *var) {
+		//First find the references to the var and jumps.
+		return createFilteredGraph(nodes , var,isJumpOrVarAndNotChoosed);
+}
+/**
+	* Returns list of new varaible references
+	*/
+static strGraphNodeIRP IRSSAFindChooseNodes(graphNodeMapping start) {
 	if (varRefs)
 		mapVarRefDestroy(varRefs, NULL);
 	varRefs = mapVarRefCreate();
 
-	__auto_type clone = cloneGraphFromNodes(nodes);
-
-	__auto_type doms = graphComputeDominatorsPerNode(clone);
-	__auto_type mapped=cloneGraphFromNodes(nodes);
-	__auto_type fronts=graphDominanceFrontiers(mapped, doms);
-
-	//
-	// Maps all the nodes that share a domiance frontier
-	//
-	mapChooseIncomings  frontsMap=mapChooseIncomingsCreate();
+	__auto_type mappedNodes=graphNodeMappingAllNodes(start);
+	__auto_type doms = graphComputeDominatorsPerNode(start);
+	__auto_type fronts=graphDominanceFrontiers(start, doms);
 
 	strGraphNodeMappingP retVal=NULL;
 	for(__auto_type node=llDomFrontierFirst(fronts);node!=NULL;node=llDomFrontierNext(node)) {
 			__auto_type nodeValue= llDomFrontierValuePtr(node);
-
+			__auto_type in=graphNodeMappingIncomingNodes(nodeValue->node);
+			
 			strIRPathPair pairs=NULL;
-			for(long i=0;i!=strGraphNodePSize(nodeValue->nodes);i++) {
-					__auto_type irNode=*graphNodeMappingValuePtr(nodeValue->nodes[i]);
+			//Find nodes connected to frontier
+			for(long i=0;i!=strGraphNodePSize(in);i++) {
+					__auto_type irNode=*graphNodeMappingValuePtr(in[i]);
 
 					//Ensure is a value  
 					if(graphNodeIRValuePtr(irNode)->type!=IR_VALUE)
@@ -101,15 +138,13 @@ static strGraphNodeP IRSSAFindChooseNodes(strGraphNodeMappingP nodes) {
 					// Ensure is a variable
 					if(((struct IRNodeValue *)irNode)->val.type!=IR_VAL_VAR_REF)
 							continue;
-
-					//Ensure that said path is immediatly connectected to frontier(only want the most recent values)
-					if(!graphNodeMappingConnectedTo(nodeValue->nodes[i],nodeValue->node))
-							continue;
 					
 					struct IRPathPair pair;
 					pair.ref=irNode;
 					pairs=strIRPathPairAppendItem(pairs, pair);
 			}
+
+			strGraphNodeMappingPDestroy(&in);
 
 			//Create the choose
 			assert(strIRPathPairSize(pairs)!=0);
@@ -118,7 +153,73 @@ static strGraphNodeP IRSSAFindChooseNodes(strGraphNodeMappingP nodes) {
 			retVal=strGraphNodePAppendItem(retVal, choose);
 	}
 
-	
+	return retVal;
+}
+static int filterVars(void *data,struct __graphNode *node) {
+		__auto_type ir=graphNodeIRValuePtr(node);
+		if(ir->type==IR_VALUE) {
+				struct IRNodeValue *irValue=(void*)ir;
+				if(irValue->val.type==IR_VAL_VAR_REF)
+						return 1;
+		}
+
+		return 0;
+}
+STR_TYPE_DEF(struct IRVar, IRVar);
+STR_TYPE_FUNCS(struct IRVar, IRVar);
+static int ptrCmp(const void *a,const void *b) {
+		if(a>b)
+				return 1;
+		else if(a<b)
+				return -1;
+		else
+				return 0;
+}
+static int IRVarCmp(const struct IRVar *a,const struct IRVar *b) {
+		if(0!=a->type-b->type)
+				return a->type-b->type;
+
+		if(a->type==IR_VAR_VAR) {
+				return ptrCmp(a->value.var, b->value.var);
+		} else {
+				//TODO implement
+		}
+
+		return 0;
+}
+void IRToSSA(strGraphNodeIRP nodes) {
+		if(strGraphNodeIRPSize(nodes)==0)
+				return;
+		//
+		// Find all the vars
+		//
+		__auto_type filteredVars=createFilteredGraph(nodes,NULL,filterVars);
+		__auto_type filteredVarsNodes=graphNodeMappingAllNodes(filteredVars);
+		strIRVar allVars=NULL;
+		for(long i=0;i!=strGraphNodeMappingPSize(filteredVarsNodes);i++) {
+				struct IRNodeValue *val=(void*)graphNodeIRValuePtr(*graphNodeMappingValuePtr(filteredVarsNodes[i]));
+				assert(val->base.type==IR_VALUE);
+
+				//Insert if doesnt exist
+				if(NULL==strIRVarSortedFind(allVars, val->val.value.var.var, IRVarCmp)) {
+						allVars=strIRVarSortedInsert(allVars, val->val.value.var.var, IRVarCmp);
+				}
+		}
+
+		//
+		// Find SSA choose nodes for all vars
+		//
+		strGraphNodeIRP newNodes=NULL;
+		for(long i=0;i!=strIRVarSize(allVars);i++) {
+				__auto_type filtered2= filterJumpsAndVars(nodes, &allVars[i]);				
+				strGraphNodeIRP chooses =IRSSAFindChooseNodes(filtered2);
+
+				newNodes=strGraphNodeIRPConcat(newNodes, chooses);
+		}
+		
+		strIRVarDestroy(&allVars);
+		graphNodeMappingKillGraph(&filteredVars, NULL, NULL);
+		strGraphNodeMappingPDestroy(&filteredVarsNodes);
 }
 /*
 	strGraphEdgeP out __attribute__((cleanup(strGraphEdgePDestroy)))=__graphNodeOutgoing(all[i]);
@@ -137,5 +238,22 @@ __auto_type parentVar=graphNodeSSANodeValuePtr(in[0])->var;
 											goto eq;
 							}
 					}
-			/
+			
+//
+	// Is a mapping of a mapping
+	//
+	graphNodeMapping domTree=createDomTree(doms);
+	
+	//
+	// Maps all the nodes that share a domiance frontier
+	//
+	mapGraphNode domTreeMap=mapChooseIncomingsCreate();
+	__auto_type allDomTree=graphNodeMappingAllNodes(domTree);
+	//hash them all
+	for(long i=0;i!=strGraphNodeMappingPSize(allDomTree);i++) {
+			//Is a mapping of a mapping
+			char *hash=ptr2Str(*graphNodeMappingValuePtr(allDomTree[i]));
+			mapChooseIncomingsInsert(domTreeMap, hash, allDomTree[i]);
+			free(hash);
+	}
 	*/

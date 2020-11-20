@@ -96,6 +96,9 @@ enum IRNodeType {
 	//
 	IR_ADDR_OF,
 	IR_DERREF,
+	//
+	IR_ENTRY,
+	IR_EXIT,
 };
 struct IRNode;
 struct IRAttr {
@@ -260,7 +263,6 @@ struct IRNodeFuncEnd {
 	struct IRNode base;
 };
 struct IRPathPair {
-	graphEdgeIR path;
 	graphNodeIR ref;
 };
 STR_TYPE_DEF(struct IRPathPair, IRPathPair);

@@ -202,4 +202,4 @@ GRAPH_TYPE_FUNCS(struct __graphNode *, struct __graphEdge *, Mapping);
 MAP_TYPE_DEF(graphNodeMapping, GraphNode);
 MAP_TYPE_FUNCS(graphNodeMapping, GraphNode);
 graphNodeMapping createGraphMap(strGraphNodeP nodes,int preserveConnections);
-graphNodeMapping createFilteredGraph(strGraphNodeP nodes,int(*pred)(struct __graphNode *));
+graphNodeMapping createFilteredGraph(strGraphNodeP nodes,void *data,int(*pred)(void *data,struct __graphNode *));
