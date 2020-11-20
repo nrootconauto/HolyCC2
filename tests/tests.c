@@ -14,6 +14,7 @@ void parserDiagTests();
 void base64Tests();
 void topoSortTests();
 void subExprElimTests();
+void SSATests();
 int main() {
 	strTests();
 	preprocessorTests();
@@ -38,5 +39,6 @@ int main() {
 	// parserDiagTests();
 	topoSortTests();
 	subExprElimTests();
+	SSATests();
 	return 0;
 }

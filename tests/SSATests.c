@@ -5,9 +5,9 @@ static void createAssignExpr(graphNodeIR lit,struct variable *var,graphNodeIR *e
 		__auto_type ref=createVarRef(var);
 		graphNodeIRConnect(lit, ref, IR_CONN_DEST);
 		if(exit)
-				*exit=lit;
+				*exit=ref;
 		if(enter)
-				*enter=ref;
+				*enter=lit;
 }
 /**
 	* creates prefix##enter prefix##/exit

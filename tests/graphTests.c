@@ -7,7 +7,7 @@ static void appendToItems(graphNodeInt node, void *data) {
 	strGraphNodeIntP *edges = data;
 	*edges = strGraphNodeIntPAppendItem(*edges, node);
 }
-static int nodeIs2Or3(graphNodeInt node) {
+static int nodeIs2Or3(void* data,graphNodeInt node) {
 		int val=*graphNodeIntValuePtr(node);
 		return !(val==2||val==3);
 }
@@ -128,7 +128,7 @@ void graphTests() {
 
 				
 				//filter out b(2)/c(3)
-				__auto_type mapFiltered=createFilteredGraph(all, nodeIs2Or3);
+				__auto_type mapFiltered=createFilteredGraph(all, NULL,nodeIs2Or3);
 				__auto_type allFiltered=graphNodeMappingAllNodes(mapFiltered);
 
 				//

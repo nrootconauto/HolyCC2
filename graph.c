@@ -259,9 +259,10 @@ void __graphNodeKill(struct __graphNode *node, void (*killNode)(void *item),
 		killNode(node + sizeof(struct __graphNode));
 	free(node);
 }
-static int __graphAllPred(const struct __graphNode *node,
+static int __graphPredNotVisited(const struct __graphNode *node,
                           const struct __graphEdge *edge, const void *data) {
-	return 1;
+		const strGraphNodeP *visited=data;
+		return NULL==strGraphNodePSortedFind(*visited, node, (gnCmpType)ptrCompare);
 }
 
 static void __graphVisitAppend(struct __graphNode *node, void *data) {
@@ -269,18 +270,31 @@ static void __graphVisitAppend(struct __graphNode *node, void *data) {
 	*allNodes = strGraphNodePSortedInsert(*allNodes, node, (gnCmpType)ptrCompare);
 }
 strGraphNodeP __graphNodeVisitAll(const struct __graphNode *start) {
-	strGraphNodeP allNodesForward = NULL;
-	allNodesForward = strGraphNodePAppendItem(NULL, (void *)start);
-	__graphNodeVisitForward((struct __graphNode *)start, &allNodesForward,
-	                        __graphAllPred, __graphVisitAppend);
+		if(!start)
+				return  NULL;
+		
+		strGraphNodeP visited=strGraphNodePAppendItem(NULL, (void*)start);
 
-	strGraphNodeP allNodesBackward __attribute__((cleanup(strGraphNodePDestroy)));
-	allNodesBackward = NULL;
-	__graphNodeVisitBackward((struct __graphNode *)start, &allNodesBackward,
-	                         __graphAllPred, __graphVisitAppend);
+	loop:;
+		long oldSize=strGraphNodePSize(visited);
+		//Dont use visited as for loop as it will be modified use clone
+		__auto_type clone=strGraphNodePAppendData(NULL, (void*)visited, strGraphNodePSize(visited));
+		for(long i=0;i!=oldSize;i++) {
+				//Visit forward
+				__graphNodeVisitForward((struct __graphNode *)clone[i],
+																												&visited,__graphPredNotVisited, __graphVisitAppend);
 
-	return strGraphNodePSetUnion(allNodesForward, allNodesBackward,
-	                             (gnCmpType)ptrCompare);
+				//Visit backward
+				 __graphNodeVisitBackward((struct __graphNode *)clone[i], &visited,__graphPredNotVisited , __graphVisitAppend);
+		}
+		
+		strGraphNodePDestroy(&clone);
+		//If added new node(s), re-run
+		__auto_type newSize=strGraphNodePSize(visited);
+		if(newSize!=oldSize)
+				goto loop;
+
+		return visited;
 }
 void __graphKillAll(struct __graphNode *start, void (*killFunc)(void *),
                     void (*killEdge)(void *)) {
