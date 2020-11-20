@@ -433,7 +433,7 @@ graphNodeMapping createGraphMap(strGraphNodeP nodes,int preserveConnections) {
 //
 static void __filterTransparentKill(graphNodeMapping node) {
 		__auto_type in=graphNodeMappingIncomingNodes(node);
-		__auto_type out=graphNodeMappingIncomingNodes(node);
+		__auto_type out=graphNodeMappingOutgoingNodes(node);
 
 		//Connect in to out(if not already connectected)
 		for(long inI=0;inI!=strGraphNodeMappingPSize(in);inI++) {

@@ -9,7 +9,7 @@ static void appendToItems(graphNodeInt node, void *data) {
 }
 static int nodeIs2Or3(graphNodeInt node) {
 		int val=*graphNodeIntValuePtr(node);
-		return val==2||val==3;
+		return !(val==2||val==3);
 }
 void graphTests() {
 		{
@@ -86,7 +86,7 @@ void graphTests() {
 				__auto_type a = graphNodeIntCreate(1, 0);
 				__auto_type b = graphNodeIntCreate(2, 0);
 				__auto_type c = graphNodeIntCreate(3, 0);
-				__auto_type d = graphNodeIntCreate(3, 0);
+				__auto_type d = graphNodeIntCreate(4, 0);
 				//
 				//     /--b--\
 				// a--*       *--d
@@ -138,7 +138,8 @@ void graphTests() {
 				graphNodeInt expected3[]={a,d};
 				for(long i=0;i!=2;i++) {
 						for(long i2=0;i2!=2;i2++) {
-								if(expected3[i]==*graphNodeMappingValuePtr(allFiltered[i2]))
+								__auto_type n=*graphNodeMappingValuePtr(allFiltered[i2]);
+								if(expected3[i]==n)
 										expected3[i]=NULL;
 						}
 				}
