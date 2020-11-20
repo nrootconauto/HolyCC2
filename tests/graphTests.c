@@ -7,7 +7,12 @@ static void appendToItems(graphNodeInt node, void *data) {
 	strGraphNodeIntP *edges = data;
 	*edges = strGraphNodeIntPAppendItem(*edges, node);
 }
+static int nodeIs2Or3(graphNodeInt node) {
+		int val=*graphNodeIntValuePtr(node);
+		return val==2||val==3;
+}
 void graphTests() {
+		{
 	__auto_type a = graphNodeIntCreate(1, 0);
 	__auto_type b = graphNodeIntCreate(2, 0);
 	__auto_type c = graphNodeIntCreate(3, 0);
@@ -73,4 +78,71 @@ void graphTests() {
 	bO = graphNodeIntOutgoing(b);
 	assert(strGraphEdgeIntPSize(bI) == 0);
 	assert(strGraphEdgeIntPSize(bO) == 0);
+}
+		//
+		// Mapping (edges not preserved) and filter tests
+		//
+		{
+				__auto_type a = graphNodeIntCreate(1, 0);
+				__auto_type b = graphNodeIntCreate(2, 0);
+				__auto_type c = graphNodeIntCreate(3, 0);
+				__auto_type d = graphNodeIntCreate(3, 0);
+				//
+				//     /--b--\
+				// a--*       *--d
+				//     \--c--/
+				//
+				graphNodeIntConnect(a, b, 'b');
+				graphNodeIntConnect(a, c, 'c');
+				graphNodeIntConnect(b, d, 'd');
+				graphNodeIntConnect(c, d, 'd');
+
+				//Check for all nodes
+				__auto_type all=graphNodeIntAllNodes(a);
+				assert(strGraphNodeIntPSize(all)==4);
+				graphNodeInt expected[]={a,b,c,d};
+				for(long i=0;i!=4;i++) {
+						for(long i2=0;i2!=4;i2++) {
+								if(expected[i]==all[i2])
+										expected[i]=NULL;
+						}
+				}
+				for(long i=0;i!=4;i++)
+						assert(!expected[i]);
+
+				//Create map
+				__auto_type map1=createGraphMap(all,0);
+				__auto_type allMap1=graphNodeMappingAllNodes(map1);
+				assert(strGraphNodeMappingPSize(allMap1)==4);
+				graphNodeInt expected2[]={a,b,c,d};
+				for(long i=0;i!=4;i++) {
+						for(long i2=0;i2!=4;i2++) {
+								if(expected2[i]==*graphNodeMappingValuePtr(all[i2]))
+										expected2[i]=NULL;
+						}
+				}
+				//Check if all found
+				for(long i=0;i!=4;i++)
+						assert(!expected2[i]);
+
+				
+				//filter out b(2)/c(3)
+				__auto_type mapFiltered=createFilteredGraph(all, nodeIs2Or3);
+				__auto_type allFiltered=graphNodeMappingAllNodes(mapFiltered);
+
+				//
+				// a->d
+				//
+				assert(strGraphNodeMappingPSize(allFiltered)==2);
+				graphNodeInt expected3[]={a,d};
+				for(long i=0;i!=2;i++) {
+						for(long i2=0;i2!=2;i2++) {
+								if(expected3[i]==*graphNodeMappingValuePtr(allFiltered[i2]))
+										expected3[i]=NULL;
+						}
+				}
+				//Check if all found
+				for(long i=0;i!=2;i++)
+						assert(!expected3[i]);
+		}
 }

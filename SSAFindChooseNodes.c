@@ -13,16 +13,32 @@ MAP_TYPE_FUNCS(struct IRVarRef, VarRef);
 static __thread mapVarRef varRefs = NULL;
 static graphNodeIR createChoose(graphNodeIR insertAfter,
                                 strIRPathPair pathPairs) {
-	struct IRNodeChoose choose;
+		//Make the choose node
+		struct IRNodeChoose choose;
 	choose.base.attrs = NULL;
 	choose.base.type = IR_CHOOSE;
 	choose.paths =
 	    strIRPathPairAppendData(NULL, pathPairs, strIRPathPairSize(pathPairs));
 	
-	__auto_type retVal = GRAPHN_ALLOCATE(choose);
+	__auto_type chooseNode = GRAPHN_ALLOCATE(choose);
 
-	IRInsertAfter(insertAfter,)
-	return retVal;
+	//Create a variable ref
+	struct IRNodeValue *firstNode=(void*)graphNodeIRValuePtr(pathPairs[0].ref);
+	struct IRNodeValue value;
+	value.base.attrs=NULL;
+	value.base.type=IR_VALUE;
+	//Copy over value
+	assert(firstNode->base.type==IR_VALUE);
+	value.val=firstNode->val;
+	value.val.value.var.SSANum=-1;
+	//Create node
+	__auto_type valueNode=GRAPHN_ALLOCATE(value);
+
+	//Create the assign node
+	__auto_type assignNode=createAssign(chooseNode, valueNode);
+	
+	IRInsertAfter(insertAfter, chooseNode, valueNode, IR_CONN_FLOW);
+	return assignNode;
 }
 static int ptrPtrCmp(const void *a, const void *b) {
 	if (*(void **)a > *(void **)b)
@@ -55,7 +71,7 @@ GRAPH_TYPE_FUNCS(struct SSANode,void*, SSANode);
 MAP_TYPE_DEF(strGraphNodeIRP, ChooseIncomings);
 MAP_TYPE_FUNCS(strGraphNodeIRP, ChooseIncomings);
 
-void IRSSAFindChooseNodes(strGraphNodeMappingP nodes) {
+static strGraphNodeP IRSSAFindChooseNodes(strGraphNodeMappingP nodes) {
 	if (varRefs)
 		mapVarRefDestroy(varRefs, NULL);
 	varRefs = mapVarRefCreate();
@@ -63,87 +79,46 @@ void IRSSAFindChooseNodes(strGraphNodeMappingP nodes) {
 	__auto_type clone = cloneGraphFromNodes(nodes);
 
 	__auto_type doms = graphComputeDominatorsPerNode(clone);
-	__auto_type domTree=createDomTree(doms); 
-	//
-	// Look here
-	// ```
-	//  A:1
-	//  |
-	//  \/
-	//  A:2
-	//  |
-	//  \/
-	//  A:3
-	// ```
-	// We only want to place choose node for A:3/1,A:3 is the final value and A:1 is the first nodeso it is the only one we will need to choose.
-	// ONLY ELIMATE ITEMS WHOOSE PARENT HAS 1 OUTGOING MEMBER AND 1 INCOMIGN MEMBER,this way the parent must dominate the child always and cant take any other paths
-	__auto_type all=getAllNodes(domTree);
-	for(long i=0;i!=strGraphNodePSize(all);i++) {
-			__auto_type currentVar=graphNodeSSANodeValuePtr(all[i]);
-
-			//Check for one outgoing
-			strGraphNodeP out=__graphNodeIncomingNodes(all[i]);
-			if(strGraphNodePSize(out)!=1) {
-					strGraphNodePDestroy(&out);
-					continue;
-			}
-
-			//Check if variable
-			__auto_type irNode=graphNodeIRValuePtr(*graphNodeMappingValuePtr(all[i]));
-			if(irNode->type!=IR_VALUE) {
-					goto end;
-			}
-			
-			//Check for one incoming
-			strGraphNodeP in=__graphNodeIncomingNodes(all[i]);
-			if(strGraphNodePSize(in)!=1)
-					goto end;
-	eq:
-			// Remove current node but pass incoming connection outwards.("Transparent" remove)
-			graphNodeSSANodeConnect(in[0], out[0], NULL);
-	end:
-			strGraphNodePDestroy(&in);
-			strGraphNodePDestroy(&out);
-	}
-
-	//Now the we have a trimmed tree.Recompute the dominators
-	llDominatorsDestroy(&doms, NULL);
-	doms = graphComputeDominatorsPerNode(clone);
-
-	__auto_type fronts=graphDominanceFrontiers(domTree, doms);
+	__auto_type mapped=cloneGraphFromNodes(nodes);
+	__auto_type fronts=graphDominanceFrontiers(mapped, doms);
 
 	//
 	// Maps all the nodes that share a domiance frontier
 	//
 	mapChooseIncomings  frontsMap=mapChooseIncomingsCreate();
-	
+
+	strGraphNodeMappingP retVal=NULL;
 	for(__auto_type node=llDomFrontierFirst(fronts);node!=NULL;node=llDomFrontierNext(node)) {
 			__auto_type nodeValue= llDomFrontierValuePtr(node);
 
 			strIRPathPair pairs=NULL;
 			for(long i=0;i!=strGraphNodePSize(nodeValue->nodes);i++) {
-					__auto_type irNode=graphNodeIRValuePtr(*graphNodeMappingValuePtr(nodeValue->nodes[i]));
+					__auto_type irNode=*graphNodeMappingValuePtr(nodeValue->nodes[i]);
 
 					//Ensure is a value  
-					if(irNode->type!=IR_VALUE)
+					if(graphNodeIRValuePtr(irNode)->type!=IR_VALUE)
 							continue;
 					// Ensure is a variable
 					if(((struct IRNodeValue *)irNode)->val.type!=IR_VAL_VAR_REF)
 							continue;
+
+					//Ensure that said path is immediatly connectected to frontier(only want the most recent values)
+					if(!graphNodeMappingConnectedTo(nodeValue->nodes[i],nodeValue->node))
+							continue;
 					
 					struct IRPathPair pair;
-					pair.path=*graphNodeMappingValuePtr(nodeValue->nodes[i]);
-					pair.ref=&((struct IRNodeValue *)irNode)->val.value.var;
-
+					pair.ref=irNode;
 					pairs=strIRPathPairAppendItem(pairs, pair);
 			}
-			createChoose(graphNodeIR insertBefore, strIRPathPair pathPairs, struct IRVarRef *to)
 
-					
-			free(hash);
+			//Create the choose
+			assert(strIRPathPairSize(pairs)!=0);
+			__auto_type choose=createChoose(*graphNodeMappingValuePtr(nodeValue->node), pairs);
+
+			retVal=strGraphNodePAppendItem(retVal, choose);
 	}
 
-	mapChooseIncomingsDestroy(frontsMap, (void(*)(void*))strGraphNodeIRPDestroy);
+	
 }
 /*
 	strGraphEdgeP out __attribute__((cleanup(strGraphEdgePDestroy)))=__graphNodeOutgoing(all[i]);

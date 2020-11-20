@@ -283,3 +283,14 @@ void IRInsertAfter(graphNodeIR insertAfter, graphNodeIR entry,
 	graphNodeIRConnect(entry, insertAfter, connType);
 	strGraphEdgeIRPDestroy(&outgoing);
 }
+graphNodeIR createAssign(graphNodeIR in,graphNodeIR dst) {
+		struct IRNodeAssign assign;
+		assign.base.attrs=NULL;
+		assign.base.type=IR_ASSIGN;
+		__auto_type retVal=GRAPHN_ALLOCATE(assign);
+		
+		graphNodeIRConnect(in, retVal, IR_CONN_SOURCE_A);
+		graphNodeIRConnect(retVal, dst, IR_CONN_DEST);
+
+		return retVal;
+}

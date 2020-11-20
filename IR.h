@@ -260,8 +260,8 @@ struct IRNodeFuncEnd {
 	struct IRNode base;
 };
 struct IRPathPair {
-	graphNodeIR path;
-	struct IRVarRef *ref;
+	graphEdgeIR path;
+	graphNodeIR ref;
 };
 STR_TYPE_DEF(struct IRPathPair, IRPathPair);
 STR_TYPE_FUNCS(struct IRPathPair, IRPathPair);
@@ -296,3 +296,4 @@ void IRInsertBefore(graphNodeIR insertBefore, graphNodeIR entry,
 																				graphNodeIR exit, enum IRConnType connType);
 void IRInsertAfter(graphNodeIR insertAfter, graphNodeIR entry,
 																			graphNodeIR exit, enum IRConnType connType);
+graphNodeIR createAssign(graphNodeIR in,graphNodeIR dst);
