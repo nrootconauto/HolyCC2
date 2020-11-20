@@ -129,6 +129,7 @@ static strGraphNodeIRP IRSSAFindChooseNodes(graphNodeMapping start) {
 
 	__auto_type mappedNodes=graphNodeMappingAllNodes(start);
 	__auto_type doms = graphComputeDominatorsPerNode(start);
+	__auto_type first=llDominatorsValuePtr(llDominatorsFind(doms, start, llDominatorCmp));
 	__auto_type fronts=graphDominanceFrontiers(start, doms);
 
 	strGraphNodeMappingP retVal=NULL;

@@ -19,8 +19,8 @@ int main() {
 	strTests();
 	preprocessorTests();
 	base64Tests();
-	graphTests();
-	graphDominanceTests();
+ 	graphTests();
+		//graphDominanceTests();
 	graphColoringTests();
 	/**
 
