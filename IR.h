@@ -253,6 +253,7 @@ struct IRNodeStatementStart {
 };
 struct IRNodeStatementEnd {
 	struct IRNode base;
+	graphNodeIR start;
 };
 struct IRNodeFuncStart {
 	struct IRNode base;
@@ -295,8 +296,11 @@ graphNodeIR createStmtStart();
 void initIR();
 strGraphEdgeIRP IRGetConnsOfType(strGraphEdgeIRP conns, enum IRConnType type);
 void IRInsertBefore(graphNodeIR insertBefore, graphNodeIR entry,
-																				graphNodeIR exit, enum IRConnType connType);
-void IRInsertAfter(graphNodeIR insertAfter, graphNodeIR entry,
-																			graphNodeIR exit, enum IRConnType connType);
-graphNodeIR createAssign(graphNodeIR in,graphNodeIR dst);
-graphNodeIR createCondJmp(graphNodeIR cond,graphNodeIR t,graphNodeIR f);
+                    graphNodeIR exit, enum IRConnType connType);
+void IRInsertAfter(graphNodeIR insertAfter, graphNodeIR entry, graphNodeIR exit,
+                   enum IRConnType connType);
+graphNodeIR createAssign(graphNodeIR in, graphNodeIR dst);
+graphNodeIR createCondJmp(graphNodeIR cond, graphNodeIR t, graphNodeIR f);
+void IRStmtBlockFromTailNode(graphNodeIR tail, graphNodeIR *enter,
+                             graphNodeIR *exit);
+graphNodeIR IRGetStmtStart(graphNodeIR node);

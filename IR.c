@@ -250,53 +250,194 @@ struct object *IRValueGetType(struct IRValue *node) {
 	}
 }
 void IRInsertBefore(graphNodeIR insertBefore, graphNodeIR entry,
-																				graphNodeIR exit, enum IRConnType connType) {
-		__auto_type incoming = graphNodeIRIncoming(insertBefore);
+                    graphNodeIR exit, enum IRConnType connType) {
+	__auto_type incoming = graphNodeIRIncoming(insertBefore);
 
-		for (long i = 0; i != strGraphEdgeIRPSize(incoming); i++) {
-				// Connect incoming to entry
-				graphNodeIRConnect(entry, graphEdgeIRIncoming(incoming[i]),
-																							*graphEdgeIRValuePtr(incoming[i]));
+	for (long i = 0; i != strGraphEdgeIRPSize(incoming); i++) {
+		// Connect incoming to entry
+		graphNodeIRConnect(entry, graphEdgeIRIncoming(incoming[i]),
+		                   *graphEdgeIRValuePtr(incoming[i]));
 
-				// Disconnect for insertBefore
-				graphEdgeIRKill(graphEdgeIRIncoming(incoming[i]), insertBefore, NULL, NULL,
-																				NULL);
-		}
-		// Connect exit to insertBefore
-		graphNodeIRConnect(exit, insertBefore, connType);
-		strGraphEdgeIRPDestroy(&incoming);
+		// Disconnect for insertBefore
+		graphEdgeIRKill(graphEdgeIRIncoming(incoming[i]), insertBefore, NULL, NULL,
+		                NULL);
+	}
+	// Connect exit to insertBefore
+	graphNodeIRConnect(exit, insertBefore, connType);
+	strGraphEdgeIRPDestroy(&incoming);
 }
-void IRInsertAfter(graphNodeIR insertAfter, graphNodeIR entry,
-                         graphNodeIR exit, enum IRConnType connType) {
+void IRInsertAfter(graphNodeIR insertAfter, graphNodeIR entry, graphNodeIR exit,
+                   enum IRConnType connType) {
 	__auto_type outgoing = graphNodeIROutgoing(insertAfter);
 
 	for (long i = 0; i != strGraphEdgeIRPSize(outgoing); i++) {
-			// Connect outgoing to entry
-			graphNodeIRConnect(exit, graphEdgeIROutgoing(outgoing[i]),
-																						*graphEdgeIRValuePtr(outgoing[i]));
+		// Connect outgoing to entry
+		graphNodeIRConnect(exit, graphEdgeIROutgoing(outgoing[i]),
+		                   *graphEdgeIRValuePtr(outgoing[i]));
 
-			// Disconnect for insertBefore
-			graphEdgeIRKill(graphEdgeIROutgoing(outgoing[i]), insertAfter, NULL, NULL,
-																			NULL);
+		// Disconnect for insertBefore
+		graphEdgeIRKill(graphEdgeIROutgoing(outgoing[i]), insertAfter, NULL, NULL,
+		                NULL);
 	}
 
 	graphNodeIRConnect(entry, insertAfter, connType);
 	strGraphEdgeIRPDestroy(&outgoing);
 }
-graphNodeIR createAssign(graphNodeIR in,graphNodeIR dst) {
-		graphNodeIRConnect(in,dst, IR_CONN_DEST);
-		return dst;
+graphNodeIR createAssign(graphNodeIR in, graphNodeIR dst) {
+	graphNodeIRConnect(in, dst, IR_CONN_DEST);
+	return dst;
 }
-graphNodeIR createCondJmp(graphNodeIR cond,graphNodeIR t,graphNodeIR f) {
-		struct IRNodeCondJump cJmp;
-		cJmp.base.attrs=NULL;
-		cJmp.base.type=IR_COND_JUMP;
-		cJmp.cond=-1;//TODO
+graphNodeIR createCondJmp(graphNodeIR cond, graphNodeIR t, graphNodeIR f) {
+	struct IRNodeCondJump cJmp;
+	cJmp.base.attrs = NULL;
+	cJmp.base.type = IR_COND_JUMP;
+	cJmp.cond = -1; // TODO
 
-		graphNodeIR retVal=GRAPHN_ALLOCATE(cJmp);
-		graphNodeIRConnect(cond, retVal, IR_CONN_SOURCE_A);
-		graphNodeIRConnect(retVal,t, IR_CONN_COND_TRUE);
-		graphNodeIRConnect(retVal,f, IR_CONN_COND_TRUE);
+	graphNodeIR retVal = GRAPHN_ALLOCATE(cJmp);
+	graphNodeIRConnect(cond, retVal, IR_CONN_SOURCE_A);
+	graphNodeIRConnect(retVal, t, IR_CONN_COND_TRUE);
+	graphNodeIRConnect(retVal, f, IR_CONN_COND_TRUE);
 
-		return retVal;
+	return retVal;
 }
+static int exprEdgePred(const struct __graphNode *node,
+                        const struct __graphEdge *edge, const void *data) {
+	switch (*graphEdgeIRValuePtr((void *)edge)) {
+	case IR_CONN_SOURCE_A:
+	case IR_CONN_SOURCE_B:
+	case IR_CONN_FUNC_ARG:
+	case IR_CONN_FUNC:
+	case IR_CONN_SIMD_ARG:
+	case IR_CONN_DEST:
+		return 1;
+	default:
+		return 0;
+	}
+}
+static void addNode2List(struct __graphNode *node, void *data) {
+	strGraphNodeIRP *nodes = data;
+	*nodes = strGraphNodeIRPSortedInsert(*nodes, node, (gnIRCmpType)ptrPtrCmp);
+}
+static const char *IRAttrStmtStart = "STMT_START";
+struct IRAttrStmtStart {
+	struct IRAttr base;
+	graphNodeIR node;
+};
+graphNodeIR IRGetStmtStart(graphNodeIR node) {
+	strGraphNodeIRP starts = NULL;
+	graphNodeIRVisitBackward(node, &starts, exprEdgePred, addNode2List);
+	if (starts == NULL)
+		return node;
+
+	// Find a top-level node that has node connections that constirute a statement
+	for (long i = 0; i != strGraphNodeIRPSize(starts); i++) {
+		strGraphNodeIRP starts2 __attribute__((cleanup(strGraphNodeIRPDestroy))) =
+		    NULL;
+		graphNodeIRVisitBackward(starts[i], &starts2, exprEdgePred, addNode2List);
+
+		if (starts2 == NULL)
+			return starts[i];
+	}
+
+	return NULL;
+}
+/*
+void IRStmtBlockFromTailNode(graphNodeIR tail,graphNodeIR *enter,graphNodeIR
+*exit) {
+    //Check if already a statement
+    if(graphNodeIRValuePtr(tail)->type==IR_STATEMENT_END) {
+        if(exit)
+            *exit=tail;
+
+        __auto_type start=((struct
+IRNodeStatementEnd*)graphNodeIRValuePtr(tail))->start; if(enter) *enter=start;
+        return;
+    }
+
+    strGraphNodeIRP starts=NULL;
+    graphNodeIRVisitBackward(tail, &starts, exprEdgePred,   addNode2List);
+    assert(starts!=NULL);
+
+    struct IRNodeStatementEnd end;
+    end.base.attrs=NULL;
+    end.base.type=IR_STATEMENT_START;
+    __auto_type endNode=GRAPHN_ALLOCATE(end);
+
+    struct IRNodeStatementStart start;
+    start.base.attrs=NULL;
+    start.base.type=IR_STATEMENT_START;
+    start.end=NULL;
+    __auto_type startNode=GRAPHN_ALLOCATE(start);
+
+    ((struct IRNodeStatementEnd*)graphNodeIRValuePtr(endNode))->start=startNode;
+
+    //
+    // Move incoming nodes
+    //
+    for(long i=0;i!=strGraphNodeIRPSize(starts);i++) {
+        __auto_type in=graphNodeIRIncoming(starts[i]);
+        for(long i2=0;i2!=strGraphEdgeIRPSize(in);i2++) {
+            switch(*graphEdgeIRValuePtr(in[i2])) {
+            case IR_CONN_COND:
+                //?
+                assert(0);
+            case IR_CONN_DEST: {
+                //TODO clone dest int block
+                break;
+            }
+            case IR_CONN_COND_FALSE:
+            case IR_CONN_COND_TRUE:
+            case IR_CONN_FLOW:
+                graphNodeIRConnect(graphEdgeIRIncoming(in[i2]),startNode,
+IR_CONN_FLOW); graphEdgeIRKill(graphEdgeIRIncoming(in[i2]), starts[i],
+NULL,NULL, NULL); break;
+                //Alreadt habdled in  exprEdgePred
+            case IR_CONN_FUNC:
+            case IR_CONN_FUNC_ARG:
+            case IR_CONN_SIMD_ARG:
+            case IR_CONN_SOURCE_A:
+            case IR_CONN_SOURCE_B:
+                assert(0);
+                break;
+            }
+        }
+    }
+
+    //Move exits out stmt from node to endNode
+    strGraphEdgeIRP exits=graphNodeIROutgoing(tail);
+    for(long i=0;i!=strGraphEdgeIRPSize(exits);i++) {
+        //Make "clone" of edge from endNode to destination
+        graphNodeIRConnect(endNode, graphEdgeIROutgoing(exits[i]),
+*graphEdgeIRValuePtr(exits[i]));
+        //Remove edge
+        graphEdgeIRKill(tail, graphEdgeIROutgoing(exits[i]), NULL, NULL, NULL);
+    }
+
+    //Coonect node to endNode
+    graphNodeIRConnect(tail, endNode, IR_CONN_FLOW);
+
+    if(enter)
+        *enter=startNode;
+    if(exit)
+        *exit=endNode;
+
+    //
+    //Assign attribute to nodes pointing to stmt start.
+    //
+    struct IRAttrStmtStart attr;
+    attr.base.name=(void*)IRAttrStmtStart;
+    attr.node=startNode;
+    for(long i=0;i!=strGraphNodeIRPSize(starts);i++) {
+        __auto_type find=llIRAttrFind(graphNodeIRValuePtr(starts[i])->attrs,
+IRAttrStmtStart,IRAttrGetPred); if(find) {
+            //Remove old attr
+            llIRAttrRemove(find);
+            llIRAttrDestroy(&find, NULL);
+        }
+        //Add new attr pointing to current stmt
+        __auto_type llNew= __llCreate(&attr, sizeof(attr));
+        llIRAttrInsert(graphNodeIRValuePtr(starts[i])->attrs, llNew,
+IRAttrInsertPred); graphNodeIRValuePtr(starts[i])->attrs=llNew;
+    }
+}
+    */

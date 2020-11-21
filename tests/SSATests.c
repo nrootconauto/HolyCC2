@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <IR.h>
 #include <SSA.h>
+#include <graphDominance.h>
 static void createAssignExpr(graphNodeIR lit,struct variable *var,graphNodeIR *enter,graphNodeIR *exit) {
 		__auto_type ref=createVarRef(var);
 		graphNodeIRConnect(lit, ref, IR_CONN_DEST);
@@ -30,16 +31,19 @@ void SSATests() {
 
 		graphNodeIRConnect(enter, aEnter, IR_CONN_FLOW);
 		
-		__auto_type cond=createIntLit(101);
-		__auto_type aB_FCJmp=createCondJmp(cond, bEnter ,fEnter);
-		__auto_type bC_DCJmp=createCondJmp(cond, cEnter ,dEnter);
-		graphNodeIRConnect(aExit,aB_FCJmp,IR_CONN_FLOW);
-		graphNodeIRConnect(bExit,bC_DCJmp,IR_CONN_FLOW);
+		__auto_type cond1=createIntLit(101);
+		__auto_type cond2=createIntLit(101);
+		
+		__auto_type aB_FCJmp=createCondJmp(cond1, bEnter ,fEnter);
+		graphNodeIRConnect(aExit,cond1,IR_CONN_FLOW);
+		
+		__auto_type bC_DCJmp=createCondJmp(cond2, cEnter ,dEnter);
+		graphNodeIRConnect(bExit,cond2,IR_CONN_FLOW);	
+	
 		graphNodeIRConnect(cExit, eEnter, IR_CONN_FLOW);
 		graphNodeIRConnect(dExit, eEnter, IR_CONN_FLOW);
 		graphNodeIRConnect(eExit, fEnter, IR_CONN_FLOW);
 		
 		__auto_type allNodes=graphNodeIRAllNodes(enter);
-		
-		IRToSSA(allNodes,aEnter);
+		IRToSSA(allNodes,enter);
 }

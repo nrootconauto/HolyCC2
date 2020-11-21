@@ -128,7 +128,7 @@ void graphTests() {
 
 				
 				//filter out b(2)/c(3)
-				__auto_type mapFiltered=createFilteredGraph(all, NULL,nodeIs2Or3);
+				__auto_type mapFiltered=createFilteredGraph(NULL,all, NULL,nodeIs2Or3);
 				__auto_type allFiltered=graphNodeMappingAllNodes(mapFiltered);
 
 				//

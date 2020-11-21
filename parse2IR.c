@@ -668,7 +668,7 @@ static graphNodeIR __createSwitchCodeAfterBody(graphNodeIR cond,
 			    IRAssign(createVarRef(jmpBack), createValueFromLabel(endLabel));
 
 			//"Replace" case with structure from NOTE 1(collect the in/out connections
-			//then disconnect case)
+			// then disconnect case)
 			__auto_type incoming = graphNodeIRIncoming(parserNode2IRStmt((void *)cs));
 			__auto_type outgoing = graphNodeIROutgoing(parserNode2IRStmt((void *)cs));
 

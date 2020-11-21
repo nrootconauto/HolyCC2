@@ -823,8 +823,8 @@ void fileMappingsDestroy(strFileMappings *mappings) {
 // File mappings can contain file mappings within them
 // This find the innermost mapping which represents the included file at a point
 // The inner most mapping's start is closest to pos beause nested #includes move
-// forward The end is also closest to the position #include "a" #include "b" [  a
-//text    [   pos    ] ]
+// forward The end is also closest to the position #include "a" #include "b" [ a
+// text    [   pos    ] ]
 static struct fileMapping *
 innerMostFileMapping(strFileMappings mappings, long lowerBoundI,
                      long upperBoundI, const struct fileMapping *m, long pos) {

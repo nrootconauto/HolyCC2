@@ -551,7 +551,7 @@ static void initObjectRegistry() {
  */
 struct object * /*This object,`NULL` if not-registerd. Creating objects will
                    register them.*/
-                objectByName(const char *name) {
+objectByName(const char *name) {
 	__auto_type find = mapObjectGet(objectRegistry, name);
 	if (find == NULL)
 		return NULL;

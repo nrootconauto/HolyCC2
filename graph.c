@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <str.h>
+#define DEBUG_PRINT_ENABLE 1
+#include <debugPrint.h>
 typedef int (*geCmpType)(const struct __graphEdge **,
                          const struct __graphEdge **);
 typedef int (*gnCmpType)(const struct __graphNode **,
@@ -260,9 +262,10 @@ void __graphNodeKill(struct __graphNode *node, void (*killNode)(void *item),
 	free(node);
 }
 static int __graphPredNotVisited(const struct __graphNode *node,
-                          const struct __graphEdge *edge, const void *data) {
-		const strGraphNodeP *visited=data;
-		return NULL==strGraphNodePSortedFind(*visited, node, (gnCmpType)ptrCompare);
+                                 const struct __graphEdge *edge,
+                                 const void *data) {
+	const strGraphNodeP *visited = data;
+	return NULL == strGraphNodePSortedFind(*visited, node, (gnCmpType)ptrCompare);
 }
 
 static void __graphVisitAppend(struct __graphNode *node, void *data) {
@@ -270,31 +273,33 @@ static void __graphVisitAppend(struct __graphNode *node, void *data) {
 	*allNodes = strGraphNodePSortedInsert(*allNodes, node, (gnCmpType)ptrCompare);
 }
 strGraphNodeP __graphNodeVisitAll(const struct __graphNode *start) {
-		if(!start)
-				return  NULL;
-		
-		strGraphNodeP visited=strGraphNodePAppendItem(NULL, (void*)start);
+	if (!start)
+		return NULL;
 
-	loop:;
-		long oldSize=strGraphNodePSize(visited);
-		//Dont use visited as for loop as it will be modified use clone
-		__auto_type clone=strGraphNodePAppendData(NULL, (void*)visited, strGraphNodePSize(visited));
-		for(long i=0;i!=oldSize;i++) {
-				//Visit forward
-				__graphNodeVisitForward((struct __graphNode *)clone[i],
-																												&visited,__graphPredNotVisited, __graphVisitAppend);
+	strGraphNodeP visited = strGraphNodePAppendItem(NULL, (void *)start);
 
-				//Visit backward
-				 __graphNodeVisitBackward((struct __graphNode *)clone[i], &visited,__graphPredNotVisited , __graphVisitAppend);
-		}
-		
-		strGraphNodePDestroy(&clone);
-		//If added new node(s), re-run
-		__auto_type newSize=strGraphNodePSize(visited);
-		if(newSize!=oldSize)
-				goto loop;
+loop:;
+	long oldSize = strGraphNodePSize(visited);
+	// Dont use visited as for loop as it will be modified use clone
+	__auto_type clone = strGraphNodePAppendData(NULL, (void *)visited,
+	                                            strGraphNodePSize(visited));
+	for (long i = 0; i != oldSize; i++) {
+		// Visit forward
+		__graphNodeVisitForward((struct __graphNode *)clone[i], &visited,
+		                        __graphPredNotVisited, __graphVisitAppend);
 
-		return visited;
+		// Visit backward
+		__graphNodeVisitBackward((struct __graphNode *)clone[i], &visited,
+		                         __graphPredNotVisited, __graphVisitAppend);
+	}
+
+	strGraphNodePDestroy(&clone);
+	// If added new node(s), re-run
+	__auto_type newSize = strGraphNodePSize(visited);
+	if (newSize != oldSize)
+		goto loop;
+
+	return visited;
 }
 void __graphKillAll(struct __graphNode *start, void (*killFunc)(void *),
                     void (*killEdge)(void *)) {
@@ -388,92 +393,99 @@ int __graphIsConnectedTo(const struct __graphNode *from,
 	return 0;
 }
 static char *ptr2Str(const void *a) { return base64Enc((void *)&a, sizeof(a)); }
-graphNodeMapping createGraphMap(strGraphNodeP nodes,int preserveConnections) {
-		__auto_type map = mapGraphNodeCreate();
-		char *keys[strGraphNodePSize(nodes)];
-		// Create keys and insert
-		for (long i = 0; i != strGraphNodePSize(nodes); i++) {
-				keys[i] = ptr2Str(nodes[i]);
-				mapGraphNodeInsert(map, keys[i], graphNodeMappingCreate(nodes[i], 0));
+graphNodeMapping createGraphMap(strGraphNodeP nodes, int preserveConnections) {
+	__auto_type map = mapGraphNodeCreate();
+	char *keys[strGraphNodePSize(nodes)];
+	// Create keys and insert
+	for (long i = 0; i != strGraphNodePSize(nodes); i++) {
+		keys[i] = ptr2Str(nodes[i]);
+		mapGraphNodeInsert(map, keys[i], graphNodeMappingCreate(nodes[i], 0));
+	}
+
+	//"Clone" the connections by mapping ptrs to nodes and connecting
+	for (long i = 0; i != strGraphNodePSize(nodes); i++) {
+		__auto_type current = *mapGraphNodeGet(map, keys[i]);
+
+		__auto_type out = __graphNodeOutgoingNodes(nodes[i]);
+		__auto_type in = __graphNodeIncomingNodes(nodes[i]);
+
+		// Connect outgoing
+		for (long i = 0; i != strGraphNodePSize(out); i++) {
+			char *key = ptr2Str(out[i]);
+			__auto_type find = *mapGraphNodeGet(map, key);
+
+			// If not preserve connections,ignore multiple connections
+			if (!preserveConnections)
+				if (__graphIsConnectedTo(current, find))
+					continue;
+
+			if (find) {
+				__graphNodeConnect(current, find, &out, sizeof(out[i]));
+				free(key);
+			}
 		}
+		// Connect incoming
+		for (long i = 0; i != strGraphNodePSize(in); i++) {
+			char *key = ptr2Str(in[i]);
+			__auto_type find = *mapGraphNodeGet(map, key);
 
-		//"Clone" the connections by mapping ptrs to nodes and connecting
-		for (long i = 0; i != strGraphNodePSize(nodes); i++) {
-				__auto_type current = *mapGraphNodeGet(map, keys[i]);
+			// If not preserve connections,ignore multiple connections
+			if (!preserveConnections)
+				if (__graphIsConnectedTo(find, current))
+					continue;
 
-				__auto_type out = __graphNodeOutgoingNodes(nodes[i]);
-				__auto_type in = __graphNodeIncomingNodes(nodes[i]);
-
-				// Connect outgoing
-				for (long i = 0; i != strGraphNodePSize(out); i++) {
-						char *key = ptr2Str(out[i]);
-						__auto_type find = *mapGraphNodeGet(map, key);
-
-						//If not preserve connections,ignore multiple connections
-						if(!preserveConnections)
-								if(__graphIsConnectedTo(current,find))
-										continue;
-			
-						if (find) {
-								__graphNodeConnect(current, find, &out, sizeof(out[i]));
-								free(key);
-						}
-				}
-				// Connect incoming
-				for (long i = 0; i != strGraphNodePSize(in); i++) {
-						char *key = ptr2Str(in[i]);
-						__auto_type find = *mapGraphNodeGet(map, key);
-
-						//If not preserve connections,ignore multiple connections
-						if(!preserveConnections)
-								if(__graphIsConnectedTo(find,current))
-										continue;
-			
-						if (find)
-								__graphNodeConnect(find,current, &in[i], sizeof(in[i]));
-						free(key);
-				}
+			if (find)
+				__graphNodeConnect(find, current, &in[i], sizeof(in[i]));
+			free(key);
 		}
-		
-		__auto_type retVal = *mapGraphNodeGet(map, keys[0]);
-		for (long i = 0; i != strGraphNodePSize(nodes); i++)
-				free(keys[i]);
-		mapGraphNodeDestroy(map, NULL);
-		
-		return retVal;
+	}
+
+	__auto_type retVal = *mapGraphNodeGet(map, keys[0]);
+	for (long i = 0; i != strGraphNodePSize(nodes); i++)
+		free(keys[i]);
+	mapGraphNodeDestroy(map, NULL);
+
+	return retVal;
 }
 //
 // Does not preserve edges,see filterGraph
 //
 static void __filterTransparentKill(graphNodeMapping node) {
-		__auto_type in=graphNodeMappingIncomingNodes(node);
-		__auto_type out=graphNodeMappingOutgoingNodes(node);
+	__auto_type in = graphNodeMappingIncomingNodes(node);
+	__auto_type out = graphNodeMappingOutgoingNodes(node);
 
-		//Connect in to out(if not already connectected)
-		for(long inI=0;inI!=strGraphNodeMappingPSize(in);inI++) {
-				for(long outI=0;outI!=strGraphNodeMappingPSize(out);outI++) {
-						//Check if not connected to
-						if(__graphIsConnectedTo(in[inI], out[outI]))
-								continue;
+	// Connect in to out(if not already connectected)
+	for (long inI = 0; inI != strGraphNodeMappingPSize(in); inI++) {
+		for (long outI = 0; outI != strGraphNodeMappingPSize(out); outI++) {
+			// Check if not connected to
+			if (__graphIsConnectedTo(in[inI], out[outI]))
+				continue;
 
-						graphNodeMappingConnect(in[inI],out[outI], NULL);
-				} 
+			graphNodeMappingConnect(in[inI], out[outI], NULL);
 		}
-		
-		graphNodeMappingKill(&node, NULL, NULL);
-}
-graphNodeMapping createFilteredGraph(strGraphNodeP nodes,void *data,int(*pred)(void *data,struct __graphNode *)) {
-		__auto_type clone=createGraphMap(nodes,0);
-		__auto_type cloneNodes=__graphNodeVisitAll(clone);
+	}
 
-		graphNodeMapping retVal=NULL;
-		for(long i=0;i!=strGraphNodeMappingPSize(cloneNodes);i++)
-				if(!pred(data,*graphNodeMappingValuePtr(cloneNodes[i])))
-						__filterTransparentKill(cloneNodes[i]); //Takes a mapped node!!!
-				else if(retVal==NULL)
-						retVal=cloneNodes[i];
-		
-		strGraphNodeMappingPDestroy(&cloneNodes);
-		
-		return retVal;
+	graphNodeMappingKill(&node, NULL, NULL);
+}
+#define DEBUG_PRINT_ENABLE 1
+graphNodeMapping
+createFilteredGraph(struct __graphNode *start, strGraphNodeP nodes, void *data,
+                    int (*pred)(void *data, struct __graphNode *)) {
+	__auto_type clone = createGraphMap(nodes, 0);
+	__auto_type cloneNodes = __graphNodeVisitAll(clone);
+
+	graphNodeMapping retVal = NULL;
+	for (long i = 0; i != strGraphNodeMappingPSize(cloneNodes); i++)
+		if (!pred(data, *graphNodeMappingValuePtr(cloneNodes[i]))) {
+			__auto_type sourceNode = *graphNodeMappingValuePtr(cloneNodes[i]);
+			DEBUG_PRINT("Killing node %p\n", sourceNode);
+			__filterTransparentKill(cloneNodes[i]); // Takes a mapped node!!!
+		} else if (retVal == NULL)
+			retVal = cloneNodes[i];
+		else if (start == *graphNodeMappingValuePtr(cloneNodes[i]))
+			retVal = cloneNodes[i];
+
+	strGraphNodeMappingPDestroy(&cloneNodes);
+
+	return retVal;
 }

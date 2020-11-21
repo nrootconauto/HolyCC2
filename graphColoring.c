@@ -36,7 +36,8 @@ static int ptrPtrCmp(const void *a, const void *b) {
 	else
 		return 0;
 }
-static int llVertexColorInsertCmp(const struct vertexColoring *a, const struct vertexColoring *b) {
+static int llVertexColorInsertCmp(const struct vertexColoring *a,
+                                  const struct vertexColoring *b) {
 	return ptrPtrCmp(&a->node, &b->node);
 }
 static int llVertexColorGetCmp(const void *a, const struct vertexColoring *b) {
@@ -45,8 +46,9 @@ static int llVertexColorGetCmp(const void *a, const struct vertexColoring *b) {
 static int llDataGetCmp(const void *a, const struct vertexInfo *b) {
 	return ptrPtrCmp(&a, &b->node);
 }
-static int llDataInsertCmp(const struct vertexInfo *a,const struct vertexInfo * b) {
-		return ptrPtrCmp(&b->node, &b->node);
+static int llDataInsertCmp(const struct vertexInfo *a,
+                           const struct vertexInfo *b) {
+	return ptrPtrCmp(&b->node, &b->node);
 }
 struct vertexColoring *llVertexColorGet(const llVertexColor data,
                                         const struct __graphNode *node) {
