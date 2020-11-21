@@ -263,14 +263,9 @@ struct IRNodeFuncStart {
 struct IRNodeFuncEnd {
 	struct IRNode base;
 };
-struct IRPathPair {
-	graphNodeIR ref;
-};
-STR_TYPE_DEF(struct IRPathPair, IRPathPair);
-STR_TYPE_FUNCS(struct IRPathPair, IRPathPair);
 struct IRNodeChoose {
 	struct IRNode base;
-	strIRPathPair paths;
+	strGraphNodeIRP canidates;
 };
 
 char *IR2Str();

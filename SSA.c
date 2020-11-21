@@ -9,24 +9,25 @@
 #define GRAPHN_ALLOCATE(x) ({ __graphNodeCreate(&x, sizeof(x), 0); })
 typedef int (*strGN_IRCmpType)(const strGraphNodeIRP *,
                                const strGraphNodeIRP *);
+typedef int (*gnCmpType)(const graphNodeIR *, const graphNodeIR *);
 
 static char *ptr2Str(const void *a) { return base64Enc((void *)&a, sizeof(a)); }
 MAP_TYPE_DEF(struct IRVarRef, VarRef);
 MAP_TYPE_FUNCS(struct IRVarRef, VarRef);
 static __thread mapVarRef varRefs = NULL;
 static graphNodeIR createChoose(graphNodeIR insertBefore,
-                                strIRPathPair pathPairs) {
+                                strGraphNodeIRP pathPairs) {
 	// Make the choose node
 	struct IRNodeChoose choose;
 	choose.base.attrs = NULL;
 	choose.base.type = IR_CHOOSE;
-	choose.paths =
-	    strIRPathPairAppendData(NULL, pathPairs, strIRPathPairSize(pathPairs));
+	choose.canidates = strGraphNodeIRPAppendData(NULL, pathPairs,
+	                                             strGraphNodeIRPSize(pathPairs));
 
 	__auto_type chooseNode = GRAPHN_ALLOCATE(choose);
 
 	// Create a variable ref
-	struct IRNodeValue *firstNode = (void *)graphNodeIRValuePtr(pathPairs[0].ref);
+	struct IRNodeValue *firstNode = (void *)graphNodeIRValuePtr(pathPairs[0]);
 	struct IRNodeValue value;
 	value.base.attrs = NULL;
 	value.base.type = IR_VALUE;
@@ -119,13 +120,16 @@ static graphNodeMapping filterJumpsAndVars(strGraphNodeIRP nodes,
 	pair.var = var;
 	return createFilteredGraph(NULL, nodes, &pair, jumpOrAssignedVar);
 }
+static void __strGraphNodeIRDestroy(void *vec) {
+
+	strGraphNodeIRPDestroy((strGraphNodeIRP *)vec);
+}
 /**
  * Returns list of new varaible references
  */
 static strGraphNodeIRP IRSSAFindChooseNodes(graphNodeMapping start) {
-	if (varRefs)
-		mapVarRefDestroy(varRefs, NULL);
-	varRefs = mapVarRefCreate();
+	__auto_type frontiersToMaster = mapChooseIncomingsCreate();
+	__auto_type nodeKey2Ptr = mapGraphNodeCreate();
 
 	__auto_type mappedNodes = graphNodeMappingAllNodes(start);
 	__auto_type doms = graphComputeDominatorsPerNode(start);
@@ -142,36 +146,46 @@ static strGraphNodeIRP IRSSAFindChooseNodes(graphNodeMapping start) {
 		if (!strGraphNodePSize(nodeValue->nodes))
 			continue;
 
-		__auto_type in = graphNodeMappingIncomingNodes(nodeValue->node);
+		//
+		// Register the items at the frontier node
+		//
 
-		strIRPathPair pairs = NULL;
-		// Find nodes connected to frontier
-		for (long i = 0; i != strGraphNodePSize(in); i++) {
-			__auto_type irNode = *graphNodeMappingValuePtr(in[i]);
+		for (long i = 0; i != strGraphNodePSize(nodeValue->nodes); i++) {
+			// Register the master node if doesnt exist
+			__auto_type frontier = *graphNodeMappingValuePtr(nodeValue->nodes[i]);
+			char *hash = ptr2Str(frontier);
+		loop:;
+			__auto_type find = mapChooseIncomingsGet(frontiersToMaster, hash);
+			if (!find) {
+				mapChooseIncomingsInsert(frontiersToMaster, hash, NULL);
+				mapGraphNodeInsert(nodeKey2Ptr, hash, frontier);
+				goto loop;
+			}
+			free(hash);
 
-			// Ensure is a value
-			if (graphNodeIRValuePtr(irNode)->type != IR_VALUE)
-				continue;
-			// Ensure is a variable
-			if (((struct IRNodeValue *)graphNodeIRValuePtr(irNode))->val.type !=
-			    IR_VAL_VAR_REF)
-				continue;
-
-			struct IRPathPair pair;
-			pair.ref = irNode;
-			pairs = strIRPathPairAppendItem(pairs, pair);
-		}
-
-		strGraphNodeMappingPDestroy(&in);
-
-		// Create the choose
-		if (strIRPathPairSize(pairs) != 0) {
-			__auto_type choose =
-			    createChoose(*graphNodeMappingValuePtr(nodeValue->node), pairs);
-			retVal = strGraphNodePAppendItem(retVal, choose);
+			__auto_type master = *graphNodeMappingValuePtr(nodeValue->node);
+			if (!strGraphNodeIRPSortedFind(*find, master, (gnCmpType)ptrPtrCmp))
+				*find =
+				    strGraphNodeIRPSortedInsert(*find, master, (gnCmpType)ptrPtrCmp);
 		}
 	}
 
+	//
+	// Insert the choose nodes
+	//
+	long kCount;
+	mapChooseIncomingsKeys(frontiersToMaster, NULL, &kCount);
+	const char *keys[kCount];
+	mapChooseIncomingsKeys(frontiersToMaster, keys, NULL);
+
+	for (long i = 0; i != kCount; i++) {
+		__auto_type masters = *mapChooseIncomingsGet(frontiersToMaster, keys[i]);
+		__auto_type masterNode = *mapGraphNodeGet(nodeKey2Ptr, keys[i]);
+		createChoose(masterNode, masters);
+	}
+
+	mapChooseIncomingsDestroy(frontiersToMaster, __strGraphNodeIRDestroy);
+	mapGraphNodeDestroy(nodeKey2Ptr, NULL);
 	return retVal;
 }
 static int filterVars(void *data, struct __graphNode *node) {
