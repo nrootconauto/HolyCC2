@@ -228,9 +228,12 @@ llDomFrontier graphDominanceFrontiers(struct __graphNode *start,
 					__auto_type find = llDomFrontierFindRight(llDomFrontierFirst(fronts),
 					                                          runner, llDomFrontierCmp);
 					__auto_type value = llDomFrontierValuePtr(find);
-					value->nodes = strGraphNodePAppendItem(value->nodes, allNodes[b]);
-					printf("RUNNER %i += %i\n", *(int *)__graphNodeValuePtr(runner),
+					
+					if(!strGraphNodePSortedFind(value->nodes, allNodes[b], (gnCmpType)ptrPtrCmp)) {
+							value->nodes = strGraphNodePSortedInsert(value->nodes, allNodes[b], (gnCmpType)ptrPtrCmp);
+							printf("RUNNER %i += %i\n", *(int *)__graphNodeValuePtr(runner),
 					       *(int *)__graphNodeValuePtr(allNodes[b]));
+					}
 
 					// runner = iDom(runner)
 					find = llDomFrontierFindRight(llDomFrontierFirst(fronts),

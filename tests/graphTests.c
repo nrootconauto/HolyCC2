@@ -125,7 +125,6 @@ void graphTests() {
 				//Check if all found
 				for(long i=0;i!=4;i++)
 						assert(!expected2[i]);
-
 				
 				//filter out b(2)/c(3)
 				__auto_type mapFiltered=createFilteredGraph(NULL,all, NULL,nodeIs2Or3);
@@ -146,5 +145,23 @@ void graphTests() {
 				//Check if all found
 				for(long i=0;i!=2;i++)
 						assert(!expected3[i]);
+		}
+		//
+		// Find all paths to node
+		//
+		{
+				__auto_type a = graphNodeIntCreate(1, 0);
+				__auto_type b = graphNodeIntCreate(2, 0);
+				__auto_type c = graphNodeIntCreate(3, 0);
+				__auto_type d = graphNodeIntCreate(4, 0);
+				//
+				//     /--b--\
+				// a--*       *--d
+				//     \--c--/
+				//
+				graphNodeIntConnect(a, b, 'b');
+				graphNodeIntConnect(a, c, 'c');
+				graphNodeIntConnect(b, d, 'd');
+				graphNodeIntConnect(c, d, 'd');
 		}
 }

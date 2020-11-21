@@ -299,3 +299,4 @@ graphNodeIR createCondJmp(graphNodeIR cond, graphNodeIR t, graphNodeIR f);
 void IRStmtBlockFromTailNode(graphNodeIR tail, graphNodeIR *enter,
                              graphNodeIR *exit);
 graphNodeIR IRGetStmtStart(graphNodeIR node);
+int IRVarCmp(const struct IRVar *a, const struct IRVar *b);

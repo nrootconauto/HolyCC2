@@ -489,3 +489,39 @@ createFilteredGraph(struct __graphNode *start, strGraphNodeP nodes, void *data,
 
 	return retVal;
 }
+//https://efficientcodeblog.wordpress.com/2018/02/15/finding-all-paths-between-two-nodes-in-a-graph/
+static void __graphAllPathsTo(strGraphEdgeP *currentPath,strGraphPath *paths,strGraphNodeP *visited,const struct __graphNode *from,const struct __graphNode *to) {
+		//At destination so return after appending to paths
+		if(from==to) {
+				__auto_type clone=strGraphEdgePAppendData(NULL, (void*)*currentPath, strGraphEdgePSize(*currentPath));
+				*paths=strGraphPathAppendItem(*paths,  clone);
+				return;
+		}
+		
+		for(long i=0;i!=strGraphEdgePSize(from->outgoing);i++) {
+				//Ensure isnt visited
+				if(strGraphNodePSortedFind(*visited, from->outgoing[i]->to, (gnCmpType)ptrCompare))
+						continue;
+				
+				//Push
+				*currentPath=strGraphEdgePAppendItem(*currentPath, from->outgoing[i]);
+				//dfs
+				__graphAllPathsTo(currentPath,paths,visited,from->outgoing[i]->to,to);
+				//Pop
+				*currentPath=strGraphEdgePPop(*currentPath, NULL);
+		}
+
+		//Add to visited
+		*visited=strGraphNodePSortedInsert(*visited,  (void*)from, (gnCmpType)ptrCompare);
+}
+strGraphPath graphAllPathsTo(struct __graphNode *from,struct __graphNode *to) {
+		strGraphPath paths=NULL;
+		strGraphNodeP visited=strGraphNodePAppendItem(NULL, from);
+		strGraphEdgeP currentPath=NULL;
+		
+		__graphAllPathsTo(&currentPath,&paths, &visited, from, to);
+
+		strGraphNodePDestroy(&visited);
+		strGraphEdgePDestroy(&currentPath);
+		return paths;
+}

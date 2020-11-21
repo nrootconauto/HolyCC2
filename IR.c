@@ -255,7 +255,7 @@ void IRInsertBefore(graphNodeIR insertBefore, graphNodeIR entry,
 
 	for (long i = 0; i != strGraphEdgeIRPSize(incoming); i++) {
 		// Connect incoming to entry
-		graphNodeIRConnect(entry, graphEdgeIRIncoming(incoming[i]),
+			graphNodeIRConnect(graphEdgeIRIncoming(incoming[i]),entry,
 		                   *graphEdgeIRValuePtr(incoming[i]));
 
 		// Disconnect for insertBefore
@@ -341,8 +341,20 @@ graphNodeIR IRGetStmtStart(graphNodeIR node) {
 
 	return NULL;
 }
-/*
-void IRStmtBlockFromTailNode(graphNodeIR tail,graphNodeIR *enter,graphNodeIR
+int IRVarCmp(const struct IRVar *a, const struct IRVar *b) {
+	if (0 != a->type - b->type)
+		return a->type - b->type;
+
+	if (a->type == IR_VAR_VAR) {
+		return ptrCmp(a->value.var, b->value.var);
+	} else {
+		// TODO implement
+	}
+
+	return 0;
+}
+
+/*void IRStmtBlockFromTailNode(graphNodeIR tail,graphNodeIR *enter,graphNodeIR
 *exit) {
     //Check if already a statement
     if(graphNodeIRValuePtr(tail)->type==IR_STATEMENT_END) {

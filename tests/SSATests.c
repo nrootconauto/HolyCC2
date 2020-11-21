@@ -38,6 +38,8 @@ static void assertSSANodes(graphNodeIR node,...) {
 		}
 		va_end(args);
 
+		node=IRGetStmtStart(node);
+		
 		__auto_type in=graphNodeIRIncomingNodes(node);
 		assert(strGraphNodeIRPSize(in)==1);
 		__auto_type type= graphNodeIRValuePtr(in[0])->type;
