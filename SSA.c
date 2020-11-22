@@ -74,26 +74,23 @@ struct varAndEnterPair {
 	graphNodeIR enter;
 	struct IRVar *var;
 };
-static int occurOfVar(struct IRVar *expectedVar, struct __graphNode *node) {
+static int occurOfVar(struct varAndEnterPair *expectedVar, struct __graphNode *node) {
 		struct IRNode *ir = graphNodeIRValuePtr((graphNodeIR)node);
 		if(ir->type==IR_VALUE) {
-				struct IRNodeValue *val = (void *)ir;
-				if (val->val.type == IR_VAL_VAR_REF) {
-						if (expectedVar->type == val->val.value.var.var.type) {
-								if (expectedVar->type == IR_VAR_MEMBER) {
-										// TODO check equal
-								} else if (expectedVar->type == IR_VAR_VAR) {
-										if (expectedVar->value.var == val->val.value.var.var.value.var)
-												return 1;
-								}
-						}
-				}
+				struct IRNodeValue *val=(void*)ir;
+				if(val->val.type!=IR_VAL_VAR_REF)
+						return 0;
+				
+				return 0==IRVarCmp(expectedVar->var,&val->val.value.var.var);
 		}
+
+		if(node==expectedVar->enter)
+				return 1;
 		
 		return 0;
 }
-static int jumpOrAssignedVar(void *data, struct __graphNode *node) {
-	struct IRVar *expectedVar = ((struct varAndEnterPair *)data)->var;
+static int isAssignedVar(struct varAndEnterPair *data, struct __graphNode *node) {
+	struct IRVar *expectedVar = data->var;
 
 	struct IRNode *ir = graphNodeIRValuePtr((graphNodeIR)node);
 	if (ir->type == IR_VALUE) {
@@ -125,27 +122,136 @@ checkForAssign:;
 	    IRGetConnsOfType(in, IR_CONN_DEST);
 	return 0 != strGraphEdgeIRPSize(dstConns);
 }
-static graphNodeMapping filterVarAssigns(strGraphNodeIRP nodes,
+static graphNodeMapping filterVarAssigns(graphNodeIR enter,strGraphNodeIRP nodes,
                                            struct IRVar *var) {
 	// First find the references to the var and jumps.
 	struct varAndEnterPair pair;
-	pair.enter = NULL;
+	pair.enter = enter;
 	pair.var = var;
-	return createFilteredGraph(NULL, nodes, &pair, jumpOrAssignedVar);
+	return createFilteredGraph(enter, nodes, &pair, (int(*)(void*,struct __graphNode*))isAssignedVar);
 }
 static void __strGraphNodeIRDestroy(void *vec) {
 
-	strGraphNodeIRPDestroy((strGraphNodeIRP *)vec);
+		strGraphNodeIRPDestroy((strGraphNodeIRP *)vec);
+}
+static char *node2Str(struct __graphNode *node) {
+		node=*graphNodeMappingValuePtr(node);
+		char buffer[128];
+		sprintf(buffer, "%p", node);
+		__auto_type str= *mapStrGet(nodeNames,  buffer);
+		char *retVal=malloc(strlen(str)+1);
+		strcpy(retVal, str);
+
+		return retVal;
+}
+static void SSAVersionVar(graphNodeIR start,struct IRVar *var) {
+		graphPrint(start, node2Str);
+		//
+		struct varAndEnterPair pair;
+		pair.enter=start;
+		pair.var=var;
+		__auto_type allNodes=graphNodeIRAllNodes(start);
+		__auto_type allVars=createFilteredGraph(start, allNodes, &pair, (int(*)(void*,struct __graphNode*))occurOfVar);
+		
+		__auto_type allPaths=graphAllPathsTo(allVars,NULL);
+	
+		//Init all var nodes to -1
+		for(long i1=0;i1!=strGraphPathSize(allPaths);i1++) {
+				for(long i2=0;i2!=strGraphEdgePSize(allPaths[i1]);i2++) {
+						//Only use incoming node from edge,
+						__auto_type node=*graphNodeMappingValuePtr(__graphEdgeIncoming(allPaths[i1][i2]));
+ 
+						//only if a value
+						if(graphNodeIRValuePtr(node)->type!=IR_VALUE)
+								continue;
+						struct IRNodeValue *val=(void*)graphNodeIRValuePtr(node);
+						//if a var
+						if(val->val.type!=IR_VAL_VAR_REF)
+								continue;
+						
+						val->val.value.var.SSANum=-1;
+				}
+		}
+
+		//Actually assign SSA values by depth
+		for(;;) {
+				int changed=0;
+				for(long i1=0;i1!=strGraphPathSize(allPaths);i1++) {
+						long version=0;
+			
+						for(long i2=0;i2!=strGraphEdgePSize(allPaths[i1]);i2++) {
+								//Only use incoming node from edge,
+								__auto_type node= __graphEdgeIncoming(allPaths[i1][i2]);
+
+								//Continue if not val
+								if(graphNodeIRValuePtr(*graphNodeMappingValuePtr(node))->type!=IR_VALUE)
+										continue;
+								
+								__auto_type irVal= (struct IRNodeValue*)graphNodeIRValuePtr(*graphNodeMappingValuePtr(node));
+								//if a var
+								if(irVal->val.type!=IR_VAL_VAR_REF)
+								continue;
+
+								//Choose highest incoming
+								__auto_type incoming=graphNodeMappingIncomingNodes(node);
+								for(long i=0;i!=strGraphNodePSize(incoming);i++) {
+										//Ensure is a value node
+										__auto_type sourceNode=*graphNodeMappingValuePtr(incoming[i]);
+										if(graphNodeIRValuePtr(sourceNode)->type!=IR_VALUE)
+												continue;
+
+										//Use highest incoming
+										struct IRNodeValue *val= (void*)graphNodeIRValuePtr(sourceNode);
+										//Is a var
+										if(val->val.type!=IR_VAL_VAR_REF)
+												continue;
+										
+										assert(val->base.type==IR_VALUE);
+										if(val->val.value.var.SSANum>version) {
+												version=val->val.value.var.SSANum;
+										}
+								}
+								strGraphNodePDestroy(&incoming);
+
+								//If assign operation increment SSA version
+								struct varAndEnterPair pair;
+								pair.enter=NULL;
+								pair.var=var;
+								if(isAssignedVar(&pair, *graphNodeMappingValuePtr(node)))
+										version++;
+								
+								//assign if current is bigger
+								if(version>irVal->val.value.var.SSANum) {
+										changed=1;
+										irVal->val.value.var.SSANum=version;
+								}
+						}
+				}
+
+				//Repeat until unchaged.
+				if(!changed)
+								break;
+		}
 }
 /**
  * Returns list of new varaible references
  */
 static strGraphNodeIRP IRSSACompute(graphNodeMapping start,struct IRVar *var) {
+		graphPrint(start,node2Str);
+		//
 	__auto_type frontiersToMaster = mapChooseIncomingsCreate();
 	__auto_type nodeKey2Ptr = mapGraphNodeCreate();
 
 	__auto_type mappedNodes = graphNodeMappingAllNodes(start);
 	__auto_type doms = graphComputeDominatorsPerNode(start);
+	for(__auto_type dom=llDominatorsFirst(doms);dom!=NULL;dom=llDominatorsNext(dom)) {
+			__auto_type domV=llDominatorsValuePtr(dom);
+			__auto_type v=*graphNodeMappingValuePtr(domV->node);
+			for(long i=0;i!=strGraphNodeMappingPSize(domV->dominators);i++) {
+					__auto_type d=*graphNodeMappingValuePtr(domV->dominators[i]);
+					int x=1+1;
+			}
+	}
 	__auto_type first =
 	    llDominatorsValuePtr(llDominatorsFind(doms, start, llDominatorCmp));
 	__auto_type fronts = graphDominanceFrontiers(start, doms);
@@ -195,52 +301,6 @@ static strGraphNodeIRP IRSSACompute(graphNodeMapping start,struct IRVar *var) {
 		__auto_type masters = *mapChooseIncomingsGet(frontiersToMaster, keys[i]);
 		__auto_type masterNode = *mapGraphNodeGet(nodeKey2Ptr, keys[i]);
 		createChoose(masterNode, masters);
-	}
-
-	//
-	// Assign version numbers to vars between frontier master and frontier
-	//
-	long version=0;
-	for(long i=0;i!=kCount;i++,version++) {
-			__auto_type masters = *mapChooseIncomingsGet(frontiersToMaster, keys[i]);
-			__auto_type masterNode = *mapGraphNodeGet(nodeKey2Ptr, keys[i]);
-
-			//
-			// Find the refernces between versions
-			//
-			
-			strGraphNodeIRP allNodes=NULL;
-			for(long i2=0;i2!=strGraphNodeIRPSize(masters);i2++) {
-					__auto_type allPaths=graphAllPathsTo(masterNode, masters[i]);
-
-					//Add path nodes to allNodes
-					for(long i3=0;i3!=strGraphPathSize(allPaths);i3++) {
-							for(long i4=0;i4!=strGraphEdgePSize(allPaths[i3]);i4++) {
-									//Only use incoming node from edge,
-									__auto_type node=__graphEdgeIncoming(allPaths[i3][i4]);
-
-									//If node is start node,ignore
-									if(node==masterNode)
-											continue;
-
-									//Only insert if node is the expected variable
-									if(!occurOfVar(var, node))
-											continue;
-											
-									//insert(if non-exist)
-									if(!strGraphNodeIRPSortedFind(allNodes, node, (gnCmpType)ptrPtrCmp))
-											allNodes=strGraphNodeIRPSortedInsert(allNodes, node, (gnCmpType)ptrPtrCmp);
-							}
-					}
-			}
-
-			//
-			// Assign the versions
-			//
-			for(long i2=0;i2!=strGraphNodeIRPSize(allNodes);i2++) {
-					struct IRNodeValue *val=(void*)graphNodeIRValuePtr(allNodes[i]);
-					val->val.value.var.SSANum=version;
-			}
 	}
 	
 	mapChooseIncomingsDestroy(frontiersToMaster, __strGraphNodeIRDestroy);
@@ -293,7 +353,7 @@ void IRToSSA(strGraphNodeIRP nodes, graphNodeIR enter) {
 	strGraphNodeIRP newNodes = NULL;
 	for (long i = 0; i != strIRVarSize(allVars); i++) {
 		// Find enter node in map
-		__auto_type filtered2 = filterVarAssigns(nodes, &allVars[i]);
+			__auto_type filtered2 = filterVarAssigns(enter,nodes, &allVars[i]);
 		__auto_type allNodes = graphNodeMappingAllNodes(filtered2);
 		for (long i = 0; i != strGraphNodeMappingPSize(allNodes); i++) {
 			__auto_type ins = graphNodeMappingIncomingNodes(allNodes[i]);
@@ -305,7 +365,10 @@ void IRToSSA(strGraphNodeIRP nodes, graphNodeIR enter) {
 			;
 			printf("ptoato\n");
 		}
+		//Compute choose nodes
 		strGraphNodeIRP chooses = IRSSACompute(filtered2,&allVars[i]);
+		//Number the versions
+		SSAVersionVar(enter,&allVars[i]);
 
 		newNodes = strGraphNodeIRPConcat(newNodes, chooses);
 	}

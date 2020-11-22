@@ -208,3 +208,4 @@ createFilteredGraph(struct __graphNode *start, strGraphNodeP nodes, void *data,
 STR_TYPE_DEF(strGraphEdgeP,GraphPath);
 STR_TYPE_FUNCS(strGraphEdgeP,GraphPath);
 strGraphPath graphAllPathsTo(struct __graphNode *from,struct __graphNode *to);
+void graphPrint(struct __graphNode *node,char *(*toStr)(struct __graphNode* ));

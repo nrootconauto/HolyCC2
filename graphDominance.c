@@ -90,7 +90,6 @@ llDominators graphComputeDominatorsPerNode(struct __graphNode *start) {
 			strGraphNodeP currentItems = NULL;
 
 			__auto_type preds = __graphNodeIncoming(allNodes[i]);
-			int referencesComputedNode = 0;
 			for (long i = 0; i != strGraphEdgePSize(preds); i++) {
 				__auto_type incoming = __graphEdgeIncoming(preds[i]);
 
@@ -106,25 +105,23 @@ llDominators graphComputeDominatorsPerNode(struct __graphNode *start) {
 				if (current->dominators != NULL) {
 					currentItems = strGraphNodePSetIntersection(
 					    currentItems, current->dominators, (gnCmpType)ptrPtrCmp, NULL);
-					referencesComputedNode = 1;
 				}
 			}
 
 			// Ensure current items include current node
 			if (NULL == strGraphNodePSortedFind(currentItems, allNodes[i],
 			                                    (gnCmpType)ptrPtrCmp))
-				currentItems = strGraphNodePSortedInsert(currentItems, allNodes[i],
+					currentItems = strGraphNodePSortedInsert(currentItems, allNodes[i],
 				                                         (gnCmpType)ptrPtrCmp);
 
-			if (referencesComputedNode || strGraphEdgePSize(preds) == 0) {
 				currentNode->dominators = currentItems;
-			}
 
 			if (strGraphNodePSize(currentItems) == strGraphNodePSize(old)) {
 				if (0 !=
 				    memcmp(currentItems, old,
 				           strGraphNodePSize(old) * sizeof(struct __graphNode *))) {
-					printf("CHANGED:\n");
+						
+						printf("CHANGED:\n");
 					changed = 1;
 				}
 			} else {
@@ -223,6 +220,9 @@ llDomFrontier graphDominanceFrontiers(struct __graphNode *start,
 			for (long p = 0; p != strGraphEdgePSize(preds); p++) {
 				__auto_type runner = __graphEdgeIncoming(preds[p]);
 
+				__auto_type idom=graphDominatorIdom(doms, allNodes[b]);
+				__auto_type mapped=graphNodeMappingValuePtr(idom);
+				__auto_type mappedb=graphNodeMappingValuePtr(allNodes[b]);
 				while (runner != graphDominatorIdom(doms, allNodes[b])) {
 					// Add b to runners frontier
 					__auto_type find = llDomFrontierFindRight(llDomFrontierFirst(fronts),

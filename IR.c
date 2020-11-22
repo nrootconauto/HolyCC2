@@ -302,7 +302,8 @@ graphNodeIR createCondJmp(graphNodeIR cond, graphNodeIR t, graphNodeIR f) {
 }
 static int exprEdgePred(const struct __graphNode *node,
                         const struct __graphEdge *edge, const void *data) {
-	switch (*graphEdgeIRValuePtr((void *)edge)) {
+		__auto_type type=*graphEdgeIRValuePtr((void *)edge);
+	switch (type) {
 	case IR_CONN_SOURCE_A:
 	case IR_CONN_SOURCE_B:
 	case IR_CONN_FUNC_ARG:

@@ -3,6 +3,7 @@
 #include <SSA.h>
 #include <graphDominance.h>
 #include <stdarg.h>
+#include <stdio.h>
 static void createAssignExpr(graphNodeIR lit,struct variable *var,graphNodeIR *enter,graphNodeIR *exit) {
 		__auto_type ref=createVarRef(var);
 		graphNodeIRConnect(lit, ref, IR_CONN_DEST);
@@ -39,21 +40,34 @@ static void assertSSANodes(graphNodeIR node,...) {
 		va_end(args);
 
 		node=IRGetStmtStart(node);
-		
+		//   [Choose]
+		//      ||  (IR_CONN_DEST)
+		//      \/
+		// [New SSA Node]
+		//      || (IR_CONN_FLOW)
+		//      \/
+		//[Expression "as normal"]
 		__auto_type in=graphNodeIRIncomingNodes(node);
 		assert(strGraphNodeIRPSize(in)==1);
 		__auto_type type= graphNodeIRValuePtr(in[0])->type;
-		assert(type==IR_CHOOSE);
-		struct IRNodeChoose *choose=(void*)graphNodeIRValuePtr(in[0]);
+		assert(type==IR_VALUE); //Reference to variable
+		
+		__auto_type in2=graphNodeIRIncomingNodes(in[0]);
+		assert(strGraphNodeIRPSize(in2)==1);
+		__auto_type type2= graphNodeIRValuePtr(in2[0])->type;
+		assert(type2==IR_CHOOSE);
+		struct IRNodeChoose *choose=(void*)graphNodeIRValuePtr(in2[0]);
 
 		assert(strGraphNodeIRPSize(choose->canidates)==strGraphNodeIRPSize(expected));
 		for(long i=0;i!=strGraphNodeIRPSize(expected);i++ ) {
 				assert(strGraphNodeIRPSortedFind(expected, choose->canidates[0], (gnIRCmpType)ptrPtrCmp));
 		}
 }
+#define INSERT_NAME(item ) ({char buffer[128]; sprintf(buffer, "%p", item); mapStrInsert(nodeNames,  buffer,#item); })
 void SSATests() {
 		// http://pages.cs.wisc.edu/~fischer/cs701.f05/lectures/Lecture22.pdf
 		{
+				initIR();
 				__auto_type start=createLabel();
 				__auto_type var=createVirtVar(&typeI64i);
 
@@ -81,6 +95,15 @@ void SSATests() {
 				graphNodeIRConnect(dExit, eEnter, IR_CONN_FLOW);
 				graphNodeIRConnect(eExit, fEnter, IR_CONN_FLOW);
 		
+				nodeNames=mapStrCreate();
+				INSERT_NAME(enter);
+				INSERT_NAME(aExit);
+				INSERT_NAME(bExit);
+				INSERT_NAME(cExit);
+				INSERT_NAME(dExit);
+				INSERT_NAME(eExit);
+				INSERT_NAME(fExit);
+				
 				__auto_type allNodes=graphNodeIRAllNodes(enter);
 				IRToSSA(allNodes,enter);
 				
