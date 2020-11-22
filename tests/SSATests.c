@@ -4,18 +4,6 @@
 #include <graphDominance.h>
 #include <stdarg.h>
 #include <stdio.h>
-static void createAssignExpr(graphNodeIR lit,struct variable *var,graphNodeIR *enter,graphNodeIR *exit) {
-		__auto_type ref=createVarRef(var);
-		graphNodeIRConnect(lit, ref, IR_CONN_DEST);
-		if(exit)
-				*exit=ref;
-		if(enter)
-				*enter=lit;
-}
-/**
-	* creates prefix##enter prefix##/exit
-	*/
-#define ASSIGN_EXPR(prefix,lit,var) graphNodeIR prefix##Enter,prefix##Exit; createAssignExpr(lit,var,&prefix##Enter,&prefix##Exit);
 static int ptrPtrCmp(const void *a,const void *b) {
 		if(*(void**)a>*(void**)b)
 				return 1;
@@ -68,41 +56,40 @@ void SSATests() {
 		// http://pages.cs.wisc.edu/~fischer/cs701.f05/lectures/Lecture22.pdf
 		{
 				initIR();
-				__auto_type start=createLabel();
 				__auto_type var=createVirtVar(&typeI64i);
 
 				__auto_type enter=createLabel();
 		
-				ASSIGN_EXPR(a, createIntLit(0), var);
-				ASSIGN_EXPR(b, createIntLit(1), var);
-				ASSIGN_EXPR(c, createIntLit(2), var);
-				ASSIGN_EXPR(d, createIntLit(3), var);
-				ASSIGN_EXPR(e, createIntLit(4), var);
-				ASSIGN_EXPR(f, createIntLit(5), var);
-
-				graphNodeIRConnect(enter, aEnter, IR_CONN_FLOW);
+				__auto_type a=createVarRef(var);
+				__auto_type b=createVarRef(var);
+				__auto_type c=createVarRef(var);
+				__auto_type d=createVarRef(var);
+				__auto_type e=createVarRef(var);
+				__auto_type f=createVarRef(var);
+				
+				graphNodeIRConnect(enter, a, IR_CONN_FLOW);
 		
 				__auto_type cond1=createIntLit(101);
 				__auto_type cond2=createIntLit(101);
 		
-				__auto_type aB_FCJmp=createCondJmp(cond1, bEnter ,fEnter);
-				graphNodeIRConnect(aExit,cond1,IR_CONN_FLOW);
+				__auto_type aB_FCJmp=createCondJmp(cond1, b ,f);
+				graphNodeIRConnect(a,cond1,IR_CONN_FLOW);
 		
-				__auto_type bC_DCJmp=createCondJmp(cond2, cEnter ,dEnter);
-				graphNodeIRConnect(bExit,cond2,IR_CONN_FLOW);	
+				__auto_type bC_DCJmp=createCondJmp(cond2, c ,d);
+				graphNodeIRConnect(b,cond2,IR_CONN_FLOW);	
 	
-				graphNodeIRConnect(cExit, eEnter, IR_CONN_FLOW);
-				graphNodeIRConnect(dExit, eEnter, IR_CONN_FLOW);
-				graphNodeIRConnect(eExit, fEnter, IR_CONN_FLOW);
+				graphNodeIRConnect(c, e, IR_CONN_FLOW);
+				graphNodeIRConnect(d, e, IR_CONN_FLOW);
+				graphNodeIRConnect(e, f, IR_CONN_FLOW);
 		
 				nodeNames=mapStrCreate();
 				INSERT_NAME(enter);
-				INSERT_NAME(aExit);
-				INSERT_NAME(bExit);
-				INSERT_NAME(cExit);
-				INSERT_NAME(dExit);
-				INSERT_NAME(eExit);
-				INSERT_NAME(fExit);
+				INSERT_NAME(a);
+				INSERT_NAME(b);
+				INSERT_NAME(c);
+				INSERT_NAME(d);
+				INSERT_NAME(e);
+				INSERT_NAME(f);
 				
 				__auto_type allNodes=graphNodeIRAllNodes(enter);
 				IRToSSA(allNodes,enter);
@@ -110,15 +97,15 @@ void SSATests() {
 				//
 				//Assert for Choose nodes at (select)enter points
 				//
-				assertSSANodes(fEnter, eExit,aExit,NULL);
-				assertSSANodes(eEnter, cExit,dExit,NULL);
-
-				__auto_type aSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(aExit))->val.value.var.SSANum;
-				__auto_type bSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(bExit))->val.value.var.SSANum;
-				__auto_type cSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(cExit))->val.value.var.SSANum;
-				__auto_type dSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(dExit))->val.value.var.SSANum;
-				__auto_type eSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(eExit))->val.value.var.SSANum;
-				__auto_type fSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(fExit))->val.value.var.SSANum;
+				assertSSANodes(f, e,a,NULL);
+				assertSSANodes(e, c,d,NULL);
+				
+				__auto_type aSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(a))->val.value.var.SSANum;
+				__auto_type bSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(b))->val.value.var.SSANum;
+				__auto_type cSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(c))->val.value.var.SSANum;
+				__auto_type dSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(d))->val.value.var.SSANum;
+				__auto_type eSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(e))->val.value.var.SSANum;
+				__auto_type fSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(f))->val.value.var.SSANum;
 
 				assert(aSSAVer<bSSAVer);
 				assert(bSSAVer<cSSAVer);
@@ -127,5 +114,29 @@ void SSATests() {
 				assert(dSSAVer<eSSAVer);
 				assert(eSSAVer<fSSAVer);
 		}
+		/*
+		//http://pages.cs.wisc.edu/~fischer/cs701.f05/lectures/Lecture22.pdf
+		{
+				__auto_type var=createVirtVar(&typeI64i);
+
+				__auto_type enter=createLabel();
 		
+				ASSIGN_EXPR(a, createIntLit(0), var);
+				ASSIGN_EXPR(b, createIntLit(1), var);
+				ASSIGN_EXPR(c, createIntLit(2), var);
+				INSERT_NAME(enter);
+				INSERT_NAME(aExit);
+				INSERT_NAME(bExit);
+				INSERT_NAME(cExit);
+
+				graphNodeIRConnect(enter, aEnter, IR_CONN_FLOW);
+				graphNodeIRConnect(aExit, bEnter, IR_CONN_FLOW);
+				__auto_type cond=createIntLit(101);
+				__auto_type bA_CCJmp=createCondJmp(cond, aEnter ,cEnter);
+				graphNodeIRConnect(bExit,cond, IR_CONN_FLOW);
+				
+				__auto_type allNodes=graphNodeIRAllNodes(enter);
+				IRToSSA(allNodes,enter);
+		}
+		*/
 }

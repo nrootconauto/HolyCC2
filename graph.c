@@ -505,6 +505,12 @@ static void __graphAllPathsTo(strGraphEdgeP *currentPath, strGraphPath *paths,
 	if (0 == strGraphEdgePSize(from->outgoing) && to == NULL)
 		goto push;
 
+	//Ensure isn't visiting path that has already been visited
+	for(long i=0;i<strGraphEdgePSize(*currentPath);i++) {
+			if(currentPath[0][i]->from==from)
+					return;
+	}
+	
 	for (long i = 0; i != strGraphEdgePSize(from->outgoing); i++) {
 		// Push
 		*currentPath = strGraphEdgePAppendItem(*currentPath, from->outgoing[i]);
