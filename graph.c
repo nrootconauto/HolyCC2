@@ -1,7 +1,6 @@
 #include <base64.h>
 #include <graph.h>
 #include <hashTable.h>
-#include <readersWritersLock.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <str.h>
@@ -22,7 +21,6 @@ struct __graphNode {
 	strGraphEdgeP incoming;
 	strGraphEdgeP outgoing;
 	int version;
-	struct rwLock *lock;
 	unsigned int killable : 1;
 };
 static int ptrCompare(const void *a, const void *b) {
@@ -35,7 +33,6 @@ struct __graphNode *__graphNodeCreate(void *value, long itemSize, int version) {
 	retVal->incoming = NULL;
 	retVal->outgoing = NULL;
 	retVal->version = version;
-	retVal->lock = rwLockCreate();
 	return retVal;
 }
 enum dir { DIR_FORWARD, DIR_BACKWARD };
@@ -203,13 +200,8 @@ void __graphEdgeKill(struct __graphNode *in, struct __graphNode *out,
 	// out's incoming's elements point to __graphEdge(which are destroyed when
 	// in->outgoing is destroyed below)
 
-	rwWriteStart(in->lock);
-	rwWriteStart(out->lock);
 	__graphEdgeKillAllPred(in, out, data, pred, kill);
 	__graphEdgeKillAllPred(out, in, data, pred, kill);
-	rwWriteEnd(in->lock);
-	rwWriteEnd(out->lock);
-
 	//
 
 	//
@@ -231,13 +223,11 @@ void __graphNodeKill(struct __graphNode *node, void (*killNode)(void *item),
                      void (*killEdge)(void *item)) {
 	strGraphEdgeP connectionPtrs = NULL;
 	//
-	rwReadStart(node->lock);
 	for (int i = 0; i != 2; i++) {
 		__auto_type connections = (i == 0) ? node->outgoing : node->incoming;
 		connectionPtrs = strGraphEdgePSetUnion(connectionPtrs, connections,
 		                                       (geCmpType)ptrCompare);
 	}
-	rwReadEnd(node->lock);
 	//
 	for (int i = 0; i != strGraphEdgePSize(connectionPtrs); i++) {
 		__auto_type connection1 = connectionPtrs[i];
@@ -254,7 +244,6 @@ void __graphNodeKill(struct __graphNode *node, void (*killNode)(void *item),
 
 	node->incoming = NULL;
 	node->outgoing = NULL;
-	rwLockDestroy(node->lock);
 	//
 	strGraphEdgePDestroy(&connectionPtrs);
 	if (killNode != NULL)
@@ -325,24 +314,12 @@ struct __graphEdge *__graphNodeConnect(struct __graphNode *a,
 	newEdgeNode->to = b;
 	newEdgeNode->valuePresent = data != NULL;
 
-	rwWriteStart(a->lock);
 	a->outgoing = strGraphEdgePSortedInsert(a->outgoing, newEdgeNode,
 	                                        (geCmpType)ptrCompare);
-	rwWriteEnd(a->lock);
 	//
-	rwWriteStart(b->lock);
 	b->incoming = strGraphEdgePSortedInsert(b->incoming, newEdgeNode,
 	                                        (geCmpType)ptrCompare);
-	rwWriteEnd(b->lock);
 	return newEdgeNode;
-}
-void __graphNodeReadLock(struct __graphNode *node) { rwReadStart(node->lock); }
-void __graphNodeReadUnlock(struct __graphNode *node) { rwReadEnd(node->lock); }
-void __graphNodeWriteLock(struct __graphNode *node) {
-	rwWriteStart(node->lock);
-}
-void __graphNodeWriteUnlock(struct __graphNode *node) {
-	rwWriteEnd(node->lock);
 }
 strGraphEdgeP __graphNodeOutgoing(const struct __graphNode *node) {
 	return strGraphEdgePAppendData(NULL, (void *)node->outgoing,
