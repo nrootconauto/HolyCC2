@@ -281,16 +281,22 @@ static strGraphNodeIRP IRSSACompute(graphNodeMapping start,struct IRVar *var) {
 		loop:;
 			__auto_type find = mapChooseIncomingsGet(frontiersToMaster, hash);
 			if (!find) {
-				mapChooseIncomingsInsert(frontiersToMaster, hash, NULL);
+					//Make a list of incoming nodes to frontier
+					__auto_type incomingMapped=graphNodeMappingIncomingNodes(nodeValue->nodes[i]);
+					strGraphNodeIRP incomingSources=NULL;
+					for(long i=0;i!=strGraphNodeMappingPSize(incomingMapped);i++) {
+							__auto_type sourceNode=*graphNodeMappingValuePtr(incomingMapped[i]);
+
+							//Insert if doesnt exit
+							if(!strGraphNodeIRPSortedFind(incomingSources, sourceNode, (gnCmpType)(ptrPtrCmp)))
+									incomingSources=strGraphNodeIRPSortedInsert(incomingSources, sourceNode, (gnCmpType)(ptrPtrCmp));
+					}
+					
+				mapChooseIncomingsInsert(frontiersToMaster, hash, incomingSources);
 				mapGraphNodeInsert(nodeKey2Ptr, hash, frontier);
 				goto loop;
 			}
 			free(hash);
-
-			__auto_type master = *graphNodeMappingValuePtr(nodeValue->node);
-			if (!strGraphNodeIRPSortedFind(*find, master, (gnCmpType)ptrPtrCmp))
-				*find =
-				    strGraphNodeIRPSortedInsert(*find, master, (gnCmpType)ptrPtrCmp);
 		}
 	}
 

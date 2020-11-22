@@ -110,7 +110,7 @@ void SSATests() {
 				//
 				//Assert for Choose nodes at (select)enter points
 				//
-				assertSSANodes(fEnter, bExit,eExit,NULL);
+				assertSSANodes(fEnter, eExit,aExit,NULL);
 				assertSSANodes(eEnter, cExit,dExit,NULL);
 		}
 		
