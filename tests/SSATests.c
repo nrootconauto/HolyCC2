@@ -114,29 +114,28 @@ void SSATests() {
 				assert(dSSAVer<eSSAVer);
 				assert(eSSAVer<fSSAVer);
 		}
-		/*
 		//http://pages.cs.wisc.edu/~fischer/cs701.f05/lectures/Lecture22.pdf
 		{
 				__auto_type var=createVirtVar(&typeI64i);
 
 				__auto_type enter=createLabel();
-		
-				ASSIGN_EXPR(a, createIntLit(0), var);
-				ASSIGN_EXPR(b, createIntLit(1), var);
-				ASSIGN_EXPR(c, createIntLit(2), var);
-				INSERT_NAME(enter);
-				INSERT_NAME(aExit);
-				INSERT_NAME(bExit);
-				INSERT_NAME(cExit);
 
-				graphNodeIRConnect(enter, aEnter, IR_CONN_FLOW);
-				graphNodeIRConnect(aExit, bEnter, IR_CONN_FLOW);
+				__auto_type a=createVarRef(var);
+				__auto_type b=createVarRef(var);
+				__auto_type c=createVarRef(var);
+				
+				INSERT_NAME(enter);
+				INSERT_NAME(a);
+				INSERT_NAME(b);
+				INSERT_NAME(c);
+
+				graphNodeIRConnect(enter, a, IR_CONN_FLOW);
+				graphNodeIRConnect(a, b, IR_CONN_FLOW);
 				__auto_type cond=createIntLit(101);
-				__auto_type bA_CCJmp=createCondJmp(cond, aEnter ,cEnter);
-				graphNodeIRConnect(bExit,cond, IR_CONN_FLOW);
+				__auto_type bA_CCJmp=createCondJmp(cond, a ,c);
+				graphNodeIRConnect(b,cond, IR_CONN_FLOW);
 				
 				__auto_type allNodes=graphNodeIRAllNodes(enter);
 				IRToSSA(allNodes,enter);
 		}
-		*/
 }
