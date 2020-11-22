@@ -489,56 +489,59 @@ createFilteredGraph(struct __graphNode *start, strGraphNodeP nodes, void *data,
 
 	return retVal;
 }
-//https://efficientcodeblog.wordpress.com/2018/02/15/finding-all-paths-between-two-nodes-in-a-graph/
-static void __graphAllPathsTo(strGraphEdgeP *currentPath,strGraphPath *paths,const struct __graphNode *from,const struct __graphNode *to) {
-		//At destination so return after appending to paths
-		if(from==to) {
-		push:;
-				__auto_type clone=strGraphEdgePAppendData(NULL, (void*)*currentPath, strGraphEdgePSize(*currentPath));
-				*paths=strGraphPathAppendItem(*paths,  clone);
-				return;
-		}
-		//Push if no outgoing and to is NULL
-		if(0==strGraphEdgePSize(from->outgoing)&&to==NULL)
-				goto push;
-		
-		for(long i=0;i!=strGraphEdgePSize(from->outgoing);i++) {
-				//Push
-				*currentPath=strGraphEdgePAppendItem(*currentPath, from->outgoing[i]);
-				//dfs
-				__graphAllPathsTo(currentPath,paths,from->outgoing[i]->to,to);
-				//Pop
-				*currentPath=strGraphEdgePPop(*currentPath, NULL);
-		}
+// https://efficientcodeblog.wordpress.com/2018/02/15/finding-all-paths-between-two-nodes-in-a-graph/
+static void __graphAllPathsTo(strGraphEdgeP *currentPath, strGraphPath *paths,
+                              const struct __graphNode *from,
+                              const struct __graphNode *to) {
+	// At destination so return after appending to paths
+	if (from == to) {
+	push:;
+		__auto_type clone = strGraphEdgePAppendData(
+		    NULL, (void *)*currentPath, strGraphEdgePSize(*currentPath));
+		*paths = strGraphPathAppendItem(*paths, clone);
+		return;
+	}
+	// Push if no outgoing and to is NULL
+	if (0 == strGraphEdgePSize(from->outgoing) && to == NULL)
+		goto push;
+
+	for (long i = 0; i != strGraphEdgePSize(from->outgoing); i++) {
+		// Push
+		*currentPath = strGraphEdgePAppendItem(*currentPath, from->outgoing[i]);
+		// dfs
+		__graphAllPathsTo(currentPath, paths, from->outgoing[i]->to, to);
+		// Pop
+		*currentPath = strGraphEdgePPop(*currentPath, NULL);
+	}
 }
-strGraphPath graphAllPathsTo(struct __graphNode *from,struct __graphNode *to) {
-		strGraphPath paths=NULL;
-		strGraphEdgeP currentPath=NULL;
-		
-		__graphAllPathsTo(&currentPath,&paths, from, to);
+strGraphPath graphAllPathsTo(struct __graphNode *from, struct __graphNode *to) {
+	strGraphPath paths = NULL;
+	strGraphEdgeP currentPath = NULL;
 
-		strGraphEdgePDestroy(&currentPath);
-		return paths;
+	__graphAllPathsTo(&currentPath, &paths, from, to);
+
+	strGraphEdgePDestroy(&currentPath);
+	return paths;
 }
-void graphPrint(struct __graphNode *node,char *(*toStr)(struct __graphNode* )) {
-		__auto_type allNodes=__graphNodeVisitAll(node);
-		for(long i=0;i!=strGraphNodePSize(allNodes);i++) {
-				__auto_type outNodes=__graphNodeOutgoingNodes(allNodes[i]);
+void graphPrint(struct __graphNode *node,
+                char *(*toStr)(struct __graphNode *)) {
+	__auto_type allNodes = __graphNodeVisitAll(node);
+	for (long i = 0; i != strGraphNodePSize(allNodes); i++) {
+		__auto_type outNodes = __graphNodeOutgoingNodes(allNodes[i]);
 
-				char *cur=toStr(allNodes[i]);
-				printf("NODE:%s\n",cur);
-				for(long  i2=0;i2!=strGraphNodePSize(outNodes);i2++)  { 
-						char * out=toStr(outNodes[i2]);
-						printf("     %s\n",out);
-						free(out);
-				}
-				//In
-				__auto_type inNodes=__graphNodeOutgoingNodes(allNodes[i]);
-				
-
-				free(cur);
-				strGraphNodePDestroy(&inNodes);
-				strGraphNodePDestroy(&outNodes);
+		char *cur = toStr(allNodes[i]);
+		printf("NODE:%s\n", cur);
+		for (long i2 = 0; i2 != strGraphNodePSize(outNodes); i2++) {
+			char *out = toStr(outNodes[i2]);
+			printf("     %s\n", out);
+			free(out);
 		}
-		strGraphNodePDestroy(&allNodes);
+		// In
+		__auto_type inNodes = __graphNodeOutgoingNodes(allNodes[i]);
+
+		free(cur);
+		strGraphNodePDestroy(&inNodes);
+		strGraphNodePDestroy(&outNodes);
+	}
+	strGraphNodePDestroy(&allNodes);
 }

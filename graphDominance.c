@@ -111,17 +111,17 @@ llDominators graphComputeDominatorsPerNode(struct __graphNode *start) {
 			// Ensure current items include current node
 			if (NULL == strGraphNodePSortedFind(currentItems, allNodes[i],
 			                                    (gnCmpType)ptrPtrCmp))
-					currentItems = strGraphNodePSortedInsert(currentItems, allNodes[i],
+				currentItems = strGraphNodePSortedInsert(currentItems, allNodes[i],
 				                                         (gnCmpType)ptrPtrCmp);
 
-				currentNode->dominators = currentItems;
+			currentNode->dominators = currentItems;
 
 			if (strGraphNodePSize(currentItems) == strGraphNodePSize(old)) {
 				if (0 !=
 				    memcmp(currentItems, old,
 				           strGraphNodePSize(old) * sizeof(struct __graphNode *))) {
-						
-						printf("CHANGED:\n");
+
+					printf("CHANGED:\n");
 					changed = 1;
 				}
 			} else {
@@ -220,19 +220,21 @@ llDomFrontier graphDominanceFrontiers(struct __graphNode *start,
 			for (long p = 0; p != strGraphEdgePSize(preds); p++) {
 				__auto_type runner = __graphEdgeIncoming(preds[p]);
 
-				__auto_type idom=graphDominatorIdom(doms, allNodes[b]);
-				__auto_type mapped=graphNodeMappingValuePtr(idom);
-				__auto_type mappedb=graphNodeMappingValuePtr(allNodes[b]);
+				__auto_type idom = graphDominatorIdom(doms, allNodes[b]);
+				__auto_type mapped = graphNodeMappingValuePtr(idom);
+				__auto_type mappedb = graphNodeMappingValuePtr(allNodes[b]);
 				while (runner != graphDominatorIdom(doms, allNodes[b])) {
 					// Add b to runners frontier
 					__auto_type find = llDomFrontierFindRight(llDomFrontierFirst(fronts),
 					                                          runner, llDomFrontierCmp);
 					__auto_type value = llDomFrontierValuePtr(find);
-					
-					if(!strGraphNodePSortedFind(value->nodes, allNodes[b], (gnCmpType)ptrPtrCmp)) {
-							value->nodes = strGraphNodePSortedInsert(value->nodes, allNodes[b], (gnCmpType)ptrPtrCmp);
-							printf("RUNNER %i += %i\n", *(int *)__graphNodeValuePtr(runner),
-					       *(int *)__graphNodeValuePtr(allNodes[b]));
+
+					if (!strGraphNodePSortedFind(value->nodes, allNodes[b],
+					                             (gnCmpType)ptrPtrCmp)) {
+						value->nodes = strGraphNodePSortedInsert(value->nodes, allNodes[b],
+						                                         (gnCmpType)ptrPtrCmp);
+						printf("RUNNER %i += %i\n", *(int *)__graphNodeValuePtr(runner),
+						       *(int *)__graphNodeValuePtr(allNodes[b]));
 					}
 
 					// runner = iDom(runner)

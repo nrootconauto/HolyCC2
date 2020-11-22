@@ -112,6 +112,20 @@ void SSATests() {
 				//
 				assertSSANodes(fEnter, eExit,aExit,NULL);
 				assertSSANodes(eEnter, cExit,dExit,NULL);
+
+				__auto_type aSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(aExit))->val.value.var.SSANum;
+				__auto_type bSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(bExit))->val.value.var.SSANum;
+				__auto_type cSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(cExit))->val.value.var.SSANum;
+				__auto_type dSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(dExit))->val.value.var.SSANum;
+				__auto_type eSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(eExit))->val.value.var.SSANum;
+				__auto_type fSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(fExit))->val.value.var.SSANum;
+
+				assert(aSSAVer<bSSAVer);
+				assert(bSSAVer<cSSAVer);
+				assert(bSSAVer<dSSAVer);
+				assert(cSSAVer<eSSAVer);
+				assert(dSSAVer<eSSAVer);
+				assert(eSSAVer<fSSAVer);
 		}
 		
 }

@@ -16,12 +16,12 @@ void topoSortTests();
 void subExprElimTests();
 void SSATests();
 int main() {
-		//strTests();
-		//preprocessorTests();
-		//base64Tests();
-		//graphTests();
-		//graphDominanceTests();
-		//graphColoringTests();
+		strTests();
+		preprocessorTests();
+		base64Tests();
+		graphTests();
+		graphDominanceTests();
+		graphColoringTests();
 	/**
 
 	  llTests();
@@ -34,12 +34,12 @@ int main() {
 
 	  eventPoolTests();
 	  */
-	//lexerTests();
-	//parserTests();
-	// parserDiagTests();
-	//	topoSortTests();
-	//subExprElimTests();
+	lexerTests();
+	parserTests();
+	//parserDiagTests();
+		topoSortTests();
+	subExprElimTests();
 	
-	SSATests();
+ 	SSATests();
 	return 0;
 }

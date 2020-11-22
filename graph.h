@@ -205,7 +205,7 @@ graphNodeMapping createGraphMap(strGraphNodeP nodes, int preserveConnections);
 graphNodeMapping
 createFilteredGraph(struct __graphNode *start, strGraphNodeP nodes, void *data,
                     int (*pred)(void *data, struct __graphNode *));
-STR_TYPE_DEF(strGraphEdgeP,GraphPath);
-STR_TYPE_FUNCS(strGraphEdgeP,GraphPath);
-strGraphPath graphAllPathsTo(struct __graphNode *from,struct __graphNode *to);
-void graphPrint(struct __graphNode *node,char *(*toStr)(struct __graphNode* ));
+STR_TYPE_DEF(strGraphEdgeP, GraphPath);
+STR_TYPE_FUNCS(strGraphEdgeP, GraphPath);
+strGraphPath graphAllPathsTo(struct __graphNode *from, struct __graphNode *to);
+void graphPrint(struct __graphNode *node, char *(*toStr)(struct __graphNode *));

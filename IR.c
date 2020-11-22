@@ -255,7 +255,7 @@ void IRInsertBefore(graphNodeIR insertBefore, graphNodeIR entry,
 
 	for (long i = 0; i != strGraphEdgeIRPSize(incoming); i++) {
 		// Connect incoming to entry
-			graphNodeIRConnect(graphEdgeIRIncoming(incoming[i]),entry,
+		graphNodeIRConnect(graphEdgeIRIncoming(incoming[i]), entry,
 		                   *graphEdgeIRValuePtr(incoming[i]));
 
 		// Disconnect for insertBefore
@@ -302,7 +302,7 @@ graphNodeIR createCondJmp(graphNodeIR cond, graphNodeIR t, graphNodeIR f) {
 }
 static int exprEdgePred(const struct __graphNode *node,
                         const struct __graphEdge *edge, const void *data) {
-		__auto_type type=*graphEdgeIRValuePtr((void *)edge);
+	__auto_type type = *graphEdgeIRValuePtr((void *)edge);
 	switch (type) {
 	case IR_CONN_SOURCE_A:
 	case IR_CONN_SOURCE_B:
