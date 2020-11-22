@@ -74,32 +74,35 @@ struct varAndEnterPair {
 	graphNodeIR enter;
 	struct IRVar *var;
 };
-static int occurOfVar(struct varAndEnterPair *expectedVar, struct __graphNode *node) {
-		struct IRNode *ir = graphNodeIRValuePtr((graphNodeIR)node);
-		if(ir->type==IR_VALUE) {
-				struct IRNodeValue *val=(void*)ir;
-				if(val->val.type!=IR_VAL_VAR_REF)
-						return 0;
-				
-				return 0==IRVarCmp(expectedVar->var,&val->val.value.var.var);
-		}
+static int occurOfVar(struct varAndEnterPair *expectedVar,
+                      struct __graphNode *node) {
+	struct IRNode *ir = graphNodeIRValuePtr((graphNodeIR)node);
+	if (ir->type == IR_VALUE) {
+		struct IRNodeValue *val = (void *)ir;
+		if (val->val.type != IR_VAL_VAR_REF)
+			return 0;
 
-		if(node==expectedVar->enter)
-				return 1;
-		
-		return 0;
+		return 0 == IRVarCmp(expectedVar->var, &val->val.value.var.var);
+	}
+
+	if (node == expectedVar->enter)
+		return 1;
+
+	return 0;
 }
-static int __isAssignedVar(struct varAndEnterPair *data, struct __graphNode *node,int ignoreChoose) {
+static int __isAssignedVar(struct varAndEnterPair *data,
+                           struct __graphNode *node, int ignoreChoose) {
 	struct IRVar *expectedVar = data->var;
 
-	if(ignoreChoose) {
-			strGraphNodeIRP incoming __attribute__((cleanup(strGraphNodeIRPDestroy)))=graphNodeIRIncomingNodes(node);
-			if(1==strGraphNodeIRPSize(incoming)) {
-					if(graphNodeIRValuePtr(incoming[0])->type==IR_CHOOSE)
-							return 0;
-			}
+	if (ignoreChoose) {
+		strGraphNodeIRP incoming __attribute__((cleanup(strGraphNodeIRPDestroy))) =
+		    graphNodeIRIncomingNodes(node);
+		if (1 == strGraphNodeIRPSize(incoming)) {
+			if (graphNodeIRValuePtr(incoming[0])->type == IR_CHOOSE)
+				return 0;
+		}
 	}
-	
+
 	struct IRNode *ir = graphNodeIRValuePtr((graphNodeIR)node);
 	if (ir->type == IR_VALUE) {
 		struct IRNodeValue *val = (void *)ir;
@@ -130,154 +133,200 @@ checkForAssign:;
 	    IRGetConnsOfType(in, IR_CONN_DEST);
 	return 0 != strGraphEdgeIRPSize(dstConns);
 }
-static int isAssignedVar(struct varAndEnterPair *data, struct __graphNode *node) {
-		return __isAssignedVar(data, node, 0);
+static int isAssignedVar(struct varAndEnterPair *data,
+                         struct __graphNode *node) {
+	return __isAssignedVar(data, node, 0);
 }
-static int isAssignedVarExldChooses(struct varAndEnterPair *data, struct __graphNode *node) {
-		return __isAssignedVar(data, node, 1);
+static int isAssignedVarExldChooses(struct varAndEnterPair *data,
+                                    struct __graphNode *node) {
+	return __isAssignedVar(data, node, 1);
 }
-static graphNodeMapping filterVarRefs(graphNodeIR enter,strGraphNodeIRP nodes,
-                                           struct IRVar *var) {
+static graphNodeMapping filterVarRefs(graphNodeIR enter, strGraphNodeIRP nodes,
+                                      struct IRVar *var) {
 	// First find the references to the var and jumps.
 	struct varAndEnterPair pair;
 	pair.enter = enter;
 	pair.var = var;
-	return  createFilteredGraph(enter, nodes, &pair, (int(*)(void*,struct __graphNode*))occurOfVar);
+	return createFilteredGraph(enter, nodes, &pair,
+	                           (int (*)(void *, struct __graphNode *))occurOfVar);
 }
 static void __strGraphNodeIRDestroy(void *vec) {
 
-		strGraphNodeIRPDestroy((strGraphNodeIRP *)vec);
+	strGraphNodeIRPDestroy((strGraphNodeIRP *)vec);
 }
 static char *node2Str(struct __graphNode *node) {
-		node=*graphNodeMappingValuePtr(node);
-		char buffer[128];
-		sprintf(buffer, "%p", node);
+	node = *graphNodeMappingValuePtr(node);
+	char buffer[128];
+	sprintf(buffer, "%p", node);
 
-		__auto_type find=mapStrGet(nodeNames,  buffer);
-		if(!find)
-				return NULL;
-		
-		__auto_type str= *find;
-		char *retVal=malloc(strlen(str)+1);
-		strcpy(retVal, str);
+	__auto_type find = mapStrGet(nodeNames, buffer);
+	if (!find)
+		return NULL;
 
-		return retVal;
+	__auto_type str = *find;
+	char *retVal = malloc(strlen(str) + 1);
+	strcpy(retVal, str);
+
+	return retVal;
 }
-static void SSAVersionVar(graphNodeIR start,struct IRVar *var) {
-		graphPrint(start, node2Str);
-		//
-		struct varAndEnterPair pair;
-		pair.enter=start;
-		pair.var=var;
-		__auto_type allNodes=graphNodeIRAllNodes(start);
+static void versionAllVarsBetween(strGraphEdgeMappingP path,
+                                  strGraphNodeP versionStarts) {
+	struct IRNodeValue *firstNode = (void *)graphNodeIRValuePtr(
+	    *graphNodeMappingValuePtr(graphEdgeMappingIncoming(path[0])));
 
-		//Get references to all vars
-		__auto_type varRefsG=createFilteredGraph(start, allNodes, &pair, (int(*)(void*,struct __graphNode*))occurOfVar);
-		__auto_type allVarRefs=graphNodeMappingAllNodes(varRefsG);
-		graphPrint(varRefsG, node2Str);
-		//Hash the vars
-		mapGraphNode IR2MappingNode=mapGraphNodeCreate();
-		for(long i=0;i!=strGraphNodeMappingPSize(allVarRefs);i++) {
-				graphNodeIR sourceNode=*graphNodeMappingValuePtr(allVarRefs[i]);
-				
-				char *hash=ptr2Str(sourceNode);
-				mapGraphNodeInsert(IR2MappingNode, hash, allVarRefs[i]);
-				free(hash);
+	// Choose version
+	long version = 0;
+	// Choose version from  firstNode  (which points to assign) if is a variable
+	if (firstNode->base.type == IR_VALUE) {
+		if (firstNode->val.type == IR_VAL_VAR_REF) {
+			version = firstNode->val.value.var.SSANum;
 		}
-		
-		__auto_type varAssignG=createFilteredGraph(start, allNodes, &pair, (int(*)(void*,struct __graphNode*))isAssignedVar);
-		__auto_type allVarAssigns=graphNodeMappingAllNodes(varAssignG);
-		__auto_type allAssignPaths=graphAllPathsTo(varAssignG,NULL);
-		//Number the assigns
-		long version=1;
-		for(long i=0;i!=strGraphNodeMappingPSize(allVarAssigns);i++) {
-				__auto_type node=graphNodeIRValuePtr(*graphNodeMappingValuePtr(allVarAssigns[i]));
-				//Ensure is a var
-				if(node->type!=IR_VALUE)
-						continue;
-				struct IRNodeValue *val=(void*)node;
-				if(val->val.type!=IR_VAL_VAR_REF)
-						continue;
+	}
 
-				val->val.value.var.SSANum=version++;
+	for (long edgeI = 0; edgeI < strGraphEdgeMappingPSize(path); edgeI++) {
+		__auto_type to =
+		    *graphNodeMappingValuePtr(graphEdgeMappingOutgoing(path[edgeI]));
+
+		// Dont descent into other versions' domains
+		if (strGraphNodeIRPSortedFind(versionStarts, to, (gnCmpType)ptrPtrCmp))
+			break;
+
+		struct IRNodeValue *val = (void *)graphNodeIRValuePtr(to);
+		// Ensure is variable
+		if (val->base.type != IR_VALUE)
+			continue;
+		if (val->val.type != IR_VAL_VAR_REF)
+			continue;
+
+		// Assign version
+		val->val.value.var.SSANum = version;
+	}
+}
+static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
+	//
+	struct varAndEnterPair pair;
+	pair.enter = start;
+	pair.var = var;
+	__auto_type allNodes = graphNodeIRAllNodes(start);
+
+	// Get references to all vars
+	__auto_type varRefsG =
+	    createFilteredGraph(start, allNodes, &pair,
+	                        (int (*)(void *, struct __graphNode *))occurOfVar);
+	__auto_type allVarRefs = graphNodeMappingAllNodes(varRefsG);
+	graphPrint(varRefsG, node2Str);
+	// Hash the vars
+	mapGraphNode IR2MappingNode = mapGraphNodeCreate();
+	for (long i = 0; i != strGraphNodeMappingPSize(allVarRefs); i++) {
+		graphNodeIR sourceNode = *graphNodeMappingValuePtr(allVarRefs[i]);
+
+		char *hash = ptr2Str(sourceNode);
+		mapGraphNodeInsert(IR2MappingNode, hash, allVarRefs[i]);
+		free(hash);
+	}
+
+	__auto_type varAssignG =
+	    createFilteredGraph(start, allNodes, &pair,
+	                        (int (*)(void *, struct __graphNode *))isAssignedVar);
+	__auto_type allVarAssigns = graphNodeMappingAllNodes(varAssignG);
+	__auto_type allAssignPaths = graphAllPathsTo(varAssignG, NULL);
+
+	graphPrint(varAssignG, node2Str);
+	// Number the assigns
+	long version = 1;
+	for (long i = 0; i != strGraphNodeMappingPSize(allVarAssigns); i++) {
+		__auto_type node =
+		    graphNodeIRValuePtr(*graphNodeMappingValuePtr(allVarAssigns[i]));
+		// Ensure is a var
+		if (node->type != IR_VALUE)
+			continue;
+		struct IRNodeValue *val = (void *)node;
+		if (val->val.type != IR_VAL_VAR_REF)
+			continue;
+
+		val->val.value.var.SSANum = version++;
+	}
+
+	//
+	// First do a set union of all paths though the assigned vars. Then number the
+	// items between each edge's node(is a mapped graph) of the assign graph.
+	//
+	strGraphEdgeMappingP un = NULL;
+	for (long i = 0; i != strGraphPathSize(allAssignPaths); i++) {
+		__auto_type p = allAssignPaths[i];
+		un = strGraphEdgePSetUnion(un, allAssignPaths[i],
+		                           (int (*)(const struct __graphEdge **,
+		                                    const struct __graphEdge **))ptrPtrCmp);
+	}
+
+	//
+	// Get list of start nodes,we want to not stop at other versions starts while
+	// going from one versions start to
+	//
+	strGraphNodeIRP versionStarts = NULL;
+	for (long i = 0; i != strGraphNodeMappingPSize(allVarAssigns); i++) {
+		__auto_type node = *graphNodeMappingValuePtr(allVarAssigns[i]);
+		versionStarts =
+		    strGraphNodeIRPSortedInsert(versionStarts, node, (gnCmpType)ptrPtrCmp);
+	}
+
+	for (long i = 0; i != strGraphEdgeMappingPSize(un); i++) {
+		__auto_type start =
+		    *graphNodeMappingValuePtr(graphEdgeMappingIncoming(un[i]));
+		__auto_type end =
+		    *graphNodeMappingValuePtr(graphEdgeMappingOutgoing(un[i]));
+		char *startHash = ptr2Str(start);
+		char *endHash = ptr2Str(end);
+
+		__auto_type mappedStart = *mapGraphNodeGet(IR2MappingNode, startHash);
+		__auto_type mappedEnd = *mapGraphNodeGet(IR2MappingNode, endHash);
+
+		free(startHash), free(endHash);
+		// Find all paths from start->end
+		__auto_type allPaths = graphAllPathsTo(mappedStart, mappedEnd);
+		for (long pathI = 0; pathI != strGraphPathSize(allPaths); pathI++) {
+			// Insert versions between assigns
+
+			//!!! Last edge points to next assign and we dont want to overwrite assign
+			allPaths[pathI] = strGraphEdgePPop(allPaths[pathI], NULL);
+			versionAllVarsBetween(allPaths[pathI], versionStarts);
+
+			strGraphEdgeIRPDestroy(&allPaths[pathI]);
 		}
+	}
+	//
+	// Find exit nodes
+	//
+	for (long i = 0; i != strGraphNodeMappingPSize(versionStarts); i++) {
+		if (versionStarts[i] == start)
+			continue;
 
-		//
-		// First do a set union of all paths though the assigned vars. Then number the items between each edge's node(is a mapped graph) of the assign graph.
-		//
-		strGraphEdgeMappingP un=NULL;
-		for(long i=0;i!=strGraphPathSize(allAssignPaths);i++) {
-				__auto_type p=allAssignPaths[i];
-				un=strGraphEdgePSetUnion(un, allAssignPaths[i], (int(*)(const struct __graphEdge ** ,const struct __graphEdge **))ptrPtrCmp);
+		char *hash = ptr2Str(versionStarts[i]);
+		__auto_type mappedNode = *mapGraphNodeGet(IR2MappingNode, hash);
+		free(hash);
+
+		// Find all null paths from assign
+		__auto_type nullPaths = graphAllPathsTo(mappedNode, NULL);
+
+		// Version vars from assign to exit
+		for (long i2 = 0; i2 != strGraphPathSize(nullPaths); i2++) {
+			versionAllVarsBetween(nullPaths[i2], versionStarts);
 		}
-		//
-		//Get list of start nodes,we want to not stop at other versions starts while going from one versions start to
-		//
-		strGraphNodeIRP versionStarts=NULL;
-		for(long i=0;i!=strGraphNodeMappingPSize(allVarAssigns);i++) {
-				__auto_type node=*graphNodeMappingValuePtr(allVarAssigns[i]);
-				versionStarts=strGraphNodeIRPSortedInsert(versionStarts, node, (gnCmpType)ptrPtrCmp);
-		}
-		
-		for(long i=0;i!=strGraphEdgeMappingPSize(un);i++) {
-				__auto_type start=*graphNodeMappingValuePtr(graphEdgeMappingIncoming(un[i]));
-				__auto_type end=*graphNodeMappingValuePtr(graphEdgeMappingOutgoing(un[i]));
-				char *startHash=ptr2Str(start);
-				char *endHash=ptr2Str(end);
-				
-				__auto_type mappedStart=*mapGraphNodeGet(IR2MappingNode, startHash);
-				__auto_type mappedEnd=*mapGraphNodeGet(IR2MappingNode, endHash);
-				
-				free(startHash),free(endHash);
-				//Find all paths from start->end
-				__auto_type allPaths=graphAllPathsTo(mappedStart, mappedEnd);
-				for(long pathI=0;pathI!=strGraphPathSize(allPaths);pathI++) {
-						struct IRNodeValue *firstNode=(void*)graphNodeIRValuePtr(*graphNodeMappingValuePtr(graphEdgeMappingIncoming(allPaths[pathI][0])));
+	}
 
-						//Choose version
-						long version=0;
-						//Choose version from  firstNode  (which points to assign) if is a variable
-						if(firstNode->base.type==IR_VALUE) {
-								if(firstNode->val.type==IR_VAL_VAR_REF) {
-										version=firstNode->val.value.var.SSANum;
-								}
-						}
-						
-						//...(allPaths[pathI])-1 ignores last edge which points to assign
-						for(long edgeI=0;edgeI<strGraphEdgeMappingPSize(allPaths[pathI])-1;edgeI++) {
-								__auto_type to=*graphNodeMappingValuePtr(graphEdgeMappingOutgoing(allPaths[pathI][edgeI]));
-
-								//Dont descent into other versions' domains
-								if(strGraphNodeIRPSortedFind(versionStarts , to, (gnCmpType)ptrPtrCmp))
-										break;
-								
-								struct IRNodeValue *val=(void*)graphNodeIRValuePtr(to);
-								//Ensure is variable
-								if(val->base.type!=IR_VALUE)
-										continue;
-								if(val->val.type!=IR_VAL_VAR_REF)
-										continue;
-
-								//Assign version
-								val->val.value.var.SSANum=version;
-						}
-				strGraphEdgeIRPDestroy(&allPaths[pathI]);
-				}
-		}
-		
-		graphNodeMappingKillGraph(&varRefsG, NULL, NULL);
-		graphNodeMappingKillGraph(&varAssignG, NULL, NULL);
-		strGraphNodeMappingPDestroy(&allVarRefs);
-		strGraphNodeMappingPDestroy(&allVarAssigns);
-		mapGraphNodeDestroy(IR2MappingNode, NULL);
-		strGraphPathDestroy(&allAssignPaths);
+	graphNodeMappingKillGraph(&varRefsG, NULL, NULL);
+	graphNodeMappingKillGraph(&varAssignG, NULL, NULL);
+	strGraphNodeMappingPDestroy(&allVarRefs);
+	strGraphNodeMappingPDestroy(&allVarAssigns);
+	mapGraphNodeDestroy(IR2MappingNode, NULL);
+	strGraphPathDestroy(&allAssignPaths);
 }
 /**
  * Returns list of new varaible references
  */
-static strGraphNodeIRP IRSSACompute(graphNodeMapping start,struct IRVar *var) {
-		graphPrint(start,node2Str);
-		//
+static strGraphNodeIRP IRSSACompute(graphNodeMapping start, struct IRVar *var) {
+	graphPrint(start, node2Str);
+	//
 	__auto_type frontiersToMaster = mapChooseIncomingsCreate();
 	__auto_type nodeKey2Ptr = mapGraphNodeCreate();
 
@@ -307,17 +356,20 @@ static strGraphNodeIRP IRSSACompute(graphNodeMapping start,struct IRVar *var) {
 		loop:;
 			__auto_type find = mapChooseIncomingsGet(frontiersToMaster, hash);
 			if (!find) {
-					//Make a list of incoming nodes to frontier
-					__auto_type incomingMapped=graphNodeMappingIncomingNodes(nodeValue->nodes[i]);
-					strGraphNodeIRP incomingSources=NULL;
-					for(long i=0;i!=strGraphNodeMappingPSize(incomingMapped);i++) {
-							__auto_type sourceNode=*graphNodeMappingValuePtr(incomingMapped[i]);
+				// Make a list of incoming nodes to frontier
+				__auto_type incomingMapped =
+				    graphNodeMappingIncomingNodes(nodeValue->nodes[i]);
+				strGraphNodeIRP incomingSources = NULL;
+				for (long i = 0; i != strGraphNodeMappingPSize(incomingMapped); i++) {
+					__auto_type sourceNode = *graphNodeMappingValuePtr(incomingMapped[i]);
 
-							//Insert if doesnt exit
-							if(!strGraphNodeIRPSortedFind(incomingSources, sourceNode, (gnCmpType)(ptrPtrCmp)))
-									incomingSources=strGraphNodeIRPSortedInsert(incomingSources, sourceNode, (gnCmpType)(ptrPtrCmp));
-					}
-					
+					// Insert if doesnt exit
+					if (!strGraphNodeIRPSortedFind(incomingSources, sourceNode,
+					                               (gnCmpType)(ptrPtrCmp)))
+						incomingSources = strGraphNodeIRPSortedInsert(
+						    incomingSources, sourceNode, (gnCmpType)(ptrPtrCmp));
+				}
+
 				mapChooseIncomingsInsert(frontiersToMaster, hash, incomingSources);
 				mapGraphNodeInsert(nodeKey2Ptr, hash, frontier);
 				goto loop;
@@ -336,10 +388,11 @@ static strGraphNodeIRP IRSSACompute(graphNodeMapping start,struct IRVar *var) {
 
 	for (long i = 0; i != kCount; i++) {
 		__auto_type masters = *mapChooseIncomingsGet(frontiersToMaster, keys[i]);
-		__auto_type masterNode = *mapGraphNodeGet(nodeKey2Ptr, keys[i]); //TODO change to frontier
+		__auto_type masterNode =
+		    *mapGraphNodeGet(nodeKey2Ptr, keys[i]); // TODO change to frontier
 		createChoose(masterNode, masters);
 	}
-	
+
 	mapChooseIncomingsDestroy(frontiersToMaster, __strGraphNodeIRDestroy);
 	mapGraphNodeDestroy(nodeKey2Ptr, NULL);
 	return retVal;
@@ -390,12 +443,12 @@ void IRToSSA(strGraphNodeIRP nodes, graphNodeIR enter) {
 	strGraphNodeIRP newNodes = NULL;
 	for (long i = 0; i != strIRVarSize(allVars); i++) {
 		// Find enter node in mapa
-			__auto_type filtered2 = filterVarRefs(enter,nodes, &allVars[i]);
+		__auto_type filtered2 = filterVarRefs(enter, nodes, &allVars[i]);
 		__auto_type allNodes = graphNodeMappingAllNodes(filtered2);
-		//Compute choose nodes
-		strGraphNodeIRP chooses = IRSSACompute(filtered2,&allVars[i]);
-		//Number the versions
-		SSAVersionVar(enter,&allVars[i]);
+		// Compute choose nodes
+		strGraphNodeIRP chooses = IRSSACompute(filtered2, &allVars[i]);
+		// Number the versions
+		SSAVersionVar(enter, &allVars[i]);
 
 		newNodes = strGraphNodeIRPConcat(newNodes, chooses);
 	}

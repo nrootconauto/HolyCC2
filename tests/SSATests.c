@@ -107,9 +107,9 @@ void SSATests() {
 				__auto_type eSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(e))->val.value.var.SSANum;
 				__auto_type fSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(f))->val.value.var.SSANum;
 
-				assert(aSSAVer<bSSAVer);
-				assert(bSSAVer<cSSAVer);
-				assert(bSSAVer<dSSAVer);
+				assert(aSSAVer==bSSAVer);
+				assert(bSSAVer==cSSAVer);
+				assert(bSSAVer==dSSAVer);
 				assert(cSSAVer<eSSAVer);
 				assert(dSSAVer<eSSAVer);
 				assert(eSSAVer<fSSAVer);
