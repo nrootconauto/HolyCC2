@@ -527,13 +527,16 @@ void graphPrint(struct __graphNode *node,char *(*toStr)(struct __graphNode* )) {
 
 				char *cur=toStr(allNodes[i]);
 				printf("NODE:%s\n",cur);
-				for(long  i2=0;i2!=strGraphNodePSize(outNodes);i2++) {
-						printf("     %s\n",toStr(outNodes[i2]));
+				for(long  i2=0;i2!=strGraphNodePSize(outNodes);i2++)  { 
+						char * out=toStr(outNodes[i2]);
+						printf("     %s\n",out);
+						free(out);
 				}
 				//In
 				__auto_type inNodes=__graphNodeOutgoingNodes(allNodes[i]);
 				
 
+				free(cur);
 				strGraphNodePDestroy(&inNodes);
 				strGraphNodePDestroy(&outNodes);
 		}

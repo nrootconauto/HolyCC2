@@ -138,7 +138,12 @@ static char *node2Str(struct __graphNode *node) {
 		node=*graphNodeMappingValuePtr(node);
 		char buffer[128];
 		sprintf(buffer, "%p", node);
-		__auto_type str= *mapStrGet(nodeNames,  buffer);
+
+		__auto_type find=mapStrGet(nodeNames,  buffer);
+		if(!find)
+				return NULL;
+		
+		__auto_type str= *find;
 		char *retVal=malloc(strlen(str)+1);
 		strcpy(retVal, str);
 
@@ -352,7 +357,7 @@ void IRToSSA(strGraphNodeIRP nodes, graphNodeIR enter) {
 	//
 	strGraphNodeIRP newNodes = NULL;
 	for (long i = 0; i != strIRVarSize(allVars); i++) {
-		// Find enter node in map
+		// Find enter node in mapa
 			__auto_type filtered2 = filterVarAssigns(enter,nodes, &allVars[i]);
 		__auto_type allNodes = graphNodeMappingAllNodes(filtered2);
 		for (long i = 0; i != strGraphNodeMappingPSize(allNodes); i++) {
