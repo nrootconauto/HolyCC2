@@ -128,6 +128,11 @@ struct __vec;
 		if (res != NULL)                                                           \
 			*res = str[size - 1];                                                    \
 		return str##suffix##Resize(str, size - 1);                                 \
+	}                                                                            \
+	inline str##suffix str##suffix##Clone(const str##suffix str)                 \
+	    __attribute__((always_inline));                                          \
+	inline str##suffix str##suffix##Clone(const str##suffix str) {               \
+		return str##suffix##AppendData(NULL, (void *)str, str##suffix##Size(str)); \
 	}
 struct __vec *__vecAppendItem(struct __vec *a, const void *item, long itemSize);
 struct __vec *__vecReserve(struct __vec *a, long capacity);

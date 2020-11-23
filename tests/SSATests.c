@@ -110,9 +110,9 @@ void SSATests() {
 				assert(aSSAVer==bSSAVer);
 				assert(bSSAVer==cSSAVer);
 				assert(bSSAVer==dSSAVer);
-				assert(cSSAVer<eSSAVer);
-				assert(dSSAVer<eSSAVer);
-				assert(eSSAVer<fSSAVer);
+				assert(cSSAVer!=eSSAVer);
+				assert(dSSAVer!=eSSAVer);
+				assert(eSSAVer!=fSSAVer);
 		}
 		//http://pages.cs.wisc.edu/~fischer/cs701.f05/lectures/Lecture22.pdf
 		{
@@ -137,5 +137,9 @@ void SSATests() {
 				
 				__auto_type allNodes=graphNodeIRAllNodes(enter);
 				IRToSSA(allNodes,enter);
+				__auto_type aSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(a))->val.value.var.SSANum;
+				__auto_type bSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(b))->val.value.var.SSANum;
+				__auto_type cSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(c))->val.value.var.SSANum;
+				int x=1+2;
 		}
 }

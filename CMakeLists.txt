@@ -33,6 +33,7 @@ list(APPEND sources "subExprElim.c")
 list(APPEND sources "intExponet.c")
 list(APPEND sources "IRExec.c")
 list(APPEND sources "SSA.c")
+list(APPEND sources "IRLiveness.c")
 
 set(tests "")
 list(APPEND tests "tests/tests.c")
