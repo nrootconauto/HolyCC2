@@ -15,14 +15,15 @@ void base64Tests();
 void topoSortTests();
 void subExprElimTests();
 void SSATests();
+void LivenessTests();
 int main() {
+		/*
 		strTests();
 		preprocessorTests();
 		base64Tests();
 		graphTests();
 		graphDominanceTests();
 		graphColoringTests();
-	/**
 
 	  llTests();
 	  mapTests();
@@ -33,7 +34,6 @@ int main() {
 
 
 	  eventPoolTests();
-	  */
 	lexerTests();
 	parserTests();
 	//parserDiagTests();
@@ -41,5 +41,7 @@ int main() {
 	subExprElimTests();
 	
  	SSATests();
+		*/
+		LivenessTests();
 	return 0;
 }

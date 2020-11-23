@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <base64.h>
 #include <stdio.h>
+#include <IRLiveness.h>
 typedef int (*gnCmpType)(const graphNodeMapping *, const graphNodeMapping *);
 typedef int (*varRefCmpType)(const struct IRVarRef **,
                              const struct IRVarRef **);
@@ -70,11 +71,6 @@ static void replaceNodes(strGraphNodeMappingP nodes,
 	strGraphNodeMappingPDestroy(&in);
 	strGraphNodeMappingPDestroy(&out);
 };
-struct IRVarLiveness {
-	graphNodeIR var;
-};
-GRAPH_TYPE_DEF(struct IRVarLiveness, void *, IRLive);
-GRAPH_TYPE_FUNCS(struct IRVarLiveness, void *, IRLive);
 STR_TYPE_DEF(struct IRVarRef *, Var);
 STR_TYPE_FUNCS(struct IRVarRef *, Var);
 struct basicBlock {
@@ -88,7 +84,7 @@ static int untilIncomingAssign(const struct __graphNode *node,
                                const struct __graphEdge *edge,
                                const void *data) {
 	strGraphEdgeIRP incoming
-	    __attribute__((cleanup(strGraphEdgeIRLivePDestroy))) =
+	    __attribute__((cleanup(strGraphEdgeIRPDestroy))) =
 	        graphNodeIRIncoming((void *)node);
 	if (strGraphEdgeIRPSize(incoming) == 1)
 		if (*graphEdgeIRValuePtr(incoming[0]) == IR_CONN_DEST)
@@ -223,7 +219,7 @@ static strBasicBlock getBasicBlocksFromExpr(graphNodeIR dontDestroy,
 		// Check if node is asssigned to
 		__auto_type node = *graphNodeMappingValuePtr(assignNodes[i]);
 		strGraphEdgeIRP incoming
-		    __attribute__((cleanup(strGraphEdgeIRLivePDestroy))) =
+		    __attribute__((cleanup(strGraphEdgeIRPDestroy))) =
 		        graphNodeIRIncoming(node);
 		if (strGraphEdgeIRPSize(incoming) == 1) {
 			if (*graphEdgeIRValuePtr(incoming[0]) == IR_CONN_DEST) {
@@ -353,7 +349,7 @@ static strGraphNodeMappingP sortNodesBackwards(graphNodeMapping node) {
 
 	return order;
 }
-void IRInterferenceGraph(graphNodeIR start) {
+graphNodeIRLive IRInterferenceGraph(graphNodeIR start) {
 	mapBlockMetaNode metaNodes = mapBlockMetaNodeCreate();
 
 	__auto_type allNodes = graphNodeIRAllNodes(start);
@@ -504,4 +500,6 @@ void IRInterferenceGraph(graphNodeIR start) {
 			break;
 	}
 	strGraphNodeMappingPDestroy(&backwards);
+
+	return NULL;
 }
