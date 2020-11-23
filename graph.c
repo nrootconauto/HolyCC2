@@ -507,16 +507,17 @@ strGraphPath graphAllPathsTo(struct __graphNode *from, struct __graphNode *to) {
 	return paths;
 }
 void graphPrint(struct __graphNode *node,
-                char *(*toStr)(struct __graphNode *)) {
+                char *(*toStr)(struct __graphNode *),char *(*toStrEdge)(struct __graphEdge *)) {
 	__auto_type allNodes = __graphNodeVisitAll(node);
 	for (long i = 0; i != strGraphNodePSize(allNodes); i++) {
-		__auto_type outNodes = __graphNodeOutgoingNodes(allNodes[i]);
+		__auto_type outNodes = __graphNodeOutgoing(allNodes[i]);
 
 		char *cur = toStr(allNodes[i]);
 		printf("NODE:%s\n", cur);
-		for (long i2 = 0; i2 != strGraphNodePSize(outNodes); i2++) {
-			char *out = toStr(outNodes[i2]);
-			printf("     %s\n", out);
+		for (long i2 = 0; i2 != strGraphEdgePSize(outNodes); i2++) {
+			char *out = toStr(outNodes[i2]->to);
+			char *edgeStr=toStrEdge(outNodes[i2]);
+			printf("     %s(%s)\n", out,edgeStr);
 			free(out);
 		}
 		// In
@@ -524,7 +525,7 @@ void graphPrint(struct __graphNode *node,
 
 		free(cur);
 		strGraphNodePDestroy(&inNodes);
-		strGraphNodePDestroy(&outNodes);
+		strGraphEdgePDestroy(&outNodes);
 	}
 	strGraphNodePDestroy(&allNodes);
 }

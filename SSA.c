@@ -214,7 +214,7 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 	    createFilteredGraph(start, allNodes, &pair,
 	                        (int (*)(void *, struct __graphNode *))occurOfVar);
 	__auto_type allVarRefs = graphNodeMappingAllNodes(varRefsG);
-	graphPrint(varRefsG, node2Str);
+	//graphPrint(varRefsG, node2Str);
 	// Hash the vars
 	mapGraphNode IR2MappingNode = mapGraphNodeCreate();
 	for (long i = 0; i != strGraphNodeMappingPSize(allVarRefs); i++) {
@@ -231,7 +231,7 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 	__auto_type allVarAssigns = graphNodeMappingAllNodes(varAssignG);
 	__auto_type allAssignPaths = graphAllPathsTo(varAssignG, NULL);
 
-	graphPrint(varAssignG, node2Str);
+	//graphPrint(varAssignG, node2Str);
 	// Number the assigns
 	long version = 1;
 	for (long i = 0; i != strGraphNodeMappingPSize(allVarAssigns); i++) {
@@ -325,7 +325,7 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
  * Returns list of new varaible references
  */
 static strGraphNodeIRP IRSSACompute(graphNodeMapping start, struct IRVar *var) {
-	graphPrint(start, node2Str);
+		//graphPrint(start, node2Str);
 	//
 	__auto_type frontiersToMaster = mapChooseIncomingsCreate();
 	__auto_type nodeKey2Ptr = mapGraphNodeCreate();

@@ -1,6 +1,30 @@
 #include <IRLiveness.h>
 #include <assert.h>
 #include <debugPrint.h>
+#include <string.h>
+static char *strClone(const char *text) {
+		char *retVal=malloc(strlen(text)+1);
+		strcpy(retVal, text);
+
+		return retVal;
+}
+
+static char *irConn2Str(struct __graphEdge * edge) {
+		switch(*graphEdgeIRValuePtr(edge)) {
+		case IR_CONN_FLOW:
+				return strClone("IR_CONN_FLOW");
+		case IR_CONN_SOURCE_A:
+				return strClone("IR_CONN_SOURCE_A");
+		case IR_CONN_SOURCE_B:
+				return strClone("IR_CONN_SOURCE_B");
+		case IR_CONN_DEST:
+				return strClone("IR_CONN_DEST");
+default:
+		;
+		}
+
+		return NULL;
+}
 void LivenessTests() {
 		initIR();
 		//https://lambda.uta.edu/cse5317/spring01/notes/node37.html
@@ -40,6 +64,20 @@ void LivenessTests() {
 				debugAddPtrName(zRef1, "z.2");
 				debugAddPtrName(vRef2, "v.2");
 		}
+		//x=z*v
+		{
+				__auto_type vRef=createVarRef(v);
+				__auto_type zRef=createVarRef(z);
+				__auto_type xRef=createVarRef(x);
+				graphNodeIRConnect(createBinop(vRef, zRef, IR_ADD), xRef,IR_CONN_DEST);
+				graphNodeIRConnect(exit, vRef, IR_CONN_FLOW);
+				graphNodeIRConnect(exit, zRef, IR_CONN_FLOW);
+				exit=xRef;
+				
+				debugAddPtrName(vRef, "v.2.5");
+				debugAddPtrName(zRef, "z.2.5");
+				debugAddPtrName(xRef, "x.2.5");
+		}
 		
 		//y=x+2
 		{
@@ -53,6 +91,7 @@ void LivenessTests() {
 
 				debugAddPtrName(xRef1, "x.3");
 				debugAddPtrName(two1, "2.3");
+				debugAddPtrName(yRef1, "y.3");
 		}
 
 		//w=x+y*z
@@ -117,5 +156,5 @@ void LivenessTests() {
 		}
 
 		if(1)
-				graphPrint(entry, (char*(*)(struct __graphNode*))debugGetPtrName);
+				graphPrint(entry, (char*(*)(struct __graphNode*))debugGetPtrName,irConn2Str);
 }
