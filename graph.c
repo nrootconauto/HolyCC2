@@ -383,12 +383,13 @@ graphNodeMapping createGraphMap(strGraphNodeP nodes, int preserveConnections) {
 	for (long i = 0; i != strGraphNodePSize(nodes); i++) {
 		__auto_type current = *mapGraphNodeGet(map, keys[i]);
 
-		__auto_type out = __graphNodeOutgoingNodes(nodes[i]);
-		__auto_type in = __graphNodeIncomingNodes(nodes[i]);
+		
+		__auto_type out = __graphNodeOutgoing(nodes[i]);
+		__auto_type in = __graphNodeIncoming(nodes[i]);
 
 		// Connect outgoing
-		for (long i = 0; i != strGraphNodePSize(out); i++) {
-			char *key = ptr2Str(out[i]);
+		for (long i = 0; i != strGraphEdgePSize(out); i++) {
+			char *key = ptr2Str(out[i]->to);
 			__auto_type find = *mapGraphNodeGet(map, key);
 
 			// If not preserve connections,ignore multiple connections
@@ -397,13 +398,13 @@ graphNodeMapping createGraphMap(strGraphNodeP nodes, int preserveConnections) {
 					continue;
 
 			if (find) {
-				__graphNodeConnect(current, find, &out, sizeof(out[i]));
+				__graphNodeConnect(current, find, &out[i], sizeof(out[i]));
 				free(key);
 			}
 		}
 		// Connect incoming
-		for (long i = 0; i != strGraphNodePSize(in); i++) {
-			char *key = ptr2Str(in[i]);
+		for (long i = 0; i != strGraphEdgePSize(in); i++) {
+			char *key = ptr2Str(in[i]->from);
 			__auto_type find = *mapGraphNodeGet(map, key);
 
 			// If not preserve connections,ignore multiple connections

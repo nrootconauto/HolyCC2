@@ -300,3 +300,4 @@ void IRStmtBlockFromTailNode(graphNodeIR tail, graphNodeIR *enter,
                              graphNodeIR *exit);
 graphNodeIR IRGetStmtStart(graphNodeIR node);
 int IRVarCmp(const struct IRVar *a, const struct IRVar *b);
+char *graphEdgeIR2Str(struct __graphEdge * edge);

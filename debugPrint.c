@@ -40,6 +40,16 @@ void debugAddPtrName(const void *a,const char *text) {
 				
 		free(key);
 }
+const char *debugGetPtrNameConst(const void *a) {
+		char *key=ptr2Str(a);
+		
+		const char *retVal=NULL;
+		__auto_type find=mapStrGet(ptrNames, key);
+		if(find)
+				retVal=*find;
+		
+		return retVal;
+}
 char *debugGetPtrName(const void *a) {
 		char *key=ptr2Str(a);
 

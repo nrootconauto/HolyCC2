@@ -354,7 +354,38 @@ int IRVarCmp(const struct IRVar *a, const struct IRVar *b) {
 
 	return 0;
 }
+static char *strClone(const char *text) {
+		char *retVal=malloc(strlen(text)+1);
+		strcpy(retVal, text);
 
+		return retVal;
+}
+char *graphEdgeIR2Str(struct __graphEdge * edge) {
+		switch(*graphEdgeIRValuePtr(edge)) {
+		case IR_CONN_FLOW:
+				return strClone("IR_CONN_FLOW");
+		case IR_CONN_SOURCE_A:
+				return strClone("IR_CONN_SOURCE_A");
+		case IR_CONN_SOURCE_B:
+				return strClone("IR_CONN_SOURCE_B");
+		case IR_CONN_DEST:
+				return strClone("IR_CONN_DEST");
+		case IR_CONN_COND:
+				return strClone("IR_CONN_COND");
+		case IR_CONN_COND_FALSE:
+				return strClone("IR_CONN_COND_FALSE");
+		case IR_CONN_COND_TRUE:
+				return strClone("IR_CONN_COND_TRUE");
+		case IR_CONN_FUNC:
+				return strClone("IR_CONN_FUNC");
+		case IR_CONN_FUNC_ARG:
+				return strClone("IR_CONN_FUNC_ARG");
+		case IR_CONN_SIMD_ARG:
+				return strClone("IR_CONN_SIMD_ARG");
+		}
+
+		return NULL;
+}
 /*void IRStmtBlockFromTailNode(graphNodeIR tail,graphNodeIR *enter,graphNodeIR
 *exit) {
     //Check if already a statement
