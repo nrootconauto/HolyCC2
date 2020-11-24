@@ -12,6 +12,13 @@ void LivenessTests() {
 		__auto_type y=createVirtVar(&typeI64i);
 		__auto_type z=createVirtVar(&typeI64i);
 
+		debugAddPtrName(u, "U");
+		debugAddPtrName(v, "V");
+		debugAddPtrName(w, "W");
+		debugAddPtrName(x, "X");
+		debugAddPtrName(y, "Y");
+		debugAddPtrName(z, "Z");
+		
 		graphNodeIR exit=NULL;
 		__auto_type entry=createLabel();
 		//v=1

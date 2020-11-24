@@ -14,6 +14,7 @@ typedef int (*varRefCmpType)(const struct IRVarRef **,
 		*ptr = x;                                                                  \
 		ptr;                                                                       \
 	})
+
 static int filterVars(void *data, struct __graphNode *node) {
 	graphNodeIR enterNode = data;
 	if (node == enterNode)
@@ -58,6 +59,9 @@ static void __filterTransparentKill(graphNodeMapping node) {
 }
 STR_TYPE_DEF(struct IRVarRef *, Var);
 STR_TYPE_FUNCS(struct IRVarRef *, Var);
+static int IRVarRefCmp(const struct IRVarRef **a, const struct IRVarRef **b) {
+	return IRVarCmp(&a[0]->var, &b[0]->var);
+}
 struct basicBlock {
 	strGraphNodeMappingP nodes;
 	strVar read;
@@ -65,6 +69,11 @@ struct basicBlock {
 	strVar in;
 	strVar out;
 };
+static void printVars(strVar vars) {
+	for (long i = 0; i != strVarSize(vars); i++) {
+		DEBUG_PRINT("    - %s\n", debugGetPtrNameConst(vars[i]->var.value.var));
+	}
+}
 static int isExprEdge(graphEdgeIR edge) {
 	switch (*graphEdgeIRValuePtr(edge)) {
 	case IR_CONN_DEST:
@@ -440,23 +449,13 @@ static char *printMappedEdge(struct __graphEdge *edge) { return NULL; }
 static char *printMappedNode(struct __graphNode *node) {
 	return debugGetPtrName(node);
 }
-static strGraphNodeMappingP sortNodesBackwards(graphNodeMapping node) {
+static strGraphNodeMappingP sortNodes(graphNodeMapping node) {
 	strGraphNodeMappingP order = NULL;
 	strGraphNodeMappingP visited = NULL;
 
 	__visitForwardOrdered(&order, &visited, node);
 
 	strGraphNodeMappingPDestroy(&visited);
-
-	// Reverse order
-	long len = strGraphNodeMappingPSize(order);
-	for (long i = 0; i != len; i++) {
-		__auto_type a = &order[i];
-		__auto_type b = &order[len - i - 1];
-		__auto_type tmp = *a;
-		*a = *b;
-		*b = tmp;
-	}
 
 	return order;
 }
@@ -534,14 +533,19 @@ graphNodeIRLive IRInterferenceGraph(graphNodeIR start) {
 #if DEBUG_PRINT_ENABLE
 	graphPrint(mappedClone, printMappedNode, printMappedEdge);
 #endif
-	__auto_type backwards = sortNodesBackwards(mappedClone);
+	__auto_type forwards = sortNodes(mappedClone);
 
 	// Contains only metaNodes node
 	// Init ins/outs to empty sets
-	for (long i = 0; i != strGraphNodeMappingPSize(backwards); i++) {
-		char *hash = ptr2Str(backwards[i]);
+	for (long i = strGraphNodeMappingPSize(forwards) - 1; i >= 0; i--) {
+		char *hash = ptr2Str(forwards[i]);
 		__auto_type find = mapBlockMetaNodeGet(metaNodes, hash);
 		free(hash);
+
+#if DEBUG_PRINT_ENABLE
+		DEBUG_PRINT("Reseting in/outs of %s to empty.\n",
+		            debugGetPtrNameConst(find->node));
+#endif
 
 		// Could be start node
 		if (!find)
@@ -554,8 +558,8 @@ graphNodeIRLive IRInterferenceGraph(graphNodeIR start) {
 	for (;;) {
 		int changed = 0;
 
-		for (long i = 0; i != strGraphNodeMappingPSize(backwards); i++) {
-			char *hash = ptr2Str(backwards[i]);
+		for (long i = strGraphNodeMappingPSize(forwards) - 1; i >= 0; i--) {
+			char *hash = ptr2Str(forwards[i]);
 			__auto_type find = mapBlockMetaNodeGet(metaNodes, hash);
 			free(hash);
 
@@ -564,19 +568,27 @@ graphNodeIRLive IRInterferenceGraph(graphNodeIR start) {
 				continue;
 
 			__auto_type oldIns = strVarClone(find->block->in);
-			__auto_type oldOuts = strVarClone(find->block->in);
+			__auto_type oldOuts = strVarClone(find->block->out);
+
+#if DEBUG_PRINT_ENABLE
+			DEBUG_PRINT("Old ins of %s:\n", debugGetPtrNameConst(find->node));
+			printVars(oldIns);
+			DEBUG_PRINT("Old outs of %s:\n", debugGetPtrNameConst(find->node));
+			printVars(oldOuts);
+#endif
 
 			// read[n] Union (out[n]-define[n])
 			__auto_type newIns = strVarClone(find->block->read);
 			__auto_type diff =
-			    strVarSetDifference(strVarClone(find->block->out), find->block->out,
-			                        (varRefCmpType)ptrPtrCmp);
-			newIns = strVarSetUnion(newIns, diff, (varRefCmpType)ptrPtrCmp);
+			    strVarSetDifference(strVarClone(find->block->out),
+			                        find->block->define, (varRefCmpType)IRVarRefCmp);
+			newIns = strVarSetUnion(newIns, diff, (varRefCmpType)IRVarRefCmp);
+			newIns = strVarUnique(newIns, (varRefCmpType)IRVarRefCmp, NULL);
 			strVarDestroy(&diff);
 
 			// Union of successors insert
 			strVar newOuts = NULL;
-			__auto_type succs = graphNodeMappingOutgoingNodes(backwards[i]);
+			__auto_type succs = graphNodeMappingOutgoingNodes(forwards[i]);
 			for (long i = 0; i != strGraphNodeMappingPSize(succs); i++) {
 				char *hash = ptr2Str(succs[i]);
 				__auto_type find2 = mapBlockMetaNodeGet(metaNodes, hash);
@@ -587,9 +599,16 @@ graphNodeIRLive IRInterferenceGraph(graphNodeIR start) {
 					continue;
 
 				// Union
-				newOuts =
-				    strVarSetUnion(newOuts, find2->block->in, (varRefCmpType)ptrPtrCmp);
+				newOuts = strVarSetUnion(newOuts, find2->block->in,
+				                         (varRefCmpType)IRVarRefCmp);
 			}
+			newOuts = strVarUnique(newOuts, (varRefCmpType)IRVarRefCmp, NULL);
+#if DEBUG_PRINT_ENABLE
+			DEBUG_PRINT("New ins of %s:\n", debugGetPtrNameConst(find->node));
+			printVars(newIns);
+			DEBUG_PRINT("New outs of %s:\n", debugGetPtrNameConst(find->node));
+			printVars(newOuts);
+#endif
 
 			// Destroy old ins/outs then re-assign with new ones
 			strVarDestroy(&find->block->in);
@@ -617,7 +636,7 @@ graphNodeIRLive IRInterferenceGraph(graphNodeIR start) {
 		if (!changed)
 			break;
 	}
-	strGraphNodeMappingPDestroy(&backwards);
+	strGraphNodeMappingPDestroy(&forwards);
 
 	return NULL;
 }
