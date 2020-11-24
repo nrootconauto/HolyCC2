@@ -80,7 +80,7 @@ static void __graphNodeVisitDirPred(struct __graphNode *node, void *data,
 			goto next;
 
 		__auto_type connection =
-		    (d == DIR_FORWARD) ? edges[topIndex]->to : edges[topIndex]->from;
+				(d == DIR_FORWARD) ? edges[topIndex]->to : edges[topIndex]->from;
 		//
 		int cond = 1;
 		if (pred != NULL)
