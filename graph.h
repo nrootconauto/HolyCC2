@@ -156,6 +156,17 @@ struct __graphEdge;
 	inline strGraphNode##suffix##P graphNode##suffix##AllNodes(                  \
 	    const graphNode##suffix node) {                                          \
 		return __graphNodeVisitAll((struct __graphNode *)node);                    \
+	}                                                                            \
+	inline void graph##suffix##ReplaceNodes(                                     \
+	    strGraphNode##suffix##P toReplace, graphNode##suffix node,               \
+	    int (*edgeCmp)(const struct __graphEdge *, const struct __graphEdge *),  \
+	    void (*killNodeData)(void *)) __attribute__((always_inline));            \
+	inline void graph##suffix##ReplaceNodes(                                     \
+	    strGraphNode##suffix##P toReplace, graphNode##suffix node,               \
+	    int (*edgeCmp)(const struct __graphEdge *, const struct __graphEdge *),  \
+	    void (*killNodeData)(void *)) {                                          \
+		graphReplaceWithNode(toReplace, node, edgeCmp, killNodeData,               \
+		                     sizeof(edgeType));                                    \
 	}
 void __graphKillAll(struct __graphNode *start, void (*killFunc)(void *),
                     void (*killEdge)(void *));
@@ -197,6 +208,17 @@ int __graphIsConnectedTo(const struct __graphNode *from,
 strGraphNodeP __graphNodeIncomingNodes(const struct __graphNode *node);
 strGraphNodeP __graphNodeOutgoingNodes(const struct __graphNode *node);
 strGraphNodeP __graphNodeVisitAll(const struct __graphNode *start);
+STR_TYPE_DEF(strGraphEdgeP, GraphPath);
+STR_TYPE_FUNCS(strGraphEdgeP, GraphPath);
+strGraphPath graphAllPathsTo(struct __graphNode *from, struct __graphNode *to);
+void graphPrint(struct __graphNode *node, char *(*toStr)(struct __graphNode *),
+                char *(*toStrEdge)(struct __graphEdge *));
+void graphReplaceWithNode(strGraphNodeP toReplace,
+                          struct __graphNode *replaceWith,
+                          int (*edgeCmp)(const struct __graphEdge *,
+                                         const struct __graphEdge *),
+                          void (*killNodeData)(void *), long edgeSize);
+
 GRAPH_TYPE_DEF(struct __graphNode *, struct __graphEdge *, Mapping);
 GRAPH_TYPE_FUNCS(struct __graphNode *, struct __graphEdge *, Mapping);
 MAP_TYPE_DEF(graphNodeMapping, GraphNode);
@@ -205,8 +227,3 @@ graphNodeMapping createGraphMap(strGraphNodeP nodes, int preserveConnections);
 graphNodeMapping
 createFilteredGraph(struct __graphNode *start, strGraphNodeP nodes, void *data,
                     int (*pred)(void *data, struct __graphNode *));
-STR_TYPE_DEF(strGraphEdgeP, GraphPath);
-STR_TYPE_FUNCS(strGraphEdgeP, GraphPath);
-strGraphPath graphAllPathsTo(struct __graphNode *from, struct __graphNode *to);
-void graphPrint(struct __graphNode *node,
-                char *(*toStr)(struct __graphNode *),char *(*toStrEdge)(struct __graphEdge *));

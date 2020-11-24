@@ -80,7 +80,7 @@ static void __graphNodeVisitDirPred(struct __graphNode *node, void *data,
 			goto next;
 
 		__auto_type connection =
-				(d == DIR_FORWARD) ? edges[topIndex]->to : edges[topIndex]->from;
+		    (d == DIR_FORWARD) ? edges[topIndex]->to : edges[topIndex]->from;
 		//
 		int cond = 1;
 		if (pred != NULL)
@@ -383,7 +383,6 @@ graphNodeMapping createGraphMap(strGraphNodeP nodes, int preserveConnections) {
 	for (long i = 0; i != strGraphNodePSize(nodes); i++) {
 		__auto_type current = *mapGraphNodeGet(map, keys[i]);
 
-		
 		__auto_type out = __graphNodeOutgoing(nodes[i]);
 		__auto_type in = __graphNodeIncoming(nodes[i]);
 
@@ -507,8 +506,8 @@ strGraphPath graphAllPathsTo(struct __graphNode *from, struct __graphNode *to) {
 	strGraphEdgePDestroy(&currentPath);
 	return paths;
 }
-void graphPrint(struct __graphNode *node,
-                char *(*toStr)(struct __graphNode *),char *(*toStrEdge)(struct __graphEdge *)) {
+void graphPrint(struct __graphNode *node, char *(*toStr)(struct __graphNode *),
+                char *(*toStrEdge)(struct __graphEdge *)) {
 	__auto_type allNodes = __graphNodeVisitAll(node);
 	for (long i = 0; i != strGraphNodePSize(allNodes); i++) {
 		__auto_type outNodes = __graphNodeOutgoing(allNodes[i]);
@@ -517,8 +516,8 @@ void graphPrint(struct __graphNode *node,
 		printf("NODE:%s\n", cur);
 		for (long i2 = 0; i2 != strGraphEdgePSize(outNodes); i2++) {
 			char *out = toStr(outNodes[i2]->to);
-			char *edgeStr=toStrEdge(outNodes[i2]);
-			printf("     %s(%s)\n", out,edgeStr);
+			char *edgeStr = toStrEdge(outNodes[i2]);
+			printf("     %s(%s)\n", out, edgeStr);
 			free(out);
 		}
 		// In
@@ -529,4 +528,105 @@ void graphPrint(struct __graphNode *node,
 		strGraphEdgePDestroy(&outNodes);
 	}
 	strGraphNodePDestroy(&allNodes);
+}
+void graphReplaceWithNode(strGraphNodeP toReplace,
+                          struct __graphNode *replaceWith,
+                          int (*edgeCmp)(const struct __graphEdge *,
+                                         const struct __graphEdge *),
+                          void (*killNodeData)(void *), long edgeSize) {
+	strGraphEdgeP allIncoming = NULL;
+	strGraphEdgeP allOutgoing = NULL;
+
+	strGraphNodeP visitedIncoming = NULL;
+	strGraphNodeP visitedOutgoing = NULL;
+
+	// Incoming connnections not connection to items in toReplace
+	for (long i = 0; i != strGraphNodePSize(toReplace); i++) {
+		for (long i2 = 0; i2 != strGraphEdgePSize(toReplace[i]->incoming); i2++) {
+			__auto_type from = toReplace[i]->incoming[i2]->from;
+
+			// Ignore incoming connections to internal items of blob(toReplace)
+			if (NULL !=
+			    strGraphNodePSortedFind(toReplace, from, (gnCmpType)ptrCompare))
+				continue;
+
+			// Edge for repeat edges ,if repeat edgew dont connect
+			int existingEdge = 1;
+			if (edgeCmp)
+				existingEdge = NULL != strGraphEdgePSortedFind(
+				                           allIncoming, toReplace[i]->incoming[i2],
+				                           (geCmpType)edgeCmp);
+			else
+				// Check if exisiting connection
+				existingEdge = NULL != strGraphNodePSortedFind(visitedIncoming, from,
+				                                               (gnCmpType)ptrCompare);
+
+			if (existingEdge)
+				continue;
+
+			allIncoming = strGraphEdgePSortedInsert(
+			    allIncoming, toReplace[i]->incoming[i2], (geCmpType)ptrCompare);
+			visitedIncoming = strGraphNodePSortedInsert(visitedIncoming, from,
+			                                            (gnCmpType)ptrCompare);
+		}
+	}
+
+	// Outgoing connnections not connection to items in toReplace
+	for (long i = 0; i != strGraphNodePSize(toReplace); i++) {
+		for (long i2 = 0; i2 != strGraphEdgePSize(toReplace[i]->outgoing); i2++) {
+			__auto_type to = toReplace[i]->outgoing[i2]->to;
+
+			// Ignore incoming connections to internal items of blob(toReplace)
+			if (NULL != strGraphNodePSortedFind(toReplace, to, (gnCmpType)ptrCompare))
+				continue;
+
+			// Edge for repeat edges ,if repeat edgew dont connect
+			int existingEdge = 1;
+			if (edgeCmp)
+				existingEdge = NULL != strGraphEdgePSortedFind(
+				                           allOutgoing, toReplace[i]->outgoing[i2],
+				                           (geCmpType)edgeCmp);
+			else
+				// Check if exisiting connection
+				existingEdge = NULL != strGraphNodePSortedFind(visitedOutgoing, to,
+				                                               (gnCmpType)ptrCompare);
+
+			if (existingEdge)
+				continue;
+
+			allOutgoing = strGraphEdgePSortedInsert(
+			    allOutgoing, toReplace[i]->outgoing[i2], (geCmpType)ptrCompare);
+			visitedOutgoing =
+			    strGraphNodePSortedInsert(visitedOutgoing, to, (gnCmpType)ptrCompare);
+		}
+	}
+
+	// Connect incoming to replaceWith
+	for (long i = 0; i != strGraphEdgePSize(allIncoming); i++) {
+		if (allIncoming[i]->valuePresent) {
+			__graphNodeConnect(allIncoming[i]->from, replaceWith,
+			                   __graphEdgeValuePtr(allIncoming[i]), edgeSize);
+		} else {
+			__graphNodeConnect(allIncoming[i]->from, replaceWith, NULL, 0);
+		}
+	}
+
+	// Connect outgoing to replaceWith
+	for (long i = 0; i != strGraphEdgePSize(allOutgoing); i++) {
+		if (allOutgoing[i]->valuePresent) {
+			__graphNodeConnect(replaceWith, allOutgoing[i]->to,
+			                   __graphEdgeValuePtr(allOutgoing[i]), edgeSize);
+		} else {
+			__graphNodeConnect(replaceWith, allOutgoing[i]->to, NULL, 0);
+		}
+	}
+
+	strGraphNodePDestroy(&visitedIncoming);
+	strGraphNodePDestroy(&visitedOutgoing);
+	strGraphEdgePDestroy(&allIncoming);
+	strGraphEdgePDestroy(&allOutgoing);
+
+	// Kill all nodes to replace
+	for (long i = 0; i != strGraphNodePSize(toReplace); i++)
+		__graphNodeKill(toReplace[i], killNodeData, NULL);
 }

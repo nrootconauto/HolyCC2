@@ -5,7 +5,7 @@
 #else
 #define DEBUG_PRINT(text, ...) ;
 #endif
-void debugAddPtrName(const void *a,const char *text);
+void debugAddPtrName(const void *a, const char *text);
 char *debugGetPtrName(const void *a);
 void debugRemovePtrName(const void *a);
 const char *debugGetPtrNameConst(const void *a);
