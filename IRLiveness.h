@@ -1,6 +1,6 @@
 #include <IR.h>
 struct IRVarLiveness {
-	graphNodeIR var;
+	  struct IRVarRef *ref;
 };
 GRAPH_TYPE_DEF(struct IRVarLiveness, void *, IRLive);
 GRAPH_TYPE_FUNCS(struct IRVarLiveness, void *, IRLive);

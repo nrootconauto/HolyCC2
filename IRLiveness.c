@@ -459,6 +459,18 @@ static strGraphNodeMappingP sortNodes(graphNodeMapping node) {
 
 	return order;
 }
+static void killNode(void *ptr) {
+		__graphNodeKill(*(struct __graphNode**)ptr ,  NULL, NULL);
+}
+struct varRefNodePair {
+		struct IRVarRef *ref;
+		graphNodeIRLive node;
+};
+STR_TYPE_DEF(struct varRefNodePair,VarRefNodePair);
+STR_TYPE_FUNCS(struct varRefNodePair,VarRefNodePair);
+static int varRefNodePairCmp(const struct varRefNodePair *a, const struct varRefNodePair *b) {
+		return IRVarRefCmp((void*)&a->ref, (void*)&b->ref);
+}
 graphNodeIRLive IRInterferenceGraph(graphNodeIR start) {
 	mapBlockMetaNode metaNodes = mapBlockMetaNodeCreate();
 
@@ -636,7 +648,79 @@ graphNodeIRLive IRInterferenceGraph(graphNodeIR start) {
 		if (!changed)
 			break;
 	}
-	strGraphNodeMappingPDestroy(&forwards);
 
-	return NULL;
+	//
+	// Create interference graph
+	//
+	graphNodeIRLive retVal=NULL;
+	strVarRefNodePair assocArray=NULL;
+	for(long i=0;i!=strGraphNodePSize(forwards);i++) {
+			//Find meta node
+			char *hash=ptr2Str(forwards[i]);
+			__auto_type find=mapBlockMetaNodeGet(metaNodes, hash);
+			free(hash);
+
+			//Could be start node
+			if(!find)
+					continue;
+
+			//
+			// We first search for the items and register them before we connect them
+			//
+			strGraphNodeIRLiveP liveAtOnce=NULL;
+			for(long i2=0;i2!=strVarSize(find->block->in);i2++) {
+					struct varRefNodePair pair;
+					pair.ref=find->block->in[i2];
+			registerLoop:;
+					//Look for value
+					__auto_type find2=strVarRefNodePairSortedFind(assocArray,  pair, varRefNodePairCmp);
+					if(NULL==find2) {
+							//Create a node 
+							struct IRVarLiveness live;
+							live.ref=find->block->in[i2];
+
+							//Set the ndoe and insert
+							pair.node=graphNodeIRLiveCreate(live, 0);
+							assocArray=strVarRefNodePairSortedInsert(assocArray, pair, varRefNodePairCmp);
+
+							//Any node wil node
+							retVal=pair.node;
+							goto registerLoop;
+					}
+
+					//Append to live at once
+					liveAtOnce=strGraphNodeIRLivePAppendItem(liveAtOnce, find2->node);
+			}
+
+			//
+			// Connect the nodes to eachother(bi-directionally to simular udirecred graph)
+			//
+			for(long i1=0;i1!=strGraphNodeIRLivePSize(liveAtOnce);i1++) {
+					for(long i2=0;i2!=strGraphNodeIRLivePSize(liveAtOnce);i2++) {
+							//Dont connect to self
+							if(i1==i2)
+									continue;
+
+							//Dont reconnect
+							if(graphNodeIRLiveConnectedTo(liveAtOnce[i1], liveAtOnce[i2]))
+									continue;
+
+							//Connect(bi-directional to simulate undirected)
+							graphNodeIRLiveConnect(liveAtOnce[i1], liveAtOnce[i2], NULL);
+							graphNodeIRLiveConnect(liveAtOnce[i2],liveAtOnce[i1], NULL);
+
+#if DEBUG_PRINT_ENABLE
+							__auto_type ref1=debugGetPtrNameConst(graphNodeIRLiveValuePtr(liveAtOnce[i1])->ref->var.value.var);
+							__auto_type ref2=debugGetPtrNameConst(graphNodeIRLiveValuePtr(liveAtOnce[i2])->ref->var.value.var);
+							DEBUG_PRINT("Connecting %s to %s\n", ref1,ref2);
+#endif
+					}
+			}
+
+			strGraphNodeIRLivePDestroy(&liveAtOnce);
+	}
+
+	strGraphNodeMappingPDestroy(&forwards);
+	mapBlockMetaNodeDestroy(metaNodes, killNode);
+	return retVal;
 }

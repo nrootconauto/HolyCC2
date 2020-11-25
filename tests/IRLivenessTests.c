@@ -2,6 +2,11 @@
 #include <assert.h>
 #include <debugPrint.h>
 #include <string.h>
+struct nameVarPair {
+		const char *name;
+		struct variable *var;
+		graphNodeIRLive node;
+};
 void LivenessTests() {
 		initIR();
 		//https://lambda.uta.edu/cse5317/spring01/notes/node37.html
@@ -162,5 +167,72 @@ void LivenessTests() {
 		if(1)
 				graphPrint(entry, (char*(*)(struct __graphNode*))debugGetPtrName,graphEdgeIR2Str);
 
-		IRInterferenceGraph(entry);
+		__auto_type interfere=IRInterferenceGraph(entry);
+		mapGraphNode byVar=mapGraphNodeCreate();
+		__auto_type allNodes=graphNodeIRLiveAllNodes(interfere);
+		assert(strGraphNodeIRLivePSize(allNodes)==6);
+
+		struct nameVarPair expected[]={
+				{"u",u,NULL},
+				{"v",v,NULL},
+				{"w",w,NULL},
+				{"x",x,NULL},
+				{"y",y,NULL},
+				{"z",z,NULL},
+		};
+		//
+		// Find expected items
+		//
+		long len=sizeof(expected)/sizeof(*expected);
+		for(long i=0;i!=len;i++) {
+				for(long i2=0;i2!=len;i2++) {
+						if(graphNodeIRLiveValuePtr(allNodes[i2])->ref->var.value.var==expected[i].var) {
+								expected[i].node=allNodes[i2];
+
+								//Register in map
+								mapGraphNodeInsert(byVar, expected[i].name, expected[i].node);
+
+								goto found;
+						}
+				}
+				assert(0);
+		found:;
+		}
+
+		__auto_type uNode=*mapGraphNodeGet(byVar, "u");
+		__auto_type vNode=*mapGraphNodeGet(byVar, "v");
+		__auto_type wNode=*mapGraphNodeGet(byVar, "w");
+		__auto_type xNode=*mapGraphNodeGet(byVar, "x");
+		__auto_type yNode=*mapGraphNodeGet(byVar, "y");
+		__auto_type zNode=*mapGraphNodeGet(byVar, "z");
+
+		//u
+		assert(graphNodeIRLiveConnectedTo(uNode, vNode));
+		assert(graphNodeIRLiveConnectedTo(uNode, wNode));
+		assert(graphNodeIRLiveConnectedTo(uNode, yNode));
+
+		//v
+		assert(graphNodeIRLiveConnectedTo(vNode, uNode));
+		assert(graphNodeIRLiveConnectedTo(vNode, zNode));
+		
+		//w
+		assert(graphNodeIRLiveConnectedTo(wNode, uNode));
+		assert(graphNodeIRLiveConnectedTo(wNode, yNode));
+		assert(graphNodeIRLiveConnectedTo(wNode, zNode));
+
+		// x
+		assert(graphNodeIRLiveConnectedTo(xNode, yNode));
+		assert(graphNodeIRLiveConnectedTo(xNode, zNode));
+
+		// y
+		assert(graphNodeIRLiveConnectedTo(yNode, uNode));
+		assert(graphNodeIRLiveConnectedTo(yNode, wNode));
+		assert(graphNodeIRLiveConnectedTo(yNode, xNode));
+		assert(graphNodeIRLiveConnectedTo(yNode, zNode));
+
+		// z
+		assert(graphNodeIRLiveConnectedTo(zNode, xNode));
+		assert(graphNodeIRLiveConnectedTo(zNode, yNode));
+		assert(graphNodeIRLiveConnectedTo(zNode, wNode));
+		assert(graphNodeIRLiveConnectedTo(zNode, vNode));
 }
