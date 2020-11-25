@@ -386,6 +386,18 @@ char *graphEdgeIR2Str(struct __graphEdge *edge) {
 
 	return NULL;
 }
+graphNodeIR createReturn(graphNodeIR exp,graphNodeIR func) {
+		struct IRNodeFuncReturn ret;
+		ret.base.attrs=NULL;
+		ret.base.type=IR_FUNC_RETURN;
+		ret.funcStart=func;
+		ret.exp=exp;
+
+		__auto_type retVal=GRAPHN_ALLOCATE(ret);
+		graphNodeIRConnect(exp, retVal, IR_CONN_SOURCE_A);
+
+		return retVal;
+}
 /*void IRStmtBlockFromTailNode(graphNodeIR tail,graphNodeIR *enter,graphNodeIR
 *exit) {
     //Check if already a statement

@@ -261,7 +261,12 @@ struct IRNodeFuncStart {
 	struct function *func;
 };
 struct IRNodeFuncEnd {
-	struct IRNode base;
+		struct IRNode base;
+};
+struct IRNodeFuncReturn {
+		struct IRNode base;
+		graphNodeIR funcStart;
+		graphNodeIR exp;
 };
 struct IRNodeChoose {
 	struct IRNode base;
@@ -301,3 +306,4 @@ void IRStmtBlockFromTailNode(graphNodeIR tail, graphNodeIR *enter,
 graphNodeIR IRGetStmtStart(graphNodeIR node);
 int IRVarCmp(const struct IRVar *a, const struct IRVar *b);
 char *graphEdgeIR2Str(struct __graphEdge *edge);
+graphNodeIR createReturn(graphNodeIR exp,graphNodeIR func);

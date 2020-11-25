@@ -1,3 +1,4 @@
+#pragma once
 #include <IR.h>
 struct IRVarLiveness {
 	  struct IRVarRef *ref;

@@ -446,8 +446,11 @@ static void __visitForwardOrdered(strGraphNodeMappingP *order,
 	strGraphNodeMappingPDestroy(&outgoing);
 }
 static char *printMappedEdge(struct __graphEdge *edge) { return NULL; }
+static char *printMappedNodesValue(struct __graphNode *node) {
+		return debugGetPtrName(*graphNodeMappingValuePtr(node));
+}
 static char *printMappedNode(struct __graphNode *node) {
-	return debugGetPtrName(node);
+		return debugGetPtrName(node);
 }
 static strGraphNodeMappingP sortNodes(graphNodeMapping node) {
 	strGraphNodeMappingP order = NULL;
@@ -497,7 +500,7 @@ graphNodeIRLive IRInterferenceGraph(graphNodeIR start) {
 			                                           (gnCmpType)ptrPtrCmp);
 
 			__auto_type basicBlocks =
-			    getBasicBlocksFromExpr(start, metaNodes, allMappedNodes[i]);
+			    getBasicBlocksFromExpr(mappedClone, metaNodes, allMappedNodes[i]);
 
 			// NULL if not found
 			if (!basicBlocks)
@@ -508,6 +511,9 @@ graphNodeIRLive IRInterferenceGraph(graphNodeIR start) {
 				allMappedNodes = strGraphNodeMappingPSetDifference(
 				    allMappedNodes, basicBlocks[i]->nodes, (gnCmpType)ptrPtrCmp);
 			}
+#if DEBUG_PRINT_ENABLE
+			graphPrint(mappedClone, printMappedNodesValue, printMappedEdge);
+#endif
 
 			// Mark as found;
 			found = 1;
