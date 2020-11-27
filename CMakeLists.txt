@@ -34,6 +34,7 @@ list(APPEND sources "IRExec.c")
 list(APPEND sources "SSA.c")
 list(APPEND sources "IRLiveness.c")
 list(APPEND sources "debugPrint.c")
+list(APPEND sources "escaper.c")
 
 set(tests "")
 list(APPEND tests "tests/tests.c")

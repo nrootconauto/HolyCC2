@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <str.h>
+#include <escaper.h>
 #define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 typedef int (*geCmpType)(const struct __graphEdge **,
@@ -675,6 +676,16 @@ static int llGVEdgeCmp(const struct graphVizEdge *ed,
 
 	return 0;
 }
+static char *stringify(const char *text) {
+		char *escaped=escapeString((char*)text);
+		long size=snprintf(NULL, 0, "\"%s\"", escaped);
+		char buffer[size+1];
+		sprintf(buffer, "\"%s\"", escaped);
+
+		free(escaped);
+
+		return strClone(buffer);
+}
 static void writeOutGVAttrs(FILE *dumpTo, mapGraphVizAttr attrs) {
 	// write out attributes(if exist)
 	long count;
@@ -692,8 +703,10 @@ static void writeOutGVAttrs(FILE *dumpTo, mapGraphVizAttr attrs) {
 			if (i2 != 0)
 				fprintf(dumpTo, ";");
 
+			__auto_type attrValue=stringify(*mapGraphVizAttrGet(attrs, attrNames[i2]));
 			fprintf(dumpTo, "%s=%s", attrNames[i2],
-			        *mapGraphVizAttrGet(attrs, attrNames[i2]));
+			        attrValue);
+			free(attrValue);
 		}
 
 		fprintf(dumpTo, "]");
@@ -705,9 +718,6 @@ struct GraphVizNode {
 };
 MAP_TYPE_DEF(struct GraphVizNode, GVNode);
 MAP_TYPE_FUNCS(struct GraphVizNode, GVNode);
-static char *stringifyThenFree(char * str) {
-		long len
-}
 void graph2GraphViz(FILE *dumpTo, graphNodeMapping graph, const char *title,
                     char *(*nodeToLabel)(const struct __graphNode *node,
                                          mapGraphVizAttr *attrs,
@@ -795,7 +805,7 @@ void graph2GraphViz(FILE *dumpTo, graphNodeMapping graph, const char *title,
 	// Dump to file
 	//
 
-	fprintf(dumpTo, "graph %s {\n", title);
+	fprintf(dumpTo, "digraph %s {\n", title);
 
 	// Nodes
 	{
