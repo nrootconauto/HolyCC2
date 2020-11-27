@@ -744,9 +744,13 @@ void graph2GraphViz(FILE *dumpTo, graphNodeMapping graph, const char *title,
 			name = nodeToLabel(allNodes[i], &node.attrs, nodeData);
 
 		// Assign label if not provided
-		if (!mapGraphVizAttrGet(node.attrs, "label"))
-			mapGraphVizAttrInsert(node.attrs, "label", strClone(node.name));
-
+		if (!mapGraphVizAttrGet(node.attrs, "label")) {
+				if(name)
+						mapGraphVizAttrInsert(node.attrs, "label", strClone(name));
+				else 
+						mapGraphVizAttrInsert(node.attrs, "label", strClone(node.name));
+		}
+			
 		// Insert
 		mapGVNodeInsert(gvNodesMap, node.name, node);
 
@@ -766,6 +770,7 @@ void graph2GraphViz(FILE *dumpTo, graphNodeMapping graph, const char *title,
 		// Dont re-visit visited eges
 		edges =
 		    strGraphEdgePSetDifference(edges, visitedEdges, (geCmpType)ptrCompare);
+		visitedEdges=strGraphEdgePSetUnion(visitedEdges, edges, (geCmpType)ptrCompare);
 
 		for (long i2 = 0; i2 != strGraphEdgeMappingPSize(edges); i2++) {
 			// find graphviz versions of nodes coming in
@@ -793,9 +798,11 @@ void graph2GraphViz(FILE *dumpTo, graphNodeMapping graph, const char *title,
 				mapGraphVizAttrInsert(edge.attrs, "label", strClone(name));
 
 			// Insert edge
-			__auto_type newNode = llGVEdgeCreate(edge);
-			llGVEdgeInsert(gvEdges, newNode, llGVEdgeCmp);
-			gvEdges = newNode;
+			if(!llGVEdgeFind(gvEdges, &edge, (int(*)(const void*,const struct graphVizEdge*))llGVEdgeCmp)) {
+					__auto_type newNode = llGVEdgeCreate(edge);
+					llGVEdgeInsert(gvEdges, newNode, llGVEdgeCmp);
+					gvEdges = newNode;
+			}
 
 			free(name);
 		}

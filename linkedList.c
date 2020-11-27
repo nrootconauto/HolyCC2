@@ -220,7 +220,8 @@ struct __ll *__llValueResize(struct __ll *list, long newSize) {
 long __llItemSize(const struct __ll *list) { return list->itemSize; }
 struct __ll *__llFind(const struct __ll *list, const void *data,
                       int (*pred)(const void *, const void *)) {
-	int prev = 0;
+	int firstRun = 0;
+	int dir=0;
 	while (list != NULL) {
 		int cmp = pred(data, __llValuePtr(list));
 		if (cmp == 0) {
@@ -228,14 +229,22 @@ struct __ll *__llFind(const struct __ll *list, const void *data,
 		}
 		// prev is used to check if not moving backwards and forwards forever if
 		// value is between next node and curr
-		else if (cmp < 0 && (cmp == prev || prev == 0)) {
+		else if (cmp < 0) {
 			list = __llPrev(list);
+			if(dir!=-1&&!firstRun)
+					break;
+			dir=-1;
+			firstRun=0;
 			continue;
 		}
 		// prev is used to check if not moving backwards and forwards forever if
 		// value is between previous node and curr
-		else if (cmp > 0 && (cmp == prev || prev == 0)) {
+		else if (cmp > 0) {
 			list = __llNext(list);
+			if(dir!=1&&!firstRun)
+					break;
+			dir=1;
+			firstRun=0;
 			continue;
 		}
 		return NULL;
