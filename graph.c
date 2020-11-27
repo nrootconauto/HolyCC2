@@ -630,3 +630,201 @@ void graphReplaceWithNode(strGraphNodeP toReplace,
 	for (long i = 0; i != strGraphNodePSize(toReplace); i++)
 		__graphNodeKill(toReplace[i], killNodeData, NULL);
 }
+STR_TYPE_DEF(char, Char);
+STR_TYPE_FUNCS(char, Char);
+static strChar ptr2GraphVizName(const void *a) {
+	__auto_type name = ptr2Str(a);
+	const char *format = "\"%s\"";
+	long len = snprintf(NULL, 0, format, name);
+	char buffer[len + 1];
+	sprintf(buffer, format, name);
+
+	free(name);
+
+	return strCharAppendData(NULL, buffer, strlen(buffer) + 1);
+}
+static char *strClone(const char *text) {
+	char *retVal = malloc(strlen(text) + 1);
+	strcpy(retVal, text);
+
+	return retVal;
+}
+struct graphVizEdge {
+	//
+	// These are const char *s,they point to keys from map
+	//
+	const char *inNodeName;
+	const char *outNodeName;
+	mapGraphVizAttr attrs;
+};
+
+LL_TYPE_DEF(struct graphVizEdge, GVEdge);
+LL_TYPE_FUNCS(struct graphVizEdge, GVEdge);
+static int llGVEdgeCmp(const struct graphVizEdge *ed,
+                       const struct graphVizEdge *node) {
+	__auto_type newV = ed;
+	__auto_type nodeV = node;
+
+	int res = ptrCompare(&newV->inNodeName, &nodeV->inNodeName);
+	if (res != 0)
+		return res;
+
+	res = ptrCompare(&newV->outNodeName, &nodeV->outNodeName);
+	if (res != 0)
+		return res;
+
+	return 0;
+}
+static void writeOutGVAttrs(FILE *dumpTo, mapGraphVizAttr attrs) {
+	// write out attributes(if exist)
+	long count;
+	mapGraphVizAttrKeys(attrs, NULL, &count);
+
+	if (count) {
+		fprintf(dumpTo, "[");
+
+		// Get attr names
+		const char *attrNames[count];
+		mapGraphVizAttrKeys(attrs, attrNames, NULL);
+
+		for (long i2 = 0; i2 != count; i2++) {
+			// Print terminating ";" for previous item (if has a first item)
+			if (i2 != 0)
+				fprintf(dumpTo, ";");
+
+			fprintf(dumpTo, "%s=%s", attrNames[i2],
+			        *mapGraphVizAttrGet(attrs, attrNames[i2]));
+		}
+
+		fprintf(dumpTo, "]");
+	}
+}
+struct GraphVizNode {
+	strChar name;
+	mapGraphVizAttr attrs;
+};
+MAP_TYPE_DEF(struct GraphVizNode, GVNode);
+MAP_TYPE_FUNCS(struct GraphVizNode, GVNode);
+void graph2GraphViz(FILE *dumpTo, graphNodeMapping graph, const char *title,
+                    char *(*nodeToLabel)(const struct __graphNode *node,
+                                         mapGraphVizAttr *attrs,
+                                         const void *data),
+                    char *(*edgeToLabel)(const struct __graphEdge *node,
+                                         mapGraphVizAttr *attrs,
+                                         const void *data),
+                    const void *nodeData, const void *edgeData) {
+	__auto_type allNodes = __graphNodeVisitAll(graph);
+
+	//
+	// Make nodes
+	//
+	mapGVNode gvNodesMap = mapGVNodeCreate();
+	for (long i = 0; i != strGraphNodePSize(allNodes); i++) {
+		// Create node
+		struct GraphVizNode node;
+		node.name = ptr2GraphVizName(allNodes[i]);
+		node.attrs = mapGraphVizAttrCreate();
+
+		// Compute attributes and name
+		char *name = NULL;
+		if (nodeToLabel)
+			name = nodeToLabel(allNodes[i], &node.attrs, nodeData);
+
+		// Assign label if not provided
+		if (!mapGraphVizAttrGet(node.attrs, "label"))
+			mapGraphVizAttrInsert(node.attrs, "label", strClone(node.name));
+
+		// Insert
+		mapGVNodeInsert(gvNodesMap, node.name, node);
+
+		free(name);
+	}
+
+	//
+	// Edges
+	//
+
+	llGVEdge gvEdges = NULL;
+
+	strGraphEdgeMappingP visitedEdges = NULL;
+	for (long i = 0; i != strGraphNodePSize(allNodes); i++) {
+		strGraphEdgeMappingP edges = graphNodeMappingOutgoing(allNodes[i]);
+
+		// Dont re-visit visited eges
+		edges =
+		    strGraphEdgePSetDifference(edges, visitedEdges, (geCmpType)ptrCompare);
+
+		for (long i2 = 0; i2 != strGraphEdgeMappingPSize(edges); i2++) {
+			// find graphviz versions of nodes coming in
+			char *key = ptr2GraphVizName(edges[i2]->from);
+			__auto_type inPtr = mapGVNodeGet(gvNodesMap, key);
+			strCharDestroy(&key);
+			key = ptr2GraphVizName(edges[i2]->to);
+			__auto_type outPtr = mapGVNodeGet(gvNodesMap, key);
+			strCharDestroy(&key);
+
+			// Create edge
+			struct graphVizEdge edge;
+			edge.attrs = mapGraphVizAttrCreate();
+			edge.inNodeName = mapGVNodeValueKey(inPtr);
+			edge.inNodeName = mapGVNodeValueKey(outPtr);
+
+			// Assign attribute and name from predicate
+			char *name = NULL;
+			if (edgeToLabel) {
+				name = edgeToLabel(edges[i2], &edge.attrs, edgeData);
+			}
+
+			// Assign name to label if not already defined
+			if (name)
+				mapGraphVizAttrInsert(edge.attrs, "label", strClone(name));
+
+			// Insert edge
+			__auto_type newNode = llGVEdgeCreate(edge);
+			llGVEdgeInsert(gvEdges, llGVEdgeCreate(edge), llGVEdgeCmp);
+			gvEdges = newNode;
+
+			free(name);
+		}
+	}
+
+	//
+	// Dump to file
+	//
+
+	fprintf(dumpTo, "graph %s {\n", title);
+
+	// Nodes
+	{
+		// Get keys
+		long kCount;
+		mapGVNodeKeys(gvNodesMap, NULL, &kCount);
+		const char *keys[kCount];
+		mapGVNodeKeys(gvNodesMap, keys, NULL);
+
+		// Write out nodes
+		for (long i = 0; i != kCount; i++) {
+			__auto_type find = *mapGVNodeGet(gvNodesMap, keys[i]);
+			fprintf(dumpTo, "    \"%s\"", find.name);
+
+			writeOutGVAttrs(dumpTo, find.attrs);
+
+			fprintf(dumpTo, ";\n");
+		}
+	}
+
+	// Write out edges
+	for (__auto_type edge = llGVEdgeFirst(gvEdges); edge != NULL;
+	     edge = llGVEdgeNext(edge)) {
+		__auto_type edgeValue = llGVEdgeValuePtr(edge);
+		// Write out nodes
+		fprintf(dumpTo, "    \"%s\"->\"\%s\"", edgeValue->inNodeName,
+		        edgeValue->outNodeName);
+
+		writeOutGVAttrs(dumpTo, edgeValue->attrs);
+
+		fprintf(dumpTo, ";\n");
+	}
+
+	fprintf(dumpTo, "}");
+}

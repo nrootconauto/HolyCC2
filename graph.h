@@ -1,5 +1,6 @@
 #include <hashTable.h>
 #include <linkedList.h>
+#include <stdio.h>
 #include <str.h>
 #pragma once
 struct __graphNode;
@@ -227,3 +228,13 @@ graphNodeMapping createGraphMap(strGraphNodeP nodes, int preserveConnections);
 graphNodeMapping
 createFilteredGraph(struct __graphNode *start, strGraphNodeP nodes, void *data,
                     int (*pred)(void *data, struct __graphNode *));
+MAP_TYPE_DEF(char *, GraphVizAttr);
+MAP_TYPE_FUNCS(char *, GraphVizAttr);
+void graph2GraphViz(FILE *dumpTo, graphNodeMapping graph, const char *title,
+                    char *(*nodeToLabel)(const struct __graphNode *node,
+                                         mapGraphVizAttr *attrs,
+                                         const void *data),
+                    char *(*edgeToLabel)(const struct __graphEdge *node,
+                                         mapGraphVizAttr *attrs,
+                                         const void *data),
+                    const void *nodeData, const void *edgeData);

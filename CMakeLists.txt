@@ -1,5 +1,8 @@
+include(FindPkgConfig) 
 cmake_minimum_required(VERSION 3.0)
 set (CMAKE_CC_STANDARD 11)
+
+pkg_check_modules(GRAPHVIZ libcgraph)
 
 project(holycc2 LANGUAGES C)
 
@@ -55,6 +58,11 @@ list(APPEND tests "tests/subExprElimTests.c")
 list(APPEND tests "tests/SSATests.c")
 list(APPEND tests "tests/IRLivenessTests.c")
 add_executable(holycc2 ${sources} ${tests})
+
+if(GRAPHVIZ_FOUND)
+	target_compile_definitions(holycc2 PUBLIC -DHCC_USE_GRAPHVIZ=1)
+endif()
+
 target_include_directories(holycc2 PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/ext/skinny_mutex)
 target_link_Libraries(holycc2 pthread ncurses m)
 install(TARGETS holycc2 RUNTIME DESTINATION bin)

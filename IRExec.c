@@ -553,18 +553,6 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 			*success = 1;
 		return retVal;
 	}
-	case IR_LOAD: {
-		__auto_type incoming = graphNodeIRIncomingNodes(node);
-		__auto_type retVal = valueHash(
-		    &((struct IRNodeValue *)graphNodeIRValuePtr(incoming[0]))->val,
-		    IREVAL_VAL_DFT);
-		if (!retVal)
-			goto fail;
-
-		if (success)
-			*success = 1;
-		return *retVal;
-	}
 	case IR_FUNC_CALL: {
 		/**
 		struct IRNodeFuncCall *call=(void*)graphNodeIRValuePtr(node);

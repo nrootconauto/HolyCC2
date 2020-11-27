@@ -9,4 +9,4 @@ void debugAddPtrName(const void *a, const char *text);
 char *debugGetPtrName(const void *a);
 void debugRemovePtrName(const void *a);
 const char *debugGetPtrNameConst(const void *a);
-#define DEBUG_PRINT_REGISTER_VAR(var) ({debugAddPtrName(var,#var);})
+#define DEBUG_PRINT_REGISTER_VAR(var) ({ debugAddPtrName(var, #var); })
