@@ -187,7 +187,7 @@ graphNodeIR createJmp(graphNodeIR to) {
 	jmp.base.type = IR_JUMP;
 
 	__auto_type retVal = GRAPHN_ALLOCATE(jmp);
-	graphNodeIRConnect(to, retVal, IR_CONN_FLOW);
+	graphNodeIRConnect(retVal,to, IR_CONN_FLOW);
 
 	return retVal;
 }

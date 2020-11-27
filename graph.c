@@ -402,20 +402,6 @@ graphNodeMapping createGraphMap(strGraphNodeP nodes, int preserveConnections) {
 				free(key);
 			}
 		}
-		// Connect incoming
-		for (long i = 0; i != strGraphEdgePSize(in); i++) {
-			char *key = ptr2Str(in[i]->from);
-			__auto_type find = *mapGraphNodeGet(map, key);
-
-			// If not preserve connections,ignore multiple connections
-			if (!preserveConnections)
-				if (__graphIsConnectedTo(find, current))
-					continue;
-
-			if (find)
-				__graphNodeConnect(find, current, &in[i], sizeof(in[i]));
-			free(key);
-		}
 	}
 
 	__auto_type retVal = *mapGraphNodeGet(map, keys[0]);

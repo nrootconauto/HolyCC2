@@ -14,7 +14,6 @@ void graphVizTests() {
 				__auto_type strNode=createStrLit("Hello World");
 				graphNodeIRConnect(labelNode, intNode, IR_CONN_FLOW);
 				graphNodeIRConnect(labelNode, strNode, IR_CONN_FLOW);
-				/*
 				__auto_type var1=createVirtVar(&typeI64i);
 				__auto_type var1RefNode=createVarRef(var1);
 				__auto_type binop=createBinop(intNode, var1RefNode, IR_ADD);
@@ -48,7 +47,6 @@ void graphVizTests() {
 				graphNodeIRConnect(funcCallNode, stmtEndNode, IR_CONN_FLOW);
 		
 				graphNodeIRConnect(chooseNode, stmtStartNode, IR_CONN_FLOW);
-				*/
 
 				__auto_type allNodes=graphNodeIRAllNodes(labelNode);
 				__auto_type mapping=createGraphMap(allNodes, 1);

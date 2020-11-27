@@ -50,9 +50,9 @@ void llTests() {
 
 	// Find bi-dir
 	tmp = 4;
-	assert(!llIntFind(one, &tmp, orderPredGet));
+	assert(llIntFind(one, &tmp, orderPredGet));
 	tmp = 2;
-	assert(llIntFind(five, &two, orderPredGet));
+	assert(llIntFind(five, &tmp, orderPredGet));
 	//
 	llIntDestroy(&ll, NULL);
 }

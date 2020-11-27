@@ -220,7 +220,7 @@ struct __ll *__llValueResize(struct __ll *list, long newSize) {
 long __llItemSize(const struct __ll *list) { return list->itemSize; }
 struct __ll *__llFind(const struct __ll *list, const void *data,
                       int (*pred)(const void *, const void *)) {
-	int firstRun = 0;
+	int firstRun = 1;
 	int dir=0;
 	while (list != NULL) {
 		int cmp = pred(data, __llValuePtr(list));

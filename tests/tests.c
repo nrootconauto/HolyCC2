@@ -18,7 +18,6 @@ void SSATests();
 void LivenessTests();
 void graphVizTests();
 int main() {
-		/*
 		strTests();
 		preprocessorTests();
 		base64Tests();
@@ -34,15 +33,13 @@ int main() {
 	  subGraphTests();
 
 
-	  eventPoolTests();
 	lexerTests();
 	parserTests();
-	//parserDiagTests();
+	parserDiagTests();
 		topoSortTests();
 	subExprElimTests();
 	
  	SSATests();
-		*/
 		//LivenessTests();
 		graphVizTests();
 	return 0;
