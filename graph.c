@@ -634,7 +634,7 @@ STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
 static strChar ptr2GraphVizName(const void *a) {
 	__auto_type name = ptr2Str(a);
-	const char *format = "\"%s\"";
+	const char *format = "%s";
 	long len = snprintf(NULL, 0, format, name);
 	char buffer[len + 1];
 	sprintf(buffer, format, name);
@@ -705,6 +705,9 @@ struct GraphVizNode {
 };
 MAP_TYPE_DEF(struct GraphVizNode, GVNode);
 MAP_TYPE_FUNCS(struct GraphVizNode, GVNode);
+static char *stringifyThenFree(char * str) {
+		long len
+}
 void graph2GraphViz(FILE *dumpTo, graphNodeMapping graph, const char *title,
                     char *(*nodeToLabel)(const struct __graphNode *node,
                                          mapGraphVizAttr *attrs,
@@ -767,7 +770,7 @@ void graph2GraphViz(FILE *dumpTo, graphNodeMapping graph, const char *title,
 			struct graphVizEdge edge;
 			edge.attrs = mapGraphVizAttrCreate();
 			edge.inNodeName = mapGVNodeValueKey(inPtr);
-			edge.inNodeName = mapGVNodeValueKey(outPtr);
+			edge.outNodeName = mapGVNodeValueKey(outPtr);
 
 			// Assign attribute and name from predicate
 			char *name = NULL;
@@ -781,7 +784,7 @@ void graph2GraphViz(FILE *dumpTo, graphNodeMapping graph, const char *title,
 
 			// Insert edge
 			__auto_type newNode = llGVEdgeCreate(edge);
-			llGVEdgeInsert(gvEdges, llGVEdgeCreate(edge), llGVEdgeCmp);
+			llGVEdgeInsert(gvEdges, newNode, llGVEdgeCmp);
 			gvEdges = newNode;
 
 			free(name);

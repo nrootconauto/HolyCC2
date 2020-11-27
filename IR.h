@@ -304,3 +304,14 @@ graphNodeIR IRGetStmtStart(graphNodeIR node);
 int IRVarCmp(const struct IRVar *a, const struct IRVar *b);
 char *graphEdgeIR2Str(struct __graphEdge *edge);
 graphNodeIR createReturn(graphNodeIR exp, graphNodeIR func);
+void IRGraphMap2GraphViz(
+    graphNodeMapping graph, const char *title, const char *fn,
+    char *(*nodeLabelOverride)(graphNodeIR node, mapGraphVizAttr *attrs,
+                               const void *data),
+    char *(*edgeLabelOverride)(graphEdgeIR node, mapGraphVizAttr *attrs,
+                               const void *data),
+    const void *dataNodes, const void *dataEdge);
+graphNodeIR createStrLit(const char *text);
+graphNodeIR createUnop(graphNodeIR a, enum IRNodeType type);
+graphNodeIR createFuncCall(graphNodeIR func,...);
+graphNodeIR createTypecast(graphNodeIR in,struct object *inType,struct object *outType);

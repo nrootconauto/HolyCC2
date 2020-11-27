@@ -16,6 +16,7 @@ void topoSortTests();
 void subExprElimTests();
 void SSATests();
 void LivenessTests();
+void graphVizTests();
 int main() {
 		/*
 		strTests();
@@ -42,6 +43,7 @@ int main() {
 	
  	SSATests();
 		*/
-		LivenessTests();
+		//LivenessTests();
+		graphVizTests();
 	return 0;
 }

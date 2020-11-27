@@ -2,8 +2,8 @@
 #include <assert.h>
 #include <base64.h>
 #include <exprParser.h>
-#include <stdint.h>
 #include <subExprElim.h>
+#include <stdint.h>
 typedef int (*gnIRCmpType)(const graphNodeIR *, const graphNodeIR *);
 typedef int (*geMapCmpType)(const graphEdgeMapping *, const graphEdgeMapping *);
 typedef int (*gnMapCmpType)(const graphNodeMapping *, const graphNodeMapping *);
@@ -26,6 +26,7 @@ int IRAttrInsertPred(const struct IRAttr *a, const struct IRAttr *b) {
 	const struct IRAttr *A = a, *B = b;
 	return ptrCmp(A->name, B->name);
 }
+
 int IRAttrGetPred(const void *key, const struct IRAttr *b) {
 	const struct IRAttr *B = b;
 	return ptrCmp(key, B->name);
@@ -39,6 +40,31 @@ static strChar ptr2Str(const void *a) {
 
 	return retVal;
 }
+static char *strClone(const char *text) {
+	char *retVal = malloc(strlen(text) + 1);
+	strcpy(retVal, text);
+
+	return retVal;
+}
+graphNodeIR createFuncCall(graphNodeIR func,...) {
+		struct IRNodeFuncCall call;
+		call.base.attrs=NULL;
+		call.base.type=IR_FUNC_CALL;
+		call.incomingArgs=NULL;
+		
+		va_list args;
+		va_start(args, func);
+		for(;;) {
+				__auto_type arg=va_arg(args, graphNodeIR);
+				if(!arg)
+						break;
+
+				call.incomingArgs=strGraphNodeIRPAppendItem(call.incomingArgs, arg);
+		}
+		va_end(args);
+
+		return GRAPHN_ALLOCATE(call);
+}
 graphNodeIR createIntLit(int64_t lit) {
 	struct IRNodeValue val;
 	val.base.attrs = NULL;
@@ -49,6 +75,26 @@ graphNodeIR createIntLit(int64_t lit) {
 	val.val.value.intLit.value.sLong = lit;
 
 	return GRAPHN_ALLOCATE(val);
+}
+
+graphNodeIR createStrLit(const char *text) {
+		struct IRNodeValue val;
+		val.base.attrs=NULL;
+		val.base.type=IR_VALUE;
+		val.val.type=IR_VAL_STR_LIT;
+		val.val.value.strLit=strClone(text);
+
+		return GRAPHN_ALLOCATE(val);
+}
+graphNodeIR createUnop(graphNodeIR a, enum IRNodeType type) {
+		struct IRNodeBinop unop;
+		unop.base.type = type;
+		unop.base.attrs = NULL;
+
+		__auto_type retVal = GRAPHN_ALLOCATE(unop);
+	graphNodeIRConnect(a, retVal, IR_CONN_SOURCE_A);
+
+	return retVal;
 }
 graphNodeIR createBinop(graphNodeIR a, graphNodeIR b, enum IRNodeType type) {
 	struct IRNodeBinop binop2;
@@ -102,6 +148,18 @@ struct variable *createVirtVar(struct object *type) {
 	strCharDestroy(&ptrStr);
 
 	return alloced;
+}
+graphNodeIR createTypecast(graphNodeIR in,struct object *inType,struct object *outType) {
+		struct IRNodeTypeCast cast;
+		cast.base.attrs=NULL;
+		cast.base.type=IR_TYPECAST;
+		cast.in=inType;
+		cast.out=outType;
+
+		__auto_type retVal=GRAPHN_ALLOCATE(cast);
+		graphNodeIRConnect(in, retVal, IR_CONN_SOURCE_A);
+
+		return retVal;
 }
 graphNodeIR createVarRef(struct variable *var) {
 	__auto_type ptrStr = ptr2Str(var);
@@ -357,45 +415,43 @@ int IRVarCmp(const struct IRVar *a, const struct IRVar *b) {
 
 	return 0;
 }
-static char *strClone(const char *text) {
-	char *retVal = malloc(strlen(text) + 1);
-	strcpy(retVal, text);
-
-	return retVal;
-}
 static strChar lexerInt2Str(struct lexerInt *i) {
-	strChar retVal = NULL;
-	int64_t Signed;
-	uint64_t Unsigned;
-	switch (i->type) {
-	case INT_SINT:
-		Signed = i->value.sInt;
-		goto dumpS;
-	case INT_UINT:
-		Unsigned = i->value.uInt;
-		goto dumpU;
-	case INT_SLONG:
-		Signed = i->value.sLong;
-		goto dumpS;
-	case INT_ULONG:;
-		Unsigned = i->value.uLong;
-		goto dumpU;
-	}
-	const char *digits = "0123456789";
-dumpS:
-	do {
-		retVal = strCharAppendItem(retVal, digits[Signed % 10]);
-		Signed /= 10;
-	} while (Signed != 0);
+		strChar retVal=strCharAppendItem(NULL, '\0');
+		int64_t Signed;
+		uint64_t Unsigned;
+		switch(i->type) {
+		case INT_SINT:
+				Signed=i->value.sInt;
+				goto dumpS;
+		case INT_UINT:
+				Unsigned=i->value.uInt;
+				goto dumpU;
+		case INT_SLONG:
+				Signed=i->value.sLong;
+				goto dumpS;
+		case INT_ULONG:;
+				Unsigned=i->value.uLong;
+				goto dumpU;
+		}
+		const char digits[]="0123456789";
+	dumpS:
+		do {
+				retVal=strCharAppendItem(retVal, '\0');
+				memmove(retVal+1, retVal, strlen(retVal));
+				retVal[0]=digits[Signed%10];
+				Signed/=10;
+		}while(Signed!=0);
 
-	return retVal;
-dumpU:
-	do {
-		retVal = strCharAppendItem(retVal, digits[Unsigned % 10]);
-		Unsigned /= 10;
-	} while (Unsigned != 0);
+		return retVal;
+	dumpU:
+		do {
+				retVal=strCharAppendItem(retVal, digits[Unsigned%10]);
+				memmove(retVal+1, retVal, strlen(retVal));
+				retVal[0]=digits[Signed%10];
+				Unsigned/=10;
+		}while(Unsigned!=0);
 
-	return retVal;
+		return retVal;
 }
 char *graphEdgeIR2Str(struct __graphEdge *edge) {
 	switch (*graphEdgeIRValuePtr(edge)) {
@@ -423,95 +479,94 @@ char *graphEdgeIR2Str(struct __graphEdge *edge) {
 
 	return NULL;
 }
-graphNodeIR createReturn(graphNodeIR exp, graphNodeIR func) {
-	struct IRNodeFuncReturn ret;
-	ret.base.attrs = NULL;
-	ret.base.type = IR_FUNC_RETURN;
-	ret.funcStart = func;
-	ret.exp = exp;
+graphNodeIR createReturn(graphNodeIR exp,graphNodeIR func) {
+		struct IRNodeFuncReturn ret;
+		ret.base.attrs=NULL;
+		ret.base.type=IR_FUNC_RETURN;
+		ret.funcStart=func;
+		ret.exp=exp;
 
-	__auto_type retVal = GRAPHN_ALLOCATE(ret);
-	graphNodeIRConnect(exp, retVal, IR_CONN_SOURCE_A);
+		__auto_type retVal=GRAPHN_ALLOCATE(ret);
+		graphNodeIRConnect(exp, retVal, IR_CONN_SOURCE_A);
 
-	return retVal;
+		return retVal;
 }
-#include <graphviz/gvc.h>
 strChar cloneFromStr(const char *text) {
-	return strCharAppendData(NULL, text, strlen(text + 1));
+		return strCharAppendData(NULL, text,strlen(text+1));
 }
 static strChar opToText(enum IRNodeType type) {
-	switch (type) {
-	case IR_LOR:
-		return cloneFromStr("||");
-	case IR_LSHIFT:
-		return cloneFromStr("<<");
-	case IR_RSHIFT:
-		return cloneFromStr(">>");
-	case IR_LT:
-		return cloneFromStr("<");
-	case IR_LXOR:
-		return cloneFromStr("^^");
-	case IR_MOD:
-		return cloneFromStr("%");
-	case IR_MULT:
-		return cloneFromStr("*");
-	case IR_NE:
-		return cloneFromStr("!=");
-	case IR_NEG:
-		return cloneFromStr("-");
-	case IR_POS:
-		return cloneFromStr("+");
-	case IR_POW:
-		return cloneFromStr("`");
-	case IR_ADD:
-		return cloneFromStr("+");
-	case IR_ADDR_OF:
-		return cloneFromStr("ADDR-OF");
-	case IR_ARRAY_ACCESS:
-		return cloneFromStr("[]");
-	case IR_ASSIGN:
-		return cloneFromStr("=");
-	case IR_BAND:
-		return cloneFromStr("=");
-	case IR_BNOT:
-		return cloneFromStr("~");
-	case IR_BOR:
-		return cloneFromStr("|");
-	case IR_BXOR:
-		return cloneFromStr("^");
-	case IR_COND_JUMP:
-		return cloneFromStr("IF");
-	case IR_DEC:
-		return cloneFromStr("--");
-	case IR_DERREF:
-		return cloneFromStr("DEREF");
-	case IR_DIV:
-		return cloneFromStr("/");
-	case IR_EQ:
-		return cloneFromStr("==");
-	case IR_FUNC_CALL:
-		return cloneFromStr("FUNC-CALL");
-	case IR_FUNC_RETURN:
-		return cloneFromStr("RETURN");
-	case IR_GE:
-		return cloneFromStr(">=");
-	case IR_GT:
-		return cloneFromStr(">");
-	case IR_INC:
-		return cloneFromStr("++");
-	case IR_LABEL:
-		return cloneFromStr("LABEL");
-	case IR_LAND:
-		return cloneFromStr("&&");
-	case IR_LE:
-		return cloneFromStr("<=");
-	case IR_LNOT:
-		return cloneFromStr("!");
-	case IR_SUB:
-		return cloneFromStr("-");
-	default:
-		return NULL;
-	}
+		switch(type) {
+		case IR_LOR:
+				return strClone("||");
+		case IR_LSHIFT:
+				return strClone("<<");
+		case IR_RSHIFT:
+				return strClone(">>");
+		case IR_LT:
+				return strClone("<");
+		case IR_LXOR:
+				return strClone("^^");
+		case IR_MOD:
+				return strClone("%");
+		case IR_MULT:
+				return strClone("*");
+		case IR_NE:
+				return strClone("!=");
+		case IR_NEG:
+				return strClone("-");
+		case IR_POS:
+				return strClone("+");
+		case IR_POW:
+				return strClone("`");
+		case IR_ADD:
+				return strClone("+");
+		case IR_ADDR_OF:
+				return strClone("ADDR-OF");
+		case IR_ARRAY_ACCESS:
+				return strClone("[]");
+		case IR_ASSIGN:
+				return strClone("=");
+		case IR_BAND:
+				return strClone("=");
+		case IR_BNOT:
+				return strClone("~");
+		case IR_BOR:
+				return strClone("|");
+		case IR_BXOR:
+				return strClone("^");
+		case IR_COND_JUMP:
+				return strClone("IF");
+		case IR_DEC:
+				return strClone("--");
+		case IR_DERREF:
+				return strClone("DEREF");
+		case IR_DIV:
+				return strClone("/");
+		case IR_EQ:
+				return strClone("==");
+		case IR_FUNC_CALL:
+				return strClone("FUNC-CALL");
+		case IR_FUNC_RETURN:
+				return strClone("RETURN");
+		case IR_GE:
+				return strClone(">=");
+		case IR_GT:
+				return strClone(">");
+		case IR_INC:
+				return strClone("++");
+		case IR_LABEL:
+				return strClone("LABEL");
+		case IR_LAND:
+				return strClone("&&");
+		case IR_LE:
+				return strClone("<=");
+		case IR_LNOT:
+				return strClone("!");
+		case IR_SUB:
+				return strClone("-");
+		default:
+				return NULL;
+		}
 }
 
 #define COLOR_RED "red"
@@ -520,353 +575,335 @@ static strChar opToText(enum IRNodeType type) {
 #define COLOR_BLUE "blue"
 #define COLOR_PURPLE "purple"
 #define COLOR_PINK "pink"
-static const char *rainbowColors[] = {
-    COLOR_RED, COLOR_ORANGE, COLOR_YELLOW, COLOR_BLUE, COLOR_PURPLE, COLOR_PINK,
+static const char *rainbowColors[]={
+		COLOR_RED,
+		COLOR_ORANGE,
+		COLOR_YELLOW,
+		COLOR_BLUE,
+		COLOR_PURPLE,
+		COLOR_PINK,
 };
-#define FROM_FORMAT(fmt, ...)                                                  \
-	({                                                                           \
-		long len = snprintf(NULL, 0, fmt, __VA_ARGS__);                            \
-		char buffer[len + 1];                                                      \
-		sprintf(buffer, fmt, __VA_ARGS__);                                         \
-		cloneFromStr(buffer);                                                      \
-	})
-MAP_TYPE_DEF(int, LabelNum);
-MAP_TYPE_FUNCS(int, LabelNum);
+#define FROM_FORMAT(fmt,...) ({long len=snprintf(NULL,0,fmt,__VA_ARGS__);char buffer[len+1];sprintf(buffer,fmt,__VA_ARGS__);strClone(buffer);})
+MAP_TYPE_DEF(int,LabelNum);
+MAP_TYPE_FUNCS(int,LabelNum);
 
 static strChar IRValue2GraphVizLabel(struct IRNode *nodeData) {
-	// Choose a label based on type
-	struct IRNodeValue *val = (void *)nodeData;
-	switch (val->val.type) {
-	case IR_VAL_FUNC: {
-		const char *name = val->val.value.func->name;
+		//Choose a label based on type
+		struct IRNodeValue *val=(void*)nodeData;
+		switch(val->val.type) {
+		case IR_VAL_FUNC: {
+				const char *name=val->val.value.func->name;
 
-		const char *format = "VAL FUNC:%s";
-		return FROM_FORMAT(format, name);
-	}
-	case IR_VAL_INT_LIT: {
-		__auto_type intStr = lexerInt2Str(&val->val.value.intLit);
-
-		__auto_type labelText = FROM_FORMAT("VAL INT:%s", intStr);
-
-		strCharDestroy(&intStr);
-		return labelText;
-	}
-	case IR_VAL_REG:
-		// TODO
-		break;
-	case IR_VAL_STR_LIT: {
-		const char *format = "VAL STR:\"%s\"";
-		return FROM_FORMAT(format, val->val.value.strLit);
-	}
-	case IR_VAL_VAR_REF: {
-		strChar tmp = NULL;
-		if (val->val.value.var.var.type == IR_VAR_MEMBER) {
-			// TODO
-		} else if (val->val.value.var.var.type == IR_VAR_VAR) {
-			if (val->val.value.var.var.value.var->name)
-				tmp = strClone(val->val.value.var.var.value.var->name);
-			else {
-				tmp = FROM_FORMAT("%p", val->val.value.var.var.value.var);
-			}
+				const char *format="VAL FUNC:%s";
+				return FROM_FORMAT(format,name);
 		}
+		case IR_VAL_INT_LIT: {
+				__auto_type intStr=lexerInt2Str(&val->val.value.intLit);
+								
+				__auto_type labelText=FROM_FORMAT("VAL INT:%s",intStr);
+								
+				strCharDestroy(&intStr);
+				return labelText;
+		}
+		case IR_VAL_REG:
+				//TODO
+				break;
+		case IR_VAL_STR_LIT: {
+				const char *format="VAL STR:\"%s\"";
+				return FROM_FORMAT(format, val->val.value.strLit);
+		}
+		case IR_VAL_VAR_REF: {
+				strChar tmp=NULL;
+				if(val->val.value.var.var.type==IR_VAR_MEMBER) {
+						//TODO
+				} else if(val->val.value.var.var.type==IR_VAR_VAR) {
+						if(val->val.value.var.var.value.var->name)
+								tmp=strClone(val->val.value.var.var.value.var->name);
+						else {
+								tmp=FROM_FORMAT("%p", val->val.value.var.var.value.var);
+						}
+				}
 
-		const char *format = "VAL VAR :%s-%li";
-		__auto_type labelText = FROM_FORMAT(format, tmp, val->val.value.var.SSANum);
+				const char *format="VAL VAR :%s-%li";
+				__auto_type labelText=FROM_FORMAT(format, tmp,val->val.value.var.SSANum);
 
-		strCharDestroy(&tmp);
-		return labelText;
-	}
-	case __IR_VAL_LABEL: {
-		return cloneFromStr("LABEL"); // TODO
-	}
-	case __IR_VAL_MEM_FRAME: {
-		return FROM_FORMAT("FRAME OFFSET:%li", val->val.value.__frame.offset);
-	}
-	case __IR_VAL_MEM_GLOBAL: {
-		strChar tmp;
-		if (val->val.value.__global.symbol->name)
-			tmp = cloneFromStr(val->val.value.__global.symbol->name);
-		else
-			tmp = FROM_FORMAT("%p", val->val.value.__global.symbol);
+				free(tmp);
+				return labelText;
+		}
+		case __IR_VAL_LABEL: {
+				return strClone("LABEL"); //TODO
+		}
+		case __IR_VAL_MEM_FRAME: {
+				return FROM_FORMAT("FRAME OFFSET:%li",val->val.value.__frame.offset);
+		}
+		case __IR_VAL_MEM_GLOBAL: {
+				strChar tmp;
+				if(val->val.value.__global.symbol->name)
+						tmp=strClone(val->val.value.__global.symbol->name);
+				else
+						tmp=FROM_FORMAT("%p", val->val.value.__global.symbol);
 
-		__auto_type labelText = FROM_FORMAT("SYM %s", tmp);
-		strCharDestroy(&tmp);
-		return labelText;
-	}
-	}
-	return NULL;
+				__auto_type labelText=FROM_FORMAT("SYM %s", tmp);
+				strCharDestroy(&tmp);
+				return labelText;
+		}
+		}
+		return NULL;
 }
 
-static void makeGVTerminalNode(mapGraphVizAttr *attrs) {
-	mapGraphVizAttrInsert(*attrs, "shape", strClone("ellipse"));
-	mapGraphVizAttrInsert(*attrs, "fillcolor", strClone(COLOR_BLUE));
+static void  makeGVTerminalNode(mapGraphVizAttr *attrs) {
+		mapGraphVizAttrInsert(*attrs, "shape", strClone("ellipse"));
+		mapGraphVizAttrInsert(*attrs, "fillcolor", strClone(COLOR_BLUE));
 }
-static void makeGVProcessNode(mapGraphVizAttr *attrs) {
-	mapGraphVizAttrInsert(*attrs, "shape", strClone("rectangle"));
-	mapGraphVizAttrInsert(*attrs, "fillcolor", strClone(COLOR_RED));
+static void  makeGVProcessNode(mapGraphVizAttr *attrs) {
+		mapGraphVizAttrInsert(*attrs, "shape", strClone("rectangle"));
+		mapGraphVizAttrInsert(*attrs, "fillcolor", strClone(COLOR_RED));
 }
 static void makeGVDecisionNode(mapGraphVizAttr *attrs) {
-	mapGraphVizAttrInsert(*attrs, "shape", strClone("diamond"));
-	mapGraphVizAttrInsert(*attrs, "fillcolor", strClone(COLOR_YELLOW));
+		mapGraphVizAttrInsert(*attrs, "shape", strClone("diamond"));
+		mapGraphVizAttrInsert(*attrs, "fillcolor", strClone(COLOR_YELLOW));
 }
 struct graphVizDataNode {
-	char *(*nodeOverride)(graphNodeIR node, mapGraphVizAttr *attrs,
-	                      const void *data);
-	void *data;
-	mapLabelNum *labelNums;
+		char *(*nodeOverride)(graphNodeIR node,mapGraphVizAttr *attrs,const void *data);
+		void *data;
+		mapLabelNum *labelNums;
 };
-static char *IRCreateGraphVizNode(const struct __graphNode *node,
-                                  mapGraphVizAttr *attrs, const void *data) {
-	const struct graphVizDataNode *data2 = data;
+static char *IRCreateGraphVizNode(const struct __graphNode * node,mapGraphVizAttr *attrs,const void *data) {
+		const struct graphVizDataNode *data2=data;
 
-	// Try override first
-	if (data2->nodeOverride) {
-		long oldCount;
-		mapGraphVizAttrKeys(*attrs, NULL, &oldCount);
+		//Try override first
+		if(data2->nodeOverride) {
+				long oldCount;
+				mapGraphVizAttrKeys(*attrs, NULL, &oldCount);
+				
+				char *overrideName=data2->nodeOverride(*graphNodeMappingValuePtr((struct __graphNode *)node),attrs,data2->data);
+				if(overrideName) {
+				changed:
+						return strClone(overrideName);
+				}
 
-		char *overrideName = data2->nodeOverride(*graphNodeMappingValuePtr(node),
-		                                         attrs, data2->data);
-		if (overrideName) {
-		changed:
-			return strClone(overrideName);
+				//attribute size change
+				long newCount;
+				mapGraphVizAttrKeys(*attrs, NULL, &newCount);
+				if(newCount!=oldCount)
+						goto changed;
+				}
+
+		struct IRNode *value=graphNodeIRValuePtr(*graphNodeMappingValuePtr((struct __graphNode*)node));
+		switch(value->type) {
+		case IR_CHOOSE:
+				makeGVDecisionNode(attrs);
+				return strClone("CHOOSE");
+		case IR_COND_JUMP:
+				makeGVDecisionNode(attrs);
+				return strClone("IF");
+		case IR_FUNC_RETURN:
+				makeGVTerminalNode(attrs);
+				return strClone("RETURN");
+		case IR_FUNC_START:
+				return strClone("FUNC-START");
+		case IR_FUNC_END:
+				return strClone("FUNC-START");
+		case IR_JUMP:
+				makeGVProcessNode(attrs);
+				return strClone("GOTO");
+		case IR_LABEL: {
+				__auto_type ptrStr=ptr2Str(node);
+				__auto_type labelNum=*mapLabelNumGet(*data2->labelNums,ptrStr);
+				strCharDestroy(&ptrStr);
+				
+				__auto_type  str=FROM_FORMAT("LABEL: #%i",labelNum);
+				__auto_type str2=strClone(str);
+				free(str);
+
+				mapGraphVizAttrInsert(*attrs, "color", strClone(COLOR_ORANGE));
+				mapGraphVizAttrInsert(*attrs, "shape", strClone("rectangle"));
+				
+				return str2;
 		}
-
-		// attribute size change
-		long newCount;
-		mapGraphVizAttrKeys(*attrs, NULL, &newCount);
-		if (newCount != oldCount)
-			goto changed;
-	}
-
-	struct IRNode *value = graphNodeIRValuePtr(node);
-	switch (value->type) {
-	case IR_CHOOSE:
-		makeGVDecisionNode(attrs);
-		return strClone("CHOOSE");
-	case IR_COND_JUMP:
-		makeGVDecisionNode(attrs);
-		return strClone("IF");
-	case IR_FUNC_RETURN:
-		makeGVTerminalNode(attrs);
-		return strClone("RETURN");
-	case IR_FUNC_START:
-		return strClone("FUNC-START");
-	case IR_FUNC_END:
-		return strClone("FUNC-START");
-	case IR_JUMP:
-		makeGVProcessNode(attrs);
-		return strClone("GOTO");
-	case IR_LABEL: {
-		__auto_type ptrStr = ptr2Str(node);
-		__auto_type labelNum = *mapLabelNumGet(*data2->labelNums, ptrStr);
-		free(ptr2Str);
-
-		__auto_type str = FROM_FORMAT("LABEL: #%i", labelNum);
-		__auto_type str2 = strClone(str);
-		strCharDestroy(&str);
-
-		mapGraphVizAttrInsert(*attrs, "color", strClone(COLOR_ORANGE));
-		mapGraphVizAttrInsert(*attrs, "shape", strClone("rectangle"));
-
-		return str2;
-	}
-	case IR_JUMP_TAB: {
-		makeGVDecisionNode(attrs);
-		return strClone("JUMP-TABLE");
-	}
-	case IR_STATEMENT_END:
-		makeGVTerminalNode(attrs);
-		return strClone("STMT-END");
-	case IR_VALUE:
-		return IRValue2GraphVizLabel(value);
-	case IR_TYPECAST: {
-		struct IRNodeTypeCast *cast = (void *)value;
-		char *typeNameIn = object2Str(cast->in);
-		char *typeNameOut = object2Str(cast->out);
-
-		__auto_type retVal =
-		    FROM_FORMAT("TYPECAST(%s->%s)", typeNameIn, typeNameOut);
-		free(typeNameIn), free(typeNameOut);
-
-		makeGVProcessNode(attrs);
-		return retVal;
-	}
-	case IR_STATEMENT_START:
-		makeGVTerminalNode(attrs);
-		return strClone("STMT-START");
-	case IR_SUB_SWITCH_START_LABEL:
-		makeGVTerminalNode(attrs);
-		return strClone("SUB-SWITCH START");
-
-	default:;
-		// Check for operator type
-		__auto_type retVal = opToText(value->type);
-		if (retVal) {
-			makeGVProcessNode(attrs);
-			return retVal;
+		case IR_JUMP_TAB: {
+				makeGVDecisionNode(attrs);
+				return strClone("JUMP-TABLE");
 		}
+		case IR_STATEMENT_END:
+				makeGVTerminalNode(attrs);
+				return strClone("STMT-END");
+		case IR_VALUE:
+				return IRValue2GraphVizLabel(value);
+		case IR_TYPECAST:  {
+				struct IRNodeTypeCast *cast=(void*)value;
+				char *typeNameIn=object2Str(cast->in);
+				char *typeNameOut=object2Str(cast->out);
 
-		// Unkown type
-		return strClone("\?\?\?!");
-	}
+				__auto_type retVal=FROM_FORMAT("TYPECAST(%s->%s)", typeNameIn,typeNameOut);
+						free(typeNameIn),free(typeNameOut);
+
+						makeGVProcessNode(attrs);
+						return retVal;
+		}
+		case IR_STATEMENT_START:
+				makeGVTerminalNode(attrs);
+				return strClone("STMT-START");
+		case IR_SUB_SWITCH_START_LABEL:
+				makeGVTerminalNode(attrs);
+				return strClone("SUB-SWITCH START");
+				
+		default:;
+				//Check for operator type
+				__auto_type retVal=opToText(value->type);
+				if(retVal) {
+						makeGVProcessNode(attrs);
+						return retVal;
+				}
+
+				//Unkown type
+				return strClone("\?\?\?!");
+		}
 }
 #define COLOR_GREY "grey"
 struct graphVizDataEdge {
-	char *(*edgeOverride)(graphEdgeIR node, mapGraphVizAttr *attrs,
-	                      const void *data);
-	void *data;
-	mapLabelNum *labelNums;
+		char *(*edgeOverride)(graphEdgeIR node,mapGraphVizAttr *attrs,const void *data);
+		void *data;
+		mapLabelNum *labelNums;
 };
-static char *IRCreateGraphVizEdge(const struct __graphEdge *edge,
-                                  mapGraphVizAttr *attrs, const void *data) {
-	// Frist check ovveride
-	const struct graphVizDataEdge *data2 = data;
-	if (data2->edgeOverride) {
-		// old count
-		long oldCount;
-		mapGraphVizAttrKeys(*attrs, NULL, &oldCount);
-
-		char *name = data2->edgeOverride(*graphEdgeIRValuePtr(edge), attrs, data);
-		// Check if name provided
-		if (name) {
-		changed:
-			return strClone(name);
-		}
-
-		// Check if new attrs added
-		long newCount;
-		mapGraphVizAttrKeys(*attrs, NULL, &newCount);
-		if (oldCount != newCount)
-			goto changed;
-	}
-
-	__auto_type edgeVal = graphEdgeIRValuePtr((struct __graphEdge *)edge);
-	if (edgeVal == NULL) {
-		mapGraphVizAttrInsert(*attrs, "color", strClone(COLOR_GREY));
-		return NULL;
-	}
-
-	switch (*edgeVal) {
-	case IR_CONN_COND:
-	case IR_CONN_FLOW:
-		mapGraphVizAttrInsert(*attrs, "color", strClone("black"));
-		return NULL;
-	case IR_CONN_DEST:
-		mapGraphVizAttrInsert(*attrs, "color", strClone(COLOR_PINK));
-		return NULL;
-	case IR_CONN_COND_TRUE:
-		mapGraphVizAttrInsert(*attrs, "color", strClone(COLOR_RED));
-		return NULL;
-	case IR_CONN_COND_FALSE:
-		mapGraphVizAttrInsert(*attrs, "color", strClone(COLOR_BLUE));
-		return NULL;
-	case IR_CONN_FUNC:
-		mapGraphVizAttrInsert(*attrs, "color", strClone(rainbowColors[0]));
-		return NULL;
-	case IR_CONN_FUNC_ARG: {
-		struct IRNodeFuncCall *funcNode = (void *)graphNodeIRValuePtr(
-		    graphEdgeIROutgoing((struct __graphEdge *)edge));
-		// Look at func node and find index of edge
-		if (funcNode) {
-			if (funcNode->base.type == IR_FUNC_CALL) {
-				__auto_type incomingNode =
-				    graphEdgeIRIncoming((struct __graphEdge *)edge);
-
-				// Look for index of edge
-				for (long i = 0; i != strGraphNodeIRPSize(funcNode->incomingArgs);
-				     i++) {
-					if (funcNode->incomingArgs[i] == incomingNode) {
-						// Color based on rainbow
-						__auto_type color = rainbowColors[i % (sizeof(rainbowColors) /
-						                                       sizeof(*rainbowColors))];
-						mapGraphVizAttrInsert(*attrs, "color", strClone(color));
-
-						// Label name is index
-						__auto_type str = FROM_FORMAT("Arg %li", i);
-						__auto_type retVal = strClone(str);
-						strCharDestroy(&str);
-
-						return retVal;
-					}
+static char *IRCreateGraphVizEdge(const struct __graphEdge *edge,mapGraphVizAttr *attrs,const void *data) {
+		//Frist check ovveride
+		const struct graphVizDataEdge *data2=data;
+		if(data2->edgeOverride) {
+				//old count
+				long oldCount;
+				mapGraphVizAttrKeys(*attrs, NULL, &oldCount);
+				
+				char *name=data2->edgeOverride(*graphEdgeMappingValuePtr((struct  __graphEdge*)edge),attrs,data);
+				//Check if name provided
+				if(name) {
+				changed:
+						return strClone(name);
 				}
-			}
+
+				//Check if new attrs added
+				long newCount;
+				mapGraphVizAttrKeys(*attrs, NULL, &newCount);
+				if(oldCount!=newCount)
+						goto changed;
 		}
 
-		// Isnt connected to a  func-call node
-		mapGraphVizAttrInsert(*attrs, "color", strClone(COLOR_GREY));
-		return NULL;
-	}
-	case IR_CONN_SIMD_ARG:
-		// TODO
-		return NULL;
-	case IR_CONN_SOURCE_A: {
-		// Check if result is binop(if has both IR_CONN_SOURCE_A and
-		// IR_CONN_SOURCE_B).
-		__auto_type outNode = graphEdgeIROutgoing((struct __graphEdge *)edge);
-		__auto_type incoming = graphNodeIRIncoming(outNode);
-		__auto_type filtered = IRGetConnsOfType(incoming, IR_CONN_SOURCE_B);
-		int isBinop = strGraphEdgeIRPSize(filtered) != 0;
+		
+		__auto_type edgeVal=graphEdgeIRValuePtr((struct __graphEdge*)edge);
+		if(edgeVal==NULL) {
+						mapGraphVizAttrInsert(*attrs, "color", strClone(COLOR_GREY));
+						return NULL;
+				}
+		
+		switch(*edgeVal) {
+		case IR_CONN_COND:
+		case IR_CONN_FLOW:
+				mapGraphVizAttrInsert(*attrs, "color", strClone("black"));
+				return NULL;
+				case IR_CONN_DEST:
+						mapGraphVizAttrInsert(*attrs, "color", strClone(COLOR_PINK));
+				return NULL;
+		case IR_CONN_COND_TRUE:
+				mapGraphVizAttrInsert(*attrs, "color", strClone(COLOR_RED));
+				return NULL;
+		case IR_CONN_COND_FALSE:
+				mapGraphVizAttrInsert(*attrs, "color", strClone(COLOR_BLUE));
+				return NULL;
+		case IR_CONN_FUNC:
+				mapGraphVizAttrInsert(*attrs, "color",strClone(rainbowColors[0]));
+				return NULL;
+		case IR_CONN_FUNC_ARG: {
+				struct IRNodeFuncCall *funcNode=(void*)graphNodeIRValuePtr(graphEdgeIROutgoing((struct __graphEdge*)edge));
+				//Look at func node and find index of edge
+				if(funcNode) {
+						if(funcNode->base.type==IR_FUNC_CALL) {
+								__auto_type incomingNode=graphEdgeIRIncoming((struct __graphEdge*)edge);
 
-		strGraphEdgeIRPDestroy(&incoming);
-		strGraphEdgeIRPDestroy(&filtered);
+								//Look for index of edge 
+								for(long i=0;i!=strGraphNodeIRPSize(funcNode->incomingArgs);i++) {
+										if(funcNode->incomingArgs[i]==incomingNode) {
+												//Color based on rainbow
+												__auto_type color=rainbowColors[i%(sizeof(rainbowColors)/sizeof(*rainbowColors))];
+												mapGraphVizAttrInsert(*attrs, "color", strClone(color));
 
-		// If binop,color red and label "A"
-		if (isBinop) {
-			mapGraphVizAttrInsert(*attrs, "color", strClone(COLOR_RED));
-			return strClone("A");
+												//Label name is index 
+												__auto_type str=FROM_FORMAT("Arg %li", i);
+												__auto_type retVal=strClone(str);
+												free(&str);
+												
+												return retVal;
+										}
+								}
+						}
+				}
+
+				//Isnt connected to a  func-call node
+				mapGraphVizAttrInsert(*attrs, "color", strClone(COLOR_GREY));
+				return NULL;
+		}
+		case IR_CONN_SIMD_ARG:
+				//TODO
+				return NULL;
+		case IR_CONN_SOURCE_A: {
+				//Check if result is binop(if has both IR_CONN_SOURCE_A and IR_CONN_SOURCE_B).
+				__auto_type outNode=graphEdgeIROutgoing((struct __graphEdge*)edge);
+				__auto_type incoming=graphNodeIRIncoming(outNode);
+				__auto_type filtered=IRGetConnsOfType(incoming, IR_CONN_SOURCE_B);
+				int isBinop=strGraphEdgeIRPSize(filtered)!=0;
+
+				strGraphEdgeIRPDestroy(&incoming);
+				strGraphEdgeIRPDestroy(&filtered);
+
+				//If binop,color red and label "A"
+				if(isBinop) {
+						mapGraphVizAttrInsert(*attrs, "color", strClone(COLOR_RED));
+						return strClone("A");
+				}
+				
+				return NULL;
+		}
+		case IR_CONN_SOURCE_B:
+				mapGraphVizAttrInsert(*attrs, "color", strClone(COLOR_BLUE));
+				return strClone("B");
 		}
 
-		return NULL;
-	}
-	case IR_CONN_SOURCE_B:
-		mapGraphVizAttrInsert(*attrs, "color", strClone(COLOR_BLUE));
-		return strClone("B");
-	}
-
-	return strClone("\?\?\?!");
+		return strClone("\?\?\?!");
 }
-static void IRGraphMap2GraphViz(
-    graphNodeMapping graph, const char *title, const char *fn,
-    char *(*nodeLabelOverride)(graphNodeIR node, mapGraphVizAttr *attrs,
-                               const void *data),
-    char *(*edgeLabelOverride)(graphEdgeIR node, mapGraphVizAttr *attrs,
-                               const void *data),
-    const void *dataNodes, const void *dataEdge) {
-	__auto_type allNodes = graphNodeMappingAllNodes(graph);
 
-	//
-	// Number labels
-	//
-	mapLabelNum labelNums = mapLabelNumCreate();
-
-	long labelCount = 0;
-	for (long i = 0; i != strGraphNodeIRPSize(allNodes); i++) {
-		struct IRNode *nodeVal =
-		    graphNodeIRValuePtr(*graphNodeMappingValuePtr(allNodes[i]));
-		if (nodeVal->type == IR_LABEL) {
-			// Regsiter a unique label number
-			char *key = ptr2Str(allNodes[i]);
-			mapLabelNumInsert(labelNums, key, labelCount + 1);
-			free(key);
-			// inc label count
-			labelCount++;
+void IRGraphMap2GraphViz(graphNodeMapping graph,const char *title,const char *fn,char *(*nodeLabelOverride)(graphNodeIR node,mapGraphVizAttr *attrs,const void *data),char *(*edgeLabelOverride)(graphEdgeIR node,mapGraphVizAttr *attrs,const void *data),const void *dataNodes,const void *dataEdge) {
+		__auto_type allNodes=graphNodeMappingAllNodes(graph);
+		
+		//
+		//Number labels
+		//
+		mapLabelNum labelNums=mapLabelNumCreate();
+		
+		long labelCount=0;
+		for(long i=0;i!=strGraphNodeIRPSize(allNodes);i++) {
+				struct IRNode *nodeVal=graphNodeIRValuePtr(*graphNodeMappingValuePtr(allNodes[i]));
+				if(nodeVal->type==IR_LABEL) {
+						//Regsiter a unique label number
+						char *key=ptr2Str(allNodes[i]);
+						mapLabelNumInsert(labelNums, key, labelCount+1);
+						strCharDestroy(&key);
+						//inc label count
+						labelCount++;
+				}
 		}
-	}
 
-	// Create edge data tuple
-	struct graphVizDataEdge edgeData;
-	edgeData.data = (void *)dataEdge;
-	edgeData.edgeOverride = edgeLabelOverride;
-	edgeData.labelNums = &labelNums;
+		//Create edge data tuple
+		struct graphVizDataEdge edgeData;
+		edgeData.data=(void*)dataEdge;
+		edgeData.edgeOverride=edgeLabelOverride;
+		edgeData.labelNums=&labelNums;
 
-	// Create node data tuple
-	struct graphVizDataNode nodeData;
-	nodeData.data = (void *)dataEdge;
-	nodeData.nodeOverride = nodeLabelOverride;
-	nodeData.labelNums = &labelNums;
+		//Create node data tuple
+		struct graphVizDataNode nodeData;
+		nodeData.data=(void*)dataEdge;
+		nodeData.nodeOverride=nodeLabelOverride;
+		nodeData.labelNums=&labelNums;
 
-	FILE *dumpTo = fopen(fn, "w");
-	graph2GraphViz(dumpTo, graph, title, IRCreateGraphVizNode,
-	               IRCreateGraphVizEdge, &nodeData, &edgeData);
-	fclose(dumpTo);
+		FILE *dumpTo=fopen(fn, "w");		
+		graph2GraphViz(dumpTo, graph, title, IRCreateGraphVizNode, IRCreateGraphVizEdge, &nodeData, &edgeData);
+		fclose(dumpTo);
 }
