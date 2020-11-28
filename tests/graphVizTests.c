@@ -52,5 +52,12 @@ void graphVizTests() {
 				__auto_type mapping=createGraphMap(allNodes, 1);
 				IRGraphMap2GraphViz(mapping, "Test", fn, NULL , NULL, NULL, NULL);
 				printf("Result file is:%s\n",fn);
+
+				const char *format="dot -Tsvg %s >/tmp/dot.svg && firefox /tmp/dot.svg";
+				long len=snprintf(NULL, 0, format, fn);
+				char buffer[len+1];
+				sprintf(buffer,  format,fn);
+
+				system(buffer);
 		}
 }

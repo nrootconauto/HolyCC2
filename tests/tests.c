@@ -18,6 +18,7 @@ void SSATests();
 void LivenessTests();
 void graphVizTests();
 int main() {
+		/*
 		strTests();
 		preprocessorTests();
 		base64Tests();
@@ -41,6 +42,7 @@ int main() {
 	
  	SSATests();
 		//LivenessTests();
+		*/
 		graphVizTests();
 	return 0;
 }

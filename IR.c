@@ -51,6 +51,7 @@ graphNodeIR createFuncCall(graphNodeIR func,...) {
 		call.base.attrs=NULL;
 		call.base.type=IR_FUNC_CALL;
 		call.incomingArgs=NULL;
+		__auto_type retVal=GRAPHN_ALLOCATE(call);
 		
 		va_list args;
 		va_start(args, func);
@@ -59,11 +60,13 @@ graphNodeIR createFuncCall(graphNodeIR func,...) {
 				if(!arg)
 						break;
 
-				call.incomingArgs=strGraphNodeIRPAppendItem(call.incomingArgs, arg);
+				struct IRNodeFuncCall *call=(void*)graphNodeIRValuePtr(retVal);
+				call->incomingArgs=strGraphNodeIRPAppendItem(call->incomingArgs, arg);
+				graphNodeIRConnect(arg, retVal, IR_CONN_FUNC_ARG);
 		}
 		va_end(args);
-
-		return GRAPHN_ALLOCATE(call);
+		
+		return retVal;
 }
 graphNodeIR createIntLit(int64_t lit) {
 	struct IRNodeValue val;
@@ -766,7 +769,8 @@ struct graphVizDataEdge {
 		void *data;
 		mapLabelNum *labelNums;
 };
-static char *IRCreateGraphVizEdge(const struct __graphEdge *edge,mapGraphVizAttr *attrs,const void *data) {
+static char *IRCreateGraphVizEdge(const struct __graphEdge *__edge,mapGraphVizAttr *attrs,const void *data) {
+		graphEdgeIR edge=*graphEdgeMappingValuePtr((struct __graphEdge*)__edge);
 		//Frist check ovveride
 		const struct graphVizDataEdge *data2=data;
 		if(data2->edgeOverride) {
@@ -774,7 +778,7 @@ static char *IRCreateGraphVizEdge(const struct __graphEdge *edge,mapGraphVizAttr
 				long oldCount;
 				mapGraphVizAttrKeys(*attrs, NULL, &oldCount);
 				
-				char *name=data2->edgeOverride(*graphEdgeMappingValuePtr((struct  __graphEdge*)edge),attrs,data);
+				char *name=data2->edgeOverride(edge,attrs,data);
 				//Check if name provided
 				if(name) {
 				changed:
@@ -789,7 +793,7 @@ static char *IRCreateGraphVizEdge(const struct __graphEdge *edge,mapGraphVizAttr
 		}
 
 		
-		__auto_type edgeVal=graphEdgeIRValuePtr((struct __graphEdge*)edge);
+		__auto_type edgeVal=graphEdgeIRValuePtr(edge);
 		if(edgeVal==NULL) {
 						mapGraphVizAttrInsert(*attrs, "color", strClone(COLOR_GREY));
 						return NULL;
@@ -829,7 +833,7 @@ static char *IRCreateGraphVizEdge(const struct __graphEdge *edge,mapGraphVizAttr
 												//Label name is index 
 												__auto_type str=FROM_FORMAT("Arg %li", i);
 												__auto_type retVal=strClone(str);
-												free(&str);
+												free(str);
 												
 												return retVal;
 										}

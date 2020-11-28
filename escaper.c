@@ -135,7 +135,7 @@ char *escapeString(char *str) {
 		}
 		// if cant be inputed with a (us) keyboard,escape
 
-		const char *valids = " ~!@#$%^&*()_+=|}{[]\\;':\",./<>?";
+		const char *valids = " ~!@#$%^&*()_-+=|}{[]\\;':\",./<>?";
 		bool isValid = false;
 		if (*str >= 'a' && 'z' >= *str)
 			isValid = true;
