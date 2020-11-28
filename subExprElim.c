@@ -384,7 +384,18 @@ static void visitNodeAppendItem(struct __graphNode *node, void *data) {
 	if (NULL == strGraphNodeIRPSortedFind(*nodes, data, (gnIRCmpType)ptrPtrCmp))
 		*nodes = strGraphNodeIRPSortedInsert(*nodes, node, (gnIRCmpType)ptrPtrCmp);
 }
-void removeSubExprs() {
+static void moveConnectionsOutgoing(graphNodeIR from,graphNodeIR to,strGraphEdgeP outgoing) {
+for (long e = 0; e != strGraphEdgeIRPSize(outgoing); e++) {
+					__auto_type n = graphEdgeIROutgoing(outgoing[e]);
+					graphNodeIRConnect(to, n, *graphEdgeIRValuePtr(outgoing[e]));
+
+					// Remove the outgoing connection from the "old" node so we can kill
+					// the redundant expr graph later
+					graphEdgeIRKill(from, graphEdgeIROutgoing(outgoing[e]), NULL,
+					                NULL, NULL);
+				}
+}
+void replaceSubExprsWithVars() {
 	long count;
 	mapSubExprsKeys(subExprRegistry, NULL, &count);
 	const char *keys[count];
@@ -491,20 +502,24 @@ void removeSubExprs() {
 				if (i3 == 0) {
 					// Only compute once,so the first element will be the only computation
 					firstRef = refs[i3].node;
+					__auto_type dummy=createVirtVar(&typeI64i); //Dummmy var TODO set from node type
+					__auto_type varRef=createVarRef(dummy);
+
+					//move outgoing connections  from firstRef to varRef
+					__auto_type outgoing = graphNodeIROutgoing(refs[i3].node);
+					moveConnectionsOutgoing(firstRef,varRef,outgoing);
+					graphNodeIRConnect(firstRef, varRef, IR_CONN_DEST);
+					
+					strGraphEdgeIRPDestroy(&outgoing);
+
+					firstRef=varRef;
 					continue;
 				}
-
+				
 				__auto_type outgoing = graphNodeIROutgoing(refs[i3].node);
-				//"Copy" connections from outgoing to refs[i3].node outgoing neigbors
-				for (long e = 0; e != strGraphEdgeIRPSize(outgoing); e++) {
-					__auto_type n = graphEdgeIROutgoing(outgoing[e]);
-					graphNodeIRConnect(firstRef, n, *graphEdgeIRValuePtr(outgoing[e]));
+				//Move connections from  refs[i3].node to firstRef outgoing neigbors
+				moveConnectionsOutgoing(refs[i3].node,firstRef,outgoing);
 
-					// Remove the outgoing connection from the "old" node so we can kill
-					// the redundant expr graph later
-					graphEdgeIRKill(refs[i3].node, graphEdgeIROutgoing(outgoing[e]), NULL,
-					                NULL, NULL);
-				}
 				strGraphEdgeIRPDestroy(&outgoing);
 
 				// Disconnect node from start stmt(including current node)

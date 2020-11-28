@@ -37,7 +37,7 @@ void subExprElimTests() {
 			graphNodeIRConnect(start, connectToStart[i], IR_CONN_FLOW);
 
 		findSubExprs(start);
-		removeSubExprs();
+		replaceSubExprsWithVars();
 
 		__auto_type s2o = graphNodeIROutgoingNodes(sum2);
 		__auto_type tail = graphNodeIRIncomingNodes(end);
@@ -47,5 +47,11 @@ void subExprElimTests() {
 		__auto_type computed = IREvalNode(tail[0], &success);
 		assert(computed.type == IREVAL_VAL_INT);
 		assert(4 + 4 + 4 == computed.value.i);
+
+		__auto_type allNodes=graphNodeIRAllNodes(tail[0]);
+		__auto_type mapped=createGraphMap(allNodes, 1);
+		char *fn=tmpnam(NULL);
+		IRGraphMap2GraphViz(mapped, "Toads", fn, NULL, NULL, NULL, NULL);
+		printf("Look at %s\n", fn);
 	}
 }

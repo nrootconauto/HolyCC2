@@ -38,11 +38,11 @@ int main() {
 	parserTests();
 	parserDiagTests();
 		topoSortTests();
-	subExprElimTests();
 	
  	SSATests();
 		//LivenessTests();
 		*/
-		graphVizTests();
+		subExprElimTests();
+		//		graphVizTests();
 		return 0;
 }

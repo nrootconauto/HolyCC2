@@ -1,5 +1,5 @@
 #pragma once
 #include <IR.h>
-void removeSubExprs();
+void replaceSubExprsWithVars();
 void clearSubExprs();
 void findSubExprs(const graphNodeIR node);

@@ -193,10 +193,10 @@ static int getBinopArgs(graphNodeIR node, struct IREvalVal *arg1,
 	int success;
 	__auto_type a = IREvalNode(graphEdgeIRIncoming(incoming[0]), &success);
 	if (!success)
-		goto fail;
+			goto fail;
 	__auto_type b = IREvalNode(graphEdgeIRIncoming(incoming[1]), &success);
 	if (!success)
-		goto fail;
+			goto fail;
 
 	if (*graphEdgeIRValuePtr(incoming[0]) == IR_CONN_SOURCE_B) {
 		__auto_type tmp = a;
@@ -284,6 +284,19 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 		struct IRValue *value = &__value->val;
 		switch (value->type) {
 		case IR_VAL_VAR_REF: {
+				//Check for dest incoming
+				__auto_type incoming=graphNodeIRIncoming(node);
+				__auto_type assign=IRGetConnsOfType(incoming, IR_CONN_DEST);
+				int success2;
+				if(strGraphEdgeIRPSize(assign)!=0) {
+						*valueHash(value, IREVAL_VAL_DFT)=IREvalNode(graphEdgeIRIncoming(incoming[0]), &success2);
+				}
+				strGraphEdgeIRPDestroy(&incoming);
+				strGraphEdgeIRPDestroy(&assign);
+
+				if(!success2)
+						goto fail;
+				
 			if (success)
 				*success = 1;
 			return *valueHash(value, IREVAL_VAL_DFT);
