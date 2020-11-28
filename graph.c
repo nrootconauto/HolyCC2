@@ -867,12 +867,9 @@ void graph2GraphViz(FILE *dumpTo, graphNodeMapping graph, const char *title,
 			if (name)
 				mapGraphVizAttrInsert(edge.attrs, "label", strClone(name));
 
-			// Insert edge
-			if(!llGVEdgeFind(gvEdges, &edge, (int(*)(const void*,const struct graphVizEdge*))llGVEdgeCmp)) {
-					__auto_type newNode = llGVEdgeCreate(edge);
-					llGVEdgeInsert(gvEdges, newNode, llGVEdgeCmp);
-					gvEdges = newNode;
-			}
+			__auto_type newNode = llGVEdgeCreate(edge);
+			llGVEdgeInsert(gvEdges, newNode, llGVEdgeCmp);
+			gvEdges = newNode;
 
 			free(name);
 		}

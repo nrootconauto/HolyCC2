@@ -391,8 +391,9 @@ for (long e = 0; e != strGraphEdgeIRPSize(outgoing); e++) {
 
 					// Remove the outgoing connection from the "old" node so we can kill
 					// the redundant expr graph later
-					graphEdgeIRKill(from, graphEdgeIROutgoing(outgoing[e]), NULL,
+					graphEdgeIRKill(from, n, NULL,
 					                NULL, NULL);
+					graphEdgeIROutgoing(outgoing[e]);
 				}
 }
 void replaceSubExprsWithVars() {
