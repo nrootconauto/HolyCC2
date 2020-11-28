@@ -4,6 +4,7 @@
 #include <exprParser.h>
 #include <subExprElim.h>
 #include <stdint.h>
+#include <stdarg.h>
 typedef int (*gnIRCmpType)(const graphNodeIR *, const graphNodeIR *);
 typedef int (*geMapCmpType)(const graphEdgeMapping *, const graphEdgeMapping *);
 typedef int (*gnMapCmpType)(const graphNodeMapping *, const graphNodeMapping *);
@@ -422,6 +423,7 @@ static strChar lexerInt2Str(struct lexerInt *i) {
 		strChar retVal=strCharAppendItem(NULL, '\0');
 		int64_t Signed;
 		uint64_t Unsigned;
+		const char digits[]="0123456789";
 		switch(i->type) {
 		case INT_SINT:
 				Signed=i->value.sInt;
@@ -436,7 +438,6 @@ static strChar lexerInt2Str(struct lexerInt *i) {
 				Unsigned=i->value.uLong;
 				goto dumpU;
 		}
-		const char digits[]="0123456789";
 	dumpS:
 		do {
 				retVal=strCharAppendItem(retVal, '\0');

@@ -16,6 +16,7 @@ void graphVizTests() {
 				graphNodeIRConnect(labelNode, strNode, IR_CONN_FLOW);
 				__auto_type var1=createVirtVar(&typeI64i);
 				__auto_type var1RefNode=createVarRef(var1);
+				graphNodeIRConnect(labelNode, var1RefNode, IR_CONN_FLOW);
 				__auto_type binop=createBinop(intNode, var1RefNode, IR_ADD);
 				__auto_type unopNode=createUnop(binop,IR_NEG);
 
@@ -50,6 +51,7 @@ void graphVizTests() {
 
 				__auto_type allNodes=graphNodeIRAllNodes(labelNode);
 				__auto_type mapping=createGraphMap(allNodes, 1);
+				printf("Toads\n");
 				IRGraphMap2GraphViz(mapping, "Test", fn, NULL , NULL, NULL, NULL);
 				printf("Result file is:%s\n",fn);
 

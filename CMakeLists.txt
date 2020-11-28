@@ -3,7 +3,6 @@ set (CMAKE_CC_STANDARD 11)
 project(holycc2 LANGUAGES C)
 
 set(sources "")
-list(APPEND sources "main.c")
 list(APPEND sources "linkedList.c")
 list(APPEND sources "hashTable.c")
 list(APPEND sources "linkedList.c")

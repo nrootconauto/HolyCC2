@@ -44,5 +44,5 @@ int main() {
 		//LivenessTests();
 		*/
 		graphVizTests();
-	return 0;
+		return 0;
 }
