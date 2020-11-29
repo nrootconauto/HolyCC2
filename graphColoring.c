@@ -104,6 +104,7 @@ static int getColor(llData data, struct vertexInfo *nodeInfo) {
 
 	struct __predPair pair;
 	pair.preds = nodeInfo->prev;
+	pair.data=data;
 	colors2 = strIntRemoveIf(colors2, &pair, predHasColor);
 
 	int minColor = colors2[0];

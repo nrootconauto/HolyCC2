@@ -63,8 +63,8 @@ loop:;
 static struct IREvalVal *valueHash(struct IRValue *value,
                                    enum IREvalValType type) {
 	if (value->type == IR_VAL_VAR_REF) {
-		if (value->value.var.var.type == IR_VAR_VAR) {
-			__auto_type ptrStr = ptr2Str(value->value.var.var.value.var);
+		if (value->value.var.type == IR_VAR_VAR) {
+			__auto_type ptrStr = ptr2Str(value->value.var.value.var);
 		loopVar:;
 			__auto_type find = mapVarValGet(varVals, ptrStr);
 			if (!find) {
@@ -75,8 +75,8 @@ static struct IREvalVal *valueHash(struct IRValue *value,
 
 			assert(find);
 			return find;
-		} else if (value->value.var.var.type == IR_VAR_MEMBER) {
-			__auto_type ptrStr = ptr2Str(value->value.var.var.value.member);
+		} else if (value->value.var.type == IR_VAR_MEMBER) {
+			__auto_type ptrStr = ptr2Str(value->value.var.value.member);
 
 		loopMember:;
 			__auto_type find = mapVarValGet(varVals, ptrStr);
@@ -136,10 +136,10 @@ static struct IREvalVal *valueHash(struct IRValue *value,
 struct object *IRValuegetType(struct IRValue *node) {
 	switch (node->type) {
 	case IR_VAL_VAR_REF: {
-		if (node->value.var.var.type == IR_VAR_VAR)
-			return node->value.var.var.value.var->type;
-		else if (node->value.var.var.type == IR_VAR_MEMBER)
-			return assignTypeToOp((void *)node->value.var.var.value.member);
+		if (node->value.var.type == IR_VAR_VAR)
+			return node->value.var.value.var->type;
+		else if (node->value.var.type == IR_VAR_MEMBER)
+			return assignTypeToOp((void *)node->value.var.value.member);
 		return NULL;
 	}
 	case IR_VAL_STR_LIT:
@@ -316,7 +316,7 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 		}
 	}
 	case IR_ADD: {
-		BINOP_ARITH(+, success);
+			BINOP_ARITH(+, success);
 	}
 	case IR_SUB: {
 		BINOP_ARITH(-, success);
@@ -609,7 +609,7 @@ fail:
 void IREValSetVarVal(const struct variable *var, struct IREvalVal value) {
 	struct IRValue ref;
 	ref.type = IR_VAL_VAR_REF;
-	ref.value.var.var.type = IR_VAR_VAR;
-	ref.value.var.var.value.var = (void *)var;
+	ref.value.var.type = IR_VAR_VAR;
+	ref.value.var.value.var = (void *)var;
 	*valueHash(&ref, value.type) = value;
 }

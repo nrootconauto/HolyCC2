@@ -250,13 +250,13 @@ static const char *hashNode(graphNodeIR node) {
 		case IR_VAL_VAR_REF: {
 			strChar ptrStr = NULL;
 
-			if (value->val.value.var.var.type == IR_VAR_VAR) {
-				__auto_type hash = ptr2Str(value->val.value.var.var.value.var);
+			if (value->val.value.var.type == IR_VAR_VAR) {
+				__auto_type hash = ptr2Str(value->val.value.var.value.var);
 				__auto_type retVal = registerItemHash(node, hash, NULL);
 				strCharDestroy(&hash);
 				return retVal;
-			} else if (value->val.value.var.var.type == IR_VAR_MEMBER) {
-				__auto_type hash = ptr2Str(value->val.value.var.var.value.member);
+			} else if (value->val.value.var.type == IR_VAR_MEMBER) {
+				__auto_type hash = ptr2Str(value->val.value.var.value.member);
 				__auto_type retVal = registerItemHash(node, hash, NULL);
 				strCharDestroy(&hash);
 				return retVal;

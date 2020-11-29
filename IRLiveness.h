@@ -1,7 +1,7 @@
 #pragma once
 #include <IR.h>
 struct IRVarLiveness {
-	struct IRVarRef *ref;
+	struct IRVar *ref;
 };
 GRAPH_TYPE_DEF(struct IRVarLiveness, void *, IRLive);
 GRAPH_TYPE_FUNCS(struct IRVarLiveness, void *, IRLive);

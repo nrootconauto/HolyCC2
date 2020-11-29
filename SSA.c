@@ -12,8 +12,8 @@ typedef int (*strGN_IRCmpType)(const strGraphNodeIRP *,
 typedef int (*gnCmpType)(const graphNodeIR *, const graphNodeIR *);
 
 static char *ptr2Str(const void *a) { return base64Enc((void *)&a, sizeof(a)); }
-MAP_TYPE_DEF(struct IRVarRef, VarRef);
-MAP_TYPE_FUNCS(struct IRVarRef, VarRef);
+MAP_TYPE_DEF(struct IRVar *, VarRef);
+MAP_TYPE_FUNCS(struct IRVar *, VarRef);
 static __thread mapVarRef varRefs = NULL;
 static graphNodeIR createChoose(graphNodeIR insertBefore,
                                 strGraphNodeIRP pathPairs) {
@@ -82,7 +82,7 @@ static int occurOfVar(struct varAndEnterPair *expectedVar,
 		if (val->val.type != IR_VAL_VAR_REF)
 			return 0;
 
-		return 0 == IRVarCmp(expectedVar->var, &val->val.value.var.var);
+		return 0 == IRVarCmp(expectedVar->var, &val->val.value.var);
 	}
 
 	if (node == expectedVar->enter)
@@ -107,11 +107,11 @@ static int __isAssignedVar(struct varAndEnterPair *data,
 	if (ir->type == IR_VALUE) {
 		struct IRNodeValue *val = (void *)ir;
 		if (val->val.type == IR_VAL_VAR_REF) {
-			if (expectedVar->type == val->val.value.var.var.type) {
+			if (expectedVar->type == val->val.value.var.type) {
 				if (expectedVar->type == IR_VAR_MEMBER) {
 					// TODO check equal
 				} else if (expectedVar->type == IR_VAR_VAR) {
-					if (expectedVar->value.var == val->val.value.var.var.value.var)
+					if (expectedVar->value.var == val->val.value.var.value.var)
 						goto checkForAssign;
 				}
 			}
@@ -433,8 +433,8 @@ void IRToSSA(strGraphNodeIRP nodes, graphNodeIR enter) {
 		assert(val->base.type == IR_VALUE);
 
 		// Insert if doesnt exist
-		if (NULL == strIRVarSortedFind(allVars, val->val.value.var.var, IRVarCmp)) {
-			allVars = strIRVarSortedInsert(allVars, val->val.value.var.var, IRVarCmp);
+		if (NULL == strIRVarSortedFind(allVars, val->val.value.var, IRVarCmp)) {
+			allVars = strIRVarSortedInsert(allVars, val->val.value.var, IRVarCmp);
 		}
 	}
 	//

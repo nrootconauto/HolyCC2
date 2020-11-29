@@ -17,8 +17,8 @@ void subExprElimTests();
 void SSATests();
 void LivenessTests();
 void graphVizTests();
+void registerAllocatorTests();
 int main() {
-		/*
 		strTests();
 		preprocessorTests();
 		base64Tests();
@@ -40,9 +40,9 @@ int main() {
 		topoSortTests();
 	
  	SSATests();
-		//LivenessTests();
-		*/
+		LivenessTests();
 		subExprElimTests();
-		//		graphVizTests();
+		//graphVizTests();
+		//registerAllocatorTests();
 		return 0;
 }

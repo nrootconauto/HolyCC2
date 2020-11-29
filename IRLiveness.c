@@ -6,8 +6,8 @@
 #define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 typedef int (*gnCmpType)(const graphNodeMapping *, const graphNodeMapping *);
-typedef int (*varRefCmpType)(const struct IRVarRef **,
-                             const struct IRVarRef **);
+typedef int (*varRefCmpType)(const struct IRVar **,
+                             const struct IRVar **);
 #define ALLOCATE(x)                                                            \
 	({                                                                           \
 		typeof(x) *ptr = malloc(sizeof(x));                                        \
@@ -57,10 +57,10 @@ static void __filterTransparentKill(graphNodeMapping node) {
 
 	graphNodeMappingKill(&node, NULL, NULL);
 }
-STR_TYPE_DEF(struct IRVarRef *, Var);
-STR_TYPE_FUNCS(struct IRVarRef *, Var);
-static int IRVarRefCmp(const struct IRVarRef **a, const struct IRVarRef **b) {
-	return IRVarCmp(&a[0]->var, &b[0]->var);
+STR_TYPE_DEF(struct IRVar *, Var);
+STR_TYPE_FUNCS(struct IRVar *, Var);
+static int IRVarRefCmp(const struct IRVar **a, const struct IRVar **b) {
+	return IRVarCmp(a[0], b[0]);
 }
 struct basicBlock {
 	strGraphNodeMappingP nodes;
@@ -71,7 +71,7 @@ struct basicBlock {
 };
 static void printVars(strVar vars) {
 	for (long i = 0; i != strVarSize(vars); i++) {
-		DEBUG_PRINT("    - %s\n", debugGetPtrNameConst(vars[i]->var.value.var));
+		DEBUG_PRINT("    - %s\n", debugGetPtrNameConst(vars[i]));
 	}
 }
 static int isExprEdge(graphEdgeIR edge) {
@@ -466,7 +466,7 @@ static void killNode(void *ptr) {
 	__graphNodeKill(*(struct __graphNode **)ptr, NULL, NULL);
 }
 struct varRefNodePair {
-	struct IRVarRef *ref;
+	struct IRVar *ref;
 	graphNodeIRLive node;
 };
 STR_TYPE_DEF(struct varRefNodePair, VarRefNodePair);
@@ -721,9 +721,9 @@ graphNodeIRLive IRInterferenceGraph(graphNodeIR start) {
 
 #if DEBUG_PRINT_ENABLE
 				__auto_type ref1 = debugGetPtrNameConst(
-				    graphNodeIRLiveValuePtr(liveAtOnce[i1])->ref->var.value.var);
+				    graphNodeIRLiveValuePtr(liveAtOnce[i1])->ref);
 				__auto_type ref2 = debugGetPtrNameConst(
-				    graphNodeIRLiveValuePtr(liveAtOnce[i2])->ref->var.value.var);
+				    graphNodeIRLiveValuePtr(liveAtOnce[i2])->ref);
 				DEBUG_PRINT("Connecting %s to %s\n", ref1, ref2);
 #endif
 			}

@@ -13,16 +13,18 @@ typedef int (*gnCmpType)(const struct __graphNode **,
                          const struct __graphNode **);
 struct __graphNode;
 struct __graphEdge {
-	struct __graphNode *from;
-	struct __graphNode *to;
-	unsigned int valuePresent : 1;
+		struct __graphNode *from;
+		struct __graphNode *to;
+		long itemSize;
+		unsigned int valuePresent : 1;
 };
 
 struct __graphNode {
-	strGraphEdgeP incoming;
-	strGraphEdgeP outgoing;
-	int version;
-	unsigned int killable : 1;
+		strGraphEdgeP incoming;
+		strGraphEdgeP outgoing;
+		long itemSize;
+		int version;
+		unsigned int killable : 1;
 };
 static int ptrCompare(const void *a, const void *b) {
 	const void **A = (const void **)a, **B = (const void **)b;
@@ -34,6 +36,7 @@ struct __graphNode *__graphNodeCreate(void *value, long itemSize, int version) {
 	retVal->incoming = NULL;
 	retVal->outgoing = NULL;
 	retVal->version = version;
+	retVal->itemSize=itemSize;
 	return retVal;
 }
 enum dir { DIR_FORWARD, DIR_BACKWARD };
@@ -314,6 +317,7 @@ struct __graphEdge *__graphNodeConnect(struct __graphNode *a,
 	newEdgeNode->from = a;
 	newEdgeNode->to = b;
 	newEdgeNode->valuePresent = data != NULL;
+	newEdgeNode->itemSize=itemSize;
 
 	a->outgoing = strGraphEdgePSortedInsert(a->outgoing, newEdgeNode,
 	                                        (geCmpType)ptrCompare);
@@ -918,3 +922,9 @@ void graph2GraphViz(FILE *dumpTo, graphNodeMapping graph, const char *title,
 
 	fprintf(dumpTo, "}");
 }
+long graphNodeValueSize(const struct __graphNode *node) {
+		return node->itemSize;
+}
+long graphEdgeValueSize(const struct __graphEdge *edge) {
+		return edge->itemSize;
+} 

@@ -178,8 +178,8 @@ graphNodeIR createVarRef(struct variable *var) {
 	val.val.type = IR_VAL_VAR_REF;
 
 	val.val.value.var.SSANum = find->refs;
-	val.val.value.var.var.type = IR_VAR_VAR;
-	val.val.value.var.var.value.var = var;
+	val.val.value.var.type = IR_VAR_VAR;
+	val.val.value.var.value.var = var;
 
 	return GRAPHN_ALLOCATE(val);
 }
@@ -293,10 +293,10 @@ static void init() { typeU8P = objectPtrCreate(&typeU8i); };
 struct object *IRValueGetType(struct IRValue *node) {
 	switch (node->type) {
 	case IR_VAL_VAR_REF: {
-		if (node->value.var.var.type == IR_VAR_VAR)
-			return node->value.var.var.value.var->type;
-		else if (node->value.var.var.type == IR_VAR_MEMBER)
-			return assignTypeToOp((void *)node->value.var.var.value.member);
+		if (node->value.var.type == IR_VAR_VAR)
+			return node->value.var.value.var->type;
+		else if (node->value.var.type == IR_VAR_MEMBER)
+			return assignTypeToOp((void *)node->value.var.value.member);
 		return NULL;
 	}
 	case IR_VAL_STR_LIT:
@@ -365,20 +365,23 @@ graphNodeIR createCondJmp(graphNodeIR cond, graphNodeIR t, graphNodeIR f) {
 
 	return retVal;
 }
+static int isExprEdge(enum IRConnType type ) {
+		switch (type) {
+		case IR_CONN_SOURCE_A:
+		case IR_CONN_SOURCE_B:
+		case IR_CONN_FUNC_ARG:
+		case IR_CONN_FUNC:
+		case IR_CONN_SIMD_ARG:
+		case IR_CONN_DEST:
+				return 1;
+		default:
+				return 0;
+		}
+}
 static int exprEdgePred(const struct __graphNode *node,
                         const struct __graphEdge *edge, const void *data) {
 	__auto_type type = *graphEdgeIRValuePtr((void *)edge);
-	switch (type) {
-	case IR_CONN_SOURCE_A:
-	case IR_CONN_SOURCE_B:
-	case IR_CONN_FUNC_ARG:
-	case IR_CONN_FUNC:
-	case IR_CONN_SIMD_ARG:
-	case IR_CONN_DEST:
-		return 1;
-	default:
-		return 0;
-	}
+	return isExprEdge(type);
 }
 static void addNode2List(struct __graphNode *node, void *data) {
 	strGraphNodeIRP *nodes = data;
@@ -411,6 +414,12 @@ int IRVarCmp(const struct IRVar *a, const struct IRVar *b) {
 	if (0 != a->type - b->type)
 		return a->type - b->type;
 
+	if(a->SSANum!=b->SSANum) {
+			if(a->SSANum>b->SSANum)
+					return 1;
+			else if (a->SSANum<b->SSANum)
+					return -1;
+	}
 	if (a->type == IR_VAR_VAR) {
 		return ptrCmp(a->value.var, b->value.var);
 	} else {
@@ -618,13 +627,13 @@ static strChar IRValue2GraphVizLabel(struct IRNode *nodeData) {
 		}
 		case IR_VAL_VAR_REF: {
 				strChar tmp=NULL;
-				if(val->val.value.var.var.type==IR_VAR_MEMBER) {
+				if(val->val.value.var.type==IR_VAR_MEMBER) {
 						//TODO
-				} else if(val->val.value.var.var.type==IR_VAR_VAR) {
-						if(val->val.value.var.var.value.var->name)
-								tmp=strClone(val->val.value.var.var.value.var->name);
+				} else if(val->val.value.var.type==IR_VAR_VAR) {
+						if(val->val.value.var.value.var->name)
+								tmp=strClone(val->val.value.var.value.var->name);
 						else {
-								tmp=FROM_FORMAT("%p", val->val.value.var.var.value.var);
+								tmp=FROM_FORMAT("%p", val->val.value.var.value.var);
 						}
 				}
 
@@ -911,4 +920,200 @@ void IRGraphMap2GraphViz(graphNodeMapping graph,const char *title,const char *fn
 		FILE *dumpTo=fopen(fn, "w");		
 		graph2GraphViz(dumpTo, graph, title, IRCreateGraphVizNode, IRCreateGraphVizEdge, &nodeData, &edgeData);
 		fclose(dumpTo);
+}
+static graphNodeIR __cloneNode(mapGraphNode mappings,graphNodeIR node,enum IRCloneMode mode);
+static void __cloneNodeCopyConnections(mapGraphNode mappings,graphNodeIR connectTo,enum IRCloneMode mode) {
+		int ignoreAssigns=0;
+		switch(mode) {
+		case IR_CLONE_EXPR: {
+				ignoreAssigns=0;
+				goto cloneExpressions;
+		}
+		case IR_CLONE_EXPR_UNTIL_ASSIGN: {
+				ignoreAssigns=1;
+				goto cloneExpressions;
+		}
+		case IR_CLONE_NODE:
+				return;
+		}
+	cloneExpressions:;
+		__auto_type incoming=graphNodeIRIncoming(connectTo);
+		for(long i=0;i!=strGraphEdgeIRPSize(incoming);i++) {
+				__auto_type type=*graphEdgeIRValuePtr(incoming[i]);
+				if(isExprEdge(type)) {
+						//If ignore assigns,ignore IR_CONN_DEST
+						if(ignoreAssigns&&type==IR_CONN_DEST)
+								continue;
+								
+						//Clone
+						__auto_type newNode=	__cloneNode(mappings, graphEdgeIRIncoming(incoming[i]), mode);
+
+						graphNodeIRConnect(newNode, connectTo, type);
+				}
+		}
+
+		strGraphEdgeIRPDestroy(&incoming);
+		return;
+}
+static graphNodeIR __cloneNode(mapGraphNode mappings,graphNodeIR node,enum IRCloneMode mode) {
+		char *key=ptr2Str(mappings);
+		__auto_type find=mapGraphNodeGet(mappings, key);
+		free(key);
+		if(find)
+				return *find;
+		
+		__auto_type ir=graphNodeIRValuePtr(node);
+		switch(ir->type) {
+		case IR_FUNC_CALL: {
+				//Copy argument vector
+				__auto_type reference=(struct IRNodeFuncCall*)graphNodeIRValuePtr(node);
+				struct IRNodeFuncCall clone;
+				clone.base.attrs=NULL;
+				clone.base.type=IR_FUNC_CALL;
+				clone.incomingArgs=NULL;
+
+				__auto_type newNode=GRAPHN_ALLOCATE(clone);
+				
+				if(mode==IR_CLONE_EXPR) {
+						__auto_type incoming=graphNodeIRIncoming(node);
+						//Connect all incoming that arg args,those will be done later(IN ORDER)
+						for(long i=0;i!=strGraphEdgeIRPSize(incoming);i++) {
+								//if not func arg
+								if(*graphEdgeIRValuePtr(incoming[i])==IR_CONN_FUNC_ARG)
+										continue;
+								
+								__auto_type newNode2=__cloneNode(mappings,graphEdgeIRIncoming(incoming[i]),  mode);
+								graphNodeIRConnect(newNode2, newNode, *graphEdgeIRValuePtr(incoming[i]));
+						}
+
+						//Now do function arguments
+						__auto_type newNodeCall=(struct IRNodeFuncCall *)graphNodeIRValuePtr(newNode);
+						for(long i=0;i!=strGraphNodeIRPSize(reference->incomingArgs);i++) {
+								__auto_type newNode2=__cloneNode(mappings,graphEdgeIRIncoming(incoming[i]),  mode);
+								graphNodeIRConnect(newNode2, newNode, IR_CONN_FUNC_ARG);
+								//Append in order
+								newNodeCall->incomingArgs=strGraphNodeIRPAppendItem(newNodeCall->incomingArgs, newNode2);
+						}
+				}
+
+				//Copy connections
+				__cloneNodeCopyConnections(mappings,newNode, mode);
+
+				//Register node
+				char *key=ptr2Str(newNode);
+				mapGraphNodeInsert(mappings, key, newNode);
+				free(key);
+				
+				return newNode;
+		}
+		case IR_CHOOSE: {
+				__auto_type nodeValue=(struct IRNodeChoose*)graphNodeIRValuePtr(node); 
+				
+				struct IRNodeChoose choose;
+				choose.base.attrs=NULL;
+				choose.base.type=IR_CHOOSE;
+				choose.canidates=strGraphNodeIRPClone(nodeValue->canidates);
+				__auto_type retVal =GRAPHN_ALLOCATE(choose);
+
+				//Copy connections
+				__cloneNodeCopyConnections(mappings,retVal, mode);
+
+				//Register node
+				char *key=ptr2Str(retVal);
+				mapGraphNodeInsert(mappings, key, retVal);
+				free(key);
+				
+				return retVal;
+		}
+				case IR_ADD:
+		case IR_VALUE:
+		case IR_ADDR_OF:
+		case IR_ARRAY_ACCESS:
+		case IR_ASSIGN:
+		case IR_BAND:
+		case IR_BNOT:
+		case IR_BOR:
+		case IR_BXOR:
+		case IR_DEC:
+		case IR_DERREF:
+		case IR_DIV:
+		case IR_EQ:
+		case IR_GE:
+		case IR_GT:
+		case IR_INC:
+		case IR_LAND:
+		case IR_COND_JUMP:
+		case IR_FUNC_END:
+		case IR_FUNC_START:
+		case IR_FUNC_RETURN:
+		case IR_JUMP:
+		case IR_LABEL:
+		case IR_LE:
+		case IR_LNOT:
+		case IR_LOR:
+		case IR_LSHIFT:
+		case IR_LT:
+		case IR_LXOR:
+		case IR_MOD:
+		case IR_NE:
+		case IR_MULT:
+		case IR_NEG:
+		case IR_POS:
+		case IR_POW:
+		case IR_RSHIFT:
+		case IR_STATEMENT_END:
+		case IR_STATEMENT_START:
+		case IR_SUB:
+		case IR_SUB_SWITCH_START_LABEL:
+		case IR_TYPECAST: {
+				//Clone value(ignore atttibute)
+				__auto_type retVal= __graphNodeCreate(graphNodeIRValuePtr(node),graphNodeValueSize(node), 0);
+				graphNodeIRValuePtr(retVal)->attrs=NULL;
+
+				//Copy connections
+				__cloneNodeCopyConnections(mappings,retVal, mode);
+
+				//Register node
+				char *key=ptr2Str(retVal);
+				mapGraphNodeInsert(mappings, key, retVal);
+				free(key);
+				
+				return retVal;
+		}
+		case IR_SIMD: {
+				assert(0);//TODO
+		}
+		case IR_JUMP_TAB: {
+				__auto_type table=(struct IRNodeJumpTable*)graphNodeIRValuePtr(node);
+				struct IRNodeJumpTable newTable;
+				newTable.base.attrs=NULL;
+				newTable.base.type=IR_JUMP_TAB;
+				newTable.labels=strGraphNodeIRPClone(table->labels);
+				newTable.startIndex=table->startIndex;
+
+				__auto_type retVal=GRAPHN_ALLOCATE(newTable);
+
+				//Copy connections
+				__cloneNodeCopyConnections(mappings,retVal, mode);
+
+				//Register node
+				char *key=ptr2Str(retVal);
+				mapGraphNodeInsert(mappings, key, retVal);
+				free(key);
+				
+				return retVal;
+		}
+		}		
+}
+graphNodeIR cloneNode(graphNodeIR node,enum IRCloneMode mode,mapGraphNode *mappings) {
+		__auto_type mappings2=mapGraphNodeCreate();
+		__auto_type retVal=__cloneNode(mappings2, node, mode);
+
+		if(mappings) {
+				*mappings=mappings2;
+		} else {
+				mapGraphNodeDestroy(mappings2, NULL);
+		}
+		
+		return retVal;
 }

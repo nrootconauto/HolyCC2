@@ -5,6 +5,7 @@
 #include <linkedList.h>
 #include <parserA.h>
 #include <str.h>
+#include <registers.h> 
 enum IRFlag {
 	IR_FLAG_EQZ,
 	IR_FLAG_NEQZ,
@@ -130,11 +131,6 @@ struct IRValIndirect {
 	graphNodeIR index;
 	long scale;
 };
-struct IRValReg {
-	int num;
-	int width;
-	int size;
-};
 struct IRValMemFrame {
 	long offset;
 	struct object *type;
@@ -152,16 +148,13 @@ struct IRVar {
 		struct variable *var;
 		struct parserNodeMemberAccess *member;
 	} value;
-};
-struct IRVarRef {
-	struct IRVar var;
-	long SSANum;
+		long SSANum;
 };
 struct IRValue {
 	enum IRValueType type;
 	union {
-		struct IRValReg reg;
-		struct IRVarRef var;
+		struct reg *reg;
+		struct IRVar var;
 		struct IRValMemFrame __frame;
 		struct IRValMemGlobal __global;
 		graphNodeIR __label;
@@ -315,3 +308,9 @@ graphNodeIR createStrLit(const char *text);
 graphNodeIR createUnop(graphNodeIR a, enum IRNodeType type);
 graphNodeIR createFuncCall(graphNodeIR func,...);
 graphNodeIR createTypecast(graphNodeIR in,struct object *inType,struct object *outType);
+enum IRCloneMode {
+		IR_CLONE_NODE,
+		IR_CLONE_EXPR,
+		IR_CLONE_EXPR_UNTIL_ASSIGN,
+};
+graphNodeIR cloneNode(graphNodeIR node,enum IRCloneMode mode,mapGraphNode *mappings);

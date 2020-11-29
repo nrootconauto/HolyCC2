@@ -238,3 +238,5 @@ void graph2GraphViz(FILE *dumpTo, graphNodeMapping graph, const char *title,
                                          mapGraphVizAttr *attrs,
                                          const void *data),
                     const void *nodeData, const void *edgeData);
+long graphNodeValueSize(const struct __graphNode *node);
+long graphEdgeValueSize(const struct __graphEdge *edge);
