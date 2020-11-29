@@ -111,7 +111,7 @@ void graphTests() {
 						assert(!expected[i]);
 
 				//Create map
-				__auto_type map1=createGraphMap(all,0);
+				__auto_type map1=graphNodeCreateMapping(all[0], 1);
 				__auto_type allMap1=graphNodeMappingAllNodes(map1);
 				assert(strGraphNodeMappingPSize(allMap1)==4);
 				graphNodeInt expected2[]={a,b,c,d};

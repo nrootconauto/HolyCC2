@@ -48,8 +48,7 @@ void subExprElimTests() {
 		assert(computed.type == IREVAL_VAL_INT);
 		assert(4 + 4 + 4 == computed.value.i);
 
-		__auto_type allNodes=graphNodeIRAllNodes(tail[0]);
-		__auto_type mapped=createGraphMap(allNodes, 1);
+		__auto_type mapped=graphNodeCreateMapping(tail[0], 1);
 		char *fn=tmpnam(NULL);
 		IRGraphMap2GraphViz(mapped, "Toads", fn, NULL, NULL, NULL, NULL);
 		printf("Look at %s\n", fn);

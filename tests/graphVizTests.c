@@ -49,8 +49,7 @@ void graphVizTests() {
 		
 				graphNodeIRConnect(chooseNode, stmtStartNode, IR_CONN_FLOW);
 
-				__auto_type allNodes=graphNodeIRAllNodes(labelNode);
-				__auto_type mapping=createGraphMap(allNodes, 1);
+				__auto_type mapping=graphNodeCreateMapping(labelNode, 1);
 				printf("Toads\n");
 				IRGraphMap2GraphViz(mapping, "Test", fn, NULL , NULL, NULL, NULL);
 				printf("Result file is:%s\n",fn);

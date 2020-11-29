@@ -411,15 +411,12 @@ graphNodeMapping __createGraphMap(const struct __graphNode *start,strGraphNodeP 
 	char *key=ptr2Str(start);
 	__auto_type retVal = *mapGraphNodeGet(map, key);
 	free(key);
-	
+	 
 	for (long i = 0; i != strGraphNodePSize(nodes); i++)
 		free(keys[i]);
 	mapGraphNodeDestroy(map, NULL);
 
 	return retVal;
-}
-graphNodeMapping createGraphMap(strGraphNodeP nodes, int preserveConnections) {
-		return __createGraphMap(nodes[0], nodes, preserveConnections);
 };
 graphNodeMapping graphNodeCreateMapping(const struct __graphNode *node ,int preserveConnections) {
 		__auto_type allNodes=__graphNodeVisitAll(node);
@@ -449,7 +446,7 @@ static void __filterTransparentKill(graphNodeMapping node) {
 graphNodeMapping
 createFilteredGraph(struct __graphNode *start, strGraphNodeP nodes, void *data,
                     int (*pred)(void *data, struct __graphNode *)) {
-	__auto_type clone = createGraphMap(nodes, 0);
+		__auto_type clone = __createGraphMap(nodes[0],nodes, 0);
 	__auto_type cloneNodes = __graphNodeVisitAll(clone);
 
 	graphNodeMapping retVal = NULL;
