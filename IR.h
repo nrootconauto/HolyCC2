@@ -4,8 +4,8 @@
 #include <lexer.h>
 #include <linkedList.h>
 #include <parserA.h>
+#include <registers.h>
 #include <str.h>
-#include <registers.h> 
 enum IRFlag {
 	IR_FLAG_EQZ,
 	IR_FLAG_NEQZ,
@@ -148,7 +148,7 @@ struct IRVar {
 		struct variable *var;
 		struct parserNodeMemberAccess *member;
 	} value;
-		long SSANum;
+	long SSANum;
 };
 struct IRValue {
 	enum IRValueType type;
@@ -306,12 +306,14 @@ void IRGraphMap2GraphViz(
     const void *dataNodes, const void *dataEdge);
 graphNodeIR createStrLit(const char *text);
 graphNodeIR createUnop(graphNodeIR a, enum IRNodeType type);
-graphNodeIR createFuncCall(graphNodeIR func,...);
-graphNodeIR createTypecast(graphNodeIR in,struct object *inType,struct object *outType);
+graphNodeIR createFuncCall(graphNodeIR func, ...);
+graphNodeIR createTypecast(graphNodeIR in, struct object *inType,
+                           struct object *outType);
 enum IRCloneMode {
-		IR_CLONE_NODE,
-		IR_CLONE_EXPR,
-		IR_CLONE_EXPR_UNTIL_ASSIGN,
+	IR_CLONE_NODE,
+	IR_CLONE_EXPR,
+	IR_CLONE_EXPR_UNTIL_ASSIGN,
 };
-graphNodeIR cloneNode(graphNodeIR node,enum IRCloneMode mode,mapGraphNode *mappings);
+graphNodeIR cloneNode(graphNodeIR node, enum IRCloneMode mode,
+                      mapGraphNode *mappings);
 int IRVarCmpIgnoreVersion(const struct IRVar *a, const struct IRVar *b);

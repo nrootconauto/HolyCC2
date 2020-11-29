@@ -239,4 +239,5 @@ void graph2GraphViz(FILE *dumpTo, graphNodeMapping graph, const char *title,
                     const void *nodeData, const void *edgeData);
 long graphNodeValueSize(const struct __graphNode *node);
 long graphEdgeValueSize(const struct __graphEdge *edge);
-graphNodeMapping graphNodeCreateMapping(const struct __graphNode *node ,int preserveConnections);
+graphNodeMapping graphNodeCreateMapping(const struct __graphNode *node,
+                                        int preserveConnections);

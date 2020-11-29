@@ -1,10 +1,10 @@
 #include <base64.h>
+#include <escaper.h>
 #include <graph.h>
 #include <hashTable.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <str.h>
-#include <escaper.h>
 #define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 typedef int (*geCmpType)(const struct __graphEdge **,
@@ -13,18 +13,18 @@ typedef int (*gnCmpType)(const struct __graphNode **,
                          const struct __graphNode **);
 struct __graphNode;
 struct __graphEdge {
-		struct __graphNode *from;
-		struct __graphNode *to;
-		long itemSize;
-		unsigned int valuePresent : 1;
+	struct __graphNode *from;
+	struct __graphNode *to;
+	long itemSize;
+	unsigned int valuePresent : 1;
 };
 
 struct __graphNode {
-		strGraphEdgeP incoming;
-		strGraphEdgeP outgoing;
-		long itemSize;
-		int version;
-		unsigned int killable : 1;
+	strGraphEdgeP incoming;
+	strGraphEdgeP outgoing;
+	long itemSize;
+	int version;
+	unsigned int killable : 1;
 };
 static int ptrCompare(const void *a, const void *b) {
 	const void **A = (const void **)a, **B = (const void **)b;
@@ -36,7 +36,7 @@ struct __graphNode *__graphNodeCreate(void *value, long itemSize, int version) {
 	retVal->incoming = NULL;
 	retVal->outgoing = NULL;
 	retVal->version = version;
-	retVal->itemSize=itemSize;
+	retVal->itemSize = itemSize;
 	return retVal;
 }
 enum dir { DIR_FORWARD, DIR_BACKWARD };
@@ -317,7 +317,7 @@ struct __graphEdge *__graphNodeConnect(struct __graphNode *a,
 	newEdgeNode->from = a;
 	newEdgeNode->to = b;
 	newEdgeNode->valuePresent = data != NULL;
-	newEdgeNode->itemSize=itemSize;
+	newEdgeNode->itemSize = itemSize;
 
 	a->outgoing = strGraphEdgePSortedInsert(a->outgoing, newEdgeNode,
 	                                        (geCmpType)ptrCompare);
@@ -375,7 +375,9 @@ int __graphIsConnectedTo(const struct __graphNode *from,
 	return 0;
 }
 static char *ptr2Str(const void *a) { return base64Enc((void *)&a, sizeof(a)); }
-graphNodeMapping __createGraphMap(const struct __graphNode *start,strGraphNodeP nodes, int preserveConnections) {
+graphNodeMapping __createGraphMap(const struct __graphNode *start,
+                                  strGraphNodeP nodes,
+                                  int preserveConnections) {
 	__auto_type map = mapGraphNodeCreate();
 	char *keys[strGraphNodePSize(nodes)];
 	// Create keys and insert
@@ -408,19 +410,20 @@ graphNodeMapping __createGraphMap(const struct __graphNode *start,strGraphNodeP 
 		}
 	}
 
-	char *key=ptr2Str(start);
+	char *key = ptr2Str(start);
 	__auto_type retVal = *mapGraphNodeGet(map, key);
 	free(key);
-	 
+
 	for (long i = 0; i != strGraphNodePSize(nodes); i++)
 		free(keys[i]);
 	mapGraphNodeDestroy(map, NULL);
 
 	return retVal;
 };
-graphNodeMapping graphNodeCreateMapping(const struct __graphNode *node ,int preserveConnections) {
-		__auto_type allNodes=__graphNodeVisitAll(node);
-		return __createGraphMap(node, allNodes, preserveConnections);
+graphNodeMapping graphNodeCreateMapping(const struct __graphNode *node,
+                                        int preserveConnections) {
+	__auto_type allNodes = __graphNodeVisitAll(node);
+	return __createGraphMap(node, allNodes, preserveConnections);
 }
 //
 // Does not preserve edges,see filterGraph
@@ -446,7 +449,7 @@ static void __filterTransparentKill(graphNodeMapping node) {
 graphNodeMapping
 createFilteredGraph(struct __graphNode *start, strGraphNodeP nodes, void *data,
                     int (*pred)(void *data, struct __graphNode *)) {
-		__auto_type clone = __createGraphMap(nodes[0],nodes, 0);
+	__auto_type clone = __createGraphMap(nodes[0], nodes, 0);
 	__auto_type cloneNodes = __graphNodeVisitAll(clone);
 
 	graphNodeMapping retVal = NULL;
@@ -515,7 +518,7 @@ void graphPrint(struct __graphNode *node, char *(*toStr)(struct __graphNode *),
 		for (long i2 = 0; i2 != strGraphEdgePSize(outNodes); i2++) {
 			char *out = toStr(outNodes[i2]->to);
 			char *edgeStr = toStrEdge(outNodes[i2]);
-			printf("    %s(%s)\n", out,edgeStr);
+			printf("    %s(%s)\n", out, edgeStr);
 			free(out);
 		}
 		// In
@@ -674,14 +677,14 @@ static int llGVEdgeCmp(const struct graphVizEdge *ed,
 	return 0;
 }
 static char *stringify(const char *text) {
-		char *escaped=escapeString((char*)text);
-		long size=snprintf(NULL, 0, "\"%s\"", escaped);
-		char buffer[size+1];
-		sprintf(buffer, "\"%s\"", escaped);
+	char *escaped = escapeString((char *)text);
+	long size = snprintf(NULL, 0, "\"%s\"", escaped);
+	char buffer[size + 1];
+	sprintf(buffer, "\"%s\"", escaped);
 
-		free(escaped);
+	free(escaped);
 
-		return strClone(buffer);
+	return strClone(buffer);
 }
 static void writeOutGVAttrs(FILE *dumpTo, mapGraphVizAttr attrs) {
 	// write out attributes(if exist)
@@ -696,13 +699,13 @@ static void writeOutGVAttrs(FILE *dumpTo, mapGraphVizAttr attrs) {
 		mapGraphVizAttrKeys(attrs, attrNames, NULL);
 
 		for (long i2 = 0; i2 != count; i2++) {
-				// Print terminating ";" for previous item (if has a first item)
+			// Print terminating ";" for previous item (if has a first item)
 			if (i2 != 0)
 				fprintf(dumpTo, ";");
 
-			__auto_type attrValue=stringify(*mapGraphVizAttrGet(attrs, attrNames[i2]));
-			fprintf(dumpTo, "%s=%s", attrNames[i2],
-			        attrValue);
+			__auto_type attrValue =
+			    stringify(*mapGraphVizAttrGet(attrs, attrNames[i2]));
+			fprintf(dumpTo, "%s=%s", attrNames[i2], attrValue);
 			free(attrValue);
 		}
 
@@ -716,88 +719,90 @@ struct GraphVizNode {
 MAP_TYPE_DEF(struct GraphVizNode, GVNode);
 MAP_TYPE_FUNCS(struct GraphVizNode, GVNode);
 struct GVDepthPair {
-		graphNodeMapping node;
-		int depth;
+	graphNodeMapping node;
+	int depth;
 };
-MAP_TYPE_DEF(struct GVDepthPair,DepthPair);
-MAP_TYPE_FUNCS(struct GVDepthPair,DepthPair);
-static int GVDepthPairSort(const void *a,const void *b) {
-		const struct GVDepthPair *A=a,*B=b;
-		return A->depth-B->depth;
+MAP_TYPE_DEF(struct GVDepthPair, DepthPair);
+MAP_TYPE_FUNCS(struct GVDepthPair, DepthPair);
+static int GVDepthPairSort(const void *a, const void *b) {
+	const struct GVDepthPair *A = a, *B = b;
+	return A->depth - B->depth;
 }
-static strGraphNodeP graphVizRankSort(const struct __graphNode *enter,strGraphNodeP allNodes) {
-		strGraphNodeP visited=NULL;
-		mapDepthPair depthByNode=mapDepthPairCreate();
+static strGraphNodeP graphVizRankSort(const struct __graphNode *enter,
+                                      strGraphNodeP allNodes) {
+	strGraphNodeP visited = NULL;
+	mapDepthPair depthByNode = mapDepthPairCreate();
 
-		strGraphNodeP current=strGraphNodePAppendItem(NULL, (struct __graphNode*)enter);
-		for(int depth=0;;depth++) {
-				strGraphNodeP next=NULL;
-				
-				//Find unvisited outgoing nodes of currents
-				for(long i=0;i!=strGraphNodePSize(current);i++) {
-						//Register node at depth
-						__auto_type key=ptr2Str(current[i]);
-						struct GVDepthPair pair;
-						pair.depth=depth;
-						pair.node=current[i];
-						mapDepthPairInsert(depthByNode, key, pair);
-						free(key);
-						
-						//Add current to visited
-						visited=strGraphNodePSortedInsert(visited, current[i], (gnCmpType)ptrCompare);
-						
-						//Filter out visited nodes
-						__auto_type outs=__graphNodeOutgoingNodes(current[i]);
-						outs=strGraphNodePSetDifference(outs, visited, (gnCmpType)ptrCompare);
+	strGraphNodeP current =
+	    strGraphNodePAppendItem(NULL, (struct __graphNode *)enter);
+	for (int depth = 0;; depth++) {
+		strGraphNodeP next = NULL;
 
-						//Add outs to next;
-						next=strGraphNodePSetUnion(next, outs, (gnCmpType)ptrCompare);
-				}
+		// Find unvisited outgoing nodes of currents
+		for (long i = 0; i != strGraphNodePSize(current); i++) {
+			// Register node at depth
+			__auto_type key = ptr2Str(current[i]);
+			struct GVDepthPair pair;
+			pair.depth = depth;
+			pair.node = current[i];
+			mapDepthPairInsert(depthByNode, key, pair);
+			free(key);
 
-				strGraphNodePDestroy(&current);
-				current=next;
+			// Add current to visited
+			visited =
+			    strGraphNodePSortedInsert(visited, current[i], (gnCmpType)ptrCompare);
 
-				if(strGraphNodePSize(current)==0)
-						break;
+			// Filter out visited nodes
+			__auto_type outs = __graphNodeOutgoingNodes(current[i]);
+			outs = strGraphNodePSetDifference(outs, visited, (gnCmpType)ptrCompare);
+
+			// Add outs to next;
+			next = strGraphNodePSetUnion(next, outs, (gnCmpType)ptrCompare);
 		}
-		
+
 		strGraphNodePDestroy(&current);
+		current = next;
 
-		//All unreachable nodes should be 0
-		__auto_type allNodes2=strGraphNodePClone(allNodes);
-		allNodes2=strGraphNodePSetDifference(allNodes2, visited, (gnCmpType)ptrCompare);
-		for(long i=0;i!=strGraphNodePSize(allNodes2);i++) {
-				struct GVDepthPair pair;
-						pair.depth=0;
-						pair.node=allNodes2[i];
-						__auto_type key=ptr2Str(allNodes2[i]);
-						mapDepthPairInsert(depthByNode, key, pair);
-						free(key);
-		}
-		
-		long kCount;
-		mapDepthPairKeys(depthByNode, NULL, &kCount);
-		const char *keys[kCount];
-		mapDepthPairKeys(depthByNode, keys, NULL);
+		if (strGraphNodePSize(current) == 0)
+			break;
+	}
 
-		//Fill up buffer with pairs,then we will sor them
-		struct GVDepthPair buffer[kCount];
-		for(long i=0;i!=kCount;i++)
-				buffer[i]=*mapDepthPairGet(depthByNode, keys[i]);
+	strGraphNodePDestroy(&current);
 
-		//Sort by depth
-		qsort(buffer, kCount, sizeof(*buffer), GVDepthPairSort);
+	// All unreachable nodes should be 0
+	__auto_type allNodes2 = strGraphNodePClone(allNodes);
+	allNodes2 =
+	    strGraphNodePSetDifference(allNodes2, visited, (gnCmpType)ptrCompare);
+	for (long i = 0; i != strGraphNodePSize(allNodes2); i++) {
+		struct GVDepthPair pair;
+		pair.depth = 0;
+		pair.node = allNodes2[i];
+		__auto_type key = ptr2Str(allNodes2[i]);
+		mapDepthPairInsert(depthByNode, key, pair);
+		free(key);
+	}
 
-		mapDepthPairDestroy(depthByNode, NULL);
+	long kCount;
+	mapDepthPairKeys(depthByNode, NULL, &kCount);
+	const char *keys[kCount];
+	mapDepthPairKeys(depthByNode, keys, NULL);
 
-		
+	// Fill up buffer with pairs,then we will sor them
+	struct GVDepthPair buffer[kCount];
+	for (long i = 0; i != kCount; i++)
+		buffer[i] = *mapDepthPairGet(depthByNode, keys[i]);
 
-		//Copy to retVal
-		strGraphNodeP retVal=strGraphNodePResize(NULL, kCount);
-		for(long i=0;i!=kCount;i++)
-				retVal[i]=buffer[i].node;
+	// Sort by depth
+	qsort(buffer, kCount, sizeof(*buffer), GVDepthPairSort);
 
-		return retVal;
+	mapDepthPairDestroy(depthByNode, NULL);
+
+	// Copy to retVal
+	strGraphNodeP retVal = strGraphNodePResize(NULL, kCount);
+	for (long i = 0; i != kCount; i++)
+		retVal[i] = buffer[i].node;
+
+	return retVal;
 }
 void graph2GraphViz(FILE *dumpTo, graphNodeMapping graph, const char *title,
                     char *(*nodeToLabel)(const struct __graphNode *node,
@@ -808,9 +813,9 @@ void graph2GraphViz(FILE *dumpTo, graphNodeMapping graph, const char *title,
                                          const void *data),
                     const void *nodeData, const void *edgeData) {
 	__auto_type allNodes = __graphNodeVisitAll(graph);
-	__auto_type allNodes2=graphVizRankSort(graph,allNodes);
+	__auto_type allNodes2 = graphVizRankSort(graph, allNodes);
 	strGraphNodePDestroy(&allNodes);
-	allNodes=allNodes2;
+	allNodes = allNodes2;
 	//
 	// Make nodes
 	//
@@ -828,14 +833,14 @@ void graph2GraphViz(FILE *dumpTo, graphNodeMapping graph, const char *title,
 
 		// Assign label if not provided
 		if (!mapGraphVizAttrGet(node.attrs, "label")) {
-				if(name)
-						mapGraphVizAttrInsert(node.attrs, "label", strClone(name));
-				else 
-						mapGraphVizAttrInsert(node.attrs, "label", strClone(node.name));
+			if (name)
+				mapGraphVizAttrInsert(node.attrs, "label", strClone(name));
+			else
+				mapGraphVizAttrInsert(node.attrs, "label", strClone(node.name));
 		}
 
 		// Insert
-		char* key=ptr2Str(allNodes[i]);
+		char *key = ptr2Str(allNodes[i]);
 		mapGVNodeInsert(gvNodesMap, key, node);
 		free(key);
 		free(name);
@@ -853,7 +858,8 @@ void graph2GraphViz(FILE *dumpTo, graphNodeMapping graph, const char *title,
 		// Dont re-visit visited eges
 		edges =
 		    strGraphEdgePSetDifference(edges, visitedEdges, (geCmpType)ptrCompare);
-		visitedEdges=strGraphEdgePSetUnion(visitedEdges, edges, (geCmpType)ptrCompare);
+		visitedEdges =
+		    strGraphEdgePSetUnion(visitedEdges, edges, (geCmpType)ptrCompare);
 
 		for (long i2 = 0; i2 != strGraphEdgeMappingPSize(edges); i2++) {
 			// find graphviz versions of nodes coming in
@@ -904,11 +910,11 @@ void graph2GraphViz(FILE *dumpTo, graphNodeMapping graph, const char *title,
 
 		// Write out nodes IN ORDER OF SORT
 		for (long i = 0; i != strGraphNodePSize(allNodes); i++) {
-				__auto_type key=ptr2Str(allNodes[i]);
-				
-				__auto_type find = *mapGVNodeGet(gvNodesMap, key);
-				free(key);
-				fprintf(dumpTo, "    \"%s\"", find.name);
+			__auto_type key = ptr2Str(allNodes[i]);
+
+			__auto_type find = *mapGVNodeGet(gvNodesMap, key);
+			free(key);
+			fprintf(dumpTo, "    \"%s\"", find.name);
 
 			writeOutGVAttrs(dumpTo, find.attrs);
 
@@ -932,8 +938,8 @@ void graph2GraphViz(FILE *dumpTo, graphNodeMapping graph, const char *title,
 	fprintf(dumpTo, "}");
 }
 long graphNodeValueSize(const struct __graphNode *node) {
-		return node->itemSize;
+	return node->itemSize;
 }
 long graphEdgeValueSize(const struct __graphEdge *edge) {
-		return edge->itemSize;
-} 
+	return edge->itemSize;
+}

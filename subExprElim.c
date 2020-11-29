@@ -384,17 +384,17 @@ static void visitNodeAppendItem(struct __graphNode *node, void *data) {
 	if (NULL == strGraphNodeIRPSortedFind(*nodes, data, (gnIRCmpType)ptrPtrCmp))
 		*nodes = strGraphNodeIRPSortedInsert(*nodes, node, (gnIRCmpType)ptrPtrCmp);
 }
-static void moveConnectionsOutgoing(graphNodeIR from,graphNodeIR to,strGraphEdgeP outgoing) {
-for (long e = 0; e != strGraphEdgeIRPSize(outgoing); e++) {
-					__auto_type n = graphEdgeIROutgoing(outgoing[e]);
-					graphNodeIRConnect(to, n, *graphEdgeIRValuePtr(outgoing[e]));
+static void moveConnectionsOutgoing(graphNodeIR from, graphNodeIR to,
+                                    strGraphEdgeP outgoing) {
+	for (long e = 0; e != strGraphEdgeIRPSize(outgoing); e++) {
+		__auto_type n = graphEdgeIROutgoing(outgoing[e]);
+		graphNodeIRConnect(to, n, *graphEdgeIRValuePtr(outgoing[e]));
 
-					// Remove the outgoing connection from the "old" node so we can kill
-					// the redundant expr graph later
-					graphEdgeIRKill(from, n, NULL,
-					                NULL, NULL);
-					graphEdgeIROutgoing(outgoing[e]);
-				}
+		// Remove the outgoing connection from the "old" node so we can kill
+		// the redundant expr graph later
+		graphEdgeIRKill(from, n, NULL, NULL, NULL);
+		graphEdgeIROutgoing(outgoing[e]);
+	}
 }
 void replaceSubExprsWithVars() {
 	long count;
@@ -503,23 +503,24 @@ void replaceSubExprsWithVars() {
 				if (i3 == 0) {
 					// Only compute once,so the first element will be the only computation
 					firstRef = refs[i3].node;
-					__auto_type dummy=createVirtVar(&typeI64i); //Dummmy var TODO set from node type
-					__auto_type varRef=createVarRef(dummy);
+					__auto_type dummy =
+					    createVirtVar(&typeI64i); // Dummmy var TODO set from node type
+					__auto_type varRef = createVarRef(dummy);
 
-					//move outgoing connections  from firstRef to varRef
+					// move outgoing connections  from firstRef to varRef
 					__auto_type outgoing = graphNodeIROutgoing(refs[i3].node);
-					moveConnectionsOutgoing(firstRef,varRef,outgoing);
+					moveConnectionsOutgoing(firstRef, varRef, outgoing);
 					graphNodeIRConnect(firstRef, varRef, IR_CONN_DEST);
-					
+
 					strGraphEdgeIRPDestroy(&outgoing);
 
-					firstRef=varRef;
+					firstRef = varRef;
 					continue;
 				}
-				
+
 				__auto_type outgoing = graphNodeIROutgoing(refs[i3].node);
-				//Move connections from  refs[i3].node to firstRef outgoing neigbors
-				moveConnectionsOutgoing(refs[i3].node,firstRef,outgoing);
+				// Move connections from  refs[i3].node to firstRef outgoing neigbors
+				moveConnectionsOutgoing(refs[i3].node, firstRef, outgoing);
 
 				strGraphEdgeIRPDestroy(&outgoing);
 

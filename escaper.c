@@ -10,13 +10,13 @@ char *escapeString(char *str) {
 	__auto_type where = retVal;
 
 	while (*str != 0) {
-			long offset=(where-retVal)/sizeof(char);
-			if (offset >= retValCap) {
-					//Be sure to allocate memory ahead so operations dont segfault
-					retValCap += 10;
-					retVal = realloc(retVal, retValCap);
-					
-					where=retVal+offset;
+		long offset = (where - retVal) / sizeof(char);
+		if (offset >= retValCap) {
+			// Be sure to allocate memory ahead so operations dont segfault
+			retValCap += 10;
+			retVal = realloc(retVal, retValCap);
+
+			where = retVal + offset;
 		}
 
 		// sorry for long code
@@ -162,13 +162,13 @@ char *escapeString(char *str) {
 		where++;
 	}
 
-	//Add a NULL byte
-	long offset=(where-retVal)/sizeof(char);
-	if(offset+1>=retValCap) {
-			retVal=realloc(retVal,retValCap+1);
-			where=retVal+offset;
+	// Add a NULL byte
+	long offset = (where - retVal) / sizeof(char);
+	if (offset + 1 >= retValCap) {
+		retVal = realloc(retVal, retValCap + 1);
+		where = retVal + offset;
 	}
 
-	*where='\0';
+	*where = '\0';
 	return retVal;
 }

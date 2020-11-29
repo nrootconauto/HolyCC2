@@ -6,8 +6,7 @@
 #define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 typedef int (*gnCmpType)(const graphNodeMapping *, const graphNodeMapping *);
-typedef int (*varRefCmpType)(const struct IRVar **,
-                             const struct IRVar **);
+typedef int (*varRefCmpType)(const struct IRVar **, const struct IRVar **);
 #define ALLOCATE(x)                                                            \
 	({                                                                           \
 		typeof(x) *ptr = malloc(sizeof(x));                                        \
@@ -445,7 +444,7 @@ static void __visitForwardOrdered(strGraphNodeMappingP *order,
 		*order = strGraphNodeMappingPAppendItem(*order, node2);
 #if DEBUG_PRINT_ENABLE
 		DEBUG_PRINT("Order %li is %s is %p\n", strGraphNodeMappingPSize(*order),
-		            debugGetPtrNameConst(node2),node2);
+		            debugGetPtrNameConst(node2), node2);
 #endif
 
 		// Recur
@@ -483,12 +482,13 @@ static int varRefNodePairCmp(const struct varRefNodePair *a,
                              const struct varRefNodePair *b) {
 	return IRVarRefCmp((void *)&a->ref, (void *)&b->ref);
 }
-static char *node2GraphViz(const struct __graphNode *node,mapGraphVizAttr *unused,const void *data) {
-		char *n1=debugGetPtrName(node);
-		if(n1)
-				return n1;
+static char *node2GraphViz(const struct __graphNode *node,
+                           mapGraphVizAttr *unused, const void *data) {
+	char *n1 = debugGetPtrName(node);
+	if (n1)
+		return n1;
 
-		return debugGetPtrName(*graphNodeMappingValuePtr((struct __graphNode*)node));
+	return debugGetPtrName(*graphNodeMappingValuePtr((struct __graphNode *)node));
 }
 graphNodeIRLive IRInterferenceGraph(graphNodeIR start) {
 	mapBlockMetaNode metaNodes = mapBlockMetaNodeCreate();
@@ -502,15 +502,14 @@ graphNodeIRLive IRInterferenceGraph(graphNodeIR start) {
 	strGraphNodeMappingP visited = NULL;
 	__auto_type allMappedNodes = graphNodeMappingAllNodes(mappedClone);
 
-
 	/*
 char *name=tmpnam(NULL);
-			FILE *f=fopen(name, "w");
-			graph2GraphViz(f, mappedClone, "Tmp", node2GraphViz, NULL, NULL, NULL);
-			fclose(f);
-			char buffer[1024];
-			sprintf(buffer,"dot -Tsvg %s>/tmp/dot.svg && firefox /tmp/dot.svg",name)
-			system(buffer);
+	    FILE *f=fopen(name, "w");
+	    graph2GraphViz(f, mappedClone, "Tmp", node2GraphViz, NULL, NULL, NULL);
+	    fclose(f);
+	    char buffer[1024];
+	    sprintf(buffer,"dot -Tsvg %s>/tmp/dot.svg && firefox /tmp/dot.svg",name)
+	    system(buffer);
 	*/
 	for (;;) {
 	loop:;
@@ -525,7 +524,6 @@ char *name=tmpnam(NULL);
 			visited = strGraphNodeMappingPSortedInsert(visited, allMappedNodes[i],
 			                                           (gnCmpType)ptrPtrCmp);
 
-			
 			__auto_type basicBlocks =
 			    getBasicBlocksFromExpr(mappedClone, metaNodes, allMappedNodes[i]);
 			/*
@@ -537,7 +535,7 @@ char *name=tmpnam(NULL);
 			sprintf(buffer,"dot -Tsvg %s>/tmp/dot.svg && firefox /tmp/dot.svg",name)
 			system(buffer);
 			*/
-			
+
 			// NULL if not found
 			if (!basicBlocks)
 				continue;
@@ -755,10 +753,10 @@ char *name=tmpnam(NULL);
 				graphNodeIRLiveConnect(liveAtOnce[i2], liveAtOnce[i1], NULL);
 
 #if DEBUG_PRINT_ENABLE
-				__auto_type ref1 = debugGetPtrNameConst(
-				    graphNodeIRLiveValuePtr(liveAtOnce[i1])->ref);
-				__auto_type ref2 = debugGetPtrNameConst(
-				    graphNodeIRLiveValuePtr(liveAtOnce[i2])->ref);
+				__auto_type ref1 =
+				    debugGetPtrNameConst(graphNodeIRLiveValuePtr(liveAtOnce[i1])->ref);
+				__auto_type ref2 =
+				    debugGetPtrNameConst(graphNodeIRLiveValuePtr(liveAtOnce[i2])->ref);
 				DEBUG_PRINT("Connecting %s to %s\n", ref1, ref2);
 #endif
 			}

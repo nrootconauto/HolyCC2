@@ -1,3 +1,3 @@
 #pragma once
 #include <stdint.h>
-char* escapeString(char* str);
+char *escapeString(char *str);

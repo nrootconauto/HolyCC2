@@ -1,16 +1,16 @@
 #pragma once
 #include <str.h>
 struct reg;
-STR_TYPE_DEF(struct reg*, RegP);
-STR_TYPE_FUNCS(struct reg*, RegP);
+STR_TYPE_DEF(struct reg *, RegP);
+STR_TYPE_FUNCS(struct reg *, RegP);
 struct reg {
-		const char *name;
-		strRegP affects;
-		int size;
+	const char *name;
+	strRegP affects;
+	int size;
 };
 struct regSlice {
-		struct reg *reg;
-		int offset,widthInBits;
+	struct reg *reg;
+	int offset, widthInBits;
 };
 extern strRegP regsX86GP;
 extern strRegP regsTestGP;
@@ -22,7 +22,7 @@ extern struct reg regX86DL;
 
 extern struct reg regX86AH;
 extern struct reg regX86BH;
-extern struct  reg regX86CH;
+extern struct reg regX86CH;
 extern struct reg regX86DH;
 
 extern struct reg regX86AX;
