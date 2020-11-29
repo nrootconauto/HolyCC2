@@ -82,7 +82,7 @@ static int occurOfVar(struct varAndEnterPair *expectedVar,
 		if (val->val.type != IR_VAL_VAR_REF)
 			return 0;
 
-		return 0 == IRVarCmp(expectedVar->var, &val->val.value.var);
+		return 0 == IRVarCmpIgnoreVersion(expectedVar->var, &val->val.value.var);
 	}
 
 	if (node == expectedVar->enter)

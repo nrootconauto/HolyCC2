@@ -410,6 +410,18 @@ graphNodeIR IRGetStmtStart(graphNodeIR node) {
 
 	return NULL;
 }
+int IRVarCmpIgnoreVersion(const struct IRVar *a, const struct IRVar *b) {
+	if (0 != a->type - b->type)
+		return a->type - b->type;
+
+	if (a->type == IR_VAR_VAR) {
+		return ptrCmp(a->value.var, b->value.var);
+	} else {
+		// TODO implement
+	}
+
+	return 0;
+}
 int IRVarCmp(const struct IRVar *a, const struct IRVar *b) {
 	if (0 != a->type - b->type)
 		return a->type - b->type;

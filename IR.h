@@ -314,3 +314,4 @@ enum IRCloneMode {
 		IR_CLONE_EXPR_UNTIL_ASSIGN,
 };
 graphNodeIR cloneNode(graphNodeIR node,enum IRCloneMode mode,mapGraphNode *mappings);
+int IRVarCmpIgnoreVersion(const struct IRVar *a, const struct IRVar *b);

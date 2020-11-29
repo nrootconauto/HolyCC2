@@ -357,6 +357,14 @@ static strBasicBlock getBasicBlocksFromExpr(graphNodeIR dontDestroy,
 	// Remove consumed from possible sinks
 	nodes = strGraphNodeMappingPSetDifference(nodes, consumedNodes,
 	                                          (gnCmpType)ptrPtrCmp);
+#if DEBUG_PRINT_ENABLE
+	DEBUG_PRINT("Removing: %li items for block %li:\n",
+	            strGraphNodeMappingPSize(nodes), strBasicBlockSize(retVal));
+	for (long i = 0; i != strGraphNodeMappingPSize(nodes); i++) {
+		DEBUG_PRINT("    - %s\n",
+		            debugGetPtrNameConst(*graphNodeMappingValuePtr((nodes[i]))));
+	}
+#endif
 	// ALL NODES MUST BE CONSUMED OR SOMETHING WENT WRONG
 	assert(strGraphNodeMappingPSize(nodes) == 0);
 
@@ -436,8 +444,8 @@ static void __visitForwardOrdered(strGraphNodeMappingP *order,
 		// append to order
 		*order = strGraphNodeMappingPAppendItem(*order, node2);
 #if DEBUG_PRINT_ENABLE
-		DEBUG_PRINT("Order %li is %s\n", strGraphNodeMappingPSize(*order),
-		            debugGetPtrNameConst(node2));
+		DEBUG_PRINT("Order %li is %s is %p\n", strGraphNodeMappingPSize(*order),
+		            debugGetPtrNameConst(node2),node2);
 #endif
 
 		// Recur
@@ -475,11 +483,17 @@ static int varRefNodePairCmp(const struct varRefNodePair *a,
                              const struct varRefNodePair *b) {
 	return IRVarRefCmp((void *)&a->ref, (void *)&b->ref);
 }
+static char *node2GraphViz(const struct __graphNode *node,mapGraphVizAttr *unused,const void *data) {
+		char *n1=debugGetPtrName(node);
+		if(n1)
+				return n1;
+
+		return debugGetPtrName(*graphNodeMappingValuePtr((struct __graphNode*)node));
+}
 graphNodeIRLive IRInterferenceGraph(graphNodeIR start) {
 	mapBlockMetaNode metaNodes = mapBlockMetaNodeCreate();
 
-	__auto_type allNodes = graphNodeIRAllNodes(start);
-	__auto_type mappedClone = createGraphMap(allNodes, 1);
+	__auto_type mappedClone = graphNodeCreateMapping(start, 0);
 
 	//
 	// First find basic blocks by searching alVarRefs for basic blocks,removing
@@ -487,6 +501,17 @@ graphNodeIRLive IRInterferenceGraph(graphNodeIR start) {
 	//
 	strGraphNodeMappingP visited = NULL;
 	__auto_type allMappedNodes = graphNodeMappingAllNodes(mappedClone);
+
+
+	/*
+char *name=tmpnam(NULL);
+			FILE *f=fopen(name, "w");
+			graph2GraphViz(f, mappedClone, "Tmp", node2GraphViz, NULL, NULL, NULL);
+			fclose(f);
+			char buffer[1024];
+			sprintf(buffer,"dot -Tsvg %s>/tmp/dot.svg && firefox /tmp/dot.svg",name)
+			system(buffer);
+	*/
 	for (;;) {
 	loop:;
 		int found = 0;
@@ -500,9 +525,19 @@ graphNodeIRLive IRInterferenceGraph(graphNodeIR start) {
 			visited = strGraphNodeMappingPSortedInsert(visited, allMappedNodes[i],
 			                                           (gnCmpType)ptrPtrCmp);
 
+			
 			__auto_type basicBlocks =
 			    getBasicBlocksFromExpr(mappedClone, metaNodes, allMappedNodes[i]);
-
+			/*
+			char *name=tmpnam(NULL);
+			FILE *f=fopen(name, "w");
+			graph2GraphViz(f, mappedClone, "Tmp", node2GraphViz, NULL, NULL, NULL);
+			fclose(f);
+			char buffer[1024];
+			sprintf(buffer,"dot -Tsvg %s>/tmp/dot.svg && firefox /tmp/dot.svg",name)
+			system(buffer);
+			*/
+			
 			// NULL if not found
 			if (!basicBlocks)
 				continue;
@@ -512,9 +547,6 @@ graphNodeIRLive IRInterferenceGraph(graphNodeIR start) {
 				allMappedNodes = strGraphNodeMappingPSetDifference(
 				    allMappedNodes, basicBlocks[i]->nodes, (gnCmpType)ptrPtrCmp);
 			}
-#if DEBUG_PRINT_ENABLE
-			graphPrint(mappedClone, printMappedNodesValue, printMappedEdge);
-#endif
 
 			// Mark as found;
 			found = 1;
@@ -530,6 +562,8 @@ graphNodeIRLive IRInterferenceGraph(graphNodeIR start) {
 	// Found basic blocks,so filter out all non-metablock notes(in metaNodes)
 	//
 	__auto_type allMappedNodes2 = graphNodeMappingAllNodes(mappedClone);
+	printf("Before:\n");
+	graphPrint(mappedClone, printMappedNode, printMappedEdge);
 	for (long i = 0; i != strGraphNodeMappingPSize(allMappedNodes2); i++) {
 		// Dont destroy if start node
 		if (allMappedNodes2[i] == mappedClone)
@@ -550,6 +584,7 @@ graphNodeIRLive IRInterferenceGraph(graphNodeIR start) {
 
 // Sort if "backwards" order
 #if DEBUG_PRINT_ENABLE
+	printf("Final:\n");
 	graphPrint(mappedClone, printMappedNode, printMappedEdge);
 #endif
 	__auto_type forwards = sortNodes(mappedClone);

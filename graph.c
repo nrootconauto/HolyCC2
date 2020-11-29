@@ -375,7 +375,7 @@ int __graphIsConnectedTo(const struct __graphNode *from,
 	return 0;
 }
 static char *ptr2Str(const void *a) { return base64Enc((void *)&a, sizeof(a)); }
-graphNodeMapping createGraphMap(strGraphNodeP nodes, int preserveConnections) {
+graphNodeMapping __createGraphMap(const struct __graphNode *start,strGraphNodeP nodes, int preserveConnections) {
 	__auto_type map = mapGraphNodeCreate();
 	char *keys[strGraphNodePSize(nodes)];
 	// Create keys and insert
@@ -408,12 +408,22 @@ graphNodeMapping createGraphMap(strGraphNodeP nodes, int preserveConnections) {
 		}
 	}
 
-	__auto_type retVal = *mapGraphNodeGet(map, keys[0]);
+	char *key=ptr2Str(start);
+	__auto_type retVal = *mapGraphNodeGet(map, key);
+	free(key);
+	
 	for (long i = 0; i != strGraphNodePSize(nodes); i++)
 		free(keys[i]);
 	mapGraphNodeDestroy(map, NULL);
 
 	return retVal;
+}
+graphNodeMapping createGraphMap(strGraphNodeP nodes, int preserveConnections) {
+		return __createGraphMap(nodes[0], nodes, preserveConnections);
+};
+graphNodeMapping graphNodeCreateMapping(const struct __graphNode *node ,int preserveConnections) {
+		__auto_type allNodes=__graphNodeVisitAll(node);
+		return __createGraphMap(node, allNodes, preserveConnections);
 }
 //
 // Does not preserve edges,see filterGraph
@@ -504,9 +514,11 @@ void graphPrint(struct __graphNode *node, char *(*toStr)(struct __graphNode *),
 		__auto_type outNodes = __graphNodeOutgoing(allNodes[i]);
 
 		char *cur = toStr(allNodes[i]);
+		printf("%s:\n", cur);
 		for (long i2 = 0; i2 != strGraphEdgePSize(outNodes); i2++) {
 			char *out = toStr(outNodes[i2]->to);
 			char *edgeStr = toStrEdge(outNodes[i2]);
+			printf("    %s(%s)\n", out,edgeStr);
 			free(out);
 		}
 		// In

@@ -135,7 +135,7 @@ static int AliasBlobCmp(const strGraphNodeIRP *A,const strGraphNodeIRP *B) {
 
 		return 0;
 }
-static void coalesce(strGraphNodeIRP nodes,graphNodeIR start) {
+void IRCoalesce(strGraphNodeIRP nodes,graphNodeIR start) {
 		llVarRefs refs=NULL;
 		strAliasPair aliases=NULL;
 		
