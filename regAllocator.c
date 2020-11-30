@@ -273,39 +273,56 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 	// Turn pairs into blobs.
 	strAliasBlob blobs = NULL;
 	for (long i = 0; i != strAliasPairSize(aliases); i++) {
-		strGraphNodeIRP blob = strGraphNodeIRPResize(NULL, 2);
-		blob[0] = aliases[i].a;
-		blob[1] = aliases[i].b;
-
+		strGraphNodeIRP blob = NULL;
+		blob = strGraphNodeIRPSortedInsert(blob, aliases[i].a, (gnCmpType)ptrPtrCmp);
+		blob = strGraphNodeIRPSortedInsert(blob, aliases[i].b, (gnCmpType)ptrPtrCmp);
+		
 		blobs = strAliasBlobSortedInsert(blobs, blob, AliasBlobCmp);
 	}
 
 	for (;;) {
+			int changed=0;
+
 	loop:;
 		// First Check heads(i1) with tails(i2)
-		for (long i1 = 0; i1 != strAliasBlobSize(blobs); i1++) {
-			for (long i2 = 0; i2 != strAliasBlobSize(blobs); i2++) {
-				__auto_type head = blobs[i1][0];
-				// Last elem
-				__auto_type tail = blobs[i2][strGraphNodeIRPSize(blobs[i2]) - 1];
+		for (long i1=0; i1 < strAliasBlobSize(blobs); i1++) {
+				for (long i2=0; i2 < strAliasBlobSize(blobs); i2++) {
+						if(i1==i2)
+							continue;
+					
+					//Check for a set intersection,this tells if there is overlap between the aliased vars
+					strGraphNodeIRP intersect __attribute__((cleanup(strGraphNodeIRPDestroy))) = strGraphNodeIRPSetIntersection(strGraphNodeIRPClone(blobs[i1]), blobs[i2], (gnCmpType)ptrPtrCmp,  NULL);
 
-				if (head == tail) {
-					DEBUG_PRINT("Head:%s,Tail:%s\n", debugGetPtrNameConst(head),
-					            debugGetPtrNameConst(tail));
+				if (0!=strGraphNodeIRPSize(intersect)) {
+					DEBUG_PRINT("Intersect between %s and %s\n", debugGetPtrNameConst(blobs[i1][0]),
+					            debugGetPtrNameConst(blobs[i2][0]));
+#if DEBUG_PRINT_ENABLE
+					printf("i1:\n");
+					for(long i=0;i!=strGraphNodeIRPSize(blobs[i1]);i++)
+							printf("    %s\n", debugGetPtrNameConst(blobs[i1][i]));
+
+					printf("i2:\n");
+					for(long i=0;i!=strGraphNodeIRPSize(blobs[i2]);i++)
+							printf("    %s\n", debugGetPtrNameConst(blobs[i2][i]));
+#endif
+					
 					// Merge tail node with head node
-					blobs[i2] = strGraphNodeIRPConcat(blobs[i2], blobs[i1]);
+					blobs[i2] = strGraphNodeIRPSetUnion(blobs[i2], blobs[i1],(gnCmpType)ptrPtrCmp);
 
-					// Remove head node from blobs and restart loop
-					memmove(&blobs[i1], &blobs[i1] + 1, strAliasBlobSize(blobs) - 1);
-
-					// Pop to decrese size by 1
-					blobs[i1] = strGraphNodeIRPPop(blobs[i1], NULL);
+					//Remove blobs[i1] as it is merged in with blobs[i2]
+					memmove(&blobs[i1],&blobs[i1]+1,(strGraphNodeIRPSize(blobs[i1])-1)*sizeof(blobs[i1]));
+					//Decrese size by 1
+					blobs=strAliasBlobPop(blobs, NULL);
+					
+					changed=1;
 					goto loop;
 				}
 			}
 		}
+		
 		// Didn't loop back
-		break;
+		if(!changed)
+				break;
 	}
 
 	//
