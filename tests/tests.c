@@ -45,6 +45,6 @@ int main() {
 		subExprElimTests();
 		*/
 		//graphVizTests();
-		//registerAllocatorTests();
+		registerAllocatorTests();
 		return 0;
 }

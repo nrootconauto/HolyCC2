@@ -3,6 +3,8 @@
 #include <assert.h>
 #include <graphColoring.h>
 #include <subExprElim.h>
+#define DEBUG_PRINT_ENABLE 1
+#include <debugPrint.h>
 typedef int (*gnCmpType)(const graphNodeIR *, const graphNodeIR *);
 static int ptrPtrCmp(const void *a, const void *b) {
 	if (*(void **)a > *(void **)b)
@@ -110,12 +112,12 @@ static int aliasPairCmp(const struct aliasPair *a, const struct aliasPair *b) {
 }
 static int varRefsInsertCmp(const strGraphNodeIRP *a,
                             const strGraphNodeIRP *b) {
-	struct IRNodeValue *valA = (void *)a[0], *valB = (void *)b[0];
+		struct IRNodeValue *valA = (void *)graphNodeIRValuePtr(a[0][0]), *valB = (void *)graphNodeIRValuePtr(b[0][0]);
 	return IRVarCmp((const struct IRVar *)&valA->val.value.var,
 	                (const struct IRVar *)&valB->val.value.var);
 }
-static int varRefsGetCmp(const void *a, const strGraphNodeIRP *b) {
-	struct IRNodeValue *valB = (void *)b[0];
+static int varRefsGetCmp(const void *a, const strGraphNodeP *b) {
+		struct IRNodeValue *valB = (void*)graphNodeIRValuePtr(b[0][0]);
 	struct IRNodeValue *valA = (void *)graphNodeIRValuePtr((graphNodeIR)a);
 	return IRVarCmp((const struct IRVar *)&valA->val.value.var,
 	                (const struct IRVar *)&valB->val.value.var);
@@ -196,17 +198,19 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 				}
 			}
 
-			removeChooseNode(nodes[i]);
 		} else if (val->type == IR_VALUE) {
 			// Is a var,check for direct assign
 			if (((struct IRNodeValue *)val)->val.type == IR_VAL_VAR_REF) {
 			findVarLoop:;
 				__auto_type find = llVarRefsFind(refs, nodes[i], varRefsGetCmp);
+				__auto_type find2 = llVarRefsFindRight(llVarRefsFirst(refs), nodes[3], varRefsGetCmp);
+	
 				if (!find) {
-					__auto_type newRef =
-					    llVarRefsCreate(strGraphNodeIRPAppendItem(NULL, nodes[i]));
-					llVarRefsInsert(refs, newRef, varRefsInsertCmp);
-					refs = newRef;
+						DEBUG_PRINT("Adding var node %s\n", debugGetPtrNameConst(nodes[i]));
+						__auto_type newRef =
+								llVarRefsCreate(strGraphNodeIRPAppendItem(NULL, nodes[i]));
+						llVarRefsInsert(refs, newRef, varRefsInsertCmp);
+						refs = newRef;
 
 					goto findVarLoop;
 				}
@@ -225,8 +229,11 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 					    graphNodeIRValuePtr(graphEdgeIRIncoming(filtered[0]));
 					if (inNode->type == IR_VALUE) {
 						struct IRNodeValue *inValueNode = (void *)inNode;
-						if (inValueNode->val.type == IR_VAL_VAR_REF)
-							aliasNode = graphEdgeIRIncoming(filtered[0]);
+						if (inValueNode->val.type == IR_VAL_VAR_REF) {
+								aliasNode = graphEdgeIRIncoming(filtered[0]);
+								DEBUG_PRINT("%s aliased to node %s\n",debugGetPtrNameConst(aliasNode), debugGetPtrNameConst(nodes[i]));
+								
+						}
 					}
 				}
 
@@ -273,11 +280,15 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 				__auto_type tail = blobs[i2][strGraphNodeIRPSize(blobs[i2]) - 1];
 
 				if (head == tail) {
+						DEBUG_PRINT("Head:%s,Tail:%s\n", debugGetPtrNameConst(head),debugGetPtrNameConst(tail));
 					// Merge tail node with head node
 					blobs[i2] = strGraphNodeIRPConcat(blobs[i2], blobs[i1]);
 
 					// Remove head node from blobs and restart loop
 					memmove(&blobs[i1], &blobs[i1] + 1, strAliasBlobSize(blobs) - 1);
+
+					//Pop to decrese size by 1
+					blobs[i1]=strGraphNodeIRPPop(blobs[i1], NULL);
 					goto loop;
 				}
 			}
@@ -290,18 +301,20 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 	// Replace vars with aliases
 	//
 	for (long i = 0; i != strAliasBlobSize(blobs); i++) {
+			DEBUG_PRINT("Finding var %s\n", debugGetPtrNameConst(blobs[i][0]));
 		__auto_type find = llVarRefsFind(refs, blobs[i][0], varRefsGetCmp);
 
 		// Find first ref.
-		strGraphNodeIRP refs = *llVarRefsValuePtr(find);
-		__auto_type master = refs[0];
+		strGraphNodeIRP refs2 = *llVarRefsValuePtr(find);
+		__auto_type master = refs2[0];
 
 		// Replace rest of blobs
 		for (long i2 = 1; i2 != strGraphNodeIRPSize(blobs[i]); i2++) {
 			strGraphNodeIRP refs = *llVarRefsValuePtr(find);
 			for (long i3 = 1; i3 != strGraphNodeIRPSize(refs); i3++) {
-				// Replace with cloned value
-				replaceNodeWithExpr(refs[0], cloneNode(master, IR_CLONE_NODE, NULL));
+					DEBUG_PRINT("Replacing %s with %s\n", debugGetPtrNameConst(refs[0]),debugGetPtrNameConst(master));
+					// Replace with cloned value
+					replaceNodeWithExpr(refs[0], cloneNode(master, IR_CLONE_NODE, NULL));
 			}
 		}
 	}
