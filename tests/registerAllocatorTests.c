@@ -1,6 +1,15 @@
 #include <assert.h>
 #include <regAllocator.h>
 #include <SSA.h>
+static void debugShowGraph(graphNodeIR enter) {
+		const char *name=tmpnam(NULL);
+		__auto_type map=graphNodeCreateMapping(enter, 1);
+		IRGraphMap2GraphViz(map, "viz", name, NULL,NULL,NULL,NULL);
+		char buffer[1024];
+		sprintf(buffer, "dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg", name);
+
+		system(buffer);
+}
 void registerAllocatorTests() {
 		initIR();
 		__auto_type a=createVirtVar(&typeI64i);
@@ -21,25 +30,31 @@ void registerAllocatorTests() {
 		__auto_type bRef3=createVarRef(b); // c=b
 		__auto_type cRef=createVarRef(c);
 
-		createAssign(aRef1, one);
+		createAssign( one,aRef1);
 		
-		createAssign(bRef1, aRef2);
-		createAssign(bRef2, two);
+		createAssign(aRef2,bRef1);
+		createAssign( two,bRef2);
 		__auto_type cond=createCondJmp(aRef1, aRef2, two);
 		
 		
-		createAssign(cRef, bRef3);
+		createAssign(bRef3,cRef);
 		graphNodeIRConnect(bRef1, bRef3, IR_CONN_FLOW);
 		graphNodeIRConnect(bRef2, bRef3, IR_CONN_FLOW);
 
+		debugShowGraph(aRef1);
+		
 		//Do SSA on strucure
-		__auto_type allNodes= graphNodeIRAllNodes(one);
-		IRToSSA(allNodes, one);
+		IRToSSA(one);
+		debugShowGraph(aRef1);
+		
 		assert(graphNodeIRValuePtr(IRGetStmtStart(bRef3))->type==IR_CHOOSE);
-
+		
 		//Merge
-		allNodes= graphNodeIRAllNodes(one);
+		__auto_type 	allNodes= graphNodeIRAllNodes(one);
 		IRCoalesce(allNodes, one);
+
+		debugShowGraph(aRef1);
+		
 
 		__auto_type outgoing=graphNodeIROutgoingNodes(one);
 		__auto_type firstRef=(struct IRNodeValue *)graphNodeIRValuePtr(outgoing[0]);

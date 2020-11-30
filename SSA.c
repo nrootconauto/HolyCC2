@@ -77,6 +77,9 @@ struct varAndEnterPair {
 static int occurOfVar(struct varAndEnterPair *expectedVar,
                       struct __graphNode *node) {
 	struct IRNode *ir = graphNodeIRValuePtr((graphNodeIR)node);
+	if (node == expectedVar->enter)
+			return 1;
+	
 	if (ir->type == IR_VALUE) {
 		struct IRNodeValue *val = (void *)ir;
 		if (val->val.type != IR_VAL_VAR_REF)
@@ -84,9 +87,6 @@ static int occurOfVar(struct varAndEnterPair *expectedVar,
 
 		return 0 == IRVarCmpIgnoreVersion(expectedVar->var, &val->val.value.var);
 	}
-
-	if (node == expectedVar->enter)
-		return 1;
 
 	return 0;
 }
@@ -171,7 +171,11 @@ static char *node2Str(struct __graphNode *node) {
 }
 static void versionAllVarsBetween(strGraphEdgeMappingP path,
                                   strGraphNodeP versionStarts) {
-	struct IRNodeValue *firstNode = (void *)graphNodeIRValuePtr(
+		//Ignore NULL path(path to self)
+		if(!path)
+				return;
+		
+		struct IRNodeValue *firstNode = (void *)graphNodeIRValuePtr(
 	    *graphNodeMappingValuePtr(graphEdgeMappingIncoming(path[0])));
 
 	// Choose version
@@ -289,6 +293,7 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 
 			//!!! Last edge points to next assign and we dont want to overwrite assign
 			allPaths[pathI] = strGraphEdgePPop(allPaths[pathI], NULL);
+			
 			versionAllVarsBetween(allPaths[pathI], versionStarts);
 
 			strGraphEdgeIRPDestroy(&allPaths[pathI]);
@@ -417,7 +422,8 @@ static int ptrCmp(const void *a, const void *b) {
 	else
 		return 0;
 }
-void IRToSSA(strGraphNodeIRP nodes, graphNodeIR enter) {
+void IRToSSA(graphNodeIR enter) {
+		__auto_type nodes=graphNodeIRAllNodes(enter);
 	if (strGraphNodeIRPSize(nodes) == 0)
 		return;
 	//
@@ -442,6 +448,9 @@ void IRToSSA(strGraphNodeIRP nodes, graphNodeIR enter) {
 	//
 	strGraphNodeIRP newNodes = NULL;
 	for (long i = 0; i != strIRVarSize(allVars); i++) {
+			strGraphNodeIRPDestroy(&nodes);
+			nodes=graphNodeIRAllNodes(enter);
+			
 		// Find enter node in mapa
 		__auto_type filtered2 = filterVarRefs(enter, nodes, &allVars[i]);
 		__auto_type allNodes = graphNodeMappingAllNodes(filtered2);
@@ -457,6 +466,7 @@ end:
 	strIRVarDestroy(&allVars);
 	graphNodeMappingKillGraph(&filteredVars, NULL, NULL);
 	strGraphNodeMappingPDestroy(&filteredVarsNodes);
+	strGraphNodeIRPDestroy(&nodes);
 }
 /*
   strGraphEdgeP out

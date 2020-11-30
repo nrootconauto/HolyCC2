@@ -34,6 +34,7 @@ list(APPEND sources "SSA.c")
 list(APPEND sources "IRLiveness.c")
 list(APPEND sources "debugPrint.c")
 list(APPEND sources "escaper.c")
+list(APPEND sources "regAllocator.c")
 
 set(tests "")
 list(APPEND tests "tests/tests.c")
@@ -54,6 +55,7 @@ list(APPEND tests "tests/subExprElimTests.c")
 list(APPEND tests "tests/SSATests.c")
 list(APPEND tests "tests/IRLivenessTests.c")
 list(APPEND tests "tests/graphVizTests.c")
+list(APPEND tests "tests/registerAllocatorTests.c")
 add_executable(holycc2 ${sources} ${tests})
 
 

@@ -91,8 +91,7 @@ void SSATests() {
 				INSERT_NAME(e);
 				INSERT_NAME(f);
 				
-				__auto_type allNodes=graphNodeIRAllNodes(enter);
-				IRToSSA(allNodes,enter);
+				IRToSSA(enter);
 				
 				//
 				//Assert for Choose nodes at (select)enter points
@@ -134,9 +133,9 @@ void SSATests() {
 				__auto_type cond=createIntLit(101);
 				__auto_type bA_CCJmp=createCondJmp(cond, a ,c);
 				graphNodeIRConnect(b,cond, IR_CONN_FLOW);
+
 				
-				__auto_type allNodes=graphNodeIRAllNodes(enter);
-				IRToSSA(allNodes,enter);
+				IRToSSA(enter);
 				__auto_type aSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(a))->val.value.var.SSANum;
 				__auto_type bSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(b))->val.value.var.SSANum;
 				__auto_type cSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(c))->val.value.var.SSANum;

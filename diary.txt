@@ -1,2 +1,3 @@
 1: Dont try to compile things from source when you dont need to.
 2: Stop trying to setup servers when on tiny core linux especially when you cant port forward
+Make it so creating map accounts for nodes not to be put in map
