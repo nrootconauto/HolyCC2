@@ -226,7 +226,7 @@ MAP_TYPE_DEF(graphNodeMapping, GraphNode);
 MAP_TYPE_FUNCS(graphNodeMapping, GraphNode);
 graphNodeMapping
 createFilteredGraph(struct __graphNode *start, strGraphNodeP nodes, void *data,
-                    int (*pred)(void *data, struct __graphNode *));
+                    int (*pred)(struct __graphNode *,void *data));
 MAP_TYPE_DEF(char *, GraphVizAttr);
 MAP_TYPE_FUNCS(char *, GraphVizAttr);
 void graph2GraphViz(FILE *dumpTo, graphNodeMapping graph, const char *title,

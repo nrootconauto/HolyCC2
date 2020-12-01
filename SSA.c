@@ -74,8 +74,7 @@ struct varAndEnterPair {
 	graphNodeIR enter;
 	struct IRVar *var;
 };
-static int occurOfVar(struct varAndEnterPair *expectedVar,
-                      struct __graphNode *node) {
+static int occurOfVar(struct __graphNode *node,struct varAndEnterPair *expectedVar) {
 	struct IRNode *ir = graphNodeIRValuePtr((graphNodeIR)node);
 	if (node == expectedVar->enter)
 		return 1;
@@ -133,8 +132,7 @@ checkForAssign:;
 	    IRGetConnsOfType(in, IR_CONN_DEST);
 	return 0 != strGraphEdgeIRPSize(dstConns);
 }
-static int isAssignedVar(struct varAndEnterPair *data,
-                         struct __graphNode *node) {
+static int isAssignedVar(struct __graphNode *node,struct varAndEnterPair *data) {
 	return __isAssignedVar(data, node, 0);
 }
 static int isAssignedVarExldChooses(struct varAndEnterPair *data,
@@ -148,7 +146,7 @@ static graphNodeMapping filterVarRefs(graphNodeIR enter, strGraphNodeIRP nodes,
 	pair.enter = enter;
 	pair.var = var;
 	return createFilteredGraph(enter, nodes, &pair,
-	                           (int (*)(void *, struct __graphNode *))occurOfVar);
+	                           (int (*)(struct __graphNode *,void *))occurOfVar);
 }
 static void __strGraphNodeIRDestroy(void *vec) {
 
@@ -216,7 +214,7 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 	// Get references to all vars
 	__auto_type varRefsG =
 	    createFilteredGraph(start, allNodes, &pair,
-	                        (int (*)(void *, struct __graphNode *))occurOfVar);
+	                        (int (*)(struct __graphNode *,void *))occurOfVar);
 	__auto_type allVarRefs = graphNodeMappingAllNodes(varRefsG);
 	// graphPrint(varRefsG, node2Str);
 	// Hash the vars
@@ -231,7 +229,7 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 
 	__auto_type varAssignG =
 	    createFilteredGraph(start, allNodes, &pair,
-	                        (int (*)(void *, struct __graphNode *))isAssignedVar);
+	                        (int (*)(struct __graphNode *,void *))isAssignedVar);
 	__auto_type allVarAssigns = graphNodeMappingAllNodes(varAssignG);
 	__auto_type allAssignPaths = graphAllPathsTo(varAssignG, NULL);
 
@@ -402,7 +400,7 @@ static strGraphNodeIRP IRSSACompute(graphNodeMapping start, struct IRVar *var) {
 	mapGraphNodeDestroy(nodeKey2Ptr, NULL);
 	return retVal;
 }
-static int filterVars(void *data, struct __graphNode *node) {
+static int filterVars(struct __graphNode *node,void *data) {
 	__auto_type ir = graphNodeIRValuePtr(node);
 	if (ir->type == IR_VALUE) {
 		struct IRNodeValue *irValue = (void *)ir;

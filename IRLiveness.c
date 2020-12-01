@@ -192,7 +192,7 @@ static strGraphNodeMappingP visitAllAdjExprTo(graphNodeMapping node) {
 }
 static strBasicBlock getBasicBlocksFromExpr(graphNodeIR dontDestroy,
                                             mapBlockMetaNode metaNodes,
-                                            graphNodeMapping start) {
+                                            graphNodeMapping start,const void *data,int(*varFilter)(graphNodeIR var,const void *data)) {
 	strGraphNodeMappingP nodes = visitAllAdjExprTo(start);
 	if (nodes == NULL)
 		return NULL;
@@ -209,6 +209,11 @@ static strBasicBlock getBasicBlocksFromExpr(graphNodeIR dontDestroy,
 		__auto_type irNode = graphNodeIRValuePtr(ir);
 		// Check if var
 		if (isVarNode(irNode)) {
+				//If filter predicate provided,filter it out
+				if(varFilter)
+						if(!varFilter(ir,data))
+								continue;
+				
 			// Check if assign var
 			strGraphEdgeIRP incomingEdges
 			    __attribute__((cleanup(strGraphEdgeIRPDestroy))) =
@@ -321,6 +326,11 @@ static strBasicBlock getBasicBlocksFromExpr(graphNodeIR dontDestroy,
 			struct IRNode *irNode =
 			    graphNodeIRValuePtr(*graphNodeMappingValuePtr(exprNodes[i]));
 			if (isVarNode(irNode)) {
+					//If filter predicate provided,filter it out
+					if(varFilter)
+							if(!varFilter(exprNodes[i],data))
+									continue;
+				
 				struct IRNodeValue *var = (void *)irNode;
 
 				// Ensure isnt assigned node
@@ -491,17 +501,20 @@ static char *node2GraphViz(const struct __graphNode *node,
 	return debugGetPtrName(*graphNodeMappingValuePtr((struct __graphNode *)node));
 }
 graphNodeIRLive IRInterferenceGraph(graphNodeIR start) {
+		__auto_type mappedClone = graphNodeCreateMapping(start, 0);
+		return IRInterferenceGraphFilter(mappedClone,NULL,NULL)[0];
+}
+strGraphNodeIRLiveP IRInterferenceGraphFilter(graphNodeMapping start,const void *data,int(*varFilter)(graphNodeIR node,const void *data)) {
 	mapBlockMetaNode metaNodes = mapBlockMetaNodeCreate();
-
-	__auto_type mappedClone = graphNodeCreateMapping(start, 0);
 
 	//
 	// First find basic blocks by searching alVarRefs for basic blocks,removing
 	// consumed nodes then repeating
 	//
 	strGraphNodeMappingP visited = NULL;
-	__auto_type allMappedNodes = graphNodeMappingAllNodes(mappedClone);
-
+	__auto_type allMappedNodes = graphNodeMappingAllNodes(start);
+	__auto_type mappedClone=start;
+	
 	/*
 char *name=tmpnam(NULL);
 	    FILE *f=fopen(name, "w");
@@ -525,7 +538,7 @@ char *name=tmpnam(NULL);
 			                                           (gnCmpType)ptrPtrCmp);
 
 			__auto_type basicBlocks =
-			    getBasicBlocksFromExpr(mappedClone, metaNodes, allMappedNodes[i]);
+					getBasicBlocksFromExpr(mappedClone, metaNodes, allMappedNodes[i],data,varFilter);
 			/*
 			char *name=tmpnam(NULL);
 			FILE *f=fopen(name, "w");
@@ -692,7 +705,7 @@ char *name=tmpnam(NULL);
 	//
 	// Create interference graph
 	//
-	graphNodeIRLive retVal = NULL;
+	strGraphNodeIRLiveP retVal = NULL;
 	strVarRefNodePair assocArray = NULL;
 	for (long i = 0; i != strGraphNodePSize(forwards); i++) {
 		// Find meta node
@@ -726,7 +739,7 @@ char *name=tmpnam(NULL);
 				    strVarRefNodePairSortedInsert(assocArray, pair, varRefNodePairCmp);
 
 				// Any node wil node
-				retVal = pair.node;
+				retVal = strGraphNodeIRLivePSortedInsert(retVal, pair.node, (gnCmpType)ptrPtrCmp);
 				goto registerLoop;
 			}
 
@@ -767,5 +780,21 @@ char *name=tmpnam(NULL);
 
 	strGraphNodeMappingPDestroy(&forwards);
 	mapBlockMetaNodeDestroy(metaNodes, killNode);
-	return retVal;
+
+	//
+	strGraphNodeIRLiveP allGraphs=NULL;
+	for(;strGraphNodeIRLivePSize(retVal)!=0;) {
+			//Use first node
+			allGraphs=strGraphNodeIRLivePSortedInsert(allGraphs, retVal[0], (gnCmpType)ptrPtrCmp);
+
+			//Filter out all accessible nodes from retVal,then we look for the next graph
+			__auto_type asscesibleNodes=graphNodeIRLiveAllNodes(retVal[0]);
+			retVal=strGraphNodeIRLivePSetDifference(retVal, asscesibleNodes, (gnCmpType)ptrPtrCmp);
+
+			strGraphNodeIRLivePDestroy(&asscesibleNodes);
+	}
+
+	strGraphNodeIRLivePDestroy(&retVal);
+	
+	return allGraphs;
 }

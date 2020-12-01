@@ -5,6 +5,7 @@
 #include <subExprElim.h>
 #define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
+#include <graphDominance.h>
 typedef int (*gnCmpType)(const graphNodeIR *, const graphNodeIR *);
 static int ptrPtrCmp(const void *a, const void *b) {
 	if (*(void **)a > *(void **)b)
@@ -472,7 +473,7 @@ void IRRemoveRepeatAssigns(graphNodeIR enter) {
 }
 static int IsInteger(struct object *obj) {
 	// Check if ptr
-	if (obj->type == TYPE_PTR)
+	if (obj->type == TYPE_PTR||obj->type==TYPE_ARRAY)
 		return 1;
 
 	// Check if integer type
@@ -486,8 +487,152 @@ static int IsInteger(struct object *obj) {
 
 	return 0;
 }
+static int isFloating(struct object *obj) {
+		return obj==&typeF64;
+}
+static double interfereMetric(double cost,graphNodeIRLive node) {
+		//
+		// graphNodeIRLive is undirected node!!!
+		//
+		__auto_type connections=graphNodeIRLiveOutgoing(node);
+		double retVal=cost/strGraphEdgeIRLivePSize(connections);
+
+		strGraphEdgeIRLivePDestroy(&connections);
+		return retVal;
+}
+static void recolorAdjacentNodes(graphNodeIRLive node,llVertexColor colors) {
+		__auto_type allNodes=graphNodeIRLiveAllNodes(node);
+		//Find the maximum color
+		int maxColor=-1;
+		for(__auto_type node=llVertexColorFirst(colors);node!=NULL;node=llVertexColorNext(node)) {
+				__auto_type currentColor=llVertexColorValuePtr(node)->color;
+				maxColor=(maxColor<currentColor)?currentColor:maxColor;
+		}
+		
+		//Recolor nodes that are adjacent to same color
+		long colorsAdded=0;
+		for(long i=0;i!=strGraphNodeIRLivePSize(allNodes);i++) {
+				__auto_type outgoingNodes=graphNodeIRLiveOutgoingNodes(allNodes[i]);
+
+				//Get current color
+				__auto_type currentColor=llVertexColorGet(colors, allNodes[i]);
+				
+				//Check for adjacent colors
+				for(long i2=0;i2!=strGraphNodeIRLivePSize(outgoingNodes);i2++) {
+						__auto_type outColor=llVertexColorGet(colors, outgoingNodes[i2]);
+						if(currentColor->color!=outColor->color) {
+								currentColor->color=maxColor+colorsAdded++;
+						}
+				}
+
+				strGraphNodeIRLivePDestroy(&outgoingNodes);
+		}
+		
+		strGraphNodeIRLivePDestroy(&allNodes);
+}
+static int filterIntVars(graphNodeIR node,const void *data) {
+		struct IRNodeValue *value=(void*)graphNodeIRValuePtr(node);
+		if(value->base.type!=IR_VALUE)
+				return 0;
+		
+		return IsInteger(IRValueGetType(&value->val));
+}
+static int filterFloatVars(graphNodeIR node,const void *data) {
+		struct IRNodeValue *value=(void*)graphNodeIRValuePtr(node);
+		if(value->base.type!=IR_VALUE)
+				return 0;
+
+		return isFloating(IRValueGetType(&value->val));
+}
+static int isVarNode(const struct IRNode *irNode) {
+	if (irNode->type == IR_VALUE) {
+		struct IRNodeValue *val = (void *)irNode;
+		if (val->val.type == IR_VAL_VAR_REF)
+			return 1;
+	}
+
+	return 0;
+}
+STR_TYPE_DEF(int,Int);
+STR_TYPE_FUNCS(int,Int);
+static int intCmp(const int *a,const int *b) {
+		return *a-*b;
+}
+strInt getColorList(llVertexColor vertexColors) {
+		strInt retVal=NULL;
+		for(__auto_type node=llVertexColorFirst(vertexColors);node!=NULL;node=llVertexColorNext(node)) {
+				//Insert into retVal if color isnt already in retVal
+				if(NULL==strIntSortedFind(retVal, llVertexColorValuePtr(node)->color, intCmp))
+						retVal=strIntSortedInsert(retVal, llVertexColorValuePtr(node)->color, intCmp);
+		}
+
+		return retVal;
+}
+struct metricPair {
+		graphNodeIRLive node;
+		double metricValue;
+};
+static int metricPairCmp(const void *a,const void *b) {
+		const struct metricPair *A=a,*B=b;
+		if(A->metricValue>B->metricValue)
+				return 1;
+		else if(A->metricValue<B->metricValue)
+				return -1;
+		else
+				return 0;
+}
+STR_TYPE_DEF(struct metricPair,MetricPair);
+STR_TYPE_FUNCS(struct metricPair,MetricPair);
 static void IRRegisterAllocate(graphNodeIR start) {
-	__auto_type allNodes = graphNodeIRAllNodes(start);
+		//SSA
+		__auto_type allNodes = graphNodeIRAllNodes(start);
 	removeChooseNodes(allNodes, start);
 	IRToSSA(start);
+
+	//Merge variables that can be merges
+	__auto_type allNodes2 = graphNodeIRAllNodes(start);
+	IRCoalesce(allNodes, start);
+	IRRemoveRepeatAssigns(start);
+	
+	//Contruct an interference graph and color it
+	__auto_type interfere=IRInterferenceGraph(start);
+
+	//Do integer and floating variables seperatley
+	__auto_type intRegs=getIntRegs();
+	__auto_type floatRegs=getFloatRegs();
+
+	__auto_type intInterfere=IRInterferenceGraphFilter(start, filterIntVars,NULL);
+	__auto_type floatInterfere=IRInterferenceGraphFilter(start, filterFloatVars,NULL);
+	
+	//Compute int and flaoting interfernce seperatly
+	strGraphNodeIRLiveP spillNodes=NULL;
+	for(long i=0;i!=strGraphNodeIRLivePSize(intInterfere);i++)
+	{
+			__auto_type interfere=intInterfere[i];
+			
+			__auto_type vertexColors=graphColor(interfere);
+			recolorAdjacentNodes(interfere,vertexColors);
+
+			__auto_type allNodes=graphNodeIRAllNodes(start);
+
+			__auto_type colors=getColorList(vertexColors);
+			if(strIntSize(colors)>=strRegPSize(intRegs)) {
+					//Choose spill Nodes by choosing the nodes with the lowest hueristic value
+					long len=strGraphNodeIRLivePSize(allNodes);
+					struct metricPair pairs[len];
+
+					//Make the pairs
+					for(long i=0;i!=len;i++) {
+							pairs[i].metricValue=interfereMetric(1.0, allNodes[i]); //TODO implement cost
+							pairs[i].node=allNodes[i];
+					}
+					
+					//Sort the pairs
+					qsort(pairs, len, sizeof(*pairs), metricPairCmp);
+
+					//Mark as spill nodes
+					for(long i=0;i!=len-strRegPSize(intRegs);i++)
+							spillNodes=strGraphNodeIRLivePSortedFind(spillNodes, pairs[i].node, (gnCmpType)ptrPtrCmp);
+			}
+	}
 }

@@ -448,21 +448,21 @@ static void __filterTransparentKill(graphNodeMapping node) {
 #define DEBUG_PRINT_ENABLE 1
 graphNodeMapping
 createFilteredGraph(struct __graphNode *start, strGraphNodeP nodes, void *data,
-                    int (*pred)(void *data, struct __graphNode *)) {
+                    int (*pred)(struct __graphNode *,void *data)) {
 	__auto_type clone = __createGraphMap(nodes[0], nodes, 0);
 	__auto_type cloneNodes = __graphNodeVisitAll(clone);
 
 	graphNodeMapping retVal = NULL;
 	for (long i = 0; i != strGraphNodeMappingPSize(cloneNodes); i++)
-		if (!pred(data, *graphNodeMappingValuePtr(cloneNodes[i]))) {
-			__auto_type sourceNode = *graphNodeMappingValuePtr(cloneNodes[i]);
-			DEBUG_PRINT("Killing node %p\n", sourceNode);
-			__filterTransparentKill(cloneNodes[i]); // Takes a mapped node!!!
-		} else if (retVal == NULL)
-			retVal = cloneNodes[i];
+			if (!pred(*graphNodeMappingValuePtr(cloneNodes[i]),data)) {
+					__auto_type sourceNode = *graphNodeMappingValuePtr(cloneNodes[i]);
+					DEBUG_PRINT("Killing node %p\n", sourceNode);
+					__filterTransparentKill(cloneNodes[i]); // Takes a mapped node!!!
+			} else if (retVal == NULL)
+					retVal = cloneNodes[i];
 		else if (start == *graphNodeMappingValuePtr(cloneNodes[i]))
-			retVal = cloneNodes[i];
-
+				retVal = cloneNodes[i];
+	
 	strGraphNodeMappingPDestroy(&cloneNodes);
 
 	return retVal;

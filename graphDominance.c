@@ -279,7 +279,7 @@ static void connnectIdoms(mapGraphNode nodes, llDominators valids,
 		graphNodeMappingConnect(*node, bNodeMapped, NULL);
 	}
 }
-graphNodeMapping createDomTree(llDominators doms) {
+graphNodeMapping dominatorsTreeCreate(llDominators doms) {
 	mapGraphNode map = mapGraphNodeCreate();
 
 	for (__auto_type node = llDominatorsFirst(doms); node != NULL;
