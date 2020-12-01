@@ -138,7 +138,7 @@ void registerAllocatorTests() {
 				//Replace redundant assigns
 				IRRemoveRepeatAssigns(one);
 
-				debugShowGraph(cRef);
+				debugShowGraph(one);
 
 				outgoingFrom=graphNodeIROutgoingNodes(one);
 				val=(void*)graphNodeIRValuePtr(outgoingFrom[0]);

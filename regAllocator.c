@@ -20,7 +20,8 @@ static void transparentKill(graphNodeIR node) {
 	for (long i1 = 0; i1 != strGraphEdgeIRPSize(incoming); i1++)
 		for (long i2 = 0; i2 != strGraphEdgeIRPSize(outgoing); i2++)
 			graphNodeIRConnect(graphEdgeIRIncoming(incoming[i1]),
-			                   graphEdgeIROutgoing(outgoing[i2]), IR_CONN_FLOW);
+			                   graphEdgeIROutgoing(outgoing[i2]),
+			                   *graphEdgeIRValuePtr(incoming[i1]));
 
 	graphNodeIRKill(&node, IRNodeDestroy, NULL);
 }
@@ -415,9 +416,55 @@ void IRRemoveRepeatAssigns(graphNodeIR enter) {
 	}
 
 	//(Transparently) remove all items marked for removal
-	for (long i = 0; i != strGraphNodeIRPSize(toRemove); i++) {
+	for (long i = 0; i != strGraphNodeIRPSize(toRemove); i++)
 		transparentKill(toRemove[i]);
+
+	// Remove removed
+	allNodes =
+	    strGraphNodeIRPSetDifference(allNodes, toRemove, (gnCmpType)ptrPtrCmp);
+
+	// Find duds(nodes that arent connected to conditionals or expressions)
+	strGraphNodeIRP duds = NULL;
+	for (long i = 0; i != strGraphNodeIRPSize(allNodes); i++) {
+		if (!isVar(allNodes[i]))
+			continue;
+
+		__auto_type incoming = graphNodeIRIncoming(allNodes[i]);
+		__auto_type outgoing = graphNodeIRIncoming(allNodes[i]);
+
+		// Check if exprssion incoming
+		int isUsedIn = 0;
+		for (long i = 0; i != strGraphEdgeIRPSize(incoming); i++) {
+			if (*graphEdgeIRValuePtr(incoming[i]) != IR_CONN_FLOW) {
+				isUsedIn = 1;
+				break;
+			}
+		}
+
+		// Check if expression outgoing,OR IF CONNECTED TO CONDTIONAL
+		int isUsedOut = 0;
+		for (long i = 0; i != strGraphEdgeIRPSize(outgoing); i++) {
+			if (*graphEdgeIRValuePtr(outgoing[i]) != IR_CONN_FLOW) {
+				isUsedOut = 1;
+				break;
+			}
+		}
+
+		// Free
+		strGraphEdgeIRPDestroy(&incoming), strGraphEdgeIRPDestroy(&outgoing);
+
+		// IF only flows incoimg/outgoing,node is useless to replace
+		if (!isUsedOut && !isUsedOut)
+			duds = strGraphNodeIRPAppendItem(duds, allNodes[i]);
 	}
+
+	// Kill duds
+	for (long i = 0; i != strGraphNodeIRPSize(duds); i++)
+		transparentKill(duds[i]);
+
+	strGraphNodeIRPDestroy(&duds);
+	strGraphNodeIRPDestroy(&allNodes);
+	strGraphNodeIRPDestroy(&toRemove);
 }
 static void IRRegisterAllocate(graphNodeIR start) {
 	__auto_type allNodes = graphNodeIRAllNodes(start);
