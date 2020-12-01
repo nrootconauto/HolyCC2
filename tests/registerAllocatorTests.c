@@ -116,8 +116,6 @@ void registerAllocatorTests() {
 				//Flow to bRef2 which starts a new startment
 				graphNodeIRConnect(aRef1, bRef2, IR_CONN_FLOW);
 
-				debugShowGraph(cRef);
-
 				__auto_type 	allNodes= graphNodeIRAllNodes(cRef);
 				DEBUG_PRINT("TEST %i\n",2);
 				IRCoalesce(allNodes, cRef);
@@ -136,5 +134,19 @@ void registerAllocatorTests() {
 						struct IRNodeValue *val=(void*)graphNodeIRValuePtr(outgoingFrom[0]);
 						assert(val->val.value.var.value.var==var);
 				}
+
+				//Replace redundant assigns
+				IRRemoveRepeatAssigns(one);
+
+				debugShowGraph(cRef);
+
+				outgoingFrom=graphNodeIROutgoingNodes(one);
+				val=(void*)graphNodeIRValuePtr(outgoingFrom[0]);
+				assert(val->base.type==IR_VALUE);
+				assert(val->val.value.var.value.var==var);
+
+				__auto_type outgoingEdges=graphNodeIROutgoing(outgoingFrom[0]);
+				__auto_type assigns=IRGetConnsOfType(outgoingEdges, IR_CONN_DEST);
+				assert(strGraphEdgeIRPSize(assigns)==0);
 		}
 }

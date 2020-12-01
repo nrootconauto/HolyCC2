@@ -366,7 +366,7 @@ graphNodeIR createCondJmp(graphNodeIR cond, graphNodeIR t, graphNodeIR f) {
 
 	return retVal;
 }
-static int isExprEdge(enum IRConnType type) {
+int IRIsExprEdge(enum IRConnType type) {
 	switch (type) {
 	case IR_CONN_SOURCE_A:
 	case IR_CONN_SOURCE_B:
@@ -382,7 +382,7 @@ static int isExprEdge(enum IRConnType type) {
 static int exprEdgePred(const struct __graphNode *node,
                         const struct __graphEdge *edge, const void *data) {
 	__auto_type type = *graphEdgeIRValuePtr((void *)edge);
-	return isExprEdge(type);
+	return IRIsExprEdge(type);
 }
 static void addNode2List(struct __graphNode *node, void *data) {
 	strGraphNodeIRP *nodes = data;
@@ -977,7 +977,7 @@ cloneExpressions:;
 	__auto_type incoming = graphNodeIRIncoming(connectTo);
 	for (long i = 0; i != strGraphEdgeIRPSize(incoming); i++) {
 		__auto_type type = *graphEdgeIRValuePtr(incoming[i]);
-		if (isExprEdge(type)) {
+		if (IRIsExprEdge(type)) {
 			// If ignore assigns,ignore IR_CONN_DEST
 			if (ignoreAssigns && type == IR_CONN_DEST)
 				continue;

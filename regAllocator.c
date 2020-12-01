@@ -372,6 +372,53 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 		}
 	}
 }
+static int isVar(graphNodeIR node) {
+	if (graphNodeIRValuePtr(node)->type == IR_VALUE) {
+		// Is a variable
+		struct IRNodeValue *valOut = (void *)graphNodeIRValuePtr(node);
+		if (valOut->val.type == IR_VAL_VAR_REF) {
+			return 1;
+		}
+	}
+	return 0;
+}
+void IRRemoveRepeatAssigns(graphNodeIR enter) {
+	__auto_type allNodes = graphNodeIRAllNodes(enter);
+
+	strGraphNodeIRP toRemove = NULL;
+	for (long i = 0; i != strGraphNodeIRPSize(allNodes); i++) {
+		// If not a var,continue
+		if (!isVar(allNodes[i]))
+			continue;
+
+		// Check for assign
+		__auto_type outgoing = graphNodeIROutgoing(allNodes[i]);
+		__auto_type outgoingAssign = IRGetConnsOfType(outgoing, IR_CONN_DEST);
+		if (strGraphEdgeIRPSize(outgoingAssign) == 1) {
+			// Check if assigned to value
+			__auto_type out = graphEdgeIROutgoing(outgoingAssign[0]);
+			if (isVar(out)) {
+				// Compare if vars are equal
+				struct IRNodeValue *valIn, *valOut;
+				valIn = (void *)graphNodeIRValuePtr(allNodes[i]);
+				valOut = (void *)graphNodeIRValuePtr(out);
+
+				if (0 == IRVarCmp(&valIn->val.value.var, &valOut->val.value.var)) {
+					// Add first reference to variable(valIn) for removal
+					toRemove = strGraphNodeIRPAppendItem(toRemove, allNodes[i]);
+				}
+			}
+
+			strGraphEdgeIRPDestroy(&outgoingAssign);
+			strGraphEdgeIRPDestroy(&outgoing);
+		}
+	}
+
+	//(Transparently) remove all items marked for removal
+	for (long i = 0; i != strGraphNodeIRPSize(toRemove); i++) {
+		transparentKill(toRemove[i]);
+	}
+}
 static void IRRegisterAllocate(graphNodeIR start) {
 	__auto_type allNodes = graphNodeIRAllNodes(start);
 	removeChooseNodes(allNodes, start);
