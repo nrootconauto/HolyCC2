@@ -12,8 +12,6 @@ struct regSlice {
 	struct reg *reg;
 	int offset, widthInBits;
 };
-extern strRegP regsX86GP;
-extern strRegP regsTestGP;
 
 extern struct reg regX86AL;
 extern struct reg regX86BL;
@@ -42,3 +40,32 @@ extern struct reg regX86ESI;
 extern struct reg regX86EDI;
 extern struct reg regX86EBP;
 extern struct reg regX86ESP;
+
+extern struct reg regX86XMM0;
+extern struct reg regX86XMM1;
+extern struct reg regX86XMM2;
+extern struct reg regX86XMM3;
+extern struct reg regX86XMM4;
+extern struct reg regX86XMM5;
+extern struct reg regX86XMM6;
+extern struct reg regX86XMM7;
+
+extern struct reg regX86ST0;
+extern struct reg regX86ST1;
+extern struct reg regX86ST2;
+extern struct reg regX86ST3;
+extern struct reg regX86ST4;
+extern struct reg regX86ST5;
+extern struct reg regX86ST6;
+extern struct reg regX86ST7;
+
+const strRegP getIntRegs(); 
+const strRegP getFloatRegs();
+const strRegP getSIMDRegs();
+
+enum archConfig {
+		ARCH_TEST_SYSV,
+		ARCH_X86_SYSV,
+		ARCH_X64_SYSV,
+};
+void setArch(enum archConfig Arch);
