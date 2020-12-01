@@ -12,6 +12,15 @@ static int ptrPtrCmp(const void *a,const void *b) {
 		else
 				return 0;
 }
+static void debugShowGraph(graphNodeIR enter) {
+		const char *name=tmpnam(NULL);
+		__auto_type map=graphNodeCreateMapping(enter, 1);
+		IRGraphMap2GraphViz(map, "viz", name, NULL,NULL,NULL,NULL);
+		char buffer[1024];
+		sprintf(buffer, "dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg", name);
+
+		system(buffer);
+}
 typedef int(*gnIRCmpType)(const graphNodeIR *,const graphNodeIR *);
 static void assertSSANodes(graphNodeIR node,...) {
 		strGraphNodeIRP expected=NULL;
@@ -96,6 +105,7 @@ void SSATests() {
 				//
 				//Assert for Choose nodes at (select)enter points
 				//
+				debugShowGraph(enter);
 				assertSSANodes(f, e,a,NULL);
 				assertSSANodes(e, c,d,NULL);
 				

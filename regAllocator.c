@@ -365,6 +365,10 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 			__auto_type find2 =
 			    *llVarRefsValuePtr(llVarRefsFind(refs, blobs[i][i2], varRefsGetCmp));
 			for (long i3 = 0; i3 != strGraphNodeIRPSize(find2); i3++) {
+				// Dont replace self
+				if (find2[i3] == master)
+					continue;
+
 				DEBUG_PRINT("Replacing %s with %s\n", debugGetPtrNameConst(find2[i3]),
 				            debugGetPtrNameConst(master));
 				// Replace with cloned value
@@ -466,7 +470,24 @@ void IRRemoveRepeatAssigns(graphNodeIR enter) {
 	strGraphNodeIRPDestroy(&allNodes);
 	strGraphNodeIRPDestroy(&toRemove);
 }
+static int IsInteger(struct object *obj) {
+	// Check if ptr
+	if (obj->type == TYPE_PTR)
+		return 1;
+
+	// Check if integer type
+	struct object *valids[] = {
+	    &typeI8i,  &typeI16i, &typeI32i, &typeI64i, &typeU8i,
+	    &typeU16i, &typeU32i, &typeU64i, &typeBool,
+	};
+	for (long i = 0; i != sizeof(valids) / sizeof(*valids); i++)
+		if (valids[i] == obj)
+			return 1;
+
+	return 0;
+}
 static void IRRegisterAllocate(graphNodeIR start) {
 	__auto_type allNodes = graphNodeIRAllNodes(start);
 	removeChooseNodes(allNodes, start);
+	IRToSSA(start);
 }

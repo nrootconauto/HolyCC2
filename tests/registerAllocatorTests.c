@@ -59,7 +59,7 @@ void registerAllocatorTests() {
 		
 				//Do SSA on strucure
 				IRToSSA(one);
-				//debugShowGraph(aRef1);
+				debugShowGraph(one);
 
 				__auto_type beforeBref3=graphNodeIRIncomingNodes(IRGetStmtStart(bRef3))[0];
 				__auto_type type=graphNodeIRValuePtr(IRGetStmtStart(beforeBref3))->type;
@@ -144,7 +144,7 @@ void registerAllocatorTests() {
 				val=(void*)graphNodeIRValuePtr(outgoingFrom[0]);
 				assert(val->base.type==IR_VALUE);
 				assert(val->val.value.var.value.var==var);
-
+ 
 				__auto_type outgoingEdges=graphNodeIROutgoing(outgoingFrom[0]);
 				__auto_type assigns=IRGetConnsOfType(outgoingEdges, IR_CONN_DEST);
 				assert(strGraphEdgeIRPSize(assigns)==0);
