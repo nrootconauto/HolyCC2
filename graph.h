@@ -241,3 +241,4 @@ long graphNodeValueSize(const struct __graphNode *node);
 long graphEdgeValueSize(const struct __graphEdge *edge);
 graphNodeMapping graphNodeCreateMapping(const struct __graphNode *node,
                                         int preserveConnections);
+strGraphPath graphAllPathsToPredicate(struct __graphNode *from, const void *data,int(*predicate)(const struct __graphNode *node,const void *data));

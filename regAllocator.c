@@ -6,6 +6,8 @@
 #define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 #include <graphDominance.h>
+#include <base64.h>
+static const char *IR_ATTR_VAR_ALIVE_AT_NODE="ALIVE_AT_NODE";
 typedef int (*gnCmpType)(const graphNodeIR *, const graphNodeIR *);
 static int ptrPtrCmp(const void *a, const void *b) {
 	if (*(void **)a > *(void **)b)
@@ -581,6 +583,95 @@ static int metricPairCmp(const void *a,const void *b) {
 		else
 				return 0;
 }
+STR_TYPE_DEF(struct IRVar*,IRVar);
+STR_TYPE_FUNCS(struct IRVar*,IRVar);
+typedef int(*IRVarCmpType)(const struct IRVar**,const struct IRVar**);
+
+struct interferencePair {
+		struct IRVar *var;
+		strIRVar inteferesWith;
+};
+//TODO rename
+static int spillOrStoreAt(const struct __graphNode *node,const struct interferencePair *pair) {
+		//Check if hit a choose node that "consumes" pair->var. Chooses mark the end of one version of a var and a transition to the next version
+		struct IRNode *value=graphNodeIRValuePtr((graphNodeIR)node);
+		if(value->type==IR_CHOOSE) {
+				struct IRNodeChoose *choose=(void*)value;
+				for(long i=0;i!=strGraphNodeIRPSize(choose->canidates);i++) {
+						assert(isVar(choose->canidates[i]));
+						struct IRNodeValue *val=(void*)graphNodeIRValuePtr(choose->canidates[i]);
+						if(0==IRVarCmp(&val->val.value.var,pair->var)) {
+								return 1;
+						}
+				}
+		}
+
+		//Check if hit a varaible that intereferes with pair->var
+		if(isVar((graphNodeIR)node)) {
+				strIRVar vars2=pair->inteferesWith;
+				for(long i=0;i!=strIRVarSize(vars2);i++) {
+						struct IRNodeValue *val=(void*)graphNodeIRValuePtr((graphNodeIR)node);
+						return 0==IRVarCmp(&val->val.value.var, vars2[i]);
+				}
+		}
+
+		return 0;
+}
+struct frameLayout{};
+static void createSpill(graphNodeIR insertBefore,)
+static void findVarInterfereAt(strGraphNodeIRLiveP allLiveNodes,strGraphNodeIRP allIRNodes,struct IRVar *var) {
+		graphNodeIRLive liveNode=NULL;
+		
+		//Find var in interference graph
+		for(long i=0;i!=strGraphNodeIRLivePSize(allLiveNodes);i++) {
+				if(0==IRVarCmp(graphNodeIRLiveValuePtr(allLiveNodes[i])->ref,var)) {
+						liveNode=allLiveNodes[i];
+						break;
+				}
+		}
+		
+		//Find variables that interfere with var
+		__auto_type interfere=graphNodeIRLiveOutgoingNodes(liveNode);
+		strIRVar allVars=NULL;
+		for(long i=0;i!=strGraphNodeIRLivePSize(interfere);i++) {
+				allVars=strIRVarSortedInsert(allVars, graphNodeIRLiveValuePtr(interfere[i])->ref, (IRVarCmpType)IRVarCmp);
+		}
+
+		for(long i1=0;i1!=strGraphNodeIRPSize(allIRNodes);i1++) {
+				if(isVar(allIRNodes[i1])) {
+						//Check if expected var
+						if(0==IRVarCmp(var, &((struct IRNodeValue*)graphNodeIRValuePtr(allIRNodes[i1]))->val.value.var)) {
+								struct interferencePair pair;
+								pair.inteferesWith=allVars;
+								pair.var=var;
+								//
+								// Find all paths to either
+								// A) A choose node that signals the end of the current version of var or
+								// B) a reference to a var that interferes with var
+								//
+								__auto_type paths=graphAllPathsToPredicate(allIRNodes[i1], allVars,  (int(*)(const struct __graphNode*,const void*))spillOrStoreAt);
+								for(long i2=0;i2!=strGraphPathSize(paths);i2++) {
+										if(!paths[i2])
+												continue;
+										
+										//Ignore  choose nodes,we dont need to spill at them( i hope?!?!?)
+										__auto_type last=paths[i2][strGraphEdgePSize(paths[i2])-1];
+										if(graphNodeIRValuePtr(graphEdgeIROutgoing(last))->type==IR_CHOOSE)
+												continue;
+
+										//Check if points to variable(which is should)
+										if(graphNodeIRValuePtr(graphEdgeIROutgoing(last))->type==IR_VALUE) {
+												if(isVar(graphEdgeIROutgoing(last))) {
+														//We fond a conflicting variable,so store var's value before entering new variable
+														
+														continue;
+												}
+										}
+								}
+						}
+				}
+		}
+}
 STR_TYPE_DEF(struct metricPair,MetricPair);
 STR_TYPE_FUNCS(struct metricPair,MetricPair);
 static void IRRegisterAllocate(graphNodeIR start) {
@@ -633,6 +724,10 @@ static void IRRegisterAllocate(graphNodeIR start) {
 					//Mark as spill nodes
 					for(long i=0;i!=len-strRegPSize(intRegs);i++)
 							spillNodes=strGraphNodeIRLivePSortedFind(spillNodes, pairs[i].node, (gnCmpType)ptrPtrCmp);
+
+					//
+					// Mark all nodes untill choose or end
+					//
 			}
 	}
 }

@@ -467,20 +467,25 @@ createFilteredGraph(struct __graphNode *start, strGraphNodeP nodes, void *data,
 
 	return retVal;
 }
+static int __graphNodeEqualPredicate(const struct __graphNode *node,const void *data) {
+		return node==data;
+}
 // https://efficientcodeblog.wordpress.com/2018/02/15/finding-all-paths-between-two-nodes-in-a-graph/
 static void __graphAllPathsTo(strGraphEdgeP *currentPath, strGraphPath *paths,
                               const struct __graphNode *from,
-                              const struct __graphNode *to) {
+                              const void *data,int(*predicate)(const struct __graphNode *node,const void *data)) {
 	// At destination so return after appending to paths
-	if (from == to) {
-	push:;
-		__auto_type clone = strGraphEdgePAppendData(
-		    NULL, (void *)*currentPath, strGraphEdgePSize(*currentPath));
-		*paths = strGraphPathAppendItem(*paths, clone);
-		return;
-	}
+		if(predicate) {
+				if (predicate(from,data)) {
+				push:;
+						__auto_type clone = strGraphEdgePAppendData(
+																																																		NULL, (void *)*currentPath, strGraphEdgePSize(*currentPath));
+						*paths = strGraphPathAppendItem(*paths, clone);
+						return;
+				}
+		}
 	// Push if no outgoing and to is NULL
-	if (0 == strGraphEdgePSize(from->outgoing) && to == NULL)
+	if (0 == strGraphEdgePSize(from->outgoing) && predicate == NULL)
 		goto push;
 
 	// Ensure isn't visiting path that has already been visited
@@ -493,7 +498,7 @@ static void __graphAllPathsTo(strGraphEdgeP *currentPath, strGraphPath *paths,
 		// Push
 		*currentPath = strGraphEdgePAppendItem(*currentPath, from->outgoing[i]);
 		// dfs
-		__graphAllPathsTo(currentPath, paths, from->outgoing[i]->to, to);
+		__graphAllPathsTo(currentPath, paths, from->outgoing[i]->to, data,predicate);
 		// Pop
 		*currentPath = strGraphEdgePPop(*currentPath, NULL);
 	}
@@ -502,7 +507,16 @@ strGraphPath graphAllPathsTo(struct __graphNode *from, struct __graphNode *to) {
 	strGraphPath paths = NULL;
 	strGraphEdgeP currentPath = NULL;
 
-	__graphAllPathsTo(&currentPath, &paths, from, to);
+	__graphAllPathsTo(&currentPath, &paths, from, to,__graphNodeEqualPredicate);
+
+	strGraphEdgePDestroy(&currentPath);
+	return paths;
+}
+strGraphPath graphAllPathsToPredicate(struct __graphNode *from, const void *data,int(*predicate)(const struct __graphNode *node,const void *data)) {
+		strGraphPath paths = NULL;
+		strGraphEdgeP currentPath = NULL;
+
+	__graphAllPathsTo(&currentPath, &paths, from, data,predicate);
 
 	strGraphEdgePDestroy(&currentPath);
 	return paths;
