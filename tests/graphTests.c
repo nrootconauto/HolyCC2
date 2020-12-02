@@ -10,7 +10,7 @@ static void appendToItems(graphNodeInt node, void *data) {
 static int nodeIs2Or3(graphNodeInt node,void* data) {
 		int val=*graphNodeIntValuePtr(node);
 		return !(val==2||val==3);
-}
+} 
 void graphTests() {
 		{
 	__auto_type a = graphNodeIntCreate(1, 0);

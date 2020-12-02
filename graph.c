@@ -262,42 +262,57 @@ void __graphNodeKill(struct __graphNode *node, void (*killNode)(void *item),
 static int __graphPredNotVisited(const struct __graphNode *node,
                                  const struct __graphEdge *edge,
                                  const void *data) {
-	const strGraphNodeP *visited = data;
-	return NULL == strGraphNodePSortedFind(*visited, node, (gnCmpType)ptrCompare);
+	const llGraphNode * visited = data;
+	return NULL == llGraphNodeFind(*visited, &node, (int(*)(const void *,const struct __graphNode**))ptrCompare);
 }
 
 static void __graphVisitAppend(struct __graphNode *node, void *data) {
-	strGraphNodeP *allNodes = data;
-	*allNodes = strGraphNodePSortedInsert(*allNodes, node, (gnCmpType)ptrCompare);
+	llGraphNode * visited = data;
+	__auto_type newNode=llGraphNodeCreate(node);
+	llGraphNodeInsert(*visited, newNode, (gnCmpType)ptrCompare);
+	*visited=newNode;
 }
+static void dumpllGraphNodeToArray(llGraphNode list,struct __graphNode **dumpTo) {
+		long i=0;
+		for(__auto_type node=llGraphNodeFirst(list);node!=NULL;node=llGraphNodeNext(node))
+				dumpTo[i++]=*llGraphNodeValuePtr(node);
+}
+
 strGraphNodeP __graphNodeVisitAll(const struct __graphNode *start) {
 	if (!start)
 		return NULL;
 
-	strGraphNodeP visited = strGraphNodePAppendItem(NULL, (void *)start);
+	llGraphNode visited = llGraphNodeCreate((void*)start);
 
 loop:;
-	long oldSize = strGraphNodePSize(visited);
-	// Dont use visited as for loop as it will be modified use clone
-	__auto_type clone = strGraphNodePAppendData(NULL, (void *)visited,
-	                                            strGraphNodePSize(visited));
-	for (long i = 0; i != oldSize; i++) {
-		// Visit forward
-		__graphNodeVisitForward((struct __graphNode *)clone[i], &visited,
-		                        __graphPredNotVisited, __graphVisitAppend);
+	{
+			//Dump to array
+			long oldSize = llGraphNodeSize(visited);
+			struct __graphNode *array[oldSize];
+			dumpllGraphNodeToArray(visited, array);
+			
+			// Dont use visited as for loop as it will be modified use clone
+			for (long i = 0; i != oldSize; i++) {
+					// Visit forward
+					__graphNodeVisitForward((struct __graphNode *)array[i], &visited,
+																													__graphPredNotVisited, __graphVisitAppend);
 
-		// Visit backward
-		__graphNodeVisitBackward((struct __graphNode *)clone[i], &visited,
-		                         __graphPredNotVisited, __graphVisitAppend);
+					// Visit backward
+					__graphNodeVisitBackward((struct __graphNode *)array[i], &visited,
+																														__graphPredNotVisited, __graphVisitAppend);
+			}
+
+			// If added new node(s), re-run
+			__auto_type newSize = llGraphNodeSize(visited);
+			if (newSize != oldSize)
+					goto loop;
 	}
 
-	strGraphNodePDestroy(&clone);
-	// If added new node(s), re-run
-	__auto_type newSize = strGraphNodePSize(visited);
-	if (newSize != oldSize)
-		goto loop;
-
-	return visited;
+	long size = llGraphNodeSize(visited);
+	struct __graphNode *array[size];
+	dumpllGraphNodeToArray(visited, array);
+	
+	return strGraphNodePAppendData(NULL, (void*)array, size);
 }
 void __graphKillAll(struct __graphNode *start, void (*killFunc)(void *),
                     void (*killEdge)(void *)) {
