@@ -52,15 +52,20 @@ static strGraphEdgeP __graphEdgeByDirection(const struct __graphNode *node,
 }
 STR_TYPE_DEF(long, Long);
 STR_TYPE_FUNCS(long, Long);
+LL_TYPE_DEF(struct __graphNode *,GraphNode);
+LL_TYPE_FUNCS(struct __graphNode *,GraphNode);
+static void llGraphNodeDestroy2(llGraphNode *node) {
+		llGraphNodeDestroy(node, NULL);
+}
 static void __graphNodeVisitDirPred(struct __graphNode *node, void *data,
                                     int(pred)(const struct __graphNode *,
                                               const struct __graphEdge *,
                                               const void *),
                                     void (*visit)(struct __graphNode *, void *),
                                     enum dir d) {
-	strGraphNodeP visited __attribute__((cleanup(strGraphNodePDestroy)));
+		llGraphNode visited __attribute__((cleanup(llGraphNodeDestroy2)));
 	visited = NULL;
-	strGraphNodeP toVisit __attribute__((cleanup(strGraphNodePDestroy)));
+	llGraphNode toVisit __attribute__((cleanup(llGraphNodeDestroy2)));
 	toVisit = NULL;
 	strGraphNodeP stack __attribute__((cleanup(strGraphNodePDestroy)));
 	stack = NULL;
@@ -92,12 +97,12 @@ static void __graphNodeVisitDirPred(struct __graphNode *node, void *data,
 		//
 		if (cond) {
 			__auto_type find =
-			    strGraphNodePSortedFind(visited, connection, (gnCmpType)ptrCompare);
+					llGraphNodeFind(visited, &connection, (int(*)(const void*,const struct __graphNode**))ptrCompare);
 			if (find == NULL) {
-				visited = strGraphNodePSortedInsert(visited, connection,
+					visited = llGraphNodeInsert(visited, llGraphNodeCreate(connection),
 				                                    (gnCmpType)ptrCompare);
 				// Push to node-to-visit
-				toVisit = strGraphNodePSortedInsert(toVisit, connection,
+					toVisit = llGraphNodeInsert(toVisit, llGraphNodeCreate(connection),
 				                                    (gnCmpType)ptrCompare);
 				// Push node and index
 				stack = strGraphNodePAppendItem(stack, connection);
@@ -133,8 +138,8 @@ static void __graphNodeVisitDirPred(struct __graphNode *node, void *data,
 		}
 	}
 	if (visit != NULL) {
-		for (int i = 0; i != strGraphNodePSize(toVisit); i++) {
-			visit(toVisit[i], data);
+			for (__auto_type node=llGraphNodeFirst(toVisit);node!=NULL;node=llGraphNodeNext(node)) {
+			visit(*llGraphNodeValuePtr(node), data);
 		}
 	}
 }
