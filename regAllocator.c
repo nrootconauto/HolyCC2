@@ -17,6 +17,9 @@ static int ptrPtrCmp(const void *a, const void *b) {
 	else
 		return 0;
 }
+static char *ptr2Str(const void *a) {
+		return base64Enc((void*)&a, sizeof(a));
+}
 static void transparentKill(graphNodeIR node) {
 	__auto_type incoming = graphNodeIRIncoming(node);
 	__auto_type outgoing = graphNodeIROutgoing(node);
@@ -502,6 +505,7 @@ static double interfereMetric(double cost,graphNodeIRLive node) {
 		strGraphEdgeIRLivePDestroy(&connections);
 		return retVal;
 }
+
 static void recolorAdjacentNodes(graphNodeIRLive node,llVertexColor colors) {
 		__auto_type allNodes=graphNodeIRLiveAllNodes(node);
 		//Find the maximum color
@@ -617,8 +621,6 @@ static int spillOrStoreAt(const struct __graphNode *node,const struct interferen
 
 		return 0;
 }
-struct frameLayout{};
-static void createSpill(graphNodeIR insertBefore,)
 static void findVarInterfereAt(strGraphNodeIRLiveP allLiveNodes,strGraphNodeIRP allIRNodes,struct IRVar *var) {
 		graphNodeIRLive liveNode=NULL;
 		
@@ -656,14 +658,21 @@ static void findVarInterfereAt(strGraphNodeIRLiveP allLiveNodes,strGraphNodeIRP 
 										
 										//Ignore  choose nodes,we dont need to spill at them( i hope?!?!?)
 										__auto_type last=paths[i2][strGraphEdgePSize(paths[i2])-1];
-										if(graphNodeIRValuePtr(graphEdgeIROutgoing(last))->type==IR_CHOOSE)
+										__auto_type lastNode=graphEdgeIROutgoing(last);
+										if(graphNodeIRValuePtr(lastNode)->type==IR_CHOOSE)
 												continue;
 
 										//Check if points to variable(which is should)
-										if(graphNodeIRValuePtr(graphEdgeIROutgoing(last))->type==IR_VALUE) {
-												if(isVar(graphEdgeIROutgoing(last))) {
-														//We fond a conflicting variable,so store var's value before entering new variable
-														
+										else if(graphNodeIRValuePtr(lastNode)->type==IR_VALUE) {
+												if(isVar(lastNode)) {
+														//We found a conflicting variable,so store var's value before entering new variable,then load new variable's value
+														__auto_type spill=createSpill(var);
+														IRInsertBefore(lastNode, spill, spill, IR_CONN_FLOW);
+
+														//Insert load
+														__auto_type newVar=&((struct IRNodeValue*)graphNodeIRValuePtr(lastNode))->val.value.var;
+														__auto_type load=createLoad(newVar);
+														IRInsertBefore(lastNode, load,load, IR_CONN_FLOW);
 														continue;
 												}
 										}
@@ -672,9 +681,25 @@ static void findVarInterfereAt(strGraphNodeIRLiveP allLiveNodes,strGraphNodeIRP 
 				}
 		}
 }
+//
+// This a function for turning colors into registers
+//
+typedef struct regSlice (*color2RegPredicate)(strRegSlice adjacent,strRegP avail,graphNodeIRLive live,int color,const void *data,long colorCount,const int *colors);
+static struct regSlice color2Reg(strRegSlice adjacent,strRegP avail,graphNodeIRLive live,int color,const void *data,long colorCount,const int *colors) {
+		int *find=bsearch(&color , colors, colorCount, sizeof(int), (int(*)(const void*,const void*))intCmp);
+		assert(find);
+
+		struct regSlice slice;
+		slice.reg=avail[*find%strRegPSize(avail)];
+		slice.offset=0;
+		slice.widthInBits=slice.reg->size*8;
+		return slice;
+}
 STR_TYPE_DEF(struct metricPair,MetricPair);
 STR_TYPE_FUNCS(struct metricPair,MetricPair);
-static void IRRegisterAllocate(graphNodeIR start) {
+MAP_TYPE_DEF(struct regSlice,RegSlice);
+MAP_TYPE_FUNCS(struct regSlice,RegSlice);
+static void IRRegisterAllocate(graphNodeIR start,color2RegPredicate colorFunc,void *colorData) {
 		//SSA
 		__auto_type allNodes = graphNodeIRAllNodes(start);
 	removeChooseNodes(allNodes, start);
@@ -702,11 +727,41 @@ static void IRRegisterAllocate(graphNodeIR start) {
 			__auto_type interfere=intInterfere[i];
 			
 			__auto_type vertexColors=graphColor(interfere);
-			recolorAdjacentNodes(interfere,vertexColors);
+			//	recolorAdjacentNodes(interfere,vertexColors);
 
 			__auto_type allNodes=graphNodeIRAllNodes(start);
 
 			__auto_type colors=getColorList(vertexColors);
+
+			//Choose registers
+			mapRegSlice nodeRegsByVar=mapRegSliceCreate();
+			__auto_type allColorNodes=graphNodeIRLiveAllNodes(interfere);
+			for(long i=0;i!=strGraphNodeIRLivePSize(allColorNodes);i++) {
+					//Get adjacent items
+					__auto_type outgoing=graphNodeIRLiveOutgoingNodes(allColorNodes[i]);
+					strRegSlice adj=NULL;
+					for(long i=0;i!=strGraphNodeIRLivePSize(outgoing);i++) {
+							//search for adjacent
+							char *key=ptr2Str(allColorNodes[i]);
+							__auto_type find=mapRegSliceGet(nodeRegsByVar, key);
+							free(key);
+
+							//Insert if exists
+							if(find)
+									adj=strRegSliceAppendItem(adj, *find);
+					}
+
+					//Assign register to 
+					__auto_type slice=color2Reg(adj,intRegs, allColorNodes[i], llVertexColorGet(vertexColors, allColorNodes[i])->color, NULL,strIntSize(colors), colors);
+
+					//Insert find
+					char *key=ptr2Str(allColorNodes[i]);
+					mapRegSliceInsert(nodeRegsByVar, key, slice);
+					free(key);
+
+					strRegSliceDestroy(&adj),strGraphNodeIRLivePDestroy(&allColorNodes);
+			}
+			
 			if(strIntSize(colors)>=strRegPSize(intRegs)) {
 					//Choose spill Nodes by choosing the nodes with the lowest hueristic value
 					long len=strGraphNodeIRLivePSize(allNodes);
@@ -728,6 +783,7 @@ static void IRRegisterAllocate(graphNodeIR start) {
 					//
 					// Mark all nodes untill choose or end
 					//
+					
 			}
 	}
 }

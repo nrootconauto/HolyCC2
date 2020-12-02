@@ -3,16 +3,17 @@
 struct reg;
 STR_TYPE_DEF(struct reg *, RegP);
 STR_TYPE_FUNCS(struct reg *, RegP);
+STR_TYPE_DEF(struct regSlice, RegSlice);
 struct reg {
 	const char *name;
-	strRegP affects;
+	strRegSlice affects;
 	int size;
 };
 struct regSlice {
 	struct reg *reg;
 	int offset, widthInBits;
 };
-
+STR_TYPE_FUNCS(struct regSlice, RegSlice);
 extern struct reg regX86AL;
 extern struct reg regX86BL;
 extern struct reg regX86CL;
@@ -69,3 +70,4 @@ enum archConfig {
 		ARCH_X64_SYSV,
 };
 void setArch(enum archConfig Arch);
+int regSliceConflict(struct regSlice *a,struct regSlice *b);

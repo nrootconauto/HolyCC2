@@ -59,21 +59,29 @@ static int ptrPtrCmp(const void *a, const void *b) {
 		return 0;
 }
 typedef int (*regPCmpType)(const struct reg **, const struct reg **);
-static struct reg createRegister(const char *name, int size, ...) {
+struct regSlice createRegSlice(const struct reg *reg,int offset,int width) {
+		struct regSlice slice;
+		slice.reg=(void*)reg;
+		slice.offset=offset;
+		slice.widthInBits=width;
+
+		return slice;
+}
+static struct reg createRegister(const char *name, int size,int affectsCount, ...) {
 	struct reg retVal;
 	retVal.size = size;
 	retVal.name = name;
 	retVal.affects = NULL;
 
 	va_list list;
-	va_start(list, size);
-	for (;;) {
-		__auto_type affects = va_arg(list, struct reg *);
+	va_start(list, affectsCount);
+	for (int i=0;i!=affectsCount;i++) {
+		__auto_type affects = va_arg(list, struct regSlice*);
 		if (!affects)
 			break;
 
 		retVal.affects =
-		    strRegPSortedInsert(retVal.affects, affects, (regPCmpType)ptrPtrCmp);
+				strRegSliceSortedInsert(retVal.affects, *affects, (int(*)(const struct regSlice*,const struct regSlice*))ptrPtrCmp);
 	}
 	va_end(list);
 
@@ -88,51 +96,52 @@ static strRegP regsTestFloat;
 
 
 static void init() {
-	regX86AL = createRegister("AL", 1, NULL);
-	regX86DL = createRegister("BL", 1, NULL);
-	regX86CL = createRegister("CL", 1, NULL);
-	regX86DL = createRegister("DL", 1, NULL);
+		
+	regX86AL = createRegister("AL", 1, 0);
+	regX86DL = createRegister("BL", 1, 0);
+	regX86CL = createRegister("CL", 1, 0);
+	regX86DL = createRegister("DL", 1, 0);
 
-	regX86AH = createRegister("AH", 1, NULL);
-	regX86DH = createRegister("BH", 1, NULL);
-	regX86CH = createRegister("CH", 1, NULL);
-	regX86DH = createRegister("DH", 1, NULL);
+	regX86AH = createRegister("AH", 1, 0);
+	regX86DH = createRegister("BH", 1, 0);
+	regX86CH = createRegister("CH", 1, 0);
+	regX86DH = createRegister("DH", 1, 0);
 
-	regX86AX = createRegister("AX", 2, &regX86AL, &regX86AH, NULL);
-	regX86BX = createRegister("BX", 2, &regX86BL, &regX86BH, NULL);
-	regX86CX = createRegister("CX", 2, &regX86CL, &regX86CH, NULL);
-	regX86DX = createRegister("DX", 2, &regX86DL, &regX86DH, NULL);
-	regX86SI = createRegister("SI", 2, NULL);
-	regX86DI = createRegister("DI", 2, NULL);
-	regX86BP = createRegister("BP", 2, NULL);
-	regX86SP = createRegister("SP", 2, NULL);
+	regX86AX = createRegister("AX", 2, 2,createRegSlice(&regX86EAX,0,8), createRegSlice(&regX86EAX,8,8));
+	regX86BX = createRegister("BX", 2, 2,createRegSlice(&regX86EBX,0,8), createRegSlice(&regX86EBX,8,8));
+	regX86CX = createRegister("CX", 2, 2,createRegSlice(&regX86ECX,0,8), createRegSlice(&regX86ECX,8,8));
+	regX86DX = createRegister("DX", 2, 2,createRegSlice(&regX86EDX,0,8), createRegSlice(&regX86EDX,8,8));
+	regX86SI = createRegister("SI", 2, 0);
+	regX86DI = createRegister("DI", 2, 0);
+	regX86BP = createRegister("BP", 2, 0);
+	regX86SP = createRegister("SP", 2, 0);
 
-	regX86EAX = createRegister("EAX", 4, &regX86AL, &regX86AH, &regX86AX, NULL);
-	regX86EBX = createRegister("EBX", 4, &regX86BL, &regX86BH, &regX86BX, NULL);
-	regX86ECX = createRegister("ECX", 4, &regX86CL, &regX86CH, &regX86CX, NULL);
-	regX86EDX = createRegister("EDX", 4, &regX86DL, &regX86DH, &regX86DX, NULL);
-	regX86ESI = createRegister("ESI", 4, &regX86SI, NULL);
-	regX86EDI = createRegister("EDI", 4, &regX86DI, NULL);
-	regX86EBP = createRegister("EBP", 4, &regX86SP, NULL);
-	regX86ESP = createRegister("ESP", 4, &regX86BP, NULL);
+	regX86EAX = createRegister("EAX", 4, 3,createRegSlice(&regX86EAX,0,8), createRegSlice(&regX86EAX,8,8),createRegSlice(&regX86EAX, 0, 16));
+	regX86EBX = createRegister("EBX", 4, 3,createRegSlice(&regX86EBX,0,8), createRegSlice(&regX86EBX,8,8),createRegSlice(&regX86EBX, 0, 16));
+	regX86ECX = createRegister("ECX", 4, 3,createRegSlice(&regX86ECX,0,8), createRegSlice(&regX86ECX,8,8),createRegSlice(&regX86ECX, 0, 16));
+	regX86EDX = createRegister("EDX", 4, 3,createRegSlice(&regX86EDX,0,8), createRegSlice(&regX86EDX,8,8),createRegSlice(&regX86EDX, 0, 16));
+	regX86ESI = createRegister("ESI", 4, 1,createRegSlice(&regX86ESI, 0, 16));
+	regX86EDI = createRegister("EDI", 4, 1,createRegSlice(&regX86EDI, 0, 16));
+	regX86EBP = createRegister("EBP", 4, 1,createRegSlice(&regX86EBP, 0, 16));
+	regX86ESP = createRegister("ESP", 4, 1,createRegSlice(&regX86ESP, 0, 16));
 
-	regX86XMM0=createRegister("XMM0", 16, NULL);
-	regX86XMM1=createRegister("XMM1", 16, NULL);
-	regX86XMM2=createRegister("XMM2", 16, NULL);
-	regX86XMM3=createRegister("XMM3", 16, NULL);
-	regX86XMM4=createRegister("XMM4", 16, NULL);
-	regX86XMM5=createRegister("XMM5", 16, NULL);
-	regX86XMM6=createRegister("XMM6", 16, NULL);
-	regX86XMM7=createRegister("XMM7", 16, NULL);
+	regX86XMM0=createRegister("XMM0", 16, 0);
+	regX86XMM1=createRegister("XMM1", 16, 0);
+	regX86XMM2=createRegister("XMM2", 16, 0);
+	regX86XMM3=createRegister("XMM3", 16, 0);
+	regX86XMM4=createRegister("XMM4", 16, 0);
+	regX86XMM5=createRegister("XMM5", 16, 0);
+	regX86XMM6=createRegister("XMM6", 16, 0);
+	regX86XMM7=createRegister("XMM7", 16, 0);
 
-	regX86ST0=createRegister("ST0", 16, NULL);
-	regX86ST1=createRegister("ST1", 16, NULL);
-	regX86ST2=createRegister("ST2", 16, NULL);
-	regX86ST3=createRegister("ST3", 16, NULL);
-	regX86ST4=createRegister("ST4", 16, NULL);
-	regX86ST5=createRegister("ST5", 16, NULL);
-	regX86ST6=createRegister("ST6", 16, NULL);
-	regX86ST7=createRegister("ST7", 16, NULL);
+	regX86ST0=createRegister("ST0", 16, 0);
+	regX86ST1=createRegister("ST1", 16, 0);
+	regX86ST2=createRegister("ST2", 16, 0);
+	regX86ST3=createRegister("ST3", 16, 0);
+	regX86ST4=createRegister("ST4", 16, 0);
+	regX86ST5=createRegister("ST5", 16, 0);
+	regX86ST6=createRegister("ST6", 16, 0);
+	regX86ST7=createRegister("ST7", 16, 0);
 
 	//Regular floats X86
 	struct reg *fltX86[]={
@@ -213,4 +222,21 @@ const strRegP getFloatRegs() {
 const strRegP getSIMDRegs() {
 		assert(0);
 		return NULL;
+}
+int regSliceConflict(struct regSlice *a,struct regSlice *b) {
+		if(a->reg!=b->reg)
+				return 0;
+
+		int aEnd=a->offset+a->widthInBits;
+		int bEnd=b->offset+b->widthInBits;
+		
+		if(a->offset>=b->offset)
+				if(bEnd>=a->offset)
+						return 1;
+		
+		if(b->offset>=a->offset)
+				if(aEnd>=b->offset)
+						return 1;
+
+		return 0;
 }

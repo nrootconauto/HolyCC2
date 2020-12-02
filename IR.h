@@ -97,6 +97,8 @@ enum IRNodeType {
 	IR_ADDR_OF,
 	IR_DERREF,
 	//
+	IR_SPILL,
+	IR_LOAD,
 };
 struct IRNode;
 struct IRAttr {
@@ -187,13 +189,11 @@ struct IRNodeCondJump {
 };
 struct IRNodeSpill {
 	struct IRNode base;
-	struct IRNode *item;
-	struct IRValue where;
+	struct IRValue item;
 };
 struct IRNodeLoad {
 	struct IRNode base;
-	struct IRValue from;
-	struct IRValue to;
+	struct IRValue item;
 };
 struct IRNodeSIMD {
 	struct IRNode base;
@@ -319,3 +319,5 @@ graphNodeIR cloneNode(graphNodeIR node, enum IRCloneMode mode,
 int IRVarCmpIgnoreVersion(const struct IRVar *a, const struct IRVar *b);
 int IRIsExprEdge(enum IRConnType type);
 struct object *IRValueGetType(struct IRValue *node);
+graphNodeIR createLoad(struct IRVar *var);
+graphNodeIR createSpill(struct IRVar *var);

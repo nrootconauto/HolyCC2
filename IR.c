@@ -47,6 +47,24 @@ static char *strClone(const char *text) {
 
 	return retVal;
 }
+graphNodeIR createSpill(struct IRVar *var) {
+		struct IRNodeSpill spill;
+		spill.base.attrs=NULL;
+		spill.base.type=IR_SPILL;
+		spill.item.type=IR_VAL_VAR_REF;
+		spill.item.value.var=*var;
+
+		return GRAPHN_ALLOCATE(spill);
+}
+graphNodeIR createLoad(struct IRVar *var) {
+		struct IRNodeSpill load;
+		load.base.attrs=NULL;
+		load.base.type=IR_SPILL;
+		load.item.type=IR_VAL_VAR_REF;
+		load.item.value.var=*var;
+
+		return GRAPHN_ALLOCATE(load);
+}
 graphNodeIR createFuncCall(graphNodeIR func, ...) {
 	struct IRNodeFuncCall call;
 	call.base.attrs = NULL;
@@ -662,18 +680,17 @@ static const char *rainbowColors[] = {
 MAP_TYPE_DEF(int, LabelNum);
 MAP_TYPE_FUNCS(int, LabelNum);
 
-static strChar IRValue2GraphVizLabel(struct IRNode *nodeData) {
+static strChar IRValue2GraphVizLabel(struct IRValue *val) {
 	// Choose a label based on type
-	struct IRNodeValue *val = (void *)nodeData;
-	switch (val->val.type) {
+	switch (val->type) {
 	case IR_VAL_FUNC: {
-		const char *name = val->val.value.func->name;
+		const char *name = val->value.func->name;
 
 		const char *format = "VAL FUNC:%s";
 		return FROM_FORMAT(format, name);
 	}
 	case IR_VAL_INT_LIT: {
-		__auto_type intStr = lexerInt2Str(&val->val.value.intLit);
+		__auto_type intStr = lexerInt2Str(&val->value.intLit);
 
 		__auto_type labelText = FROM_FORMAT("VAL INT:%s", intStr);
 
@@ -685,22 +702,22 @@ static strChar IRValue2GraphVizLabel(struct IRNode *nodeData) {
 		break;
 	case IR_VAL_STR_LIT: {
 		const char *format = "VAL STR:\"%s\"";
-		return FROM_FORMAT(format, val->val.value.strLit);
+		return FROM_FORMAT(format, val->value.strLit);
 	}
 	case IR_VAL_VAR_REF: {
 		strChar tmp = NULL;
-		if (val->val.value.var.type == IR_VAR_MEMBER) {
+		if (val->value.var.type == IR_VAR_MEMBER) {
 			// TODO
-		} else if (val->val.value.var.type == IR_VAR_VAR) {
-			if (val->val.value.var.value.var->name)
-				tmp = strClone(val->val.value.var.value.var->name);
+		} else if (val->value.var.type == IR_VAR_VAR) {
+			if (val->value.var.value.var->name)
+				tmp = strClone(val->value.var.value.var->name);
 			else {
-				tmp = FROM_FORMAT("%p", val->val.value.var.value.var);
+				tmp = FROM_FORMAT("%p", val->value.var.value.var);
 			}
 		}
 
 		const char *format = "VAL VAR :%s-%li";
-		__auto_type labelText = FROM_FORMAT(format, tmp, val->val.value.var.SSANum);
+		__auto_type labelText = FROM_FORMAT(format, tmp, val->value.var.SSANum);
 
 		free(tmp);
 		return labelText;
@@ -709,14 +726,14 @@ static strChar IRValue2GraphVizLabel(struct IRNode *nodeData) {
 		return strClone("LABEL"); // TODO
 	}
 	case __IR_VAL_MEM_FRAME: {
-		return FROM_FORMAT("FRAME OFFSET:%li", val->val.value.__frame.offset);
+		return FROM_FORMAT("FRAME OFFSET:%li", val->value.__frame.offset);
 	}
 	case __IR_VAL_MEM_GLOBAL: {
 		strChar tmp;
-		if (val->val.value.__global.symbol->name)
-			tmp = strClone(val->val.value.__global.symbol->name);
+		if (val->value.__global.symbol->name)
+			tmp = strClone(val->value.__global.symbol->name);
 		else
-			tmp = FROM_FORMAT("%p", val->val.value.__global.symbol);
+			tmp = FROM_FORMAT("%p", val->value.__global.symbol);
 
 		__auto_type labelText = FROM_FORMAT("SYM %s", tmp);
 		strCharDestroy(&tmp);
@@ -771,6 +788,28 @@ static char *IRCreateGraphVizNode(const struct __graphNode *node,
 	struct IRNode *value = graphNodeIRValuePtr(
 	    *graphNodeMappingValuePtr((struct __graphNode *)node));
 	switch (value->type) {
+	case IR_LOAD: {
+			struct IRNodeLoad *load=(void*)value;
+			strChar val=IRValue2GraphVizLabel(&load->item);
+			const char *format="LOAD: %s";
+			long len=snprintf(NULL,0,format,val);
+			char buffer[len+1];
+			sprintf(buffer, format, val);
+
+			strCharDestroy(&val);
+			return strClone(buffer);
+	}
+	case IR_SPILL: {
+			struct IRNodeLoad *load=(void*)value;
+			strChar val=IRValue2GraphVizLabel(&load->item);
+			const char *format="SPILL: %s";
+			long len=snprintf(NULL,0,format,val);
+			char buffer[len+1];
+			sprintf(buffer, format, val);
+
+			strCharDestroy(&val);
+			return strClone(buffer);
+	}
 	case IR_CHOOSE:
 		makeGVDecisionNode(attrs);
 		return strClone("CHOOSE");
@@ -809,7 +848,7 @@ static char *IRCreateGraphVizNode(const struct __graphNode *node,
 		makeGVTerminalNode(attrs);
 		return strClone("STMT-END");
 	case IR_VALUE:
-		return IRValue2GraphVizLabel(value);
+			return IRValue2GraphVizLabel(&((struct IRNodeValue*)value)->val);
 	case IR_TYPECAST: {
 		struct IRNodeTypeCast *cast = (void *)value;
 		char *typeNameIn = object2Str(cast->in);
@@ -1154,6 +1193,8 @@ static graphNodeIR __cloneNode(mapGraphNode mappings, graphNodeIR node,
 	case IR_POW:
 	case IR_RSHIFT:
 	case IR_STATEMENT_END:
+	case IR_SPILL:
+	case IR_LOAD:
 	case IR_STATEMENT_START:
 	case IR_SUB:
 	case IR_SUB_SWITCH_START_LABEL:
