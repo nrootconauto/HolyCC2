@@ -56,7 +56,7 @@ void graphDominanceTests() {
 		assert(one == graphDominatorIdom(doms, two));
 
 		// Test dominator tree.
-		__auto_type domTree = createDomTree(doms);
+		__auto_type domTree = dominatorsTreeCreate(doms);
 		assert(*graphNodeMappingValuePtr(domTree) == one);
 
 		__auto_type outgoing = graphNodeMappingOutgoingNodes(domTree);
@@ -180,7 +180,7 @@ void graphDominanceTests() {
 		//
 		// Dominator tree test
 		//
-		__auto_type domTree = createDomTree(doms);
+		__auto_type domTree = dominatorsTreeCreate(doms);
 		assert(domTree);
 		assert(*graphNodeMappingValuePtr(domTree) == a);
 

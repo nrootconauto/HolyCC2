@@ -7,7 +7,7 @@ static void appendToItems(graphNodeInt node, void *data) {
 	strGraphNodeIntP *edges = data;
 	*edges = strGraphNodeIntPAppendItem(*edges, node);
 }
-static int nodeIs2Or3(void* data,graphNodeInt node) {
+static int nodeIs2Or3(graphNodeInt node,void* data) {
 		int val=*graphNodeIntValuePtr(node);
 		return !(val==2||val==3);
 }

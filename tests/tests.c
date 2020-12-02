@@ -43,6 +43,6 @@ int main() {
 		LivenessTests();
 		subExprElimTests();
 		//graphVizTests();
-		registerAllocatorTests();
+		//registerAllocatorTests();
 		return 0;
 }

@@ -507,7 +507,7 @@ strGraphPath graphAllPathsTo(struct __graphNode *from, struct __graphNode *to) {
 	strGraphPath paths = NULL;
 	strGraphEdgeP currentPath = NULL;
 
-	__graphAllPathsTo(&currentPath, &paths, from, to,__graphNodeEqualPredicate);
+	__graphAllPathsTo(&currentPath, &paths, from, to,NULL);
 
 	strGraphEdgePDestroy(&currentPath);
 	return paths;
