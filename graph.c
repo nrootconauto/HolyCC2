@@ -314,6 +314,7 @@ loop:;
 	
 	return strGraphNodePAppendData(NULL, (void*)array, size);
 }
+
 void __graphKillAll(struct __graphNode *start, void (*killFunc)(void *),
                     void (*killEdge)(void *)) {
 	strGraphNodeP allNodes = __graphNodeVisitAll(start);
@@ -486,9 +487,6 @@ createFilteredGraph(struct __graphNode *start, strGraphNodeP nodes, void *data,
 	strGraphNodeMappingPDestroy(&cloneNodes);
 
 	return retVal;
-}
-static int __graphNodeEqualPredicate(const struct __graphNode *node,const void *data) {
-		return node==data;
 }
 // https://efficientcodeblog.wordpress.com/2018/02/15/finding-all-paths-between-two-nodes-in-a-graph/
 static void __graphAllPathsTo(strGraphEdgeP *currentPath, strGraphPath *paths,

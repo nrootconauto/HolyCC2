@@ -56,6 +56,15 @@ graphNodeIR createSpill(struct IRVar *var) {
 
 		return GRAPHN_ALLOCATE(spill);
 }
+graphNodeIR createRegRef(const struct regSlice *slice) {
+		struct IRNodeValue val;
+		val.base.attrs=NULL;
+		val.base.type=IR_VALUE;
+		val.val.type=IR_VAL_REG;
+		val.val.value.reg=*slice;
+
+		return GRAPHN_ALLOCATE(val);
+}
 graphNodeIR createLoad(struct IRVar *var) {
 		struct IRNodeSpill load;
 		load.base.attrs=NULL;
@@ -1251,4 +1260,20 @@ graphNodeIR cloneNode(graphNodeIR node, enum IRCloneMode mode,
 	}
 
 	return retVal;
+}
+graphNodeIR IRGetEndOfExpr(graphNodeIR node) {
+		for(;;) {
+		loop:;
+				strGraphEdgeIRP outgoing __attribute__((cleanup(strGraphEdgeIRPDestroy)));
+				outgoing=graphNodeIROutgoing(node);
+				for(long i=0;i!=strGraphEdgeIRPSize(outgoing);i++)  {
+						if(IRIsExprEdge(*graphEdgeIRValuePtr(outgoing[i]))) {
+								node=graphEdgeIROutgoing(outgoing[i]);
+								goto loop;
+						}
+				}
+
+				//No expression edges so is end of expression
+				return node;
+		}
 }

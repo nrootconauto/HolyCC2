@@ -7,7 +7,11 @@
 #include <debugPrint.h>
 #include <graphDominance.h>
 #include <base64.h>
-static const char *IR_ATTR_VAR_ALIVE_AT_NODE="ALIVE_AT_NODE";
+#include <lambda.h>
+static void debugPrintInterferenceGraph(graphNodeIRLive graph) {
+
+} 
+static const char *IR_ATTR_SPILL_LOAD_AT_NODE="SPILLED_OR_LOADED_AT_NODE";
 typedef int (*gnCmpType)(const graphNodeIR *, const graphNodeIR *);
 MAP_TYPE_DEF(struct regSlice,RegSlice);
 MAP_TYPE_FUNCS(struct regSlice,RegSlice);
@@ -646,20 +650,27 @@ struct interferencePair {
 		struct IRVar *var;
 		strIRVar inteferesWith;
 };
-//TODO rename
-static int spillOrStoreAt(const struct __graphNode *node,const struct interferencePair *pair) {
+static int isVarsChooseNode(const struct __graphNode *node,const struct interferencePair *pair) {
 		//Check if hit a choose node that "consumes" pair->var. Chooses mark the end of one version of a var and a transition to the next version
 		struct IRNode *value=graphNodeIRValuePtr((graphNodeIR)node);
 		if(value->type==IR_CHOOSE) {
 				struct IRNodeChoose *choose=(void*)value;
-				for(long i=0;i!=strGraphNodeIRPSize(choose->canidates);i++) {
-						assert(isVar(choose->canidates[i]));
-						struct IRNodeValue *val=(void*)graphNodeIRValuePtr(choose->canidates[i]);
+				for(long i2=0;i2!=strGraphNodeIRPSize(choose->canidates);i2++) {
+						assert(isVar(choose->canidates[i2]));
+						struct IRNodeValue *val=(void*)graphNodeIRValuePtr(choose->canidates[i2]);
 						if(0==IRVarCmp(&val->val.value.var,pair->var)) {
 								return 1;
 						}
 				}
 		}
+
+		return 0;
+}
+static int spillOrStoreAt(const struct __graphNode *node,const struct interferencePair *pair) {
+		//Check if hit a choose node that "consumes" pair->var. Chooses mark the end of one version of a var and a transition to the next version
+		struct IRNode *value=graphNodeIRValuePtr((graphNodeIR)node);
+		if(isVarsChooseNode(node, pair))
+				return 1;
 
 		//Check if hit a varaible that intereferes with pair->var
 		if(isVar((graphNodeIR)node)) {
@@ -672,12 +683,96 @@ static int spillOrStoreAt(const struct __graphNode *node,const struct interferen
 
 		return 0;
 }
-static void findVarInterfereAt(strGraphNodeIRLiveP allLiveNodes,strGraphNodeIRP allIRNodes,struct IRVar *var) {
+static int graphPathCmp(const strGraphEdgeIRP *a,const strGraphEdgeIRP *b) {
+		long aSize=strGraphEdgeIRPSize(*a);
+		long bSize=strGraphEdgeIRPSize(*b);
+		long min=(aSize<bSize)?aSize:bSize;
+
+		for(long i=0;i!=min;i++) {
+				__auto_type aNode=graphEdgeIROutgoing(a[0][i]);
+				__auto_type bNode=graphEdgeIROutgoing(b[0][i]);
+				int cmp=ptrPtrCmp(&aNode,&bNode);
+				if(cmp!=0)
+						return cmp;
+		}
+
+		if(aSize>bSize)
+				return 1;
+		else if(aSize<bSize)
+				return -1;
+		else
+				return 0;
+}
+
+static void replaceVarWithLoad(struct __graphNode *node ,void * data) {
+		strIRVar vars=data;
+		
+		if(isVar(node))  {
+				__auto_type nodeVal=(struct IRNodeValue*)graphNodeIRValuePtr(node);
+				for(long i=0;i!=strIRVarSize(vars);i++) {
+						__auto_type var=vars[i];
+						
+						if(0==IRVarCmp(var, &nodeVal->val.value.var)) {
+								__auto_type load=createLoad(var);
+								replaceNodeWithExpr(node, load);
+						}
+				}
+		}
+}
+static int untillStartOfExpr(const struct __graphNode* node,const struct __graphEdge* edge,const void *data) {
+				return IRIsExprEdge(*graphEdgeIRValuePtr((graphEdgeIR)edge));
+};
+
+static void insertLoadsInExpression(graphNodeIR expressionNode,strIRVar varsToReplace) {
+		strGraphNodeIRP  references=NULL;
+		
+		__auto_type end=IRGetEndOfExpr(expressionNode);
+		graphNodeIRVisitBackward(end, varsToReplace, untillStartOfExpr, replaceVarWithLoad);
+}
+struct __pathToChoosePredPair {
+		graphNodeIR start;
+		graphNodeIR choose;
+};
+static int __pathToChoosePred(const struct __graphNode *node,const void *data) {
+		const struct __pathToChoosePredPair *pair=data;
+		//Dont stop at start node
+		if(node==pair->start)
+				return 0;
+
+		//Stop at other canidate's path
+		__auto_type canidates=((struct IRNodeChoose*)graphNodeIRValuePtr(pair->choose))->canidates;
+		if(NULL!=strGraphNodeIRPSortedFind(canidates, (graphNodeIR)node, (gnCmpType)ptrPtrCmp))
+				return 1;
+
+		//Stop at choose;
+		if(node==pair->choose)
+				return 1;
+
+		return 0;
+}
+
+static int __lastIsNotChoose(const void *data,const strGraphEdgeIRP *path) {
+		__auto_type last=path[0][strGraphEdgeIRPSize(*path)-1];
+		return graphNodeIRValuePtr(graphEdgeIROutgoing(last))->type!=IR_CHOOSE;
+}
+static strGraphPath chooseNodeCandidatePathsToChoose(graphNodeIR canidate,graphNodeIR choose) {
+		//Find paths that are either dead ends that stop at other candiate starts,or path to choose,will filter out dead ends later.
+		struct __pathToChoosePredPair pair;
+		pair.choose=choose;
+		pair.start=canidate;
+		__auto_type pathsToChoose=graphAllPathsToPredicate(canidate, &pair, __pathToChoosePred);
+
+		//Filter out dead ends
+		pathsToChoose=strGraphPathRemoveIf(pathsToChoose, choose, __lastIsNotChoose);
+
+		return pathsToChoose;
+}
+static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spillNodes,strGraphNodeIRLiveP allLiveNodes,graphNodeIR startAt,struct IRVar *startAtVar) {
 		graphNodeIRLive liveNode=NULL;
 		
 		//Find var in interference graph
 		for(long i=0;i!=strGraphNodeIRLivePSize(allLiveNodes);i++) {
-				if(0==IRVarCmp(graphNodeIRLiveValuePtr(allLiveNodes[i])->ref,var)) {
+				if(0==IRVarCmp(graphNodeIRLiveValuePtr(allLiveNodes[i])->ref,startAtVar)) {
 						liveNode=allLiveNodes[i];
 						break;
 				}
@@ -686,48 +781,115 @@ static void findVarInterfereAt(strGraphNodeIRLiveP allLiveNodes,strGraphNodeIRP 
 		//Find variables that interfere with var
 		__auto_type interfere=graphNodeIRLiveOutgoingNodes(liveNode);
 		strIRVar allVars=NULL;
+
+		char *key=ptr2Str(liveNode);
+		struct regSlice *currReg=mapRegSliceGet(liveNodeRegs, key);
+		free(key);
+		if(!currReg) {
+		whineNoReg:
+				fprintf(stderr, "Dear programmer,try assigning registers to variables before calling %s." , __func__);
+				abort();
+		}
+		
 		for(long i=0;i!=strGraphNodeIRLivePSize(interfere);i++) {
-				allVars=strIRVarSortedInsert(allVars, graphNodeIRLiveValuePtr(interfere[i])->ref, (IRVarCmpType)IRVarCmp);
+				char *key=ptr2Str(interfere[i]);
+				struct regSlice *reg=mapRegSliceGet(liveNodeRegs, key);
+				free(key);
+
+				if(reg) {
+						if(regSliceConflict(currReg,  reg))
+								allVars=strIRVarSortedInsert(allVars, graphNodeIRLiveValuePtr(interfere[i])->ref, (IRVarCmpType)IRVarCmp);
+				}
 		}
 
-		for(long i1=0;i1!=strGraphNodeIRPSize(allIRNodes);i1++) {
-				if(isVar(allIRNodes[i1])) {
-						//Check if expected var
-						if(0==IRVarCmp(var, &((struct IRNodeValue*)graphNodeIRValuePtr(allIRNodes[i1]))->val.value.var)) {
-								struct interferencePair pair;
-								pair.inteferesWith=allVars;
-								pair.var=var;
-								//
-								// Find all paths to either
-								// A) A choose node that signals the end of the current version of var or
-								// B) a reference to a var that interferes with var
-								//
-								__auto_type paths=graphAllPathsToPredicate(allIRNodes[i1], allVars,  (int(*)(const struct __graphNode*,const void*))spillOrStoreAt);
-								for(long i2=0;i2!=strGraphPathSize(paths);i2++) {
-										if(!paths[i2])
+		struct interferencePair pair;
+		pair.inteferesWith=allVars;
+		pair.var=startAtVar;
+		//
+		// Find all paths to either
+		// A) A choose node that signals the end of the current version of var or
+		// B) a reference to a var that interferes with var
+		__auto_type paths1=graphAllPathsToPredicate(startAt, &pair,  (int(*)(const struct __graphNode*,const void*))spillOrStoreAt);
+		for(long i2=0;i2!=strGraphPathSize(paths1);i2++) {
+				if(!paths1[i2])
+						continue;
+										
+				__auto_type last=paths1[i2][strGraphEdgePSize(paths1[i2])-1];
+				__auto_type lastNode=graphEdgeIROutgoing(last);
+				if(graphNodeIRValuePtr(lastNode)->type==IR_CHOOSE) {
+						continue;
+				}
+
+				//Check if points to variable(which is should)
+				else if(graphNodeIRValuePtr(lastNode)->type==IR_VALUE) {
+						if(isVar(lastNode)) {
+								//We found a conflicting variable, lets make sure where havn't already inserted a spill/load on it
+								__auto_type find=llIRAttrFind( graphNodeIRValuePtr(lastNode)->attrs,IR_ATTR_SPILL_LOAD_AT_NODE, IRAttrGetPred);
+								if(find)
+										continue;
+
+								//Mark node as having spilled/loaded to.
+								struct IRAttr attr;
+								attr.name=(void*)IR_ATTR_SPILL_LOAD_AT_NODE;
+								__auto_type newAttr= __llCreate(&attr, sizeof(attr));
+								llIRAttrInsert(graphNodeIRValuePtr(lastNode)->attrs, newAttr, IRAttrInsertPred);
+								graphNodeIRValuePtr(lastNode)->attrs=newAttr;
+								
+								//Store var's value before entering new variable,then load new variable's value
+								__auto_type spill=createSpill(startAtVar);
+								__auto_type spillReg=createRegRef(currReg);
+								graphNodeIRConnect(spillReg,spill , IR_CONN_DEST);
+														
+								//Insert load
+								__auto_type newVar=&((struct IRNodeValue*)graphNodeIRValuePtr(lastNode))->val.value.var;
+								__auto_type load=createLoad(newVar);
+								char *key=ptr2Str(newVar);
+								__auto_type loadRegSlice=mapRegSliceGet(liveNodeRegs,key);
+								free(key);
+								__auto_type loadReg=createRegRef(loadRegSlice);
+														
+								graphNodeIRConnect(load,loadReg , IR_CONN_DEST);
+														
+								graphNodeIRConnect(spillReg, load, IR_CONN_FLOW);
+														
+								IRInsertBefore(IRGetStmtStart(lastNode), spillReg,loadReg, IR_CONN_FLOW);
+								// 
+								//  Spill Register
+								//   ||
+								//   \/
+								// Spill
+								//   ||
+								//   \/
+								//  load
+								//   ||
+								//   \/
+								// newVar
+								//   ||
+								//   \/
+								//Start of expr
+								
+								//Replace conflicting vairalbles within expression with loads
+								
+								//Get list of spillNode variables exluding self
+								strIRVar spillVars=NULL;
+								for(long i=0;i!=strGraphNodeIRLivePSize(spillNodes);i++) {
+										__auto_type var=graphNodeIRLiveValuePtr(spillNodes[i])->ref;
+										//Dont spill self
+										if(var==startAtVar)
 												continue;
 										
-										//Ignore  choose nodes,we dont need to spill at them( i hope?!?!?)
-										__auto_type last=paths[i2][strGraphEdgePSize(paths[i2])-1];
-										__auto_type lastNode=graphEdgeIROutgoing(last);
-										if(graphNodeIRValuePtr(lastNode)->type==IR_CHOOSE)
-												continue;
-
-										//Check if points to variable(which is should)
-										else if(graphNodeIRValuePtr(lastNode)->type==IR_VALUE) {
-												if(isVar(lastNode)) {
-														//We found a conflicting variable,so store var's value before entering new variable,then load new variable's value
-														__auto_type spill=createSpill(var);
-														IRInsertBefore(lastNode, spill, spill, IR_CONN_FLOW);
-
-														//Insert load
-														__auto_type newVar=&((struct IRNodeValue*)graphNodeIRValuePtr(lastNode))->val.value.var;
-														__auto_type load=createLoad(newVar);
-														IRInsertBefore(lastNode, load,load, IR_CONN_FLOW);
-														continue;
-												}
-										}
+										if(NULL!=strIRVarSortedFind(allVars, var, (IRVarCmpType)IRVarCmp))
+												spillVars=strIRVarSortedInsert(spillVars,var, (IRVarCmpType)IRVarCmp);
 								}
+								//Replace
+								__auto_type endOfExpression=IRGetEndOfExpr(lastNode);
+								insertLoadsInExpression(endOfExpression, spillVars);
+
+								strIRVarDestroy(&spillVars);
+								
+								//Re-run interferance at end of epxression
+								findVarInterfereAt(liveNodeRegs, spillNodes,allLiveNodes, endOfExpression, newVar);
+								continue;
 						}
 				}
 		}
@@ -843,7 +1005,8 @@ static void IRRegisterAllocate(graphNodeIR start,color2RegPredicate colorFunc,vo
 					strRegSliceDestroy(&adj),strGraphNodeIRLivePDestroy(&allColorNodes);
 			}
 
-			//Get conflicts
+			//Get conflicts and spill nodes
+			strGraphNodeIRLiveP spillNodes=NULL;
 			__auto_type conflicts=recolorAdjacentNodes(regsByLivenessNode,allColorNodes[0]);
 
 			//Sort conflicts by minimum spill metric
@@ -890,11 +1053,145 @@ static void IRRegisterAllocate(graphNodeIR start,color2RegPredicate colorFunc,vo
 													lowestConflictI=i;
 					}
 
+					//Add to spill nodes
+					spillNodes=strGraphNodeIRLivePSortedInsert(spillNodes, conflicts[lowestConflictI].a,(gnCmpType)ptrPtrCmp);
+					
 					//Remove all references to spilled node in conflicts and conflictsSortedByWeight
-					conflicts=strConflictPairRemoveIf(conflicts, &conflicts[lowestConflictI].a,(int(*)(const void*,const struct conflictPair*))conflictPairContains);
-					conflictsSortedByWeight=strConflictPairRemoveIf(conflictsSortedByWeight, &conflicts[lowestConflictI].a,(int(*)(const void*,const struct conflictPair*))conflictPairContains);
+					typedef int(*removeIfPred)(const void*,const struct conflictPair*);
+					conflicts=strConflictPairRemoveIf(conflicts, &conflicts[lowestConflictI].a,(removeIfPred)conflictPairContains);
+					conflictsSortedByWeight=strConflictPairRemoveIf(conflictsSortedByWeight, &conflicts[lowestConflictI].a,(removeIfPred)conflictPairContains);
+			}
+			strConflictPairDestroy(&conflicts);
+			
+			//Get list of variables that have conflicts(are adjacent to spill nodes)
+			strGraphNodeIRLiveP nodesWithRegisterConflict=NULL;
+
+			for(long i=0;i!=strGraphNodeIRLivePSize(allColorNodes);i++) {
+					//Check if not a spill node
+					if(NULL!=strGraphNodeIRLivePSortedFind(spillNodes, allColorNodes[i], (gnCmpType)ptrPtrCmp))
+							continue;
+					
+					__auto_type outgoing=graphNodeIRLiveOutgoingNodes(allColorNodes[i]);
+					for(long i2=0;i2!=strGraphNodeIRLivePSize(outgoing);i2++) {
+							//If adjacent to spilled node?
+							if(NULL!=strGraphNodeIRLivePSortedFind(spillNodes, outgoing[i2], (gnCmpType)ptrPtrCmp)) {
+									//Registers conflict ?
+									__auto_type currVar=graphNodeIRLiveValuePtr(allColorNodes[i])->ref;
+									__auto_type outVar=graphNodeIRLiveValuePtr(outgoing[i2])->ref;
+									char * key1=ptr2Str(currVar);
+									char * key2=ptr2Str(outVar);
+									__auto_type currReg=mapRegSliceGet(regsByLivenessNode, key1);
+									__auto_type outReg=mapRegSliceGet(regsByLivenessNode, key2);
+									free(key1),free(key2);
+
+									//Both vairables are put in registers?
+									if(currReg&&outReg) {
+											//Do they conflict
+											if(!regSliceConflict(currReg, outReg))
+													continue;
+											
+											nodesWithRegisterConflict=strGraphNodeIRLivePSortedInsert(nodesWithRegisterConflict, allColorNodes[i], (gnCmpType)ptrPtrCmp);
+											break;
+									}
+							}
+					}
+					
+					strGraphNodeIRLivePDestroy(&outgoing);
 			}
 
-			strConflictPairDestroy(&conflicts);
+			//Add spilled nodes to conflicts
+			nodesWithRegisterConflict=strGraphNodeIRLivePSetUnion(nodesWithRegisterConflict, spillNodes, (gnCmpType)ptrPtrCmp);
+
+			//Get list of spilled vars
+			strIRVar spillVars=NULL;
+			for(long i=0;i!=strGraphNodeIRLivePSize(spillNodes);i++) {
+					__auto_type var=graphNodeIRLiveValuePtr(spillNodes[i])->ref;
+									
+					spillVars=strIRVarSortedInsert(spillVars,var, (IRVarCmpType)IRVarCmp);
+			}
+			
+			//Find all IR nodes with conflict then run a load/spill insert operation starting from that node
+			for(long i=0;i!=strGraphNodeIRPSize(allNodes);i++) {
+					if(isVar(allNodes[i])) {
+							struct IRNodeValue *nodeValue=(void*)graphNodeIRValuePtr(allNodes[i]);
+							if(NULL==strIRVarSortedFind(spillVars,&nodeValue->val.value.var,(IRVarCmpType)IRVarCmp)) {
+									findVarInterfereAt(regsByLivenessNode, spillNodes, allColorNodes, allNodes[i], &nodeValue->val.value.var);
+							}
+					}
+			}
 	}
 }
+/*
+//Check if var to spill node
+						//Insert a dummy load node before choose and replace the variable's canidate with a reference to laod
+						__auto_type beforeLastNode=graphEdgeIRIncoming(last);
+						//Kill old connection to make room for new one
+						graphEdgeIRKill(beforeLastNode, lastNode, NULL, NULL, NULL);
+
+						//Insert between
+						__auto_type load=createLoad(startAtVar);
+						graphNodeIRConnect(beforeLastNode, load, IR_CONN_FLOW);
+						graphNodeIRConnect(load, lastNode, IR_CONN_FLOW);
+
+						
+	*/
+/*
+//
+								// Check for paths to choose node, find paths that contain items from paths1 that point to a variable
+								// Such paths interfere,so if the path contains a interfereing varialble,load at the the choose node
+								//
+								__auto_type pathsToChoose=graphAllPathsToPredicate(allIRNodes[i1], allVars,  (int(*)(const struct __graphNode*,const void*))isVarsChooseNode);
+
+								//Sort for easy access
+								qsort(pathsToChoose, strGraphPathSize(pathsToChoose), sizeof(*pathsToChoose), (int(*)(const void*,const void*))graphPathCmp);
+								for(long i=0;i!=strGraphPathSize(paths1);i++) {
+										__auto_type last=paths1[i][strGraphEdgeIRPSize(paths1[i])-1];
+										
+										if(isVar(graphEdgeIROutgoing(last))) {
+												for(long i2=0;i2!=strGraphPathSize(pathsToChoose);i2++) {
+												__continue:
+														for(long i3=0;i3!=strGraphEdgeIRPSize(paths1[i]);i3++) {
+																//Keep if mind they are sorted according to ptr
+																__auto_type outChoose=graphEdgeIROutgoing(pathsToChoose[i2][i]);
+																__auto_type outPath=graphEdgeIROutgoing(paths1[i][i3]);
+																
+																int cmp=ptrPtrCmp(&outPath,&outChoose);
+																if(cmp>0)
+																		goto __continue;
+																else if(cmp<0)
+																		goto __break;
+																else
+																		continue;
+														}
+
+														// All paths met,so we have a path with a conflict in it
+
+														//Choose node is at the end of the path
+														__auto_type lastChoosePathEdge=pathsToChoose[i2][strGraphEdgeIRPSize(pathsToChoose[i2])-1];
+														__auto_type chooseNode=graphEdgeIROutgoing(lastChoosePathEdge);
+														__auto_type beforeChooseNode=graphEdgeIRIncoming(lastChoosePathEdge);
+
+													
+														struct IRNodeValue *value=(void*)graphNodeIRValuePtr(graphEdgeIRLiveOutgoing(last));
+														//   Load
+														//    ||
+														//    \/
+														//Reg Reference
+														//    ||
+														//    \/
+														//  Choose
+														//
+														__auto_type load=createLoad(&value->val.value.var);
+														__auto_type regRef=createRegRef(currReg);
+														graphNodeIRConnect(load, regRef, IR_CONN_DEST);
+														
+														//Insert load before chooseNode on the path  
+														graphEdgeIRKill(beforeChooseNode, chooseNode, NULL, NULL, NULL);
+														graphNodeIRConnect(beforeChooseNode, load, IR_CONN_FLOW);
+														graphNodeIRConnect(regRef,chooseNode, IR_CONN_FLOW);
+														break;
+												}
+										__break:;
+										}
+								}
+	*/

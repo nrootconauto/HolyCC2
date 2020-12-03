@@ -155,7 +155,7 @@ struct IRVar {
 struct IRValue {
 	enum IRValueType type;
 	union {
-		struct reg *reg;
+		struct regSlice reg;
 		struct IRVar var;
 		struct IRValMemFrame __frame;
 		struct IRValMemGlobal __global;
@@ -321,3 +321,5 @@ int IRIsExprEdge(enum IRConnType type);
 struct object *IRValueGetType(struct IRValue *node);
 graphNodeIR createLoad(struct IRVar *var);
 graphNodeIR createSpill(struct IRVar *var);
+graphNodeIR createRegRef(const struct regSlice *slice);
+graphNodeIR IRGetEndOfExpr(graphNodeIR node);
