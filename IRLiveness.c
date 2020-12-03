@@ -101,10 +101,13 @@ static int untilIncomingAssign(const struct __graphNode *node,
 		return 0;
 
 	strGraphEdgeIRP incoming __attribute__((cleanup(strGraphEdgeIRPDestroy))) =
-	    graphNodeIRIncoming((void *)node);
-	if (strGraphEdgeIRPSize(incoming) == 1)
-		if (*graphEdgeIRValuePtr(incoming[0]) == IR_CONN_DEST)
+			graphNodeIRIncoming(*graphNodeMappingValuePtr((graphNodeMapping)node));
+	
+	if (strGraphEdgeIRPSize(incoming) == 1) {
+			__auto_type type=graphEdgeIRValuePtr(incoming[0]);
+			if (*type== IR_CONN_DEST)
 			return 0;
+	}
 
 	return 1;
 }
@@ -275,14 +278,15 @@ static strBasicBlock getBasicBlocksFromExpr(graphNodeIR dontDestroy,
 	assignNodes = strGraphNodeMappingPConcat(assignNodes, sinks);
 
 	for (long i = 0; i != strGraphNodeMappingPSize(assignNodes); i++) {
-		strGraphNodeMappingP exprNodes =
-		    strGraphNodeIRPAppendItem(NULL, assignNodes[i]);
+		strGraphNodeMappingP exprNodes = NULL;
 		graphNodeMappingVisitBackward(assignNodes[i], &exprNodes,
 		                              untilIncomingAssign, appendToNodes);
 
 		struct basicBlock block;
 		block.nodes = exprNodes;
+		block.nodes=strGraphNodeMappingPSortedInsert(block.nodes, assignNodes[i], (gnCmpType)ptrPtrCmp);
 		block.read = NULL;
+		block.define=NULL;
 
 		// Check if node is asssigned to,or only read from
 		__auto_type node = *graphNodeMappingValuePtr(assignNodes[i]);
@@ -297,9 +301,6 @@ static strBasicBlock getBasicBlocksFromExpr(graphNodeIR dontDestroy,
 				block.define = strVarAppendItem(
 				    NULL, &((struct IRNodeValue *)irNode)->val.value.var);
 			}
-		} else {
-			// Not assigned to
-			block.define = NULL;
 		}
 
 		//
@@ -316,8 +317,6 @@ static strBasicBlock getBasicBlocksFromExpr(graphNodeIR dontDestroy,
 			    "Writing to %s\n",
 			    debugGetPtrNameConst(*graphNodeMappingValuePtr(assignNodes[i])));
 #endif
-		} else {
-			block.define = NULL;
 		}
 
 		// Find read variable refs
@@ -351,7 +350,9 @@ static strBasicBlock getBasicBlocksFromExpr(graphNodeIR dontDestroy,
 		// Add to  consumed nodes
 		consumedNodes = strGraphNodeMappingPSetUnion(consumedNodes, exprNodes,
 		                                             (gnCmpType)ptrPtrCmp);
-
+		//Add assign node to consumed nodes
+		consumedNodes=strGraphNodeIRPSortedInsert(consumedNodes, assignNodes[i], (gnCmpType)ptrPtrCmp);
+		
 		// Push to blocks
 		retVal = strBasicBlockAppendItem(retVal, ALLOCATE(block));
 	}
@@ -412,14 +413,14 @@ static strBasicBlock getBasicBlocksFromExpr(graphNodeIR dontDestroy,
 		mapBlockMetaNodeInsert(metaNodes, hash, pair);
 		free(hash);
 #if DEBUG_PRINT_ENABLE
-		char buffer[128];
-		sprintf(buffer, "Block %s  metanode",
-		        debugGetPtrNameConst(*graphNodeMappingValuePtr(toReplace[0])));
-		debugAddPtrName(metaNode, buffer);
+				char buffer[128];
+				sprintf(buffer, "Block %s  metanode",
+												debugGetPtrNameConst(*graphNodeMappingValuePtr(toReplace[0])));
+				debugAddPtrName(metaNode, buffer);
 #endif
 
-		// Replace with metaNode
-		graphMappingReplaceNodes(toReplace, metaNode, NULL, NULL);
+				// Replace with metaNode
+				graphMappingReplaceNodes(toReplace, metaNode, NULL, NULL);
 	}
 
 	strGraphNodeMappingPDestroy(&consumedNodes);

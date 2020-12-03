@@ -149,4 +149,50 @@ void registerAllocatorTests() {
 				__auto_type assigns=IRGetConnsOfType(outgoingEdges, IR_CONN_DEST);
 				assert(strGraphEdgeIRPSize(assigns)==0);
 		}
+		//
+		// Register allocater test
+		//
+		{
+				__auto_type a=createVirtVar(&typeI64i);
+				__auto_type b=createVirtVar(&typeI64i);
+				__auto_type c=createVirtVar(&typeI64i);
+
+				/**
+					* a=1
+					* if(a) {b=a} else {b=2}
+					* c=b
+					*/
+				__auto_type one=createIntLit(1);
+				__auto_type two=createIntLit(2);
+				__auto_type aRef1=createVarRef(a);
+				__auto_type aRef2=createVarRef(a); // b=a
+				__auto_type bRef1=createVarRef(b); // b=a
+				__auto_type bRef2=createVarRef(b); // b=2
+				__auto_type bRef3=createVarRef(b); // c=b
+				__auto_type cRef=createVarRef(c);
+
+				debugAddPtrName(one, "One");
+				debugAddPtrName(two, "two");
+				debugAddPtrName(aRef1, "aRef1");
+				debugAddPtrName(aRef2, "aRef2");
+				debugAddPtrName(bRef1, "bRef1");
+				debugAddPtrName(bRef2, "bRef2");
+				debugAddPtrName(bRef3, "bRef3");
+				debugAddPtrName(cRef, "cRef");
+		
+		
+				createAssign( one,aRef1);
+		
+				createAssign(aRef2,bRef1);
+				createAssign( two,bRef2);
+				__auto_type cond=createCondJmp(aRef1, aRef2, two);
+				debugAddPtrName(cond, "cond");
+		
+		
+				createAssign(bRef3,cRef);
+				graphNodeIRConnect(bRef1, bRef3, IR_CONN_FLOW);
+				graphNodeIRConnect(bRef2, bRef3, IR_CONN_FLOW);
+
+				IRRegisterAllocate(one, NULL, NULL);
+		}
 }

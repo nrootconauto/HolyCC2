@@ -8,13 +8,49 @@
 #include <graphDominance.h>
 #include <base64.h>
 #include <lambda.h>
-static void debugPrintInterferenceGraph(graphNodeIRLive graph) {
+static char *ptr2Str(const void *a) {
+		return base64Enc((void*)&a, sizeof(a));
+}
+static char *strClone(const char *text) {
+		char *retVal=malloc(strlen(text)+1);
+		strcpy(retVal, text);
 
+		return retVal;
+}
+static void debugShowGraphIR(graphNodeIR enter) {
+		const char *name=tmpnam(NULL);
+		__auto_type map=graphNodeCreateMapping(enter, 1);
+		IRGraphMap2GraphViz(map, "viz", name, NULL,NULL,NULL,NULL);
+		char buffer[1024];
+		sprintf(buffer, "dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg", name);
+
+		system(buffer);
+}
+MAP_TYPE_DEF(struct regSlice,RegSlice);
+MAP_TYPE_FUNCS(struct regSlice,RegSlice);
+static char *interfereNode2Label(const struct __graphNode * node, mapGraphVizAttr *attrs, const void *data) {
+		__auto_type var=graphNodeIRLiveValuePtr((graphNodeIRLive)node)->ref;
+		char *name=debugGetPtrName(var);
+		if(name)
+				return name;
+
+		if(var->value.var->name)
+				return strClone(var->value.var->name);
+
+		return ptr2Str(var);
+}
+static void debugPrintInterferenceGraph(graphNodeIRLive graph) {
+		char *fn=tmpnam(NULL);
+		FILE *file=fopen(fn, "w");
+		graph2GraphViz(file, graph, "interference",interfereNode2Label, NULL,NULL,NULL);
+		fclose(file);
+
+		char buffer[512];
+		sprintf(buffer, "dot -Tsvg %s>/tmp/interfere.svg  && firefox /tmp/interfere.svg", fn);
+		system(buffer);
 } 
 static const char *IR_ATTR_SPILL_LOAD_AT_NODE="SPILLED_OR_LOADED_AT_NODE";
 typedef int (*gnCmpType)(const graphNodeIR *, const graphNodeIR *);
-MAP_TYPE_DEF(struct regSlice,RegSlice);
-MAP_TYPE_FUNCS(struct regSlice,RegSlice);
 static int ptrPtrCmp(const void *a, const void *b) {
 	if (*(void **)a > *(void **)b)
 		return 1;
@@ -22,9 +58,6 @@ static int ptrPtrCmp(const void *a, const void *b) {
 		return -1;
 	else
 		return 0;
-}
-static char *ptr2Str(const void *a) {
-		return base64Enc((void*)&a, sizeof(a));
 }
 static void transparentKill(graphNodeIR node) {
 	__auto_type incoming = graphNodeIRIncoming(node);
@@ -561,8 +594,9 @@ static strConflictPair recolorAdjacentNodes(mapRegSlice node2RegSlice,graphNodeI
 				for(long i2=0;i2!=strGraphNodeIRLivePSize(outgoingNodes);i2++) {
 						char *key=ptr2Str(outgoingNodes[i2]);
 						__auto_type find=mapRegSliceGet(node2RegSlice, key);
+						//Not a register node
 						if(!find)
-								goto whineNotColored;
+								continue;
 
 						//If conflict
 						if(regSliceConflict(&masterSlice, find)) {
@@ -579,6 +613,14 @@ static strConflictPair recolorAdjacentNodes(mapRegSlice node2RegSlice,graphNodeI
 										double bWeight=interfereMetric(1.1, outgoingNodes[i2]);
 										pair.aWeight=aWeight;
 										pair.bWeight=bWeight;
+#if DEBUG_PRINT_ENABLE
+										char *aName=interfereNode2Label(allNodes[i], NULL, NULL);
+										char *bName=interfereNode2Label(outgoingNodes[i2], NULL, NULL);
+										
+										DEBUG_PRINT("Adding [%s,%s] to conflicts", aName,bName);
+										free(aName),free(bName);
+#endif
+										
 										conflicts=strConflictPairSortedInsert(conflicts, pair,conflictPairCmp);
 								}
 						}
@@ -937,12 +979,26 @@ strConflictPair conflictPairFindAffects(graphNodeIRLive node,strConflictPair pai
 				start=find+1;
 		}
 
+		#if DEBUG_PRINT_ENABLE
+					char *firstName=interfereNode2Label(node, NULL, NULL);
+					DEBUG_PRINT("These conflict with %s\n",  firstName);
+					free(firstName);
+					
+					for(long i=0;i!=strConflictPairSize(retVal);i++) {
+										char *aName=interfereNode2Label(retVal[i].a, NULL, NULL);
+										char *bName=interfereNode2Label(retVal[i].b, NULL, NULL);
+										
+										DEBUG_PRINT("    [%s,%s]\n", aName,bName);
+										free(aName),free(bName);
+					}
+#endif
+		
 		return retVal;
 }
 static int conflictPairContains(graphNodeIRLive node,const struct conflictPair *pair) {
 		return pair->a==node||pair->b==node;
 }
-static void IRRegisterAllocate(graphNodeIR start,color2RegPredicate colorFunc,void *colorData) {
+void IRRegisterAllocate(graphNodeIR start,color2RegPredicate colorFunc,void *colorData) {
 		//SSA
 		__auto_type allNodes = graphNodeIRAllNodes(start);
 	removeChooseNodes(allNodes, start);
@@ -952,6 +1008,7 @@ static void IRRegisterAllocate(graphNodeIR start,color2RegPredicate colorFunc,vo
 	__auto_type allNodes2 = graphNodeIRAllNodes(start);
 	IRCoalesce(allNodes, start);
 	IRRemoveRepeatAssigns(start);
+	debugShowGraphIR(start);
 	
 	//Contruct an interference graph and color it
 	__auto_type interfere=IRInterferenceGraph(start);
@@ -961,6 +1018,7 @@ static void IRRegisterAllocate(graphNodeIR start,color2RegPredicate colorFunc,vo
 	__auto_type floatRegs=getFloatRegs();
 
 	__auto_type intInterfere=IRInterferenceGraphFilter(start, filterIntVars,NULL);
+	
 	__auto_type floatInterfere=IRInterferenceGraphFilter(start, filterFloatVars,NULL);
 	
 	//Compute int and flaoting interfernce seperatly
@@ -968,9 +1026,9 @@ static void IRRegisterAllocate(graphNodeIR start,color2RegPredicate colorFunc,vo
 	for(long i=0;i!=strGraphNodeIRLivePSize(intInterfere);i++)
 	{
 			__auto_type interfere=intInterfere[i];
+			debugPrintInterferenceGraph(interfere);
 			
 			__auto_type vertexColors=graphColor(interfere);
-			//	recolorAdjacentNodes(interfere,vertexColors);
 
 			__auto_type allNodes=graphNodeIRAllNodes(start);
 
@@ -993,15 +1051,35 @@ static void IRRegisterAllocate(graphNodeIR start,color2RegPredicate colorFunc,vo
 							if(find)
 									adj=strRegSliceAppendItem(adj, *find);
 					}
+#if DEBUG_PRINT_ENABLE
+					for(long i=0;i!=strRegSliceSize(adj);i++) {
+							char *nodeName=interfereNode2Label(allColorNodes[i], NULL, NULL);
+							DEBUG_PRINT("Register %s is adjacent to %s\n", adj[i].reg->name,nodeName);
+							free(nodeName);
+					}
+#endif
 
 					//Assign register to 
 					__auto_type slice=color2Reg(adj,intRegs, allColorNodes[i], llVertexColorGet(vertexColors, allColorNodes[i])->color, NULL,strIntSize(colors), colors);
-
+#if DEBUG_PRINT_ENABLE
+					 char *nodeName=interfereNode2Label(allColorNodes[i], NULL, NULL);
+						DEBUG_PRINT("Assigning register %s to %s\n", slice.reg->name,nodeName);
+						free(nodeName);
+#endif
+					
 					//Insert find
 					char *key=ptr2Str(allColorNodes[i]);
 					mapRegSliceInsert(regsByLivenessNode, key, slice);
 					free(key);
 
+#if DEBUG_PRINT_ENABLE
+							char *nodeName2=interfereNode2Label(allColorNodes[i], NULL, NULL);
+							char buffer[512];
+							sprintf(buffer, "%s:REG(%s)", nodeName2,slice.reg->name);
+							debugAddPtrName(graphNodeIRLiveValuePtr(allColorNodes[i])->ref->value.var, buffer);
+							free(nodeName2);
+#endif
+					
 					strRegSliceDestroy(&adj),strGraphNodeIRLivePDestroy(&allColorNodes);
 			}
 
@@ -1022,7 +1100,7 @@ static void IRRegisterAllocate(graphNodeIR start,color2RegPredicate colorFunc,vo
 			for(;0!=strConflictPairSize(conflicts);) {
 					//Get a list of items that conflict with conflicts[0]
 					__auto_type conflictsWithFirst=conflictPairFindAffects(conflicts[0].a, conflicts);
-
+					
 					//
 					//Do a set union of all items that conflict with each other untill there is no change
 					//
@@ -1038,6 +1116,8 @@ static void IRRegisterAllocate(graphNodeIR start,color2RegPredicate colorFunc,vo
 
 							//Break if no change
 							long newSize=strConflictPairSize(conflictsWithFirst);
+
+							DEBUG_PRINT("OldSize %li,newSize %li", oldSize,newSize);
 							if(oldSize!=newSize)
 									break;
 					}
@@ -1052,6 +1132,13 @@ static void IRRegisterAllocate(graphNodeIR start,color2RegPredicate colorFunc,vo
 											if(conflictsWithFirst[i].b==conflictsSortedByWeight[i2].b)
 													lowestConflictI=i;
 					}
+
+					assert(lowestConflictI!=-1);
+#if DEBUG_PRINT_ENABLE
+					char *lowestName=interfereNode2Label(conflicts[i].a, NULL, NULL);
+					DEBUG_PRINT("Lowest metric conflict is %s\n", lowestName);
+					free(lowestName);
+#endif
 
 					//Add to spill nodes
 					spillNodes=strGraphNodeIRLivePSortedInsert(spillNodes, conflicts[lowestConflictI].a,(gnCmpType)ptrPtrCmp);
@@ -1091,6 +1178,10 @@ static void IRRegisterAllocate(graphNodeIR start,color2RegPredicate colorFunc,vo
 													continue;
 											
 											nodesWithRegisterConflict=strGraphNodeIRLivePSortedInsert(nodesWithRegisterConflict, allColorNodes[i], (gnCmpType)ptrPtrCmp);
+#if DEBUG_PRINT_ENABLE
+											char *name=interfereNode2Label( allColorNodes[i], NULL,  NULL);
+											DEBUG_PRINT("Node %s interferes with an adajecnt item.", name);
+#endif
 											break;
 									}
 							}

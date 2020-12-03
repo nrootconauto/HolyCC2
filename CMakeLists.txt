@@ -56,7 +56,7 @@ list(APPEND tests "tests/subExprElimTests.c")
 list(APPEND tests "tests/SSATests.c")
 list(APPEND tests "tests/IRLivenessTests.c")
 list(APPEND tests "tests/graphVizTests.c")
-#list(APPEND tests "tests/registerAllocatorTests.c")
+list(APPEND tests "tests/registerAllocatorTests.c")
 add_executable(holycc2 ${sources} ${tests})
 
 
