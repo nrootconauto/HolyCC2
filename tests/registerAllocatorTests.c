@@ -8,7 +8,7 @@ static void debugShowGraph(graphNodeIR enter) {
 		__auto_type map=graphNodeCreateMapping(enter, 1);
 		IRGraphMap2GraphViz(map, "viz", name, NULL,NULL,NULL,NULL);
 		char buffer[1024];
-		sprintf(buffer, "dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg &", name);
+		sprintf(buffer, "sleep 0.1 &&dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg &", name);
 
 		system(buffer);
 }
@@ -166,59 +166,117 @@ void registerAllocatorTests() {
 				z->name="Z";
 				
 				__auto_type start=createIntLit(1);
+				DEBUG_PRINT_REGISTER_VAR(start);
 				__auto_type end=start;
 				{
 						__auto_type vRef=createVarRef(v);
+						DEBUG_PRINT_REGISTER_VAR(vRef);
 						graphNodeIRConnect(start,vRef , IR_CONN_DEST);
 						end=vRef;
 				}
 				{
-						__auto_type zRef=createVarRef(z);
-						graphNodeIRConnect(createBinop(createVarRef(v), createIntLit(1), IR_ADD), zRef, IR_CONN_DEST);
-						graphNodeIRConnect( end,IRGetStmtStart(zRef),  IR_CONN_FLOW) ;
+						__auto_type zRef2=createVarRef(z);
+						__auto_type vRef2=createVarRef(v);
+						__auto_type one2=createIntLit(1);
+						DEBUG_PRINT_REGISTER_VAR(zRef2);
+						DEBUG_PRINT_REGISTER_VAR(vRef2);
+						DEBUG_PRINT_REGISTER_VAR(one2);
+						__auto_type binop2=createBinop(vRef2, one2, IR_ADD);
+						DEBUG_PRINT_REGISTER_VAR(binop2);
+						graphNodeIRConnect(binop2, zRef2, IR_CONN_DEST);
+						graphNodeIRConnect( end,IRGetStmtStart(zRef2),  IR_CONN_FLOW) ;
 
 						debugShowGraph(start);
-						end=zRef;
+						end=zRef2;
 				} {
-						__auto_type xRef=createVarRef(x);
-						graphNodeIRConnect(createBinop(createVarRef(z), createVarRef(v), IR_MULT), xRef, IR_CONN_DEST);
-						graphNodeIRConnect( end,IRGetStmtStart(xRef),  IR_CONN_FLOW);
-
-						end=xRef;
+						__auto_type xRef3=createVarRef(x);
+						__auto_type vRef3=createVarRef(v);
+						__auto_type zRef3=createVarRef(z);
+						__auto_type binop3=createBinop(zRef3, vRef3, IR_MULT);
+						DEBUG_PRINT_REGISTER_VAR(xRef3);
+						DEBUG_PRINT_REGISTER_VAR(vRef3);
+						DEBUG_PRINT_REGISTER_VAR(zRef3);
+						DEBUG_PRINT_REGISTER_VAR(binop3);
+						
+						graphNodeIRConnect(binop3, xRef3, IR_CONN_DEST);
+						graphNodeIRConnect( end,IRGetStmtStart(xRef3),  IR_CONN_FLOW);
+						end=xRef3;
 				}
-				/*{
-						__auto_type yRef=createVarRef(y);
-						graphNodeIRConnect(createBinop(createVarRef(x), createIntLit(2), IR_MULT), yRef, IR_CONN_DEST);
-						graphNodeIRConnect( end,IRGetStmtStart(yRef),  IR_CONN_FLOW);
+				{
+						__auto_type yRef4=createVarRef(y);
+						__auto_type xRef4=createVarRef(x);
+						__auto_type two4=createIntLit(2);
+						__auto_type binop4=createBinop(xRef4, two4, IR_MULT);
+						DEBUG_PRINT_REGISTER_VAR(xRef4);
+						DEBUG_PRINT_REGISTER_VAR(yRef4);
+						DEBUG_PRINT_REGISTER_VAR(two4);
+						DEBUG_PRINT_REGISTER_VAR(binop4);
+						graphNodeIRConnect(binop4, yRef4, IR_CONN_DEST);
+						graphNodeIRConnect( end,IRGetStmtStart(yRef4),  IR_CONN_FLOW);
 
-						end=yRef;
+						end=yRef4;
 				}
 					{
-							__auto_type wRef=createVarRef(w);
-						graphNodeIRConnect(createBinop(createBinop(createVarRef(y), createVarRef(z), IR_MULT),createVarRef(x),IR_ADD), wRef, IR_CONN_DEST);
-						graphNodeIRConnect( end,IRGetStmtStart(wRef),  IR_CONN_FLOW);
+							__auto_type wRef5=createVarRef(w);
+							__auto_type yRef5=createVarRef(y);
+							__auto_type zRef5=createVarRef(z);
+							__auto_type xRef5=createVarRef(x);
+							DEBUG_PRINT_REGISTER_VAR(wRef5);
+							DEBUG_PRINT_REGISTER_VAR(yRef5);
+							DEBUG_PRINT_REGISTER_VAR(zRef5);
+							DEBUG_PRINT_REGISTER_VAR(xRef5);
+							__auto_type binop5_1=createBinop(zRef5, yRef5, IR_MULT);
+							__auto_type binop5_2=createBinop(binop5_1,xRef5,IR_ADD);
+							graphNodeIRConnect(binop5_2, wRef5, IR_CONN_DEST);
+							graphNodeIRConnect( end,IRGetStmtStart(wRef5),  IR_CONN_FLOW);
 
-						end=wRef;
+						end=wRef5;
 				}
 					{
-							__auto_type uRef=createVarRef(u);
-							graphNodeIRConnect(createBinop(createVarRef(z), createIntLit(2), IR_MULT), uRef, IR_CONN_DEST);
-							graphNodeIRConnect( end,IRGetStmtStart(uRef),  IR_CONN_FLOW);
+							__auto_type uRef6=createVarRef(u);
+							__auto_type zRef6=createVarRef(z);
+							__auto_type two6=createIntLit(2);
+							__auto_type binop6=createBinop(two6, zRef6, IR_ADD);
+							DEBUG_PRINT_REGISTER_VAR(binop6);
+							DEBUG_PRINT_REGISTER_VAR(uRef6);
+							DEBUG_PRINT_REGISTER_VAR(zRef6);
+							DEBUG_PRINT_REGISTER_VAR(two6);
 							
-							end=uRef;
+							graphNodeIRConnect(binop6, uRef6, IR_CONN_DEST);
+							graphNodeIRConnect( end,IRGetStmtStart(uRef6),  IR_CONN_FLOW);
+							
+							end=uRef6;
 					}
 					{
-							__auto_type vRef=createVarRef(v);
-							graphNodeIRConnect(createBinop(createBinop(createVarRef(u), createVarRef(w), IR_ADD),createVarRef(y),IR_ADD), vRef, IR_CONN_DEST);
-							graphNodeIRConnect( end,IRGetStmtStart(vRef),  IR_CONN_FLOW);
+							__auto_type vRef7=createVarRef(v);
+							__auto_type uRef7=createVarRef(u);
+							__auto_type wRef7=createVarRef(w);
+							__auto_type yRef7=createVarRef(y);
+							__auto_type binop7_1=createBinop(uRef7, wRef7, IR_ADD);
+							__auto_type binop7_2=createBinop(binop7_1,yRef7,IR_ADD);
+							DEBUG_PRINT_REGISTER_VAR(vRef7);
+							DEBUG_PRINT_REGISTER_VAR(uRef7);
+							DEBUG_PRINT_REGISTER_VAR(wRef7);
+							DEBUG_PRINT_REGISTER_VAR(yRef7);
+							DEBUG_PRINT_REGISTER_VAR(binop7_1);
+							DEBUG_PRINT_REGISTER_VAR(binop7_2);
 							
-							end=vRef;
+							graphNodeIRConnect(binop7_2, vRef7, IR_CONN_DEST);
+							graphNodeIRConnect( end,IRGetStmtStart(vRef7),  IR_CONN_FLOW);
+							
+							end=vRef7;
 					}
 					{
-							__auto_type binop=createBinop(createVarRef(u), createVarRef(v), IR_MULT);
+							__auto_type uRef8=createVarRef(u);
+							__auto_type vRef8=createVarRef(v);
+							__auto_type binop=createBinop(uRef8, vRef8, IR_MULT);
+							DEBUG_PRINT_REGISTER_VAR(uRef8);
+							DEBUG_PRINT_REGISTER_VAR(vRef8);
+							DEBUG_PRINT_REGISTER_VAR(binop);
+							
 							graphNodeIRConnect( end,IRGetStmtStart(binop),  IR_CONN_FLOW);
 							createReturn(binop, NULL);
-							}*/
+							}
 
 				debugShowGraph(start);
 				IRRegisterAllocate(start, NULL, NULL);
