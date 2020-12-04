@@ -9,6 +9,7 @@
 #define GRAPHN_ALLOCATE(x) ({ __graphNodeCreate(&x, sizeof(x), 0); })
 typedef int (*strGN_IRCmpType)(const strGraphNodeIRP *,
                                const strGraphNodeIRP *);
+typedef int (*geCmpType)(const graphEdgeIR *, const graphEdgeIR *);
 typedef int (*gnCmpType)(const graphNodeIR *, const graphNodeIR *);
 
 static char *ptr2Str(const void *a) { return base64Enc((void *)&a, sizeof(a)); }
@@ -503,30 +504,54 @@ static strGraphPath chooseNodeCandidatePathsToChoose(graphNodeIR canidate,graphN
 
 		return pathsToChoose;
 }
+static int __edgeIsEqual(void *a,void *b) {
+		return *(graphEdgeIR*)a==*(graphEdgeIR*)b;
+}
 void IRSSAReplaceChooseWithAssigns(graphNodeIR node) {
 		assert(graphNodeIRValuePtr(node)->type==IR_CHOOSE);
 		struct IRNodeChoose *choose=(void*)graphNodeIRValuePtr(node);
-
-		__auto_type outgoing=graphNodeIROutgoing(node);
-		__auto_type outgoingAssigns=IRGetConnsOfType(outgoing, IR_CONN_DEST);
+		
+		__auto_type outgoing=graphNodeIROutgoingNodes(node);
+		//Outgoing that must be assign (TODO validate this)
+		
 		for(long i=0;i!=strGraphNodeIRPSize(choose->canidates);i++) {
-				graphNodeIR parent=choose->canidates[i];
-				for(long i2=0;i2!=strGraphEdgeIRPSize(outgoingAssigns);i2++) {
-						__auto_type last=IRGetEndOfExpr(graphEdgeIROutgoing(outgoingAssigns[i2]));
-						__auto_type clone=cloneNode(last, IR_CLONE_EXPR_UNTIL_ASSIGN, NULL);
-						__auto_type start=IRGetStmtStart(clone);
+				__auto_type paths=chooseNodeCandidatePathsToChoose(choose->canidates[i],node);
+				assert(strGraphPathSize(paths)!=0);
 
-						IRInsertAfter(parent, start, clone, IR_CONN_DEST);
+				//Insert an assign before final edge leading up to choose
+				strGraphEdgeIRP insertedAt=NULL;
+				for(long i2=0;i2!=strGraphPathSize(paths);i2++) {
+						graphEdgeIR last;
+						paths[i2]=strGraphEdgeIRPPop(paths[i2], &last);
 
-						parent=clone;
+						//Ensure edge isn't already accounted for 
+						if(NULL!=strGraphEdgeIRPSortedFind(insertedAt, last, (geCmpType)ptrPtrCmp))
+								continue;
+
+						insertedAt=strGraphEdgeIRPSortedInsert(insertedAt, last, (geCmpType)ptrPtrCmp);
+
+						//Start with current node ,assign to result,then use that as the parent node and so on
+						graphNodeIR parent=cloneNode(choose->canidates[i], IR_CLONE_NODE, NULL);
+						__auto_type startAt=parent;
+						
+						for(long i3=0;i3!=strGraphNodeIRPSize(outgoing);i3++) {
+								__auto_type clone=cloneNode(outgoing[i3], IR_CLONE_NODE, NULL);
+								graphNodeIRConnect(parent, clone, IR_CONN_DEST);
+
+								parent=clone;
+						}
+
+						//Replace edge with startAt-> parent
+						graphNodeIRConnect(graphEdgeIRIncoming(last),startAt,*graphEdgeIRValuePtr(last));
+						graphNodeIRConnect(parent,graphEdgeIROutgoing(last),IR_CONN_FLOW);
+						graphEdgeIRKill(graphEdgeIRIncoming(last), graphEdgeIROutgoing(last), graphEdgeIRValuePtr(last), __edgeIsEqual, NULL);
+						
+						strGraphEdgeIRPDestroy(&paths[i2]);
 				}
+				strGraphEdgeIRPDestroy(&insertedAt);
 		}
-
-		strGraphEdgeIRPDestroy(&outgoing),strGraphEdgeIRPDestroy(&outgoingAssigns);
-
-		__auto_type incoming =graphNodeIRIncoming(node);
+		
 		__auto_type endOfExpression=IRGetEndOfExpr(node);
-		__auto_type outgoing2 =graphNodeIRIncoming(endOfExpression);
 
 		__auto_type exprNodes=getStatementNodes(IRGetStmtStart(node), endOfExpression);
 		graphReplaceWithNode(exprNodes, createLabel(), NULL, NULL,sizeof(graphEdgeIR));
