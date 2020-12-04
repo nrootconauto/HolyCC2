@@ -263,17 +263,26 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 						// Is a var,check for direct assign
 						if (((struct IRNodeValue *)val)->val.type == IR_VAL_VAR_REF) {
 						findVarLoop:;
-								__auto_type tmp=strGraphNodeIRPAppendItem(NULL, nodes[i]);
-								__auto_type find = strVarRefsSortedFind(refs, tmp, varRefsGetCmp);
-								strGraphNodeIRPDestroy(&tmp);
-				
+								strGraphNodeIRLiveP *find=NULL;
+								//An an eqivalent variable in refs
+								for(long i2=0;i2!=strVarRefsSize(refs);i2++) {
+										for(long i3=0;i3!=strGraphNodeIRPSize(refs[i2]);i3++) {
+												__auto_type a=(struct IRNodeValue *)val;
+												__auto_type b=(struct IRNodeValue *)graphNodeIRValuePtr(refs[i2][i3]);
+												if(0==IRVarCmp(&a->val.value.var, &b->val.value.var )) {
+														find=&refs[i2];
+														goto findVarLoopEnd;
+												}
+										}
+								}
+						findVarLoopEnd:
+
 								if (!find) {
 										// Add a vec of references(only reference is nodes[i])
 										DEBUG_PRINT("Adding var node %s\n", debugGetPtrNameConst(nodes[i]));
 
 										__auto_type tmp=strGraphNodeIRPAppendItem(NULL, nodes[i]);
-										refs = strVarRefsSortedFind(refs, tmp, varRefsGetCmp);
-										strGraphNodeIRPDestroy(&tmp);
+										refs = strVarRefsAppendItem(refs, tmp);
 								} else {
 										DEBUG_PRINT("Adding var ref %s\n", debugGetPtrNameConst(nodes[i]));
 
