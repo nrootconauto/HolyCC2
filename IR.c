@@ -910,6 +910,9 @@ struct graphVizDataEdge {
 static char *IRCreateGraphVizEdge(const struct __graphEdge *__edge,
                                   mapGraphVizAttr *attrs, const void *data) {
 	graphEdgeIR edge = *graphEdgeMappingValuePtr((struct __graphEdge *)__edge);
+	if(!edge)
+			return NULL;
+	
 	// Frist check ovveride
 	const struct graphVizDataEdge *data2 = data;
 	if (data2->edgeOverride) {

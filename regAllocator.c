@@ -22,7 +22,7 @@ static void debugShowGraphIR(graphNodeIR enter) {
 		__auto_type map=graphNodeCreateMapping(enter, 1);
 		IRGraphMap2GraphViz(map, "viz", name, NULL,NULL,NULL,NULL);
 		char buffer[1024];
-		sprintf(buffer, "dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg", name);
+		sprintf(buffer, "sleep 0.1 &&dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg & ", name);
 
 		system(buffer);
 }
@@ -46,7 +46,7 @@ static void debugPrintInterferenceGraph(graphNodeIRLive graph) {
 		fclose(file);
 
 		char buffer[512];
-		sprintf(buffer, "dot -Tsvg %s>/tmp/interfere.svg  && firefox /tmp/interfere.svg", fn);
+		sprintf(buffer, "sleep 0.1 && dot -Tsvg %s>/tmp/interfere.svg  && firefox /tmp/interfere.svg &", fn);
 		system(buffer);
 } 
 static const char *IR_ATTR_SPILL_LOAD_AT_NODE="SPILLED_OR_LOADED_AT_NODE";
@@ -471,7 +471,9 @@ void IRRemoveRepeatAssigns(graphNodeIR enter) {
 	// Remove removed
 	allNodes =
 	    strGraphNodeIRPSetDifference(allNodes, toRemove, (gnCmpType)ptrPtrCmp);
-
+	
+debugShowGraphIR(enter);
+	
 	// Find duds(nodes that arent connected to conditionals or expressions)
 	strGraphNodeIRP duds = NULL;
 	for (long i = 0; i != strGraphNodeIRPSize(allNodes); i++) {
@@ -479,7 +481,7 @@ void IRRemoveRepeatAssigns(graphNodeIR enter) {
 			continue;
 
 		__auto_type incoming = graphNodeIRIncoming(allNodes[i]);
-		__auto_type outgoing = graphNodeIRIncoming(allNodes[i]);
+		__auto_type outgoing = graphNodeIROutgoing(allNodes[i]);
 
 		// Check if exprssion incoming
 		int isUsedIn = 0;
@@ -503,13 +505,16 @@ void IRRemoveRepeatAssigns(graphNodeIR enter) {
 		strGraphEdgeIRPDestroy(&incoming), strGraphEdgeIRPDestroy(&outgoing);
 
 		// IF only flows incoimg/outgoing,node is useless to replace
-		if (!isUsedOut && !isUsedOut)
+		if (!isUsedIn  && !isUsedOut) {
 			duds = strGraphNodeIRPAppendItem(duds, allNodes[i]);
+		}
 	}
 
 	// Kill duds
-	for (long i = 0; i != strGraphNodeIRPSize(duds); i++)
+	for (long i = 0; i != strGraphNodeIRPSize(duds); i++) {
 		transparentKill(duds[i]);
+		debugShowGraphIR(enter);
+	}
 
 	strGraphNodeIRPDestroy(&duds);
 	strGraphNodeIRPDestroy(&allNodes);
@@ -965,6 +970,7 @@ void IRRegisterAllocate(graphNodeIR start,color2RegPredicate colorFunc,void *col
 		__auto_type allNodes = graphNodeIRAllNodes(start);
 		removeChooseNodes(allNodes, start);
 		IRToSSA(start);
+		debugShowGraphIR(start);
 	
 __auto_type allNodes2 = graphNodeIRAllNodes(start);
 	for(long i=0;i!=strGraphNodeIRPSize(allNodes2);i++) {
@@ -972,14 +978,16 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 					IRSSAReplaceChooseWithAssigns(allNodes2[i]);
 	}
 
+	debugShowGraphIR(start);
 	//Merge variables that can be merges
 		strGraphNodeIRPDestroy(&allNodes);
 		allNodes = graphNodeIRAllNodes(start);
 		IRCoalesce(allNodes, start);
+		debugShowGraphIR(start);
 		IRRemoveRepeatAssigns(start);
 		
 	debugShowGraphIR(start);
-	
+	abort();	
 	//Contruct an interference graph and color it
 	__auto_type interfere=IRInterferenceGraph(start);
 

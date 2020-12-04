@@ -8,7 +8,7 @@ static void debugShowGraph(graphNodeIR enter) {
 		__auto_type map=graphNodeCreateMapping(enter, 1);
 		IRGraphMap2GraphViz(map, "viz", name, NULL,NULL,NULL,NULL);
 		char buffer[1024];
-		sprintf(buffer, "dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg", name);
+		sprintf(buffer, "dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg &", name);
 
 		system(buffer);
 }
@@ -186,7 +186,7 @@ void registerAllocatorTests() {
 
 						end=xRef;
 				}
-				{
+				/*{
 						__auto_type yRef=createVarRef(y);
 						graphNodeIRConnect(createBinop(createVarRef(x), createIntLit(2), IR_MULT), yRef, IR_CONN_DEST);
 						graphNodeIRConnect( end,IRGetStmtStart(yRef),  IR_CONN_FLOW);
@@ -218,9 +218,9 @@ void registerAllocatorTests() {
 							__auto_type binop=createBinop(createVarRef(u), createVarRef(v), IR_MULT);
 							graphNodeIRConnect( end,IRGetStmtStart(binop),  IR_CONN_FLOW);
 							createReturn(binop, NULL);
-					}
+							}*/
 
-					debugShowGraph(start);
+				debugShowGraph(start);
 				IRRegisterAllocate(start, NULL, NULL);
 		}
 }

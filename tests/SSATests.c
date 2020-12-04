@@ -17,7 +17,7 @@ static void debugShowGraph(graphNodeIR enter) {
 		__auto_type map=graphNodeCreateMapping(enter, 1);
 		IRGraphMap2GraphViz(map, "viz", name, NULL,NULL,NULL,NULL);
 		char buffer[1024];
-		sprintf(buffer, "dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg", name);
+		sprintf(buffer, "dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg &", name);
 
 		system(buffer);
 }
