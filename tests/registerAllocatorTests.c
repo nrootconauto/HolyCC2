@@ -59,8 +59,7 @@ void registerAllocatorTests() {
 		
 				//Do SSA on strucure
 				IRToSSA(one);
-				debugShowGraph(one);
-
+				
 				__auto_type beforeBref3=graphNodeIRIncomingNodes(IRGetStmtStart(bRef3))[0];
 				__auto_type type=graphNodeIRValuePtr(IRGetStmtStart(beforeBref3))->type;
 				assert(type==IR_CHOOSE);
@@ -153,46 +152,75 @@ void registerAllocatorTests() {
 		// Register allocater test
 		//
 		{
-				__auto_type a=createVirtVar(&typeI64i);
-				__auto_type b=createVirtVar(&typeI64i);
-				__auto_type c=createVirtVar(&typeI64i);
+				__auto_type u=createVirtVar(&typeI64i);
+				__auto_type v=createVirtVar(&typeI64i);
+				__auto_type w=createVirtVar(&typeI64i);
+				__auto_type x=createVirtVar(&typeI64i);
+				__auto_type y=createVirtVar(&typeI64i);
+				__auto_type z=createVirtVar(&typeI64i);
+				u->name="U";
+				v->name="V";
+				w->name="W";
+				x->name="X";
+				y->name="Y";
+				z->name="Z";
+				
+				__auto_type start=createIntLit(1);
+				__auto_type end=start;
+				{
+						__auto_type vRef=createVarRef(v);
+						graphNodeIRConnect(start,vRef , IR_CONN_DEST);
+						end=vRef;
+				}
+				{
+						__auto_type zRef=createVarRef(z);
+						graphNodeIRConnect(createBinop(createVarRef(v), createIntLit(1), IR_ADD), zRef, IR_CONN_DEST);
+						graphNodeIRConnect( end,IRGetStmtStart(zRef),  IR_CONN_FLOW) ;
 
-				/**
-					* a=1
-					* if(a) {b=a} else {b=2}
-					* c=b
-					*/
-				__auto_type one=createIntLit(1);
-				__auto_type two=createIntLit(2);
-				__auto_type aRef1=createVarRef(a);
-				__auto_type aRef2=createVarRef(a); // b=a
-				__auto_type bRef1=createVarRef(b); // b=a
-				__auto_type bRef2=createVarRef(b); // b=2
-				__auto_type bRef3=createVarRef(b); // c=b
-				__auto_type cRef=createVarRef(c);
+						debugShowGraph(start);
+						end=zRef;
+				} {
+						__auto_type xRef=createVarRef(x);
+						graphNodeIRConnect(createBinop(createVarRef(z), createVarRef(v), IR_MULT), xRef, IR_CONN_DEST);
+						graphNodeIRConnect( end,IRGetStmtStart(xRef),  IR_CONN_FLOW);
 
-				debugAddPtrName(one, "One");
-				debugAddPtrName(two, "two");
-				debugAddPtrName(aRef1, "aRef1");
-				debugAddPtrName(aRef2, "aRef2");
-				debugAddPtrName(bRef1, "bRef1");
-				debugAddPtrName(bRef2, "bRef2");
-				debugAddPtrName(bRef3, "bRef3");
-				debugAddPtrName(cRef, "cRef");
-		
-		
-				createAssign( one,aRef1);
-		
-				createAssign(aRef2,bRef1);
-				createAssign( two,bRef2);
-				__auto_type cond=createCondJmp(aRef1, aRef2, two);
-				debugAddPtrName(cond, "cond");
-		
-		
-				createAssign(bRef3,cRef);
-				graphNodeIRConnect(bRef1, bRef3, IR_CONN_FLOW);
-				graphNodeIRConnect(bRef2, bRef3, IR_CONN_FLOW);
+						end=xRef;
+				}
+				{
+						__auto_type yRef=createVarRef(y);
+						graphNodeIRConnect(createBinop(createVarRef(x), createIntLit(2), IR_MULT), yRef, IR_CONN_DEST);
+						graphNodeIRConnect( end,IRGetStmtStart(yRef),  IR_CONN_FLOW);
 
-				IRRegisterAllocate(one, NULL, NULL);
+						end=yRef;
+				}
+					{
+							__auto_type wRef=createVarRef(w);
+						graphNodeIRConnect(createBinop(createBinop(createVarRef(y), createVarRef(z), IR_MULT),createVarRef(x),IR_ADD), wRef, IR_CONN_DEST);
+						graphNodeIRConnect( end,IRGetStmtStart(wRef),  IR_CONN_FLOW);
+
+						end=wRef;
+				}
+					{
+							__auto_type uRef=createVarRef(u);
+							graphNodeIRConnect(createBinop(createVarRef(z), createIntLit(2), IR_MULT), uRef, IR_CONN_DEST);
+							graphNodeIRConnect( end,IRGetStmtStart(uRef),  IR_CONN_FLOW);
+							
+							end=uRef;
+					}
+					{
+							__auto_type vRef=createVarRef(v);
+							graphNodeIRConnect(createBinop(createBinop(createVarRef(u), createVarRef(w), IR_ADD),createVarRef(y),IR_ADD), vRef, IR_CONN_DEST);
+							graphNodeIRConnect( end,IRGetStmtStart(vRef),  IR_CONN_FLOW);
+							
+							end=vRef;
+					}
+					{
+							__auto_type binop=createBinop(createVarRef(u), createVarRef(v), IR_MULT);
+							graphNodeIRConnect( end,IRGetStmtStart(binop),  IR_CONN_FLOW);
+							createReturn(binop, NULL);
+					}
+
+					debugShowGraph(start);
+				IRRegisterAllocate(start, NULL, NULL);
 		}
 }

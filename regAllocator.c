@@ -963,13 +963,21 @@ static int conflictPairContains(graphNodeIRLive node,const struct conflictPair *
 void IRRegisterAllocate(graphNodeIR start,color2RegPredicate colorFunc,void *colorData) {
 		//SSA
 		__auto_type allNodes = graphNodeIRAllNodes(start);
-	removeChooseNodes(allNodes, start);
-	IRToSSA(start);
+		removeChooseNodes(allNodes, start);
+		IRToSSA(start);
+	
+__auto_type allNodes2 = graphNodeIRAllNodes(start);
+	for(long i=0;i!=strGraphNodeIRPSize(allNodes2);i++) {
+			if(graphNodeIRValuePtr(allNodes2[i])->type==IR_CHOOSE)
+					IRSSAReplaceChooseWithAssigns(allNodes2[i]);
+	}
 
 	//Merge variables that can be merges
-	__auto_type allNodes2 = graphNodeIRAllNodes(start);
-	IRCoalesce(allNodes, start);
-	IRRemoveRepeatAssigns(start);
+		strGraphNodeIRPDestroy(&allNodes);
+		allNodes = graphNodeIRAllNodes(start);
+		IRCoalesce(allNodes, start);
+		IRRemoveRepeatAssigns(start);
+		
 	debugShowGraphIR(start);
 	
 	//Contruct an interference graph and color it

@@ -491,6 +491,8 @@ graphNodeIR IRGetStmtStart(graphNodeIR node) {
 		for (long i2 = 0; i2 != strGraphEdgeIRPSize(incoming); i2++)
 			graphEdgeIRKill(graphEdgeIRIncoming(incoming[i2]), tops[i], NULL, NULL,
 			                NULL);
+
+		graphNodeIRConnect(label, tops[i], IR_CONN_FLOW);
 	}
 
 	return label;
