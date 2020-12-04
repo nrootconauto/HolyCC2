@@ -18,7 +18,9 @@ void registerAllocatorTests() {
 				__auto_type a=createVirtVar(&typeI64i);
 				__auto_type b=createVirtVar(&typeI64i);
 				__auto_type c=createVirtVar(&typeI64i);
-
+				a->name="A";
+				b->name="B";
+				c->name="C";
 				/**
 					* a=1
 					* if(a) {b=a} else {b=2}
@@ -66,8 +68,10 @@ void registerAllocatorTests() {
 		
 				//Merge
 				__auto_type 	allNodes= graphNodeIRAllNodes(one);
+				debugShowGraph(one);
 				IRCoalesce(allNodes, one);
-
+				debugShowGraph(one);
+				
 				//Search for a and bRef3 being merged
 				__auto_type outgoing=graphNodeIROutgoingNodes(one);
 				__auto_type firstRef=(struct IRNodeValue *)graphNodeIRValuePtr(outgoing[0]);
@@ -164,6 +168,12 @@ void registerAllocatorTests() {
 				x->name="X";
 				y->name="Y";
 				z->name="Z";
+				DEBUG_PRINT_REGISTER_VAR(u);
+				DEBUG_PRINT_REGISTER_VAR(v);
+				DEBUG_PRINT_REGISTER_VAR(w);
+				DEBUG_PRINT_REGISTER_VAR(x);
+				DEBUG_PRINT_REGISTER_VAR(y);
+				DEBUG_PRINT_REGISTER_VAR(z);
 				
 				__auto_type start=createIntLit(1);
 				DEBUG_PRINT_REGISTER_VAR(start);
@@ -185,8 +195,7 @@ void registerAllocatorTests() {
 						DEBUG_PRINT_REGISTER_VAR(binop2);
 						graphNodeIRConnect(binop2, zRef2, IR_CONN_DEST);
 						graphNodeIRConnect( end,IRGetStmtStart(zRef2),  IR_CONN_FLOW) ;
-
-						debugShowGraph(start);
+						
 						end=zRef2;
 				} {
 						__auto_type xRef3=createVarRef(x);

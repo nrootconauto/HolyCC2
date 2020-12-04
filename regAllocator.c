@@ -145,8 +145,8 @@ static void removeChooseNodes(strGraphNodeIRP nodes, graphNodeIR start) {
 		removeChooseNode(nodes[i]);
 	}
 }
-LL_TYPE_DEF(strGraphNodeIRP, VarRefs);
-LL_TYPE_FUNCS(strGraphNodeIRP, VarRefs);
+STR_TYPE_DEF(strGraphNodeIRP, VarRefs);
+STR_TYPE_FUNCS(strGraphNodeIRP, VarRefs);
 struct aliasPair {
 	graphNodeIR a, b;
 };
@@ -165,18 +165,23 @@ static int aliasPairCmp(const struct aliasPair *a, const struct aliasPair *b) {
 
 	return 0;
 }
-static int varRefsInsertCmp(const strGraphNodeIRP *a,
-                            const strGraphNodeIRP *b) {
-	struct IRNodeValue *valA = (void *)graphNodeIRValuePtr(a[0][0]),
-	                   *valB = (void *)graphNodeIRValuePtr(b[0][0]);
-	return IRVarCmp((const struct IRVar *)&valA->val.value.var,
-	                (const struct IRVar *)&valB->val.value.var);
-}
-static int varRefsGetCmp(const void *a, const strGraphNodeP *b) {
-	struct IRNodeValue *valB = (void *)graphNodeIRValuePtr(b[0][0]);
-	struct IRNodeValue *valA = (void *)graphNodeIRValuePtr((graphNodeIR)a);
-	return IRVarCmp((const struct IRVar *)&valA->val.value.var,
-	                (const struct IRVar *)&valB->val.value.var);
+static int varRefsGetCmp(const strGraphNodeIRP *a, const strGraphNodeP *b) {
+		long aSize=strGraphNodeIRPSize(*a);
+		long bSize=strGraphNodeIRPSize(*b);
+		long minSize=(aSize<bSize)?aSize:bSize;
+
+		for(long i=0;i!=minSize;i++) {
+				int cmp=ptrPtrCmp(a+i, b+i);
+				if(cmp!=0)
+						return cmp;
+		}
+
+		if(aSize>bSize)
+				return 1;
+		if(aSize<bSize)
+				return -1;
+		else
+				return 0;
 }
 STR_TYPE_DEF(struct aliasPair, AliasPair);
 STR_TYPE_FUNCS(struct aliasPair, AliasPair);
@@ -204,223 +209,217 @@ static int AliasBlobCmp(const strGraphNodeIRP *A, const strGraphNodeIRP *B) {
 	return 0;
 }
 void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
-	llVarRefs refs = NULL;
-	strAliasPair aliases = NULL;
+		strVarRefs refs = NULL;
+		strAliasPair aliases = NULL;
 
-	for (long i = 0; i != strGraphNodeIRPSize(nodes); i++) {
-		__auto_type val = graphNodeIRValuePtr(nodes[i]);
-		// No value?
-		if (!val)
-			continue;
-
-		// Ignore non-chooses
-		if (val->type == IR_CHOOSE) {
-			struct IRNodeChoose *choose = (void *)val;
-			//
-			// Remove choose nodes whoose incoming vars are all the same ,ALSO,be sure
-			// to alias incoming var to choose with outgoing to choose
-			//
-			strGraphNodeIRP clone __attribute__((cleanup(strGraphNodeIRPDestroy))) =
-			    strGraphNodeIRPUnique(strGraphNodeIRPClone(choose->canidates),
-			                          (gnCmpType)ptrPtrCmp, NULL);
-			if (strGraphNodeIRPSize(clone) == 1) {
-				struct IRNodeValue *value = (void *)graphNodeIRValuePtr(clone[i]);
-				assert(value->base.type == IR_VALUE);
-				assert(value->val.type == IR_VAL_VAR_REF);
-
-				// Check for signle outgoing vars to alias to
-				strGraphEdgeIRP outgoing
-				    __attribute__((cleanup(strGraphEdgeIRPDestroy))) =
-				        graphNodeIROutgoing(clone[i]);
-				strGraphEdgeIRP outgoingAssigns
-				    __attribute__((cleanup(strGraphEdgeIRPDestroy))) =
-				        IRGetConnsOfType(outgoing, IR_CONN_DEST);
-
-				for (long i = 0; i != strGraphEdgeIRPSize(outgoingAssigns); i++) {
-					__auto_type to = graphEdgeIROutgoing(outgoingAssigns[i]);
-					struct IRNodeValue *val = (void *)graphNodeIRValuePtr(to);
-					assert(val->base.type == IR_VALUE);
-					// Only alias to vars
-					if (val->val.type != IR_VAL_VAR_REF)
+		for (long i = 0; i != strGraphNodeIRPSize(nodes); i++) {
+				__auto_type val = graphNodeIRValuePtr(nodes[i]);
+				// No value?
+				if (!val)
 						continue;
 
-					// Alias to previous new version of choose var
-					struct aliasPair apForward = {clone[i], nodes[i]};
-					if (NULL ==
-					    strAliasPairSortedFind(aliases, apForward, aliasPairCmp)) {
-						aliases =
-						    strAliasPairSortedInsert(aliases, apForward, aliasPairCmp);
-					}
-				}
-			}
+				// Ignore non-chooses
+				if (val->type == IR_CHOOSE) {
+						struct IRNodeChoose *choose = (void *)val;
+						//
+						// Remove choose nodes whoose incoming vars are all the same ,ALSO,be sure
+						// to alias incoming var to choose with outgoing to choose
+						//
+						strGraphNodeIRP clone __attribute__((cleanup(strGraphNodeIRPDestroy))) =
+								strGraphNodeIRPUnique(strGraphNodeIRPClone(choose->canidates),
+																														(gnCmpType)ptrPtrCmp, NULL);
+						if (strGraphNodeIRPSize(clone) == 1) {
+								struct IRNodeValue *value = (void *)graphNodeIRValuePtr(clone[i]);
+								assert(value->base.type == IR_VALUE);
+								assert(value->val.type == IR_VAL_VAR_REF);
 
-		} else if (val->type == IR_VALUE) {
-			// Is a var,check for direct assign
-			if (((struct IRNodeValue *)val)->val.type == IR_VAL_VAR_REF) {
-			findVarLoop:;
-				__auto_type find = llVarRefsFind(refs, nodes[i], varRefsGetCmp);
-				__auto_type find2 =
-				    llVarRefsFindRight(llVarRefsFirst(refs), nodes[3], varRefsGetCmp);
+								// Check for signle outgoing vars to alias to
+								strGraphEdgeIRP outgoing
+										__attribute__((cleanup(strGraphEdgeIRPDestroy))) =
+										graphNodeIROutgoing(clone[i]);
+								strGraphEdgeIRP outgoingAssigns
+										__attribute__((cleanup(strGraphEdgeIRPDestroy))) =
+										IRGetConnsOfType(outgoing, IR_CONN_DEST);
 
-				if (!find) {
-					// Add a vec of references(only reference is nodes[i])
-					DEBUG_PRINT("Adding var node %s\n", debugGetPtrNameConst(nodes[i]));
-					__auto_type newRef =
-					    llVarRefsCreate(strGraphNodeIRPAppendItem(NULL, nodes[i]));
-					llVarRefsInsert(refs, newRef, varRefsInsertCmp);
-					refs = newRef;
-				} else {
-					DEBUG_PRINT("Adding var ref %s\n", debugGetPtrNameConst(nodes[i]));
+								for (long i = 0; i != strGraphEdgeIRPSize(outgoingAssigns); i++) {
+										__auto_type to = graphEdgeIROutgoing(outgoingAssigns[i]);
+										struct IRNodeValue *val = (void *)graphNodeIRValuePtr(to);
+										assert(val->base.type == IR_VALUE);
+										// Only alias to vars
+										if (val->val.type != IR_VAL_VAR_REF)
+												continue;
 
-					// Add nodes[i] to references
-					__auto_type vec = llVarRefsValuePtr(find);
-					*vec =
-					    strGraphNodeIRPSortedInsert(*vec, nodes[i], (gnCmpType)ptrPtrCmp);
-				}
-
-				// Check if written into by another variable.
-				__auto_type incoming = graphNodeIRIncoming(nodes[i]);
-				__auto_type filtered = IRGetConnsOfType(incoming, IR_CONN_DEST);
-
-				// aliasNode is NULL if an alias node isnt found
-				graphNodeIR aliasNode = NULL;
-
-				// If one filtered that is a value and a variable,set that as the alias
-				// node
-				if (strGraphEdgeIRPSize(filtered) == 1) {
-					__auto_type inNode =
-					    graphNodeIRValuePtr(graphEdgeIRIncoming(filtered[0]));
-					if (inNode->type == IR_VALUE) {
-						struct IRNodeValue *inValueNode = (void *)inNode;
-						if (inValueNode->val.type == IR_VAL_VAR_REF) {
-							aliasNode = graphEdgeIRIncoming(filtered[0]);
-							DEBUG_PRINT("%s aliased to node %s\n",
-							            debugGetPtrNameConst(aliasNode),
-							            debugGetPtrNameConst(nodes[i]));
+										// Alias to previous new version of choose var
+										struct aliasPair apForward = {clone[i], nodes[i]};
+										if (NULL ==
+														strAliasPairSortedFind(aliases, apForward, aliasPairCmp)) {
+												aliases =
+														strAliasPairSortedInsert(aliases, apForward, aliasPairCmp);
+										}
+								}
 						}
-					}
-				}
 
-				strGraphEdgeIRPDestroy(&incoming), strGraphEdgeIRPDestroy(&filtered);
+				} else if (val->type == IR_VALUE) {
+						// Is a var,check for direct assign
+						if (((struct IRNodeValue *)val)->val.type == IR_VAL_VAR_REF) {
+						findVarLoop:;
+								__auto_type tmp=strGraphNodeIRPAppendItem(NULL, nodes[i]);
+								__auto_type find = strVarRefsSortedFind(refs, tmp, varRefsGetCmp);
+								strGraphNodeIRPDestroy(&tmp);
+				
+								if (!find) {
+										// Add a vec of references(only reference is nodes[i])
+										DEBUG_PRINT("Adding var node %s\n", debugGetPtrNameConst(nodes[i]));
 
-				// If alais,add entry(if doesnt already exist)
-				if (aliasNode) {
-					struct aliasPair apForward = {aliasNode, nodes[i]};
-					if (NULL ==
-					    strAliasPairSortedFind(aliases, apForward, aliasPairCmp)) {
-						aliases =
-						    strAliasPairSortedInsert(aliases, apForward, aliasPairCmp);
-					}
+										__auto_type tmp=strGraphNodeIRPAppendItem(NULL, nodes[i]);
+										refs = strVarRefsSortedFind(refs, tmp, varRefsGetCmp);
+										strGraphNodeIRPDestroy(&tmp);
+								} else {
+										DEBUG_PRINT("Adding var ref %s\n", debugGetPtrNameConst(nodes[i]));
+
+										// Add nodes[i] to references
+										__auto_type vec = find;
+										*vec =
+												strGraphNodeIRPSortedInsert(*vec, nodes[i], (gnCmpType)ptrPtrCmp);
+								}
+
+								// Check if written into by another variable.
+								__auto_type incoming = graphNodeIRIncoming(nodes[i]);
+								__auto_type filtered = IRGetConnsOfType(incoming, IR_CONN_DEST);
+
+								// aliasNode is NULL if an alias node isnt found
+								graphNodeIR aliasNode = NULL;
+
+								// If one filtered that is a value and a variable,set that as the alias
+								// node
+								if (strGraphEdgeIRPSize(filtered) == 1) {
+										__auto_type inNode =
+												graphNodeIRValuePtr(graphEdgeIRIncoming(filtered[0]));
+										if (inNode->type == IR_VALUE) {
+												struct IRNodeValue *inValueNode = (void *)inNode;
+												if (inValueNode->val.type == IR_VAL_VAR_REF) {
+														aliasNode = graphEdgeIRIncoming(filtered[0]);
+														DEBUG_PRINT("%s aliased to node %s\n",
+																										debugGetPtrNameConst(aliasNode),
+																										debugGetPtrNameConst(nodes[i]));
+												}
+										}
+								}
+
+								strGraphEdgeIRPDestroy(&incoming), strGraphEdgeIRPDestroy(&filtered);
+
+								// If alais,add entry(if doesnt already exist)
+								if (aliasNode) {
+										struct aliasPair apForward = {aliasNode, nodes[i]};
+										if (NULL ==
+														strAliasPairSortedFind(aliases, apForward, aliasPairCmp)) {
+												aliases =
+														strAliasPairSortedInsert(aliases, apForward, aliasPairCmp);
+										}
+								}
+						}
 				}
-			}
 		}
-	}
 
-	//
-	// Merge aliases that share same head/tail untill you cant do it anymore. This
-	// allows for multiple vars to be merges For Example: a=b=c would be(before)
-	// b<->c
-	// a<->b
-	// which would be turned into(after)
-	// a<->b<->c
+		//
+		// Merge aliases that share same head/tail untill you cant do it anymore. This
+		// allows for multiple vars to be merges For Example: a=b=c would be(before)
+		// b<->c
+		// a<->b
+		// which would be turned into(after)
+		// a<->b<->c
 
-	// Turn pairs into blobs.
-	strAliasBlob blobs = NULL;
-	for (long i = 0; i != strAliasPairSize(aliases); i++) {
-		strGraphNodeIRP blob = NULL;
-		blob =
+		// Turn pairs into blobs.
+		strAliasBlob blobs = NULL;
+		for (long i = 0; i != strAliasPairSize(aliases); i++) {
+				strGraphNodeIRP blob = NULL;
+				blob =
 		    strGraphNodeIRPSortedInsert(blob, aliases[i].a, (gnCmpType)gnIRVarCmp);
-		blob =
+				blob =
 		    strGraphNodeIRPSortedInsert(blob, aliases[i].b, (gnCmpType)gnIRVarCmp);
 
-		blobs = strAliasBlobSortedInsert(blobs, blob, AliasBlobCmp);
-	}
+				blobs = strAliasBlobSortedInsert(blobs, blob, AliasBlobCmp);
+		}
 
-	for (;;) {
-		int changed = 0;
+		for (;;) {
+				int changed = 0;
 
-	loop:;
-		// First Check heads(i1) with tails(i2)
-		for (long i1 = 0; i1 < strAliasBlobSize(blobs); i1++) {
-			for (long i2 = 0; i2 < strAliasBlobSize(blobs); i2++) {
-				if (i1 == i2)
-					continue;
+		loop:;
+				// First Check heads(i1) with tails(i2)
+				for (long i1 = 0; i1 < strAliasBlobSize(blobs); i1++) {
+						for (long i2 = 0; i2 < strAliasBlobSize(blobs); i2++) {
+								if (i1 == i2)
+										continue;
 
-				// Check for a set intersection,this tells if there is overlap between
-				// the aliased vars
-				strGraphNodeIRP intersect
-				    __attribute__((cleanup(strGraphNodeIRPDestroy))) =
-				        strGraphNodeIRPSetIntersection(strGraphNodeIRPClone(blobs[i1]),
-				                                       blobs[i2], (gnCmpType)gnIRVarCmp,
-				                                       NULL);
+								// Check for a set intersection,this tells if there is overlap between
+								// the aliased vars
+								strGraphNodeIRP intersect
+										__attribute__((cleanup(strGraphNodeIRPDestroy))) =
+										strGraphNodeIRPSetIntersection(strGraphNodeIRPClone(blobs[i1]),
+																																									blobs[i2], (gnCmpType)gnIRVarCmp,
+																																									NULL);
 
-				if (0 != strGraphNodeIRPSize(intersect)) {
-					DEBUG_PRINT("Intersect between %s and %s\n",
-					            debugGetPtrNameConst(blobs[i1][0]),
-					            debugGetPtrNameConst(blobs[i2][0]));
+								if (0 != strGraphNodeIRPSize(intersect)) {
+										DEBUG_PRINT("Intersect between %s and %s\n",
+																						debugGetPtrNameConst(blobs[i1][0]),
+																						debugGetPtrNameConst(blobs[i2][0]));
 #if DEBUG_PRINT_ENABLE
-					printf("i1:\n");
-					for (long i = 0; i != strGraphNodeIRPSize(blobs[i1]); i++)
-						printf("    %s\n", debugGetPtrNameConst(blobs[i1][i]));
+										printf("i1:\n");
+										for (long i = 0; i != strGraphNodeIRPSize(blobs[i1]); i++)
+												printf("    %s\n", debugGetPtrNameConst(blobs[i1][i]));
 
-					printf("i2:\n");
-					for (long i = 0; i != strGraphNodeIRPSize(blobs[i2]); i++)
-						printf("    %s\n", debugGetPtrNameConst(blobs[i2][i]));
+										printf("i2:\n");
+										for (long i = 0; i != strGraphNodeIRPSize(blobs[i2]); i++)
+												printf("    %s\n", debugGetPtrNameConst(blobs[i2][i]));
 #endif
 
-					// Merge tail node with head node
-					blobs[i2] = strGraphNodeIRPSetUnion(blobs[i2], blobs[i1],
-					                                    (gnCmpType)gnIRVarCmp);
+										// Merge tail node with head node
+										blobs[i2] = strGraphNodeIRPSetUnion(blobs[i2], blobs[i1],
+																																														(gnCmpType)gnIRVarCmp);
 
 #if DEBUG_PRINT_ENABLE
-					printf("result:\n");
-					for (long i = 0; i != strGraphNodeIRPSize(blobs[i2]); i++)
-						printf("    %s\n", debugGetPtrNameConst(blobs[i2][i]));
+										printf("result:\n");
+										for (long i = 0; i != strGraphNodeIRPSize(blobs[i2]); i++)
+												printf("    %s\n", debugGetPtrNameConst(blobs[i2][i]));
 #endif
-					// Remove blobs[i1] as it is merged in with blobs[i2]
-					memmove(&blobs[i1], &blobs[i1] + 1,
-					        (strAliasBlobSize(blobs) - 1) * sizeof(blobs[i1]));
-					// Decrese size by 1
-					blobs = strAliasBlobPop(blobs, NULL);
+										// Remove blobs[i1] as it is merged in with blobs[i2]
+										memmove(&blobs[i1], &blobs[i1] + 1,
+																		(strAliasBlobSize(blobs) - 1) * sizeof(blobs[i1]));
+										// Decrese size by 1
+										blobs = strAliasBlobPop(blobs, NULL);
 
-					changed = 1;
-					goto loop;
+										changed = 1;
+										goto loop;
+								}
+						}
 				}
-			}
+
+				// Didn't loop back
+				if (!changed)
+						break;
 		}
 
-		// Didn't loop back
-		if (!changed)
-			break;
-	}
+		//
+		// Replace vars with aliases
+		//
+		for (long i = 0; i != strAliasBlobSize(blobs); i++) {
+				// Find first ref.
+				strGraphNodeIRP refs2 = blobs[i];
+				__auto_type master = refs2[0];
 
-	//
-	// Replace vars with aliases
-	//
-	for (long i = 0; i != strAliasBlobSize(blobs); i++) {
-		DEBUG_PRINT("Finding var %s\n", debugGetPtrNameConst(blobs[i][0]));
-		__auto_type find = llVarRefsFind(refs, blobs[i][0], varRefsGetCmp);
+				// Replace rest of blobs
+				for (long i2 = 0; i2 != strGraphNodeIRPSize(blobs[i]); i2++) {
+						// Dont replace self
+						if (refs2[i2] == master)
+								continue;
 
-		// Find first ref.
-		strGraphNodeIRP refs2 = *llVarRefsValuePtr(find);
-		__auto_type master = refs2[0];
-
-		// Replace rest of blobs
-		for (long i2 = 0; i2 != strGraphNodeIRPSize(blobs[i]); i2++) {
-			__auto_type find2 =
-			    *llVarRefsValuePtr(llVarRefsFind(refs, blobs[i][i2], varRefsGetCmp));
-			for (long i3 = 0; i3 != strGraphNodeIRPSize(find2); i3++) {
-				// Dont replace self
-				if (find2[i3] == master)
-					continue;
-
-				DEBUG_PRINT("Replacing %s with %s\n", debugGetPtrNameConst(find2[i3]),
-				            debugGetPtrNameConst(master));
-				// Replace with cloned value
-				replaceNodeWithExpr(find2[i3], cloneNode(master, IR_CLONE_NODE, NULL));
-			}
+						DEBUG_PRINT("Replacing %s with %s\n", debugGetPtrNameConst(refs2[i2]),
+																		debugGetPtrNameConst(master));
+						// Replace with cloned value
+						printf("Replacing %p\n", refs2[i2]);
+						replaceNodeWithExpr(refs2[i2], cloneNode(master, IR_CLONE_NODE, NULL));
+				}
 		}
-	}
 }
 static int isVar(graphNodeIR node) {
 	if (graphNodeIRValuePtr(node)->type == IR_VALUE) {
@@ -472,7 +471,6 @@ void IRRemoveRepeatAssigns(graphNodeIR enter) {
 	allNodes =
 	    strGraphNodeIRPSetDifference(allNodes, toRemove, (gnCmpType)ptrPtrCmp);
 	
-debugShowGraphIR(enter);
 	
 	// Find duds(nodes that arent connected to conditionals or expressions)
 	strGraphNodeIRP duds = NULL;
@@ -513,7 +511,6 @@ debugShowGraphIR(enter);
 	// Kill duds
 	for (long i = 0; i != strGraphNodeIRPSize(duds); i++) {
 		transparentKill(duds[i]);
-		debugShowGraphIR(enter);
 	}
 
 	strGraphNodeIRPDestroy(&duds);
@@ -970,27 +967,24 @@ void IRRegisterAllocate(graphNodeIR start,color2RegPredicate colorFunc,void *col
 		__auto_type allNodes = graphNodeIRAllNodes(start);
 		removeChooseNodes(allNodes, start);
 		IRToSSA(start);
-		debugShowGraphIR(start);
 	
 __auto_type allNodes2 = graphNodeIRAllNodes(start);
 	for(long i=0;i!=strGraphNodeIRPSize(allNodes2);i++) {
 			if(graphNodeIRValuePtr(allNodes2[i])->type==IR_CHOOSE)
 					IRSSAReplaceChooseWithAssigns(allNodes2[i]);
 	}
-
-	debugShowGraphIR(start);
+	
 	//Merge variables that can be merges
 		strGraphNodeIRPDestroy(&allNodes);
 		allNodes = graphNodeIRAllNodes(start);
-		IRCoalesce(allNodes, start);
 		debugShowGraphIR(start);
+		IRCoalesce(allNodes, start);
 		IRRemoveRepeatAssigns(start);
 		
 	debugShowGraphIR(start);
-	abort();	
 	//Contruct an interference graph and color it
 	__auto_type interfere=IRInterferenceGraph(start);
-
+	abort();
 	//Do integer and floating variables seperatley
 	__auto_type intRegs=getIntRegs();
 	__auto_type floatRegs=getFloatRegs();
