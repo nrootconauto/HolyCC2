@@ -967,6 +967,7 @@ void IRRegisterAllocate(graphNodeIR start,color2RegPredicate colorFunc,void *col
 		__auto_type allNodes = graphNodeIRAllNodes(start);
 		removeChooseNodes(allNodes, start);
 		IRToSSA(start);
+		debugShowGraphIR(start);
 	
 __auto_type allNodes2 = graphNodeIRAllNodes(start);
 	for(long i=0;i!=strGraphNodeIRPSize(allNodes2);i++) {
@@ -979,6 +980,7 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 		allNodes = graphNodeIRAllNodes(start);
 		debugShowGraphIR(start);
 		IRCoalesce(allNodes, start);
+		debugShowGraphIR(start);
 		IRRemoveRepeatAssigns(start);
 		
 	debugShowGraphIR(start);

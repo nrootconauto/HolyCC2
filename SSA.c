@@ -517,6 +517,12 @@ static strGraphPath chooseNodeCandidatePathsToChoose(graphNodeIR canidate,graphN
 static int __edgeIsEqual(void *a,void *b) {
 		return *(graphEdgeIR*)a==*(graphEdgeIR*)b;
 }
+static int gnIRCmpVar(const graphNodeIR *a,const graphNodeIR *b) {
+		struct IRNodeValue *A=(void*)graphNodeIRValuePtr(*a);
+		struct IRNodeValue *B=(void*)graphNodeIRValuePtr(*b);
+
+		return IRVarCmp(&A->val.value.var, &B->val.value.var);
+}
 void IRSSAReplaceChooseWithAssigns(graphNodeIR node) {
 		assert(graphNodeIRValuePtr(node)->type==IR_CHOOSE);
 		struct IRNodeChoose *choose=(void*)graphNodeIRValuePtr(node);
@@ -524,8 +530,13 @@ void IRSSAReplaceChooseWithAssigns(graphNodeIR node) {
 		__auto_type outgoing=graphNodeIROutgoingNodes(node);
 		//Outgoing that must be assign (TODO validate this)
 		
-		for(long i=0;i!=strGraphNodeIRPSize(choose->canidates);i++) {
-				__auto_type paths=chooseNodeCandidatePathsToChoose(choose->canidates[i],node);
+		//Make (unique) collection of canidates that point to unique varaibles.
+		__auto_type clone=strGraphNodeIRPClone(choose->canidates);
+		qsort(clone, strGraphNodeIRPSize(clone), sizeof(*clone), (int(*)(const void*,const void*))gnIRCmpVar);
+		clone=strGraphNodeIRPUnique(clone, gnIRCmpVar, NULL);
+		
+		for(long i=0;i!=strGraphNodeIRPSize(clone);i++) {
+				__auto_type paths=chooseNodeCandidatePathsToChoose(clone[i],node);
 				assert(strGraphPathSize(paths)!=0);
 
 				//Insert an assign before final edge leading up to choose
@@ -541,7 +552,7 @@ void IRSSAReplaceChooseWithAssigns(graphNodeIR node) {
 						insertedAt=strGraphEdgeIRPSortedInsert(insertedAt, last, (geCmpType)ptrPtrCmp);
 
 						//Start with current node ,assign to result,then use that as the parent node and so on
-						graphNodeIR parent=cloneNode(choose->canidates[i], IR_CLONE_NODE, NULL);
+						graphNodeIR parent=cloneNode(clone[i], IR_CLONE_NODE, NULL);
 						__auto_type startAt=parent;
 						
 						for(long i3=0;i3!=strGraphNodeIRPSize(outgoing);i3++) {
