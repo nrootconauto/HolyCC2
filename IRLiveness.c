@@ -86,7 +86,7 @@ static int isExprEdge(graphEdgeIR edge) {
 		return 0;
 	}
 };
-static int untilIncomingAssign(const struct __graphNode *node,
+static int untilAssign(const struct __graphNode *node,
                                const struct __graphEdge *edge,
                                const void *data) {
 	//
@@ -100,11 +100,11 @@ static int untilIncomingAssign(const struct __graphNode *node,
 	if (!isExprEdge(edgeValue))
 		return 0;
 
-	strGraphEdgeIRP incoming __attribute__((cleanup(strGraphEdgeIRPDestroy))) =
+	strGraphEdgeIRP outgoing __attribute__((cleanup(strGraphEdgeIRPDestroy))) =
 			graphNodeIRIncoming(*graphNodeMappingValuePtr((graphNodeMapping)node));
 	
-	if (strGraphEdgeIRPSize(incoming) == 1) {
-			__auto_type type=graphEdgeIRValuePtr(incoming[0]);
+	if (strGraphEdgeIRPSize(outgoing) == 1) {
+			__auto_type type=graphEdgeIRValuePtr(outgoing[0]);
 			if (*type== IR_CONN_DEST)
 			return 0;
 	}
@@ -280,7 +280,7 @@ static strBasicBlock getBasicBlocksFromExpr(graphNodeIR dontDestroy,
 	for (long i = 0; i != strGraphNodeMappingPSize(assignNodes); i++) {
 		strGraphNodeMappingP exprNodes = NULL;
 		graphNodeMappingVisitBackward(assignNodes[i], &exprNodes,
-		                              untilIncomingAssign, appendToNodes);
+		                              untilAssign, appendToNodes);
 
 		struct basicBlock block;
 		block.nodes = exprNodes;

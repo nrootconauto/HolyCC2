@@ -771,44 +771,6 @@ static void insertLoadsInExpression(graphNodeIR expressionNode,strIRVar varsToRe
 		__auto_type end=IRGetEndOfExpr(expressionNode);
 		graphNodeIRVisitBackward(end, varsToReplace, untillStartOfExpr, replaceVarWithLoad);
 }
-struct __pathToChoosePredPair {
-		graphNodeIR start;
-		graphNodeIR choose;
-};
-static int __pathToChoosePred(const struct __graphNode *node,const void *data) {
-		const struct __pathToChoosePredPair *pair=data;
-		//Dont stop at start node
-		if(node==pair->start)
-				return 0;
-
-		//Stop at other canidate's path
-		__auto_type canidates=((struct IRNodeChoose*)graphNodeIRValuePtr(pair->choose))->canidates;
-		if(NULL!=strGraphNodeIRPSortedFind(canidates, (graphNodeIR)node, (gnCmpType)ptrPtrCmp))
-				return 1;
-
-		//Stop at choose;
-		if(node==pair->choose)
-				return 1;
-
-		return 0;
-}
-
-static int __lastIsNotChoose(const void *data,const strGraphEdgeIRP *path) {
-		__auto_type last=path[0][strGraphEdgeIRPSize(*path)-1];
-		return graphNodeIRValuePtr(graphEdgeIROutgoing(last))->type!=IR_CHOOSE;
-}
-static strGraphPath chooseNodeCandidatePathsToChoose(graphNodeIR canidate,graphNodeIR choose) {
-		//Find paths that are either dead ends that stop at other candiate starts,or path to choose,will filter out dead ends later.
-		struct __pathToChoosePredPair pair;
-		pair.choose=choose;
-		pair.start=canidate;
-		__auto_type pathsToChoose=graphAllPathsToPredicate(canidate, &pair, __pathToChoosePred);
-
-		//Filter out dead ends
-		pathsToChoose=strGraphPathRemoveIf(pathsToChoose, choose, __lastIsNotChoose);
-
-		return pathsToChoose;
-}
 static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spillNodes,strGraphNodeIRLiveP allLiveNodes,graphNodeIR startAt,struct IRVar *startAtVar) {
 		graphNodeIRLive liveNode=NULL;
 		

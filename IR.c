@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <subExprElim.h>
 typedef int (*gnIRCmpType)(const graphNodeIR *, const graphNodeIR *);
+typedef int (*geIRCmpType)(const graphEdgeIR *, const graphEdgeIR *);
 typedef int (*geMapCmpType)(const graphEdgeMapping *, const graphEdgeMapping *);
 typedef int (*gnMapCmpType)(const graphNodeMapping *, const graphNodeMapping *);
 #define ALLOCATE(x)                                                            \
@@ -247,39 +248,47 @@ strGraphNodeP getStatementNodes(const graphNodeIR stmtStart,
 	//
 	// Visit all nodes from start->end node of statement
 	//
-	strGraphNodeIRP heads = graphNodeIROutgoingNodes(stmtStart);
-	strGraphNodeIRP allNodes = NULL;
-	while (strGraphNodeIRPSize(heads)) {
+	strGraphEdgeIRP heads = graphNodeIROutgoing(stmtStart);
+	strGraphNodeIRP allNodes = strGraphNodeIRPAppendItem(NULL, stmtStart);
+	while (strGraphEdgeIRPSize(heads)) {
 		strGraphNodeIRP unvisitedHeads = NULL;
 		// Add unvisted to visited,
-		for (size_t i = 0; i != strGraphNodeIRPSize(heads); i++) {
-			if (NULL == strGraphNodeIRPSortedFind(allNodes, heads[i],
+		for (size_t i = 0; i != strGraphEdgeIRPSize(heads); i++) {
+				if(!IRIsExprEdge(*graphEdgeIRValuePtr(heads[i])))
+						continue;
+
+				__auto_type head=graphEdgeIROutgoing(heads[i]);
+			if (NULL == strGraphNodeIRPSortedFind(allNodes, head,
 			                                      (gnIRCmpType)ptrPtrCmp)) {
-				allNodes = strGraphNodeIRPSortedInsert(allNodes, heads[i],
+				allNodes = strGraphNodeIRPSortedInsert(allNodes, head,
 				                                       (gnIRCmpType)ptrPtrCmp);
-				unvisitedHeads = strGraphNodeIRPSortedInsert(unvisitedHeads, heads[i],
+				unvisitedHeads = strGraphNodeIRPSortedInsert(unvisitedHeads, head,
 				                                             (gnIRCmpType)ptrPtrCmp);
 			}
 		}
 
-		strGraphNodeIRPDestroy(&heads);
+		strGraphEdgeIRPDestroy(&heads);
 		heads = NULL;
 		// Add outgoing heads to heads
 		for (size_t i = 0; i != strGraphNodeIRPSize(unvisitedHeads); i++) {
-			__auto_type newHeads = graphNodeIROutgoingNodes(unvisitedHeads[i]);
-			for (size_t i = 0; i != strGraphNodeIRPSize(newHeads); i++) {
+			__auto_type newHeads = graphNodeIROutgoing(unvisitedHeads[i]);
+
+			for (size_t i = 0; i != strGraphEdgeIRPSize(newHeads); i++) {
 				// Dont add end node,we want to stop at end node
-				if (graphNodeIRValuePtr(newHeads[i])->type == IR_STATEMENT_END)
+					if (graphNodeIRValuePtr(graphEdgeIROutgoing(newHeads[i]))->type == IR_STATEMENT_END)
 					continue;
 
+					if(!IRIsExprEdge(*graphEdgeIRValuePtr(newHeads[i])))
+						continue;
+					
 				// Dont re-insert same head
-				if (NULL == strGraphNodeIRPSortedFind(heads, newHeads[i],
-				                                      (gnIRCmpType)ptrPtrCmp))
-					heads = strGraphNodeIRPSortedInsert(heads, newHeads[i],
-					                                    (gnIRCmpType)ptrPtrCmp);
+				if (NULL == strGraphEdgeIRPSortedFind(heads, newHeads[i],
+				                                      (geIRCmpType)ptrPtrCmp))
+					heads = strGraphEdgeIRPSortedInsert(heads, newHeads[i],
+					                                    (geIRCmpType)ptrPtrCmp);
 			}
 
-			strGraphNodeIRPDestroy(&newHeads);
+			strGraphEdgeIRPDestroy(&newHeads);
 		}
 	}
 

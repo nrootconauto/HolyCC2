@@ -466,40 +466,70 @@ end:
 	strGraphNodeMappingPDestroy(&filteredVarsNodes);
 	strGraphNodeIRPDestroy(&nodes);
 }
-/*
-  strGraphEdgeP out
-__attribute__((cleanup(strGraphEdgePDestroy)))=__graphNodeOutgoing(all[i]);
-      struct IRNodeAssign *assign=(void*)irNode;
-      strGraphEdgeP conns __attribute__((cleanup(strGraphEdgePDestroy)))
-=IRGetConnsOfType(out,IR_CONN_DEST);
-      //Ensure "clean" IR
-      assert(strGraphEdgePSize(conns)<=1);
-__auto_type parentVar=graphNodeSSANodeValuePtr(in[0])->var;
-          //Check if variables are equal.
-          if(parentVar->type==currentVar->var->type) {
-              if(parentVar->type==IR_VAR_MEMBER) {
-                  if(parentVar->
-value.var.var.value.member==currentVar->var->value.var.var.value.member) goto
-eq; } else if(parentVar->type==IR_VAR_VAR) { if(parentVar->
-value.var.var.value.var==currentVar->var->value.var.var.value.var) goto eq;
-              }
-          }
+struct __pathToChoosePredPair {
+		graphNodeIR start;
+		graphNodeIR choose;
+};
+static int __lastIsNotChoose(const void *data,const strGraphEdgeIRP *path) {
+		__auto_type last=path[0][strGraphEdgeIRPSize(*path)-1];
+		return graphNodeIRValuePtr(graphEdgeIROutgoing(last))->type!=IR_CHOOSE;
+}
+static int __pathToChoosePred(const struct __graphNode *node,const void *data) {
+		const struct __pathToChoosePredPair *pair=data;
+		//Dont stop at start node
+		if(node==pair->start)
+				return 0;
 
-//
-  // Is a mapping of a mapping
-  //
-  graphNodeMapping domTree=createDomTree(doms);
+		//Stop at other canidate's path
+		__auto_type canidates=((struct IRNodeChoose*)graphNodeIRValuePtr(pair->choose))->canidates;
+		if(NULL!=strGraphNodeIRPSortedFind(canidates, (graphNodeIR)node, (gnCmpType)ptrPtrCmp))
+				return 1;
 
-  //
-  // Maps all the nodes that share a domiance frontier
-  //
-  mapGraphNode domTreeMap=mapChooseIncomingsCreate();
-  __auto_type allDomTree=graphNodeMappingAllNodes(domTree);
-  //hash them all
-  for(long i=0;i!=strGraphNodeMappingPSize(allDomTree);i++) {
-      //Is a mapping of a mapping
-      char *hash=ptr2Str(*graphNodeMappingValuePtr(allDomTree[i]));
-      mapChooseIncomingsInsert(domTreeMap, hash, allDomTree[i]);
-      free(hash);
-  }
-  */
+		//Stop at choose;
+		if(node==pair->choose)
+				return 1;
+
+		return 0;
+}
+static strGraphPath chooseNodeCandidatePathsToChoose(graphNodeIR canidate,graphNodeIR choose) {
+		//Find paths that are either dead ends that stop at other candiate starts,or path to choose,will filter out dead ends later.
+		struct __pathToChoosePredPair pair;
+		pair.choose=choose;
+		pair.start=canidate;
+		__auto_type pathsToChoose=graphAllPathsToPredicate(canidate, &pair, __pathToChoosePred);
+
+		//Filter out dead ends
+		pathsToChoose=strGraphPathRemoveIf(pathsToChoose, choose, __lastIsNotChoose);
+
+		return pathsToChoose;
+}
+void IRSSAReplaceChooseWithAssigns(graphNodeIR node) {
+		assert(graphNodeIRValuePtr(node)->type==IR_CHOOSE);
+		struct IRNodeChoose *choose=(void*)graphNodeIRValuePtr(node);
+
+		__auto_type outgoing=graphNodeIROutgoing(node);
+		__auto_type outgoingAssigns=IRGetConnsOfType(outgoing, IR_CONN_DEST);
+		for(long i=0;i!=strGraphNodeIRPSize(choose->canidates);i++) {
+				graphNodeIR parent=choose->canidates[i];
+				for(long i2=0;i2!=strGraphEdgeIRPSize(outgoingAssigns);i2++) {
+						__auto_type last=IRGetEndOfExpr(graphEdgeIROutgoing(outgoingAssigns[i2]));
+						__auto_type clone=cloneNode(last, IR_CLONE_EXPR_UNTIL_ASSIGN, NULL);
+						__auto_type start=IRGetStmtStart(clone);
+
+						IRInsertAfter(parent, start, clone, IR_CONN_DEST);
+
+						parent=clone;
+				}
+		}
+
+		strGraphEdgeIRPDestroy(&outgoing),strGraphEdgeIRPDestroy(&outgoingAssigns);
+
+		__auto_type incoming =graphNodeIRIncoming(node);
+		__auto_type endOfExpression=IRGetEndOfExpr(node);
+		__auto_type outgoing2 =graphNodeIRIncoming(endOfExpression);
+
+		__auto_type exprNodes=getStatementNodes(IRGetStmtStart(node), endOfExpression);
+		graphReplaceWithNode(exprNodes, createLabel(), NULL, NULL,sizeof(graphEdgeIR));
+
+		strGraphNodeIRPDestroy(&exprNodes);
+}

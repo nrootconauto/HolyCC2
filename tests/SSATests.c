@@ -122,6 +122,16 @@ void SSATests() {
 				assert(cSSAVer!=eSSAVer);
 				assert(dSSAVer!=eSSAVer);
 				assert(eSSAVer!=fSSAVer);
+
+				__auto_type allNodes=graphNodeIRAllNodes(enter);
+				for(long i=0;i!=strGraphNodeIRPSize(allNodes);i++) {
+						if(graphNodeIRValuePtr(allNodes[i])->type==IR_CHOOSE) {
+								IRSSAReplaceChooseWithAssigns(allNodes[i]);
+								debugShowGraph(enter);
+						}
+				}
+				
+				
 		}
 		//http://pages.cs.wisc.edu/~fischer/cs701.f05/lectures/Lecture22.pdf
 		{

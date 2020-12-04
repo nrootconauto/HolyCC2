@@ -40,11 +40,12 @@ int main() {
 	parserDiagTests();
 		topoSortTests();
 	
- 	SSATests();
+ 	
 		LivenessTests();
 		subExprElimTests();
 		*/
 		//graphVizTests();
-		registerAllocatorTests();
+		SSATests();
+		//registerAllocatorTests();
 		return 0;
 }
