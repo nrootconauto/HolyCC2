@@ -11,6 +11,18 @@
 static char *ptr2Str(const void *a) {
 		return base64Enc((void*)&a, sizeof(a));
 }
+static char *var2Str(graphNodeIR var) {
+		if(debugGetPtrNameConst(var))
+				return debugGetPtrName(var);
+		
+		__auto_type value=(struct IRNodeValue*)graphNodeIRValuePtr(var);
+		char buffer[1024];
+		sprintf(buffer, "%s-%li", value->val.value.var.value.var->name,value->val.value.var.SSANum);
+		char *retVal=malloc(strlen(buffer)+1);
+		strcpy(retVal, buffer);
+
+		return retVal;
+}
 static char *strClone(const char *text) {
 		char *retVal=malloc(strlen(text)+1);
 		strcpy(retVal, text);
@@ -247,12 +259,12 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 
 								if (!find) {
 										// Add a vec of references(only reference is nodes[i])
-										DEBUG_PRINT("Adding var node %s\n", debugGetPtrNameConst(nodes[i]));
+										DEBUG_PRINT("Adding var node %s\n", var2Str(nodes[i]));
 
 										__auto_type tmp=strGraphNodeIRPAppendItem(NULL, nodes[i]);
 										refs = strVarRefsAppendItem(refs, tmp);
 								} else {
-										DEBUG_PRINT("Adding existing var to ref %s\n", debugGetPtrNameConst(nodes[i]));
+										DEBUG_PRINT("Adding existing var to ref %s\n", var2Str(nodes[i]));
 
 										// Add nodes[i] to references
 										__auto_type vec = find;
@@ -287,18 +299,42 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 								if (inValueNode->val.type == IR_VAL_VAR_REF) {
 										aliasNode = graphEdgeIRIncoming(filtered[0]);
 										DEBUG_PRINT("%s aliased to node %s\n",
-																						debugGetPtrNameConst(aliasNode),
-																						debugGetPtrNameConst(nodes[i]));
+																						var2Str(aliasNode),
+																						var2Str(nodes[i]));
 
 										//Union
 										__auto_type aIndex=getVarRefIndex(refs,aliasNode);
 										__auto_type bIndex=getVarRefIndex(refs,nodes[i]);
+
+										//
+										// Ignore alias to own blob as we delete such blob ahead
+										//
+										if(aIndex==bIndex)
+												continue;
+										
 										refs[aIndex]=strGraphNodeIRPSetUnion(refs[aIndex], refs[bIndex], (gnCmpType)ptrPtrCmp);
+
+#if DEBUG_PRINT_ENABLE
+										printf("New items:\n");
+										for(long i=0;i!=strGraphNodeIRPSize(refs[aIndex]);i++) {
+												DEBUG_PRINT("    %s\n", var2Str(refs[aIndex][i]));
+										}
+#endif
 
 										//Remove bIndex
 										memmove(&refs[bIndex], &refs[bIndex+1], (strVarRefsSize(refs)-bIndex-1)*sizeof(*refs));
 										//Pop to decrement size
 										refs=strVarRefsPop(refs, NULL);
+
+										printf("==== ALL ITEMS ====:\n");
+										for (long i = 0; i != strVarRefsSize(refs); i++) {
+#if DEBUG_PRINT_ENABLE
+												printf("ALL ITEMS %i:\n",i);
+												for(long i2=0;i2!=strGraphNodeIRPSize(refs[i]);i2++) {
+														DEBUG_PRINT("    %s\n", var2Str(refs[i][i2]));
+												}
+#endif
+										}
 								}
 						}
 				}
@@ -310,17 +346,23 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 		// Replace vars with aliases
 		//
 		for (long i = 0; i != strVarRefsSize(refs); i++) {
+				#if DEBUG_PRINT_ENABLE
+										printf("New items:\n");
+										for(long i2=0;i2!=strGraphNodeIRPSize(refs[i]);i2++) {
+												DEBUG_PRINT("    %s\n", var2Str(refs[i][i2]));
+										}
+#endif
 				// Find first ref.
 				__auto_type master = refs[i][0];
 
 				// Replace rest of blobs
 				for (long i2 = 0; i2 != strGraphNodeIRPSize(refs[i]); i2++) {
 						// Dont replace self
-						if (refs[i][i2] == master)
+ 						if (refs[i][i2] == master)
 								continue;
 
-						DEBUG_PRINT("Replacing %s with %s\n", debugGetPtrNameConst(refs[i][i2]),
-																		debugGetPtrNameConst(master));
+						DEBUG_PRINT("Replacing %s with %s\n", var2Str(refs[i][i2]),
+																		var2Str(master));
 						// Replace with cloned value
 						replaceNodeWithExpr(refs[i][i2], cloneNode(master, IR_CLONE_NODE, NULL));
 				}

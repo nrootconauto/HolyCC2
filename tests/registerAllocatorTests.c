@@ -211,7 +211,7 @@ void registerAllocatorTests() {
 						graphNodeIRConnect( end,IRGetStmtStart(xRef3),  IR_CONN_FLOW);
 						end=xRef3;
 				}
-				/*{
+				{
 						__auto_type yRef4=createVarRef(y);
 						__auto_type xRef4=createVarRef(x);
 						__auto_type two4=createIntLit(2);
@@ -285,7 +285,7 @@ void registerAllocatorTests() {
 							
 							graphNodeIRConnect( end,IRGetStmtStart(binop),  IR_CONN_FLOW);
 							createReturn(binop, NULL);
-							}*/
+							}
 
 				debugShowGraph(start);
 				setArch(ARCH_TEST_SYSV);
