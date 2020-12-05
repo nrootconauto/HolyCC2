@@ -198,7 +198,7 @@ struct __vec *__vecUnique(struct __vec *vec, long itemSize,
 		if (++first == end)
 			break;
 
-		if (0 != pred((void *)vec + moveBuffer[res] * itemSize,
+		if (0!= pred((void *)vec + moveBuffer[res] * itemSize,
 		              (void *)vec + moveBuffer[first] * itemSize)) {
 			moveBuffer[++res] = moveBuffer[first];
 		}

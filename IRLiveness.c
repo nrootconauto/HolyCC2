@@ -13,7 +13,24 @@ typedef int (*varRefCmpType)(const struct IRVar **, const struct IRVar **);
 		*ptr = x;                                                                  \
 		ptr;                                                                       \
 	})
+static char *var2Str(graphNodeIR var) {
+		if(var==NULL)
+				return NULL;
+		
+		if(debugGetPtrNameConst(var))
+				return debugGetPtrName(var);
+		
+		__auto_type value=(struct IRNodeValue*)graphNodeIRValuePtr(var);
+		if(value->base.type!=IR_VALUE)
+				return NULL;
+		
+		char buffer[1024];
+		sprintf(buffer, "%s-%li", value->val.value.var.value.var->name,value->val.value.var.SSANum);
+		char *retVal=malloc(strlen(buffer)+1);
+		strcpy(retVal, buffer);
 
+		return retVal;
+}
 static int filterVars(void *data, struct __graphNode *node) {
 	graphNodeIR enterNode = data;
 	if (node == enterNode)
@@ -42,8 +59,8 @@ static void copyConnections(strGraphEdgeP in, strGraphEdgeP out) {
 				continue;
 
 			DEBUG_PRINT("Connecting %s to %s\n",
-			            debugGetPtrNameConst(*graphNodeMappingValuePtr(inNode)),
-			            debugGetPtrNameConst(*graphNodeMappingValuePtr(outNode)))
+			            var2Str(*graphNodeMappingValuePtr(inNode)),
+			            var2Str(*graphNodeMappingValuePtr(outNode)))
 			graphNodeMappingConnect(inNode, outNode, NULL);
 		}
 	}
@@ -70,7 +87,7 @@ struct basicBlock {
 };
 static void printVars(strVar vars) {
 	for (long i = 0; i != strVarSize(vars); i++) {
-		DEBUG_PRINT("    - %s\n", debugGetPtrNameConst(vars[i]));
+			DEBUG_PRINT("    - %s,%li\n", vars[i]->value.var->name,vars[i]->SSANum);
 	}
 }
 static int isExprEdge(graphEdgeIR edge) {
@@ -208,7 +225,7 @@ static strBasicBlock getBasicBlocksFromExpr(graphNodeIR dontDestroy,
 	strGraphNodeMappingP assignNodes = NULL;
 	for (long i = 0; i != strGraphNodeMappingPSize(nodes); i++) {
 		__auto_type ir = *graphNodeMappingValuePtr(nodes[i]);
-		const char *name = debugGetPtrNameConst(ir);
+		const char *name = var2Str(ir);
 		__auto_type irNode = graphNodeIRValuePtr(ir);
 		// Check if var
 		if (isVarNode(irNode)) {
@@ -227,7 +244,7 @@ static strBasicBlock getBasicBlocksFromExpr(graphNodeIR dontDestroy,
 					                                               (gnCmpType)ptrPtrCmp);
 #if DEBUG_PRINT_ENABLE
 					DEBUG_PRINT("Assign node :%s\n",
-					            debugGetPtrNameConst(*graphNodeMappingValuePtr(nodes[i])))
+					            var2Str(*graphNodeMappingValuePtr(nodes[i])))
 #endif
 				}
 		}
@@ -262,7 +279,7 @@ static strBasicBlock getBasicBlocksFromExpr(graphNodeIR dontDestroy,
 				                                         (gnCmpType)ptrPtrCmp);
 #if DEBUG_PRINT_ENABLE
 				DEBUG_PRINT("Assigning sink node :%s\n",
-				            debugGetPtrNameConst(*graphNodeMappingValuePtr(nodes[i])))
+				            var2Str(*graphNodeMappingValuePtr(nodes[i])))
 #endif
 			}
 		}
@@ -315,7 +332,7 @@ static strBasicBlock getBasicBlocksFromExpr(graphNodeIR dontDestroy,
 #if DEBUG_PRINT_ENABLE
 			DEBUG_PRINT(
 			    "Writing to %s\n",
-			    debugGetPtrNameConst(*graphNodeMappingValuePtr(assignNodes[i])));
+			    var2Str(*graphNodeMappingValuePtr(assignNodes[i])));
 #endif
 		}
 
@@ -334,15 +351,15 @@ static strBasicBlock getBasicBlocksFromExpr(graphNodeIR dontDestroy,
 
 				// Ensure isnt assigned node
 				if (NULL != strVarSortedFind(block.define, &var->val.value.var,
-				                             (varRefCmpType)ptrPtrCmp))
+				                             IRVarRefCmp))
 					continue;
 
 				block.read = strVarSortedInsert(block.read, &var->val.value.var,
-				                                (varRefCmpType)ptrPtrCmp);
+				                                IRVarRefCmp);
 #if DEBUG_PRINT_ENABLE
 				DEBUG_PRINT(
 				    "Reading from %s\n",
-				    debugGetPtrNameConst(*graphNodeMappingValuePtr(exprNodes[i])));
+				    var2Str(*graphNodeMappingValuePtr(exprNodes[i])));
 #endif
 			}
 		}
@@ -361,7 +378,7 @@ static strBasicBlock getBasicBlocksFromExpr(graphNodeIR dontDestroy,
 	            strGraphNodeMappingPSize(nodes), strBasicBlockSize(retVal));
 	for (long i = 0; i != strGraphNodeMappingPSize(nodes); i++) {
 		DEBUG_PRINT("    - %s\n",
-		            debugGetPtrNameConst(*graphNodeMappingValuePtr((nodes[i]))));
+		            var2Str(*graphNodeMappingValuePtr((nodes[i]))));
 	}
 #endif
 	// Remove consumed from possible sinks
@@ -372,7 +389,7 @@ static strBasicBlock getBasicBlocksFromExpr(graphNodeIR dontDestroy,
 	            strGraphNodeMappingPSize(nodes), strBasicBlockSize(retVal));
 	for (long i = 0; i != strGraphNodeMappingPSize(nodes); i++) {
 		DEBUG_PRINT("    - %s\n",
-		            debugGetPtrNameConst(*graphNodeMappingValuePtr((nodes[i]))));
+		            var2Str(*graphNodeMappingValuePtr((nodes[i]))));
 	}
 #endif
 	// ALL NODES MUST BE CONSUMED OR SOMETHING WENT WRONG
@@ -399,7 +416,7 @@ static strBasicBlock getBasicBlocksFromExpr(graphNodeIR dontDestroy,
 #if DEBUG_PRINT_ENABLE
 		DEBUG_PRINT("Replacing: %li items:\n", strGraphNodeMappingPSize(toReplace));
 		for (long i2 = 0; i2 != strGraphNodeMappingPSize(toReplace); i2++) {
-			DEBUG_PRINT("    - %s\n", debugGetPtrNameConst(*graphNodeMappingValuePtr(
+			DEBUG_PRINT("    - %s\n", var2Str(*graphNodeMappingValuePtr(
 			                              (toReplace[i2]))));
 		}
 #endif
@@ -415,7 +432,7 @@ static strBasicBlock getBasicBlocksFromExpr(graphNodeIR dontDestroy,
 #if DEBUG_PRINT_ENABLE
 				char buffer[128];
 				sprintf(buffer, "Block %s  metanode",
-												debugGetPtrNameConst(*graphNodeMappingValuePtr(toReplace[0])));
+												var2Str(*graphNodeMappingValuePtr(toReplace[0])));
 				debugAddPtrName(metaNode, buffer);
 #endif
 
@@ -455,7 +472,7 @@ static void __visitForwardOrdered(strGraphNodeMappingP *order,
 		*order = strGraphNodeMappingPAppendItem(*order, node2);
 #if DEBUG_PRINT_ENABLE
 		DEBUG_PRINT("Order %li is %s is %p\n", strGraphNodeMappingPSize(*order),
-		            debugGetPtrNameConst(node2), node2);
+		            var2Str(node2), node2);
 #endif
 
 		// Recur
@@ -465,10 +482,10 @@ static void __visitForwardOrdered(strGraphNodeMappingP *order,
 }
 static char *printMappedEdge(struct __graphEdge *edge) { return NULL; }
 static char *printMappedNodesValue(struct __graphNode *node) {
-	return debugGetPtrName(*graphNodeMappingValuePtr(node));
+	return var2Str(*graphNodeMappingValuePtr(node));
 }
 static char *printMappedNode(struct __graphNode *node) {
-	return debugGetPtrName(node);
+	return var2Str(node);
 }
 static strGraphNodeMappingP sortNodes(graphNodeMapping node) {
 	strGraphNodeMappingP order = NULL;
@@ -505,6 +522,11 @@ graphNodeIRLive IRInterferenceGraph(graphNodeIR start) {
 		__auto_type mappedClone = graphNodeCreateMapping(start, 0);
 		return IRInterferenceGraphFilter(mappedClone,NULL,NULL)[0];
 }
+static void validateStrVarSet(strVar vars) {
+		for(long i=0;i<strVarSize(vars)-1;i++) {
+				assert(0>=IRVarCmp(vars[i], vars[i+1]));
+		}
+}
 strGraphNodeIRLiveP __IRInterferenceGraphFilter(graphNodeMapping start,const void *data,int(*varFilter)(graphNodeIR node,const void *data)) {
 	mapBlockMetaNode metaNodes = mapBlockMetaNodeCreate();
 
@@ -540,15 +562,6 @@ char *name=tmpnam(NULL);
 
 			__auto_type basicBlocks =
 					getBasicBlocksFromExpr(mappedClone, metaNodes, allMappedNodes[i],data,varFilter);
-			/*
-			char *name=tmpnam(NULL);
-			FILE *f=fopen(name, "w");
-			graph2GraphViz(f, mappedClone, "Tmp", node2GraphViz, NULL, NULL, NULL);
-			fclose(f);
-			char buffer[1024];
-			sprintf(buffer,"dot -Tsvg %s>/tmp/dot.svg && firefox /tmp/dot.svg",name)
-			system(buffer);
-			*/
 
 			// NULL if not found
 			if (!basicBlocks)
@@ -575,7 +588,7 @@ char *name=tmpnam(NULL);
 	//
 	__auto_type allMappedNodes2 = graphNodeMappingAllNodes(mappedClone);
 	printf("Before:\n");
-	graphPrint(mappedClone, printMappedNode, printMappedEdge);
+	graphPrint(mappedClone, printMappedNodesValue, printMappedEdge);
 	for (long i = 0; i != strGraphNodeMappingPSize(allMappedNodes2); i++) {
 		// Dont destroy if start node
 		if (allMappedNodes2[i] == mappedClone)
@@ -610,7 +623,7 @@ char *name=tmpnam(NULL);
 
 #if DEBUG_PRINT_ENABLE
 		DEBUG_PRINT("Reseting in/outs of %s to empty.\n",
-		            debugGetPtrNameConst(find->node));
+		            var2Str(find->node));
 #endif
 
 		// Could be start node
@@ -637,9 +650,9 @@ char *name=tmpnam(NULL);
 			__auto_type oldOuts = strVarClone(find->block->out);
 
 #if DEBUG_PRINT_ENABLE
-			DEBUG_PRINT("Old ins of %s:\n", debugGetPtrNameConst(find->node));
+			DEBUG_PRINT("Old ins of %s:\n", var2Str(find->node));
 			printVars(oldIns);
-			DEBUG_PRINT("Old outs of %s:\n", debugGetPtrNameConst(find->node));
+			DEBUG_PRINT("Old outs of %s:\n", var2Str(find->node));
 			printVars(oldOuts);
 #endif
 
@@ -648,8 +661,11 @@ char *name=tmpnam(NULL);
 			__auto_type diff =
 			    strVarSetDifference(strVarClone(find->block->out),
 			                        find->block->define, (varRefCmpType)IRVarRefCmp);
+			validateStrVarSet(diff);
 			newIns = strVarSetUnion(newIns, diff, (varRefCmpType)IRVarRefCmp);
-			newIns = strVarUnique(newIns, (varRefCmpType)IRVarRefCmp, NULL);
+			validateStrVarSet(diff);
+			newIns = strVarUnique(newIns, IRVarRefCmp, NULL);
+			validateStrVarSet(newIns);
 			strVarDestroy(&diff);
 
 			// Union of successors insert
@@ -668,11 +684,11 @@ char *name=tmpnam(NULL);
 				newOuts = strVarSetUnion(newOuts, find2->block->in,
 				                         (varRefCmpType)IRVarRefCmp);
 			}
-			newOuts = strVarUnique(newOuts, (varRefCmpType)IRVarRefCmp, NULL);
+			newOuts = strVarUnique(newOuts, IRVarRefCmp, NULL);
 #if DEBUG_PRINT_ENABLE
-			DEBUG_PRINT("New ins of %s:\n", debugGetPtrNameConst(find->node));
+			DEBUG_PRINT("New ins of %s:\n", var2Str(find->node));
 			printVars(newIns);
-			DEBUG_PRINT("New outs of %s:\n", debugGetPtrNameConst(find->node));
+			DEBUG_PRINT("New outs of %s:\n", var2Str(find->node));
 			printVars(newOuts);
 #endif
 
