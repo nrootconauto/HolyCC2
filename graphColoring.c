@@ -81,7 +81,7 @@ static strGraphNodeP adj(struct __graphNode *node) {
 
 	for (long i = 0; i != strGraphEdgePSize(in); i++)
 		if (NULL ==
-		    strGraphNodePSortedFind(retVal, __graphEdgeOutgoing(in[i]), (gnCmpType)ptrPtrCmp))
+		    strGraphNodePSortedFind(retVal, __graphEdgeIncoming(in[i]), (gnCmpType)ptrPtrCmp))
 			retVal = strGraphNodePSortedInsert(retVal, __graphEdgeIncoming(in[i]),
 			                                   (gnCmpType)ptrPtrCmp);
 
