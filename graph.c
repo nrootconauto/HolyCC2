@@ -3,6 +3,7 @@
 #include <graph.h>
 #include <hashTable.h>
 #include <stdbool.h>
+#include <assert.h>
 #include <stdlib.h>
 #include <str.h>
 #define DEBUG_PRINT_ENABLE 1
@@ -351,12 +352,16 @@ strGraphEdgeP __graphNodeOutgoing(const struct __graphNode *node) {
 	return strGraphEdgePAppendData(NULL, (void *)node->outgoing,
 	                               strGraphEdgePSize(node->outgoing));
 }
+static int ptrEqual(const void *a,const void *b) {return a==b;}
 strGraphNodeP __graphNodeOutgoingNodes(const struct __graphNode *node) {
 	strGraphNodeP retVal =
 	    strGraphNodePResize(NULL, strGraphEdgePSize(node->outgoing));
 	for (long i = 0; i != strGraphEdgePSize(node->outgoing); i++)
 		retVal[i] = node->outgoing[i]->to;
-
+	
+	//Sort
+	qsort(retVal, strGraphNodePSize(retVal), sizeof(*retVal), ptrCompare);
+	
 	return retVal;
 }
 strGraphNodeP __graphNodeIncomingNodes(const struct __graphNode *node) {
@@ -364,8 +369,10 @@ strGraphNodeP __graphNodeIncomingNodes(const struct __graphNode *node) {
 	    strGraphNodePResize(NULL, strGraphEdgePSize(node->incoming));
 	for (long i = 0; i != strGraphEdgePSize(node->incoming); i++)
 		retVal[i] = node->incoming[i]->from;
+	
+	//Sort
+	qsort(retVal, strGraphNodePSize(retVal), sizeof(*retVal), ptrCompare);
 
-	return retVal;
 	return retVal;
 }
 strGraphEdgeP __graphNodeIncoming(const struct __graphNode *node) {
@@ -781,18 +788,22 @@ static strGraphNodeP graphVizRankSort(const struct __graphNode *enter,
 			free(key);
 
 			// Add current to visited
-			visited =
+			if(NULL==strGraphNodePSortedFind(visited, current[i], (gnCmpType)ptrCompare))
+					visited =
 			    strGraphNodePSortedInsert(visited, current[i], (gnCmpType)ptrCompare);
 
 			// Filter out visited nodes
 			__auto_type outs = __graphNodeOutgoingNodes(current[i]);
 			outs = strGraphNodePSetDifference(outs, visited, (gnCmpType)ptrCompare);
-
+			
 			// Add outs to next;
 			next = strGraphNodePSetUnion(next, outs, (gnCmpType)ptrCompare);
 		}
 
 		strGraphNodePDestroy(&current);
+
+		next=strGraphNodePSetDifference(next, visited, (gnCmpType)ptrCompare);
+		
 		current = next;
 
 		if (strGraphNodePSize(current) == 0)
@@ -835,6 +846,55 @@ static strGraphNodeP graphVizRankSort(const struct __graphNode *enter,
 		retVal[i] = buffer[i].node;
 
 	return retVal;
+}
+struct nodeToLabelForward {
+		char *(*nodeToLabel)(const struct __graphNode *node,
+                                         mapGraphVizAttr *attrs,
+																							const void *data);
+		void *data;
+};
+static char *__undirNodeForward(const struct __graphNode *node,
+                                         mapGraphVizAttr *attrs,
+                                         const void *data) {
+		const struct nodeToLabelForward *data2=data;
+		if(!data2->nodeToLabel)
+				return NULL;
+		
+		return data2->nodeToLabel(*graphNodeMappingValuePtr((struct __graphNode*)node),attrs,data2->data);
+}
+static char *__undirEdgeAttrsGraphViz(const struct __graphEdge *node,
+                                         mapGraphVizAttr *attrs,
+																																						const void *data) {
+		mapGraphVizAttrInsert(*attrs,"dirType",strClone("none"));
+		return NULL;
+}
+void graph2GraphVizUndir(FILE *dumpTo, graphNodeMapping graph, const char *title,
+                    char *(*nodeToLabel)(const struct __graphNode *node,
+                                         mapGraphVizAttr *attrs,
+                                         const void *data),
+																									const void *nodeData) {
+		__auto_type mapped=graphNodeCreateMapping(graph, 0);
+		__auto_type allNodes = __graphNodeVisitAll(mapped);
+		for(long i=0;i!=strGraphNodeMappingPSize(allNodes);i++) {
+				//Ensure 1 connection back and forth
+		modified:
+				for(long i2=0;i2!=strGraphEdgePSize(allNodes[i]->outgoing);i2++) {
+						__auto_type out=allNodes[i]->outgoing[i2]->to;
+						//Check for reverse 
+						if(graphNodeMappingConnectedTo(out, allNodes[i])) {
+								//Kill reverse connections
+								//TODO rename
+								__graphEdgeKillAllPred(out, allNodes[i], NULL, NULL, NULL);
+								goto modified;
+						}
+				}
+		}
+
+		struct nodeToLabelForward forward;
+		forward.data=(void*)nodeData;
+		forward.nodeToLabel=nodeToLabel;
+
+		graph2GraphViz(dumpTo,mapped,title,__undirNodeForward,__undirEdgeAttrsGraphViz,&forward,NULL);
 }
 void graph2GraphViz(FILE *dumpTo, graphNodeMapping graph, const char *title,
                     char *(*nodeToLabel)(const struct __graphNode *node,

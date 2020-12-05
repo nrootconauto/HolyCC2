@@ -54,7 +54,7 @@ static char *interfereNode2Label(const struct __graphNode * node, mapGraphVizAtt
 static void debugPrintInterferenceGraph(graphNodeIRLive graph) {
 		char *fn=tmpnam(NULL);
 		FILE *file=fopen(fn, "w");
-		graph2GraphViz(file, graph, "interference",interfereNode2Label, NULL,NULL,NULL);
+		graph2GraphVizUndir(file, graph, "interference",interfereNode2Label, NULL);
 		fclose(file);
 
 		char buffer[512];
@@ -314,27 +314,11 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 										
 										refs[aIndex]=strGraphNodeIRPSetUnion(refs[aIndex], refs[bIndex], (gnCmpType)ptrPtrCmp);
 
-#if DEBUG_PRINT_ENABLE
-										printf("New items:\n");
-										for(long i=0;i!=strGraphNodeIRPSize(refs[aIndex]);i++) {
-												DEBUG_PRINT("    %s\n", var2Str(refs[aIndex][i]));
-										}
-#endif
 
 										//Remove bIndex
 										memmove(&refs[bIndex], &refs[bIndex+1], (strVarRefsSize(refs)-bIndex-1)*sizeof(*refs));
 										//Pop to decrement size
 										refs=strVarRefsPop(refs, NULL);
-
-										printf("==== ALL ITEMS ====:\n");
-										for (long i = 0; i != strVarRefsSize(refs); i++) {
-#if DEBUG_PRINT_ENABLE
-												printf("ALL ITEMS %i:\n",i);
-												for(long i2=0;i2!=strGraphNodeIRPSize(refs[i]);i2++) {
-														DEBUG_PRINT("    %s\n", var2Str(refs[i][i2]));
-												}
-#endif
-										}
 								}
 						}
 				}
@@ -346,12 +330,6 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 		// Replace vars with aliases
 		//
 		for (long i = 0; i != strVarRefsSize(refs); i++) {
-				#if DEBUG_PRINT_ENABLE
-										printf("New items:\n");
-										for(long i2=0;i2!=strGraphNodeIRPSize(refs[i]);i2++) {
-												DEBUG_PRINT("    %s\n", var2Str(refs[i][i2]));
-										}
-#endif
 				// Find first ref.
 				__auto_type master = refs[i][0];
 
@@ -919,7 +897,7 @@ void IRRegisterAllocate(graphNodeIR start,color2RegPredicate colorFunc,void *col
 		__auto_type allNodes = graphNodeIRAllNodes(start);
 		removeChooseNodes(allNodes, start);
 		IRToSSA(start);
-		debugShowGraphIR(start);
+		//debugShowGraphIR(start);
 	
 __auto_type allNodes2 = graphNodeIRAllNodes(start);
 	for(long i=0;i!=strGraphNodeIRPSize(allNodes2);i++) {
@@ -930,12 +908,12 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 	//Merge variables that can be merges
 		strGraphNodeIRPDestroy(&allNodes);
 		allNodes = graphNodeIRAllNodes(start);
-		debugShowGraphIR(start);
+		//debugShowGraphIR(start);
 		IRCoalesce(allNodes, start);
-		debugShowGraphIR(start);
+		//debugShowGraphIR(start);
 		IRRemoveRepeatAssigns(start);
 		
-	debugShowGraphIR(start);
+		debugShowGraphIR(start);
 	//Do integer and floating variables seperatley
 	__auto_type intRegs=getIntRegs();
 	__auto_type floatRegs=getFloatRegs();

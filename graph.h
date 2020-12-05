@@ -242,3 +242,8 @@ long graphEdgeValueSize(const struct __graphEdge *edge);
 graphNodeMapping graphNodeCreateMapping(const struct __graphNode *node,
                                         int preserveConnections);
 strGraphPath graphAllPathsToPredicate(struct __graphNode *from, const void *data,int(*predicate)(const struct __graphNode *node,const void *data));
+void graph2GraphVizUndir(FILE *dumpTo, graphNodeMapping graph, const char *title,
+                    char *(*nodeToLabel)(const struct __graphNode *node,
+                                         mapGraphVizAttr *attrs,
+                                         const void *data),
+																									const void *nodeData);

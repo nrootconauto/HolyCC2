@@ -68,9 +68,8 @@ void registerAllocatorTests() {
 		
 				//Merge
 				__auto_type 	allNodes= graphNodeIRAllNodes(one);
-				debugShowGraph(one);
+				
 				IRCoalesce(allNodes, one);
-				debugShowGraph(one);
 				
 				//Search for a and bRef3 being merged
 				__auto_type outgoing=graphNodeIROutgoingNodes(one);
@@ -140,8 +139,6 @@ void registerAllocatorTests() {
 
 				//Replace redundant assigns
 				IRRemoveRepeatAssigns(one);
-
-				debugShowGraph(one);
 
 				outgoingFrom=graphNodeIROutgoingNodes(one);
 				val=(void*)graphNodeIRValuePtr(outgoingFrom[0]);
@@ -287,7 +284,7 @@ void registerAllocatorTests() {
 							createReturn(binop, NULL);
 							}
 
-				debugShowGraph(start);
+					//debugShowGraph(start);
 				setArch(ARCH_TEST_SYSV);
 				IRRegisterAllocate(start, NULL, NULL);
 		}
