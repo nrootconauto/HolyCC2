@@ -98,7 +98,7 @@ static strRegP regsTestFloat;
 static void init() {
 		
 	regX86AL = createRegister("AL", 1, 0);
-	regX86DL = createRegister("BL", 1, 0);
+	regX86BL = createRegister("BL", 1, 0);
 	regX86CL = createRegister("CL", 1, 0);
 	regX86DL = createRegister("DL", 1, 0);
 

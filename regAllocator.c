@@ -688,7 +688,12 @@ static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spil
 						break;
 				}
 		}
-		
+
+		if(!liveNode) {
+				//Var isnt part of (this) interference graph,so quit
+				return;
+		}
+
 		//Find variables that interfere with var
 		__auto_type interfere=graphNodeIRLiveOutgoingNodes(liveNode);
 		strIRVar allVars=NULL;
@@ -911,7 +916,7 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 			__auto_type colors=getColorList(vertexColors);
 
 			//Choose registers
-			mapRegSlice regsByLivenessNode=mapRegSliceCreate(); //TODO rename
+ 			mapRegSlice regsByLivenessNode=mapRegSliceCreate(); //TODO rename
 			__auto_type allColorNodes=graphNodeIRLiveAllNodes(interfere);
 			for(long i=0;i!=strGraphNodeIRLivePSize(allColorNodes);i++) {
 					//Get adjacent items
@@ -956,7 +961,7 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 							free(nodeName2);
 #endif
 					
-					strRegSliceDestroy(&adj),strGraphNodeIRLivePDestroy(&allColorNodes);
+					strRegSliceDestroy(&adj);
 			}
 
 			//Get conflicts and spill nodes
@@ -1085,7 +1090,8 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 									findVarInterfereAt(regsByLivenessNode, spillNodes, allColorNodes, allNodes[i], &nodeValue->val.value.var);
 							}
 					}
-			}
+			}	
+			strGraphNodeIRLivePDestroy(&allColorNodes);
 	}
 }
 /*
