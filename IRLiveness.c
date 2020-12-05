@@ -505,7 +505,7 @@ graphNodeIRLive IRInterferenceGraph(graphNodeIR start) {
 		__auto_type mappedClone = graphNodeCreateMapping(start, 0);
 		return IRInterferenceGraphFilter(mappedClone,NULL,NULL)[0];
 }
-strGraphNodeIRLiveP IRInterferenceGraphFilter(graphNodeMapping start,const void *data,int(*varFilter)(graphNodeIR node,const void *data)) {
+strGraphNodeIRLiveP __IRInterferenceGraphFilter(graphNodeMapping start,const void *data,int(*varFilter)(graphNodeIR node,const void *data)) {
 	mapBlockMetaNode metaNodes = mapBlockMetaNodeCreate();
 
 	//
@@ -798,4 +798,8 @@ char *name=tmpnam(NULL);
 	strGraphNodeIRLivePDestroy(&retVal);
 	
 	return allGraphs;
+}
+strGraphNodeIRLiveP IRInterferenceGraphFilter(graphNodeIR start,const void *data,int(*varFilter)(graphNodeIR node,const void *data)) {
+		__auto_type mappedClone = graphNodeCreateMapping(start, 0);
+		return __IRInterferenceGraphFilter(mappedClone,data,varFilter);
 }

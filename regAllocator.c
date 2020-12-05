@@ -889,9 +889,6 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 		IRRemoveRepeatAssigns(start);
 		
 	debugShowGraphIR(start);
-	//Contruct an interference graph and color it
-	__auto_type interfere=IRInterferenceGraph(start);
-	abort();
 	//Do integer and floating variables seperatley
 	__auto_type intRegs=getIntRegs();
 	__auto_type floatRegs=getFloatRegs();
