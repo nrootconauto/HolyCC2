@@ -69,7 +69,7 @@ graphNodeIR createRegRef(const struct regSlice *slice) {
 graphNodeIR createLoad(struct IRVar *var) {
 		struct IRNodeSpill load;
 		load.base.attrs=NULL;
-		load.base.type=IR_SPILL;
+		load.base.type=IR_LOAD;
 		load.item.type=IR_VAL_VAR_REF;
 		load.item.value.var=*var;
 
@@ -700,7 +700,7 @@ static const char *rainbowColors[] = {
 MAP_TYPE_DEF(int, LabelNum);
 MAP_TYPE_FUNCS(int, LabelNum);
 
-static strChar IRValue2GraphVizLabel(struct IRValue *val) {
+static char *IRValue2GraphVizLabel(struct IRValue *val) {
 	// Choose a label based on type
 	switch (val->type) {
 	case IR_VAL_FUNC: {
@@ -810,24 +810,24 @@ static char *IRCreateGraphVizNode(const struct __graphNode *node,
 	switch (value->type) {
 	case IR_LOAD: {
 			struct IRNodeLoad *load=(void*)value;
-			strChar val=IRValue2GraphVizLabel(&load->item);
+			char *val=IRValue2GraphVizLabel(&load->item);
 			const char *format="LOAD: %s";
 			long len=snprintf(NULL,0,format,val);
 			char buffer[len+1];
 			sprintf(buffer, format, val);
 
-			strCharDestroy(&val);
+			free(val);
 			return strClone(buffer);
 	}
 	case IR_SPILL: {
 			struct IRNodeLoad *load=(void*)value;
-			strChar val=IRValue2GraphVizLabel(&load->item);
+			char *val=IRValue2GraphVizLabel(&load->item);
 			const char *format="SPILL: %s";
 			long len=snprintf(NULL,0,format,val);
 			char buffer[len+1];
 			sprintf(buffer, format, val);
 
-			strCharDestroy(&val);
+			free(val);
 			return strClone(buffer);
 	}
 	case IR_CHOOSE:
@@ -842,7 +842,7 @@ static char *IRCreateGraphVizNode(const struct __graphNode *node,
 	case IR_FUNC_START:
 		return strClone("FUNC-START");
 	case IR_FUNC_END:
-		return strClone("FUNC-START");
+		return strClone("FUNC-END");
 	case IR_JUMP:
 		makeGVProcessNode(attrs);
 		return strClone("GOTO");
@@ -887,7 +887,6 @@ static char *IRCreateGraphVizNode(const struct __graphNode *node,
 	case IR_SUB_SWITCH_START_LABEL:
 		makeGVTerminalNode(attrs);
 		return strClone("SUB-SWITCH START");
-
 	default:;
 		// Check for operator type
 		__auto_type retVal = opToText(value->type);
