@@ -11,6 +11,9 @@
 static char *ptr2Str(const void *a) {
 		return base64Enc((void*)&a, sizeof(a));
 }
+static int IRVarCmp2(const struct IRVar **a,const struct IRVar **b) {
+		return IRVarCmp(*a, *b);
+}
 static char *var2Str(graphNodeIR var) {
 		if(debugGetPtrNameConst(var))
 				return debugGetPtrName(var);
@@ -78,7 +81,15 @@ static void debugPrintInterferenceGraph(graphNodeIRLive graph,mapRegSlice map) {
 		sprintf(buffer, "sleep 0.1 && dot -Tsvg %s>/tmp/interfere.svg  && firefox /tmp/interfere.svg &", fn);
 		system(buffer);
 } 
-static const char *IR_ATTR_SPILL_LOAD_AT_NODE="SPILLED_OR_LOADED_AT_NODE";
+static const char *IR_ATTR_NODE_SPILL_LOADS_COMPUTED="COMPUTED_SPILLS_AND_LOADS";
+static const char *IR_ATTR_NODE_VARS_SPILLED_AT="SPILLED_VAR_AT";
+static const char *IR_ATTR_NODE_LOAD_VAR_AT="LOADED_VAR_AT";
+STR_TYPE_DEF(struct IRVar*,IRVar);
+STR_TYPE_FUNCS(struct IRVar*,IRVar);
+struct IRAttrSpilledVarsAt {
+		struct IRAttr base;
+		strIRVar vars;
+};
 typedef int (*gnCmpType)(const graphNodeIR *, const graphNodeIR *);
 static int ptrPtrCmp(const void *a, const void *b) {
 	if (*(void **)a > *(void **)b)
@@ -628,10 +639,6 @@ static int metricPairCmp(const void *a,const void *b) {
 		else
 				return 0;
 }
-STR_TYPE_DEF(struct IRVar*,IRVar);
-STR_TYPE_FUNCS(struct IRVar*,IRVar);
-typedef int(*IRVarCmpType)(const struct IRVar**,const struct IRVar**);
-
 struct interferencePair {
 		struct IRVar *var;
 		strIRVar inteferesWith;
@@ -726,9 +733,16 @@ STR_TYPE_DEF(struct varToLiveNode,VarToLiveNode);
 STR_TYPE_FUNCS(struct varToLiveNode,VarToLiveNode);
 static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spillNodes,strGraphNodeIRLiveP allLiveNodes,graphNodeIR startAt,struct IRVar *startAtVar) {
 		//Quit if already did spill/loads on node
-		__auto_type find=llIRAttrFind( graphNodeIRValuePtr(startAt)->attrs,IR_ATTR_SPILL_LOAD_AT_NODE, IRAttrGetPred);
+		__auto_type find=llIRAttrFind( graphNodeIRValuePtr(startAt)->attrs,IR_ATTR_NODE_SPILL_LOADS_COMPUTED, IRAttrGetPred);
 		if(find)
 				return;
+
+		//Mark node as computed
+		struct IRAttr attr;
+		attr.name=(void*)IR_ATTR_NODE_SPILL_LOADS_COMPUTED;
+		__auto_type newAttr= __llCreate(&attr, sizeof(attr));
+		llIRAttrInsert(graphNodeIRValuePtr(startAt)->attrs, newAttr, IRAttrInsertPred);
+		graphNodeIRValuePtr(startAt)->attrs=newAttr;
 		
 		graphNodeIRLive liveNode=NULL;
 		
@@ -774,7 +788,7 @@ static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spil
 								pair.var=var;
 								varToLive=strVarToLiveNodeSortedInsert(varToLive, pair, varToLiveNodeCompare);
 								
-								allVars=strIRVarSortedInsert(allVars, var, (IRVarCmpType)IRVarCmp);
+								allVars=strIRVarSortedInsert(allVars, var, IRVarCmp2);
 						}
 				}
 		}
@@ -800,14 +814,33 @@ static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spil
 				//Check if points to variable(which is should)
 				else if(graphNodeIRValuePtr(lastNode)->type==IR_VALUE) {
 						if(isVar(lastNode)) {
-
-								//Mark node as having spilled/loaded to.
-								struct IRAttr attr;
-								attr.name=(void*)IR_ATTR_SPILL_LOAD_AT_NODE;
-								__auto_type newAttr= __llCreate(&attr, sizeof(attr));
-								llIRAttrInsert(graphNodeIRValuePtr(lastNode)->attrs, newAttr, IRAttrInsertPred);
-								graphNodeIRValuePtr(lastNode)->attrs=newAttr;
+								//Mark node as spilled to by current variable
+								struct IRVar *currVar=graphNodeIRLiveValuePtr(liveNode)->ref;
 								
+								//Quit spill/load if current variable is already spilled here
+								__auto_type find=llIRAttrFind(graphNodeIRValuePtr(lastNode)->attrs,  IR_ATTR_NODE_VARS_SPILLED_AT ,  IRAttrGetPred);
+								if(find) {
+										//Check if current spilled variables include currVar
+										__auto_type spilledAt=(struct IRAttrSpilledVarsAt*)llIRAttrValuePtr(find);
+										if(strIRVarSortedFind(spilledAt->vars, currVar, IRVarCmp2)) {
+												continue; //No need to re-spill
+										} else {
+												//Insert currVar into the spilled variables
+												spilledAt->vars=strIRVarSortedInsert(spilledAt->vars, currVar, IRVarCmp2);
+										}
+												
+								} else {
+										//Insert a new attribute of spilled vars at 
+										struct IRAttrSpilledVarsAt attr;
+										attr.base.name=(void*)IR_ATTR_NODE_VARS_SPILLED_AT;
+										attr.vars=strIRVarAppendItem(NULL, currVar);
+
+										__auto_type newAttr= __llCreate(&attr, sizeof(attr));
+										llIRAttrInsert(graphNodeIRValuePtr(lastNode)->attrs, newAttr, IRAttrInsertPred);
+										graphNodeIRValuePtr(lastNode)->attrs=newAttr;
+								}
+								
+										
 								//Store var's value before entering new variable,then load new variable's value
 								__auto_type spill=createSpill(startAtVar);
 								__auto_type spillReg=createRegRef(currReg);
@@ -857,8 +890,8 @@ static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spil
 										if(var==startAtVar)
 												continue;
 										
-										if(NULL!=strIRVarSortedFind(allVars, var, (IRVarCmpType)IRVarCmp))
-												spillVars=strIRVarSortedInsert(spillVars,var, (IRVarCmpType)IRVarCmp);
+										if(NULL!=strIRVarSortedFind(allVars, var, IRVarCmp2))
+												spillVars=strIRVarSortedInsert(spillVars,var, IRVarCmp2);
 								}
 								//Replace
 								__auto_type endOfExpression=IRGetEndOfExpr(lastNode);
@@ -878,6 +911,7 @@ static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spil
 //
 // This a function for turning colors into registers
 //
+
 typedef int(*regCmpType)(const struct reg **,const struct reg **);
 typedef struct regSlice (*color2RegPredicate)(strRegSlice adjacent,strRegP avail,graphNodeIRLive live,int color,const void *data,long colorCount,const int *colors);
 static struct regSlice color2Reg(strRegSlice adjacent,strRegP avail,graphNodeIRLive live,int color,const void *data,long colorCount,const int *colors) {
@@ -1165,7 +1199,7 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 			for(long i=0;i!=strGraphNodeIRLivePSize(spillNodes);i++) {
 					__auto_type var=graphNodeIRLiveValuePtr(spillNodes[i])->ref;
 									
-					spillVars=strIRVarSortedInsert(spillVars,var, (IRVarCmpType)IRVarCmp);
+					spillVars=strIRVarSortedInsert(spillVars,var, IRVarCmp2);
 			}
 			
 			//Find all IR nodes with conflict then run a load/spill insert operation starting from that node
