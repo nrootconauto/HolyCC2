@@ -6,6 +6,7 @@
 #include <parserA.h>
 #include <registers.h>
 #include <str.h>
+#include <registers.h>
 enum IRFlag {
 	IR_FLAG_EQZ,
 	IR_FLAG_NEQZ,

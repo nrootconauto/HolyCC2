@@ -718,8 +718,9 @@ static char *IRValue2GraphVizLabel(struct IRValue *val) {
 		return labelText;
 	}
 	case IR_VAL_REG:
-		// TODO
-		break;
+			if(val->value.reg.reg->name)
+					return FROM_FORMAT("VAL REG:%s",val->value.reg.reg->name);
+			break;
 	case IR_VAL_STR_LIT: {
 		const char *format = "VAL STR:\"%s\"";
 		return FROM_FORMAT(format, val->value.strLit);
