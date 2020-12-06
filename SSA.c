@@ -231,6 +231,12 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 	__auto_type varAssignG =
 	    createFilteredGraph(start, allNodes, &pair,
 	                        (int (*)(struct __graphNode *,void *))isAssignedVar);
+	
+	if(!varAssignG) {
+			mapGraphNodeDestroy(IR2MappingNode, NULL);
+			return ;
+	}
+	
 	__auto_type allVarAssigns = graphNodeMappingAllNodes(varAssignG);
 	__auto_type allAssignPaths = graphAllPathsTo(varAssignG, NULL);
 
