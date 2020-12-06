@@ -41,20 +41,37 @@ static void debugShowGraphIR(graphNodeIR enter) {
 MAP_TYPE_DEF(struct regSlice,RegSlice);
 MAP_TYPE_FUNCS(struct regSlice,RegSlice);
 static char *interfereNode2Label(const struct __graphNode * node, mapGraphVizAttr *attrs, const void *data) {
+		mapRegSlice map=(void*)data;
+		
 		__auto_type var=graphNodeIRLiveValuePtr((graphNodeIRLive)node)->ref;
 		char *name=debugGetPtrName(var);
 		if(name)
-				return name;
+				name=name;
+		else if(var->value.var->name)
+				name=strClone(var->value.var->name);
+		else
+				name= ptr2Str(var);
 
-		if(var->value.var->name)
-				return strClone(var->value.var->name);
+		__auto_type key=ptr2Str(node);
+		if(map)
+		if(mapRegSliceGet(map, key)) {
+				const char *format="%s(%s)";
+				long len=snprintf(NULL,0, format,name, mapRegSliceGet(map, key)->reg->name);
+				char buffer[len+1];
+				sprintf(buffer,format,name, mapRegSliceGet(map, key)->reg->name);
 
-		return ptr2Str(var);
+				free(name);
+				return strClone(buffer);
+		}
+
+		free(key);
+
+		return name;
 }
-static void debugPrintInterferenceGraph(graphNodeIRLive graph) {
+static void debugPrintInterferenceGraph(graphNodeIRLive graph,mapRegSlice map) {
 		char *fn=tmpnam(NULL);
 		FILE *file=fopen(fn, "w");
-		graph2GraphVizUndir(file, graph, "interference",interfereNode2Label, NULL);
+		graph2GraphVizUndir(file, graph, "interference",interfereNode2Label, map);
 		fclose(file);
 
 		char buffer[512];
@@ -531,7 +548,7 @@ static strConflictPair recolorAdjacentNodes(mapRegSlice node2RegSlice,graphNodeI
 
 								//Check if exists if the pair is reverses,there is no need for duplicates
 								struct conflictPair backwards={outgoingNodes[i2],allNodes[i]};
-								if(NULL==strConflictPairSortedFind(conflicts, backwards, conflictPairCmp))
+								if(NULL!=strConflictPairSortedFind(conflicts, backwards, conflictPairCmp))
 										continue;
 								
 								//Check if exists,if so dont insert
@@ -544,7 +561,7 @@ static strConflictPair recolorAdjacentNodes(mapRegSlice node2RegSlice,graphNodeI
 										char *aName=interfereNode2Label(allNodes[i], NULL, NULL);
 										char *bName=interfereNode2Label(outgoingNodes[i2], NULL, NULL);
 										
-										DEBUG_PRINT("Adding [%s,%s] to conflicts", aName,bName);
+										DEBUG_PRINT("Adding [%s,%s] to conflicts\n", aName,bName);
 										free(aName),free(bName);
 #endif
 										
@@ -939,7 +956,7 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 	for(long i=0;i!=strGraphNodeIRLivePSize(intInterfere);i++)
 	{
 			__auto_type interfere=intInterfere[i];
-			debugPrintInterferenceGraph(interfere);
+			debugPrintInterferenceGraph(interfere,NULL);
 			
 			__auto_type vertexColors=graphColor(interfere);
 
@@ -1003,6 +1020,7 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 					
 					strRegSliceDestroy(&adj);
 			}
+ 			debugPrintInterferenceGraph(interfere,regsByLivenessNode);
 
 			//Get conflicts and spill nodes
 			strGraphNodeIRLiveP spillNodes=NULL;
@@ -1038,8 +1056,8 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 							//Break if no change
 							long newSize=strConflictPairSize(conflictsWithFirst);
 
-							DEBUG_PRINT("OldSize %li,newSize %li", oldSize,newSize);
-							if(oldSize!=newSize)
+							DEBUG_PRINT("OldSize %li,newSize %li\n", oldSize,newSize);
+							if(oldSize==newSize)
 									break;
 					}
 
@@ -1066,8 +1084,8 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 					
 					//Remove all references to spilled node in conflicts and conflictsSortedByWeight
 					typedef int(*removeIfPred)(const void*,const struct conflictPair*);
-					conflicts=strConflictPairRemoveIf(conflicts, &conflicts[lowestConflictI].a,(removeIfPred)conflictPairContains);
-					conflictsSortedByWeight=strConflictPairRemoveIf(conflictsSortedByWeight, &conflicts[lowestConflictI].a,(removeIfPred)conflictPairContains);
+					conflicts=strConflictPairRemoveIf(conflicts, conflicts[lowestConflictI].a,(removeIfPred)conflictPairContains);
+					conflictsSortedByWeight=strConflictPairRemoveIf(conflictsSortedByWeight, conflicts[lowestConflictI].a,(removeIfPred)conflictPairContains);
 			}
 			strConflictPairDestroy(&conflicts);
 			
