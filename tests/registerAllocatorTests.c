@@ -153,12 +153,12 @@ void registerAllocatorTests() {
 		// Register allocater test
 		//
 		{
-				__auto_type u=createVirtVar(&typeI64i);
-				__auto_type v=createVirtVar(&typeI64i);
-				__auto_type w=createVirtVar(&typeI64i);
-				__auto_type x=createVirtVar(&typeI64i);
-				__auto_type y=createVirtVar(&typeI64i);
-				__auto_type z=createVirtVar(&typeI64i);
+				__auto_type u=createVirtVar(&typeI32i);
+				__auto_type v=createVirtVar(&typeI32i);
+				__auto_type w=createVirtVar(&typeI32i);
+				__auto_type x=createVirtVar(&typeI32i);
+				__auto_type y=createVirtVar(&typeI32i);
+				__auto_type z=createVirtVar(&typeI32i);
 				u->name="U";
 				v->name="V";
 				w->name="W";

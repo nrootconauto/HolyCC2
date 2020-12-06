@@ -10,6 +10,23 @@ MAP_TYPE_FUNCS(struct object *, Object);
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
 static __thread mapObject objectRegistry = NULL;
+struct object *objectBaseType(const struct object *obj) {
+		if(obj->type==TYPE_CLASS) {
+				struct objectClass *cls=(void*)obj;
+				if(!cls->baseType)
+						return (struct object*)obj;
+				
+				return objectBaseType(cls->baseType);
+		} else if(obj->type==TYPE_UNION) {
+				struct objectUnion *un=(void*)obj;
+				if(!un->baseType)
+						return (struct object*)obj;
+
+				return objectBaseType(un->baseType);
+		}
+
+		return (struct object*)obj;
+} 
 /* This function clones a string. */
 static char * /*Free with `free`*/
 strClone(const char *str) {

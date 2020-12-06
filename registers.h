@@ -1,13 +1,23 @@
 #pragma once
 #include <str.h>
+#include <object.h>
 struct reg;
 STR_TYPE_DEF(struct reg *, RegP);
 STR_TYPE_FUNCS(struct reg *, RegP);
 STR_TYPE_DEF(struct regSlice, RegSlice);
+enum regType {
+		REG_TYPE_GP=1,
+		REG_TYPE_FLOATING=2,
+		REG_TYPE_SYSTEM=4,
+		REG_TYPE_STACK=8,
+		REG_TYPE_FRAME_PTR=16,
+		REG_TYPE_FRAME_SIMD=32,
+};
 struct reg {
 	const char *name;
 	strRegSlice affects;
 	int size;
+		enum regType type;
 };
 struct regSlice {
 	struct reg *reg;
@@ -60,10 +70,6 @@ extern struct reg regX86ST5;
 extern struct reg regX86ST6;
 extern struct reg regX86ST7;
 
-const strRegP getIntRegs(); 
-const strRegP getFloatRegs();
-const strRegP getSIMDRegs();
-
 enum archConfig {
 		ARCH_TEST_SYSV,
 		ARCH_X86_SYSV,
@@ -71,3 +77,4 @@ enum archConfig {
 };
 void setArch(enum archConfig Arch);
 int regSliceConflict(struct regSlice *a,struct regSlice *b);
+strRegP regGetForType(struct object *type);

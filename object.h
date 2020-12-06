@@ -57,6 +57,7 @@ LL_TYPE_DEF(struct objectMethod, Method);
 LL_TYPE_FUNCS(struct objectMethod, Method);
 struct objectClass {
 	struct object base;
+		struct object *baseType;
 	struct parserNode *name;
 	strObjectMember members;
 	llMethod methods;
@@ -65,7 +66,8 @@ struct objectClass {
 };
 struct objectUnion {
 	struct object base;
-	struct parserNode *name;
+		struct object *baseType;
+		struct parserNode *name;
 	strObjectMember members;
 	long align;
 	long size;
@@ -131,3 +133,4 @@ void strFuncArgDestroy2(strFuncArg *args);
 char *object2Str(struct object *obj);
 int objectEqual(const struct object *a, const struct object *b);
 int objectIsCompat(const struct object *a, const struct object *b);
+struct object *objectBaseType(const struct object *obj);

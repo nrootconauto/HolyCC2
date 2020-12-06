@@ -833,15 +833,30 @@ static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spil
 //
 // This a function for turning colors into registers
 //
+typedef int(*regCmpType)(const struct reg **,const struct reg **);
 typedef struct regSlice (*color2RegPredicate)(strRegSlice adjacent,strRegP avail,graphNodeIRLive live,int color,const void *data,long colorCount,const int *colors);
 static struct regSlice color2Reg(strRegSlice adjacent,strRegP avail,graphNodeIRLive live,int color,const void *data,long colorCount,const int *colors) {
+		__auto_type avail2=strRegPClone(avail);
+		strRegP adjRegs=NULL;
+		for(long i=0;i!=strRegSliceSize(adjacent);i++) {
+				adjRegs=strRegPSortedInsert(adjRegs, adjacent[i].reg, (regCmpType)ptrPtrCmp);
+		}
+		avail2=strRegPSetDifference(avail2, adjRegs, (regCmpType)ptrPtrCmp);
+
+		if(strRegPSize(avail2)==0) {
+				strRegPDestroy(&avail2);
+				avail2=strRegPClone(avail);
+		}
+		
 		int *find=bsearch(&color , colors, colorCount, sizeof(int), (int(*)(const void*,const void*))intCmp);
 		assert(find);
 
 		struct regSlice slice;
-		slice.reg=avail[*find%strRegPSize(avail)];
+		slice.reg=avail2[*find%strRegPSize(avail2)];
 		slice.offset=0;
 		slice.widthInBits=slice.reg->size*8;
+
+		strRegPDestroy(&avail2);
 		return slice;
 }
 STR_TYPE_DEF(struct metricPair,MetricPair);
@@ -914,9 +929,6 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 		IRRemoveRepeatAssigns(start);
 		
 		debugShowGraphIR(start);
-	//Do integer and floating variables seperatley
-	__auto_type intRegs=getIntRegs();
-	__auto_type floatRegs=getFloatRegs();
 
 	__auto_type intInterfere=IRInterferenceGraphFilter(start, filterIntVars,NULL);
 	
@@ -953,15 +965,23 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 									adj=strRegSliceAppendItem(adj, *find);
 					}
 #if DEBUG_PRINT_ENABLE
-					for(long i=0;i!=strRegSliceSize(adj);i++) {
+					for(long i2=0;i2!=strRegSliceSize(adj);i2++) {
 							char *nodeName=interfereNode2Label(allColorNodes[i], NULL, NULL);
-							DEBUG_PRINT("Register %s is adjacent to %s\n", adj[i].reg->name,nodeName);
+							DEBUG_PRINT("Register %s is adjacent to %s\n", adj[i2].reg->name,nodeName);
 							free(nodeName);
 					}
 #endif
 
-					//Assign register to 
-					__auto_type slice=color2Reg(adj,intRegs, allColorNodes[i], llVertexColorGet(vertexColors, allColorNodes[i])->color, NULL,strIntSize(colors), colors);
+					//Assign register to
+
+					//Make dummy value to find type of variable
+					struct IRValue value;
+					value.type=IR_VAL_VAR_REF;
+					value.value.var=*graphNodeIRLiveValuePtr(allColorNodes[i])->ref;
+					__auto_type type= IRValueGetType(&value);
+					
+					__auto_type regsForType=regGetForType(type);
+					__auto_type slice=color2Reg(adj,regsForType, allColorNodes[i], llVertexColorGet(vertexColors, allColorNodes[i])->color, NULL,strIntSize(colors), colors);
 #if DEBUG_PRINT_ENABLE
 					 char *nodeName=interfereNode2Label(allColorNodes[i], NULL, NULL);
 						DEBUG_PRINT("Assigning register %s to %s\n", slice.reg->name,nodeName);
