@@ -1,9 +1,9 @@
 # HolyCC2
 ## Welcome
-	This is a holyC compiler on a mission to keep the line-count down. Its goal is to compile TempleOS and its programs on linux ,**and** to also be an educational compiler designed to show how compilers are made. Now, here is a rundown on the source structure.
+This is a holyC compiler on a mission to keep the line-count down. Its goal is to compile TempleOS and its programs on linux ,**and** to also be an educational compiler designed to show how compilers are made. Now, here is a rundown on the source structure.
 
 ## Source Code structure 😀
-	The source code is all present in 1 directory except for the tests,which are in their own folder. This allows for easily finding a file without shuffling through folders. Here is a list of items by subject
+The source code is all present in 1 directory except for the tests,which are in their own folder. This allows for easily finding a file without shuffling through folders. Here is a list of items by subject
 
 ### Structures
  - graph.c/h. This isnt a plot of a function,its a network of things that are connected by nodes and edges. It is central to the compiler
@@ -12,7 +12,7 @@
  - str.c/h. Dont be fooled by the name. String is actually an array of elements(which may be text). It even includes powerfull functions for set theory,**(just be sure to keep things sorted if you plan on using set theory functions!!!)**
 
 ### Algorithms
-	Algorithms are the juicy secret suace of the compiler. You may need to look at the links within the source files for more info about thier inner workings,but dont be scared as I have made working versions of these algorithms you can look at. So here they are:
+Algorithms are the juicy secret suace of the compiler. You may need to look at the links within the source files for more info about thier inner workings,but dont be scared as I have made working versions of these algorithms you can look at. So here they are:
 	
 - base64.c/h. This converts data into a encoded string,usefull for turning pointers into keys for maps.
 - graphColoring.c/h. This assigns values to a network of nodes so that they will have a minimum number of adjacent values next to each other. It isn’t perfect but that is good as we get a decent time.
