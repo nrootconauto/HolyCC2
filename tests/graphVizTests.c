@@ -22,8 +22,7 @@ void graphVizTests() {
 
 
 				__auto_type labelNode2=createLabel();
-				__auto_type jump=createJmp(labelNode);
-				__auto_type condJump=createCondJmp(unopNode, jump, labelNode2);
+				__auto_type condJump=createCondJmp(unopNode, labelNode, labelNode2);
 
 				__auto_type var2=createVirtVar(&typeI64i);
 				__auto_type var2RefNode=createVarRef(var2);

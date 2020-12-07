@@ -76,12 +76,10 @@ enum IRNodeType {
 	IR_LE,
 	IR_EQ,
 	IR_NE,
-	//
 	IR_ASSIGN,
 	//
 	IR_CHOOSE,
 	//
-	IR_JUMP,
 	IR_COND_JUMP,
 	IR_JUMP_TAB,
 	//

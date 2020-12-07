@@ -6,6 +6,7 @@ enum IREvalValType {
 	IREVAL_VAL_DFT,
 	IREVAL_VAL_FLT,
 	IREVAL_VAL_VAR,
+	IREVAL_VAL_REG,
 };
 struct IREvalVal {
 	enum IREvalValType type;
@@ -16,10 +17,11 @@ struct IREvalVal {
 		} ptr;
 		double flt;
 		int64_t i;
+			struct reg *reg;
 	} value;
 };
 struct IREvalVal IREvalNode(graphNodeIR node, int *success);
-void IREValSetVarVal(const struct variable *var, struct IREvalVal value);
+void IREvalSetVarVal(const struct variable *var, struct IREvalVal value);
 struct IREvalVal IREvalValFltCreate(double f);
 struct IREvalVal IREValValIntCreate(long i);
-void IREValInit();
+void IREvalInit();

@@ -9,10 +9,10 @@ void subExprElimTests() {
 
 	// a+1+a+1+a+1
 	{
-		IREValInit();
+		IREvalInit();
 		initIR();
 		a = createVirtVar(&typeI64i);
-		IREValSetVarVal(a, IREValValIntCreate(3));
+		IREvalSetVarVal(a, IREValValIntCreate(3));
 		__auto_type one1 = createIntLit(1);
 		__auto_type one2 = createIntLit(1);
 		__auto_type one3 = createIntLit(1);

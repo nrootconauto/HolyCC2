@@ -212,18 +212,6 @@ graphNodeIR createVarRef(struct variable *var) {
 
 	return GRAPHN_ALLOCATE(val);
 }
-
-graphNodeIR createJmp(graphNodeIR to) {
-	struct IRNodeJump jmp;
-	jmp.base.attrs = NULL;
-	jmp.forward = -1;
-	jmp.base.type = IR_JUMP;
-
-	__auto_type retVal = GRAPHN_ALLOCATE(jmp);
-	graphNodeIRConnect(retVal, to, IR_CONN_FLOW);
-
-	return retVal;
-}
 graphNodeIR createValueFromLabel(graphNodeIR lab) {
 	struct IRNodeValue val;
 	val.base.attrs = NULL;
@@ -617,7 +605,7 @@ static strChar opToText(enum IRNodeType type) {
 	case IR_LT:
 		return strClone("<");
 	case IR_LXOR:
-		return strClone("^^");
+ 		return strClone("^^");
 	case IR_MOD:
 		return strClone("%");
 	case IR_MULT:
@@ -844,9 +832,6 @@ static char *IRCreateGraphVizNode(const struct __graphNode *node,
 		return strClone("FUNC-START");
 	case IR_FUNC_END:
 		return strClone("FUNC-END");
-	case IR_JUMP:
-		makeGVProcessNode(attrs);
-		return strClone("GOTO");
 	case IR_LABEL: {
 		__auto_type ptrStr = ptr2Str(node);
 		__auto_type labelNum = *mapLabelNumGet(*data2->labelNums, ptrStr);
@@ -1200,7 +1185,6 @@ static graphNodeIR __cloneNode(mapGraphNode mappings, graphNodeIR node,
 	case IR_FUNC_END:
 	case IR_FUNC_START:
 	case IR_FUNC_RETURN:
-	case IR_JUMP:
 	case IR_LABEL:
 	case IR_LE:
 	case IR_LNOT:
