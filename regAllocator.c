@@ -990,7 +990,7 @@ static void replaceVarsWithRegisters(mapRegSlice map,strGraphNodeIRLiveP allLive
 		//
 		// Create an associative array to turn variables into live nodes
 		//
-		strVarToLiveNode varToLive;
+		strVarToLiveNode varToLive=NULL;
 		for(long i=0;i!=strGraphNodeIRLivePSize(allLiveNodes);i++) {
 				struct varToLiveNode pair;
 				pair.live=allLiveNodes[i];
