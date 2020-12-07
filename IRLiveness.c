@@ -117,11 +117,11 @@ static int untilAssign(const struct __graphNode *node,
 	if (!isExprEdge(edgeValue))
 		return 0;
 
-	strGraphEdgeIRP outgoing __attribute__((cleanup(strGraphEdgeIRPDestroy))) =
+	strGraphEdgeIRP incoming __attribute__((cleanup(strGraphEdgeIRPDestroy))) =
 			graphNodeIRIncoming(*graphNodeMappingValuePtr((graphNodeMapping)node));
 	
-	if (strGraphEdgeIRPSize(outgoing) == 1) {
-			__auto_type type=graphEdgeIRValuePtr(outgoing[0]);
+	if (strGraphEdgeIRPSize(incoming) == 1) {
+			__auto_type type=graphEdgeIRValuePtr(incoming[0]);
 			if (*type== IR_CONN_DEST)
 			return 0;
 	}
