@@ -58,7 +58,7 @@ struct __vec *__vecConcat(struct __vec *a, const struct __vec *b) {
 	__auto_type oldASize = __vecSize(a);
 	long totalSize = __vecSize(a) + __vecSize(b);
 	a = __vecResize(a, totalSize);
-	memcpy((void *)a + oldASize, b, __vecSize(b));
+	memmove((void *)a + oldASize, b, __vecSize(b));
 	return a;
 }
 struct __vec *__vecReserve(struct __vec *a, long capacity) {
@@ -93,7 +93,7 @@ struct __vec *__vecAppendItem(struct __vec *a, const void *item,
 	if (a == NULL)
 		return a;
 
-	memcpy((void *)a + size, item, itemSize);
+	memmove((void *)a + size, item, itemSize);
 	*__vecSizePtr(a) += itemSize;
 	return a;
 }
@@ -107,7 +107,7 @@ struct __vec *__vecSortedInsert(struct __vec *a, const void *item,
 		__auto_type result = predicate(item, where);
 		if (result <= 0) {
 			memmove(where + itemSize, where, oldSize - i);
-			memcpy(where, item, itemSize);
+			memmove(where, item, itemSize);
 			break;
 		}
 	}
@@ -134,7 +134,7 @@ struct __vec *__vecSetDifference(struct __vec *a, const struct __vec *b,
 			bStart += itemSize;
 		}
 	}
-	memcpy(result, aStart, aEnd - aStart);
+	memmove(result, aStart, aEnd - aStart);
 	result += aEnd - aStart;
 	a = __vecResize(a, result - (void *)a);
 	return a;
@@ -165,7 +165,7 @@ struct __vec *__vecRemoveIf(struct __vec *a, long itemSize,
 	__auto_type result = first;
 	while (first != last) {
 		if (!predicate(data, first)) {
-			memcpy(result, first, itemSize);
+			memmove(result, first, itemSize);
 			result += itemSize;
 		}
 		first += itemSize;
@@ -216,7 +216,7 @@ struct __vec *__vecUnique(struct __vec *vec, long itemSize,
 
 	res++;
 	for (long i = 0; i != res; i++)
-		memcpy((void *)vec + itemSize * i, (void *)vec + itemSize * moveBuffer[i],
+		memmove((void *)vec + itemSize * i, (void *)vec + itemSize * moveBuffer[i],
 		       itemSize);
 
 	return __vecResize(vec, res * itemSize);
@@ -259,7 +259,7 @@ struct __vec *__vecSetIntersection(struct __vec *a, const struct __vec *b,
 	}
 
 	for (long i = 0; i != result / itemSize; i++) {
-		memcpy((void *)a + i * itemSize, (void *)a + moveBuffer[i] * itemSize,
+		memmove((void *)a + i * itemSize, (void *)a + moveBuffer[i] * itemSize,
 		       itemSize);
 	}
 
@@ -277,27 +277,27 @@ struct __vec *__vecSetUnion(struct __vec *a, struct __vec *b, long itemSize,
 	void *r = retVal;
 	while (1) {
 		if (s1 == e1) {
-			memcpy(r, s2, e2 - s2);
+			memmove(r, s2, e2 - s2);
 			r += e2 - s2;
 
 			__vecDestroy(a);
 			return __vecResize(retVal, r - (void *)retVal);
 		}
 		if (s2 == e2) {
-			memcpy(r, s1, e1 - s1);
+			memmove(r, s1, e1 - s1);
 			r += e1 - s1;
 
 			__vecDestroy(a);
 			return __vecResize(retVal, r - (void *)retVal);
 		}
 		if (pred(s2, s1) > 0) {
-			memcpy(r, s1, itemSize);
+			memmove(r, s1, itemSize);
 			s1 += itemSize;
 		} else if (pred(s1, s2) > 0) {
-			memcpy(r, s2, itemSize);
+			memmove(r, s2, itemSize);
 			s2 += itemSize;
 		} else {
-			memcpy(r, s1, itemSize);
+			memmove(r, s1, itemSize);
 			s1 += itemSize;
 			s2 += itemSize;
 		}

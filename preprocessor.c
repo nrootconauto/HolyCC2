@@ -114,6 +114,8 @@ static void *wordFind(const void *a, const struct __vec *text, long pos) {
 	__auto_type b = (void *)text + pos;
 	__auto_type textEnd = b + __vecSize(text);
 
+	printf("%s\n", b);
+	
 	while (b != textEnd) {
 		// Check if charactor before is a word charactor,if so quit search
 		if (b != text) // Check if a start
@@ -333,6 +335,7 @@ static long fstreamSeekEndOfLine(FILE *stream) {
 loop:;
 	__auto_type count = fread(buffer, 1, 1024, stream);
 	traveled += count;
+	buffer[count]='\0';
 
 	if (count == 0) { // EOF
 		return ftell(stream);
@@ -726,6 +729,9 @@ static FILE *createPreprocessedFileLine(mapDefineMacro defines,
 			// Remove macro text from source
 			__auto_type at = nextMacro - (void *)retVal;
 			insertMacroText(&retVal, NULL, at, endPos - at);
+
+			//endPos-at is deleted text,so start at at
+			where=at;
 		} else if (includeMacroLex(&retVal, &afterLines, defines,
 		                           nextMacro - (void *)retVal, &endPos, &include,
 		                           err)) {
@@ -769,8 +775,6 @@ static FILE *createPreprocessedFileLine(mapDefineMacro defines,
 
 		if (expanded == 0 && nextMacro == NULL)
 			where = __vecSize(retVal);
-		else
-			where = endPos;
 	}
 
 	fwrite(retVal, 1, strlen((char *)retVal), writeTo);
