@@ -519,8 +519,7 @@ static char *node2GraphViz(const struct __graphNode *node,
 	return debugGetPtrName(*graphNodeMappingValuePtr((struct __graphNode *)node));
 }
 graphNodeIRLive IRInterferenceGraph(graphNodeIR start) {
-		__auto_type mappedClone = graphNodeCreateMapping(start, 0);
-		return IRInterferenceGraphFilter(mappedClone,NULL,NULL)[0];
+		return IRInterferenceGraphFilter(start,NULL,NULL)[0];
 }
 static void validateStrVarSet(strVar vars) {
 		for(long i=0;i<strVarSize(vars)-1;i++) {
