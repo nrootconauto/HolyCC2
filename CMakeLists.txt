@@ -36,7 +36,6 @@ list(APPEND sources "debugPrint.c")
 list(APPEND sources "escaper.c")
 list(APPEND sources "regAllocator.c")
 list(APPEND sources "registers.c")
-#list(APPEND sources "garbageCollector.c")
 
 set(tests "")
 list(APPEND tests "tests/tests.c")
@@ -60,9 +59,10 @@ list(APPEND tests "tests/graphVizTests.c")
 list(APPEND tests "tests/registerAllocatorTests.c")
 add_executable(holycc2 ${sources} ${tests})
 
+add_subdirectory("ext/gc")
 
 target_include_directories(holycc2 PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/ext/skinny_mutex)
-target_link_Libraries(holycc2 pthread ncurses m)
+target_link_Libraries(holycc2 pthread m gc)
 install(TARGETS holycc2 RUNTIME DESTINATION bin)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
