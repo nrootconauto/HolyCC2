@@ -19,9 +19,9 @@ void LivenessTests();
 void graphVizTests();
 void registerAllocatorTests();
 int main() {
+		/*
 		strTests();
 		preprocessorTests();
-		/*
 		base64Tests();
 		graphTests();
 		graphDominanceTests();
@@ -49,7 +49,8 @@ int main() {
 		
 				graphColoringTests();
 		SSATests();
+		*/		
 		registerAllocatorTests();
-		*/
+		
 		return 0;
 }
