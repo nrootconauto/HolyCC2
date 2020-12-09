@@ -7,8 +7,8 @@
 #include <string.h>
 #include <stringParser.h>
 #include <unistd.h>
+#include <gc.h>
 // TODO implement exe,if,ifdef,ifndef
-static void __vecDestroy2(struct __vec **vec) { __vecDestroy(*vec); }
 static void fileDestroy(FILE **file) { fclose(*file); }
 MAP_TYPE_DEF(struct defineMacro, DefineMacro);
 MAP_TYPE_FUNCS(struct defineMacro, DefineMacro);
@@ -237,11 +237,6 @@ malformed : {
 	return 0;
 }
 }
-static void defineMacroDestroy(void *macro) {
-	struct defineMacro *macro2 = macro;
-	__vecDestroy(macro2->name);
-	__vecDestroy(macro2->text);
-}
 static int defineMacroLex(struct __vec **text_, FILE **prependLinesTo,
                           mapDefineMacro defines, long pos, long *end,
                           struct defineMacro *result, int *err) {
@@ -290,9 +285,6 @@ malformed : {
 	*err = 1;
 	return 0;
 }
-}
-void includeMacroDestroy(struct includeMacro *macro) {
-	__vecDestroy(macro->fileName);
 }
 static void insertMacroText(struct __vec **text, const struct __vec *toInsert,
                             long insertAt, long deleteCount) {
@@ -402,7 +394,7 @@ static void expandDefinesInRangeRecur(struct __vec **retVal,
 			for (__auto_type i = nextReplacement; isalnum(*(char *)i);
 			     i++, alnumCount++)
 				;
-			struct __vec *slice __attribute__((cleanup(__vecDestroy2)));
+			struct __vec *slice ;
 			slice = __vecAppendItem(NULL, nextReplacement, alnumCount);
 			slice = __vecAppendItem(slice, "\0", 1);
 			__auto_type replacement = mapDefineMacroGet(defines, (void *)slice);
@@ -471,7 +463,6 @@ static FILE *fileRemoveFirstLine(FILE *file, struct __vec **firstLine) {
 	if (firstLine != NULL) {
 		*firstLine = firstLine2;
 	} else {
-		__vecDestroy(firstLine2);
 	}
 
 	const long bufferSize = 65536;
@@ -526,13 +517,13 @@ static void expandNextWord(struct __vec **retVal, FILE **prependLinesTo,
 	} else if (macroFind < find) {
 		__auto_type inputSize = __vecSize(*retVal);
 		__auto_type macroFindIndex = macroFind - *(void **)retVal;
-		struct __vec *slice __attribute((cleanup(__vecDestroy2)));
+		struct __vec *slice;
 		slice = __vecAppendItem(NULL, macroFind, inputSize - macroFindIndex);
 
 		assert(prependLinesTo != NULL);
 		__auto_type result = createPreprocessedFileLine(defines, slice, err);
 
-		struct __vec *firstLine __attribute((cleanup(__vecDestroy2)));
+		struct __vec *firstLine;
 		result = fileRemoveFirstLine(result, &firstLine);
 		/**
 		 * Prepend following lines,so lines appearing after the macro will be placed
@@ -604,7 +595,7 @@ static void concatFile(FILE *a, FILE *b) {
 	fclose(b);
 }
 static char *stringClone(const char *str) {
-	char *retVal = malloc(strlen(str) + 1);
+	char *retVal = GC_MALLOC(strlen(str) + 1);
 	strcpy(retVal, str);
 	return retVal;
 }
@@ -639,9 +630,9 @@ static FILE *includeFile(const char *fileName, mapDefineMacro defines,
 	__auto_type lineStart2 = 0;
 	for (int firstRun = 1;; firstRun = 0) {
 		long nextLine;
-		struct __vec *lineText __attribute__((cleanup(__vecDestroy2)));
+		struct __vec *lineText ;
 		// newlineText is '\n' on linux,
-		struct __vec *newLine __attribute__((cleanup(__vecDestroy2)));
+		struct __vec *newLine;
 		lineText = fileReadLine(readFrom, lineStart2, &nextLine, &newLine);
 		lineStart2 = nextLine;
 
@@ -685,7 +676,7 @@ static FILE *createPreprocessedFileLine(mapDefineMacro defines,
 	FILE *afterLines;
 	afterLines = tmpfile();
 
-	struct __vec *retVal __attribute__((cleanup(__vecDestroy2)));
+	struct __vec *retVal ;
 	retVal = __vecAppendItem(NULL, text_, __vecSize(text_));
 
 	for (long where = 0; where != __vecSize(retVal);) {
@@ -720,12 +711,11 @@ static FILE *createPreprocessedFileLine(mapDefineMacro defines,
 
 			// Remove existing macro
 			if (mapDefineMacroGet(defines, (char *)nameStr) != NULL)
-				mapDefineMacroRemove(defines, (char *)nameStr, defineMacroDestroy);
+				mapDefineMacroRemove(defines, (char *)nameStr, NULL);
 
 			// Insert new macro
 			mapDefineMacroInsert(defines, (char *)nameStr, define);
-			__vecDestroy(nameStr);
-
+			
 			// Remove macro text from source
 			__auto_type at = nextMacro - (void *)retVal;
 			insertMacroText(&retVal, NULL, at, endPos - at);
@@ -735,8 +725,7 @@ static FILE *createPreprocessedFileLine(mapDefineMacro defines,
 		} else if (includeMacroLex(&retVal, &afterLines, defines,
 		                           nextMacro - (void *)retVal, &endPos, &include,
 		                           err)) {
-			struct includeMacro includeClone
-			    __attribute((cleanup(includeMacroDestroy)));
+			struct includeMacro includeClone;
 			includeClone = include;
 
 			struct textModify destroy;
@@ -745,13 +734,12 @@ static FILE *createPreprocessedFileLine(mapDefineMacro defines,
 			destroy.type = MODIFY_REMOVE;
 			sourceMappings = strTextModifyAppendItem(sourceMappings, destroy);
 
-			struct __vec *fn __attribute__((cleanup(__vecDestroy2)));
+			struct __vec *fn ;
 
 			fn = createNullTerminated(include.fileName);
 			assert(fn != NULL); // TODO whine about file not found
 
-			struct __vec *textFollowingInclude
-			    __attribute__((cleanup(__vecDestroy2)));
+			struct __vec *textFollowingInclude;
 			textFollowingInclude = __vecAppendItem(NULL, (void *)retVal + endPos,
 			                                       __vecSize(retVal) - endPos);
 
@@ -794,8 +782,6 @@ FILE *createPreprocessedFile(const char *fileName, strTextModify *mappings,
 	if (err != NULL)
 		*err = 0;
 
-	strTextModifyDestroy(&sourceMappings);
-	strFileMappingsDestroy(&allFileMappings);
 	sourceMappings = NULL;
 	allFileMappings = NULL;
 	lineStart = 0;
@@ -811,17 +797,13 @@ FILE *createPreprocessedFile(const char *fileName, strTextModify *mappings,
 		*fileMappings = (strFileMappings)__vecAppendItem(
 		    NULL, allFileMappings, __vecSize((struct __vec *)allFileMappings));
 returnLabel:
-	mapDefineMacroDestroy(defines, defineMacroDestroy);
+	mapDefineMacroDestroy(defines, NULL);
 
 	if (err != NULL)
 		if (*err)
 			return NULL;
 
 	return preprocessedSource;
-}
-void fileMappingsDestroy(strFileMappings *mappings) {
-	for (long i = 0; i != strFileMappingsSize(*mappings); i++)
-		free(mappings[0][i].fileName);
 }
 //
 // File mappings can contain file mappings within them

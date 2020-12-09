@@ -87,9 +87,6 @@ void preprocessorTests() {
 	              "\na ", "b", " c\n", NULL);
 	fclose(resultFile);
 	fclose(sourceFile);
-	__vecDestroy(resultStr);
-	strTextModifyDestroy(&mappings);
-	fileMappingsDestroy(&mappingsPerFile);
 	//
 	// Test 2,error on infinite recursion
 	//
@@ -112,10 +109,7 @@ void preprocessorTests() {
 	checkMappings(mappings, mappingsPerFile, text, (const char *)resultStr, "",
 	              "\n", "", "\n2", "", NULL);
 	fclose(sourceFile);
-	__vecDestroy(resultStr);
-	strTextModifyDestroy(&mappings);
 	fclose(resultFile);
-	fileMappingsDestroy(&mappingsPerFile);
 	//
 	// Test 4,Replace macro name
 	//
@@ -128,9 +122,6 @@ void preprocessorTests() {
 	assert(0 == strcmp("\n\n2", (char *)resultStr));
 	fclose(resultFile);
 	fclose(sourceFile);
-	__vecDestroy(resultStr);
-	strTextModifyDestroy(&mappings);
-	fileMappingsDestroy(&mappingsPerFile);
 	//
 	// Test 5,include
 	//
@@ -153,9 +144,6 @@ void preprocessorTests() {
 	assert(mappingsPerFile[1].fileEndOffset == 1 + strlen(includeText));
 	fclose(resultFile);
 	fclose(sourceFile);
-	__vecDestroy(resultStr);
-	strTextModifyDestroy(&mappings);
-	fileMappingsDestroy(&mappingsPerFile);
 	//
 	// 6 #include #include
 	//
@@ -172,9 +160,6 @@ void preprocessorTests() {
 	resultStr = file2Str(resultFile);
 	assert(0 == strcmp("a\nb\nc\na", (char *)resultStr));
 	fclose(sourceFile);
-	__vecDestroy(resultStr);
-	strTextModifyDestroy(&mappings);
-	fileMappingsDestroy(&mappingsPerFile);
 	//
 	// Check file name by pos
 	//

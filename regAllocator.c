@@ -7,6 +7,7 @@
 #include <debugPrint.h>
 #include <graphDominance.h>
 #include <base64.h>
+#include <gc.h>
 static char *ptr2Str(const void *a) {
 		return base64Enc((void*)&a, sizeof(a));
 }
@@ -20,13 +21,13 @@ static char *var2Str(graphNodeIR var) {
 		__auto_type value=(struct IRNodeValue*)graphNodeIRValuePtr(var);
 		char buffer[1024];
 		sprintf(buffer, "%s-%li", value->val.value.var.value.var->name,value->val.value.var.SSANum);
-		char *retVal=malloc(strlen(buffer)+1);
+		char *retVal=GC_MALLOC(strlen(buffer)+1);
 		strcpy(retVal, buffer);
 
 		return retVal;
 }
 static char *strClone(const char *text) {
-		char *retVal=malloc(strlen(text)+1);
+		char *retVal=GC_MALLOC(strlen(text)+1);
 		strcpy(retVal, text);
 
 		return retVal;
@@ -49,7 +50,7 @@ static char *interfereNode2Label(const struct __graphNode * node, mapGraphVizAtt
 		__auto_type dummy=createVarRef(var->value.var);
 		((struct IRNodeValue*)graphNodeIRValuePtr(dummy))->val.value.var.SSANum=var->SSANum;
 		char *name=var2Str(dummy);
-		graphNodeIRKill(&dummy, IRNodeDestroy, NULL);
+		graphNodeIRKill(&dummy, NULL, NULL);
 		
 		if(name)
 				name=name;
@@ -65,13 +66,9 @@ static char *interfereNode2Label(const struct __graphNode * node, mapGraphVizAtt
 				long len=snprintf(NULL,0, format,name, mapRegSliceGet(map, key)->reg->name);
 				char buffer[len+1];
 				sprintf(buffer,format,name, mapRegSliceGet(map, key)->reg->name);
-
-				free(name);
+				
 				return strClone(buffer);
 		}
-
-		free(key);
-
 		return name;
 }
 static void debugPrintInterferenceGraph(graphNodeIRLive graph,mapRegSlice map) {
@@ -111,10 +108,10 @@ static void transparentKill(graphNodeIR node,int preserveEdgeValue) {
 			                   graphEdgeIROutgoing(outgoing[i2]),
 			                   (preserveEdgeValue)?*graphEdgeIRValuePtr(incoming[i1]):IR_CONN_FLOW);
 
-	graphNodeIRKill(&node, IRNodeDestroy, NULL);
+	graphNodeIRKill(&node, NULL, NULL);
 }
 static int noIncomingPred(const void *data, const graphNodeIR *node) {
-	strGraphEdgeIRP incoming __attribute__((cleanup(strGraphEdgePDestroy))) =
+	strGraphEdgeIRP incoming  =
 	    graphNodeIRIncoming(*node);
 	return strGraphEdgeIRPSize(incoming) != 0;
 };
@@ -138,8 +135,7 @@ static void replaceNodeWithExpr(graphNodeIR node, graphNodeIR valueSink) {
 		graphNodeIRConnect(valueSink, graphEdgeIROutgoing(outgoing[i1]),
 		                   *graphEdgeIRValuePtr(outgoing[i1]));
 
-	strGraphEdgeIRPDestroy(&incoming), strGraphEdgeIRPDestroy(&outgoing);
-	graphNodeIRKill(&node, IRNodeDestroy, NULL);
+	graphNodeIRKill(&node, NULL, NULL);
 }
 static int gnIRVarCmp(const graphNodeIR *a, const graphNodeIR *b) {
 	__auto_type A = (struct IRNodeValue *)graphNodeIRValuePtr(*a);
@@ -163,15 +159,11 @@ static void removeChooseNode(graphNodeIR chooseNode) {
 		int useless =
 		    strGraphEdgeIRPSize(filtered) == strGraphEdgeIRPSize(outgoingEdges);
 
-		strGraphEdgeIRPDestroy(&outgoingEdges);
-		strGraphEdgeIRPDestroy(&filtered);
-
 		// Remove var if useless
 		if (useless)
 				transparentKill(outgoingNodes[i2],1);
 	}
 
-	strGraphNodeIRPDestroy(&outgoingNodes);
 	transparentKill(chooseNode,1);
 }
 static void removeChooseNodes(strGraphNodeIRP nodes, graphNodeIR start) {
@@ -353,8 +345,6 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 								}
 						}
 				}
-
-				strGraphEdgeIRPDestroy(&incoming), strGraphEdgeIRPDestroy(&filtered);
 		}
 
 		//
@@ -413,9 +403,6 @@ void IRRemoveRepeatAssigns(graphNodeIR enter) {
 					toRemove = strGraphNodeIRPAppendItem(toRemove, allNodes[i]);
 				}
 			}
-
-			strGraphEdgeIRPDestroy(&outgoingAssign);
-			strGraphEdgeIRPDestroy(&outgoing);
 		}
 	}
 
@@ -454,10 +441,7 @@ void IRRemoveRepeatAssigns(graphNodeIR enter) {
 				break;
 			}
 		}
-
-		// Free
-		strGraphEdgeIRPDestroy(&incoming), strGraphEdgeIRPDestroy(&outgoing);
-
+		
 		// IF only flows incoimg/outgoing,node is useless to replace
 		if (!isUsedIn  && !isUsedOut) {
 			duds = strGraphNodeIRPAppendItem(duds, allNodes[i]);
@@ -468,10 +452,6 @@ void IRRemoveRepeatAssigns(graphNodeIR enter) {
 	for (long i = 0; i != strGraphNodeIRPSize(duds); i++) {
 			transparentKill(duds[i],1);
 	}
-
-	strGraphNodeIRPDestroy(&duds);
-	strGraphNodeIRPDestroy(&allNodes);
-	strGraphNodeIRPDestroy(&toRemove);
 }
 static int IsInteger(struct object *obj) {
 	// Check if ptr
@@ -499,7 +479,6 @@ static double interfereMetric(double cost,graphNodeIRLive node) {
 		__auto_type connections=graphNodeIRLiveOutgoing(node);
 		double retVal=cost/strGraphEdgeIRLivePSize(connections);
 
-		strGraphEdgeIRLivePDestroy(&connections);
 		return retVal;
 }
 struct conflictPair {
@@ -539,7 +518,6 @@ static strConflictPair recolorAdjacentNodes(mapRegSlice node2RegSlice,graphNodeI
 				//Get current register
 				char *key=ptr2Str(allNodes[i]);
 				__auto_type find=mapRegSliceGet(node2RegSlice, key);
-				free(key);
 				if(!find) {
 				whineNotColored:
 						printf("Dear programmer,try assigning registers to nodes before calling %s", __FUNCTION__);
@@ -576,19 +554,13 @@ static strConflictPair recolorAdjacentNodes(mapRegSlice node2RegSlice,graphNodeI
 										char *bName=interfereNode2Label(outgoingNodes[i2], NULL, NULL);
 										
 										DEBUG_PRINT("Adding [%s,%s] to conflicts\n", aName,bName);
-										free(aName),free(bName);
 #endif
 										
 										conflicts=strConflictPairSortedInsert(conflicts, pair,conflictPairCmp);
 								}
 						}
 				}
-
-				strGraphNodeIRLivePDestroy(&outgoingNodes);
 		}
-		
-		strGraphNodeIRLivePDestroy(&allNodes);
-
 		return conflicts;
 }
 static int filterIntVars(graphNodeIR node,const void *data) {
@@ -747,13 +719,13 @@ static void removeDeadExpresions(graphNodeIR startAt,strIRVar liveVars) {
 				//
 				
 				//Check for assign
-				strGraphEdgeIRP incoming __attribute__((cleanup(strGraphEdgeIRPDestroy)))=graphNodeIRIncoming(allNodes[i]); //TODO
+				strGraphEdgeIRP incoming =graphNodeIRIncoming(allNodes[i]); //TODO
 				if(strGraphEdgeIRPSize(incoming)==1) {
 						if(*graphEdgeIRValuePtr(incoming[0])==IR_CONN_DEST) {
 								//If destination is a variable that isn't alive,destroy it
 								if(isVar(allNodes[i])) {
 										//Ensure allNodes[i ] is end of expression
-										strGraphEdgeIRP outgoing __attribute__((cleanup(strGraphEdgeIRPDestroy)))=graphNodeIROutgoing(allNodes[i]);
+										strGraphEdgeIRP outgoing =graphNodeIROutgoing(allNodes[i]);
 										for(long i=0;i!=strGraphEdgeIRPSize(outgoing);i++)
 												if(IRIsExprEdge(*graphEdgeIRValuePtr(outgoing[i])))
 														goto __continue;
@@ -772,8 +744,6 @@ static void removeDeadExpresions(graphNodeIR startAt,strIRVar liveVars) {
 														strGraphNodeIRP removed;
 														IRRemoveDeadExpression(in, &removed);
 														toRemove=strGraphNodeIRPSetUnion(toRemove, removed, (gnCmpType)ptrPtrCmp);
-
-														strGraphNodeIRPDestroy(&removed);
 
 														//Restart search
 														goto loop;
@@ -819,7 +789,6 @@ static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spil
 
 		char *key=ptr2Str(liveNode);
 		struct regSlice *currReg=mapRegSliceGet(liveNodeRegs, key);
-		free(key);
 		if(!currReg) {
 		whineNoReg:
 				fprintf(stderr, "Dear programmer,try assigning registers to variables before calling %s." , __func__);
@@ -831,8 +800,7 @@ static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spil
 		for(long i=0;i!=strGraphNodeIRLivePSize(interfere);i++) {
 				char *key=ptr2Str(interfere[i]);
 				struct regSlice *reg=mapRegSliceGet(liveNodeRegs, key);
-				free(key);
-
+				
 				if(reg) {
 						if(regSliceConflict(currReg,  reg)) {
 								__auto_type var=graphNodeIRLiveValuePtr(interfere[i])->ref;
@@ -912,7 +880,6 @@ static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spil
 
 								char *key=ptr2Str(liveNode);
 								__auto_type loadReg=createRegRef(mapRegSliceGet(liveNodeRegs, key));
-								free(key);
 								
 								graphNodeIRConnect(load,loadReg , IR_CONN_DEST);
 														
@@ -950,9 +917,7 @@ static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spil
 								//Replace
 								__auto_type endOfExpression=IRGetEndOfExpr(lastNode);
 								insertLoadsInExpression(endOfExpression, spillVars);
-
-								strIRVarDestroy(&spillVars);
-								
+	
 								//Re-run interferance at end of epxression
 								findVarInterfereAt(liveNodeRegs, spillNodes,allLiveNodes, endOfExpression, newVar);
 								continue;
@@ -975,7 +940,6 @@ static struct regSlice color2Reg(strRegSlice adjacent,strRegP avail,graphNodeIRL
 		avail2=strRegPSetDifference(avail2, adjRegs, (regCmpType)ptrPtrCmp);
 
 		if(strRegPSize(avail2)==0) {
-				strRegPDestroy(&avail2);
 				avail2=strRegPClone(avail);
 		}
 		
@@ -987,7 +951,6 @@ static struct regSlice color2Reg(strRegSlice adjacent,strRegP avail,graphNodeIRL
 		slice.offset=0;
 		slice.widthInBits=slice.reg->size*8;
 
-		strRegPDestroy(&avail2);
 		return slice;
 }
 STR_TYPE_DEF(struct metricPair,MetricPair);
@@ -1022,14 +985,12 @@ strConflictPair conflictPairFindAffects(graphNodeIRLive node,strConflictPair pai
 		#if DEBUG_PRINT_ENABLE
 					char *firstName=interfereNode2Label(node, NULL, NULL);
 					DEBUG_PRINT("These conflict with %s\n",  firstName);
-					free(firstName);
 					
 					for(long i=0;i!=strConflictPairSize(retVal);i++) {
 										char *aName=interfereNode2Label(retVal[i].a, NULL, NULL);
 										char *bName=interfereNode2Label(retVal[i].b, NULL, NULL);
 										
 										DEBUG_PRINT("    [%s,%s]\n", aName,bName);
-										free(aName),free(bName);
 					}
 #endif
 		
@@ -1066,8 +1027,6 @@ static void replaceVarsWithRegisters(mapRegSlice map,strGraphNodeIRLiveP allLive
 								//Get register slice from liveness node to register slice map
 								char *key=ptr2Str(find->live);
 								__auto_type slice=*mapRegSliceGet(map, key);
-								free(key);
-								
 								
 								//Replace
 								replaceNodeWithExpr(allNodes[i],  createRegRef(&slice));
@@ -1091,7 +1050,6 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 	}
 	
 	//Merge variables that can be merges
-		strGraphNodeIRPDestroy(&allNodes);
 		allNodes = graphNodeIRAllNodes(start);
 		//debugShowGraphIR(start);
 		IRCoalesce(allNodes, start);
@@ -1130,8 +1088,7 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 							//search for adjacent
 							char *key=ptr2Str(allColorNodes[i]);
 							__auto_type find=mapRegSliceGet(regsByLivenessNode, key);
-							free(key);
-
+							
 							//Insert if exists
 							if(find)
 									adj=strRegSliceAppendItem(adj, *find);
@@ -1140,7 +1097,6 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 					for(long i2=0;i2!=strRegSliceSize(adj);i2++) {
 							char *nodeName=interfereNode2Label(allColorNodes[i], NULL, NULL);
 							DEBUG_PRINT("Register %s is adjacent to %s\n", adj[i2].reg->name,nodeName);
-							free(nodeName);
 					}
 #endif
 
@@ -1157,23 +1113,18 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 #if DEBUG_PRINT_ENABLE
 					 char *nodeName=interfereNode2Label(allColorNodes[i], NULL, NULL);
 						DEBUG_PRINT("Assigning register %s to %s\n", slice.reg->name,nodeName);
-						free(nodeName);
 #endif
 					
 					//Insert find
 					char *key=ptr2Str(allColorNodes[i]);
 					mapRegSliceInsert(regsByLivenessNode, key, slice);
-					free(key);
 
 #if DEBUG_PRINT_ENABLE
 							char *nodeName2=interfereNode2Label(allColorNodes[i], NULL, NULL);
 							char buffer[512];
 							sprintf(buffer, "%s:REG(%s)", nodeName2,slice.reg->name);
 							debugAddPtrName(graphNodeIRLiveValuePtr(allColorNodes[i])->ref.value.var, buffer);
-							free(nodeName2);
 #endif
-					
-					strRegSliceDestroy(&adj);
 			}
  			debugPrintInterferenceGraph(interfere,regsByLivenessNode);
 
@@ -1199,7 +1150,7 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 					//Do a set union of all items that conflict with each other untill there is no change
 					//
 					for(;;) {
-							strConflictPair clone __attribute__((cleanup(strConflictPairDestroy)))=strConflictPairClone(conflictsWithFirst);
+							strConflictPair clone =strConflictPairClone(conflictsWithFirst);
 							
 							long oldSize=strConflictPairSize(conflictsWithFirst);
 							//union
@@ -1231,7 +1182,6 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 #if DEBUG_PRINT_ENABLE
 					char *lowestName=interfereNode2Label(conflicts[i].a, NULL, NULL);
 					DEBUG_PRINT("Lowest metric conflict is %s\n", lowestName);
-					free(lowestName);
 #endif
 
 					//Add to spill nodes
@@ -1244,7 +1194,6 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 					conflicts=strConflictPairRemoveIf(conflicts, node,(removeIfPred)conflictPairContains);
 					conflictsSortedByWeight=strConflictPairRemoveIf(conflictsSortedByWeight, node,(removeIfPred)conflictPairContains);
 			}
-			strConflictPairDestroy(&conflicts);
 			
 			//Get list of variables that have conflicts(are adjacent to spill nodes)
 			strGraphNodeIRLiveP nodesWithRegisterConflict=NULL;
@@ -1263,8 +1212,7 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 									char * key2=ptr2Str(outgoing[i2]);
 									__auto_type currReg=mapRegSliceGet(regsByLivenessNode, key1);
 									__auto_type outReg=mapRegSliceGet(regsByLivenessNode, key2);
-									free(key1),free(key2);
-
+									
 									//Both vairables are put in registers?
 									if(currReg&&outReg) {
 											//Do they conflict
@@ -1280,8 +1228,6 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 									}
 							}
 					}
-					
-					strGraphNodeIRLivePDestroy(&outgoing);
 			}
 
 			//Add spilled nodes to conflicts
@@ -1319,7 +1265,6 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 			}
 			
 			replaceVarsWithRegisters(regsByLivenessNode,allColorNodes,start);
-			strGraphNodeIRLivePDestroy(&allColorNodes);
 	}
 	
 	removeDeadExpresions(start, liveVars);

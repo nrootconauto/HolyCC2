@@ -64,7 +64,6 @@ void graphTests() {
 		}
 	}
 	assert(foundCount == 3);
-	strGraphNodePDestroy(&visited);
 	// detach b
 	graphEdgeIntKill(b, d, NULL, NULL, NULL);
 	graphEdgeIntKill(a, b, NULL, NULL, NULL);

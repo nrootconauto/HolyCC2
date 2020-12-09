@@ -127,12 +127,9 @@ llDominators graphComputeDominatorsPerNode(struct __graphNode *start) {
 			} else {
 				changed = 1;
 			}
-			strGraphEdgePDestroy(&preds);
-			strGraphNodePDestroy(&old);
 		}
 	}
 
-	strGraphNodePDestroy(&allNodes);
 	return list;
 }
 static int domsLenCmp(const void *a, const void *b) {
@@ -193,7 +190,7 @@ static strGraphNodeP graphDominatorIdoms(const llDominators doms,
 }
 struct __graphNode *graphDominatorIdom(const llDominators doms,
                                        struct __graphNode *node) {
-	strGraphNodeP idoms __attribute__((cleanup(strGraphNodePDestroy))) =
+	strGraphNodeP idoms  =
 	    graphDominatorIdoms(doms, node);
 	if (strGraphNodePSize(idoms) == 0)
 		return NULL;
@@ -250,11 +247,8 @@ llDomFrontier graphDominanceFrontiers(struct __graphNode *start,
 				}
 			}
 		}
-
-		strGraphEdgePDestroy(&preds);
 	}
 
-	strGraphNodePDestroy(&allNodes);
 	return fronts;
 }
 static char *ptr2Str(const void *a) { return base64Enc((void *)&a, sizeof(a)); }
@@ -267,7 +261,6 @@ static void connnectIdoms(mapGraphNode nodes, llDominators valids,
 
 	char *str = ptr2Str(bFirst);
 	graphNodeMapping bNodeMapped = *mapGraphNodeGet(nodes, str);
-	free(str);
 
 	__auto_type idoms = graphDominatorIdoms(valids, bFirst);
 
@@ -287,7 +280,6 @@ graphNodeMapping dominatorsTreeCreate(llDominators doms) {
 		__auto_type node2 = llDominatorsValuePtr(node)->node;
 		char *str = ptr2Str(node2);
 		mapGraphNodeInsert(map, str, graphNodeMappingCreate(node2, 0));
-		free(str);
 	}
 
 	// Connect idoms
@@ -310,7 +302,6 @@ graphNodeMapping dominatorsTreeCreate(llDominators doms) {
 		// Check if no incoming
 		__auto_type in = graphNodeMappingIncomingNodes(find);
 		long len = strGraphNodeMappingPSize(in);
-		strGraphNodeMappingPDestroy(&in);
 		if (len == 0) {
 			firstNode = find;
 			break;

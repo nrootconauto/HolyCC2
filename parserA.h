@@ -239,7 +239,6 @@ struct parserNodeFuncForwardDec {
 };
 struct parserNode *parseExpression(llLexerItem start, llLexerItem end,
                                    llLexerItem *result);
-void parserNodeDestroy(struct parserNode **node);
 struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end);
 struct parserNode *parseClass(llLexerItem start, llLexerItem *end);
 struct parserNode *parseIf(llLexerItem start, llLexerItem *end);

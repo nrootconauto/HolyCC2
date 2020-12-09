@@ -59,10 +59,9 @@ list(APPEND tests "tests/graphVizTests.c")
 list(APPEND tests "tests/registerAllocatorTests.c")
 add_executable(holycc2 ${sources} ${tests})
 
-add_subdirectory("ext/gc")
-
 target_include_directories(holycc2 PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/ext/skinny_mutex)
-target_link_Libraries(holycc2 pthread m gc)
+target_link_Libraries(holycc2 pthread m  atomic_ops gc)
+
 install(TARGETS holycc2 RUNTIME DESTINATION bin)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")

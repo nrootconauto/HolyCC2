@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <gc.h>
 struct __ll {
 	struct __ll *prev;
 	struct __ll *next;
@@ -82,7 +83,7 @@ struct __ll *__llInsert(struct __ll *from, struct __ll *newItem,
 	return newItem;
 }
 struct __ll *__llCreate(const void *item, long size) {
-	struct __ll *retVal = malloc(sizeof(struct __ll) + size);
+	struct __ll *retVal = GC_MALLOC(sizeof(struct __ll) + size);
 	retVal->next = NULL;
 	retVal->prev = NULL;
 	memcpy((void *)retVal + sizeof(struct __ll), item, size);
@@ -113,7 +114,6 @@ static void __llKillRight(struct __ll *node, void (*killFunc)(void *)) {
 		__auto_type prev = current->prev;
 		if (killFunc)
 			killFunc(__llValuePtr(current));
-		free(current);
 		current = prev;
 	}
 }
@@ -122,7 +122,6 @@ static void __llKillLeft(struct __ll *node, void (*killFunc)(void *)) {
 		__auto_type next = current->next;
 		if (killFunc)
 			killFunc(__llValuePtr(current));
-		free(current);
 		current = next;
 	}
 }
@@ -207,7 +206,7 @@ struct __ll *__llValueResize(struct __ll *list, long newSize) {
 	__auto_type oldPrev = list->prev;
 	__auto_type oldNext = list->next;
 
-	list = realloc(list, sizeof(struct __ll) + newSize);
+	list = GC_REALLOC(list, sizeof(struct __ll) + newSize);
 
 	if (oldPrev != NULL)
 		oldPrev->next = list;

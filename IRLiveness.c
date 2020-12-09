@@ -5,11 +5,12 @@
 #include <stdio.h>
 #define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
+#include <gc.h>
 typedef int (*gnCmpType)(const graphNodeMapping *, const graphNodeMapping *);
 typedef int (*varRefCmpType)(const struct IRVar **, const struct IRVar **);
 #define ALLOCATE(x)                                                            \
 	({                                                                           \
-		typeof(x) *ptr = malloc(sizeof(x));                                        \
+		typeof(x) *ptr = GC_MALLOC(sizeof(x));                                        \
 		*ptr = x;                                                                  \
 		ptr;                                                                       \
 	})
@@ -26,7 +27,7 @@ static char *var2Str(graphNodeIR var) {
 		
 		char buffer[1024];
 		sprintf(buffer, "%s-%li", value->val.value.var.value.var->name,value->val.value.var.SSANum);
-		char *retVal=malloc(strlen(buffer)+1);
+		char *retVal=GC_MALLOC(strlen(buffer)+1);
 		strcpy(retVal, buffer);
 
 		return retVal;
@@ -117,7 +118,7 @@ static int untilAssign(const struct __graphNode *node,
 	if (!isExprEdge(edgeValue))
 		return 0;
 
-	strGraphEdgeIRP incoming __attribute__((cleanup(strGraphEdgeIRPDestroy))) =
+	strGraphEdgeIRP incoming  =
 			graphNodeIRIncoming(*graphNodeMappingValuePtr((graphNodeMapping)node));
 	
 	if (strGraphEdgeIRPSize(incoming) == 1) {
@@ -204,7 +205,6 @@ static strGraphNodeMappingP visitAllAdjExprTo(graphNodeMapping node) {
 	// present by defualt
 	if (1 == strGraphNodeMappingPSize(visited))
 		if (visited[0] == node) {
-			strGraphNodeMappingPDestroy(&visited);
 			return NULL;
 		}
 
@@ -235,8 +235,7 @@ static strBasicBlock getBasicBlocksFromExpr(graphNodeIR dontDestroy,
 								continue;
 				
 			// Check if assign var
-			strGraphEdgeIRP incomingEdges
-			    __attribute__((cleanup(strGraphEdgeIRPDestroy))) =
+			strGraphEdgeIRP incomingEdges =
 			        graphNodeIRIncoming(*graphNodeMappingValuePtr(nodes[i]));
 			if (strGraphEdgeIRPSize(incomingEdges) == 1)
 				if (*graphEdgeIRValuePtr(incomingEdges[0]) == IR_CONN_DEST) {
@@ -256,7 +255,7 @@ static strBasicBlock getBasicBlocksFromExpr(graphNodeIR dontDestroy,
 	//
 	strGraphNodeMappingP sinks = NULL;
 	for (long i = 0; i != strGraphNodeMappingPSize(nodes); i++) {
-		strGraphEdgeIRP outgoing __attribute__((cleanup(strGraphEdgeIRPDestroy))) =
+		strGraphEdgeIRP outgoing  =
 		    NULL;
 		outgoing = graphNodeMappingOutgoing(*graphNodeMappingValuePtr(nodes[i]));
 
@@ -307,7 +306,7 @@ static strBasicBlock getBasicBlocksFromExpr(graphNodeIR dontDestroy,
 
 		// Check if node is asssigned to,or only read from
 		__auto_type node = *graphNodeMappingValuePtr(assignNodes[i]);
-		strGraphEdgeIRP incoming __attribute__((cleanup(strGraphEdgeIRPDestroy))) =
+		strGraphEdgeIRP incoming  =
 		    graphNodeIRIncoming(node);
 
 		if (strGraphEdgeIRPSize(incoming) == 1) {
@@ -411,9 +410,7 @@ static strBasicBlock getBasicBlocksFromExpr(graphNodeIR dontDestroy,
 		    strGraphNodeMappingPAppendItem(NULL, dontDestroy);
 		toReplace = strGraphNodeMappingPSetDifference(toReplace, dummy,
 		                                              (gnCmpType)ptrPtrCmp);
-		strGraphNodeMappingPDestroy(&dummy);
-
-#if DEBUG_PRINT_ENABLE
+		#if DEBUG_PRINT_ENABLE
 		DEBUG_PRINT("Replacing: %li items:\n", strGraphNodeMappingPSize(toReplace));
 		for (long i2 = 0; i2 != strGraphNodeMappingPSize(toReplace); i2++) {
 			DEBUG_PRINT("    - %s\n", var2Str(*graphNodeMappingValuePtr(
@@ -428,7 +425,7 @@ static strBasicBlock getBasicBlocksFromExpr(graphNodeIR dontDestroy,
 		pair.node = metaNode;
 		char *hash = ptr2Str(metaNode);
 		mapBlockMetaNodeInsert(metaNodes, hash, pair);
-		free(hash);
+		
 #if DEBUG_PRINT_ENABLE
 				char buffer[128];
 				sprintf(buffer, "Block %s  metanode",
@@ -440,17 +437,7 @@ static strBasicBlock getBasicBlocksFromExpr(graphNodeIR dontDestroy,
 				graphMappingReplaceNodes(toReplace, metaNode, NULL, NULL);
 	}
 
-	strGraphNodeMappingPDestroy(&consumedNodes);
-	strGraphNodeMappingPDestroy(&nodes);
-	strGraphNodeMappingPDestroy(&replacedNodes);
-
 	return retVal;
-}
-static void basicBlockDestroy(struct basicBlock **block) {
-	strVarDestroy(&block[0]->in);
-	strVarDestroy(&block[0]->out);
-	free(block[0]);
-	strGraphNodeMappingPDestroy(&block[0]->nodes);
 }
 
 static void __visitForwardOrdered(strGraphNodeMappingP *order,
@@ -478,7 +465,6 @@ static void __visitForwardOrdered(strGraphNodeMappingP *order,
 		// Recur
 		__visitForwardOrdered(order, visited, node2);
 	}
-	strGraphNodeMappingPDestroy(&outgoing);
 }
 static char *printMappedEdge(struct __graphEdge *edge) { return NULL; }
 static char *printMappedNodesValue(struct __graphNode *node) {
@@ -492,8 +478,6 @@ static strGraphNodeMappingP sortNodes(graphNodeMapping node) {
 	strGraphNodeMappingP visited = NULL;
 
 	__visitForwardOrdered(&order, &visited, node);
-
-	strGraphNodeMappingPDestroy(&visited);
 
 	return order;
 }
@@ -580,7 +564,6 @@ char *name=tmpnam(NULL);
 		if (!found)
 			break;
 	}
-	strGraphNodeMappingPDestroy(&allMappedNodes);
 
 	//
 	// Found basic blocks,so filter out all non-metablock notes(in metaNodes)
@@ -597,12 +580,10 @@ char *name=tmpnam(NULL);
 		char *hash = ptr2Str(allMappedNodes2[i]);
 		if (NULL == mapBlockMetaNodeGet(metaNodes, hash))
 			__filterTransparentKill(allMappedNodes2[i]);
-
-		free(hash);
+		
 	}
-	strGraphNodeMappingPDestroy(&allMappedNodes2);
 
-//
+	//
 // https://lambda.uta.edu/cse5317/spring01/notes/node37.html
 //
 
@@ -618,8 +599,7 @@ char *name=tmpnam(NULL);
 	for (long i = strGraphNodeMappingPSize(forwards) - 1; i >= 0; i--) {
 		char *hash = ptr2Str(forwards[i]);
 		__auto_type find = mapBlockMetaNodeGet(metaNodes, hash);
-		free(hash);
-
+		
 #if DEBUG_PRINT_ENABLE
 		DEBUG_PRINT("Reseting in/outs of %s to empty.\n",
 		            var2Str(find->node));
@@ -639,8 +619,7 @@ char *name=tmpnam(NULL);
 		for (long i = strGraphNodeMappingPSize(forwards) - 1; i >= 0; i--) {
 			char *hash = ptr2Str(forwards[i]);
 			__auto_type find = mapBlockMetaNodeGet(metaNodes, hash);
-			free(hash);
-
+			
 			// Could be start node
 			if (!find)
 				continue;
@@ -665,16 +644,14 @@ char *name=tmpnam(NULL);
 			validateStrVarSet(diff);
 			newIns = strVarUnique(newIns, IRVarRefCmp, NULL);
 			validateStrVarSet(newIns);
-			strVarDestroy(&diff);
-
+			
 			// Union of successors insert
 			strVar newOuts = NULL;
 			__auto_type succs = graphNodeMappingOutgoingNodes(forwards[i]);
 			for (long i = 0; i != strGraphNodeMappingPSize(succs); i++) {
 				char *hash = ptr2Str(succs[i]);
 				__auto_type find2 = mapBlockMetaNodeGet(metaNodes, hash);
-				free(hash);
-
+				
 				// Skip if not found(may be start node)
 				if (!find2)
 					continue;
@@ -692,8 +669,6 @@ char *name=tmpnam(NULL);
 #endif
 
 			// Destroy old ins/outs then re-assign with new ones
-			strVarDestroy(&find->block->in);
-			strVarDestroy(&find->block->out);
 			find->block->in = newIns;
 			find->block->out = newOuts;
 
@@ -711,8 +686,7 @@ char *name=tmpnam(NULL);
 				changed |= 1;
 
 			// Destroy olds
-			strVarDestroy(&oldIns), strVarDestroy(&oldOuts);
-		}
+				}
 
 		if (!changed)
 			break;
@@ -727,8 +701,7 @@ char *name=tmpnam(NULL);
 		// Find meta node
 		char *hash = ptr2Str(forwards[i]);
 		__auto_type find = mapBlockMetaNodeGet(metaNodes, hash);
-		free(hash);
-
+		
 		// Could be start node
 		if (!find)
 			continue;
@@ -791,10 +764,8 @@ char *name=tmpnam(NULL);
 			}
 		}
 
-		strGraphNodeIRLivePDestroy(&liveAtOnce);
 	}
 
-	strGraphNodeMappingPDestroy(&forwards);
 	mapBlockMetaNodeDestroy(metaNodes, killNode);
 
 	//
@@ -807,11 +778,7 @@ char *name=tmpnam(NULL);
 			__auto_type asscesibleNodes=graphNodeIRLiveAllNodes(retVal[0]);
 			retVal=strGraphNodeIRLivePSetDifference(retVal, asscesibleNodes, (gnCmpType)ptrPtrCmp);
 
-			strGraphNodeIRLivePDestroy(&asscesibleNodes);
 	}
-
-	strGraphNodeIRLivePDestroy(&retVal);
-	
 	return allGraphs;
 }
 strGraphNodeIRLiveP IRInterferenceGraphFilter(graphNodeIR start,const void *data,int(*varFilter)(graphNodeIR node,const void *data)) {

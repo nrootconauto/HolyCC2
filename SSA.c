@@ -6,6 +6,7 @@
 #include <hashTable.h>
 #include <stdio.h>
 #include <topoSort.h>
+#include <gc.h>
 #define GRAPHN_ALLOCATE(x) ({ __graphNodeCreate(&x, sizeof(x), 0); })
 typedef int (*strGN_IRCmpType)(const strGraphNodeIRP *,
                                const strGraphNodeIRP *);
@@ -95,7 +96,7 @@ static int __isAssignedVar(struct varAndEnterPair *data,
 	struct IRVar *expectedVar = data->var;
 
 	if (ignoreChoose) {
-		strGraphNodeIRP incoming __attribute__((cleanup(strGraphNodeIRPDestroy))) =
+		strGraphNodeIRP incoming  =
 		    graphNodeIRIncomingNodes(node);
 		if (1 == strGraphNodeIRPSize(incoming)) {
 			if (graphNodeIRValuePtr(incoming[0])->type == IR_CHOOSE)
@@ -127,9 +128,9 @@ checkForAssign:;
 	//
 	// Check if assigned to choose node
 	//
-	strGraphEdgeIRP in __attribute__((cleanup(strGraphEdgeIRPDestroy))) =
+	strGraphEdgeIRP in  =
 	    graphNodeIRIncoming((graphNodeIR)node);
-	strGraphEdgeIRP dstConns __attribute__((cleanup(strGraphEdgeIRPDestroy))) =
+	strGraphEdgeIRP dstConns =
 	    IRGetConnsOfType(in, IR_CONN_DEST);
 	return 0 != strGraphEdgeIRPSize(dstConns);
 }
@@ -149,10 +150,6 @@ static graphNodeMapping filterVarRefs(graphNodeIR enter, strGraphNodeIRP nodes,
 	return createFilteredGraph(enter, nodes, &pair,
 	                           (int (*)(struct __graphNode *,void *))occurOfVar);
 }
-static void __strGraphNodeIRDestroy(void *vec) {
-
-	strGraphNodeIRPDestroy((strGraphNodeIRP *)vec);
-}
 static char *node2Str(struct __graphNode *node) {
 	node = *graphNodeMappingValuePtr(node);
 	char buffer[128];
@@ -163,7 +160,7 @@ static char *node2Str(struct __graphNode *node) {
 		return NULL;
 
 	__auto_type str = *find;
-	char *retVal = malloc(strlen(str) + 1);
+	char *retVal = GC_MALLOC(strlen(str) + 1);
 	strcpy(retVal, str);
 
 	return retVal;
@@ -225,7 +222,6 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 
 		char *hash = ptr2Str(sourceNode);
 		mapGraphNodeInsert(IR2MappingNode, hash, allVarRefs[i]);
-		free(hash);
 	}
 
 	__auto_type varAssignG =
@@ -289,8 +285,7 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 
 		__auto_type mappedStart = *mapGraphNodeGet(IR2MappingNode, startHash);
 		__auto_type mappedEnd = *mapGraphNodeGet(IR2MappingNode, endHash);
-
-		free(startHash), free(endHash);
+		
 		// Find all paths from start->end
 		__auto_type allPaths = graphAllPathsTo(mappedStart, mappedEnd);
 		for (long pathI = 0; pathI != strGraphPathSize(allPaths); pathI++) {
@@ -301,8 +296,7 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 
 			versionAllVarsBetween(allPaths[pathI], versionStarts);
 
-			strGraphEdgeIRPDestroy(&allPaths[pathI]);
-		}
+			}
 	}
 	//
 	// Find exit nodes
@@ -313,7 +307,6 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 
 		char *hash = ptr2Str(versionStarts[i]);
 		__auto_type mappedNode = *mapGraphNodeGet(IR2MappingNode, hash);
-		free(hash);
 
 		// Find all null paths from assign
 		__auto_type nullPaths = graphAllPathsTo(mappedNode, NULL);
@@ -323,13 +316,7 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 			versionAllVarsBetween(nullPaths[i2], versionStarts);
 		}
 	}
-
-	graphNodeMappingKillGraph(&varRefsG, NULL, NULL);
-	graphNodeMappingKillGraph(&varAssignG, NULL, NULL);
-	strGraphNodeMappingPDestroy(&allVarRefs);
-	strGraphNodeMappingPDestroy(&allVarAssigns);
-	mapGraphNodeDestroy(IR2MappingNode, NULL);
-	strGraphPathDestroy(&allAssignPaths);
+	
 }
 /**
  * Returns list of new varaible references
@@ -384,7 +371,6 @@ static strGraphNodeIRP IRSSACompute(graphNodeMapping start, struct IRVar *var) {
 				mapGraphNodeInsert(nodeKey2Ptr, hash, frontier);
 				goto loop;
 			}
-			free(hash);
 		}
 	}
 
@@ -403,7 +389,7 @@ static strGraphNodeIRP IRSSACompute(graphNodeMapping start, struct IRVar *var) {
 		createChoose(masterNode, masters);
 	}
 
-	mapChooseIncomingsDestroy(frontiersToMaster, __strGraphNodeIRDestroy);
+	mapChooseIncomingsDestroy(frontiersToMaster, NULL);
 	mapGraphNodeDestroy(nodeKey2Ptr, NULL);
 	return retVal;
 }
@@ -463,7 +449,6 @@ void IRToSSA(graphNodeIR enter) {
 	//
 	strGraphNodeIRP newNodes = NULL;
 	for (long i = 0; i != strIRVarSize(allVars); i++) {
-		strGraphNodeIRPDestroy(&nodes);
 		nodes = graphNodeIRAllNodes(enter);
 
 		// Find enter node in mapa
@@ -478,10 +463,7 @@ void IRToSSA(graphNodeIR enter) {
 	}
 
 end:
-	strIRVarDestroy(&allVars);
 	graphNodeMappingKillGraph(&filteredVars, NULL, NULL);
-	strGraphNodeMappingPDestroy(&filteredVarsNodes);
-	strGraphNodeIRPDestroy(&nodes);
 }
 struct __pathToChoosePredPair {
 		graphNodeIR start;
@@ -538,7 +520,7 @@ static void transparentKill(graphNodeIR node) {
 			                   graphEdgeIROutgoing(outgoing[i2]),
 			                   IR_CONN_FLOW);
 
-	graphNodeIRKill(&node, IRNodeDestroy, NULL);
+	graphNodeIRKill(&node, NULL, NULL);
 }
 void IRSSAReplaceChooseWithAssigns(graphNodeIR node) {
 		assert(graphNodeIRValuePtr(node)->type==IR_CHOOSE);
@@ -583,10 +565,7 @@ void IRSSAReplaceChooseWithAssigns(graphNodeIR node) {
 						graphNodeIRConnect(graphEdgeIRIncoming(last),startAt,*graphEdgeIRValuePtr(last));
 						graphNodeIRConnect(parent,graphEdgeIROutgoing(last),IR_CONN_FLOW);
 						graphEdgeIRKill(graphEdgeIRIncoming(last), graphEdgeIROutgoing(last), graphEdgeIRValuePtr(last), __edgeIsEqual, NULL);
-						
-						strGraphEdgeIRPDestroy(&paths[i2]);
 				}
-				strGraphEdgeIRPDestroy(&insertedAt);
 		}
 		
 		__auto_type endOfExpression=IRGetEndOfExpr(node);
@@ -595,6 +574,4 @@ void IRSSAReplaceChooseWithAssigns(graphNodeIR node) {
 		__auto_type dummy=createLabel();
 		graphReplaceWithNode(exprNodes, dummy, NULL, NULL,sizeof(graphEdgeIR));
 		transparentKill(dummy);
-		
-		strGraphNodeIRPDestroy(&exprNodes);
 }

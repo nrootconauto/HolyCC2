@@ -63,9 +63,7 @@ void graphDominanceTests() {
 		assert(strGraphNodeMappingPSize(outgoing) == 1);
 		assert(*graphNodeMappingValuePtr(outgoing[0]) == two);
 		__auto_type two2 = outgoing[0];
-
-		strGraphNodeMappingPDestroy(&outgoing);
-
+		
 		graphNodeInt expected[] = {three, four, five, six};
 		for (int i = 0; i != sizeof(expected) / sizeof(*expected); i++) {
 			__auto_type outgoing = graphNodeMappingOutgoingNodes(two2);
@@ -76,7 +74,6 @@ void graphDominanceTests() {
 					success = 1;
 
 			assert(success);
-			strGraphNodeMappingPDestroy(&outgoing);
 		}
 	}
 	{

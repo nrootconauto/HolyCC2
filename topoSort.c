@@ -37,8 +37,6 @@ strGraphNodeP topoSort(strGraphNodeP nodes) {
 			queue = newNode; // New node is the begininng of the qeue as inserted at
 			                 // begining
 		}
-
-		strGraphNodePDestroy(&incoming);
 	}
 	strGraphNodeP retVal = NULL;
 	//
@@ -75,11 +73,9 @@ strGraphNodeP topoSort(strGraphNodeP nodes) {
 		count++;
 
 		llGNDestroy(&last, NULL);
-		strGraphNodePDestroy(&outgoing);
 	}
 
 	if (count != strGraphNodePSize(nodes)) {
-		strGraphNodePDestroy(&retVal);
 		return NULL;
 	}
 

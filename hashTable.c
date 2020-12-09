@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <str.h>
 #include <string.h>
+#include <gc.h>
 STR_TYPE_DEF(int, Int);
 STR_TYPE_FUNCS(int, Int);
 STR_TYPE_DEF(struct __ll *, LLP);
@@ -155,8 +156,6 @@ static void __mapRehash(struct __map *map, int scaleUp) {
 		                  rehashedNodes + bucketStarts[i]);
 	}
 	//
-	strIntDestroy(&map->bucketSizes);
-	strLLPDestroy(&map->buckets);
 	map->bucketSizes = strIntResize(NULL, newBucketCount);
 	map->buckets = strLLPResize(NULL, newBucketCount);
 	for (long i = 0; i != newBucketCount; i++) {
@@ -180,11 +179,9 @@ void __mapDestroy(struct __map *map, void (*kill)(void *)) {
 
 		__llDestroy(map->buckets[i], NULL);
 	}
-	strIntDestroy(&map->bucketSizes);
-	strLLPDestroy(&map->buckets);
 }
 struct __map *__mapCreate() {
-	struct __map *retVal = malloc(sizeof(struct __map));
+	struct __map *retVal = GC_MALLOC(sizeof(struct __map));
 	retVal->bucketSizes = strIntResize(NULL, 8);
 	retVal->buckets = strLLPResize(NULL, 8);
 	for (int i = 0; i != 8; i++) {

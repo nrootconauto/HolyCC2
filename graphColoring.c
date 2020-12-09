@@ -85,8 +85,6 @@ static strGraphNodeP adj(struct __graphNode *node) {
 			retVal = strGraphNodePSortedInsert(retVal, __graphEdgeIncoming(in[i]),
 			                                   (gnCmpType)ptrPtrCmp);
 
-	strGraphEdgePDestroy(&out);
-	strGraphEdgePDestroy(&in);
 	return retVal;
 }
 static int removeIfNodeEq(const void *a, const struct __graphNode **b) {
@@ -220,6 +218,5 @@ long vertexColorCount(const llVertexColor colors) {
 			                            intCmp);
 		}
 	long count = strIntSize(unique);
-	strIntDestroy(&unique);
 	return count;
 }

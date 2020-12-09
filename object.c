@@ -5,6 +5,7 @@
 #include <parserA.h>
 #include <stdio.h>
 #include <string.h>
+#include <gc.h>
 MAP_TYPE_DEF(struct object *, Object);
 MAP_TYPE_FUNCS(struct object *, Object);
 STR_TYPE_DEF(char, Char);
@@ -28,14 +29,14 @@ struct object *objectBaseType(const struct object *obj) {
 		return (struct object*)obj;
 } 
 /* This function clones a string. */
-static char * /*Free with `free`*/
+static char * 
 strClone(const char *str) {
 	__auto_type len = strlen(str);
-	char *retVal = malloc(len + 1);
+	char *retVal = GC_MALLOC(len + 1);
 	strcpy(retVal, str);
 	return retVal;
 }
-static char * /* Free with `free`*/
+static char *
 ptr2Str(const void *a) {
 	return base64Enc((void *)&a, sizeof(a));
 }
@@ -97,7 +98,6 @@ hashObject(struct object *obj, int *alreadyExists) {
 			char buffer[len + 1];
 			sprintf(buffer, "%s[%p]", baseH, arr->dim);
 
-			free(dimStr);
 			retVal = strClone(buffer);
 			goto end;
 		}
@@ -157,7 +157,6 @@ hashObject(struct object *obj, int *alreadyExists) {
 		char buffer[len + 1];
 		sprintf(buffer, "%s(*)(%s)", retVal, argStr);
 
-		strCharDestroy(&argStr);
 		retVal = strClone(buffer);
 		goto end;
 	}
@@ -241,48 +240,6 @@ objectAlign(const struct object *type, int *success) {
 	}
 }
 /**
- * What do you think it does.
- */
-void objectMemberAttrDestroy(struct objectMemberAttr *attr) {
-	free(attr->name);
-	// TODO free expression
-	parserNodeDestroy(&attr->value);
-}
-void objectMemberDestroy(struct objectMember *member) {
-	free(member->name);
-	for (long i = 0; i != strObjectMemberAttrSize(member->attrs); i++)
-		objectMemberAttrDestroy(&member->attrs[i]);
-
-	strObjectMemberAttrDestroy(&member->attrs);
-}
-/**
- * This destroys an object. It doesn't free sub-objects,that is done when the
- * registry is destroyed
- */
-static void objectDestroy(struct object **type) {
-	struct object *type2 = *type;
-	switch (type2->type) {
-	case TYPE_CLASS: {
-		__auto_type item = (struct objectClass *)type2;
-		free(item->name);
-		for (long i = 0; i != strObjectMemberSize(item->members); i++)
-			objectMemberDestroy(&item->members[i]);
-		free(type2);
-		return;
-	}
-	case TYPE_UNION: {
-		__auto_type item = (struct objectUnion *)type2;
-		free(item->name);
-		for (long i = 0; i != strObjectMemberSize(item->members); i++)
-			objectMemberDestroy(&item->members[i]);
-
-		free(type2);
-		return;
-	}
-	default:;
-	}
-}
-/**
  * This gets the size of an object.
  */
 long /*Size of the object.*/
@@ -337,7 +294,7 @@ objectSize(const struct object *type, int *success) {
 struct object * /*This created class.*/
 objectClassCreate(const struct parserNode *name,
                   const struct objectMember *members, long count) {
-	struct objectClass *newClass = malloc(sizeof(struct objectClass));
+	struct objectClass *newClass = GC_MALLOC(sizeof(struct objectClass));
 	newClass->name = (struct parserNode *)name;
 	newClass->base.type = TYPE_CLASS;
 	newClass->base.link = 0;
@@ -382,7 +339,6 @@ objectClassCreate(const struct parserNode *name,
 	hashObject((void *)newClass, NULL);
 	return (struct object *)newClass;
 fail:
-	objectDestroy((struct object **)&newClass);
 	return NULL;
 }
 /**
@@ -394,7 +350,7 @@ objectUnionCreate(
     const struct objectMember *members, long count) {
 	int success;
 
-	struct objectUnion *newUnion = malloc(sizeof(struct objectUnion));
+	struct objectUnion *newUnion = GC_MALLOC(sizeof(struct objectUnion));
 	newUnion->name = (struct parserNode *)name;
 	newUnion->base.type = TYPE_CLASS;
 	newUnion->base.link = 0;
@@ -437,7 +393,6 @@ objectUnionCreate(
 	hashObject((void *)newUnion, NULL);
 	return (struct object *)newUnion;
 fail:
-	objectDestroy((struct object **)&newUnion);
 	return NULL;
 }
 /**
@@ -447,7 +402,7 @@ struct object * /* The newly created type.*/
 objectPtrCreate(struct object *baseType) {
 	// Check if item is in registry prior to making a new one
 
-	struct objectPtr *ptr = malloc(sizeof(struct objectPtr));
+	struct objectPtr *ptr = GC_MALLOC(sizeof(struct objectPtr));
 	ptr->base.link = 0;
 	ptr->base.type = TYPE_PTR;
 	ptr->type = baseType;
@@ -455,8 +410,6 @@ objectPtrCreate(struct object *baseType) {
 
 	int alreadyExists;
 	__auto_type hash = hashObject((void *)ptr, &alreadyExists);
-	if (alreadyExists)
-		objectDestroy((void *)&ptr);
 
 	return *mapObjectGet(objectRegistry, hash);
 }
@@ -465,7 +418,7 @@ objectPtrCreate(struct object *baseType) {
  */
 struct object * /*Array type.*/
 objectArrayCreate(struct object *baseType, struct parserNode *dim) {
-	struct objectArray *array = malloc(sizeof(struct objectArray));
+	struct objectArray *array = GC_MALLOC(sizeof(struct objectArray));
 	array->base.type = TYPE_ARRAY;
 	array->base.link = 0;
 	array->dim = dim;
@@ -473,8 +426,6 @@ objectArrayCreate(struct object *baseType, struct parserNode *dim) {
 
 	int alreadyExists;
 	__auto_type key = hashObject((void *)array, &alreadyExists);
-	if (alreadyExists)
-		objectDestroy((void *)&array);
 
 	return *mapObjectGet(objectRegistry, key);
 }
@@ -486,7 +437,7 @@ objectForwardDeclarationCreate(
     const struct parserNode *name,
     enum holyCTypeKind type /* See `TYPE_CLASS`/`TYPE_UNION`.*/) {
 	struct objectForwardDeclaration *retVal =
-	    malloc(sizeof(struct objectForwardDeclaration));
+	    GC_MALLOC(sizeof(struct objectForwardDeclaration));
 	retVal->base.type = TYPE_FORWARD;
 	retVal->base.link = 0;
 	retVal->name = (struct parserNode *)name;
@@ -494,8 +445,6 @@ objectForwardDeclarationCreate(
 
 	int alreadyExists;
 	__auto_type hash = hashObject((void *)retVal, &alreadyExists);
-	if (alreadyExists)
-		objectDestroy((void *)&retVal);
 
 	return *mapObjectGet(objectRegistry, hash);
 }
@@ -511,10 +460,6 @@ struct object typeI32i = {TYPE_I32i};
 struct object typeI64i = {TYPE_I64i};
 struct object typeF64 = {TYPE_F64};
 static void initObjectRegistry() __attribute__((constructor));
-static void destroyObjectRegistry() __attribute__((destructor));
-static void destroyObjectRegistry() {
-	mapObjectDestroy(objectRegistry, (void (*)(void *))objectDestroy);
-}
 static void initObjectRegistry() {
 	objectRegistry = mapObjectCreate();
 
@@ -587,29 +532,20 @@ objectFuncCreate(struct object *retType, strFuncArg args) {
 	func.args = strFuncArgAppendData(NULL, args, strFuncArgSize(args));
 	func.retType = retType;
 
-	void *retVal = malloc(sizeof(struct objectFunction));
+	void *retVal = GC_MALLOC(sizeof(struct objectFunction));
 	memcpy(retVal, &func, sizeof(struct objectFunction));
 
 	int alreadyExists;
 	__auto_type key = hashObject((void *)retVal, &alreadyExists);
-	if (alreadyExists)
-		objectDestroy((void *)&retVal);
 
 	return *mapObjectGet(objectRegistry, key);
-}
-void strFuncArgDestroy2(strFuncArg *args) {
-	for (long i = 0; i != strFuncArgSize(*args); i++) {
-		parserNodeDestroy(&args[0][i].dftVal);
-		parserNodeDestroy(&args[0][i].name);
-	}
-	strFuncArgDestroy(args);
 }
 /**
  * This turns a object into a readable string, Dont use this for hashing, see
  * `hashObject`. This produces readable representations of objects that exclude
  * defualt arguemnt types for readabilty.
  */
-char * /* Free me with `free`.*/ object2Str(struct object *obj) { return NULL; }
+char * object2Str(struct object *obj) { return NULL; }
 /**
  * This compares if objects are equal.
  */

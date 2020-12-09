@@ -163,8 +163,7 @@ static struct __vec *intLex(const struct __vec *new, long pos, long *end,
 			__auto_type slice =
 			    __vecAppendItem(NULL, startAt, (void *)New - (void *)startAt);
 			sscanf((char *)slice, "%lx", &valueU);
-			__vecDestroy(slice);
-
+			
 			goto dumpU;
 		} else if (*New >= 0 && *New <= '7') {
 			base = 8;
@@ -183,8 +182,7 @@ static struct __vec *intLex(const struct __vec *new, long pos, long *end,
 			__auto_type slice =
 			    __vecAppendItem(NULL, startAt, (void *)New - (void *)startAt);
 			sscanf((char *)slice, "%lo", &valueU);
-			__vecDestroy(slice);
-
+			
 			goto dumpU;
 		} else if (*New == 'b' || *New == 'B') {
 			base = 2;
@@ -217,8 +215,7 @@ static struct __vec *intLex(const struct __vec *new, long pos, long *end,
 		((char *)slice)[alnumCount] = '\0';
 
 		sscanf((char *)slice, "%lu", &valueU);
-		__vecDestroy(slice);
-
+		
 		New += alnumCount;
 		goto dumpU;
 	}
@@ -283,8 +280,7 @@ static struct __vec *floatingLex(const struct __vec *vec, long pos, long *end,
 		    NULL, currPtr,
 		    pos + ((exponetIndex != -1) ? exponetIndex : alnumCount));
 		sscanf((char *)slice, "%lu", &f.base);
-		__vecDestroy(slice);
-
+		
 		currPtr += (exponetIndex == -1) ? alnumCount : exponetIndex + 1;
 	}
 
@@ -306,8 +302,7 @@ dot : {
 	__auto_type slice = __vecAppendItem(NULL, currPtr, digitCount);
 	slice = __vecAppendItem(slice, "\0", 1);
 	sscanf((char *)slice, "%lu", &f.frac);
-	__vecDestroy(slice);
-
+	
 	currPtr += digitCount;
 
 	if (currPtr < endPtr)
@@ -331,7 +326,6 @@ exponet : {
 	__auto_type slice = __vecAppendItem(NULL, currPtr, alnumCount);
 	slice = __vecAppendItem(slice, "\0", 1);
 	sscanf((char *)slice, "%d", &f.exponet);
-	__vecDestroy(slice);
 	f.exponet *= mult;
 
 	currPtr += alnumCount;
@@ -492,7 +486,6 @@ llLexerItem lexText(const struct __vec *text, int *err) {
 				if (maximumEnd > end) {
 					if (templates[i]->killItemData)
 						templates[i]->killItemData((void *)find);
-					__vecDestroy(find);
 				} else {
 					itemTemplate = templates[i];
 					maximumEnd = end;

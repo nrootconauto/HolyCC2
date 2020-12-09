@@ -9,7 +9,6 @@ static int chrFind(const char *a, const char *b) {
 void strTests() {
 	// NULLS
 	strChar str1 = NULL;
-	strCharDestroy(&str1);
 	str1 = NULL;
 	str1 = strCharReserve(str1, 0);
 	assert(NULL == strCharConcat(NULL, NULL));

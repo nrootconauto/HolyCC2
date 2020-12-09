@@ -76,7 +76,6 @@ static void precParserTests() {
 		assert(intLit->value.value.sInt == 1);
 	}
 	for (int i = 0; i != 2; i++) {
-		strCharDestroy(&textStr);
 		if (i == 0)
 			text = "a=b=c=d";
 		else if (i == 1)
@@ -117,11 +116,10 @@ static void precParserTests() {
 			assert(0 == strcmp(token->text, "d"));
 		}
 	}
-	strCharDestroy(&textStr);
 	text = "a,b,c";
 	createFile(text);
 	textStr = strCharAppendData(NULL, text, strlen(text));
-	int err;
+	int err; 
 	lexItems = lexText((struct __vec *)textStr, &err);
 	assert(!err);
 
@@ -139,7 +137,6 @@ static void precParserTests() {
 			assert(0 == strcmp(name->text, names[i]));
 		}
 	}
-	strCharDestroy(&textStr);
 	text = "*++a,a++.b.c++";
 	createFile(text);
 	textStr = strCharAppendData(NULL, text, strlen(text));
@@ -257,7 +254,6 @@ static void precParserTests() {
 		assert(intLit->base.type == NODE_LIT_INT);
 		assert(intLit->value.value.sInt == 3);
 	}
-	strCharDestroy(&textStr);
 	text = "a(b(),,c)";
 	createFile(text);
 	textStr = strCharAppendData(NULL, text, strlen(text));

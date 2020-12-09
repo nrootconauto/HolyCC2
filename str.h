@@ -3,11 +3,6 @@ struct __vec;
 #include <string.h>
 #define STR_TYPE_DEF(type, suffix) typedef type *str##suffix;
 #define STR_TYPE_FUNCS(type, suffix)                                           \
-	inline void str##suffix##Destroy(str##suffix *vec)                           \
-	    __attribute__((always_inline));                                          \
-	inline void str##suffix##Destroy(str##suffix *vec) {                         \
-		__vecDestroy((struct __vec *)*vec);                                        \
-	};                                                                           \
 	inline str##suffix str##suffix##AppendItem(str##suffix vec, type item)       \
 	    __attribute__((always_inline));                                          \
 	inline str##suffix str##suffix##AppendItem(str##suffix vec, type item) {     \
@@ -140,7 +135,6 @@ struct __vec *__vecConcat(struct __vec *a, const struct __vec *b);
 long __vecCapacity(const struct __vec *a);
 long __vecSize(const struct __vec *a);
 struct __vec *__vecResize(struct __vec *a, long size);
-void __vecDestroy(struct __vec *a);
 struct __vec *__vecSortedInsert(struct __vec *a, const void *item,
                                 long itemSize,
                                 int predicate(const void *, const void *));

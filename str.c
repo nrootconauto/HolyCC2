@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <str.h>
 #include <string.h>
+#include <gc.h>
 /**
  * struct __vec {
  *     long capacity;
@@ -21,7 +22,7 @@ void __vecDestroy(struct __vec *a) {
 }
 struct __vec *__vecResize(struct __vec *a, long size) {
 	if (a == NULL) {
-		a = malloc(2 * sizeof(long) + size);
+		a = GC_MALLOC(2 * sizeof(long) + size);
 		memset(a, 0, 2 * sizeof(long));
 		if (a == NULL)
 			return NULL;
@@ -35,7 +36,7 @@ struct __vec *__vecResize(struct __vec *a, long size) {
 	//
 	if (*__vecCapacityPtr(a) > size) {
 	} else {
-		a = realloc((void *)a - 2 * sizeof(long), 2 * sizeof(long) + size);
+		a = GC_REALLOC((void *)a - 2 * sizeof(long), 2 * sizeof(long) + size);
 		a = (a == NULL) ? NULL : (void *)a + 2 * sizeof(long);
 		*__vecCapacityPtr(a) = size;
 	}
@@ -63,7 +64,7 @@ struct __vec *__vecConcat(struct __vec *a, const struct __vec *b) {
 }
 struct __vec *__vecReserve(struct __vec *a, long capacity) {
 	if (a == NULL) {
-		a = malloc(2 * sizeof(long));
+		a = GC_MALLOC(2 * sizeof(long));
 		memset(a, 0, 2 * sizeof(long));
 		if (a == NULL)
 			return NULL;
@@ -75,7 +76,7 @@ struct __vec *__vecReserve(struct __vec *a, long capacity) {
 		return NULL;
 	}
 	//
-	a = realloc((void *)a - 2 * sizeof(long), 2 * sizeof(long) + capacity);
+	a = GC_REALLOC((void *)a - 2 * sizeof(long), 2 * sizeof(long) + capacity);
 	a = (a == NULL) ? NULL : (void *)a + 2 * sizeof(long);
 	if (a == NULL)
 		return NULL;

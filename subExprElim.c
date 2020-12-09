@@ -6,6 +6,7 @@
 #include <str.h>
 #include <subExprElim.h>
 #include <topoSort.h>
+#include <gc.h>
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
 STR_TYPE_DEF(char *, Str);
@@ -22,12 +23,11 @@ typedef int (*subExprCmpType)(const struct subExpr *, const struct subExpr *);
 static strChar ptr2Str(const void *a) {
 	__auto_type txt = base64Enc((void *)&a, sizeof(a));
 	__auto_type retVal = strCharAppendData(NULL, txt, strlen(txt) + 1);
-	free(txt);
-
+	
 	return retVal;
 }
 static strChar strClone(const char *str) {
-	char *retVal = malloc(strlen(str) + 1);
+	char *retVal = GC_MALLOC(strlen(str) + 1);
 	strcpy(retVal, str);
 
 	return retVal;
@@ -240,7 +240,6 @@ static const char *hashNode(graphNodeIR node) {
 		case IR_VAL_FUNC: {
 			__auto_type hash = ptr2Str(value->val.value.func);
 			__auto_type retVal = registerItemHash(node, hash, NULL);
-			strCharDestroy(&hash);
 			return retVal;
 		}
 		case IR_VAL_REG: {
@@ -253,12 +252,10 @@ static const char *hashNode(graphNodeIR node) {
 			if (value->val.value.var.type == IR_VAR_VAR) {
 				__auto_type hash = ptr2Str(value->val.value.var.value.var);
 				__auto_type retVal = registerItemHash(node, hash, NULL);
-				strCharDestroy(&hash);
 				return retVal;
 			} else if (value->val.value.var.type == IR_VAR_MEMBER) {
 				__auto_type hash = ptr2Str(value->val.value.var.value.member);
 				__auto_type retVal = registerItemHash(node, hash, NULL);
-				strCharDestroy(&hash);
 				return retVal;
 			}
 
@@ -267,19 +264,16 @@ static const char *hashNode(graphNodeIR node) {
 		case IR_VAL_INT_LIT: {
 			__auto_type hash = intLit2Str(&value->val.value.intLit);
 			__auto_type retVal = registerItemHash(node, hash, NULL);
-			strCharDestroy(&hash);
 			return retVal;
 		}
 		case IR_VAL_STR_LIT: {
 			__auto_type hash = STR_FROM_FORMAT("STR[%s]", value->val.value.strLit);
 			__auto_type retVal = registerItemHash(node, hash, NULL);
-			strCharDestroy(&hash);
 			return retVal;
 		}
 		case __IR_VAL_LABEL: {
 			__auto_type hash = ptr2Str(value->val.value.__label);
 			__auto_type retVal = registerItemHash(node, hash, NULL);
-			strCharDestroy(&hash);
 			return retVal;
 		}
 		case __IR_VAL_MEM_GLOBAL: {
@@ -287,14 +281,11 @@ static const char *hashNode(graphNodeIR node) {
 			__auto_type hash = STR_FROM_FORMAT(
 			    "GM[%li:%s]", value->val.value.__frame.offset, typePtr);
 			__auto_type retVal = registerItemHash(node, hash, NULL);
-			strCharDestroy(&hash);
-			free(typePtr);
 			return retVal;
 		}
 		case __IR_VAL_MEM_FRAME: {
 			__auto_type hash = ptr2Str(value->val.value.__global.symbol);
 			__auto_type retVal = registerItemHash(node, hash, NULL);
-			strCharDestroy(&hash);
 			return retVal;
 		}
 		}
@@ -319,8 +310,7 @@ unopHash : {
 		retVal = strCharAppendItem(NULL, strlen(buffer) + 1);
 	}
 
-	strGraphEdgeIRPDestroy(&incoming);
-
+	
 	const char *retVal2 = NULL;
 	if (retVal) {
 		// Create sub-expression
@@ -353,8 +343,7 @@ binopHash : {
 
 		retVal = strCharAppendData(NULL, buffer, strlen(buffer) + 1);
 	}
-	strGraphEdgeIRPDestroy(&incoming);
-
+	
 	const char *retVal2 = NULL;
 	if (retVal) {
 		// Create sub-expression
@@ -448,8 +437,6 @@ void replaceSubExprsWithVars() {
 					continue;
 				graphNodeDummyConnect(*fromNode, *toNode, NULL);
 			}
-
-			strGraphNodeIRPDestroy(&out);
 		}
 	}
 
@@ -512,8 +499,6 @@ void replaceSubExprsWithVars() {
 					moveConnectionsOutgoing(firstRef, varRef, outgoing);
 					graphNodeIRConnect(firstRef, varRef, IR_CONN_DEST);
 
-					strGraphEdgeIRPDestroy(&outgoing);
-
 					firstRef = varRef;
 					continue;
 				}
@@ -522,29 +507,22 @@ void replaceSubExprsWithVars() {
 				// Move connections from  refs[i3].node to firstRef outgoing neigbors
 				moveConnectionsOutgoing(refs[i3].node, firstRef, outgoing);
 
-				strGraphEdgeIRPDestroy(&outgoing);
-
 				// Disconnect node from start stmt(including current node)
 				strGraphNodeIRP untilStart =
 				    strGraphNodeIRPAppendItem(NULL, refs[i3].node);
 				graphNodeIRVisitBackward(refs[i3].node, &untilStart,
 				                         visitUntillStartStmt, visitNodeAppendItem);
 				for (long i = 0; i != strGraphNodeIRPSize(untilStart); i++)
-					graphNodeIRKill(&untilStart[i], IRNodeDestroy, NULL);
-
-				strGraphNodeIRPDestroy(&untilStart);
+					graphNodeIRKill(&untilStart[i], NULL, NULL);
 			}
 		}
 	}
 end:
-	strGraphNodePDestroy(&nodes);
-	mapGNDummyDestroy(hashToNode, NULL);
-	strStrDestroy(&repeatedKeys);
+	;
 }
-static void strSubExprDestroy2(void *item) { strSubExprDestroy(item); }
 void clearSubExprs() {
 	if (subExprRegistry != NULL)
-		mapSubExprsDestroy(subExprRegistry, strSubExprDestroy2);
+		mapSubExprsDestroy(subExprRegistry, NULL);
 
 	subExprRegistry = mapSubExprsCreate();
 }

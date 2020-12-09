@@ -5,13 +5,14 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <subExprElim.h>
+#include <gc.h>
 typedef int (*gnIRCmpType)(const graphNodeIR *, const graphNodeIR *);
 typedef int (*geIRCmpType)(const graphEdgeIR *, const graphEdgeIR *);
 typedef int (*geMapCmpType)(const graphEdgeMapping *, const graphEdgeMapping *);
 typedef int (*gnMapCmpType)(const graphNodeMapping *, const graphNodeMapping *);
 #define ALLOCATE(x)                                                            \
 	({                                                                           \
-		typeof(&x) ptr = malloc(sizeof(x));                                        \
+		typeof(&x) ptr = GC_MALLOC(sizeof(x));                                        \
 		memcpy(ptr, &x, sizeof(x));                                                \
 		ptr;                                                                       \
 	})
@@ -38,12 +39,11 @@ STR_TYPE_FUNCS(char, Char);
 static strChar ptr2Str(const void *a) {
 	__auto_type res = base64Enc((const char *)&a, sizeof(a));
 	__auto_type retVal = strCharAppendData(NULL, res, strlen(res) + 1);
-	free(res);
 
 	return retVal;
 }
 static char *strClone(const char *text) {
-	char *retVal = malloc(strlen(text) + 1);
+	char *retVal = GC_MALLOC(strlen(text) + 1);
 	strcpy(retVal, text);
 
 	return retVal;
@@ -177,8 +177,7 @@ struct variable *createVirtVar(struct object *type) {
 
 	__auto_type ptrStr = ptr2Str(alloced);
 	mapIRVarRefsInsert(IRVars, ptrStr, refs);
-	strCharDestroy(&ptrStr);
-
+	
 	return alloced;
 }
 graphNodeIR createTypecast(graphNodeIR in, struct object *inType,
@@ -197,7 +196,6 @@ graphNodeIR createTypecast(graphNodeIR in, struct object *inType,
 graphNodeIR createVarRef(struct variable *var) {
 	__auto_type ptrStr = ptr2Str(var);
 	__auto_type find = mapIRVarRefsGet(IRVars, ptrStr);
-	strCharDestroy(&ptrStr);
 	// TODO add on not find
 	assert(find);
 
@@ -222,7 +220,6 @@ graphNodeIR createValueFromLabel(graphNodeIR lab) {
 	return GRAPHN_ALLOCATE(lab);
 }
 __thread mapIRVarRefs IRVars;
-void IRNodeDestroy(void *item) { struct IRNode *node = item; }
 static int ptrPtrCmp(const void *a, const void *b) {
 	if (*(void **)a > *(void **)b)
 		return 1;
@@ -255,7 +252,6 @@ strGraphNodeP getStatementNodes(const graphNodeIR stmtStart,
 			}
 		}
 
-		strGraphEdgeIRPDestroy(&heads);
 		heads = NULL;
 		// Add outgoing heads to heads
 		for (size_t i = 0; i != strGraphNodeIRPSize(unvisitedHeads); i++) {
@@ -275,8 +271,6 @@ strGraphNodeP getStatementNodes(const graphNodeIR stmtStart,
 					heads = strGraphEdgeIRPSortedInsert(heads, newHeads[i],
 					                                    (geIRCmpType)ptrPtrCmp);
 			}
-
-			strGraphEdgeIRPDestroy(&newHeads);
 		}
 	}
 
@@ -354,7 +348,6 @@ void IRInsertBefore(graphNodeIR insertBefore, graphNodeIR entry,
 	}
 	// Connect exit to insertBefore
 	graphNodeIRConnect(exit, insertBefore, connType);
-	strGraphEdgeIRPDestroy(&incoming);
 }
 void IRInsertAfter(graphNodeIR insertAfter, graphNodeIR entry, graphNodeIR exit,
                    enum IRConnType connType) {
@@ -371,7 +364,6 @@ void IRInsertAfter(graphNodeIR insertAfter, graphNodeIR entry, graphNodeIR exit,
 	}
 
 	graphNodeIRConnect(insertAfter, entry, connType);
-	strGraphEdgeIRPDestroy(&outgoing);
 }
 graphNodeIR createAssign(graphNodeIR in, graphNodeIR dst) {
 	graphNodeIRConnect(in, dst, IR_CONN_DEST);
@@ -431,7 +423,7 @@ static int untilAssign(const struct __graphNode *node,
 	if (!IRIsExprEdge(edgeValue))
 		return 0;
 
-	strGraphEdgeIRP incoming __attribute__((cleanup(strGraphEdgeIRPDestroy))) =
+	strGraphEdgeIRP incoming  =
 			graphNodeIRIncoming(((graphNodeIR)node));
 	
 	if (strGraphEdgeIRPSize(incoming) == 1) {
@@ -450,8 +442,6 @@ strGraphNodeIRP IRStmtNodes(graphNodeIR end) {
 }
 void IRRemoveNeedlessLabels(graphNodeIR start) {
 		__auto_type all=graphNodeIRAllNodes(start);
-
-		strGraphNodeIRPDestroy(&all);
 }
 static void transparentKill(graphNodeIR node) {
 	__auto_type incoming = graphNodeIRIncoming(node);
@@ -462,7 +452,7 @@ static void transparentKill(graphNodeIR node) {
 			                   graphEdgeIROutgoing(outgoing[i2]),
 			                   IR_CONN_FLOW);
 
-	graphNodeIRKill(&node, IRNodeDestroy, NULL);
+	graphNodeIRKill(&node, NULL, NULL);
 }
 int IRIsDeadExpression(graphNodeIR end) {
 		strGraphNodeIRP starts = strGraphNodeIRPAppendItem(NULL, end);
@@ -477,8 +467,6 @@ int IRIsDeadExpression(graphNodeIR end) {
 				}
 		}
 		
-		strGraphNodeIRPDestroy(&starts);
-
 		return isDead;
 }
 void IRRemoveDeadExpression(graphNodeIR end,strGraphNodeP *removed) {
@@ -492,18 +480,15 @@ void IRRemoveDeadExpression(graphNodeIR end,strGraphNodeP *removed) {
 
 		if(removed)
 				*removed=starts;
-		else
-				strGraphNodeIRPDestroy(&starts);
-		
 }
 graphNodeIR IRGetStmtStart(graphNodeIR node) {
 		strGraphNodeIRP starts = strGraphNodeIRPAppendItem(NULL,node);
 	graphNodeIRVisitBackward(node, &starts, exprEdgePred, addNode2List);
 
-	strGraphNodeIRP tops __attribute__((cleanup(strGraphNodeIRPDestroy))) = NULL;
+	strGraphNodeIRP tops  = NULL;
 	// Find a top-level node that has node connections that constirute a statement
 	for (long i = 0; i != strGraphNodeIRPSize(starts); i++) {
-		strGraphNodeIRP starts2 __attribute__((cleanup(strGraphNodeIRPDestroy))) =
+		strGraphNodeIRP starts2  =
 		    NULL;
 		graphNodeIRVisitBackward(starts[i], &starts2, exprEdgePred, addNode2List);
 
@@ -521,8 +506,7 @@ graphNodeIR IRGetStmtStart(graphNodeIR node) {
 
 	// Check if all statements have a common start
 	__auto_type first = tops[0];
-	strGraphNodeIRP firstIncoming
-	    __attribute__((cleanup(strGraphNodeIRPDestroy))) =
+	strGraphNodeIRP firstIncoming =
 	        graphNodeIRIncomingNodes(first);
 	for (long i = 1; i != len; i++) {
 		__auto_type iIncoming = graphNodeIRIncomingNodes(first);
@@ -535,9 +519,6 @@ graphNodeIR IRGetStmtStart(graphNodeIR node) {
 			                "common start.\n");
 			assert(0);
 		}
-
-		strGraphNodeIRPDestroy(&iIncoming);
-		strGraphNodeIRPDestroy(&diff);
 	}
 
 	// If one common node,return that
@@ -779,7 +760,6 @@ static char *IRValue2GraphVizLabel(struct IRValue *val) {
 
 		__auto_type labelText = FROM_FORMAT("VAL INT:%s", intStr);
 
-		strCharDestroy(&intStr);
 		return labelText;
 	}
 	case IR_VAL_REG:
@@ -805,7 +785,6 @@ static char *IRValue2GraphVizLabel(struct IRValue *val) {
 		const char *format = "VAL VAR :%s-%li";
 		__auto_type labelText = FROM_FORMAT(format, tmp, val->value.var.SSANum);
 
-		free(tmp);
 		return labelText;
 	}
 	case __IR_VAL_LABEL: {
@@ -822,7 +801,6 @@ static char *IRValue2GraphVizLabel(struct IRValue *val) {
 			tmp = FROM_FORMAT("%p", val->value.__global.symbol);
 
 		__auto_type labelText = FROM_FORMAT("SYM %s", tmp);
-		strCharDestroy(&tmp);
 		return labelText;
 	}
 	}
@@ -881,8 +859,7 @@ static char *IRCreateGraphVizNode(const struct __graphNode *node,
 			long len=snprintf(NULL,0,format,val);
 			char buffer[len+1];
 			sprintf(buffer, format, val);
-
-			free(val);
+			
 			return strClone(buffer);
 	}
 	case IR_SPILL: {
@@ -893,7 +870,6 @@ static char *IRCreateGraphVizNode(const struct __graphNode *node,
 			char buffer[len+1];
 			sprintf(buffer, format, val);
 
-			free(val);
 			return strClone(buffer);
 	}
 	case IR_CHOOSE:
@@ -912,12 +888,10 @@ static char *IRCreateGraphVizNode(const struct __graphNode *node,
 	case IR_LABEL: {
 		__auto_type ptrStr = ptr2Str(node);
 		__auto_type labelNum = *mapLabelNumGet(*data2->labelNums, ptrStr);
-		strCharDestroy(&ptrStr);
-
+		
 		__auto_type str = FROM_FORMAT("LABEL: #%i", labelNum);
 		__auto_type str2 = strClone(str);
-		free(str);
-
+		
 		mapGraphVizAttrInsert(*attrs, "color", strClone(COLOR_ORANGE));
 		mapGraphVizAttrInsert(*attrs, "shape", strClone("rectangle"));
 
@@ -939,8 +913,7 @@ static char *IRCreateGraphVizNode(const struct __graphNode *node,
 
 		__auto_type retVal =
 		    FROM_FORMAT("TYPECAST(%s->%s)", typeNameIn, typeNameOut);
-		free(typeNameIn), free(typeNameOut);
-
+		
 		makeGVProcessNode(attrs);
 		return retVal;
 	}
@@ -1040,8 +1013,7 @@ static char *IRCreateGraphVizEdge(const struct __graphEdge *__edge,
 						// Label name is index
 						__auto_type str = FROM_FORMAT("Arg %li", i);
 						__auto_type retVal = strClone(str);
-						free(str);
-
+						
 						return retVal;
 					}
 				}
@@ -1062,9 +1034,6 @@ static char *IRCreateGraphVizEdge(const struct __graphEdge *__edge,
 		__auto_type incoming = graphNodeIRIncoming(outNode);
 		__auto_type filtered = IRGetConnsOfType(incoming, IR_CONN_SOURCE_B);
 		int isBinop = strGraphEdgeIRPSize(filtered) != 0;
-
-		strGraphEdgeIRPDestroy(&incoming);
-		strGraphEdgeIRPDestroy(&filtered);
 
 		// If binop,color red and label "A"
 		if (isBinop) {
@@ -1104,7 +1073,6 @@ void IRGraphMap2GraphViz(
 			// Regsiter a unique label number
 			char *key = ptr2Str(allNodes[i]);
 			mapLabelNumInsert(labelNums, key, labelCount + 1);
-			strCharDestroy(&key);
 			// inc label count
 			labelCount++;
 		}
@@ -1162,14 +1130,12 @@ cloneExpressions:;
 		}
 	}
 
-	strGraphEdgeIRPDestroy(&incoming);
 	return;
 }
 static graphNodeIR __cloneNode(mapGraphNode mappings, graphNodeIR node,
                                enum IRCloneMode mode) {
 	strChar key = ptr2Str(mappings);
 	__auto_type find = mapGraphNodeGet(mappings, key);
-	strCharDestroy(&key);
 	if (find)
 		return *find;
 
@@ -1218,8 +1184,7 @@ static graphNodeIR __cloneNode(mapGraphNode mappings, graphNodeIR node,
 		// Register node
 		char *key = ptr2Str(newNode);
 		mapGraphNodeInsert(mappings, key, newNode);
-		free(key);
-
+		
 		return newNode;
 	}
 	case IR_CHOOSE: {
@@ -1237,8 +1202,7 @@ static graphNodeIR __cloneNode(mapGraphNode mappings, graphNodeIR node,
 		// Register node
 		char *key = ptr2Str(retVal);
 		mapGraphNodeInsert(mappings, key, retVal);
-		free(key);
-
+		
 		return retVal;
 	}
 	case IR_ADD:
@@ -1294,8 +1258,7 @@ static graphNodeIR __cloneNode(mapGraphNode mappings, graphNodeIR node,
 		// Register node
 		strChar key = ptr2Str(retVal);
 		mapGraphNodeInsert(mappings, key, retVal);
-		strCharDestroy(&key);
-
+		
 		return retVal;
 	}
 	case IR_SIMD: {
@@ -1317,8 +1280,7 @@ static graphNodeIR __cloneNode(mapGraphNode mappings, graphNodeIR node,
 		// Register node
 		strChar key = ptr2Str(retVal);
 		mapGraphNodeInsert(mappings, key, retVal);
-		strCharDestroy(&key);
-
+		
 		return retVal;
 	}
 	}
@@ -1339,7 +1301,7 @@ graphNodeIR cloneNode(graphNodeIR node, enum IRCloneMode mode,
 graphNodeIR IRGetEndOfExpr(graphNodeIR node) {
 		for(;;) {
 		loop:;
-				strGraphEdgeIRP outgoing __attribute__((cleanup(strGraphEdgeIRPDestroy)));
+				strGraphEdgeIRP outgoing ;
 				outgoing=graphNodeIROutgoing(node);
 				for(long i=0;i!=strGraphEdgeIRPSize(outgoing);i++)  {
 						if(IRIsExprEdge(*graphEdgeIRValuePtr(outgoing[i]))) {

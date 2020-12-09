@@ -6,9 +6,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <str.h>
+#include <gc.h>
 static char *strClone(const char *text) {
 	long len = strlen(text);
-	char *retVal = malloc(len + 1);
+	char *retVal = GC_MALLOC(len + 1);
 	strcpy(retVal, text);
 
 	return retVal;
@@ -309,9 +310,9 @@ static void qouteLine(struct diagInst *inst, long start, long end,
 	long oldPos = lineStart;
 	for (long searchPos = lineStart; searchPos < lineEnd;) {
 		long newPos;
-		strLong hitStarts __attribute__((cleanup(strLongDestroy)));
+		strLong hitStarts ;
 		hitStarts = NULL;
-		strLong hitEnds __attribute__((cleanup(strLongDestroy)));
+		strLong hitEnds ;
 		hitEnds = NULL;
 		// Find next boundary(start/end) of qoute at pos
 		// closesPos is made to point to end of buffer so all compares with initial
@@ -369,8 +370,7 @@ static void qouteLine(struct diagInst *inst, long start, long end,
 				                              textAttrCmp);
 
 			attrs = strTextAttrSetDifference(attrs, tmp, textAttrCmp);
-			strTextAttrDestroy(&tmp);
-		}
+			}
 
 		// Add attrs for starts to attrs
 		for (long i = 0; i != strLongSize(hitStarts); i++) {
@@ -380,7 +380,6 @@ static void qouteLine(struct diagInst *inst, long start, long end,
 				                              textAttrCmp);
 
 			attrs = strTextAttrSetUnion(attrs, tmp, textAttrCmp);
-			strTextAttrDestroy(&tmp);
 		}
 
 		// Set attrs
@@ -399,7 +398,7 @@ static void qouteLine(struct diagInst *inst, long start, long end,
 	endAttrs(inst);
 
 	start = end;
-	strDiagQouteDestroy(&clone);
+	
 }
 void diagPushText(const char *text) {
 	assert(currentInst != NULL);
@@ -452,12 +451,6 @@ void diagHighlight(long start, long end) {
 		    strDiagQouteAppendItem(currentInst->stateQoutes, qoute);
 	}
 }
-static void strDiagQouteDestroy2(strDiagQoute *str) {
-	for (long i = 0; i != strDiagQouteSize(*str); i++)
-		strTextAttrDestroy(&str[0][i].attrs);
-
-	strDiagQouteDestroy(str);
-}
 // TODO implement included files
 void diagEndMsg() {
 	assert(currentInst != NULL);
@@ -467,7 +460,6 @@ void diagEndMsg() {
 		qouteLine(currentInst, currentInst->stateStart, currentInst->stateEnd,
 		          currentInst->stateQoutes); // TODO
 		fprintf(currentInst->dumpTo, "\n```");
-		strDiagQouteDestroy2(&currentInst->stateQoutes);
 	}
 	currentInst->stateQoutes = NULL;
 	currentInst->state = DIAG_NONE;
@@ -537,9 +529,6 @@ void diagInstCreate(enum outputType type, const strFileMappings __fileMappings,
 	}
 }
 static void diagInstDestroy(struct diagInst *inst) {
-	free(inst->fileName);
-	strLongDestroy(&inst->lineStarts);
-	strDiagQouteDestroy2(&inst->stateQoutes);
 	fclose(inst->sourceFile);
 }
 static void destroyDiags() {

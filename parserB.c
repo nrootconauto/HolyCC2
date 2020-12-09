@@ -3,14 +3,7 @@
 #include <hashTable.h>
 #include <parserB.h>
 #include <string.h>
-void variableDestroy(struct variable *var) {
-	free(var->name);
-	strParserNodeDestroy(&var->refs);
-}
-void scopeDestroy(struct scope *scope) {
-	mapVarDestroy(scope->vars, (void (*)(void *))variableDestroy);
-	llScopeDestroy(&scope->subScopes, (void (*)(void *))scopeDestroy);
-}
+#include <gc.h>
 static llScope currentScope = NULL;
 void enterScope() {
 	struct scope new;
@@ -42,7 +35,7 @@ void addVar(const struct parserNode *name, struct object *type) {
 
 	assert(name->type == NODE_NAME);
 	struct parserNodeName *name2 = (void *)name;
-	var.name = malloc(strlen(name2->text) + 1);
+	var.name = GC_MALLOC(strlen(name2->text) + 1);
 	strcpy(var.name, name2->text);
 
 	__auto_type scope = llScopeValuePtr(currentScope);
@@ -78,7 +71,6 @@ void killParserData() {
 	     currentScope = llScopeValuePtr(currentScope)->parent)
 		top = currentScope;
 
-	scopeDestroy(llScopeValuePtr(top));
 	currentScope = NULL;
 }
 void initParserData() __attribute__((constructor));
@@ -146,7 +138,7 @@ loop:;
 		dummy.refs = NULL;
 		dummy.type = (struct object *)type;
 		dummy.node = func;
-		dummy.name = malloc(strlen(name2->text) + 1);
+		dummy.name = GC_MALLOC(strlen(name2->text) + 1);
 		strcpy(dummy.name, name2->text);
 
 		mapFuncInsert(currentScopeFuncs, name2->text, dummy);

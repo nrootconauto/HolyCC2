@@ -2,7 +2,6 @@
 #include <str.h>
 #include <stringParser.h>
 #include <utf8Encode.h>
-void parsedStringDestroy(struct parsedString *str) { __vecDestroy(str->text); }
 int stringParse(const struct __vec *new, long pos, long *end,
                 struct parsedString *retVal, int *err) {
 	if (err != NULL)
@@ -78,7 +77,6 @@ int stringParse(const struct __vec *new, long pos, long *end,
 
 				__auto_type slice = __vecAppendItem(NULL, (char *)escape, 4);
 				sscanf((char *)slice, "%x", &codePoint);
-				__vecDestroy(slice);
 
 				currPtr = (char *)escape + 4;
 				goto utfEncode;
@@ -90,7 +88,6 @@ int stringParse(const struct __vec *new, long pos, long *end,
 				__auto_type slice = __vecAppendItem(NULL, (char *)escape, 4);
 				unsigned int codePoint;
 				sscanf((char *)slice, "%x", &codePoint);
-				__vecDestroy(slice);
 
 				currPtr = (char *)escape + 8;
 				goto utfEncode;
@@ -105,7 +102,6 @@ int stringParse(const struct __vec *new, long pos, long *end,
 
 				__auto_type slice = __vecAppendItem(NULL, (char *)escape, 4);
 				sscanf((char *)slice, "%o", &codePoint);
-				__vecDestroy(slice);
 
 				currPtr = (char *)escape + count;
 				goto utfEncode;

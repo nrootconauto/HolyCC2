@@ -105,8 +105,7 @@ static struct IREvalVal *valueHash(struct IRValue *value) {
 				mapVarValInsert(varVals, ptrStr, dftValueType( IREVAL_VAL_INT));
 				goto loopVar;
 			}
-			free(ptrStr);
-
+			
 			assert(find);
 			return find;
 		} else if (value->value.var.type == IR_VAR_MEMBER) {
@@ -118,8 +117,7 @@ static struct IREvalVal *valueHash(struct IRValue *value) {
 				mapVarValInsert(varVals, ptrStr, dftValueType(IREVAL_VAL_INT));
 				goto loopMember;
 			}
-			free(ptrStr);
-
+			
 			assert(find);
 			return find;
 		}
@@ -146,8 +144,7 @@ static struct IREvalVal *valueHash(struct IRValue *value) {
 		long len = snprintf(NULL, 0, "GLB:[%s]", sym);
 		char buffer[len + 1];
 		sprintf(buffer, "GLB:[%s]", sym);
-		free(sym);
-
+		
 	loopGlob:;
 		__auto_type find = mapVarValGet(varVals, buffer);
 		// If doesnt exist,make a value for the frame spot
@@ -264,8 +261,7 @@ static int getBinopArgs(graphNodeIR node, struct IREvalVal *arg1,
 		a = b;
 		b = tmp;
 	}
-	strGraphEdgeIRPDestroy(&incoming);
-
+	
 	*arg1 = a;
 	*arg2 = b;
 	return 1;
@@ -353,9 +349,7 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 				*valueHash(value) =
 				    IREvalNode(graphEdgeIRIncoming(incoming[0]), &success2);
 			}
-			strGraphEdgeIRPDestroy(&incoming);
-			strGraphEdgeIRPDestroy(&assign);
-
+			
 			if (!success2)
 				goto fail;
 
@@ -453,8 +447,6 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 		} else if (success)
 			*success = 0;
 
-		strGraphNodeIRPDestroy(&incoming);
-
 		return *valHash;
 	}
 	case IR_DIV: {
@@ -493,8 +485,6 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 				*success = 1;
 		} else if (success)
 			*success = 0;
-
-		strGraphNodeIRPDestroy(&incoming);
 
 		return *valHash;
 	}
@@ -558,7 +548,6 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 		if (a.type == IREVAL_VAL_FLT)
 			a.value.flt = -a.value.flt;
 
-		strGraphNodeIRPDestroy(&incoming);
 		return a;
 	}
 	case IR_POS: {
@@ -571,7 +560,6 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 		} else
 			goto fail;
 
-		strGraphNodeIRPDestroy(&incoming);
 		return a;
 	}
 	case IR_TYPECAST: {
@@ -582,7 +570,6 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 
 		// Evaluator only works on ints/floats,it doesnt compute pointer-casts.
 		if (a.type != IREVAL_VAL_INT && a.type != IREVAL_VAL_INT) {
-			strGraphNodeIRPDestroy(&incoming);
 			goto fail;
 		}
 
@@ -599,7 +586,6 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 		if (success)
 			*success = 1;
 
-		strGraphNodeIRPDestroy(&incoming);
 		return retVal;
 	}
 	case IR_POW: {
@@ -661,8 +647,8 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 	case IR_SIMD:
 	case IR_SPILL: {
 			//Expect 1 incoming assign
-			strGraphEdgeIRP incoming __attribute__((cleanup(strGraphEdgeIRPDestroy)))=graphNodeIRIncoming(node);
-			strGraphEdgeIRP assigns __attribute__((cleanup(strGraphEdgeIRPDestroy)))=IRGetConnsOfType(incoming, IR_CONN_DEST);
+			strGraphEdgeIRP incoming =graphNodeIRIncoming(node);
+			strGraphEdgeIRP assigns =IRGetConnsOfType(incoming, IR_CONN_DEST);
 			assert(strGraphEdgeIRPSize(assigns)==1);
 
 			graphNodeIR incomingNode=(void*)graphNodeIRValuePtr(graphEdgeIRIncoming(assigns[0]));
@@ -745,9 +731,6 @@ static struct IREvalVal __IREvalPath(graphNodeIR start,struct IREvalVal *current
 
 						int success2;
 						__IREvalPath(graphEdgeIROutgoing(truePath[0]),NULL,&success2);
-
-						strGraphEdgeIRPDestroy(&outgoing);
-						strGraphEdgeIRPDestroy(&truePath);
 						
 						if(!success2)
 								goto fail;
@@ -760,9 +743,6 @@ static struct IREvalVal __IREvalPath(graphNodeIR start,struct IREvalVal *current
 
 						int success2;
 						__IREvalPath(graphEdgeIROutgoing(falsePath[0]),NULL,&success2);
-
-						strGraphEdgeIRPDestroy(&outgoing);
-						strGraphEdgeIRPDestroy(&falsePath);
 
 						if(!success2)
 								goto fail;
@@ -788,7 +768,7 @@ static struct IREvalVal __IREvalPath(graphNodeIR start,struct IREvalVal *current
 		}
 		case IR_LABEL: {
 				//If multiple outputs,check if see if they end a shared expression node
-				strGraphNodeIRP outgoing __attribute__((cleanup(strGraphNodeIRPDestroy)))=graphNodeIROutgoingNodes(start);
+				strGraphNodeIRP outgoing =graphNodeIROutgoingNodes(start);
 				
 				if(strGraphNodeIRPSize(outgoing)>1) {
 						graphNodeIR commonEnd=IRGetEndOfExpr(outgoing[0]);
@@ -852,8 +832,8 @@ static struct IREvalVal __IREvalPath(graphNodeIR start,struct IREvalVal *current
 				return dftValueType(IREVAL_VAL_INT);
 		}
 	findNext:;
-		strGraphEdgeIRP outgoing __attribute__((cleanup(strGraphEdgeIRPDestroy)))=graphNodeIROutgoing(endNode);
-		strGraphEdgeIRP flow __attribute__((cleanup(strGraphEdgeIRPDestroy)))=IRGetConnsOfType(outgoing, IR_CONN_FLOW);
+		strGraphEdgeIRP outgoing =graphNodeIROutgoing(endNode);
+		strGraphEdgeIRP flow =IRGetConnsOfType(outgoing, IR_CONN_FLOW);
 		long flowCount=strGraphEdgeIRPSize(flow);
 		if(flowCount>1) {
 				goto fail;

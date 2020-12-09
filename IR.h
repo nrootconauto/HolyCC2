@@ -278,7 +278,6 @@ struct IRVarRefs {
 MAP_TYPE_DEF(struct IRVarRefs, IRVarRefs);
 MAP_TYPE_FUNCS(struct IRVarRefs, IRVarRefs);
 extern __thread mapIRVarRefs IRVars;
-void IRNodeDestroy(void *item);
 strGraphNodeP getStatementNodes(graphNodeIR stmtStart, graphNodeIR stmtEnd);
 graphNodeIR createStmtEnd(graphNodeIR start);
 graphNodeIR createStmtStart();

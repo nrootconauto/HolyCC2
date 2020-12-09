@@ -96,11 +96,6 @@ static int morph(struct __mat *m, int p) {
 	}
 	assert(0);
 }
-static void __matDestroy(struct __mat *mat) {
-	for (int i = 0; i != strBits2DSize(mat->data); i++)
-		strBitsDestroy(&mat->data[i]);
-	strBits2DDestroy(&mat->data);
-}
 static int isIso(struct __mat *m, struct __mat *graph, struct __mat *sub) {
 	__auto_type rows = sub->h;
 	for (int r1 = 0; r1 != rows; r1++) {
@@ -173,8 +168,6 @@ static void recurse(strInt usedCols, int curRow, struct __mat *graph,
 				usedCols[c] = 0;
 			}
 		}
-
-		__matDestroy(&mp);
 	}
 }
 int edgeComp(const void *a, const void *b) { return *(void **)a - *(void **)b; }
@@ -191,7 +184,6 @@ static strGraphEdgeP edgesConnectedToNode(struct __graphNode *from,
 
 	outgoing =
 	    strGraphEdgePSetDifference(outgoing, toRemove, (geCmpType)edgeComp);
-	strGraphEdgePDestroy(&toRemove);
 	return outgoing;
 }
 static strGraphNodeSubP reconstructFromAdj(
@@ -211,10 +203,10 @@ static strGraphNodeSubP reconstructFromAdj(
 				__auto_type graphNodeFrom = *graphNodeSubValuePtr(nodes[i1]);
 				__auto_type graphNodeTo = *graphNodeSubValuePtr(nodes[i2]);
 
-				strGraphEdgeP edgesGraph __attribute__((cleanup(strGraphEdgePDestroy)));
+				strGraphEdgeP edgesGraph ;
 				edgesGraph = edgesConnectedToNode(graphNodeFrom, graphNodeTo);
 				if (edgePred != NULL) {
-					strGraphEdgeP edgesSub __attribute__((cleanup(strGraphEdgePDestroy)));
+					strGraphEdgeP edgesSub ;
 					edgesSub = edgesConnectedToNode(subGraph[i1], subGraph[i2]);
 					int connectionCount = 0;
 
@@ -265,7 +257,7 @@ strSub isolateSubGraph(strGraphNodeP graph, strGraphNodeP sub,
 	__auto_type graphSize = strGraphNodePSize(graph);
 	__auto_type subSize = strGraphNodePSize(sub);
 
-	strInt unused __attribute__((cleanup(strIntDestroy)));
+	strInt unused ;
 	unused = strIntResize(NULL, graphSize);
 	memset(unused, 0, sizeof(int) * graphSize);
 
@@ -282,11 +274,6 @@ strSub isolateSubGraph(strGraphNodeP graph, strGraphNodeP sub,
 
 		retVal = strSubAppendItem(retVal, result);
 	}
-	for (int i = 0; i != strMatSize(results); i++)
-		__matDestroy(&results[i]);
-	__matDestroy(&graphAdjMat);
-	__matDestroy(&subAdjMat);
-	__matDestroy(&m);
 
 	return retVal;
 }

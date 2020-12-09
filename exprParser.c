@@ -5,6 +5,7 @@
 #include <parserB.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <gc.h>
 struct object *assignTypeToOp(const struct parserNode *node);
 static int isArith(const struct object *type) {
 	if (type == &typeU8i || type == &typeU16i || type == &typeU32i ||
@@ -98,7 +99,7 @@ static struct object *promotionType(const struct object *a,
 static struct parserNode *promoteIfNeeded(struct parserNode *node,
                                           struct object *toType) {
 	if (assignTypeToOp(node) != toType) {
-		struct parserNodeTypeCast *cast = malloc(sizeof(struct parserNodeTypeCast));
+		struct parserNodeTypeCast *cast = GC_MALLOC(sizeof(struct parserNodeTypeCast));
 		cast->base.type = NODE_TYPE_CAST;
 		cast->exp = node;
 		cast->type = toType;
@@ -139,8 +140,6 @@ static void incompatTypes(struct parserNode *node, struct object *expected) {
 	diagPushText(buffer);
 	diagHighlight(node->pos.start, node->pos.end);
 	diagEndMsg();
-
-	free(haveName), free(expectedName);
 }
 struct object *assignTypeToOp(const struct parserNode *node) {
 	if (node->type == NODE_FUNC_REF) {
@@ -209,9 +208,7 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 			diagPushText(buffer);
 			diagHighlight(op->base.pos.start, op->base.pos.end);
 			diagEndMsg();
-
-			free(aName), free(bName);
-
+			
 			noteItem(binop->a);
 			noteItem(binop->b);
 
@@ -252,7 +249,6 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 				char buffer[1024];
 				char *name = object2Str(aType);
 				sprintf(buffer, "Operand is of type '%s'.", name);
-				free(name);
 				diagPushText(buffer);
 				diagEndMsg();
 
@@ -290,9 +286,7 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 			diagPushText(buffer);
 			diagEndMsg();
 			noteItem(call->func);
-
-			free(typeName);
-
+			
 			call->type = &typeI64i;
 			return &typeI64i;
 		} else {
