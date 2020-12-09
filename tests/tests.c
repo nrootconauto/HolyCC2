@@ -48,8 +48,9 @@ int main() {
 				
 		
 				graphColoringTests();
-		SSATests();
+		
 		*/		
+		SSATests();
 		registerAllocatorTests();
 		
 		return 0;

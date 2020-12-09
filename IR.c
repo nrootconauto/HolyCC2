@@ -448,6 +448,11 @@ strGraphNodeIRP IRStmtNodes(graphNodeIR end) {
 
 		return starts;
 }
+void IRRemoveNeedlessLabels(graphNodeIR start) {
+		__auto_type all=graphNodeIRAllNodes(start);
+
+		strGraphNodeIRPDestroy(&all);
+}
 static void transparentKill(graphNodeIR node) {
 	__auto_type incoming = graphNodeIRIncoming(node);
 	__auto_type outgoing = graphNodeIROutgoing(node);
@@ -492,10 +497,8 @@ void IRRemoveDeadExpression(graphNodeIR end,strGraphNodeP *removed) {
 		
 }
 graphNodeIR IRGetStmtStart(graphNodeIR node) {
-	strGraphNodeIRP starts = NULL;
+		strGraphNodeIRP starts = strGraphNodeIRPAppendItem(NULL,node);
 	graphNodeIRVisitBackward(node, &starts, exprEdgePred, addNode2List);
-	if (starts == NULL)
-		return node;
 
 	strGraphNodeIRP tops __attribute__((cleanup(strGraphNodeIRPDestroy))) = NULL;
 	// Find a top-level node that has node connections that constirute a statement

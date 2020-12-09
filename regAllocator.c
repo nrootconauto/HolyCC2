@@ -917,8 +917,10 @@ static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spil
 								graphNodeIRConnect(load,loadReg , IR_CONN_DEST);
 														
 								graphNodeIRConnect(spill, load, IR_CONN_FLOW);
-														
+
+								debugShowGraphIR(startAt);
 								IRInsertBefore(IRGetStmtStart(lastNode), spillReg,loadReg, IR_CONN_FLOW);
+								debugShowGraphIR(startAt);
 								// 
 								//  Spill Register
 								//   ||
@@ -1099,8 +1101,10 @@ void IRRegisterAllocate(graphNodeIR start,color2RegPredicate colorFunc,void *col
 	
 __auto_type allNodes2 = graphNodeIRAllNodes(start);
 	for(long i=0;i!=strGraphNodeIRPSize(allNodes2);i++) {
-			if(graphNodeIRValuePtr(allNodes2[i])->type==IR_CHOOSE)
+			if(graphNodeIRValuePtr(allNodes2[i])->type==IR_CHOOSE) {
 					IRSSAReplaceChooseWithAssigns(allNodes2[i]);
+					debugShowGraphIR(start);
+			}
 	}
 	
 	//Merge variables that can be merges

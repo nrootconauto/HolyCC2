@@ -41,7 +41,7 @@ static graphNodeIR createChoose(graphNodeIR insertBefore,
 
 	graphNodeIRConnect(chooseNode, valueNode, IR_CONN_DEST);
 
-	__auto_type stmtStart = IRGetStmtStart(insertBefore);
+	__auto_type stmtStart = IRGetStmtStart(IRGetEndOfExpr(insertBefore));
 	IRInsertBefore(stmtStart, chooseNode, valueNode, IR_CONN_FLOW);
 	return valueNode;
 }
