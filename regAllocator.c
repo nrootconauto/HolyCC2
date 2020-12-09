@@ -45,7 +45,7 @@ MAP_TYPE_FUNCS(struct regSlice,RegSlice);
 static char *interfereNode2Label(const struct __graphNode * node, mapGraphVizAttr *attrs, const void *data) {
 		mapRegSlice map=(void*)data;
 		
-		__auto_type var=graphNodeIRLiveValuePtr((graphNodeIRLive)node)->ref;
+		__auto_type var=&graphNodeIRLiveValuePtr((graphNodeIRLive)node)->ref;
 		__auto_type dummy=createVarRef(var->value.var);
 		((struct IRNodeValue*)graphNodeIRValuePtr(dummy))->val.value.var.SSANum=var->SSANum;
 		char *name=var2Str(dummy);
@@ -664,7 +664,7 @@ static int isVarsChooseNode(const struct __graphNode *node,const struct interfer
 }
 static int spillOrStoreAt(const struct __graphNode *node,const struct interferencePair *pair) {
 		//Check if hit a choose node that "consumes" pair->var. Chooses mark the end of one version of a var and a transition to the next version
-		struct IRNode *value=graphNodeIRValuePtr((graphNodeIR)node);
+ 		struct IRNode *value=graphNodeIRValuePtr((graphNodeIR)node);
 		if(isVarsChooseNode(node, pair))
 				return 1;
 
@@ -802,7 +802,7 @@ static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spil
 		
 		//Find var in interference graph
 		for(long i=0;i!=strGraphNodeIRLivePSize(allLiveNodes);i++) {
-				if(0==IRVarCmp(graphNodeIRLiveValuePtr(allLiveNodes[i])->ref,startAtVar)) {
+				if(0==IRVarCmp(&graphNodeIRLiveValuePtr(allLiveNodes[i])->ref,startAtVar)) {
 						liveNode=allLiveNodes[i];
 						break;
 				}
@@ -839,10 +839,10 @@ static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spil
 
 								struct varToLiveNode pair;
 								pair.live=interfere[i];
-								pair.var=*var;
+								pair.var=var;
 								varToLive=strVarToLiveNodeSortedInsert(varToLive, pair, varToLiveNodeCompare);
 								
-								allVars=strIRVarSortedInsert(allVars, var, IRVarCmp2);
+								allVars=strIRVarSortedInsert(allVars, &var, IRVarCmp2);
 						}
 				}
 		}
@@ -869,7 +869,7 @@ static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spil
 				else if(graphNodeIRValuePtr(lastNode)->type==IR_VALUE) {
 						if(isVar(lastNode)) {
 								//Mark node as spilled to by current variable
-								struct IRVar *currVar=graphNodeIRLiveValuePtr(liveNode)->ref;
+								struct IRVar *currVar=&graphNodeIRLiveValuePtr(liveNode)->ref;
 								
 								//Quit spill/load if current variable is already spilled here
 								__auto_type find=llIRAttrFind(graphNodeIRValuePtr(lastNode)->attrs,  IR_ATTR_NODE_VARS_SPILLED_AT ,  IRAttrGetPred);
@@ -921,6 +921,7 @@ static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spil
 								//Get end of expression(lastNode points to last node in path to varible,not expression)
 								__auto_type exprEnd=IRGetEndOfExpr(lastNode);
 								IRInsertBefore(IRGetStmtStart(exprEnd), spillReg,loadReg, IR_CONN_FLOW);
+								debugShowGraphIR(startAt);
 								// 
 								//  Spill Register
 								//   ||
@@ -941,10 +942,7 @@ static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spil
 								//Get list of spillNode variables exluding self
 								strIRVar spillVars=NULL;
 								for(long i=0;i!=strGraphNodeIRLivePSize(spillNodes);i++) {
-										__auto_type var=graphNodeIRLiveValuePtr(spillNodes[i])->ref;
-										//Dont spill self
-										if(var==startAtVar)
-												continue;
+										__auto_type var=&graphNodeIRLiveValuePtr(spillNodes[i])->ref;
 										
 										if(NULL!=strIRVarSortedFind(allVars, var, IRVarCmp2))
 												spillVars=strIRVarSortedInsert(spillVars,var, IRVarCmp2);
@@ -1048,7 +1046,7 @@ static void replaceVarsWithRegisters(mapRegSlice map,strGraphNodeIRLiveP allLive
 		for(long i=0;i!=strGraphNodeIRLivePSize(allLiveNodes);i++) {
 				struct varToLiveNode pair;
 				pair.live=allLiveNodes[i];
-				pair.var=*graphNodeIRLiveValuePtr(allLiveNodes[i])->ref;
+				pair.var=graphNodeIRLiveValuePtr(allLiveNodes[i])->ref;
 				varToLive=strVarToLiveNodeSortedInsert(varToLive, pair, varToLiveNodeCompare);
 		}
 		
@@ -1063,19 +1061,6 @@ static void replaceVarsWithRegisters(mapRegSlice map,strGraphNodeIRLiveP allLive
 						dummy.live=NULL;
 						dummy.var=value->val.value.var;
 						__auto_type find=strVarToLiveNodeSortedFind(varToLive, dummy, varToLiveNodeCompare);
-
-						if(1) {
-								__auto_type var=dummy.var;
-								__auto_type dummy2=createVarRef(var.value.var);
-								((struct IRNodeValue*)graphNodeIRValuePtr(dummy2))->val.value.var.SSANum=var.SSANum;
-								char *name=var2Str(dummy2);
-								if(0==strcmp("V-4",name)) {
-										printf("Gere\n");
-										1+1;
-								}
-								
-								graphNodeIRKill(&dummy2, IRNodeDestroy, NULL);
-						}
 								
 						if(find) {
 								//Get register slice from liveness node to register slice map
@@ -1164,7 +1149,7 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 					//Make dummy value to find type of variable
 					struct IRValue value;
 					value.type=IR_VAL_VAR_REF;
-					value.value.var=*graphNodeIRLiveValuePtr(allColorNodes[i])->ref;
+					value.value.var=graphNodeIRLiveValuePtr(allColorNodes[i])->ref;
 					__auto_type type= IRValueGetType(&value);
 					
 					__auto_type regsForType=regGetForType(type);
@@ -1184,7 +1169,7 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 							char *nodeName2=interfereNode2Label(allColorNodes[i], NULL, NULL);
 							char buffer[512];
 							sprintf(buffer, "%s:REG(%s)", nodeName2,slice.reg->name);
-							debugAddPtrName(graphNodeIRLiveValuePtr(allColorNodes[i])->ref->value.var, buffer);
+							debugAddPtrName(graphNodeIRLiveValuePtr(allColorNodes[i])->ref.value.var, buffer);
 							free(nodeName2);
 #endif
 					
@@ -1305,7 +1290,7 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 			//Get list of spilled vars
 			strIRVar spillVars=NULL;
 			for(long i=0;i!=strGraphNodeIRLivePSize(spillNodes);i++) {
-					__auto_type var=graphNodeIRLiveValuePtr(spillNodes[i])->ref;
+					__auto_type var=&graphNodeIRLiveValuePtr(spillNodes[i])->ref;
 									
 					spillVars=strIRVarSortedInsert(spillVars,var, IRVarCmp2);
 			}
@@ -1317,7 +1302,7 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 							
 							//Check if nodeValue variable is eqivalent to varable in nodesWithRegisterConflict
 							for(long i2=0;i2!=strGraphNodeIRLivePSize(nodesWithRegisterConflict);i2++) {
-									__auto_type conflict=graphNodeIRLiveValuePtr(nodesWithRegisterConflict[i2])->ref;
+									__auto_type conflict=&graphNodeIRLiveValuePtr(nodesWithRegisterConflict[i2])->ref;
 									__auto_type have=&nodeValue->val.value.var;
 									if(0==IRVarCmp(conflict, have)) {
 											findVarInterfereAt(regsByLivenessNode, spillNodes, allColorNodes, allNodes[i], &nodeValue->val.value.var);
@@ -1329,8 +1314,8 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 
 			//Add variables in liveness nodes to liveVars
 			for(long i=0;i!=strGraphNodeIRLivePSize(allColorNodes);i++) {
-					if(NULL==strIRVarSortedFind(liveVars, graphNodeIRLiveValuePtr(allColorNodes[i])->ref, IRVarCmp2))
-							liveVars=strIRVarSortedInsert(liveVars, graphNodeIRLiveValuePtr(allColorNodes[i])->ref, IRVarCmp2);
+					if(NULL==strIRVarSortedFind(liveVars, &graphNodeIRLiveValuePtr(allColorNodes[i])->ref, IRVarCmp2))
+							liveVars=strIRVarSortedInsert(liveVars, &graphNodeIRLiveValuePtr(allColorNodes[i])->ref, IRVarCmp2);
 			}
 			
 			replaceVarsWithRegisters(regsByLivenessNode,allColorNodes,start);

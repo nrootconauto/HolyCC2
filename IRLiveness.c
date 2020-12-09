@@ -747,7 +747,7 @@ char *name=tmpnam(NULL);
 			if (NULL == find2) {
 				// Create a node
 				struct IRVarLiveness live;
-				live.ref = find->block->in[i2];
+				live.ref = *find->block->in[i2];
 
 				// Set the ndoe and insert
 				pair.node = graphNodeIRLiveCreate(live, 0);
@@ -783,9 +783,9 @@ char *name=tmpnam(NULL);
 
 #if DEBUG_PRINT_ENABLE
 				__auto_type ref1 =
-				    debugGetPtrNameConst(graphNodeIRLiveValuePtr(liveAtOnce[i1])->ref);
+				    debugGetPtrNameConst(&graphNodeIRLiveValuePtr(liveAtOnce[i1])->ref);
 				__auto_type ref2 =
-				    debugGetPtrNameConst(graphNodeIRLiveValuePtr(liveAtOnce[i2])->ref);
+				    debugGetPtrNameConst(&graphNodeIRLiveValuePtr(liveAtOnce[i2])->ref);
 				DEBUG_PRINT("Connecting %s to %s\n", ref1, ref2);
 #endif
 			}
