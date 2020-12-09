@@ -918,7 +918,9 @@ static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spil
 														
 								graphNodeIRConnect(spill, load, IR_CONN_FLOW);
 
-								IRInsertBefore(IRGetStmtStart(lastNode), spillReg,loadReg, IR_CONN_FLOW);
+								//Get end of expression(lastNode points to last node in path to varible,not expression)
+								__auto_type exprEnd=IRGetEndOfExpr(lastNode);
+								IRInsertBefore(IRGetStmtStart(exprEnd), spillReg,loadReg, IR_CONN_FLOW);
 								// 
 								//  Spill Register
 								//   ||
@@ -952,8 +954,6 @@ static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spil
 								insertLoadsInExpression(endOfExpression, spillVars);
 
 								strIRVarDestroy(&spillVars);
-
-								debugShowGraphIR(startAt);
 								
 								//Re-run interferance at end of epxression
 								findVarInterfereAt(liveNodeRegs, spillNodes,allLiveNodes, endOfExpression, newVar);
@@ -1101,7 +1101,7 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 	for(long i=0;i!=strGraphNodeIRPSize(allNodes2);i++) {
 			if(graphNodeIRValuePtr(allNodes2[i])->type==IR_CHOOSE) {
 					IRSSAReplaceChooseWithAssigns(allNodes2[i]);
-					debugShowGraphIR(start);
+					//	debugShowGraphIR(start);
 			}
 	}
 	
@@ -1113,7 +1113,7 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 		//debugShowGraphIR(start);
 		IRRemoveRepeatAssigns(start);
 		
-		debugShowGraphIR(start);
+		//debugShowGraphIR(start);
 
 	__auto_type intInterfere=IRInterferenceGraphFilter(start, filterIntVars,NULL);
 	
@@ -1126,7 +1126,7 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 	for(long i=0;i!=strGraphNodeIRLivePSize(intInterfere);i++)
 	{
 			__auto_type interfere=intInterfere[i];
-			debugPrintInterferenceGraph(interfere,NULL);
+			//debugPrintInterferenceGraph(interfere,NULL);
 			
 			__auto_type vertexColors=graphColor(interfere);
 
@@ -1333,9 +1333,7 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 							liveVars=strIRVarSortedInsert(liveVars, graphNodeIRLiveValuePtr(allColorNodes[i])->ref, IRVarCmp2);
 			}
 			
-			debugShowGraphIR(start);
 			replaceVarsWithRegisters(regsByLivenessNode,allColorNodes,start);
-			debugShowGraphIR(start);
 			strGraphNodeIRLivePDestroy(&allColorNodes);
 	}
 	
