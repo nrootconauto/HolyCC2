@@ -322,3 +322,6 @@ graphNodeIR createLoad(struct IRVar *var);
 graphNodeIR createSpill(struct IRVar *var);
 graphNodeIR createRegRef(const struct regSlice *slice);
 graphNodeIR IRGetEndOfExpr(graphNodeIR node);
+strGraphNodeIRP IRStmtNodes(graphNodeIR end);
+void IRRemoveDeadExpression(graphNodeIR end,strGraphNodeP *removed);
+int IRIsDeadExpression(graphNodeIR end);

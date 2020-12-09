@@ -98,14 +98,14 @@ static int ptrPtrCmp(const void *a, const void *b) {
 	else
 		return 0;
 }
-static void transparentKill(graphNodeIR node) {
+static void transparentKill(graphNodeIR node,int preserveEdgeValue) {
 	__auto_type incoming = graphNodeIRIncoming(node);
 	__auto_type outgoing = graphNodeIROutgoing(node);
 	for (long i1 = 0; i1 != strGraphEdgeIRPSize(incoming); i1++)
 		for (long i2 = 0; i2 != strGraphEdgeIRPSize(outgoing); i2++)
 			graphNodeIRConnect(graphEdgeIRIncoming(incoming[i1]),
 			                   graphEdgeIROutgoing(outgoing[i2]),
-			                   *graphEdgeIRValuePtr(incoming[i1]));
+			                   (preserveEdgeValue)?*graphEdgeIRValuePtr(incoming[i1]):IR_CONN_FLOW);
 
 	graphNodeIRKill(&node, IRNodeDestroy, NULL);
 }
@@ -164,11 +164,11 @@ static void removeChooseNode(graphNodeIR chooseNode) {
 
 		// Remove var if useless
 		if (useless)
-			transparentKill(outgoingNodes[i2]);
+				transparentKill(outgoingNodes[i2],1);
 	}
 
 	strGraphNodeIRPDestroy(&outgoingNodes);
-	transparentKill(chooseNode);
+	transparentKill(chooseNode,1);
 }
 static void removeChooseNodes(strGraphNodeIRP nodes, graphNodeIR start) {
 	for (long i = 0; i != strGraphNodeIRPSize(nodes); i++) {
@@ -417,7 +417,7 @@ void IRRemoveRepeatAssigns(graphNodeIR enter) {
 
 	//(Transparently) remove all items marked for removal
 	for (long i = 0; i != strGraphNodeIRPSize(toRemove); i++)
-		transparentKill(toRemove[i]);
+			transparentKill(toRemove[i],1);
 
 	// Remove removed
 	allNodes =
@@ -462,7 +462,7 @@ void IRRemoveRepeatAssigns(graphNodeIR enter) {
 
 	// Kill duds
 	for (long i = 0; i != strGraphNodeIRPSize(duds); i++) {
-		transparentKill(duds[i]);
+			transparentKill(duds[i],1);
 	}
 
 	strGraphNodeIRPDestroy(&duds);
@@ -730,6 +730,57 @@ static int varToLiveNodeCompare(const struct varToLiveNode *a,const struct varTo
 }
 STR_TYPE_DEF(struct varToLiveNode,VarToLiveNode);
 STR_TYPE_FUNCS(struct varToLiveNode,VarToLiveNode);
+static void removeDeadExpresions(graphNodeIR startAt,strIRVar liveVars) {
+		__auto_type allNodes=graphNodeIRAllNodes(startAt);
+		__auto_type toRemove=strGraphNodeIRPReserve(NULL, strGraphNodeIRPSize(allNodes));
+		
+	loop:
+		allNodes=strGraphNodeIRPSetDifference(allNodes, toRemove, (gnCmpType)ptrPtrCmp);
+		
+		for(long i=0;i!=strGraphNodeIRPSize(allNodes);i++) {
+				//
+				// Find end of expression that is an assigned node
+				//
+				
+				//Check for assign
+				strGraphEdgeIRP incoming __attribute__((cleanup(strGraphEdgeIRPDestroy)))=graphNodeIRIncoming(allNodes[i]); //TODO
+				if(strGraphEdgeIRPSize(incoming)==1) {
+						if(*graphEdgeIRValuePtr(incoming[0])==IR_CONN_DEST) {
+								//If destination is a variable that isn't alive,destroy it
+								if(isVar(allNodes[i])) {
+										//Ensure allNodes[i ] is end of expression
+										strGraphEdgeIRP outgoing __attribute__((cleanup(strGraphEdgeIRPDestroy)))=graphNodeIROutgoing(allNodes[i]);
+										for(long i=0;i!=strGraphEdgeIRPSize(outgoing);i++)
+												if(IRIsExprEdge(*graphEdgeIRValuePtr(outgoing[i])))
+														goto __continue;
+
+										//Ensure points to non-alive variable
+										struct IRNodeValue *value=(void*)graphNodeIRValuePtr(allNodes[i]);
+										if(NULL==strIRVarSortedFind(liveVars, &value->val.value.var, IRVarCmp2)) {
+												__auto_type in=graphEdgeIRIncoming(incoming[0]);
+												
+												//Wasn't found in live vairables so delete assign
+												transparentKill(allNodes[i],0);
+
+												//Check if dead expression now that we removed the dead assign
+												if(IRIsDeadExpression(in)) {
+														//Remove dead expression
+														strGraphNodeIRP removed;
+														IRRemoveDeadExpression(in, &removed);
+														toRemove=strGraphNodeIRPSetUnion(toRemove, removed, (gnCmpType)ptrPtrCmp);
+
+														strGraphNodeIRPDestroy(&removed);
+
+														//Restart search
+														goto loop;
+												}
+										}
+								}
+						}
+				}
+		__continue:;
+		}
+}
 static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spillNodes,strGraphNodeIRLiveP allLiveNodes,graphNodeIR startAt,struct IRVar *startAtVar) {
 		//Quit if already did spill/loads on node
 		__auto_type find=llIRAttrFind( graphNodeIRValuePtr(startAt)->attrs,IR_ATTR_NODE_SPILL_LOADS_COMPUTED, IRAttrGetPred);
@@ -1025,7 +1076,7 @@ void IRRegisterAllocate(graphNodeIR start,color2RegPredicate colorFunc,void *col
 		__auto_type allNodes = graphNodeIRAllNodes(start);
 		removeChooseNodes(allNodes, start);
 		IRToSSA(start);
-		//debugShowGraphIR(start);
+		debugShowGraphIR(start);
 	
 __auto_type allNodes2 = graphNodeIRAllNodes(start);
 	for(long i=0;i!=strGraphNodeIRPSize(allNodes2);i++) {
@@ -1049,6 +1100,8 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 	
 	//Compute int and flaoting interfernce seperatly
 	strGraphNodeIRLiveP spillNodes=NULL;
+
+	strIRVar liveVars=NULL;
 	for(long i=0;i!=strGraphNodeIRLivePSize(intInterfere);i++)
 	{
 			__auto_type interfere=intInterfere[i];
@@ -1252,9 +1305,17 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 							}
 					}
 			}
+
+			//Add variables in liveness nodes to liveVars
+			for(long i=0;i!=strGraphNodeIRLivePSize(allColorNodes);i++) {
+					if(NULL==strIRVarSortedFind(liveVars, graphNodeIRLiveValuePtr(allColorNodes[i])->ref, IRVarCmp2))
+							liveVars=strIRVarSortedInsert(liveVars, graphNodeIRLiveValuePtr(allColorNodes[i])->ref, IRVarCmp2);
+			}
 			
 			replaceVarsWithRegisters(regsByLivenessNode,allColorNodes,start);
-			debugShowGraphIR(start);
 			strGraphNodeIRLivePDestroy(&allColorNodes);
 	}
+	
+	removeDeadExpresions(start, liveVars);
+	debugShowGraphIR(start);
 }

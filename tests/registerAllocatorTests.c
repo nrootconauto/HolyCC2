@@ -172,7 +172,7 @@ void registerAllocatorTests() {
 				DEBUG_PRINT_REGISTER_VAR(y);
 				DEBUG_PRINT_REGISTER_VAR(z);
 				
-				__auto_type start=createIntLit(1);
+				__auto_type start=createLabel();
 				__auto_type end=start;
 				//Assign u-z;
 				{

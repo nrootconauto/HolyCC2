@@ -417,6 +417,80 @@ struct IRAttrStmtStart {
 	struct IRAttr base;
 	graphNodeIR node;
 };
+static int untilAssign(const struct __graphNode *node,
+                               const struct __graphEdge *edge,
+                               const void *data) {
+	//
+	// Edge may be a "virtual"(mapped edge from replace that has no value)
+	// fail is edge value isnt present
+	//
+	__auto_type edgeValue = *graphEdgeIRValuePtr((void *)edge);
+	if (!edgeValue)
+		return 0;
+
+	if (!IRIsExprEdge(edgeValue))
+		return 0;
+
+	strGraphEdgeIRP incoming __attribute__((cleanup(strGraphEdgeIRPDestroy))) =
+			graphNodeIRIncoming(((graphNodeIR)node));
+	
+	if (strGraphEdgeIRPSize(incoming) == 1) {
+			__auto_type type=graphEdgeIRValuePtr(incoming[0]);
+			if (*type== IR_CONN_DEST)
+			return 0;
+	}
+
+	return 1;
+}
+strGraphNodeIRP IRStmtNodes(graphNodeIR end) {
+		strGraphNodeIRP starts = strGraphNodeIRPAppendItem(NULL, end);
+		graphNodeIRVisitBackward(end, &starts, exprEdgePred, addNode2List);
+
+		return starts;
+}
+static void transparentKill(graphNodeIR node) {
+	__auto_type incoming = graphNodeIRIncoming(node);
+	__auto_type outgoing = graphNodeIROutgoing(node);
+	for (long i1 = 0; i1 != strGraphEdgeIRPSize(incoming); i1++)
+		for (long i2 = 0; i2 != strGraphEdgeIRPSize(outgoing); i2++)
+			graphNodeIRConnect(graphEdgeIRIncoming(incoming[i1]),
+			                   graphEdgeIROutgoing(outgoing[i2]),
+			                   IR_CONN_FLOW);
+
+	graphNodeIRKill(&node, IRNodeDestroy, NULL);
+}
+int IRIsDeadExpression(graphNodeIR end) {
+		strGraphNodeIRP starts = strGraphNodeIRPAppendItem(NULL, end);
+		graphNodeIRVisitBackward(end, &starts, untilAssign, addNode2List);
+
+		int isDead=1;
+		//Check for function call with starts
+		for(long i=0;i!=strGraphNodeIRPSize(starts);i++) {
+				if(graphNodeIRValuePtr(starts[i])->type==IR_FUNC_CALL) {
+						isDead=0;
+						break;
+				}
+		}
+		
+		strGraphNodeIRPDestroy(&starts);
+
+		return isDead;
+}
+void IRRemoveDeadExpression(graphNodeIR end,strGraphNodeP *removed) {
+		__auto_type nodes=IRStmtNodes(end);
+		strGraphNodeIRP starts = strGraphNodeIRPAppendItem(NULL, end);
+		graphNodeIRVisitBackward(end, &starts, untilAssign, addNode2List);
+
+		for(long i=0;i!=strGraphNodeIRPSize(starts);i++) {
+				transparentKill(starts[i]);
+		}
+
+		if(removed)
+				*removed=starts;
+		else
+				strGraphNodeIRPDestroy(&starts);
+		
+}
 graphNodeIR IRGetStmtStart(graphNodeIR node) {
 	strGraphNodeIRP starts = NULL;
 	graphNodeIRVisitBackward(node, &starts, exprEdgePred, addNode2List);
