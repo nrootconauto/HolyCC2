@@ -529,6 +529,17 @@ static int gnIRCmpVar(const graphNodeIR *a,const graphNodeIR *b) {
 
 		return IRVarCmp(&A->val.value.var, &B->val.value.var);
 }
+static void transparentKill(graphNodeIR node) {
+	__auto_type incoming = graphNodeIRIncoming(node);
+	__auto_type outgoing = graphNodeIROutgoing(node);
+	for (long i1 = 0; i1 != strGraphEdgeIRPSize(incoming); i1++)
+		for (long i2 = 0; i2 != strGraphEdgeIRPSize(outgoing); i2++)
+			graphNodeIRConnect(graphEdgeIRIncoming(incoming[i1]),
+			                   graphEdgeIROutgoing(outgoing[i2]),
+			                   IR_CONN_FLOW);
+
+	graphNodeIRKill(&node, IRNodeDestroy, NULL);
+}
 void IRSSAReplaceChooseWithAssigns(graphNodeIR node) {
 		assert(graphNodeIRValuePtr(node)->type==IR_CHOOSE);
 		struct IRNodeChoose *choose=(void*)graphNodeIRValuePtr(node);
@@ -581,7 +592,9 @@ void IRSSAReplaceChooseWithAssigns(graphNodeIR node) {
 		__auto_type endOfExpression=IRGetEndOfExpr(node);
 
 		__auto_type exprNodes=getStatementNodes(IRGetStmtStart(node), endOfExpression);
-		graphReplaceWithNode(exprNodes, createLabel(), NULL, NULL,sizeof(graphEdgeIR));
-
+		__auto_type dummy=createLabel();
+		graphReplaceWithNode(exprNodes, dummy, NULL, NULL,sizeof(graphEdgeIR));
+		transparentKill(dummy);
+		
 		strGraphNodeIRPDestroy(&exprNodes);
 }

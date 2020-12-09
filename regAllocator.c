@@ -918,9 +918,7 @@ static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spil
 														
 								graphNodeIRConnect(spill, load, IR_CONN_FLOW);
 
-								debugShowGraphIR(startAt);
 								IRInsertBefore(IRGetStmtStart(lastNode), spillReg,loadReg, IR_CONN_FLOW);
-								debugShowGraphIR(startAt);
 								// 
 								//  Spill Register
 								//   ||
