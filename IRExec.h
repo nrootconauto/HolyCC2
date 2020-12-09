@@ -25,3 +25,4 @@ void IREvalSetVarVal(const struct variable *var, struct IREvalVal value);
 struct IREvalVal IREvalValFltCreate(double f);
 struct IREvalVal IREValValIntCreate(long i);
 void IREvalInit();
+struct IREvalVal IREvalPath(graphNodeIR start,int *success);

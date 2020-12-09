@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <regAllocator.h>
 #include <SSA.h>
+#include <IRExec.h>
 #define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 static void debugShowGraph(graphNodeIR enter) {
@@ -340,5 +341,10 @@ void registerAllocatorTests() {
 					//debugShowGraph(start);
 				setArch(ARCH_TEST_SYSV);
 				IRRegisterAllocate(start, NULL, NULL);
+
+				int success;
+				IREvalInit();
+				__auto_type res= IREvalPath(start, &success);
+				assert(success);
 		}
 }

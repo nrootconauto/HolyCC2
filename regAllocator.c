@@ -46,7 +46,11 @@ static char *interfereNode2Label(const struct __graphNode * node, mapGraphVizAtt
 		mapRegSlice map=(void*)data;
 		
 		__auto_type var=graphNodeIRLiveValuePtr((graphNodeIRLive)node)->ref;
-		char *name=debugGetPtrName(var);
+		__auto_type dummy=createVarRef(var->value.var);
+		((struct IRNodeValue*)graphNodeIRValuePtr(dummy))->val.value.var.SSANum=var->SSANum;
+		char *name=var2Str(dummy);
+		graphNodeIRKill(&dummy, IRNodeDestroy, NULL);
+		
 		if(name)
 				name=name;
 		else if(var->value.var->name)
@@ -722,11 +726,11 @@ static void insertLoadsInExpression(graphNodeIR expressionNode,strIRVar varsToRe
 		graphNodeIRVisitBackward(end, varsToReplace, untillStartOfExpr, replaceVarWithLoad);
 }
 struct varToLiveNode {
-		struct IRVar *var;
+		struct IRVar var;
 		graphNodeIRLive live;
 };
 static int varToLiveNodeCompare(const struct varToLiveNode *a,const struct varToLiveNode *b) {
-		return IRVarCmp(a->var, b->var);
+		return IRVarCmp(&a->var, &b->var);
 }
 STR_TYPE_DEF(struct varToLiveNode,VarToLiveNode);
 STR_TYPE_FUNCS(struct varToLiveNode,VarToLiveNode);
@@ -835,7 +839,7 @@ static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spil
 
 								struct varToLiveNode pair;
 								pair.live=interfere[i];
-								pair.var=var;
+								pair.var=*var;
 								varToLive=strVarToLiveNodeSortedInsert(varToLive, pair, varToLiveNodeCompare);
 								
 								allVars=strIRVarSortedInsert(allVars, var, IRVarCmp2);
@@ -903,7 +907,7 @@ static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spil
 								//Find liveness node from variable,then get regslice from node
 								struct varToLiveNode pair;
 								pair.live=NULL;
-								pair.var=&((struct IRNodeValue*)graphNodeIRValuePtr(lastNode))->val.value.var;
+								pair.var=((struct IRNodeValue*)graphNodeIRValuePtr(lastNode))->val.value.var;
 								__auto_type liveNode=strVarToLiveNodeSortedFind(varToLive, pair, varToLiveNodeCompare)->live;
 
 								char *key=ptr2Str(liveNode);
@@ -1044,7 +1048,7 @@ static void replaceVarsWithRegisters(mapRegSlice map,strGraphNodeIRLiveP allLive
 		for(long i=0;i!=strGraphNodeIRLivePSize(allLiveNodes);i++) {
 				struct varToLiveNode pair;
 				pair.live=allLiveNodes[i];
-				pair.var=graphNodeIRLiveValuePtr(allLiveNodes[i])->ref;
+				pair.var=*graphNodeIRLiveValuePtr(allLiveNodes[i])->ref;
 				varToLive=strVarToLiveNodeSortedInsert(varToLive, pair, varToLiveNodeCompare);
 		}
 		
@@ -1057,13 +1061,28 @@ static void replaceVarsWithRegisters(mapRegSlice map,strGraphNodeIRLiveP allLive
 						//Ensure variable is in the current liveness graph
 						struct varToLiveNode dummy;
 						dummy.live=NULL;
-						dummy.var=&value->val.value.var;
+						dummy.var=value->val.value.var;
 						__auto_type find=strVarToLiveNodeSortedFind(varToLive, dummy, varToLiveNodeCompare);
+
+						if(1) {
+								__auto_type var=dummy.var;
+								__auto_type dummy2=createVarRef(var.value.var);
+								((struct IRNodeValue*)graphNodeIRValuePtr(dummy2))->val.value.var.SSANum=var.SSANum;
+								char *name=var2Str(dummy2);
+								if(0==strcmp("V-4",name)) {
+										printf("Gere\n");
+										1+1;
+								}
+								
+								graphNodeIRKill(&dummy2, IRNodeDestroy, NULL);
+						}
+								
 						if(find) {
 								//Get register slice from liveness node to register slice map
 								char *key=ptr2Str(find->live);
 								__auto_type slice=*mapRegSliceGet(map, key);
 								free(key);
+								
 								
 								//Replace
 								replaceNodeWithExpr(allNodes[i],  createRegRef(&slice));
@@ -1312,7 +1331,9 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 							liveVars=strIRVarSortedInsert(liveVars, graphNodeIRLiveValuePtr(allColorNodes[i])->ref, IRVarCmp2);
 			}
 			
+			debugShowGraphIR(start);
 			replaceVarsWithRegisters(regsByLivenessNode,allColorNodes,start);
+			debugShowGraphIR(start);
 			strGraphNodeIRLivePDestroy(&allColorNodes);
 	}
 	

@@ -368,10 +368,10 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 				*success = 1;
 			return IREValValIntCreate(value->value.intLit.value.sLong);
 		}
-		case IR_VAL_FUNC:
 		case IR_VAL_REG: {
-			// TODO implement me
+				return *valueHash(value);
 		}
+		case IR_VAL_FUNC:
 		default:
 			if (success)
 				*success = 0;
@@ -703,8 +703,7 @@ void IREvalSetVarVal(const struct variable *var, struct IREvalVal value) {
 	ref.value.var.value.var = (void *)var;
 	*valueHash(&ref) = value;
 }
-
-struct IREvalVal __IREvalPath(graphNodeIR start,struct IREvalVal *currentValue,int *success) {
+static struct IREvalVal __IREvalPath(graphNodeIR start,struct IREvalVal *currentValue,int *success) {
 		if(success)
 						*success=1;
 
@@ -779,8 +778,13 @@ struct IREvalVal __IREvalPath(graphNodeIR start,struct IREvalVal *currentValue,i
 				return *currentValue;
 		}
 		case IR_VALUE: {
-				struct IRNodeValue *value=(void*)nodeValue;
-				return *valueHash(&value->val);
+				__auto_type end=IRGetEndOfExpr(start);
+				int success2;
+				retVal=IREvalNode(end, &success2);
+				if(!success2)
+						goto fail;
+
+				goto findNext;
 		}
 		case IR_LABEL: {
 				//If multiple outputs,check if see if they end a shared expression node
@@ -859,3 +863,7 @@ struct IREvalVal __IREvalPath(graphNodeIR start,struct IREvalVal *currentValue,i
 				return retVal;
 		}
 }
+
+struct IREvalVal IREvalPath(graphNodeIR start,int *success) {
+		return __IREvalPath(start, NULL, success);
+} 
