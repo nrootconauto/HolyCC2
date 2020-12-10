@@ -22,10 +22,9 @@ void registerAllocatorTests();
 void init();
 int main() {
 		gcInit(__builtin_frame_address(0));
+		
 		init();
-		gcCollect();
 		strTests();
-		gcCollect();
 		preprocessorTests();
 		base64Tests();
 		graphTests();
@@ -48,8 +47,8 @@ int main() {
 		subExprElimTests();
 		//graphVizTests();
 		//			graphColoringTests();		
-		SSATests();
-		registerAllocatorTests();
+		//SSATests();
+		//registerAllocatorTests();
 		
 		return 0;
 }

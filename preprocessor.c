@@ -91,10 +91,12 @@ loop:;
 		}
 	} else if (lesserStr != end) {
 		// Skip strings
-		pos = findStr1 - (void *)text;
+		pos = lesserStr - (void *)text;
 		long endOfString;
 		int err;
 		stringParse(text, pos, &endOfString, NULL, &err);
+
+		pos=endOfString;
 		if (err)
 			return NULL;
 	} else {
@@ -422,6 +424,7 @@ static void expandDefinesInRangeRecur(struct __vec **retVal,
 				*expanded = 1;
 
 			int expanded2 = 0;
+			where=insertAt;
 			do {
 				expandDefinesInRangeRecur(retVal, defines, where,
 				                          where + __vecSize(replacement->text),
@@ -432,7 +435,7 @@ static void expandDefinesInRangeRecur(struct __vec **retVal,
 			} while (expanded2);
 
 			long oldWhere = where;
-			where = where + __vecSize(replacement->text);
+			where = where + strlen((char*)replacement->text);
 
 			// Check if macro was inserted,if so quit
 			long nextMacroStart2 =
@@ -445,7 +448,7 @@ static void expandDefinesInRangeRecur(struct __vec **retVal,
 static void expandDefinesInRange(struct __vec **retVal, mapDefineMacro defines,
                                  long where, long end, int *expanded,
                                  int *err) {
-	if (expanded != NULL)
+ 	if (expanded != NULL)
 		*expanded = 0;
 
 	__auto_type used = mapUsedDefinesCreate();
