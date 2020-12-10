@@ -1,8 +1,0 @@
-
-In windresize-other-char:
-windresize.el:248:30:Warning: reference to free variable
-    `universal-argument-num-events'
-
-In end of data:
-windresize.el:970:1:Warning: the function `View-quit' is not known to be
-    defined.
