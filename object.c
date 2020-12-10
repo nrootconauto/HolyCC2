@@ -153,6 +153,7 @@ hashObject(struct object *obj, int *alreadyExists) {
 			argStr = strCharAppendData(argStr, buffer, strlen(buffer));
 		}
 
+		argStr=strCharAppendItem(argStr, '\0');
 		long len = snprintf(NULL, 0, "%s(*)(%s)", retVal, argStr);
 		char buffer[len + 1];
 		sprintf(buffer, "%s(*)(%s)", retVal, argStr);
