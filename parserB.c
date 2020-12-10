@@ -4,7 +4,7 @@
 #include <parserB.h>
 #include <string.h>
 #include <garbageCollector.h>
-static __thread llScope currentScope GC_VARIABLE = NULL;
+static  llScope currentScope GC_VARIABLE = NULL;
 void enterScope() {
 	struct scope new;
 	new.parent = currentScope;

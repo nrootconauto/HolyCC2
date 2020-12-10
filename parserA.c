@@ -1815,7 +1815,7 @@ end:;
 /**
  * Switch section
  */
-static __thread strParserNode switchStack GC_VARIABLE = NULL;
+static  strParserNode switchStack GC_VARIABLE = NULL;
 static long getNextCaseValue(struct parserNode *parent) {
 	struct parserNode *entry = NULL;
 
@@ -2192,7 +2192,7 @@ struct currentFunctionInfo {
 STR_TYPE_DEF(struct currentFunctionInfo, FuncInfoStack);
 STR_TYPE_FUNCS(struct currentFunctionInfo, FuncInfoStack);
 
-static __thread strFuncInfoStack currentFuncsStack GC_VARIABLE = NULL;
+static  strFuncInfoStack currentFuncsStack GC_VARIABLE = NULL;
 
 struct parserNode *parseGoto(llLexerItem start, llLexerItem *end) {
 	struct parserNode *gt  =

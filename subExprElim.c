@@ -89,7 +89,7 @@ STR_TYPE_DEF(struct subExpr, SubExpr);
 STR_TYPE_FUNCS(struct subExpr, SubExpr);
 MAP_TYPE_DEF(strSubExpr, SubExprs);
 MAP_TYPE_FUNCS(strSubExpr, SubExprs);
-static __thread mapSubExprs subExprRegistry = NULL;
+static  mapSubExprs subExprRegistry = NULL;
 
 static int ptrPtrCmp(const void *a, const void *b) {
 	if (*(void **)a > *(void **)b)

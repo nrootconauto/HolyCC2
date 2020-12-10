@@ -218,7 +218,7 @@ graphNodeIR createValueFromLabel(graphNodeIR lab) {
 
 	return GRAPHN_ALLOCATE(lab);
 }
-__thread mapIRVarRefs IRVars;
+ mapIRVarRefs IRVars GC_VARIABLE;
 static int ptrPtrCmp(const void *a, const void *b) {
 	if (*(void **)a > *(void **)b)
 		return 1;

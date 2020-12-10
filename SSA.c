@@ -16,7 +16,7 @@ typedef int (*gnCmpType)(const graphNodeIR *, const graphNodeIR *);
 static char *ptr2Str(const void *a) { return base64Enc((void *)&a, sizeof(a)); }
 MAP_TYPE_DEF(struct IRVar *, VarRef);
 MAP_TYPE_FUNCS(struct IRVar *, VarRef);
-static __thread mapVarRef varRefs GC_VARIABLE = NULL;
+static  mapVarRef varRefs GC_VARIABLE = NULL;
 static graphNodeIR createChoose(graphNodeIR insertBefore,
                                 strGraphNodeIRP pathPairs) {
 	// Make the choose node

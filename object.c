@@ -10,7 +10,7 @@ MAP_TYPE_DEF(struct object *, Object);
 MAP_TYPE_FUNCS(struct object *, Object);
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
-static __thread mapObject objectRegistry GC_VARIABLE = NULL;
+static  mapObject objectRegistry GC_VARIABLE = NULL;
 struct object *objectBaseType(const struct object *obj) {
 		if(obj->type==TYPE_CLASS) {
 				struct objectClass *cls=(void*)obj;
@@ -421,6 +421,7 @@ objectArrayCreate(struct object *baseType, struct parserNode *dim) {
 	struct objectArray *array = GC_MALLOC(sizeof(struct objectArray));
 	array->base.type = TYPE_ARRAY;
 	array->base.link = 0;
+	array->base.name=NULL;
 	array->dim = dim;
 	array->type = baseType;
 
@@ -448,17 +449,17 @@ objectForwardDeclarationCreate(
 
 	return *mapObjectGet(objectRegistry, hash);
 }
-struct object __thread  typeBool GC_VARIABLE = {TYPE_Bool};
-struct object __thread typeU0 GC_VARIABLE = {TYPE_U0};
-struct object __thread typeU8i GC_VARIABLE = {TYPE_U8i};
-struct object __thread typeU16i GC_VARIABLE = {TYPE_U16i};
-struct object __thread typeU32i GC_VARIABLE = {TYPE_U32i};
-struct object __thread typeU64i GC_VARIABLE = {TYPE_U64i};
-struct object __thread typeI8i GC_VARIABLE = {TYPE_I8i};
-struct object __thread typeI16i GC_VARIABLE = {TYPE_I16i};
-struct object __thread typeI32i GC_VARIABLE = {TYPE_I32i};
-struct object __thread typeI64i GC_VARIABLE = {TYPE_I64i};
-struct object __thread typeF64 GC_VARIABLE = {TYPE_F64};
+struct object   typeBool GC_VARIABLE = {TYPE_Bool};
+struct object  typeU0 GC_VARIABLE = {TYPE_U0};
+struct object  typeU8i GC_VARIABLE = {TYPE_U8i};
+struct object  typeU16i GC_VARIABLE = {TYPE_U16i};
+struct object  typeU32i GC_VARIABLE = {TYPE_U32i};
+struct object  typeU64i GC_VARIABLE = {TYPE_U64i};
+struct object  typeI8i GC_VARIABLE = {TYPE_I8i};
+struct object  typeI16i GC_VARIABLE = {TYPE_I16i};
+struct object  typeI32i GC_VARIABLE = {TYPE_I32i};
+struct object  typeI64i GC_VARIABLE = {TYPE_I64i};
+struct object  typeF64 GC_VARIABLE = {TYPE_F64};
 void initObjectRegistry() ;
  void initObjectRegistry() {
 	objectRegistry = mapObjectCreate();

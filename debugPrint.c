@@ -5,7 +5,7 @@
 #include <garbageCollector.h>
 MAP_TYPE_DEF(char *, Str);
 MAP_TYPE_FUNCS(char *, Str);
-static __thread mapStr ptrNames GC_VARIABLE = NULL;
+static  mapStr ptrNames GC_VARIABLE = NULL;
 static char *ptr2Str(const void *ptr) {
 	return base64Enc((void *)&ptr, sizeof(ptr));
 }

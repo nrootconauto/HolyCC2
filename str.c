@@ -66,7 +66,10 @@ struct __vec *__vecReserve(struct __vec *a, long capacity) {
 		memset(a, 0, 2 * sizeof(long));
 		if (a == NULL)
 			return NULL;
+		
+		gcAddLookForPtr(a, (void*)a+2*sizeof(long));
 		a = (void *)a + 2 * sizeof(long);
+		
 	}
 	//
 	if (capacity == 0) {

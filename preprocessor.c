@@ -13,9 +13,9 @@ static void fileDestroy(FILE **file) { fclose(*file); }
 MAP_TYPE_DEF(struct defineMacro, DefineMacro);
 MAP_TYPE_FUNCS(struct defineMacro, DefineMacro);
 ;
-static  __thread long lineStart GC_VARIABLE;
-static  __thread strTextModify sourceMappings GC_VARIABLE = NULL;
-static  __thread strFileMappings allFileMappings GC_VARIABLE = NULL;
+static   long lineStart GC_VARIABLE;
+static   strTextModify sourceMappings GC_VARIABLE = NULL;
+static   strFileMappings allFileMappings GC_VARIABLE = NULL;
 static FILE *createPreprocessedFileLine(mapDefineMacro defines,
                                         struct __vec *text_, int *err);
 static void expandDefinesInRange(struct __vec **retVal, mapDefineMacro defines,
