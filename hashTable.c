@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <str.h>
 #include <string.h>
-#include <gc.h>
+#include <garbageCollector.h>
 STR_TYPE_DEF(int, Int);
 STR_TYPE_FUNCS(int, Int);
 STR_TYPE_DEF(struct __ll *, LLP);
@@ -181,7 +181,7 @@ void __mapDestroy(struct __map *map, void (*kill)(void *)) {
 	}
 }
 struct __map *__mapCreate() {
-	struct __map *retVal = GC_MALLOC(sizeof(struct __map));
+	struct __map *retVal = gcMalloc(sizeof(struct __map));
 	retVal->bucketSizes = strIntResize(NULL, 8);
 	retVal->buckets = strLLPResize(NULL, 8);
 	for (int i = 0; i != 8; i++) {

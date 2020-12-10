@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <gc.h>
+#include <garbageCollector.h>
 // ENDS AT '"'
 char *escapeString(char *str) {
 	long retValCap = strlen(str) + 10;

@@ -23,5 +23,4 @@ void base64Tests() {
 	    "ZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=";
 	char *res = base64Enc(text, strlen(text));
 	assert(0 == strcmp(expected, res));
-	free(res);
 }

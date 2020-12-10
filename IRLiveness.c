@@ -5,12 +5,12 @@
 #include <stdio.h>
 #define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
-#include <gc.h>
+#include <garbageCollector.h>
 typedef int (*gnCmpType)(const graphNodeMapping *, const graphNodeMapping *);
 typedef int (*varRefCmpType)(const struct IRVar **, const struct IRVar **);
 #define ALLOCATE(x)                                                            \
 	({                                                                           \
-		typeof(x) *ptr = GC_MALLOC(sizeof(x));                                        \
+		typeof(x) *ptr = gcMalloc(sizeof(x));                                        \
 		*ptr = x;                                                                  \
 		ptr;                                                                       \
 	})

@@ -7,7 +7,7 @@
 #include <debugPrint.h>
 #include <graphDominance.h>
 #include <base64.h>
-#include <gc.h>
+#include <garbageCollector.h>
 static char *ptr2Str(const void *a) {
 		return base64Enc((void*)&a, sizeof(a));
 }

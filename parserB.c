@@ -3,8 +3,8 @@
 #include <hashTable.h>
 #include <parserB.h>
 #include <string.h>
-#include <gc.h>
-static llScope currentScope = NULL;
+#include <garbageCollector.h>
+static __thread llScope currentScope GC_VARIABLE = NULL;
 void enterScope() {
 	struct scope new;
 	new.parent = currentScope;
@@ -73,7 +73,7 @@ void killParserData() {
 
 	currentScope = NULL;
 }
-void initParserData() __attribute__((constructor));
+void initParserData();
 void initParserData() { enterScope(); }
 
 struct function *getFunc(const struct parserNode *name) {

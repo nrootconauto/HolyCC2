@@ -5,7 +5,7 @@
 #include <parserB.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <gc.h>
+#include <garbageCollector.h>
 struct object *assignTypeToOp(const struct parserNode *node);
 static int isArith(const struct object *type) {
 	if (type == &typeU8i || type == &typeU16i || type == &typeU32i ||
@@ -18,10 +18,10 @@ static int isArith(const struct object *type) {
 }
 MAP_TYPE_DEF(void *, Set);
 MAP_TYPE_FUNCS(void *, Set);
-static mapSet assignOps = NULL;
-static mapSet incOps = NULL;
-static void initAssignOps() __attribute__((constructor));
-static void initAssignOps() {
+mapSet assignOps GC_VARIABLE = NULL;
+mapSet incOps GC_VARIABLE = NULL;
+void initAssignOps() ;
+void initAssignOps() {
 	const char *assignOps2[] = {
 	    "=",
 	    //
@@ -39,6 +39,7 @@ static void initAssignOps() {
 	    "|=",
 	};
 	long count = sizeof(assignOps2) / sizeof(*assignOps2);
+	assignOps=NULL;
 	assignOps = mapSetCreate();
 	for (long i = 0; i != count; i++)
 		mapSetInsert(assignOps, assignOps2[i], NULL);
@@ -51,11 +52,6 @@ static void initAssignOps() {
 	incOps = mapSetCreate();
 	for (long i = 0; i != count; i++)
 		mapSetInsert(incOps, incs[i], NULL);
-}
-static void deinitAssignOps() __attribute__((destructor));
-static void deinitAssignOps() {
-	mapSetDestroy(assignOps, NULL);
-	mapSetDestroy(incOps, NULL);
 }
 static int isAssignOp(const struct parserNode *op) {
 	struct parserNodeOpTerm *op2 = (void *)op;

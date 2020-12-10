@@ -8,7 +8,7 @@
 #include <str.h>
 #define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
-#include <gc.h>
+#include <garbageCollector.h>
 typedef int (*geCmpType)(const struct __graphEdge **,
                          const struct __graphEdge **);
 typedef int (*gnCmpType)(const struct __graphNode **,

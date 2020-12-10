@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <str.h>
 #include <string.h>
-#include <gc.h>
+#include <garbageCollector.h>
 /**
  * struct __vec {
  *     long capacity;
@@ -16,21 +16,19 @@ static long *__vecCapacityPtr(const struct __vec *vec) {
 static long *__vecSizePtr(const struct __vec *vec) {
 	return (void *)vec - sizeof(long);
 }
-void __vecDestroy(struct __vec *a) {
-	if (a != NULL)
-		free((void *)a - 2 * sizeof(long));
-}
 struct __vec *__vecResize(struct __vec *a, long size) {
 	if (a == NULL) {
 		a = GC_MALLOC(2 * sizeof(long) + size);
 		memset(a, 0, 2 * sizeof(long));
 		if (a == NULL)
 			return NULL;
+
+		gcAddLookForPtr(a, (void*)a+2*sizeof(long));
 		a = (void *)a + 2 * sizeof(long);
+		
 	}
 	//
 	if (size == 0) {
-		__vecDestroy(a);
 		return NULL;
 	}
 	//
@@ -72,7 +70,6 @@ struct __vec *__vecReserve(struct __vec *a, long capacity) {
 	}
 	//
 	if (capacity == 0) {
-		__vecDestroy(a);
 		return NULL;
 	}
 	//
@@ -281,14 +278,12 @@ struct __vec *__vecSetUnion(struct __vec *a, struct __vec *b, long itemSize,
 			memmove(r, s2, e2 - s2);
 			r += e2 - s2;
 
-			__vecDestroy(a);
 			return __vecResize(retVal, r - (void *)retVal);
 		}
 		if (s2 == e2) {
 			memmove(r, s1, e1 - s1);
 			r += e1 - s1;
 
-			__vecDestroy(a);
 			return __vecResize(retVal, r - (void *)retVal);
 		}
 		if (pred(s2, s1) > 0) {

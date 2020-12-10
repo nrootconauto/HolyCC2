@@ -7,15 +7,15 @@
 #include <string.h>
 #include <stringParser.h>
 #include <unistd.h>
-#include <gc.h>
+#include <garbageCollector.h>
 // TODO implement exe,if,ifdef,ifndef
 static void fileDestroy(FILE **file) { fclose(*file); }
 MAP_TYPE_DEF(struct defineMacro, DefineMacro);
 MAP_TYPE_FUNCS(struct defineMacro, DefineMacro);
 ;
-static __thread long lineStart;
-static __thread strTextModify sourceMappings = NULL;
-static __thread strFileMappings allFileMappings = NULL;
+static  __thread long lineStart GC_VARIABLE;
+static  __thread strTextModify sourceMappings GC_VARIABLE = NULL;
+static  __thread strFileMappings allFileMappings GC_VARIABLE = NULL;
 static FILE *createPreprocessedFileLine(mapDefineMacro defines,
                                         struct __vec *text_, int *err);
 static void expandDefinesInRange(struct __vec **retVal, mapDefineMacro defines,
@@ -781,7 +781,7 @@ FILE *createPreprocessedFile(const char *fileName, strTextModify *mappings,
                              strFileMappings *fileMappings, int *err) {
 	if (err != NULL)
 		*err = 0;
-
+	
 	sourceMappings = NULL;
 	allFileMappings = NULL;
 	lineStart = 0;

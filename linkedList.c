@@ -2,7 +2,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include <gc.h>
+#include <garbageCollector.h>
 struct __ll {
 	struct __ll *prev;
 	struct __ll *next;

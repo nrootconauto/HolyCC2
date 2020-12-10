@@ -6,7 +6,7 @@
 #include <str.h>
 #include <subExprElim.h>
 #include <topoSort.h>
-#include <gc.h>
+#include <garbageCollector.h>
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
 STR_TYPE_DEF(char *, Str);

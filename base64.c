@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <str.h>
-#include <gc.h>
+#include <garbageCollector.h>
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
 static unsigned char getByteAt(const char *buffer, long bit) {

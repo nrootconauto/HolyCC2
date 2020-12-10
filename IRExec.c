@@ -10,13 +10,14 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <registers.h>
+#include <garbageCollector.h>
 static char *ptr2Str(const void *a) { return base64Enc((void *)&a, sizeof(a)); }
 MAP_TYPE_DEF(graphNodeIR, Func);
 MAP_TYPE_FUNCS(graphNodeIR, Func);
-static __thread mapFunc funcs = NULL;
+static  __thread mapFunc funcs GC_VARIABLE = NULL;
 MAP_TYPE_DEF(struct IREvalVal, VarVal);
 MAP_TYPE_FUNCS(struct IREvalVal, VarVal);
-static __thread mapVarVal varVals = NULL;
+static  __thread mapVarVal varVals  GC_VARIABLE= NULL;
 struct frameItem {
 		struct IRVar *var;
 		struct IREvalVal value;
@@ -25,8 +26,8 @@ LL_TYPE_DEF(struct frameItem, FrameItem);
 LL_TYPE_FUNCS(struct frameItem, FrameItem);
 MAP_TYPE_DEF(struct IREvalVal,RegVal);
 MAP_TYPE_FUNCS(struct IREvalVal,RegVal);
-static __thread mapRegVal registerValues=NULL;
-static __thread llFrameItem frame=NULL;
+static   __thread mapRegVal registerValues GC_VARIABLE=NULL;
+static   __thread llFrameItem frame GC_VARIABLE=NULL;
 void IREvalInit() {
 	if (varVals)
 		mapVarValDestroy(varVals, NULL);

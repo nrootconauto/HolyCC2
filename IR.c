@@ -5,14 +5,14 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <subExprElim.h>
-#include <gc.h>
+#include <garbageCollector.h>
 typedef int (*gnIRCmpType)(const graphNodeIR *, const graphNodeIR *);
 typedef int (*geIRCmpType)(const graphEdgeIR *, const graphEdgeIR *);
 typedef int (*geMapCmpType)(const graphEdgeMapping *, const graphEdgeMapping *);
 typedef int (*gnMapCmpType)(const graphNodeMapping *, const graphNodeMapping *);
 #define ALLOCATE(x)                                                            \
 	({                                                                           \
-		typeof(&x) ptr = GC_MALLOC(sizeof(x));                                        \
+		typeof(&x) ptr = gcMalloc(sizeof(x));                                        \
 		memcpy(ptr, &x, sizeof(x));                                                \
 		ptr;                                                                       \
 	})
@@ -29,7 +29,6 @@ int IRAttrInsertPred(const struct IRAttr *a, const struct IRAttr *b) {
 	const struct IRAttr *A = a, *B = b;
 	return ptrCmp(A->name, B->name);
 }
-
 int IRAttrGetPred(const void *key, const struct IRAttr *b) {
 	const struct IRAttr *B = b;
 	return ptrCmp(key, B->name);
@@ -43,7 +42,7 @@ static strChar ptr2Str(const void *a) {
 	return retVal;
 }
 static char *strClone(const char *text) {
-	char *retVal = GC_MALLOC(strlen(text) + 1);
+	char *retVal = gcMalloc(strlen(text) + 1);
 	strcpy(retVal, text);
 
 	return retVal;
@@ -306,9 +305,6 @@ strGraphEdgeIRP IRGetConnsOfType(strGraphEdgeIRP conns, enum IRConnType type) {
 
 	return retVal;
 }
-static struct object *typeU8P = NULL;
-static void init() __attribute__((constructor));
-static void init() { typeU8P = objectPtrCreate(&typeU8i); };
 struct object *IRValueGetType(struct IRValue *node) {
 	switch (node->type) {
 	case IR_VAL_VAR_REF: {
@@ -319,7 +315,7 @@ struct object *IRValueGetType(struct IRValue *node) {
 		return NULL;
 	}
 	case IR_VAL_STR_LIT:
-		return typeU8P;
+		return objectPtrCreate(&typeU8i);
 	case IR_VAL_INT_LIT:
 		return &typeI64i;
 	case __IR_VAL_MEM_FRAME:

@@ -49,3 +49,4 @@ extern struct lexerItemTemplate kwTemplate;
 
 llLexerItem lexText(const struct __vec *text, int *err);
 void *lexerItemValuePtr(struct lexerItem *item);
+void initTemplates();

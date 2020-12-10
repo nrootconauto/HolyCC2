@@ -18,9 +18,14 @@ void SSATests();
 void LivenessTests();
 void graphVizTests();
 void registerAllocatorTests();
+#include <garbageCollector.h>
+void init();
 int main() {
-		/*
+		gcInit(__builtin_frame_address(0));
+		init();
+		gcCollect();
 		strTests();
+		gcCollect();
 		preprocessorTests();
 		base64Tests();
 		graphTests();
@@ -39,19 +44,12 @@ int main() {
 	parserTests();
 	parserDiagTests();
 		topoSortTests();
-	
- 	
 		LivenessTests();
 		subExprElimTests();
-		
 		//graphVizTests();
-				
-		
-				graphColoringTests();
-		
-		*/		
-		SSATests();
-		registerAllocatorTests();
+				graphColoringTests();		
+		//SSATests();
+		//registerAllocatorTests();
 		
 		return 0;
 }

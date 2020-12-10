@@ -117,20 +117,21 @@ struct object *objectForwardDeclarationCreate(const struct parserNode *name,
 struct object *objectByName(const char *name);
 struct object *objectFuncCreate(struct object *retType, strFuncArg args);
 
-extern struct object typeBool;
-extern struct object typeU0;
-extern struct object typeU8i;
-extern struct object typeU16i;
-extern struct object typeU32i;
-extern struct object typeU64i;
-extern struct object typeI8i;
-extern struct object typeI16i;
-extern struct object typeI32i;
-extern struct object typeI64i;
-extern struct object typeF64;
+extern struct object __thread typeBool;
+extern struct object __thread typeU0;
+extern struct object __thread typeU8i; 
+extern struct object __thread typeU16i;
+extern struct object __thread typeU32i;
+extern struct object __thread typeU64i;
+extern struct object __thread typeI8i;
+extern struct object __thread typeI16i;
+extern struct object __thread typeI32i;
+extern struct object __thread typeI64i;
+extern struct object __thread typeF64;
 
 void strFuncArgDestroy2(strFuncArg *args);
 char *object2Str(struct object *obj);
 int objectEqual(const struct object *a, const struct object *b);
 int objectIsCompat(const struct object *a, const struct object *b);
 struct object *objectBaseType(const struct object *obj);
+void initObjectRegistry();

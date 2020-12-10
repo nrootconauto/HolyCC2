@@ -82,7 +82,7 @@ const char *operators[] = {
     //
     ",",
 };
-static void sortKeywords() __attribute__((constructor));
+static void sortKeywords();
 static int kwSortPred(const void *a, const void *b) {
 	return strcmp(*(const char **)a, *(const char **)b);
 }
@@ -431,8 +431,9 @@ static struct lexerItemTemplate *templates[] = {
     &intTemplate,  &strTemplate, &floatTemplate,
     &nameTemplate, &opTemplate,  &kwTemplate,
 };
-static void initTemplates() __attribute__((constructor));
-static void initTemplates() {
+void initTemplates();
+ void initTemplates() {
+			sortKeywords();
 	intTemplate.killItemData = NULL;
 	intTemplate.lexItem = intLex;
 
