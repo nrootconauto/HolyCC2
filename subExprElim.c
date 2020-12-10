@@ -338,7 +338,7 @@ binopHash : {
 	strChar retVal = NULL;
 	if (aHash && bHash) {
 		long len = snprintf(NULL, 0, "%s [%s][%s]", op, aHash, bHash);
-		char buffer[len];
+		char buffer[len+1];
 		sprintf(buffer, "%s [%s][%s]", op, aHash, bHash);
 
 		retVal = strCharAppendData(NULL, buffer, strlen(buffer) + 1);
@@ -527,10 +527,5 @@ void clearSubExprs() {
 	subExprRegistry = mapSubExprsCreate();
 }
 void findSubExprs(const graphNodeIR node) {
-	const struct IRNodeStatementStart *start = (void *)graphNodeIRValuePtr(node);
-	__auto_type end = start->end;
-	__auto_type nodes = getStatementNodes(node, end);
-	for (long i = 0; i != strGraphNodeIRPSize(nodes); i++) {
-		hashNode(nodes[i]);
-	}
+		hashNode(node);
 }

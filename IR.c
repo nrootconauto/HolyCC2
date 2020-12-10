@@ -156,7 +156,7 @@ graphNodeIR createStmtStart() {
 graphNodeIR createStmtEnd(graphNodeIR start) {
 	struct IRNodeStatementStart end;
 	end.base.attrs = NULL;
-	end.base.type = IR_STATEMENT_START;
+	end.base.type = IR_STATEMENT_END;
 
 	__auto_type retVal = GRAPHN_ALLOCATE(end);
 	((struct IRNodeStatementStart *)graphNodeIRValuePtr(start))->end = retVal;

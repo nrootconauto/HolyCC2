@@ -46,7 +46,9 @@ void subExprElimTests() {
 		for (long i = 0; i != sizeof(connectToStart) / sizeof(*connectToStart); i++)
 			graphNodeIRConnect(start, connectToStart[i], IR_CONN_FLOW);
 
-		findSubExprs(start);
+		__auto_type lastAdd = graphNodeIRIncomingNodes(end);
+		assert(strGraphNodeIRPSize(lastAdd) == 1);
+		findSubExprs(lastAdd[0]);
 		replaceSubExprsWithVars();
 		
 		__auto_type s2o = graphNodeIROutgoingNodes(sum2);
