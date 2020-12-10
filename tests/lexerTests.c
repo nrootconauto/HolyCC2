@@ -54,7 +54,7 @@ static llLexerItem expectFloating(llLexerItem node, int whole, int zeros,
 }
 void lexerTests() {
 	const char *text = "if (a==1.04) 'text',1+1";
-	__auto_type str = __vecAppendItem(NULL, text, strlen(text));
+	__auto_type str = __vecAppendItem(NULL, text, strlen(text)+1);
 	int err;
 	__auto_type items = lexText(str, &err);
 	assert(!err);

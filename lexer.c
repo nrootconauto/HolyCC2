@@ -120,7 +120,7 @@ STR_TYPE_FUNCS(char *, Str);
 const void *skipWhitespace(const struct __vec *text, long from) {
 	for (__auto_type ptr = (void *)text + from;
 	     ptr != (void *)text + __vecSize(text); ptr++)
-		if (!isblank(*(char *)ptr) && *(char *)ptr != '\n' && *(char *)ptr != '\r')
+		if (!isblank(*(char *)ptr) && *(char *)ptr != '\n' && *(char *)ptr != '\r' &&ptr!='\0')
 			return ptr;
 	return __vecSize(text) + (void *)text;
 }
@@ -251,7 +251,7 @@ static struct __vec *floatingLex(const struct __vec *vec, long pos, long *end,
 	if (err != NULL)
 		*err = 0;
 
-	__auto_type endPtr = __vecSize(vec) + (char *)vec;
+	__auto_type endPtr = strlen(vec) + (char *)vec;
 	__auto_type currPtr = (char *)vec + pos;
 	struct lexerFloating f;
 	f.base = 0;
@@ -278,10 +278,10 @@ static struct __vec *floatingLex(const struct __vec *vec, long pos, long *end,
 	if (alnumCount != 0) {
 		__auto_type slice = __vecAppendItem(
 		    NULL, currPtr,
-		    pos + ((exponetIndex != -1) ? exponetIndex : alnumCount));
+						((exponetIndex != -1) ? exponetIndex -pos: alnumCount));
 		sscanf((char *)slice, "%lu", &f.base);
 		
-		currPtr += (exponetIndex == -1) ? alnumCount : exponetIndex + 1;
+		currPtr += (exponetIndex == -1) ? alnumCount : exponetIndex + 1-pos;
 	}
 
 	if (*currPtr == '.')
@@ -465,7 +465,7 @@ llLexerItem lexText(const struct __vec *text, int *err) {
 	llLexerItem retVal = NULL;
 	int err2;
 
-	__auto_type len = __vecSize(text);
+	__auto_type len = strlen((char*)text);
 	long pos = 0;
 	for (;;) {
 		pos = (char *)skipWhitespace(text, pos) - (char *)text;
