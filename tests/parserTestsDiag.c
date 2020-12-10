@@ -14,7 +14,7 @@ static void createFile(const char *text) {
 	strcpy(buffer, tmpnam(NULL));
 
 	file = fopen(buffer, "w");
-	fwrite(text, 1, strlen(text), file);
+	fwrite(text, 1, strlen(text)+1, file);
 	fclose(file);
 
 	file = fopen(buffer, "r");
@@ -33,7 +33,7 @@ void parserDiagTests() {
 	const char *text = "1+2";
 	createFile(text);
 	int err;
-	__auto_type items = lexText(__vecAppendItem(NULL, text, strlen(text)), &err);
+	__auto_type items = lexText(__vecAppendItem(NULL, text, strlen(text)+1), &err);
 	assert(!err);
 	parseStatement(items, NULL);
 	//
@@ -43,7 +43,7 @@ void parserDiagTests() {
 	       "    foo();\n"
 	       "}";
 	createFile(text);
-	items = lexText(__vecAppendItem(NULL, text, strlen(text)), &err);
+	items = lexText(__vecAppendItem(NULL, text, strlen(text)+1), &err);
 	assert(!err);
 	parseStatement(items, NULL);
 }

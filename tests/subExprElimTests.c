@@ -4,6 +4,16 @@
 #include <parserA.h>
 #include <subExprElim.h>
 struct variable *a;
+static void debugShowGraphIR(graphNodeIR enter) {
+		const char *name=tmpnam(NULL);
+		__auto_type map=graphNodeCreateMapping(enter, 1);
+		IRGraphMap2GraphViz(map, "viz", name, NULL,NULL,NULL,NULL);
+		char buffer[1024];
+		sprintf(buffer, "sleep 0.1 &&dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg & ", name);
+
+		system(buffer);
+}
+
 // Assumes "a" is 3,only "+" is implemented
 void subExprElimTests() {
 
@@ -38,11 +48,13 @@ void subExprElimTests() {
 
 		findSubExprs(start);
 		replaceSubExprsWithVars();
-
+		
 		__auto_type s2o = graphNodeIROutgoingNodes(sum2);
 		__auto_type tail = graphNodeIRIncomingNodes(end);
 		assert(strGraphNodeIRPSize(tail) == 1);
 
+		debugShowGraphIR(start);
+		
 		int success;
 		__auto_type computed = IREvalNode(tail[0], &success);
 		assert(computed.type == IREVAL_VAL_INT);

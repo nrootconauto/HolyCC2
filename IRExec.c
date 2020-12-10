@@ -345,7 +345,7 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 			// Check for dest incoming
 			__auto_type incoming = graphNodeIRIncoming(node);
 			__auto_type assign = IRGetConnsOfType(incoming, IR_CONN_DEST);
-			int success2;
+			int success2=1;
 			if (strGraphEdgeIRPSize(assign) != 0) {
 				*valueHash(value) =
 				    IREvalNode(graphEdgeIRIncoming(incoming[0]), &success2);
@@ -680,7 +680,7 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 		goto fail;
 	}
 fail:
-	*success = 1;
+	*success = 0;
 	return IREValValIntCreate(0);
 }
 void IREvalSetVarVal(const struct variable *var, struct IREvalVal value) {
