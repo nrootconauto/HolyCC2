@@ -16,7 +16,7 @@ struct __map {
 static float __mapCalculateLoad(struct __map *map);
 static void __mapRehash(struct __map *map, int scaleUp);
 // https://algs4.cs.princeton.edu/34hash/
-static int __mapHash(const unsigned char *key, const long buckets) {
+static int __mapHash(const unsigned char *key,  long buckets) {
 	if (key == NULL)
 		return 0;
 	__auto_type len = strlen((char*)key);
@@ -31,27 +31,27 @@ static struct __ll *__mapNodeCreate(const char *key, const void *item,
                                     const long itemSize, const int hash) {
 	__auto_type itemSize2 = (item == NULL) ? 0 : itemSize;
 	__auto_type strLen = strlen(key);
-	__auto_type totalSize = strLen + itemSize2 + sizeof(long) + sizeof(int) + 1;
+	__auto_type totalSize = strLen + itemSize2 + sizeof(long) + sizeof(long) + 1;
 	char buffer[totalSize];
 	*(long *)buffer = itemSize2;
-	*(int *)(buffer + sizeof(long)) = hash;
-	memcpy(buffer + sizeof(long) + sizeof(int), item, itemSize2);
-	memcpy(buffer + sizeof(long) + itemSize2 + sizeof(int), key, strLen);
-	buffer[sizeof(long) + sizeof(int) + itemSize2 + strLen] = '\0';
+	*(long *)(buffer + sizeof(long)) = hash;
+	memcpy(buffer + sizeof(long) + sizeof(long), item, itemSize2);
+	memcpy(buffer + sizeof(long) + itemSize2 + sizeof(long), key, strLen);
+	buffer[sizeof(long) + sizeof(long) + itemSize2 + strLen] = '\0';
 	return __llCreate(buffer, totalSize);
 }
 static char *__mapNodeKey(const void *nodeValue) {
 	__auto_type data = nodeValue;
-	data += sizeof(int) + sizeof(long) + *(long *)data;
+	data += sizeof(long) + sizeof(long) + *(long *)data;
 	return (char *)data;
 }
-static int *__mapNodeHashValue(const void *nodeValue) {
+static long *__mapNodeHashValue(const void *nodeValue) {
 	__auto_type data = nodeValue;
 	data += sizeof(long);
-	return (int *)data;
+	return (long *)data;
 }
 static void *__mapNodeValue(const void *nodeValue) {
-	return (void *)nodeValue + sizeof(int) + sizeof(long);
+	return (void *)nodeValue + sizeof(long) + sizeof(long);
 }
 static int __mapBucketInsertPred(const void *current, const void *item) {
 	__auto_type res = *__mapNodeHashValue(current) - *__mapNodeHashValue(item);
@@ -213,7 +213,7 @@ void __mapRemove(struct __map *map, const char *key, void (*kill)(void *)) {
 	}
 }
 const char *__mapKeyByPtr(const void *valuePtr) {
-	return __mapNodeKey(valuePtr - sizeof(int) - sizeof(long));
+	return __mapNodeKey(valuePtr - sizeof(long) - sizeof(long));
 }
 struct __map *__mapClone(struct __map *map,
                          void (*cloneData)(void *, const void *),

@@ -22,7 +22,6 @@ void registerAllocatorTests();
 void init();
 int main() {
 		gcInit(__builtin_frame_address(0));
-		gcDisable();
 		init();
 		gcCollect();
 		strTests();
