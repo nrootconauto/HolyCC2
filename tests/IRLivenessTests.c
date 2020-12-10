@@ -163,10 +163,7 @@ void LivenessTests() {
 						debugAddPtrName(vRef, "v.7");
 						debugAddPtrName(binop, "binop.7");
 				}
-
-				if(1)
-						graphPrint(entry, (char*(*)(struct __graphNode*))debugGetPtrName,graphEdgeIR2Str);
-
+				
 				__auto_type interfere=IRInterferenceGraph(entry);
 				
 				mapGraphNode byVar=mapGraphNodeCreate();
@@ -341,9 +338,6 @@ void LivenessTests() {
 						
 						exit=jump;
 				}
-
-				if(1)
-						graphPrint(enter, (char*(*)(struct __graphNode*))debugGetPtrName,graphEdgeIR2Str);
 
 				__auto_type interfere=IRInterferenceGraph(enter);
 		}

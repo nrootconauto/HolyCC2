@@ -16,14 +16,15 @@ struct __map {
 static float __mapCalculateLoad(struct __map *map);
 static void __mapRehash(struct __map *map, int scaleUp);
 // https://algs4.cs.princeton.edu/34hash/
-static int __mapHash(const char *key, const long buckets) {
+static int __mapHash(const unsigned char *key, const long buckets) {
 	if (key == NULL)
 		return 0;
-	__auto_type len = strlen(key);
+	__auto_type len = strlen((char*)key);
 	int retVal = 0;
 	for (int i = 0; i != len; i++) {
 		retVal = (31 * retVal + key[i]) % buckets;
 	}
+	//printf("Hash:%i\n", retVal);
 	return retVal;
 }
 static struct __ll *__mapNodeCreate(const char *key, const void *item,

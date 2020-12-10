@@ -6,7 +6,6 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <str.h>
-#define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 #include <garbageCollector.h>
 typedef int (*geCmpType)(const struct __graphEdge **,
@@ -465,7 +464,6 @@ static void __filterTransparentKill(graphNodeMapping node) {
 
 	graphNodeMappingKill(&node, NULL, NULL);
 }
-#define DEBUG_PRINT_ENABLE 1
 graphNodeMapping
 createFilteredGraph(struct __graphNode *start, strGraphNodeP nodes, void *data,
                     int (*pred)(struct __graphNode *,void *data)) {

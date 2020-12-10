@@ -121,7 +121,6 @@ llDominators graphComputeDominatorsPerNode(struct __graphNode *start) {
 				    memcmp(currentItems, old,
 				           strGraphNodePSize(old) * sizeof(struct __graphNode *))) {
 
-					printf("CHANGED:\n");
 					changed = 1;
 				}
 			} else {
@@ -230,8 +229,6 @@ llDomFrontier graphDominanceFrontiers(struct __graphNode *start,
 					                             (gnCmpType)ptrPtrCmp)) {
 						value->nodes = strGraphNodePSortedInsert(value->nodes, allNodes[b],
 						                                         (gnCmpType)ptrPtrCmp);
-						printf("RUNNER %i += %i\n", *(int *)__graphNodeValuePtr(runner),
-						       *(int *)__graphNodeValuePtr(allNodes[b]));
 					}
 
 					// runner = iDom(runner)

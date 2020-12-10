@@ -3,12 +3,11 @@
 #include <assert.h>
 #include <base64.h>
 #include <stdio.h>
-#define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 #include <garbageCollector.h>
 typedef int (*gnCmpType)(const graphNodeMapping *, const graphNodeMapping *);
 typedef int (*varRefCmpType)(const struct IRVar **, const struct IRVar **);
-#define ALLOCATE(x)                                                            \
+#define ALLOCATE(x)																																																					\
 	({                                                                           \
 		typeof(x) *ptr = gcMalloc(sizeof(x));                                        \
 		*ptr = x;                                                                  \
@@ -569,8 +568,6 @@ char *name=tmpnam(NULL);
 	// Found basic blocks,so filter out all non-metablock notes(in metaNodes)
 	//
 	__auto_type allMappedNodes2 = graphNodeMappingAllNodes(mappedClone);
-	printf("Before:\n");
-	graphPrint(mappedClone, printMappedNodesValue, printMappedEdge);
 	for (long i = 0; i != strGraphNodeMappingPSize(allMappedNodes2); i++) {
 		// Dont destroy if start node
 		if (allMappedNodes2[i] == mappedClone)

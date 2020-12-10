@@ -114,8 +114,6 @@ static void *wordFind(const void *a, const struct __vec *text, long pos) {
 	__auto_type b = (void *)text + pos;
 	__auto_type textEnd = b + __vecSize(text);
 
-	printf("%s\n", b);
-	
 	while (b != textEnd) {
 		// Check if charactor before is a word charactor,if so quit search
 		if (b != text) // Check if a start
