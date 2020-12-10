@@ -1053,7 +1053,7 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 		allNodes = graphNodeIRAllNodes(start);
 		//debugShowGraphIR(start);
 		IRCoalesce(allNodes, start);
-		//debugShowGraphIR(start);
+		debugShowGraphIR(start);
 		IRRemoveRepeatAssigns(start);
 		
 		//debugShowGraphIR(start);
