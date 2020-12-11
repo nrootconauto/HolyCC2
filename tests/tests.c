@@ -45,7 +45,7 @@ int main() {
 		LivenessTests();
 		//subExprElimTests();
 		//graphVizTests();
-		//			graphColoringTests();		
+		graphColoringTests();		
 		//SSATests();
 		//registerAllocatorTests();
 		

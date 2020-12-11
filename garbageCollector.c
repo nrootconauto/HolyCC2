@@ -89,9 +89,6 @@ static void insertAllocationIntoMap(struct allocationLL *alloc) {
 static long hits3=0;
 static void removeAlias(const void *alias) {
 		__auto_type bucket=hashPtr(alias);
-		if(alias==0x80c6274l) {
-				printf("Foop\n");
-		}
 		
 		struct alias *prev=NULL,*next;
 		for(__auto_type node=aliasTable[bucket];node!=NULL;node=node->next) {
@@ -274,6 +271,7 @@ void gcFree(void *ptr) {
 				}
 		}
 
+		if(ptr)
 		printf("Foo\n");
 		//Fallback
 		return free(ptr);

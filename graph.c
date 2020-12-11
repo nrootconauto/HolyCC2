@@ -64,13 +64,13 @@ static void __graphNodeVisitDirPred(struct __graphNode *node, void *data,
                                               const void *),
                                     void (*visit)(struct __graphNode *, void *),
                                     enum dir d) {
-		llGraphNode visited ;
+		llGraphNode visited GC_CLEANUP_DFT;
 	visited = NULL;
-	llGraphNode toVisit ;
+	llGraphNode toVisit GC_CLEANUP_DFT;
 	toVisit = NULL;
-	strGraphNodeP stack ;
+	strGraphNodeP stack GC_CLEANUP_DFT;
 	stack = NULL;
-	strLong stackIndexes ;
+	strLong stackIndexes GC_CLEANUP_DFT;
 	stackIndexes = NULL;
 	//
 	__auto_type connections =
@@ -173,8 +173,9 @@ static void __graphEdgeKillAllPred(struct __graphNode *from,
                                    int (*pred)(void *, void *),
                                    void (*kill)(void *)) {
 	__auto_type out = from->outgoing;
+
+	strGraphEdgeP toDestroy GC_CLEANUP_DFT =NULL; 
 	for (long i = 0; i != strGraphEdgePSize(out); i++) {
-		__auto_type edges = __graphEdgeByDirection(from, DIR_FORWARD);
 		__auto_type value = __graphEdgeValuePtr(out[i]);
 		//
 		if (to != NULL)
@@ -197,12 +198,16 @@ static void __graphEdgeKillAllPred(struct __graphNode *from,
 					kill(value);
 			}
 			//
+			toDestroy=strGraphEdgePAppendItem(toDestroy, out[i]);
 		}
 	endLoop:;
 	}
 
 	from->outgoing = strGraphEdgePRemoveIf(from->outgoing, to, edgeToPred);
 	to->incoming = strGraphEdgePRemoveIf(to->incoming, from, edgeFromPred);
+
+	for(long i=0;i!=strGraphEdgePSize(toDestroy);i++)
+			GC_FREE(toDestroy[i]);
 }
 void __graphEdgeKill(struct __graphNode *in, struct __graphNode *out,
                      void *data, int (*pred)(void *, void *),
@@ -212,8 +217,6 @@ void __graphEdgeKill(struct __graphNode *in, struct __graphNode *out,
 
 	__graphEdgeKillAllPred(in, out, data, pred, kill);
 	__graphEdgeKillAllPred(out, in, data, pred, kill);
-	//
-
 	//
 }
 static int alwaysTrue(void *a, void *b) { return 1; }
@@ -257,6 +260,8 @@ void __graphNodeKill(struct __graphNode *node, void (*killNode)(void *item),
 	//
 	if (killNode != NULL)
 		killNode(node + sizeof(struct __graphNode));
+
+	GC_FREE(node);
 }
 static int __graphPredNotVisited(const struct __graphNode *node,
                                  const struct __graphEdge *edge,
@@ -437,6 +442,10 @@ graphNodeMapping __createGraphMap(const struct __graphNode *start,
 	char *key = ptr2Str(start);
 	__auto_type retVal = *mapGraphNodeGet(map, key);
 
+	for (long i = 0; i != strGraphNodePSize(nodes); i++)
+			GC_FREE(keys[i]);
+	mapGraphNodeDestroy(map, NULL);
+	
 	return retVal;
 };
 graphNodeMapping graphNodeCreateMapping(const struct __graphNode *node,
@@ -448,8 +457,8 @@ graphNodeMapping graphNodeCreateMapping(const struct __graphNode *node,
 // Does not preserve edges,see filterGraph
 //
 static void __filterTransparentKill(graphNodeMapping node) {
-	__auto_type in = graphNodeMappingIncomingNodes(node);
-	__auto_type out = graphNodeMappingOutgoingNodes(node);
+	strGraphNodeP in GC_CLEANUP_DFT = graphNodeMappingIncomingNodes(node);
+	strGraphNodeP out GC_CLEANUP_DFT = graphNodeMappingOutgoingNodes(node);
 
 	// Connect in to out(if not already connectected)
 	for (long inI = 0; inI != strGraphNodeMappingPSize(in); inI++) {
@@ -468,7 +477,7 @@ graphNodeMapping
 createFilteredGraph(struct __graphNode *start, strGraphNodeP nodes, void *data,
                     int (*pred)(struct __graphNode *,void *data)) {
 	__auto_type clone = __createGraphMap(nodes[0], nodes, 0);
-	__auto_type cloneNodes = __graphNodeVisitAll(clone);
+	strGraphNodeMappingP cloneNodes GC_CLEANUP_DFT = __graphNodeVisitAll(clone);
 
 	graphNodeMapping retVal = NULL;
 	for (long i = 0; i != strGraphNodeMappingPSize(cloneNodes); i++)
@@ -491,7 +500,7 @@ static void __graphAllPathsTo(strGraphEdgeP *currentPath, strGraphPath *paths,
 		if(predicate) {
 				if (predicate(from,data)) {
 				push:;
-						__auto_type clone = strGraphEdgePAppendData(
+						strGraphEdgeP clone = strGraphEdgePAppendData(
 																																																		NULL, (void *)*currentPath, strGraphEdgePSize(*currentPath));
 						*paths = strGraphPathAppendItem(*paths, clone);
 						return;
@@ -534,9 +543,9 @@ strGraphPath graphAllPathsToPredicate(struct __graphNode *from, const void *data
 }
 void graphPrint(struct __graphNode *node, char *(*toStr)(struct __graphNode *),
                 char *(*toStrEdge)(struct __graphEdge *)) {
-	__auto_type allNodes = __graphNodeVisitAll(node);
+	strGraphNodeP allNodes GC_CLEANUP_DFT = __graphNodeVisitAll(node);
 	for (long i = 0; i != strGraphNodePSize(allNodes); i++) {
-		__auto_type outNodes = __graphNodeOutgoing(allNodes[i]);
+		strGraphEdgeP  outNodes GC_CLEANUP_DFT = __graphNodeOutgoing(allNodes[i]);
 
 		char *cur = toStr(allNodes[i]);
 		printf("%s:\n", cur);
@@ -544,9 +553,8 @@ void graphPrint(struct __graphNode *node, char *(*toStr)(struct __graphNode *),
 			char *out = toStr(outNodes[i2]->to);
 			char *edgeStr = toStrEdge(outNodes[i2]);
 			printf("    %s(%s)\n", out, edgeStr);
+			GC_FREE(edgeStr);
 		}
-		// In
-		__auto_type inNodes = __graphNodeOutgoingNodes(allNodes[i]);
 	}
 }
 void graphReplaceWithNode(strGraphNodeP toReplace,
@@ -554,11 +562,11 @@ void graphReplaceWithNode(strGraphNodeP toReplace,
                           int (*edgeCmp)(const struct __graphEdge *,
                                          const struct __graphEdge *),
                           void (*killNodeData)(void *), long edgeSize) {
-	strGraphEdgeP allIncoming = NULL;
-	strGraphEdgeP allOutgoing = NULL;
+	strGraphEdgeP allIncoming GC_CLEANUP_DFT= NULL;
+	strGraphEdgeP allOutgoing GC_CLEANUP_DFT = NULL;
 
-	strGraphNodeP visitedIncoming = NULL;
-	strGraphNodeP visitedOutgoing = NULL;
+	strGraphNodeP visitedIncoming GC_CLEANUP_DFT = NULL;
+	strGraphNodeP visitedOutgoing GC_CLEANUP_DFT = NULL;
 
 	// Incoming connnections not connection to items in toReplace
 	for (long i = 0; i != strGraphNodePSize(toReplace); i++) {
