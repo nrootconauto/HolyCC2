@@ -2,10 +2,11 @@ cmake_minimum_required(VERSION 3.0)
 set (CMAKE_CC_STANDARD 11)
 project(holycc2 LANGUAGES C)
 
-set (CMAKE_C_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
-set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
-set (CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
-
+if(ENABLE_ASAN)
+    set (CMAKE_C_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
+				set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
+				set (CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
+endif()
 
 set(sources "")
 list(APPEND sources "linkedList.c")
@@ -67,7 +68,9 @@ add_executable(holycc2 ${sources} ${tests})
 
 target_include_directories(holycc2 PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/ext/skinny_mutex)
 target_link_Libraries(holycc2 pthread m)
-target_compile_options(holycc2 PRIVATE -g -fno-omit-frame-pointer -fsanitize=address)
+if(ENABLE_ASAN)
+    target_compile_options(holycc2 PRIVATE -g -fno-omit-frame-pointer -fsanitize=address)
+endif()
 
 install(TARGETS holycc2 RUNTIME DESTINATION bin)
 

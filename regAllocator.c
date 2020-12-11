@@ -1081,9 +1081,15 @@ void IRRegisterAllocate(graphNodeIR start,color2RegPredicate colorFunc,void *col
 		IRToSSA(start);
 		//		debugShowGraphIR(start);
 	
-__auto_type allNodes2 = graphNodeIRAllNodes(start);
+		strGraphNodeIRP allNodes2 GC_CLEANUP_DFT= graphNodeIRAllNodes(start);
+	strGraphNodeIRP  visited GC_CLEANUP_DFT=NULL;
 	loop:
+	allNodes2=strGraphNodeIRPSetDifference(allNodes2, visited, (gnCmpType)ptrPtrCmp);
+	GC_FREE(visited);
+	visited=NULL;
 	for(long i=0;i!=strGraphNodeIRPSize(allNodes2);i++) {
+			visited=strGraphNodeIRPSortedInsert(visited, allNodes2[i], (gnCmpType)ptrPtrCmp);
+			
 			if(graphNodeIRValuePtr(allNodes2[i])->type==IR_CHOOSE) {
 					strGraphNodeIRP replaced;
 					IRSSAReplaceChooseWithAssigns(allNodes2[i],&replaced);
