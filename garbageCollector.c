@@ -5,6 +5,27 @@
 #include <assert.h>
 #include <setjmp.h>
 #include "garbageCollector.h"
+void *gcMalloc(long size) {
+		return malloc(size);
+}
+void *gcRealloc(void *ptr,long size) {
+		return realloc(ptr, size);
+}
+void gcFree(void *ptr) {
+		return;
+}
+void __gcFree(void *ptr) {
+};
+void gcAddLookForPtr(const void *a,const void *lookFor) {
+}
+void gcInit(const void *frameStart) {
+		
+}
+void gcDisable() {
+};
+void gcCollect() {
+}
+/*
 #define ALLOCATE(item) ({void *alloced=malloc(sizeof(item));memcpy(alloced,&item,sizeof(item));alloced;})
 extern char __start_GC,__stop_GC;
 static void *dummy GC_VARIABLE=NULL;
@@ -445,3 +466,4 @@ void gcAddLookForPtr(const void *a,const void *lookFor) {
 void __gcFree(void *ptr) {
 		gcFree(*(void**)ptr);
 }
+*/
