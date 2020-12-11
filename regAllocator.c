@@ -1282,9 +1282,22 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 									
 					spillVars=strIRVarSortedInsert(spillVars,var, IRVarCmp2);
 			}
-			
+
+			//
 			//Find all IR nodes with conflict then run a load/spill insert operation starting from that node
+			//
+			
+			//Remove nodes that have beeen visited or have been removed,
+			strGraphNodeIRP toRemove=NULL;
+	loop2:
+			//Remove
+			allNodes=strGraphNodeIRPSetDifference(allNodes, toRemove, (gnCmpType)ptrPtrCmp);
+			GC_FREE(toRemove);
+			toRemove=NULL;
+			
 			for(long i=0;i!=strGraphNodeIRPSize(allNodes);i++) {
+					toRemove=strGraphNodeIRPSortedInsert(toRemove, allNodes[i], (gnCmpType)ptrPtrCmp);
+					
 					if(isVar(allNodes[i])) {
 							struct IRNodeValue *nodeValue=(void*)graphNodeIRValuePtr(allNodes[i]);
 							
@@ -1295,7 +1308,9 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 									if(0==IRVarCmp(conflict, have)) {
 											strGraphNodeIRP replaced GC_CLEANUP_DFT =NULL;
 											findVarInterfereAt(regsByLivenessNode, spillNodes, allColorNodes, allNodes[i], &nodeValue->val.value.var,&replaced);
-											break;
+
+											toRemove=strGraphNodeIRPSetUnion(toRemove, replaced, (gnCmpType)ptrPtrCmp);
+											goto loop2;
 									}
 							}
 					}
