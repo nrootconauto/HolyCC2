@@ -1,6 +1,4 @@
 #include <graphColoring.h>
-#include <readersWritersLock.h>
-#define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 #include <garbageCollector.h>
 //
@@ -17,7 +15,6 @@ struct vertexInfo {
 	int color;
 	strGraphNodeP adjUncolored;
 	strInt adjColors;
-	struct rwLock *lock;
 };
 LL_TYPE_DEF(struct vertexPriority, Data);
 LL_TYPE_FUNCS(struct vertexInfo, Data);
@@ -109,7 +106,6 @@ llVertexColor graphColor(const struct __graphNode *node) {
 	for (long i = 0; i != allNodesLen; i++) {
 		struct vertexInfo tmp;
 		tmp.node = allNodes[i];
-		tmp.lock = rwLockCreate();
 		tmp.color = -1;
 		tmp.adjColors = NULL;
 		tmp.adjUncolored = adj(allNodes[i]);
@@ -203,7 +199,6 @@ llVertexColor graphColor(const struct __graphNode *node) {
 		colors = llVertexColorInsert(colors, llVertexColorCreate(coloring),
 		                             llVertexColorInsertCmp);
 
-		rwLockDestroy(llDataGet(datas, allNodes[i])->lock);
 		GC_FREE(llDataGet(datas, allNodes[i])->adjUncolored);
 	}
 	llDataDestroy(&datas, NULL);
