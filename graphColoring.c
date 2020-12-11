@@ -2,6 +2,7 @@
 #include <readersWritersLock.h>
 #define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
+#include <garbageCollector.h>
 //
 //http://supertech.csail.mit.edu/papers/HasenplaughKaSc14.pdf figure 8
 //
@@ -68,10 +69,10 @@ struct __predPair {
 	strGraphNodeP preds;
 };
 static strGraphNodeP adj(struct __graphNode *node) {
-	__auto_type out = __graphNodeOutgoing(node);
-	__auto_type in = __graphNodeIncoming(node);
+	strGraphEdgeP  out GC_CLEANUP_DFT = __graphNodeOutgoing(node);
+	strGraphEdgeP in GC_CLEANUP_DFT = __graphNodeIncoming(node);
 
-	strGraphNodeP retVal = NULL;
+	strGraphNodeP retVal  = NULL;
 
 	for (long i = 0; i != strGraphEdgePSize(out); i++)
 		if (NULL ==
@@ -203,9 +204,14 @@ llVertexColor graphColor(const struct __graphNode *node) {
 		                             llVertexColorInsertCmp);
 
 		rwLockDestroy(llDataGet(datas, allNodes[i])->lock);
+		GC_FREE(llDataGet(datas, allNodes[i])->adjUncolored);
 	}
 	llDataDestroy(&datas, NULL);
 
+		for (long i = 0; i != allNodesLen; i++)
+		for (long i2 = 0; i2 != allNodesLen; i2++)
+				GC_FREE(Q[i][i2]);
+	
 	return colors;
 }
 long vertexColorCount(const llVertexColor colors) {
