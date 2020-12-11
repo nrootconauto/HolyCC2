@@ -2,7 +2,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <str.h>
-#include <garbageCollector.h>
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
 static unsigned char getByteAt(const char *buffer, long bit) {
@@ -66,7 +65,7 @@ char *base64Enc(const char *buffer, long count) {
 
 	retVal = strCharAppendItem(retVal, '\0');
 
-	char *retVal2 = GC_MALLOC(strCharSize(retVal));
+	char *retVal2 = malloc(strCharSize(retVal));
 	strcpy(retVal2, retVal);
 
 	return retVal2;

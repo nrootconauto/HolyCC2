@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <str.h>
 #include <string.h>
-#include <garbageCollector.h>
 STR_TYPE_DEF(int, Int);
 STR_TYPE_FUNCS(int, Int);
 STR_TYPE_DEF(struct __ll *, LLP);
@@ -40,10 +39,10 @@ static struct __ll *__mapNodeCreate(const char *key, const void *item,
 	buffer[sizeof(long) + sizeof(long) + itemSize2 + strLen] = '\0';
 	return __llCreate(buffer, totalSize);
 }
-static char *__mapNodeKey(const void *nodeValue) {
+static unsigned char *__mapNodeKey(const void *nodeValue) {
 	__auto_type data = nodeValue;
 	data += sizeof(long) + sizeof(long) + *(long *)data;
-	return (char *)data;
+	return (unsigned char *)data;
 }
 static long *__mapNodeHashValue(const void *nodeValue) {
 	__auto_type data = nodeValue;
@@ -57,7 +56,7 @@ static int __mapBucketInsertPred(const void *current, const void *item) {
 	__auto_type res = *__mapNodeHashValue(current) - *__mapNodeHashValue(item);
 	if (res != 0)
 		return res;
-	return strcmp(__mapNodeKey(current), __mapNodeKey(item));
+	return strcmp((char*)__mapNodeKey(current), (char*)__mapNodeKey(item));
 }
 struct __mapKeyValuePair {
 	const char *key;
@@ -68,10 +67,10 @@ static int __mapBucketGetPred(const void *item, const void *current) {
 	__auto_type result = pair->hash - *__mapNodeHashValue(current);
 	if (result != 0)
 		return result;
-	return strcmp(pair->key, __mapNodeKey(current));
+	return strcmp(pair->key, (char*)__mapNodeKey(current));
 }
 void *__mapGet(const struct __map *map, const char *key) {
-	__auto_type hash = __mapHash(key, strLLPSize(map->buckets));
+		__auto_type hash = __mapHash((unsigned char*)key, strLLPSize(map->buckets));
 	__auto_type bucket = map->buckets[hash];
 	__auto_type first = __llGetFirst(bucket);
 	struct __mapKeyValuePair pair = {key, hash};
@@ -85,7 +84,7 @@ int __mapInsert(struct __map *map, const char *key, const void *item,
                 const long itemSize) {
 	if (NULL != __mapGet(map, key))
 		return -1;
-	__auto_type hash = __mapHash(key, strLLPSize(map->buckets));
+	__auto_type hash = __mapHash((unsigned char*)key, strLLPSize(map->buckets));
 	__auto_type newNode = __mapNodeCreate(key, item, itemSize, hash);
 	__auto_type bucketI = hash;
 	map->buckets[bucketI] = __llInsert(__llGetFirst(map->buckets[bucketI]),
@@ -181,12 +180,12 @@ void __mapDestroy(struct __map *map, void (*kill)(void *)) {
 		__llDestroy(map->buckets[i], NULL);
 	}
 
-	GC_FREE(map->buckets);
-	GC_FREE(map->bucketSizes);
-	GC_FREE(map);
+	strIntDestroy(&map->bucketSizes);
+	strLLPDestroy(&map->buckets);
+	free(map);
 }
 struct __map *__mapCreate() {
-	struct __map *retVal = gcMalloc(sizeof(struct __map));
+	struct __map *retVal = malloc(sizeof(struct __map));
 	retVal->bucketSizes = strIntResize(NULL, 8);
 	retVal->buckets = strLLPResize(NULL, 8);
 	for (int i = 0; i != 8; i++) {
@@ -196,7 +195,7 @@ struct __map *__mapCreate() {
 	return retVal;
 }
 void __mapRemove(struct __map *map, const char *key, void (*kill)(void *)) {
-	__auto_type hash = __mapHash(key, strIntSize(map->bucketSizes));
+		__auto_type hash = __mapHash((unsigned char*)key, strIntSize(map->bucketSizes));
 	__auto_type bucket = hash;
 	struct __mapKeyValuePair pair = {key, hash};
 	__auto_type node = __llFindRight(__llGetFirst(map->buckets[bucket]), &pair,
@@ -217,7 +216,7 @@ void __mapRemove(struct __map *map, const char *key, void (*kill)(void *)) {
 	}
 }
 const char *__mapKeyByPtr(const void *valuePtr) {
-	return __mapNodeKey(valuePtr - sizeof(long) - sizeof(long));
+		return (char*)__mapNodeKey(valuePtr - sizeof(long) - sizeof(long));
 }
 struct __map *__mapClone(struct __map *map,
                          void (*cloneData)(void *, const void *),
@@ -236,7 +235,7 @@ struct __map *__mapClone(struct __map *map,
 				memcpy(buffer, __mapNodeValue(mapNode), itemSize);
 			}
 
-			__mapInsert(retVal, __mapNodeKey(mapNode), buffer, itemSize);
+			__mapInsert(retVal, (char*)__mapNodeKey(mapNode), buffer, itemSize);
 		}
 	}
 
@@ -260,7 +259,7 @@ void __mapKeys(const struct __map *map, const char **dumpTo, long *count) {
 		for (long i = 0; i != strLLPSize(map->buckets); i++) {
 			for (__auto_type node = __llGetFirst(map->buckets[i]); node != NULL;
 			     node = __llNext(node)) {
-				buffer[inserted++] = __mapNodeKey(__llValuePtr(node));
+					buffer[inserted++] = (char*)__mapNodeKey(__llValuePtr(node));
 				assert(inserted <= computedCount);
 			}
 		}

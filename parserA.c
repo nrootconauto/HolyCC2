@@ -8,9 +8,9 @@
 #include <exprParser.h>
 #include <hashTable.h>
 #include <parserB.h>
-#include <garbageCollector.h>
+#include <cleanup.h>
 static char *strCopy(const char *text) {
-	char *retVal = GC_MALLOC(strlen(text) + 1);
+	char *retVal = malloc(strlen(text) + 1);
 	strcpy(retVal, text);
 
 	return retVal;
@@ -18,7 +18,7 @@ static char *strCopy(const char *text) {
 #define ALLOCATE(x)                                                            \
 	({                                                                           \
 		__auto_type len = sizeof(x);                                               \
-		void *$retVal = GC_MALLOC(len);                                               \
+		void *$retVal = malloc(len);                                               \
 		memcpy($retVal, &x, len);                                                  \
 		$retVal;                                                                   \
 	})
@@ -32,7 +32,7 @@ static void assignPosByLexerItems(struct parserNode *node, llLexerItem start,
 }
 static char *strClone(const char *str) {
 	__auto_type len = strlen(str);
-	char *retVal = GC_MALLOC(len + 1);
+	char *retVal = malloc(len + 1);
 	strcpy(retVal, str);
 	return retVal;
 }
@@ -1815,7 +1815,7 @@ end:;
 /**
  * Switch section
  */
-static  strParserNode switchStack GC_VARIABLE = NULL;
+static  strParserNode switchStack  = NULL;
 static long getNextCaseValue(struct parserNode *parent) {
 	struct parserNode *entry = NULL;
 
@@ -2192,7 +2192,7 @@ struct currentFunctionInfo {
 STR_TYPE_DEF(struct currentFunctionInfo, FuncInfoStack);
 STR_TYPE_FUNCS(struct currentFunctionInfo, FuncInfoStack);
 
-static  strFuncInfoStack currentFuncsStack GC_VARIABLE = NULL;
+static  strFuncInfoStack currentFuncsStack  = NULL;
 
 struct parserNode *parseGoto(llLexerItem start, llLexerItem *end) {
 	struct parserNode *gt  =

@@ -7,7 +7,7 @@
 #include <debugPrint.h>
 #include <graphDominance.h>
 #include <base64.h>
-#include <garbageCollector.h>
+#include <cleanup.h>
 static char *ptr2Str(const void *a) {
 		return base64Enc((void*)&a, sizeof(a));
 }
@@ -21,13 +21,13 @@ static char *var2Str(graphNodeIR var) {
 		__auto_type value=(struct IRNodeValue*)graphNodeIRValuePtr(var);
 		char buffer[1024];
 		sprintf(buffer, "%s-%li", value->val.value.var.value.var->name,value->val.value.var.SSANum);
-		char *retVal=GC_MALLOC(strlen(buffer)+1);
+		char *retVal=malloc(strlen(buffer)+1);
 		strcpy(retVal, buffer);
 
 		return retVal;
 }
 static char *strClone(const char *text) {
-		char *retVal=GC_MALLOC(strlen(text)+1);
+		char *retVal=malloc(strlen(text)+1);
 		strcpy(retVal, text);
 
 		return retVal;
@@ -254,8 +254,8 @@ static int getVarRefIndex(strVarRefs refs,graphNodeIR node) {
 		return -1;
 }
 void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
-		strVarRefs refs GC_CLEANUP_DFT = NULL;
-		strAliasPair aliases GC_CLEANUP_DFT  = NULL;
+		strVarRefs refs CLEANUP(strVarRefsDestroy) = NULL;
+		strAliasPair aliases CLEANUP(strAliasPairDestroy)  = NULL;
 		for (long i = 0; i != strGraphNodeIRPSize(nodes); i++) {
 				__auto_type val = graphNodeIRValuePtr(nodes[i]);
 				// No value?
@@ -306,8 +306,8 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 						continue;
 						
 				// Check if written into by another variable.
-				strGraphEdgeIRP incoming GC_CLEANUP_DFT = graphNodeIRIncoming(nodes[i]);
-				strGraphEdgeIRP filtered GC_CLEANUP_DFT = IRGetConnsOfType(incoming, IR_CONN_DEST);
+				strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(nodes[i]);
+				strGraphEdgeIRP filtered CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(incoming, IR_CONN_DEST);
 
 				// aliasNode is NULL if an alias node isnt found
 				graphNodeIR aliasNode = NULL;
@@ -755,7 +755,7 @@ static void removeDeadExpresions(graphNodeIR startAt,strIRVar liveVars) {
 												//Check if dead expression now that we removed the dead assign
 												if(IRIsDeadExpression(in)) {
 														//Remove dead expression
-														strGraphNodeIRP removed GC_CLEANUP_DFT;
+														strGraphNodeIRP removed CLEANUP(strGraphNodeIRPDestroy);
 														IRRemoveDeadExpression(in, &removed);
 														toRemove=strGraphNodeIRPSetUnion(toRemove, removed, (gnCmpType)ptrPtrCmp);
 
@@ -845,8 +845,8 @@ static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spil
 		// A) A choose node that signals the end of the current version of var or
 		// B) a reference to a var that interferes with var
 		__auto_type paths1=graphAllPathsToPredicate(startAt, &pair,  (int(*)(const struct __graphNode*,const void*))spillOrStoreAt);
-		strGraphNodeIRP ends GC_CLEANUP_DFT=NULL;
-		strVar vars GC_CLEANUP_DFT=NULL;
+		strGraphNodeIRP ends CLEANUP(strGraphNodeIRPDestroy)=NULL;
+		strVar vars CLEANUP(strVarDestroy)=NULL;
 
 		//Paths may be modified when inserting spill/load so only use last nodes
 		for(long i=0;i!=strGraphPathSize(paths1);i++) {
@@ -1081,11 +1081,10 @@ void IRRegisterAllocate(graphNodeIR start,color2RegPredicate colorFunc,void *col
 		IRToSSA(start);
 		//		debugShowGraphIR(start);
 	
-		strGraphNodeIRP allNodes2 GC_CLEANUP_DFT= graphNodeIRAllNodes(start);
-	strGraphNodeIRP  visited GC_CLEANUP_DFT=NULL;
+		strGraphNodeIRP allNodes2 CLEANUP(strGraphNodeIRPDestroy)= graphNodeIRAllNodes(start);
+	strGraphNodeIRP  visited CLEANUP(strGraphNodeIRPDestroy)=NULL;
 	loop:
 	allNodes2=strGraphNodeIRPSetDifference(allNodes2, visited, (gnCmpType)ptrPtrCmp);
-	GC_FREE(visited);
 	visited=NULL;
 	for(long i=0;i!=strGraphNodeIRPSize(allNodes2);i++) {
 			visited=strGraphNodeIRPSortedInsert(visited, allNodes2[i], (gnCmpType)ptrPtrCmp);
@@ -1301,7 +1300,7 @@ void IRRegisterAllocate(graphNodeIR start,color2RegPredicate colorFunc,void *col
 	loop2:
 			//Remove
 			allNodes=strGraphNodeIRPSetDifference(allNodes, toRemove, (gnCmpType)ptrPtrCmp);
-			GC_FREE(toRemove);
+			strGraphNodeIRPDestroy(&toRemove);
 			toRemove=NULL;
 			
 			for(long i=0;i!=strGraphNodeIRPSize(allNodes);i++) {
@@ -1315,7 +1314,7 @@ void IRRegisterAllocate(graphNodeIR start,color2RegPredicate colorFunc,void *col
 									__auto_type conflict=&graphNodeIRLiveValuePtr(nodesWithRegisterConflict[i2])->ref;
 									__auto_type have=&nodeValue->val.value.var;
 									if(0==IRVarCmp(conflict, have)) {
-											strGraphNodeIRP replaced GC_CLEANUP_DFT =NULL;
+											strGraphNodeIRP replaced CLEANUP(strGraphNodeIRPDestroy) =NULL;
 											findVarInterfereAt(regsByLivenessNode, spillNodes, allColorNodes, allNodes[i], &nodeValue->val.value.var,&replaced);
 
 											toRemove=strGraphNodeIRPSetUnion(toRemove, replaced, (gnCmpType)ptrPtrCmp);

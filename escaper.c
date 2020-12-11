@@ -3,11 +3,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <garbageCollector.h>
 // ENDS AT '"'
 char *escapeString(char *str) {
 	long retValCap = strlen(str) + 10;
-	char *retVal = GC_MALLOC(retValCap);
+	char *retVal = malloc(retValCap);
 	__auto_type where = retVal;
 
 	while (*str != 0) {
@@ -15,7 +14,7 @@ char *escapeString(char *str) {
 		if (offset >= retValCap) {
 			// Be sure to allocate memory ahead so operations dont segfault
 			retValCap += 10;
-			retVal = GC_REALLOC(retVal, retValCap);
+			retVal = realloc(retVal, retValCap);
 
 			where = retVal + offset;
 		}
@@ -166,7 +165,7 @@ char *escapeString(char *str) {
 	// Add a NULL byte
 	long offset = (where - retVal) / sizeof(char);
 	if (offset + 1 >= retValCap) {
-		retVal = GC_REALLOC(retVal, retValCap + 1);
+		retVal = realloc(retVal, retValCap + 1);
 		where = retVal + offset;
 	}
 

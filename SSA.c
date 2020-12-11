@@ -6,7 +6,6 @@
 #include <hashTable.h>
 #include <stdio.h>
 #include <topoSort.h>
-#include <garbageCollector.h>
 #define GRAPHN_ALLOCATE(x) ({ __graphNodeCreate(&x, sizeof(x), 0); })
 typedef int (*strGN_IRCmpType)(const strGraphNodeIRP *,
                                const strGraphNodeIRP *);
@@ -16,7 +15,7 @@ typedef int (*gnCmpType)(const graphNodeIR *, const graphNodeIR *);
 static char *ptr2Str(const void *a) { return base64Enc((void *)&a, sizeof(a)); }
 MAP_TYPE_DEF(struct IRVar *, VarRef);
 MAP_TYPE_FUNCS(struct IRVar *, VarRef);
-static  mapVarRef varRefs GC_VARIABLE = NULL;
+static  mapVarRef varRefs  = NULL;
 static graphNodeIR createChoose(graphNodeIR insertBefore,
                                 strGraphNodeIRP pathPairs) {
 	// Make the choose node
@@ -160,7 +159,7 @@ static char *node2Str(struct __graphNode *node) {
 		return NULL;
 
 	__auto_type str = *find;
-	char *retVal = GC_MALLOC(strlen(str) + 1);
+	char *retVal = malloc(strlen(str) + 1);
 	strcpy(retVal, str);
 
 	return retVal;
@@ -578,5 +577,5 @@ void IRSSAReplaceChooseWithAssigns(graphNodeIR node,strGraphNodeIRP *replaced) {
 		if(replaced)
 				*replaced=exprNodes;
 		else
-				GC_FREE(exprNodes);
+				strGraphNodeIRPDestroy(&exprNodes);
 }

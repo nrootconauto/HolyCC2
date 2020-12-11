@@ -3,8 +3,7 @@
 #include <hashTable.h>
 #include <parserB.h>
 #include <string.h>
-#include <garbageCollector.h>
-static  llScope currentScope GC_VARIABLE = NULL;
+static  llScope currentScope  = NULL;
 void enterScope() {
 	struct scope new;
 	new.parent = currentScope;
@@ -35,7 +34,7 @@ void addVar(const struct parserNode *name, struct object *type) {
 
 	assert(name->type == NODE_NAME);
 	struct parserNodeName *name2 = (void *)name;
-	var.name = GC_MALLOC(strlen(name2->text) + 1);
+	var.name = malloc(strlen(name2->text) + 1);
 	strcpy(var.name, name2->text);
 
 	__auto_type scope = llScopeValuePtr(currentScope);
@@ -138,7 +137,7 @@ loop:;
 		dummy.refs = NULL;
 		dummy.type = (struct object *)type;
 		dummy.node = func;
-		dummy.name = GC_MALLOC(strlen(name2->text) + 1);
+		dummy.name = malloc(strlen(name2->text) + 1);
 		strcpy(dummy.name, name2->text);
 
 		mapFuncInsert(currentScopeFuncs, name2->text, dummy);

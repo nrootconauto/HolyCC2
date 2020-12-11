@@ -6,10 +6,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <str.h>
-#include <garbageCollector.h>
 static char *strClone(const char *text) {
 	long len = strlen(text);
-	char *retVal = GC_MALLOC(len + 1);
+	char *retVal = malloc(len + 1);
 	strcpy(retVal, text);
 
 	return retVal;
@@ -70,11 +69,11 @@ struct diagInst {
 };
 MAP_TYPE_DEF(struct diagInst, Inst);
 MAP_TYPE_FUNCS(struct diagInst, Inst);
-static  mapInst   insts GC_VARIABLE = NULL;
+static  mapInst   insts  = NULL;
 // TODO implement file mappings
-static  strFileMappings fileMappings GC_VARIABLE;
-static  strTextModify mappings GC_VARIABLE;
-static  struct diagInst *currentInst GC_VARIABLE= NULL;
+static  strFileMappings fileMappings ;
+static  strTextModify mappings ;
+static  struct diagInst *currentInst = NULL;
 static int errCount = 0;
 static struct diagInst *diagInstByPos(long where) {
 	if (where == diagInputSize()) {

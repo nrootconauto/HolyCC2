@@ -5,7 +5,6 @@
 #include <parserB.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <garbageCollector.h>
 struct object *assignTypeToOp(const struct parserNode *node);
 static int isArith(const struct object *type) {
 	if (type == &typeU8i || type == &typeU16i || type == &typeU32i ||
@@ -18,8 +17,8 @@ static int isArith(const struct object *type) {
 }
 MAP_TYPE_DEF(void *, Set);
 MAP_TYPE_FUNCS(void *, Set);
-mapSet assignOps GC_VARIABLE = NULL;
-mapSet incOps GC_VARIABLE = NULL;
+mapSet assignOps  = NULL;
+mapSet incOps  = NULL;
 void initAssignOps() ;
 void initAssignOps() {
 	const char *assignOps2[] = {
@@ -95,7 +94,7 @@ static struct object *promotionType(const struct object *a,
 static struct parserNode *promoteIfNeeded(struct parserNode *node,
                                           struct object *toType) {
 	if (assignTypeToOp(node) != toType) {
-		struct parserNodeTypeCast *cast = GC_MALLOC(sizeof(struct parserNodeTypeCast));
+		struct parserNodeTypeCast *cast = malloc(sizeof(struct parserNodeTypeCast));
 		cast->base.type = NODE_TYPE_CAST;
 		cast->exp = node;
 		cast->type = toType;

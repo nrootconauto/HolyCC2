@@ -5,14 +5,13 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <subExprElim.h>
-#include <garbageCollector.h>
 typedef int (*gnIRCmpType)(const graphNodeIR *, const graphNodeIR *);
 typedef int (*geIRCmpType)(const graphEdgeIR *, const graphEdgeIR *);
 typedef int (*geMapCmpType)(const graphEdgeMapping *, const graphEdgeMapping *);
 typedef int (*gnMapCmpType)(const graphNodeMapping *, const graphNodeMapping *);
 #define ALLOCATE(x)                                                            \
 	({                                                                           \
-		typeof(&x) ptr = gcMalloc(sizeof(x));                                        \
+		typeof(&x) ptr = malloc(sizeof(x));                                        \
 		memcpy(ptr, &x, sizeof(x));                                                \
 		ptr;                                                                       \
 	})
@@ -42,7 +41,7 @@ static strChar ptr2Str(const void *a) {
 	return retVal;
 }
 static char *strClone(const char *text) {
-	char *retVal = gcMalloc(strlen(text) + 1);
+	char *retVal = malloc(strlen(text) + 1);
 	strcpy(retVal, text);
 
 	return retVal;
@@ -218,7 +217,7 @@ graphNodeIR createValueFromLabel(graphNodeIR lab) {
 
 	return GRAPHN_ALLOCATE(lab);
 }
- mapIRVarRefs IRVars GC_VARIABLE;
+ mapIRVarRefs IRVars ;
 static int ptrPtrCmp(const void *a, const void *b) {
 	if (*(void **)a > *(void **)b)
 		return 1;

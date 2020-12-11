@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <str.h>
 #include <unistd.h>
-#include <garbageCollector.h>
 static struct __vec *file2Str(FILE *file) {
 	fseek(file, 0, SEEK_END);
 	long end = ftell(file);
@@ -21,7 +20,7 @@ static struct __vec *file2Str(FILE *file) {
 }
 static char *uniqueFileName() {
 	__auto_type tmp = tmpnam(NULL);
-	char *retVal = GC_MALLOC(strlen(tmp) + 1);
+	char *retVal = malloc(strlen(tmp) + 1);
 	strcpy(retVal, tmp);
 	return retVal;
 }
@@ -184,7 +183,7 @@ void preprocessorTests() {
 	remove(dummyFileName2);
 	remove(dummyFile3);
 	remove(dummyFile4);
-	GC_FREE(dummyFileName1);
-	GC_FREE(dummyFileName2);
-	GC_FREE(sourceFileName);
+	free(dummyFileName1);
+	free(dummyFileName2);
+	free(sourceFileName);
 }

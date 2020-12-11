@@ -7,15 +7,15 @@
 #include <string.h>
 #include <stringParser.h>
 #include <unistd.h>
-#include <garbageCollector.h>
+#include <cleanup.h>
 // TODO implement exe,if,ifdef,ifndef
 static void fileDestroy(FILE **file) { fclose(*file); }
 MAP_TYPE_DEF(struct defineMacro, DefineMacro);
 MAP_TYPE_FUNCS(struct defineMacro, DefineMacro);
 ;
-static   long lineStart GC_VARIABLE;
-static   strTextModify sourceMappings GC_VARIABLE = NULL;
-static   strFileMappings allFileMappings GC_VARIABLE = NULL;
+static   long lineStart ;
+static   strTextModify sourceMappings  = NULL;
+static   strFileMappings allFileMappings  = NULL;
 static FILE *createPreprocessedFileLine(mapDefineMacro defines,
                                         struct __vec *text_, int *err);
 static void expandDefinesInRange(struct __vec **retVal, mapDefineMacro defines,
@@ -394,7 +394,7 @@ static void expandDefinesInRangeRecur(struct __vec **retVal,
 			for (__auto_type i = nextReplacement; isalnum(*(char *)i);
 			     i++, alnumCount++)
 				;
-			struct __vec *slice GC_CLEANUP_DFT ;
+			struct __vec *slice CLEANUP(__vecDestroy) ;
 			slice = __vecAppendItem(NULL, nextReplacement, alnumCount);
 			slice = __vecAppendItem(slice, "\0", 1);
 			__auto_type replacement = mapDefineMacroGet(defines, (void *)slice);
@@ -518,7 +518,7 @@ static void expandNextWord(struct __vec **retVal, FILE **prependLinesTo,
 	} else if (macroFind < find) {
 		__auto_type inputSize = __vecSize(*retVal);
 		__auto_type macroFindIndex = macroFind - *(void **)retVal;
-		struct __vec *slice GC_CLEANUP_DFT;
+		struct __vec *slice CLEANUP(__vecDestroy);
 		slice = __vecAppendItem(NULL, macroFind, inputSize - macroFindIndex);
 
 		assert(prependLinesTo != NULL);
@@ -596,7 +596,7 @@ static void concatFile(FILE *a, FILE *b) {
 	fclose(b);
 }
 static char *stringClone(const char *str) {
-	char *retVal = GC_MALLOC(strlen(str) + 1);
+	char *retVal = malloc(strlen(str) + 1);
 	strcpy(retVal, str);
 	return retVal;
 }
@@ -631,7 +631,7 @@ static FILE *includeFile(const char *fileName, mapDefineMacro defines,
 	__auto_type lineStart2 = 0;
 	for (int firstRun = 1;; firstRun = 0) {
 		long nextLine;
-		struct __vec *lineText GC_CLEANUP_DFT;
+		struct __vec *lineText CLEANUP(__vecDestroy);
 		// newlineText is '\n' on linux,
 		struct __vec *newLine;
 		lineText = fileReadLine(readFrom, lineStart2, &nextLine, &newLine);
@@ -677,7 +677,7 @@ static FILE *createPreprocessedFileLine(mapDefineMacro defines,
 	FILE *afterLines;
 	afterLines = tmpfile();
 
-	struct __vec *retVal GC_CLEANUP_DFT;
+	struct __vec *retVal CLEANUP(__vecDestroy);
 	retVal = __vecAppendItem(NULL, text_, __vecSize(text_));
 
 	for (long where = 0; where != __vecSize(retVal);) {

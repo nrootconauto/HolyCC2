@@ -4,7 +4,6 @@
 #include <object.h>
 #include <registers.h>
 #include <parserB.h>
-#include <garbageCollector.h>
 #include <signal.h>
 #include <execinfo.h>
 #include <stdio.h>
@@ -20,16 +19,11 @@ static void printBT(int sig) {
 }
 void init() {
 		initAssignOps();
-		gcCollect();
 		initDebugPrint();
-		gcCollect();
 		initTemplates();
-		gcCollect();
 		initObjectRegistry();
-		gcCollect();
 		initRegisters();
-		gcCollect();
 		initParserData();
 
-		signal(SIGSEGV,printBT);
+		//	signal(SIGSEGV,printBT);
 }

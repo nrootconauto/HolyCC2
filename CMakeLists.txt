@@ -41,7 +41,6 @@ list(APPEND sources "escaper.c")
 list(APPEND sources "regAllocator.c")
 list(APPEND sources "registers.c")
 list(APPEND sources "init.c")
-list(APPEND sources "garbageCollector.c")
 
 set(tests "")
 list(APPEND tests "tests/tests.c")

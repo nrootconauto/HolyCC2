@@ -1,6 +1,6 @@
 #include <graphColoring.h>
 #include <debugPrint.h>
-#include <garbageCollector.h>
+#include <cleanup.h>
 //
 //http://supertech.csail.mit.edu/papers/HasenplaughKaSc14.pdf figure 8
 //
@@ -66,8 +66,8 @@ struct __predPair {
 	strGraphNodeP preds;
 };
 static strGraphNodeP adj(struct __graphNode *node) {
-	strGraphEdgeP  out GC_CLEANUP_DFT = __graphNodeOutgoing(node);
-	strGraphEdgeP in GC_CLEANUP_DFT = __graphNodeIncoming(node);
+		strGraphEdgeP  out CLEANUP(strGraphEdgePDestroy) = __graphNodeOutgoing(node);
+	strGraphEdgeP in CLEANUP(strGraphEdgePDestroy) = __graphNodeIncoming(node);
 
 	strGraphNodeP retVal  = NULL;
 
@@ -199,13 +199,13 @@ llVertexColor graphColor(const struct __graphNode *node) {
 		colors = llVertexColorInsert(colors, llVertexColorCreate(coloring),
 		                             llVertexColorInsertCmp);
 
-		GC_FREE(llDataGet(datas, allNodes[i])->adjUncolored);
+		strGraphNodePDestroy(&llDataGet(datas, allNodes[i])->adjUncolored);
 	}
 	llDataDestroy(&datas, NULL);
 
 		for (long i = 0; i != allNodesLen; i++)
 		for (long i2 = 0; i2 != allNodesLen; i2++)
-				GC_FREE(Q[i][i2]);
+				strGraphNodePDestroy(&Q[i][i2]);
 	
 	return colors;
 }

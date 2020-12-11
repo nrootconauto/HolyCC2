@@ -4,12 +4,12 @@
 #include <base64.h>
 #include <stdio.h>
 #include <debugPrint.h>
-#include <garbageCollector.h>
+#include <cleanup.h>
 typedef int (*gnCmpType)(const graphNodeMapping *, const graphNodeMapping *);
 typedef int (*varRefCmpType)(const struct IRVar **, const struct IRVar **);
 #define ALLOCATE(x)																																																					\
 	({                                                                           \
-		typeof(x) *ptr = gcMalloc(sizeof(x));                                        \
+		typeof(x) *ptr = malloc(sizeof(x));                                        \
 		*ptr = x;                                                                  \
 		ptr;                                                                       \
 	})
@@ -26,7 +26,7 @@ static char *var2Str(graphNodeIR var) {
 		
 		char buffer[1024];
 		sprintf(buffer, "%s-%li", value->val.value.var.value.var->name,value->val.value.var.SSANum);
-		char *retVal=GC_MALLOC(strlen(buffer)+1);
+		char *retVal=malloc(strlen(buffer)+1);
 		strcpy(retVal, buffer);
 
 		return retVal;

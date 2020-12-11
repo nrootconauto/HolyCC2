@@ -6,7 +6,7 @@
 #include <str.h>
 #include <subExprElim.h>
 #include <topoSort.h>
-#include <garbageCollector.h>
+#include <cleanup.h>
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
 STR_TYPE_DEF(char *, Str);
@@ -27,7 +27,7 @@ static strChar ptr2Str(const void *a) {
 	return retVal;
 }
 static strChar strClone(const char *str) {
-	char *retVal = GC_MALLOC(strlen(str) + 1);
+	char *retVal = malloc(strlen(str) + 1);
 	strcpy(retVal, str);
 
 	return retVal;
@@ -89,7 +89,7 @@ STR_TYPE_DEF(struct subExpr, SubExpr);
 STR_TYPE_FUNCS(struct subExpr, SubExpr);
 MAP_TYPE_DEF(strSubExpr, SubExprs);
 MAP_TYPE_FUNCS(strSubExpr, SubExprs);
-static  mapSubExprs subExprRegistry GC_VARIABLE = NULL;
+static  mapSubExprs subExprRegistry  = NULL;
 
 static int ptrPtrCmp(const void *a, const void *b) {
 	if (*(void **)a > *(void **)b)

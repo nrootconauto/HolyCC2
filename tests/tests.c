@@ -18,12 +18,8 @@ void SSATests();
 void LivenessTests();
 void graphVizTests();
 void registerAllocatorTests();
-#include <garbageCollector.h>
 void init();
 int main() {
-		gcInit(__builtin_frame_address(0));
-		gcDisable();
-		
 		init();
 		strTests();
 		preprocessorTests();

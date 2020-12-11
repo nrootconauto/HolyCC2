@@ -2,7 +2,7 @@
 struct __vec;
 #include <string.h>
 #define STR_TYPE_DEF(type, suffix) typedef type *str##suffix;
-#define STR_TYPE_FUNCS(type, suffix)                                           \
+#define STR_TYPE_FUNCS(type, suffix) __attribute__((always_inline)) inline void str##suffix##Destroy(str##suffix *vec) {__vecDestroy((struct __vec**)vec);}	\
 	inline str##suffix str##suffix##AppendItem(str##suffix vec, type item)       \
 	    __attribute__((always_inline));                                          \
 	inline str##suffix str##suffix##AppendItem(str##suffix vec, type item) {     \
@@ -155,3 +155,4 @@ struct __vec *__vecSetIntersection(struct __vec *a, const struct __vec *b,
                                    void (*kill)(void *));
 struct __vec *__vecSetUnion(struct __vec *a, struct __vec *b, long itemSize,
                             int (*pred)(const void *, const void *));
+void __vecDestroy(struct __vec **vec);

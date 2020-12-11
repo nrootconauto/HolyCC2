@@ -3,52 +3,51 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <object.h>
-#include <garbageCollector.h>
-struct reg  regX86AL GC_VARIABLE;
-struct reg  regX86BL GC_VARIABLE;
-struct reg  regX86CL GC_VARIABLE;
-struct reg  regX86DL GC_VARIABLE;
+struct reg  regX86AL  ;
+struct reg  regX86BL  ;
+struct reg  regX86CL  ;
+struct reg  regX86DL  ;
 
-struct reg  regX86AH GC_VARIABLE;
-struct reg  regX86BH GC_VARIABLE;
-struct reg  regX86CH GC_VARIABLE;
-struct reg  regX86DH GC_VARIABLE;
+struct reg  regX86AH  ;
+struct reg  regX86BH  ;
+struct reg  regX86CH  ;
+struct reg  regX86DH  ;
 
-struct reg  regX86AX GC_VARIABLE;
-struct reg  regX86BX GC_VARIABLE;
-struct reg  regX86CX GC_VARIABLE;
-struct reg  regX86DX GC_VARIABLE;
-struct reg  regX86SI GC_VARIABLE;
-struct reg  regX86DI GC_VARIABLE;
-struct reg  regX86BP GC_VARIABLE;
-struct reg  regX86SP GC_VARIABLE;
+struct reg  regX86AX  ;
+struct reg  regX86BX  ;
+struct reg  regX86CX  ;
+struct reg  regX86DX  ;
+struct reg  regX86SI  ;
+struct reg  regX86DI  ;
+struct reg  regX86BP  ;
+struct reg  regX86SP  ;
 
-struct reg  regX86EAX GC_VARIABLE;
-struct reg  regX86EBX GC_VARIABLE;
-struct reg  regX86ECX GC_VARIABLE;
-struct reg  regX86EDX GC_VARIABLE;
-struct reg  regX86ESI GC_VARIABLE;
-struct reg  regX86EDI GC_VARIABLE;
-struct reg  regX86EBP GC_VARIABLE;
-struct reg  regX86ESP GC_VARIABLE;
+struct reg  regX86EAX  ;
+struct reg  regX86EBX  ;
+struct reg  regX86ECX  ;
+struct reg  regX86EDX  ;
+struct reg  regX86ESI  ;
+struct reg  regX86EDI  ;
+struct reg  regX86EBP  ;
+struct reg  regX86ESP  ;
 
-struct reg  regX86XMM0 GC_VARIABLE;
-struct reg  regX86XMM1 GC_VARIABLE;
-struct reg  regX86XMM2 GC_VARIABLE;
-struct reg  regX86XMM3 GC_VARIABLE;
-struct reg  regX86XMM4 GC_VARIABLE;
-struct reg  regX86XMM5 GC_VARIABLE;
-struct reg  regX86XMM6 GC_VARIABLE;
-struct reg  regX86XMM7 GC_VARIABLE;
+struct reg  regX86XMM0  ;
+struct reg  regX86XMM1  ;
+struct reg  regX86XMM2  ;
+struct reg  regX86XMM3  ;
+struct reg  regX86XMM4  ;
+struct reg  regX86XMM5  ;
+struct reg  regX86XMM6  ;
+struct reg  regX86XMM7  ;
 
-struct reg  regX86ST0 GC_VARIABLE;
-struct reg  regX86ST1 GC_VARIABLE;
-struct reg  regX86ST2 GC_VARIABLE;
-struct reg  regX86ST3 GC_VARIABLE;
-struct reg  regX86ST4 GC_VARIABLE;
-struct reg  regX86ST5 GC_VARIABLE;
-struct reg  regX86ST6 GC_VARIABLE;
-struct reg  regX86ST7 GC_VARIABLE;
+struct reg  regX86ST0  ;
+struct reg  regX86ST1  ;
+struct reg  regX86ST2  ;
+struct reg  regX86ST3  ;
+struct reg  regX86ST4  ;
+struct reg  regX86ST5  ;
+struct reg  regX86ST6  ;
+struct reg  regX86ST7  ;
 
 static int ptrPtrCmp(const void *a, const void *b) {
 	if (*(void **)a > *(void **)b)
@@ -88,10 +87,10 @@ static struct reg createRegister(const char *name, int size,enum regType type ,i
 
 	return retVal;
 }
-static strRegP   regsX86 GC_VARIABLE; 
-static strRegP  regsTest GC_VARIABLE;
+static strRegP   regsX86  ; 
+static strRegP  regsTest  ;
 
-static strRegP  regsX86FloatGiant GC_VARIABLE;
+static strRegP  regsX86FloatGiant  ;
 
 
 void initRegisters() {

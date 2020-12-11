@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <str.h>
+#include <cleanup.h>
 typedef int (*geCmpType)(const struct __graphEdge **,
                          const struct __graphEdge **);
 typedef int (*gnCmpType)(const struct __graphNode **,
@@ -60,7 +61,7 @@ static strGraphNodeP uniqueUnion(strGraphNodeP items,
 	return items;
 }
 llDominators graphComputeDominatorsPerNode(struct __graphNode *start) {
-	strGraphNodeP allNodes = __graphNodeVisitAll(start);
+	strGraphNodeP allNodes CLEANUP(strGraphNodePDestroy) = __graphNodeVisitAll(start);
 	llDominators list = NULL;
 	for (long i = 0; i != strGraphNodePSize(allNodes); i++) {
 		struct graphDominators tmp;

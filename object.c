@@ -5,12 +5,12 @@
 #include <parserA.h>
 #include <stdio.h>
 #include <string.h>
-#include <garbageCollector.h>
+#include <cleanup.h>
 MAP_TYPE_DEF(struct object *, Object);
 MAP_TYPE_FUNCS(struct object *, Object);
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
-static  mapObject objectRegistry GC_VARIABLE = NULL;
+static  mapObject objectRegistry  = NULL;
 struct object *objectBaseType(const struct object *obj) {
 		if(obj->type==TYPE_CLASS) {
 				struct objectClass *cls=(void*)obj;
@@ -32,7 +32,7 @@ struct object *objectBaseType(const struct object *obj) {
 static char * 
 strClone(const char *str) {
 	__auto_type len = strlen(str);
-	char *retVal = GC_MALLOC(len + 1);
+	char *retVal = malloc(len + 1);
 	strcpy(retVal, str);
 	return retVal;
 }
@@ -295,7 +295,7 @@ objectSize(const struct object *type, int *success) {
 struct object * /*This created class.*/
 objectClassCreate(const struct parserNode *name,
                   const struct objectMember *members, long count) {
-	struct objectClass *newClass = GC_MALLOC(sizeof(struct objectClass));
+	struct objectClass *newClass = malloc(sizeof(struct objectClass));
 	newClass->name = (struct parserNode *)name;
 	newClass->base.type = TYPE_CLASS;
 	newClass->base.link = 0;
@@ -351,7 +351,7 @@ objectUnionCreate(
     const struct objectMember *members, long count) {
 	int success;
 
-	struct objectUnion *newUnion = GC_MALLOC(sizeof(struct objectUnion));
+	struct objectUnion *newUnion = malloc(sizeof(struct objectUnion));
 	newUnion->name = (struct parserNode *)name;
 	newUnion->base.type = TYPE_CLASS;
 	newUnion->base.link = 0;
@@ -403,7 +403,7 @@ struct object * /* The newly created type.*/
 objectPtrCreate(struct object *baseType) {
 	// Check if item is in registry prior to making a new one
 
-	struct objectPtr *ptr = GC_MALLOC(sizeof(struct objectPtr));
+	struct objectPtr *ptr = malloc(sizeof(struct objectPtr));
 	ptr->base.link = 0;
 	ptr->base.type = TYPE_PTR;
 	ptr->type = baseType;
@@ -419,7 +419,7 @@ objectPtrCreate(struct object *baseType) {
  */
 struct object * /*Array type.*/
 objectArrayCreate(struct object *baseType, struct parserNode *dim) {
-	struct objectArray *array = GC_MALLOC(sizeof(struct objectArray));
+	struct objectArray *array = malloc(sizeof(struct objectArray));
 	array->base.type = TYPE_ARRAY;
 	array->base.link = 0;
 	array->base.name=NULL;
@@ -439,7 +439,7 @@ objectForwardDeclarationCreate(
     const struct parserNode *name,
     enum holyCTypeKind type /* See `TYPE_CLASS`/`TYPE_UNION`.*/) {
 	struct objectForwardDeclaration *retVal =
-	    GC_MALLOC(sizeof(struct objectForwardDeclaration));
+	    malloc(sizeof(struct objectForwardDeclaration));
 	retVal->base.type = TYPE_FORWARD;
 	retVal->base.link = 0;
 	retVal->name = (struct parserNode *)name;
@@ -450,17 +450,17 @@ objectForwardDeclarationCreate(
 
 	return *mapObjectGet(objectRegistry, hash);
 }
-struct object   typeBool GC_VARIABLE = {TYPE_Bool};
-struct object  typeU0 GC_VARIABLE = {TYPE_U0};
-struct object  typeU8i GC_VARIABLE = {TYPE_U8i};
-struct object  typeU16i GC_VARIABLE = {TYPE_U16i};
-struct object  typeU32i GC_VARIABLE = {TYPE_U32i};
-struct object  typeU64i GC_VARIABLE = {TYPE_U64i};
-struct object  typeI8i GC_VARIABLE = {TYPE_I8i};
-struct object  typeI16i GC_VARIABLE = {TYPE_I16i};
-struct object  typeI32i GC_VARIABLE = {TYPE_I32i};
-struct object  typeI64i GC_VARIABLE = {TYPE_I64i};
-struct object  typeF64 GC_VARIABLE = {TYPE_F64};
+struct object   typeBool  = {TYPE_Bool};
+struct object  typeU0  = {TYPE_U0};
+struct object  typeU8i  = {TYPE_U8i};
+struct object  typeU16i   = {TYPE_U16i};
+struct object  typeU32i   = {TYPE_U32i};
+struct object  typeU64i   = {TYPE_U64i};
+struct object  typeI8i   = {TYPE_I8i};
+struct object  typeI16i   = {TYPE_I16i};
+struct object  typeI32i   = {TYPE_I32i};
+struct object  typeI64i   = {TYPE_I64i};
+struct object  typeF64   = {TYPE_F64};
 void initObjectRegistry() ;
  void initObjectRegistry() {
 	objectRegistry = mapObjectCreate();
@@ -534,7 +534,7 @@ objectFuncCreate(struct object *retType, strFuncArg args) {
 	func.args = strFuncArgAppendData(NULL, args, strFuncArgSize(args));
 	func.retType = retType;
 
-	void *retVal = GC_MALLOC(sizeof(struct objectFunction));
+	void *retVal = malloc(sizeof(struct objectFunction));
 	memcpy(retVal, &func, sizeof(struct objectFunction));
 
 	int alreadyExists;
