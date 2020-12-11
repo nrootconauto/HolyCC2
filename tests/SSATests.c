@@ -127,7 +127,7 @@ void SSATests() {
 				__auto_type allNodes=graphNodeIRAllNodes(enter);
 				for(long i=0;i!=strGraphNodeIRPSize(allNodes);i++) {
 						if(graphNodeIRValuePtr(allNodes[i])->type==IR_CHOOSE) {
-								IRSSAReplaceChooseWithAssigns(allNodes[i]);
+								IRSSAReplaceChooseWithAssigns(allNodes[i],NULL);
 								goto loop;
 								//debugShowGraph(enter);
 						}

@@ -522,7 +522,7 @@ static void transparentKill(graphNodeIR node) {
 
 	graphNodeIRKill(&node, NULL, NULL);
 }
-void IRSSAReplaceChooseWithAssigns(graphNodeIR node) {
+void IRSSAReplaceChooseWithAssigns(graphNodeIR node,strGraphNodeIRP *replaced) {
 		assert(graphNodeIRValuePtr(node)->type==IR_CHOOSE);
 		struct IRNodeChoose *choose=(void*)graphNodeIRValuePtr(node);
 		
@@ -570,8 +570,13 @@ void IRSSAReplaceChooseWithAssigns(graphNodeIR node) {
 		
 		__auto_type endOfExpression=IRGetEndOfExpr(node);
 
-		__auto_type exprNodes=getStatementNodes(IRGetStmtStart(node), endOfExpression);
+		strGraphNodeIRP  exprNodes=getStatementNodes(IRGetStmtStart(node), endOfExpression);
 		__auto_type dummy=createLabel();
 		graphReplaceWithNode(exprNodes, dummy, NULL, NULL,sizeof(graphEdgeIR));
 		transparentKill(dummy);
+
+		if(replaced)
+				*replaced=exprNodes;
+		else
+				GC_FREE(exprNodes);
 }

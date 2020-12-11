@@ -160,7 +160,6 @@ void __graphNodeVisitBackward(struct __graphNode *node, void *data,
 }
 static int isKilledEdge(const void *data,const struct __graphEdge **edge) {
 		if(NULL!=strGraphEdgePSortedFind((strGraphEdgeP)data, *edge, (geCmpType)ptrCompare)) {
-				printf("Killling:%p\n", *edge);
 				return 1;
 		}
 		return 0;

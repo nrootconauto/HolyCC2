@@ -47,7 +47,7 @@ int main() {
 		//graphVizTests();
 		graphColoringTests();		
 		SSATests();
-		//registerAllocatorTests();
+		registerAllocatorTests();
 		
 		return 0;
 }
