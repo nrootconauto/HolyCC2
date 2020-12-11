@@ -687,6 +687,7 @@ static void replaceVarWithLoad(struct __graphNode *node ,void * data) {
 						
 						if(0==IRVarCmp(var, &nodeVal->val.value.var)) {
 								__auto_type load=createLoad(var);
+
 								replaceNodeWithExpr(node, load);
 
 								if(Data->replaced)
@@ -724,6 +725,9 @@ static void removeDeadExpresions(graphNodeIR startAt,strIRVar liveVars) {
 		allNodes=strGraphNodeIRPSetDifference(allNodes, toRemove, (gnCmpType)ptrPtrCmp);
 		
 		for(long i=0;i!=strGraphNodeIRPSize(allNodes);i++) {
+				//Dont revisit
+				toRemove=strGraphNodeIRPSortedInsert(toRemove, allNodes[i], (gnCmpType)ptrPtrCmp);
+				
 				//
 				// Find end of expression that is an assigned node
 				//
@@ -836,7 +840,6 @@ static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spil
 		struct interferencePair pair;
 		pair.inteferesWith=allVars;
 		pair.var=startAtVar;
-		printf("toads:%li\n",startAtVar->SSANum);
 		//
 		// Find all paths to either
 		// A) A choose node that signals the end of the current version of var or
@@ -853,16 +856,13 @@ static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spil
 				__auto_type last=paths1[i][strGraphEdgePSize(paths1[i])-1];
 				__auto_type lastNode=graphEdgeIROutgoing(last);
 				
-				ends=strGraphNodeIRPAppendItem(ends, lastNode);
+				ends=strGraphNodeIRPSortedInsert(ends, lastNode,(gnCmpType)ptrPtrCmp);
 		}
 		ends=strGraphNodeIRPUnique(ends, (gnCmpType)ptrPtrCmp, NULL);
 	loop:
 		ends=strGraphNodeIRPSetDifference(ends, *replacedNodes, (gnCmpType)ptrPtrCmp);
 		for(long i2=0;i2!=strGraphNodeIRPSize(ends);i2++) {
 				__auto_type lastNode=ends[i2];
-				if(lastNode==0xb56907acl) {
-						printf("Toads\n");
-				}
 				
 				if(graphNodeIRValuePtr(lastNode)->type==IR_CHOOSE) {
 						continue;
