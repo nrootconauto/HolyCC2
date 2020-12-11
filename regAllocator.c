@@ -672,8 +672,13 @@ static int graphPathCmp(const strGraphEdgeIRP *a,const strGraphEdgeIRP *b) {
 				return 0;
 }
 
+struct varsAndReplaced {
+		strIRVar vars;
+		strGraphNodeIRP *replaced;
+};
 static void replaceVarWithLoad(struct __graphNode *node ,void * data) {
-		strIRVar vars=data;
+		const struct varsAndReplaced *Data=data;
+		strIRVar vars=Data->vars;
 		
 		if(isVar(node))  {
 				__auto_type nodeVal=(struct IRNodeValue*)graphNodeIRValuePtr(node);
@@ -683,6 +688,9 @@ static void replaceVarWithLoad(struct __graphNode *node ,void * data) {
 						if(0==IRVarCmp(var, &nodeVal->val.value.var)) {
 								__auto_type load=createLoad(var);
 								replaceNodeWithExpr(node, load);
+
+								if(Data->replaced)
+										*Data->replaced=strGraphNodeIRPSortedInsert(*Data->replaced, node, (gnCmpType)ptrPtrCmp);
 						}
 				}
 		}
@@ -691,11 +699,13 @@ static int untillStartOfExpr(const struct __graphNode* node,const struct __graph
 				return IRIsExprEdge(*graphEdgeIRValuePtr((graphEdgeIR)edge));
 };
 
-static void insertLoadsInExpression(graphNodeIR expressionNode,strIRVar varsToReplace) {
-		strGraphNodeIRP  references=NULL;
+static void insertLoadsInExpression(graphNodeIR expressionNode,strIRVar varsToReplace,strGraphNodeIRP *replaced) {
+		struct varsAndReplaced pair;
+		pair.vars=varsToReplace;
+		pair.replaced=replaced;
 		
 		__auto_type end=IRGetEndOfExpr(expressionNode);
-		graphNodeIRVisitBackward(end, varsToReplace, untillStartOfExpr, replaceVarWithLoad);
+		graphNodeIRVisitBackward(end, &pair, untillStartOfExpr, replaceVarWithLoad);
 }
 struct varToLiveNode {
 		struct IRVar var;
@@ -755,7 +765,12 @@ static void removeDeadExpresions(graphNodeIR startAt,strIRVar liveVars) {
 		__continue:;
 		}
 }
-static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spillNodes,strGraphNodeIRLiveP allLiveNodes,graphNodeIR startAt,struct IRVar *startAtVar) {
+STR_TYPE_DEF(struct IRVar,Var);;
+STR_TYPE_FUNCS(struct IRVar,Var);
+static int nodeEqual(const graphNodeIR *a,const graphNodeIR *b) {
+		return *a==*b;
+}
+static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spillNodes,strGraphNodeIRLiveP allLiveNodes,graphNodeIR startAt,struct IRVar *startAtVar,strGraphNodeIRP *replacedNodes) {
 		//Quit if already did spill/loads on node
 		__auto_type find=llIRAttrFind( graphNodeIRValuePtr(startAt)->attrs,IR_ATTR_NODE_SPILL_LOADS_COMPUTED, IRAttrGetPred);
 		if(find)
@@ -824,12 +839,28 @@ static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spil
 		// A) A choose node that signals the end of the current version of var or
 		// B) a reference to a var that interferes with var
 		__auto_type paths1=graphAllPathsToPredicate(startAt, &pair,  (int(*)(const struct __graphNode*,const void*))spillOrStoreAt);
-		for(long i2=0;i2!=strGraphPathSize(paths1);i2++) {
-				if(!paths1[i2])
+		strGraphNodeIRP ends GC_CLEANUP_DFT=NULL;
+		strVar vars GC_CLEANUP_DFT=NULL;
+
+		//Paths may be modified when inserting spill/load so only use last nodes
+		for(long i=0;i!=strGraphPathSize(paths1);i++) {
+				if(!paths1[i])
 						continue;
-										
-				__auto_type last=paths1[i2][strGraphEdgePSize(paths1[i2])-1];
+				
+				__auto_type last=paths1[i][strGraphEdgePSize(paths1[i])-1];
 				__auto_type lastNode=graphEdgeIROutgoing(last);
+				
+				ends=strGraphNodeIRPAppendItem(ends, lastNode);
+		}
+		ends=strGraphNodeIRPUnique(ends, (gnCmpType)ptrPtrCmp, NULL);
+	loop:
+		ends=strGraphNodeIRPSetDifference(ends, *replacedNodes, (gnCmpType)ptrPtrCmp);
+		for(long i2=0;i2!=strGraphNodeIRPSize(ends);i2++) {
+				__auto_type lastNode=ends[i2];
+				if(lastNode==0xb56907acl) {
+						printf("Toads\n");
+				}
+				
 				if(graphNodeIRValuePtr(lastNode)->type==IR_CHOOSE) {
 						continue;
 				}
@@ -918,15 +949,18 @@ static void findVarInterfereAt(mapRegSlice liveNodeRegs,strGraphNodeIRLiveP spil
 								}
 								//Replace
 								__auto_type endOfExpression=IRGetEndOfExpr(lastNode);
-								insertLoadsInExpression(endOfExpression, spillVars);
-	
-								//Re-run interferance at end of epxression
-								
-								findVarInterfereAt(liveNodeRegs, spillNodes,allLiveNodes, endOfExpression, &newVar);
-								continue;
+								insertLoadsInExpression(endOfExpression, spillVars,replacedNodes);
+
+								//Recursivly find interference after all paths is in use(paths may be modified during findVarInterfereAt)
+								vars=strVarAppendItem(vars, newVar);
+								goto loop;
 						}
 				}
 		}
+
+		//Recurse
+		for(long i=0;i!=strGraphNodeIRPSize(ends);i++)
+				findVarInterfereAt(liveNodeRegs, spillNodes,allLiveNodes, ends[i], &vars[i],replacedNodes);
 }
 //
 // This a function for turning colors into registers
@@ -1259,7 +1293,8 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 									__auto_type conflict=&graphNodeIRLiveValuePtr(nodesWithRegisterConflict[i2])->ref;
 									__auto_type have=&nodeValue->val.value.var;
 									if(0==IRVarCmp(conflict, have)) {
-											findVarInterfereAt(regsByLivenessNode, spillNodes, allColorNodes, allNodes[i], &nodeValue->val.value.var);
+											strGraphNodeIRP replaced GC_CLEANUP_DFT =NULL;
+											findVarInterfereAt(regsByLivenessNode, spillNodes, allColorNodes, allNodes[i], &nodeValue->val.value.var,&replaced);
 											break;
 									}
 							}
