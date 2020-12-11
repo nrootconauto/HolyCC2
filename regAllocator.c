@@ -751,9 +751,12 @@ static void removeDeadExpresions(graphNodeIR startAt,strIRVar liveVars) {
 												//Check if dead expression now that we removed the dead assign
 												if(IRIsDeadExpression(in)) {
 														//Remove dead expression
-														strGraphNodeIRP removed;
+														strGraphNodeIRP removed GC_CLEANUP_DFT;
 														IRRemoveDeadExpression(in, &removed);
 														toRemove=strGraphNodeIRPSetUnion(toRemove, removed, (gnCmpType)ptrPtrCmp);
+
+														//Add allNodes[i] to removed(transparently killed above)
+														toRemove=strGraphNodeIRPSortedInsert(toRemove, allNodes[i], (gnCmpType)ptrPtrCmp);
 
 														//Restart search
 														goto loop;
