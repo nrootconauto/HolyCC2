@@ -24,7 +24,6 @@ int main() {
 		gcInit(__builtin_frame_address(0));
 		
 		init();
-		/*
 		strTests();
 		preprocessorTests();
 		base64Tests();
@@ -38,8 +37,6 @@ int main() {
 
 
 	  subGraphTests();
-
-*/
 		lexerTests();
 	parserTests();
 	parserDiagTests();
