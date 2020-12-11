@@ -254,8 +254,8 @@ static int getVarRefIndex(strVarRefs refs,graphNodeIR node) {
 		return -1;
 }
 void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
-		strVarRefs refs = NULL;
-		strAliasPair aliases = NULL;
+		strVarRefs refs GC_CLEANUP_DFT = NULL;
+		strAliasPair aliases GC_CLEANUP_DFT  = NULL;
 		for (long i = 0; i != strGraphNodeIRPSize(nodes); i++) {
 				__auto_type val = graphNodeIRValuePtr(nodes[i]);
 				// No value?
@@ -284,7 +284,7 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 										// Add a vec of references(only reference is nodes[i])
 										DEBUG_PRINT("Adding var node %s\n", var2Str(nodes[i]));
 
-										__auto_type tmp=strGraphNodeIRPAppendItem(NULL, nodes[i]);
+										strGraphNodeIRP tmp =strGraphNodeIRPAppendItem(NULL, nodes[i]);
 										refs = strVarRefsAppendItem(refs, tmp);
 								} else {
 										DEBUG_PRINT("Adding existing var to ref %s\n", var2Str(nodes[i]));
@@ -306,8 +306,8 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 						continue;
 						
 				// Check if written into by another variable.
-				__auto_type incoming = graphNodeIRIncoming(nodes[i]);
-				__auto_type filtered = IRGetConnsOfType(incoming, IR_CONN_DEST);
+				strGraphEdgeIRP incoming GC_CLEANUP_DFT = graphNodeIRIncoming(nodes[i]);
+				strGraphEdgeIRP filtered GC_CLEANUP_DFT = IRGetConnsOfType(incoming, IR_CONN_DEST);
 
 				// aliasNode is NULL if an alias node isnt found
 				graphNodeIR aliasNode = NULL;
@@ -1329,5 +1329,5 @@ __auto_type allNodes2 = graphNodeIRAllNodes(start);
 	}
 	
 	removeDeadExpresions(start, liveVars);
-	debugShowGraphIR(start);
+	//	debugShowGraphIR(start);
 }
