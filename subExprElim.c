@@ -365,16 +365,22 @@ STR_TYPE_FUNCS(strGraphNodeDummyP, DummyBlob);
 static int visitUntillStartStmt(const struct __graphNode *node,
                                 const struct __graphEdge *edge,
                                 const void *data) {
-	struct IRNode *item = graphNodeIRValuePtr((void *)node);
-	return item->type != IR_STATEMENT_START;
+		__auto_type outgoing=graphNodeIROutgoing((graphNodeIR)node);
+		for(long i=0;i!=strGraphEdgeIRPSize(outgoing);i++) {
+				if(!IRIsExprEdge(*graphEdgeIRValuePtr(outgoing[i])))
+						return 0;
+		}
+
+		return 1;
 }
 static void visitNodeAppendItem(struct __graphNode *node, void *data) {
 	strGraphNodeIRP *nodes = data;
 	if (NULL == strGraphNodeIRPSortedFind(*nodes, data, (gnIRCmpType)ptrPtrCmp))
 		*nodes = strGraphNodeIRPSortedInsert(*nodes, node, (gnIRCmpType)ptrPtrCmp);
 }
-static void moveConnectionsOutgoing(graphNodeIR from, graphNodeIR to,
-                                    strGraphEdgeP outgoing) {
+static void moveConnectionsOutgoing(graphNodeIR from, graphNodeIR to) {
+		__auto_type outgoing=graphNodeIROutgoing(from);
+		
 	for (long e = 0; e != strGraphEdgeIRPSize(outgoing); e++) {
 		__auto_type n = graphEdgeIROutgoing(outgoing[e]);
 		graphNodeIRConnect(to, n, *graphEdgeIRValuePtr(outgoing[e]));
@@ -408,7 +414,10 @@ void replaceSubExprsWithVars() {
 		mapGNDummyInsert(hashToNode, repeatedKeys[i],
 		                 graphNodeDummyCreate(repeatedKeys[i], 0));
 	}
-	// Connect nodes
+
+	//
+	// Connect dummy nodes to form a dependancy graph
+	//
 	for (long i = 0; i != strStrSize(repeatedKeys); i++) {
 		__auto_type find = *mapSubExprsGet(subExprRegistry, repeatedKeys[i]);
 		__auto_type fromNode = mapGNDummyGet(hashToNode, repeatedKeys[i]);
@@ -441,7 +450,7 @@ void replaceSubExprsWithVars() {
 	}
 
 	//
-	// Nodes may occor in sepratre "blobs"(graphs)
+	// Nodes may occor in sepratre "blobs"(interconnected graphs)
 	// We need to find all the blobs and topologically sort all of them
 	//
 
@@ -456,6 +465,7 @@ void replaceSubExprsWithVars() {
 	// nodes,then repeat until no more nodes
 	strDummyBlob blobs = NULL;
 	while (strGraphNodePSize(nodes)) {
+			//Find all nodes accessible from nodes[0] 
 		__auto_type blob = graphNodeDummyAllNodes(nodes[0]);
 		nodes =
 		    strGraphNodeDummyPSetDifference(nodes, blob, (gnDummyCmpType)ptrPtrCmp);
@@ -464,7 +474,7 @@ void replaceSubExprsWithVars() {
 
 	//
 	// Now we topologically sort the blob to find the "tops" and "bottom"
-	// So we
+	// This way we can have the first "item" come first 
 	//
 	for (long i = 0; i != strDummyBlobSize(blobs); i++) {
 		// Topological sort
@@ -495,8 +505,7 @@ void replaceSubExprsWithVars() {
 					__auto_type varRef = createVarRef(dummy);
 
 					// move outgoing connections  from firstRef to varRef
-					__auto_type outgoing = graphNodeIROutgoing(refs[i3].node);
-					moveConnectionsOutgoing(firstRef, varRef, outgoing);
+					moveConnectionsOutgoing(firstRef, varRef);
 					graphNodeIRConnect(firstRef, varRef, IR_CONN_DEST);
 
 					firstRef = varRef;
@@ -504,9 +513,13 @@ void replaceSubExprsWithVars() {
 				}
 
 				__auto_type outgoing = graphNodeIROutgoing(refs[i3].node);
-				// Move connections from  refs[i3].node to firstRef outgoing neigbors
-				moveConnectionsOutgoing(refs[i3].node, firstRef, outgoing);
 
+				//Make a clone of firstRef's node(which points to a variable),copy all outgoing traffic from refs[i3].node to the clone
+				__auto_type stmtStart=IRGetStmtStart(refs[i3].node);
+				__auto_type clone=cloneNode(firstRef, IR_CLONE_NODE, NULL);
+				moveConnectionsOutgoing(refs[i3].node, clone);
+				graphNodeIRConnect(stmtStart, clone, IR_CONN_FLOW);
+				
 				// Disconnect node from start stmt(including current node)
 				strGraphNodeIRP untilStart =
 				    strGraphNodeIRPAppendItem(NULL, refs[i3].node);
@@ -515,6 +528,7 @@ void replaceSubExprsWithVars() {
 				for (long i = 0; i != strGraphNodeIRPSize(untilStart); i++)
 					graphNodeIRKill(&untilStart[i], NULL, NULL);
 			}
+			
 		}
 	}
 end:

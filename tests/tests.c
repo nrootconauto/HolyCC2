@@ -45,7 +45,7 @@ int main() {
 	parserDiagTests();
 		topoSortTests();
 		LivenessTests();
-		subExprElimTests();
+		//subExprElimTests();
 		//graphVizTests();
 		//			graphColoringTests();		
 		//SSATests();
