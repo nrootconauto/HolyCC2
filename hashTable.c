@@ -180,6 +180,10 @@ void __mapDestroy(struct __map *map, void (*kill)(void *)) {
 
 		__llDestroy(map->buckets[i], NULL);
 	}
+
+	GC_FREE(map->buckets);
+	GC_FREE(map->bucketSizes);
+	GC_FREE(map);
 }
 struct __map *__mapCreate() {
 	struct __map *retVal = gcMalloc(sizeof(struct __map));

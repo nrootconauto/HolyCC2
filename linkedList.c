@@ -112,16 +112,22 @@ void *__llValuePtr(const struct __ll *node) {
 static void __llKillRight(struct __ll *node, void (*killFunc)(void *)) {
 	for (__auto_type current = node->prev; current != NULL;) {
 		__auto_type prev = current->prev;
+		
 		if (killFunc)
 			killFunc(__llValuePtr(current));
+		GC_FREE(current);
+		
 		current = prev;
 	}
 }
 static void __llKillLeft(struct __ll *node, void (*killFunc)(void *)) {
 	for (__auto_type current = node->next; current != NULL;) {
 		__auto_type next = current->next;
+
 		if (killFunc)
 			killFunc(__llValuePtr(current));
+		GC_FREE(current);
+		
 		current = next;
 	}
 }
@@ -132,6 +138,8 @@ void __llDestroy(struct __ll *node, void (*killFunc)(void *)) {
 	__llKillRight(node, killFunc);
 	if (killFunc)
 		killFunc(__llValuePtr(node));
+
+	GC_FREE(node);
 }
 struct __ll *__llNext(const struct __ll *node) {
 	if (node == NULL)

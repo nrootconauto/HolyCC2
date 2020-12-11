@@ -29,7 +29,7 @@ struct root {
 		struct root *next;
 };
 static __thread struct allocationLL **table=NULL;
-static struct alias **aliasTable=NULL;
+static __thread struct alias **aliasTable=NULL;
 static __thread long tableSize=0;
 static __thread long allocCount=0;
 static __thread int age=INT_MIN;
@@ -37,10 +37,16 @@ static __thread void *stackStart=NULL;
 static __thread struct root *roots=NULL;
 static __thread long allocedMem=0;
 static __thread long lastCleanupMemSize=0;
+static __thread int gcEnabled=0;
 static unsigned long hashPtr(const void *a) {
 		return ((size_t)a>>3)%tableSize;
 }
-
+void gcEnable() {
+		gcEnabled=1;
+}
+void gcDisable() {
+		gcEnabled=0;
+}
 static void *allocationGetDataPtr(const struct allocation *alloc) {
 		return (void*)(alloc+1);
 }
@@ -229,6 +235,12 @@ void *gcRealloc(void *ptr,long newSize) {
 }
 static void *getPtrFromAlias(const void *ptr);
 void gcFree(void *ptr) {
+		__auto_type alias=getPtrFromAlias(ptr);
+		if(alias) {
+				gcFree(alias);
+				return;
+		}
+		
 		allocCount--;
 		if(allocCount*32<tableSize&&tableSize/2>32) {
 				resizeTable(tableSize/2);
@@ -310,6 +322,7 @@ void gcInit(const void *frameStart) {
 		
 		resizeTable(32);
 		stackStart=(void*)frameStart;
+		gcEnable();
 }
 void gcCollect();
 extern char end,etext,edata;
@@ -331,7 +344,9 @@ __attribute__((destructor(101))) void gcDestroy() {
 		free(aliasTable);
 }
 static void __gcCollect() {
-		return;
+		if(!gcEnabled)
+				return;
+		
 		void *top=__builtin_frame_address(0);
 
 		// Initialize all allocations as not marked
@@ -428,4 +443,7 @@ void gcAddLookForPtr(const void *a,const void *lookFor) {
 		}
 
 		goto insert;
+}
+void __gcFree(void *ptr) {
+		gcFree(*(void**)ptr);
 }

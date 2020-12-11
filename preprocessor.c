@@ -394,7 +394,7 @@ static void expandDefinesInRangeRecur(struct __vec **retVal,
 			for (__auto_type i = nextReplacement; isalnum(*(char *)i);
 			     i++, alnumCount++)
 				;
-			struct __vec *slice ;
+			struct __vec *slice GC_CLEANUP_DFT ;
 			slice = __vecAppendItem(NULL, nextReplacement, alnumCount);
 			slice = __vecAppendItem(slice, "\0", 1);
 			__auto_type replacement = mapDefineMacroGet(defines, (void *)slice);
@@ -518,7 +518,7 @@ static void expandNextWord(struct __vec **retVal, FILE **prependLinesTo,
 	} else if (macroFind < find) {
 		__auto_type inputSize = __vecSize(*retVal);
 		__auto_type macroFindIndex = macroFind - *(void **)retVal;
-		struct __vec *slice;
+		struct __vec *slice GC_CLEANUP_DFT;
 		slice = __vecAppendItem(NULL, macroFind, inputSize - macroFindIndex);
 
 		assert(prependLinesTo != NULL);
@@ -631,7 +631,7 @@ static FILE *includeFile(const char *fileName, mapDefineMacro defines,
 	__auto_type lineStart2 = 0;
 	for (int firstRun = 1;; firstRun = 0) {
 		long nextLine;
-		struct __vec *lineText ;
+		struct __vec *lineText GC_CLEANUP_DFT;
 		// newlineText is '\n' on linux,
 		struct __vec *newLine;
 		lineText = fileReadLine(readFrom, lineStart2, &nextLine, &newLine);
@@ -677,7 +677,7 @@ static FILE *createPreprocessedFileLine(mapDefineMacro defines,
 	FILE *afterLines;
 	afterLines = tmpfile();
 
-	struct __vec *retVal ;
+	struct __vec *retVal GC_CLEANUP_DFT;
 	retVal = __vecAppendItem(NULL, text_, __vecSize(text_));
 
 	for (long where = 0; where != __vecSize(retVal);) {
