@@ -105,7 +105,7 @@ void SSATests() {
 				//
 				//Assert for Choose nodes at (select)enter points
 				//
-				debugShowGraph(enter);
+				//debugShowGraph(enter);
 				assertSSANodes(f, e,a,NULL);
 				assertSSANodes(e, c,d,NULL);
 				
@@ -123,11 +123,13 @@ void SSATests() {
 				assert(dSSAVer!=eSSAVer);
 				assert(eSSAVer!=fSSAVer);
 
+		loop:;
 				__auto_type allNodes=graphNodeIRAllNodes(enter);
 				for(long i=0;i!=strGraphNodeIRPSize(allNodes);i++) {
 						if(graphNodeIRValuePtr(allNodes[i])->type==IR_CHOOSE) {
 								IRSSAReplaceChooseWithAssigns(allNodes[i]);
-								debugShowGraph(enter);
+								goto loop;
+								//debugShowGraph(enter);
 						}
 				}
 				

@@ -46,7 +46,7 @@ int main() {
 		//subExprElimTests();
 		//graphVizTests();
 		graphColoringTests();		
-		//SSATests();
+		SSATests();
 		//registerAllocatorTests();
 		
 		return 0;

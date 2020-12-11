@@ -158,15 +158,12 @@ void __graphNodeVisitBackward(struct __graphNode *node, void *data,
                               void (*visit)(struct __graphNode *, void *)) {
 	__graphNodeVisitDirPred(node, data, pred, visit, DIR_BACKWARD);
 }
-static int edgeToPred(const void *a, const struct __graphEdge **b) {
-	const struct __graphEdge *B = *(void **)b;
-	const struct __graphNode *A = a;
-	return B->to == A;
-}
-static int edgeFromPred(const void *a, const struct __graphEdge **b) {
-	const struct __graphEdge *B = *b;
-	const struct __graphNode *A = a;
-	return B->from == A;
+static int isKilledEdge(const void *data,const struct __graphEdge **edge) {
+		if(NULL!=strGraphEdgePSortedFind((strGraphEdgeP)data, *edge, (geCmpType)ptrCompare)) {
+				printf("Killling:%p\n", *edge);
+				return 1;
+		}
+		return 0;
 }
 static void __graphEdgeKillAllPred(struct __graphNode *from,
                                    struct __graphNode *to, void *data,
@@ -198,13 +195,13 @@ static void __graphEdgeKillAllPred(struct __graphNode *from,
 					kill(value);
 			}
 			//
-			toDestroy=strGraphEdgePAppendItem(toDestroy, out[i]);
+			toDestroy=strGraphEdgePSortedInsert(toDestroy, out[i],(geCmpType)ptrCompare);
 		}
 	endLoop:;
 	}
 
-	from->outgoing = strGraphEdgePRemoveIf(from->outgoing, to, edgeToPred);
-	to->incoming = strGraphEdgePRemoveIf(to->incoming, from, edgeFromPred);
+	from->outgoing = strGraphEdgePRemoveIf(from->outgoing, toDestroy, isKilledEdge);
+	to->incoming = strGraphEdgePRemoveIf(to->incoming, toDestroy, isKilledEdge);
 
 	for(long i=0;i!=strGraphEdgePSize(toDestroy);i++)
 			GC_FREE(toDestroy[i]);
@@ -234,9 +231,10 @@ static void __graphNodeKillConnections(struct __graphNode *a,
 static int llpredAlwaysTrue(const void *a, const void *b) { return 0; }
 void __graphNodeKill(struct __graphNode *node, void (*killNode)(void *item),
                      void (*killEdge)(void *item)) {
-	strGraphEdgeP connectionPtrs = NULL;
 	//
-	for (int i = 0; i != 2; i++) {
+	loop:;
+strGraphEdgeP connectionPtrs = NULL;
+		for (int i = 0; i != 2; i++) {
 		__auto_type connections = (i == 0) ? node->outgoing : node->incoming;
 		connectionPtrs = strGraphEdgePSetUnion(connectionPtrs, connections,
 		                                       (geCmpType)ptrCompare);
@@ -252,6 +250,7 @@ void __graphNodeKill(struct __graphNode *node, void (*killNode)(void *item),
 		                      // connections to self will also be removed
 		__graphNodeKillConnections(node, notNode, killEdge);
 		__graphNodeKillConnections(notNode, node, killEdge);
+		goto loop;
 	}
 	//
 
