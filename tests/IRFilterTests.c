@@ -51,18 +51,12 @@ void IRFilterTests() {
 		graphNodeIRConnect( cRef2,cRef3,IR_CONN_FLOW);
 		graphNodeIRConnect( cRef3,cRef3,IR_CONN_FLOW);
 
+		graphNodeIRConnect( cRef3,start,IR_CONN_FLOW);
 		//debugShowGraph(start);
 
 		struct IRVar CVar;
 		CVar.SSANum=0;
 		CVar.type=IR_VAR_VAR;
 		CVar.value.var=c;
-		__auto_type res= filterForVar(start, isVarPred, &CVar);
-
-		const char *name=tmpnam(NULL);
-		IRGraphMap2GraphViz(res, "viz", name, NULL,NULL,NULL,NULL);
-		char buffer[1024];
-		sprintf(buffer, "sleep 0.1 &&dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg &", name);
-
-		system(buffer);
+		__auto_type res= IRFilter(start, isVarPred, &CVar);
 }

@@ -101,6 +101,7 @@ void SSATests() {
 				INSERT_NAME(f);
 				
 				IRToSSA(enter);
+				debugShowGraph(enter);
 				
 				//
 				//Assert for Choose nodes at (select)enter points

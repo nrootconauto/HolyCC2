@@ -6,6 +6,7 @@
 #include <hashTable.h>
 #include <stdio.h>
 #include <topoSort.h>
+#include <IRFilter.h>
 #define GRAPHN_ALLOCATE(x) ({ __graphNodeCreate(&x, sizeof(x), 0); })
 typedef int (*strGN_IRCmpType)(const strGraphNodeIRP *,
                                const strGraphNodeIRP *);
@@ -75,8 +76,9 @@ struct varAndEnterPair {
 	graphNodeIR enter;
 	struct IRVar *var;
 };
-static int occurOfVar(struct __graphNode *node,struct varAndEnterPair *expectedVar) {
-	struct IRNode *ir = graphNodeIRValuePtr((graphNodeIR)node);
+static int occurOfVar(graphNodeIR node,const void *pair) {
+		const struct varAndEnterPair *expectedVar =pair;
+		struct IRNode *ir = graphNodeIRValuePtr((graphNodeIR)node);
 	if (node == expectedVar->enter)
 		return 1;
 
@@ -133,12 +135,9 @@ checkForAssign:;
 	    IRGetConnsOfType(in, IR_CONN_DEST);
 	return 0 != strGraphEdgeIRPSize(dstConns);
 }
-static int isAssignedVar(struct __graphNode *node,struct varAndEnterPair *data) {
-	return __isAssignedVar(data, node, 0);
-}
-static int isAssignedVarExldChooses(struct varAndEnterPair *data,
-                                    struct __graphNode *node) {
-	return __isAssignedVar(data, node, 1);
+static int isAssignedVar(graphNodeIR node,const void *data) {
+		const struct varAndEnterPair *pair=data;
+		return __isAssignedVar((void*)pair, node, 0);
 }
 static graphNodeMapping filterVarRefs(graphNodeIR enter, strGraphNodeIRP nodes,
                                       struct IRVar *var) {
@@ -146,8 +145,7 @@ static graphNodeMapping filterVarRefs(graphNodeIR enter, strGraphNodeIRP nodes,
 	struct varAndEnterPair pair;
 	pair.enter = enter;
 	pair.var = var;
-	return createFilteredGraph(enter, nodes, &pair,
-	                           (int (*)(struct __graphNode *,void *))occurOfVar);
+	return IRFilter(enter, occurOfVar,&pair);
 }
 static char *node2Str(struct __graphNode *node) {
 	node = *graphNodeMappingValuePtr(node);
@@ -206,12 +204,10 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 	struct varAndEnterPair pair;
 	pair.enter = start;
 	pair.var = var;
-	__auto_type allNodes = graphNodeIRAllNodes(start);
-
+	
 	// Get references to all vars
-	__auto_type varRefsG =
-	    createFilteredGraph(start, allNodes, &pair,
-	                        (int (*)(struct __graphNode *,void *))occurOfVar);
+	__auto_type varRefsG =IRFilter(start,
+																																occurOfVar,&pair);
 	__auto_type allVarRefs = graphNodeMappingAllNodes(varRefsG);
 	// graphPrint(varRefsG, node2Str);
 	// Hash the vars
@@ -224,8 +220,7 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 	}
 
 	__auto_type varAssignG =
-	    createFilteredGraph(start, allNodes, &pair,
-	                        (int (*)(struct __graphNode *,void *))isAssignedVar);
+	    IRFilter(start, isAssignedVar,&pair);
 	
 	if(!varAssignG) {
 			mapGraphNodeDestroy(IR2MappingNode, NULL);
@@ -392,7 +387,7 @@ static strGraphNodeIRP IRSSACompute(graphNodeMapping start, struct IRVar *var) {
 	mapGraphNodeDestroy(nodeKey2Ptr, NULL);
 	return retVal;
 }
-static int filterVars(struct __graphNode *node,void *data) {
+static int filterVars(graphNodeIR node,const void *data) {
 	__auto_type ir = graphNodeIRValuePtr(node);
 	if (ir->type == IR_VALUE) {
 		struct IRNodeValue *irValue = (void *)ir;
@@ -420,20 +415,21 @@ void IRToSSA(graphNodeIR enter) {
 	// Find all the vars
 	//
 	__auto_type filteredVars =
-	    createFilteredGraph(nodes[0], nodes, NULL, filterVars);
+	    IRFilter(enter, filterVars, NULL);
 	__auto_type filteredVarsNodes = graphNodeMappingAllNodes(filteredVars);
 	strIRVar allVars = NULL;
 	for (long i = 0; i != strGraphNodeMappingPSize(filteredVarsNodes); i++) {
 		__auto_type irNode = *graphNodeMappingValuePtr(filteredVarsNodes[i]);
 		struct IRNodeValue *val = (void *)graphNodeIRValuePtr(irNode);
-		assert(val->base.type == IR_VALUE);
+		//Could be enter node
+		if(val->base.type != IR_VALUE)
+				continue;
 
 		// Insert if doesnt exist
 		if (NULL == strIRVarSortedFind(allVars, val->val.value.var, IRVarCmp)) {
 			allVars = strIRVarSortedInsert(allVars, val->val.value.var, IRVarCmp);
 		}
 	}
-	/*
 	{
 	char *fn=tmpnam(NULL);
 	IRGraphMap2GraphViz(filteredVars, "filter", fn, NULL,NULL,NULL,NULL);
@@ -441,7 +437,6 @@ void IRToSSA(graphNodeIR enter) {
 	sprintf(buffer, "dot -Tsvg %s >/tmp/dot.svg && firefox /tmp/dot.svg &", fn);
 	system(buffer);
 	}
-	*/
 	
 	//
 	// Find SSA choose nodes for all vars

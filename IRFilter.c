@@ -59,7 +59,7 @@ static int assocContainsMapping(const void *node,const struct assocPairIR2Mappin
 }
 typedef int(*gnCmpType)(const graphNodeIR*,const graphNodeIR*);
 
-static void __filterForVar(graphNodeMapping connectTo,graphNodeIR startAt,int(*pred)(graphNodeIR ,const void*),const void *data,strGraphNodeIRP *visited,strAssoc *ir2Mapping) {
+static void __IRFilter(graphNodeMapping connectTo,graphNodeIR startAt,int(*pred)(graphNodeIR ,const void*),const void *data,strGraphNodeIRP *visited,strAssoc *ir2Mapping) {
 		
 		
 		strGraphPath paths =graphAllPathsToPredicate(startAt, startAt, isFlowBlockOrStartOrEndPred);
@@ -132,16 +132,23 @@ static void __filterForVar(graphNodeMapping connectTo,graphNodeIR startAt,int(*p
 				return;
 		
 		for(long i=0;i!=strAssocSize(exit2Mapping);i++) {
-				__filterForVar(exit2Mapping[i].mapping, exit2Mapping[i].ir, pred, data, visited, ir2Mapping);
+				__IRFilter(exit2Mapping[i].mapping, exit2Mapping[i].ir, pred, data, visited, ir2Mapping);
 		}
 		
 		strGraphPathDestroy(&paths);
 }
-graphNodeIR filterForVar(graphNodeIR start,int(*pred)(graphNodeIR,const void *),const void* data) {
+graphNodeIR IRFilter(graphNodeIR start,int(*pred)(graphNodeIR,const void *),const void* data) {
 		strGraphNodeIRP visited CLEANUP(strGraphNodeIRPDestroy)= NULL;
 		strAssoc assoc CLEANUP(strAssocDestroy)=NULL;
 		__auto_type retVal=graphNodeMappingCreate(start, 0);
-		__filterForVar(retVal, start, pred,data, &visited, &assoc);
+		__IRFilter(retVal, start, pred,data, &visited, &assoc);
 
+
+		const char *name=tmpnam(NULL);
+		IRGraphMap2GraphViz(retVal, "viz", name, NULL,NULL,NULL,NULL);
+		char buffer[1024];
+		sprintf(buffer, "sleep 0.1 &&dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg &", name);
+		system(buffer);
+		
 		return retVal;
 }
