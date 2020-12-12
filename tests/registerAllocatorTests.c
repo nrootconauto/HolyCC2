@@ -338,6 +338,7 @@ void registerAllocatorTests() {
 							createReturn(binop, NULL);
 							}
 				setArch(ARCH_TEST_SYSV);
+				debugShowGraph(start);;
 				IRRegisterAllocate(start, NULL, NULL);
 				debugShowGraph(start);
 				int success;

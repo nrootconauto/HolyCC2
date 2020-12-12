@@ -181,12 +181,7 @@ static void spillToFrame(struct IREvalVal value,struct IRVar *frameVar) {
 static struct IREvalVal *loadFromFrame(struct IRVar *frameVar) {
 		__auto_type find=llFrameItemFind(frame, frameVar, (frameItemGetPredType)llFrameItemGetPred);
 		if(!find) {
-				//Create a dummy value
-				struct IRValue dummy;
-				dummy.type=IR_VAL_INT_LIT;
-				dummy.value.intLit.type=INT_SLONG;
-				dummy.value.intLit.value.sLong=0;
-				return valueHash(&dummy);
+				return NULL;
 		}
 
 		return &llFrameItemValuePtr(find)->value;
@@ -667,7 +662,7 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 			strGraphEdgeIRP assigns =IRGetConnsOfType(incoming, IR_CONN_DEST);
 			assert(strGraphEdgeIRPSize(assigns)==1);
 
-			graphNodeIR incomingNode=(void*)graphNodeIRValuePtr(graphEdgeIRIncoming(assigns[0]));
+			graphNodeIR incomingNode=graphEdgeIRIncoming(assigns[0]);
 			struct IRNodeValue *inReg=(void*)graphNodeIRValuePtr(incomingNode);
 			if(inReg->base.type!=IR_VALUE)
 					goto fail;
@@ -688,8 +683,15 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 			//Ensure is a variable
 			if(load->item.type!=IR_VAL_VAR_REF)
 					goto fail;
+
+			if(success)
+					*success=1;
 			
-			return *loadFromFrame(&load->item.value.var);
+			__auto_type find=loadFromFrame(&load->item.value.var);
+			if(find)
+					return *find;
+
+			return dftValueType(IREVAL_VAL_INT);
 	}
 	default:
 		goto fail;
