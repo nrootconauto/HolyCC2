@@ -1,10 +1,23 @@
 #include <IR.h>
 #include <cleanup.h>
+static int isFlowNode(enum IRConnType type) {
+		switch(type) {
+		case IR_CONN_FLOW:
+		case IR_CONN_COND_FALSE:
+		case IR_CONN_COND_TRUE:
+				return 1;
+				default:
+						return 0;
+		}
+}
 static int isFlowBlockOrStartOrEndPred(const struct __graphNode *node,const void *start) {
 		//Check if multiple incoming flows
 		strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming((graphNodeIR)node);
-		strGraphEdgeIRP incomingFlow CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(incoming, IR_CONN_FLOW);
-		if(strGraphEdgeIRPSize(incomingFlow)>1)
+		int flowCount=0;
+		for(long i=0;i!=strGraphEdgeIRPSize(incoming);i++)
+				if(isFlowNode(*graphEdgeIRValuePtr(incoming[i]))) flowCount++;
+		
+		if(flowCount>1)
 				return 1;
 
 		//Check if start node(data is start)
@@ -52,7 +65,7 @@ static void __filterForVar(graphNodeMapping connectTo,graphNodeIR startAt,int(*p
 		strGraphPath paths =graphAllPathsToPredicate(startAt, startAt, isFlowBlockOrStartOrEndPred);
 		strAssoc exit2Mapping CLEANUP(strAssocDestroy)= NULL;
 
-		int foundPredItem=0;
+		int foundNewPredItem=0,foundPredItem=0;
 		for(long i2=0;i2<strGraphPathSize(paths);i2++) {
 				int pathIncludedFlow=0;
 				
@@ -69,10 +82,13 @@ static void __filterForVar(graphNodeMapping connectTo,graphNodeIR startAt,int(*p
 						//Check if predicate likes the value
 						if(pred(node,data)) {
 								foundPredItem=1;
+								
 								//Check if mapping already exists
 								struct assocPairIR2Mapping pair={node,NULL};
 								__auto_type find=strAssocSortedFind(*ir2Mapping, pair, assocCmp);
 								if(NULL==find) {
+										foundNewPredItem=1;
+								
 										__auto_type mapping=graphNodeMappingCreate(node, 0);
 										graphNodeMappingConnect(connectTo2, mapping, NULL);
 										connectTo2=mapping;
@@ -84,18 +100,18 @@ static void __filterForVar(graphNodeMapping connectTo,graphNodeIR startAt,int(*p
 										//Connect and break,no need to visit already visited node
 										if(!graphNodeMappingConnectedTo(connectTo2, find->mapping))
 												graphNodeMappingConnect(connectTo2,find->mapping,NULL);
-										goto next;
+
+										connectTo2=find->mapping;
 								}
 						}	
 				}
-
 				//Add exit for later use
 				__auto_type last= paths[i2][strGraphEdgeIRPSize(paths[i2])-1];
 				__auto_type lastNode=graphEdgeIROutgoing(last);
+				
 				struct assocPairIR2Mapping pair3={lastNode,connectTo2};
 				exit2Mapping=strAssocSortedInsert(exit2Mapping, pair3, assocCmp);
-						
-		next:
+				
 				strGraphEdgeIRPDestroy(&paths[i2]);
 		}
 
@@ -104,11 +120,17 @@ static void __filterForVar(graphNodeMapping connectTo,graphNodeIR startAt,int(*p
 		// We only want to go through the parts of the path that contain an item that fuffils the preficate.
 		// If no such item exists,we check ahead
 		//
-		if(foundPredItem) {
+		if(foundNewPredItem) {
 				//Filter out paths that didint have an item(that fuffiled the predicate) out
 				exit2Mapping=strAssocRemoveIf(exit2Mapping, connectTo, assocContainsMapping);
 		}
 
+		// 
+		// If found pred item,but none of them are new,we visited here before so quit 
+		//
+		if(foundNewPredItem==0&&foundPredItem)
+				return;
+		
 		for(long i=0;i!=strAssocSize(exit2Mapping);i++) {
 				__filterForVar(exit2Mapping[i].mapping, exit2Mapping[i].ir, pred, data, visited, ir2Mapping);
 		}
