@@ -18,9 +18,11 @@ void SSATests();
 void LivenessTests();
 void graphVizTests();
 void registerAllocatorTests();
+void IRFilterTests();
 void init();
 int main() {
 		init();
+		/*
 		strTests();
 		preprocessorTests();
 		base64Tests();
@@ -44,6 +46,7 @@ int main() {
 		graphColoringTests();		
 		SSATests();
 		registerAllocatorTests();
-		
+*/
+		IRFilterTests();
 		return 0;
 }

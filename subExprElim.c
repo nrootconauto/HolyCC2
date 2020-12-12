@@ -543,3 +543,40 @@ void clearSubExprs() {
 void findSubExprs(const graphNodeIR node) {
 		hashNode(node);
 }
+STR_TYPE_DEF(struct IRVar, IRVar);
+STR_TYPE_FUNCS(struct IRVar, IRVar);
+static void reverseDepthSearch(graphNodeIR startFrom,strIRVar vars,strGraphNodeIRP *visited,strGraphNodeIRP *roots) {
+		//Dont visit already visited
+		if(NULL!=strGraphNodeIRPSortedFind(*visited, startFrom, (gnIRCmpType)ptrPtrCmp))
+				return;
+		
+		//Check if current node is vairable
+		struct IRNodeValue *val=(void*)graphNodeIRValuePtr(startFrom);
+		if(val->base.type==IR_VALUE) {
+				if(val->val.type==IR_VAL_VAR_REF) {
+						//Check for var
+						if(NULL!=strIRVarSortedFind(vars,val->val.value.var, IRVarCmp)) {
+								//Check for incoming assign
+								strGraphEdgeIRP incoming2 CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(startFrom);
+								strGraphEdgeIRP assigns CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(incoming2, IR_CONN_DEST);
+
+								if(strGraphEdgeIRPSize(assigns)==1) {
+										//Is written into so is a root
+										*roots=strGraphNodeIRPSortedInsert(*roots, startFrom, (gnIRCmpType)ptrPtrCmp);
+										return;
+								}
+						}
+				}
+		}
+
+		*visited=strGraphNodeIRPSortedFind(*visited, startFrom, (gnIRCmpType)ptrPtrCmp);
+
+		strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(startFrom);
+		for(long i=0;i!=strGraphEdgeIRPSize(incoming);i++) {
+				reverseDepthSearch(graphEdgeIRIncoming(incoming[i]),vars,visited,roots);
+		}
+}
+static void findRootOfVars(graphNodeIR startFrom,strIRVar vars) {
+		strGraphNodeIRP varTops CLEANUP(strGraphNodeIRPDestroy) =NULL;
+		strGraphNodeIRP visited CLEANUP(strGraphNodeIRPDestroy) =strGraphNodeIRPAppendItem(NULL, startFrom);	
+}

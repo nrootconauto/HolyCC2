@@ -501,6 +501,9 @@ static void __graphAllPathsTo(strGraphEdgeP *currentPath, strGraphPath *paths,
 						strGraphEdgeP clone = strGraphEdgePAppendData(
 																																																		NULL, (void *)*currentPath, strGraphEdgePSize(*currentPath));
 						*paths = strGraphPathAppendItem(*paths, clone);
+
+						//Dont stop at start
+						if(strGraphEdgePSize(clone)!=0)
 						return;
 				}
 		}
