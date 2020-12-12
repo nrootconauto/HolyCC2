@@ -338,17 +338,27 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 	struct IRNode *ir = graphNodeIRValuePtr(node);
 	switch (ir->type) {
 	case IR_VALUE: {
+			//Check for incoming assign
+			int assignedInto=0;
+			strGraphEdgeIRP incoming  CLEANUP(strGraphEdgeIRPDestroy)= graphNodeIRIncoming(node);
+			strGraphEdgeIRP assign CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(incoming, IR_CONN_DEST);
+			struct IREvalVal res;
+			if(strGraphEdgeIRPSize(assign)!=0) {
+					assignedInto=1;
+					int success2;
+					res=IREvalNode(graphEdgeIRIncoming(incoming[0]), &success2);
+					if(!success2)
+							goto fail;
+			}
+			
 		struct IRNodeValue *__value = (void *)ir;
 		struct IRValue *value = &__value->val;
 		switch (value->type) {
 		case IR_VAL_VAR_REF: {
-			// Check for dest incoming
-			__auto_type incoming = graphNodeIRIncoming(node);
-			__auto_type assign = IRGetConnsOfType(incoming, IR_CONN_DEST);
 			int success2=1;
-			if (strGraphEdgeIRPSize(assign) != 0) {
+			if (assignedInto) {
 				*valueHash(value) =
-				    IREvalNode(graphEdgeIRIncoming(incoming[0]), &success2);
+				    res;
 			}
 			
 			if (!success2)
@@ -364,6 +374,11 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 			return IREValValIntCreate(value->value.intLit.value.sLong);
 		}
 		case IR_VAL_REG: {
+				if(success)
+						*success=1;
+				if(assignedInto)
+				*valueHash(value)=res;
+
 				return *valueHash(value);
 		}
 		case IR_VAL_FUNC:
@@ -765,6 +780,7 @@ static struct IREvalVal __IREvalPath(graphNodeIR start,struct IREvalVal *current
 				if(!success2)
 						goto fail;
 
+				endNode=end;
 				goto findNext;
 		}
 		case IR_LABEL: {

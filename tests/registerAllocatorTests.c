@@ -337,12 +337,9 @@ void registerAllocatorTests() {
 							graphNodeIRConnect( end,IRGetStmtStart(binop),  IR_CONN_FLOW);
 							createReturn(binop, NULL);
 							}
-
-					debugShowGraph(start);
 				setArch(ARCH_TEST_SYSV);
 				IRRegisterAllocate(start, NULL, NULL);
-
-				return;
+				debugShowGraph(start);
 				int success;
 				IREvalInit();
 				__auto_type res= IREvalPath(start, &success);

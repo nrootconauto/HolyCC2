@@ -1079,7 +1079,7 @@ void IRRegisterAllocate(graphNodeIR start,color2RegPredicate colorFunc,void *col
 		__auto_type allNodes = graphNodeIRAllNodes(start);
 		removeChooseNodes(allNodes, start);
 		IRToSSA(start);
-			debugShowGraphIR(start);
+		//debugShowGraphIR(start);
 	
 		strGraphNodeIRP allNodes2 CLEANUP(strGraphNodeIRPDestroy)= graphNodeIRAllNodes(start);
 	strGraphNodeIRP  visited CLEANUP(strGraphNodeIRPDestroy)=NULL;
