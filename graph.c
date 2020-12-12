@@ -494,6 +494,7 @@ createFilteredGraph(struct __graphNode *start, strGraphNodeP nodes, void *data,
 static void __graphAllPathsTo(strGraphEdgeP *currentPath, strGraphPath *paths,
                               const struct __graphNode *from,
                               const void *data,int(*predicate)(const struct __graphNode *node,const void *data)) {
+		int hitStart=0;
 	// At destination so return after appending to paths
 		if(predicate) {
 				if (predicate(from,data)) {
@@ -505,6 +506,13 @@ static void __graphAllPathsTo(strGraphEdgeP *currentPath, strGraphPath *paths,
 						//Dont stop at start
 						if(strGraphEdgePSize(clone)!=0)
 						return;
+						else  {
+								if(hitStart)
+										return;
+								
+								hitStart=1;
+								
+						}
 				}
 		}
 	// Push if no outgoing and to is NULL

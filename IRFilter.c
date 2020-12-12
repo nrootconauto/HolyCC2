@@ -20,12 +20,20 @@ static int isFlowBlockOrStartOrEndPred(const struct __graphNode *node,const void
 		if(flowCount>1)
 				return 1;
 
+		//Check if multiple flow out 
+		strGraphEdgeIRP outgoing CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing((graphNodeIR)node);
+		flowCount=0;
+		for(long i=0;i!=strGraphEdgeIRPSize(outgoing);i++)
+				if(isFlowNode(*graphEdgeIRValuePtr(outgoing[i]))) flowCount++;
+		if(flowCount>1)
+				return 1;
+		
+		
 		//Check if start node(data is start)
 		if(start==node)
 				return 1;
 
 		//Check if end(no outgoing)
-		strGraphEdgeIRP outgoing CLEANUP(strGraphEdgeIRPDestroy) =graphNodeIROutgoing((graphNodeIR)node);
 		if(strGraphEdgeIRPSize(outgoing)==0)
 				return 1;
 		
@@ -120,7 +128,7 @@ static void __IRFilter(graphNodeMapping connectTo,graphNodeIR startAt,int(*pred)
 		// We only want to go through the parts of the path that contain an item that fuffils the preficate.
 		// If no such item exists,we check ahead
 		//
-		if(foundNewPredItem) {
+		if(foundNewPredItem||foundPredItem) {
 				//Filter out paths that didint have an item(that fuffiled the predicate) out
 				exit2Mapping=strAssocRemoveIf(exit2Mapping, connectTo, assocContainsMapping);
 		}
@@ -142,13 +150,6 @@ graphNodeIR IRFilter(graphNodeIR start,int(*pred)(graphNodeIR,const void *),cons
 		strAssoc assoc CLEANUP(strAssocDestroy)=NULL;
 		__auto_type retVal=graphNodeMappingCreate(start, 0);
 		__IRFilter(retVal, start, pred,data, &visited, &assoc);
-
-
-		const char *name=tmpnam(NULL);
-		IRGraphMap2GraphViz(retVal, "viz", name, NULL,NULL,NULL,NULL);
-		char buffer[1024];
-		sprintf(buffer, "sleep 0.1 &&dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg &", name);
-		system(buffer);
 		
 		return retVal;
 }

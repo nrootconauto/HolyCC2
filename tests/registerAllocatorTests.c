@@ -58,7 +58,7 @@ void registerAllocatorTests() {
 				graphNodeIRConnect(bRef1, bRef3, IR_CONN_FLOW);
 				graphNodeIRConnect(bRef2, bRef3, IR_CONN_FLOW);
 
-				//debugShowGraph(aRef1);
+				debugShowGraph(aRef1);
 		
 				//Do SSA on strucure
 				IRToSSA(one);
@@ -338,7 +338,7 @@ void registerAllocatorTests() {
 							createReturn(binop, NULL);
 							}
 
-					//debugShowGraph(start);
+					debugShowGraph(start);
 				setArch(ARCH_TEST_SYSV);
 				IRRegisterAllocate(start, NULL, NULL);
 

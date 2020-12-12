@@ -45,8 +45,10 @@ int main() {
 		//graphVizTests();
 		graphColoringTests();		
 		
-		registerAllocatorTests();
+		
 */
+		registerAllocatorTests();;
+		return 0;
 		SSATests();
 		IRFilterTests();
 		return 0;
