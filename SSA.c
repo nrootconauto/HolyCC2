@@ -430,13 +430,13 @@ void IRToSSA(graphNodeIR enter) {
 			allVars = strIRVarSortedInsert(allVars, val->val.value.var, IRVarCmp);
 		}
 	}
-	{
+	/*{
 	char *fn=tmpnam(NULL);
 	IRGraphMap2GraphViz(filteredVars, "filter", fn, NULL,NULL,NULL,NULL);
 	char buffer[1024];
 	sprintf(buffer, "dot -Tsvg %s >/tmp/dot.svg && firefox /tmp/dot.svg &", fn);
 	system(buffer);
-	}
+	}*/
 	
 	//
 	// Find SSA choose nodes for all vars

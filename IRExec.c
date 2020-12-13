@@ -824,10 +824,10 @@ static struct IREvalVal __IREvalPath(graphNodeIR start,struct IREvalVal *current
 		case IR_LOAD: {
 				int success2;
 				retVal=IREvalNode(start, &success2);
-				if(success2)
+				if(!success2)
 						goto fail;
 				
-				endNode=start;
+				endNode=IRGetEndOfExpr(start);
 				goto findNext;
 		}
 		case IR_STATEMENT_END:

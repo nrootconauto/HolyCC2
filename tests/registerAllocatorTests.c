@@ -341,6 +341,7 @@ void registerAllocatorTests() {
 				debugShowGraph(start);;
 				IRRegisterAllocate(start, NULL, NULL);
 				debugShowGraph(start);
+				
 				int success;
 				IREvalInit();
 				__auto_type res= IREvalPath(start, &success);
