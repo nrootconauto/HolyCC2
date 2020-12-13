@@ -338,13 +338,19 @@ void registerAllocatorTests() {
 							createReturn(binop, NULL);
 							}
 				setArch(ARCH_TEST_SYSV);
+				IREvalInit();
+				int success;
+				__auto_type res1= IREvalPath(start, &success);
+				assert(success);
+				
 				debugShowGraph(start);;
 				IRRegisterAllocate(start, NULL, NULL);
 				debugShowGraph(start);
 				
-				int success;
 				IREvalInit();
-				__auto_type res= IREvalPath(start, &success);
+				__auto_type  res2= IREvalPath(start, &success);
 				assert(success);
+
+				assert(res1.value.i==res2.value.i);
 		}
 }
