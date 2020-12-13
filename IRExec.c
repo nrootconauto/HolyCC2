@@ -656,6 +656,7 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 		return *arrayAccessHash(&a, &b, a.type);
 	}
 	case IR_SIMD:
+			goto fail;
 	case IR_SPILL: {
 			//Expect 1 incoming assign
 			strGraphEdgeIRP incoming =graphNodeIRIncoming(node);
@@ -663,19 +664,16 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 			assert(strGraphEdgeIRPSize(assigns)==1);
 
 			graphNodeIR incomingNode=graphEdgeIRIncoming(assigns[0]);
-			struct IRNodeValue *inReg=(void*)graphNodeIRValuePtr(incomingNode);
-			if(inReg->base.type!=IR_VALUE)
-					goto fail;
-			if(inReg->val.type!=IR_VAL_REG)
+
+			int success2;
+			__auto_type val=IREvalNode(incomingNode, &success2);
+			if(!success2)
 					goto fail;
 			
 			struct IRNodeSpill *spill=(void*)graphNodeIRValuePtr(node);
 			assert(spill->item.type==IR_VAL_VAR_REF);
-			spillToFrame(*valueHash(&inReg->val), &spill->item.value.var);
+			spillToFrame(val, &spill->item.value.var);
 
-			struct IREvalVal val;
-			val.type=IREVAL_VAL_REG;
-			val.value.reg=inReg->val.value.reg.reg;
 			return val;
 	}
 	case IR_LOAD: {
@@ -692,6 +690,17 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 					return *find;
 
 			return dftValueType(IREVAL_VAL_INT);
+	}
+	case IR_FUNC_RETURN: {
+			strGraphEdgeIRP  incoming CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(node);
+			if(strGraphEdgeIRPSize(incoming)!=1)
+					goto fail;
+
+			if(!IRIsExprEdge(*graphEdgeIRValuePtr(incoming[0])))
+					return dftValueType(IREVAL_VAL_INT);
+
+			return IREvalNode(graphEdgeIRIncoming(incoming[0]), success);
+			
 	}
 	default:
 		goto fail;
@@ -768,13 +777,6 @@ static struct IREvalVal __IREvalPath(graphNodeIR start,struct IREvalVal *current
 						return dftValueType(IREVAL_VAL_INT);
 				}
 		}
-		case IR_FUNC_RETURN: {
-				__auto_type dft=dftValueType(IREVAL_VAL_INT);
-				if(!currentValue)
-						currentValue=&dft;
-				
-				return *currentValue;
-		}
 		case IR_VALUE: {
 				__auto_type end=IRGetEndOfExpr(start);
 				int success2;
@@ -800,6 +802,7 @@ static struct IREvalVal __IREvalPath(graphNodeIR start,struct IREvalVal *current
 						//All share common end if reached here
 						int success2;
 						__auto_type value=IREvalNode(commonEnd, &success2);
+						retVal=value;
 						if(!success2)
 								goto fail;
 
@@ -817,7 +820,8 @@ static struct IREvalVal __IREvalPath(graphNodeIR start,struct IREvalVal *current
 						goto fail;
 				
 				spillToFrame(*currentValue, &value->item.value.var);
-
+				retVal=*currentValue;
+				
 				endNode=start;
 				goto findNext;
 		}
