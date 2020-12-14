@@ -7,6 +7,7 @@
 #include <graphDominance.h>
 #include <base64.h>
 #include <cleanup.h>
+#include <IRFilter.h>
 static char *ptr2Str(const void *a) {
 		return base64Enc((void*)&a, sizeof(a));
 }
@@ -848,6 +849,11 @@ strConflictPair conflictPairFindAffects(graphNodeIRLive node,strConflictPair pai
 static int conflictPairContains(graphNodeIRLive node,const struct conflictPair *pair) {
 		return pair->a==node||pair->b==node;
 }
+static void *IR_ATTR_VARIABLE="IS_VARIABLE";
+struct IRAttrVariable {
+		struct IRAttr base;
+		struct IRVar var;
+};
 static void replaceVarsWithSpillOrLoad(strGraphNodeIRLiveP spillNodes,graphNodeIR enter) {
 		strGraphNodeIRP allNodes=graphNodeIRAllNodes(enter);
 
@@ -955,10 +961,189 @@ static void replaceVarsWithRegisters(mapRegSlice map,strGraphNodeIRLiveP allLive
 								__auto_type slice=*find;
 								
 								//Replace
-								replaceNodeWithExpr(allNodes[i],  createRegRef(&slice));
+								__auto_type regRef=createRegRef(&slice);
+								replaceNodeWithExpr(allNodes[i],  regRef);
+
+								//Add attrbute to regRef that marks as originating from varaible
+								struct IRAttrVariable attr;
+								attr.base.name=IR_ATTR_VARIABLE;
+								attr.var=value->val.value.var;
+								__auto_type attrLL=__llCreate(&attr,sizeof(attr ));
+								//Insert
+								__auto_type attrPtr=&graphNodeIRValuePtr(regRef)->attrs;
+								llIRAttrInsert(*attrPtr, attrLL, IRAttrInsertPred);
+								*attrPtr=attrLL;
 						}
 				}
 		}
+}
+void IRAttrVariableRemoveAllNodes(graphNodeIR node) {
+		strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(node);
+		for(long i=0;i!=strGraphNodeIRPSize(allNodes);i++) {
+				__auto_type attrsPtr=&graphNodeIRValuePtr(allNodes[i])->attrs;
+				__auto_type find=llIRAttrFind(*attrsPtr, IR_ATTR_VARIABLE, IRAttrGetPred);
+				if(find) {
+						*attrsPtr=llIRAttrRemove(find);
+						llIRAttrDestroy(&find, NULL);
+				}
+		}
+}
+static int isLiveVar(graphNodeIR start,const void *live) {
+		//Check if load of live variable
+		if(graphNodeIRValuePtr(start)->type==IR_LOAD) {
+				struct IRNodeLoad *load=(void*)graphNodeIRValuePtr(start);
+				strVar liveVars=(void*)live;
+				return NULL!=strVarSortedFind(liveVars, &load->item.value.var,IRVarCmp2);
+		} else if(graphNodeIRValuePtr(start)->type==IR_SPILL) {
+				struct IRNodeSpill *spill=(void*)graphNodeIRValuePtr(start);
+				strVar liveVars=(void*)live;
+				return NULL!=strVarSortedFind(liveVars, &spill->item.value.var,IRVarCmp2);
+		}
+
+		//Is attributed to a live varible
+		__auto_type find=llIRAttrFind(graphNodeIRValuePtr(start)->attrs, IR_ATTR_VARIABLE, IRAttrGetPred);
+		if(find) {
+				struct IRAttrVariable *var=(void*)find;
+				
+				struct IRNodeValue *val=(void*)graphNodeIRValuePtr(start);
+				strVar liveVars=(void*)live;
+				return NULL!=strVarSortedFind(liveVars, &var->var,IRVarCmp2);
+		}
+
+		return 0;
+}
+static int isLoadMappedNode(const void *data,const graphNodeMapping *mapping) {
+		return graphNodeIRValuePtr(*graphNodeMappingValuePtr(*mapping))->type==IR_LOAD;
+}
+struct varInReg {
+		struct IRVar var;
+		struct regSlice slice;
+};
+static int varInRegCmp(const struct varInReg *a,const struct varInReg *b) {
+		return IRVarCmp(&a->var, &b->var);
+}
+STR_TYPE_DEF(struct varInReg,VarInReg);
+STR_TYPE_FUNCS(struct varInReg,VarInReg);
+static strVarInReg nodeGetLiveRegs(graphNodeIR start,mapRegSlice live2Reg,strGraphNodeIRLiveP live,strVarToLiveNode assoc) {
+		__auto_type bb=(struct IRAttrBasicBlock*)llIRAttrFind(graphNodeIRValuePtr(start)->attrs, IR_ATTR_BASIC_BLOCK , IRAttrGetPred);
+		if(!bb)
+				return NULL;
+
+		strVarInReg retVal=NULL;
+		for(long i=0;i!=strVarSize(bb->block->in);i++) {
+				struct varInReg pair;
+				pair.var=*bb->block->in[i];
+
+				//Find regsiter in assoc array
+				struct varToLiveNode dummy;
+				dummy.live=NULL;
+				dummy.var=pair.var;
+				__auto_type find=strVarToLiveNodeSortedFind(assoc, dummy , varToLiveNodeCompare);
+				assert(find);
+
+				//Get register slice from map 
+				__auto_type key=ptr2Str(live2Reg);
+				__auto_type slice=mapRegSliceGet(live2Reg, key);
+				free(key);
+
+				//Not stored in a register
+				if(!slice)
+						continue;
+				else
+						pair.slice=*slice;
+				
+				retVal=strVarInRegSortedInsert(retVal,pair,varInRegCmp);
+		}
+
+		return retVal;
+}
+MAP_TYPE_DEF(strGraphNodeIRP,IRNodes);
+MAP_TYPE_FUNCS(strGraphNodeIRP,IRNodes);
+static void strGraphPathsDestroy2(strGraphPath *paths) {
+		for	(long i=0;i!=strGraphPathSize(*paths);i++)
+				strGraphEdgePDestroy(&paths[0][i]);		
+		strGraphPathDestroy(paths);
+}
+static int registerConflict(strRegSlice  a,strRegSlice b) {
+		for(long i=0;i!=strRegSliceSize(a);i++)
+				for(long j=0;j!=strRegSliceSize(b);j++)
+						if(regSliceConflict(&a[i], &b[j]))
+								return 1;
+
+		return 0;
+}
+typedef int(*geCmpType)(const graphEdgeIR *,const graphEdgeIR *);
+static void rematerialize(graphNodeIR start,mapRegSlice live2Reg,strGraphNodeIRLiveP live) {
+		strVar vars=NULL;
+		for(long i=0;i!=strGraphNodeIRLivePSize(live);i++) {
+				vars=strVarSortedInsert(vars, &graphNodeIRLiveValuePtr(live[i])->ref, IRVarCmp2);
+		}
+		
+		strVarToLiveNode assoc=NULL;
+		for(long i=0;i!=strGraphNodeIRLivePSize(live);i++) {
+				__auto_type var=graphNodeIRLiveValuePtr(live[i])->ref;
+				struct varToLiveNode pair;
+				pair.var=var;
+				pair.live=live[i];
+				assoc=strVarToLiveNodeSortedInsert(assoc, pair, varToLiveNodeCompare);
+		}
+		
+		__auto_type filtered=IRFilter(start, isLiveVar, vars);
+		strGraphNodeMappingP filteredNodes CLEANUP(strGraphNodeMappingPDestroy)=graphNodeMappingAllNodes(filtered);
+		strGraphNodeMappingP loads CLEANUP(strGraphNodeMappingPDestroy)=strGraphNodeMappingPRemoveIf(strGraphNodeMappingPClone(filteredNodes), NULL,  isLoadMappedNode);
+
+		//
+		// Find spills that dominate loads
+		//
+		__auto_type doms=graphComputeDominatorsPerNode(filtered);
+		for(long i=0;i!=strGraphNodeMappingPSize(loads);i++) {
+				struct IRNodeSpill *spill=(void*)graphNodeIRValuePtr(*graphNodeMappingValuePtr(loads[i]));
+				
+				__auto_type find=llDominatorsFind(doms, loads[i], llDominatorCmp);
+				assert(find);
+
+				strGraphNodeMappingP doms=llDominatorsValuePtr(find)->dominators;
+				for(long i2=0;i2!=strGraphNodeMappingPSize(doms);i2++) {
+						//Check for spill in dominators
+						struct IRNodeLoad *load=(void*)graphNodeIRValuePtr(*graphNodeMappingValuePtr(doms[i2]));
+						if(load->base.type!=IR_LOAD)
+								continue;
+
+						//Check if vars equal
+						if(0!=IRVarCmp(&spill->item.value.var, &load->item.value.var))
+								continue;
+
+						//Find paths from dominator to load
+						strGraphPath pathsTo CLEANUP(strGraphPathsDestroy2)= graphAllPathsTo(doms[i], loads[i]);
+						//Ensure all paths dont variables whoose registers conflict with rematerialized value
+						strRegSlice rematerializeRegisters=NULL; //TODO;
+						strRegSlice registersInPath=NULL;
+
+						//Get all edges
+						strGraphEdgeMappingP allEdges CLEANUP(strGraphEdgeIRPDestroy)=NULL;
+						for(long i=0;i!=strGraphPathSize(pathsTo);i++)
+								allEdges=strGraphEdgeMappingPSetUnion(allEdges, pathsTo[i], (geCmpType)ptrPtrCmp);
+
+						//Find all the registers
+						for(long i=0;i!=strGraphEdgeIRPSize(allEdges);i++) {
+								__auto_type ir=*graphNodeMappingValuePtr(graphEdgeMappingOutgoing(allEdges[i]));
+								struct IRNodeValue *val=(void*)graphNodeIRValuePtr(ir);
+								//Check if register value
+								if(val->base.type==IR_VALUE) {
+										if(val->val.type==IR_VAL_REG) {
+												//Only insert if slice doesnt already exist
+												if(NULL==strRegSliceSortedFind(registersInPath, val->val.value.reg,regSliceCompare))
+														registersInPath=strRegSliceSortedInsert(registersInPath, val->val.value.reg,regSliceCompare);
+										}
+								}
+						}
+
+						//Check for conflicts
+						if(!registerConflict(rematerializeRegisters, registersInPath))
+								continue; //Registers are modified in path
+				}
+		}
+		
 }
 void IRRegisterAllocate(graphNodeIR start,color2RegPredicate colorFunc,void *colorData) {
 		//SSA

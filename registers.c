@@ -263,3 +263,13 @@ strRegP regGetForType(struct object *type) {
 
 		return retVal;
 }
+int regSliceCompare(const struct regSlice *a,const struct regSlice *b) {
+		if(a->reg!=b->reg)
+				return ptrPtrCmp(&a->reg, &b->reg);
+		else if(a->offset!=b->offset)
+				return a->offset-b->offset;
+		else if(a->widthInBits!=b->widthInBits)
+				return a->widthInBits!=b->widthInBits;
+
+		return 0;
+}
