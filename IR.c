@@ -1309,3 +1309,10 @@ graphNodeIR IRGetEndOfExpr(graphNodeIR node) {
 				return node;
 		}
 }
+struct object *IRNodeType(graphNodeIR node) {
+		//TODO implement
+		return &typeI64i;
+} 
+void IRNodeDestroy(struct IRNode *node) {
+
+}

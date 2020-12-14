@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <debugPrint.h>
 #include <cleanup.h>
+void *IR_ATTR_BASIC_BLOCK="BASIC_BLOCK";
 typedef int (*gnCmpType)(const graphNodeMapping *, const graphNodeMapping *);
 typedef int (*varRefCmpType)(const struct IRVar **, const struct IRVar **);
 #define ALLOCATE(x)																																																					\
@@ -73,18 +74,9 @@ static void __filterTransparentKill(graphNodeMapping node) {
 
 	graphNodeMappingKill(&node, NULL, NULL);
 }
-STR_TYPE_DEF(struct IRVar *, Var);
-STR_TYPE_FUNCS(struct IRVar *, Var);
 static int IRVarRefCmp(const struct IRVar **a, const struct IRVar **b) {
 	return IRVarCmp(a[0], b[0]);
 }
-struct basicBlock {
-	strGraphNodeMappingP nodes;
-	strVar read;
-	strVar define;
-	strVar in;
-	strVar out;
-};
 static void printVars(strVar vars) {
 	for (long i = 0; i != strVarSize(vars); i++) {
 			DEBUG_PRINT("    - %s,%li\n", vars[i]->value.var->name,vars[i]->SSANum);
@@ -159,8 +151,6 @@ static void appendToNodes(struct __graphNode *node, void *data) {
 	strGraphNodeMappingP *nodes = data;
 	*nodes = strGraphNodeMappingPSortedInsert(*nodes, node, (gnCmpType)ptrPtrCmp);
 }
-STR_TYPE_DEF(struct basicBlock *, BasicBlock);
-STR_TYPE_FUNCS(struct basicBlock *, BasicBlock);
 static int isVarNode(const struct IRNode *irNode) {
 	if (irNode->type == IR_VALUE) {
 		struct IRNodeValue *val = (void *)irNode;
@@ -369,7 +359,23 @@ static strBasicBlock getBasicBlocksFromExpr(graphNodeIR dontDestroy,
 		consumedNodes=strGraphNodeIRPSortedInsert(consumedNodes, assignNodes[i], (gnCmpType)ptrPtrCmp);
 		
 		// Push to blocks
-		retVal = strBasicBlockAppendItem(retVal, ALLOCATE(block));
+		__auto_type blockPtr=ALLOCATE(block);
+		retVal = strBasicBlockAppendItem(retVal, blockPtr);
+		//Add attribute to nodes
+		blockPtr->refCount=0;
+		for(long i=0;i!=strGraphNodeMappingPSize(blockPtr->nodes);i++) {
+				struct IRAttrBasicBlock bbAttr;
+				bbAttr.base.name=IR_ATTR_BASIC_BLOCK;
+				bbAttr.block=blockPtr;
+				
+				__auto_type attr=__llCreate(&bbAttr,sizeof(bbAttr));
+				__auto_type attrs=&graphNodeIRValuePtr(*graphNodeMappingValuePtr(blockPtr->nodes[i]))->attrs;
+
+				llIRAttrInsert(*attrs, attr, IRAttrInsertPred);
+				*attrs=attr;
+
+				blockPtr->refCount++;
+		}
 	}
 #if DEBUG_PRINT_ENABLE
 	DEBUG_PRINT("Removing: %li items for block %li:\n",
@@ -781,4 +787,30 @@ char *name=tmpnam(NULL);
 strGraphNodeIRLiveP IRInterferenceGraphFilter(graphNodeIR start,const void *data,int(*varFilter)(graphNodeIR node,const void *data)) {
 		__auto_type mappedClone = graphNodeCreateMapping(start, 0);
 		return __IRInterferenceGraphFilter(mappedClone,data,varFilter);
+}
+void basicBlockDestroy( struct basicBlock *bb) {
+		if(0>=bb->refCount--) {
+				strVarDestroy(&bb->define);
+				strVarDestroy(&bb->in);
+				strVarDestroy(&bb->out);
+				strVarDestroy(&bb->read);
+				strGraphNodeIRPDestroy(&bb->nodes);
+
+				free(bb);
+		}
+}
+void IRLivenessRemoveBasicBlockAttrs(graphNodeIR node) {
+		strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(node);
+		for(long i=0;i!=strGraphNodeIRPSize(allNodes);i++) {
+				__auto_type attrs=&graphNodeIRValuePtr(allNodes[i])->attrs;
+				__auto_type attr=llIRAttrFind(*attrs, IR_ATTR_BASIC_BLOCK, IRAttrGetPred);
+				if(attr) {
+						*attrs=llIRAttrRemove(attr);
+						struct IRAttrBasicBlock *bb=(void*)llIRAttrValuePtr(attr);
+						
+						basicBlockDestroy(bb->block);
+						
+						llIRAttrDestroy(&attr, NULL);
+				}
+		}
 }

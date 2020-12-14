@@ -7,10 +7,13 @@
 #include <subExprElim.h>
 #include <topoSort.h>
 #include <cleanup.h>
+#include <lambda.h>
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
 STR_TYPE_DEF(char *, Str);
 STR_TYPE_FUNCS(char *, Str);
+STR_TYPE_DEF(struct IRVar, IRVar);
+STR_TYPE_FUNCS(struct IRVar, IRVar);
 GRAPH_TYPE_DEF(const char *, void *, Dummy);
 GRAPH_TYPE_FUNCS(const char *, void *, Dummy);
 MAP_TYPE_DEF(graphNodeDummy, GNDummy);
@@ -391,6 +394,10 @@ static void moveConnectionsOutgoing(graphNodeIR from, graphNodeIR to) {
 		graphEdgeIROutgoing(outgoing[e]);
 	}
 }
+static void graphNodeIRDestroy2(graphNodeIR *node) {
+		graphNodeIRKillGraph(node, (void(*)(void*))IRNodeDestroy, NULL);
+}
+static struct variable *insertSubExpressions(strSubExpr subExprs,strIRVar vars,graphNodeIR clonedExpression);
 void replaceSubExprsWithVars() {
 	long count;
 	mapSubExprsKeys(subExprRegistry, NULL, &count);
@@ -409,46 +416,6 @@ void replaceSubExprsWithVars() {
 	}
 
 	mapGNDummy hashToNode = mapGNDummyCreate();
-	// Make dummy nodes for repeated keys
-	for (long i = 0; i != strStrSize(repeatedKeys); i++) {
-		mapGNDummyInsert(hashToNode, repeatedKeys[i],
-		                 graphNodeDummyCreate(repeatedKeys[i], 0));
-	}
-
-	//
-	// Connect dummy nodes to form a dependancy graph
-	//
-	for (long i = 0; i != strStrSize(repeatedKeys); i++) {
-		__auto_type find = *mapSubExprsGet(subExprRegistry, repeatedKeys[i]);
-		__auto_type fromNode = mapGNDummyGet(hashToNode, repeatedKeys[i]);
-
-		// Create connenctions(if said connection exists as a repeated item)
-		for (long i2 = 0; i2 != strSubExprSize(find); i2++) {
-			__auto_type out = graphNodeDummyOutgoingNodes(find[i2].node);
-			for (long i3 = 0; i3 != strGraphNodeIRPSize(out); i3++) {
-				// Hash of said node
-				__auto_type hashAttr =
-				    llIRAttrFind(graphNodeIRValuePtr(out[i3])->attrs,
-				                 IR_ATTR_SUB_EXPR_HASH, IRAttrGetPred);
-				if (!hashAttr)
-					continue;
-
-				const char *hash =
-				    ((struct IRAttrHash *)__llValuePtr(hashAttr))->mapKeyPtr;
-
-				// Ensure is connected to repeated item
-				if (NULL == mapGNDummyGet(hashToNode, hash))
-					continue;
-
-				// Connect(if said connection doesnt already exist)
-				__auto_type toNode = mapGNDummyGet(hashToNode, hash);
-				if (graphNodeDummyConnectedTo(*fromNode, *toNode))
-					continue;
-				graphNodeDummyConnect(*fromNode, *toNode, NULL);
-			}
-		}
-	}
-
 	//
 	// Nodes may occor in sepratre "blobs"(interconnected graphs)
 	// We need to find all the blobs and topologically sort all of them
@@ -461,64 +428,29 @@ void replaceSubExprsWithVars() {
 	}
 	qsort(nodes, strStrSize(repeatedKeys), sizeof(*nodes), ptrPtrCmp);
 
-	// Locate the blobs within the nodes,first locate a blob,remove its nodes from
-	// nodes,then repeat until no more nodes
-	strDummyBlob blobs = NULL;
-	while (strGraphNodePSize(nodes)) {
-			//Find all nodes accessible from nodes[0] 
-		__auto_type blob = graphNodeDummyAllNodes(nodes[0]);
-		nodes =
-		    strGraphNodeDummyPSetDifference(nodes, blob, (gnDummyCmpType)ptrPtrCmp);
-		blobs = strDummyBlobAppendItem(blobs, blob);
-	}
-
 	//
 	// Now we topologically sort the blob to find the "tops" and "bottom"
 	// This way we can have the first "item" come first 
 	//
-	for (long i = 0; i != strDummyBlobSize(blobs); i++) {
-		// Topological sort
-
-		__auto_type sorted = topoSort(blobs[i]);
-		if (!sorted) {
-			// I hope you never reach here lol
-			goto end;
-		}
-		//
-		// Now that we have a topological sort,we can start from the "tops" and work
-		// our way to the bottom while replacing the instances of the represented
-		// nodes with references to the first computation to avoid recomputation
-		//
-		for (long i2 = 0; i2 != strGraphNodeIRPSize(sorted); i2++) {
-			__auto_type hashAttr = *graphNodeDummyValuePtr(sorted[i2]);
+	for (long i = 0; i != strGraphNodeIRPSize(nodes); i++) {
+			__auto_type hashAttr = *graphNodeDummyValuePtr(nodes[i]);
 			assert(hashAttr);
 
 			__auto_type refs = *mapSubExprsGet(subExprRegistry, hashAttr);
 
-			graphNodeIR firstRef = NULL;
+			//Clone the expression
+			graphNodeIR clonedExpression CLEANUP(graphNodeIRDestroy2)=cloneNode(nodes[i], IR_CLONE_EXPR, NULL);;
+
+			//Insert copieis of the sub  expression at key points
+			__auto_type var=insertSubExpressions(refs, NULL, clonedExpression);
 			for (long i3 = 0; i3 != strSubExprSize(refs); i3++) {
-				if (i3 == 0) {
-					// Only compute once,so the first element will be the only computation
-					firstRef = refs[i3].node;
-					__auto_type dummy =
-					    createVirtVar(&typeI64i); // Dummmy var TODO set from node type
-					__auto_type varRef = createVarRef(dummy);
-
-					// move outgoing connections  from firstRef to varRef
-					moveConnectionsOutgoing(firstRef, varRef);
-					graphNodeIRConnect(firstRef, varRef, IR_CONN_DEST);
-
-					firstRef = varRef;
-					continue;
-				}
-
 				__auto_type outgoing = graphNodeIROutgoing(refs[i3].node);
 
 				//Make a clone of firstRef's node(which points to a variable),copy all outgoing traffic from refs[i3].node to the clone
 				__auto_type stmtStart=IRGetStmtStart(refs[i3].node);
-				__auto_type clone=cloneNode(firstRef, IR_CLONE_NODE, NULL);
-				moveConnectionsOutgoing(refs[i3].node, clone);
-				graphNodeIRConnect(stmtStart, clone, IR_CONN_FLOW);
+				__auto_type varRef=createVarRef(var);
+				moveConnectionsOutgoing(refs[i3].node, varRef);
+				graphNodeIRConnect(stmtStart, varRef, IR_CONN_FLOW);
 				
 				// Disconnect node from start stmt(including current node)
 				strGraphNodeIRP untilStart =
@@ -526,13 +458,9 @@ void replaceSubExprsWithVars() {
 				graphNodeIRVisitBackward(refs[i3].node, &untilStart,
 				                         visitUntillStartStmt, visitNodeAppendItem);
 				for (long i = 0; i != strGraphNodeIRPSize(untilStart); i++)
-					graphNodeIRKill(&untilStart[i], NULL, NULL);
+						graphNodeIRKill(&untilStart[i], NULL, NULL);
 			}
-			
 		}
-	}
-end:
-	;
 }
 void clearSubExprs() {
 	if (subExprRegistry != NULL)
@@ -543,40 +471,233 @@ void clearSubExprs() {
 void findSubExprs(const graphNodeIR node) {
 		hashNode(node);
 }
-STR_TYPE_DEF(struct IRVar, IRVar);
-STR_TYPE_FUNCS(struct IRVar, IRVar);
-static void reverseDepthSearch(graphNodeIR startFrom,strIRVar vars,strGraphNodeIRP *visited,strGraphNodeIRP *roots) {
-		//Dont visit already visited
-		if(NULL!=strGraphNodeIRPSortedFind(*visited, startFrom, (gnIRCmpType)ptrPtrCmp))
-				return;
-		
-		//Check if current node is vairable
-		struct IRNodeValue *val=(void*)graphNodeIRValuePtr(startFrom);
-		if(val->base.type==IR_VALUE) {
-				if(val->val.type==IR_VAL_VAR_REF) {
-						//Check for var
-						if(NULL!=strIRVarSortedFind(vars,val->val.value.var, IRVarCmp)) {
-								//Check for incoming assign
-								strGraphEdgeIRP incoming2 CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(startFrom);
-								strGraphEdgeIRP assigns CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(incoming2, IR_CONN_DEST);
-
-								if(strGraphEdgeIRPSize(assigns)==1) {
-										//Is written into so is a root
-										*roots=strGraphNodeIRPSortedInsert(*roots, startFrom, (gnIRCmpType)ptrPtrCmp);
-										return;
+struct graphNodeDepthPair {
+		graphNodeIR node;
+		struct subExpr *sourceExpression;
+		long depth;
+		long refCount;
+};
+LL_TYPE_DEF(struct graphNodeDepthPair, GNIR);
+LL_TYPE_FUNCS(struct graphNodeDepthPair, GNIR);
+static int llGNIRFindCmp(const void *node,const struct graphNodeDepthPair *have) {
+		return ptrPtrCmp(&node,have->node);
+}
+static int llGNIRInsertCmp(const struct graphNodeDepthPair *a,const struct graphNodeDepthPair *b) {
+		return  ptrPtrCmp(&a->node, &b->node);
+}
+static int expressionContainsVar(graphNodeIR stmtEnd,strIRVar vars) {
+		strGraphNodeIRP nodes CLEANUP(strGraphNodeIRPDestroy)=IRStmtNodes(stmtEnd);
+		for(long i=0;i!=strGraphNodeIRPSize(nodes);i++) {
+				struct IRNodeValue *val=(void*)graphNodeIRValuePtr(nodes[i]);
+				if(val->base.type==IR_VALUE) {
+						if(val->val.type==IR_VAL_VAR_REF) {
+								if(NULL!=strIRVarSortedFind(vars, val->val.value.var, IRVarCmp)) {
+										return 1;
 								}
 						}
 				}
 		}
 
-		*visited=strGraphNodeIRPSortedFind(*visited, startFrom, (gnIRCmpType)ptrPtrCmp);
+		return 0;
+}
+static void reverseDepthSearch(struct subExpr *sourceExpression,graphNodeIR startFrom,strIRVar vars,llGNIR *visited,strGraphNodeIRP *roots,int depth) {
+		//Dont visit already visited
+		if(NULL!=llGNIRFind(*visited, &startFrom, llGNIRFindCmp))
+				return;
+		
+		//Add to visited
+		struct graphNodeDepthPair pair;
+		pair.node=startFrom;
+		pair.depth=depth;
+		pair.refCount=1;
+		pair.sourceExpression=sourceExpression;
+		__auto_type inserted=llGNIRCreate(pair);
+		llGNIRInsert(*visited, inserted, llGNIRInsertCmp);
+		*visited=inserted;
+		
+		//Check if current node expression has a variable in it that is expected
+		__auto_type end=IRGetEndOfExpr(startFrom);
+		if(end) {
+				if(expressionContainsVar(end,  vars)) {
+						*roots=strGraphNodeIRPSortedInsert(*roots, end, (gnIRCmpType)ptrPtrCmp);
+						return;
+				}
+		}
 
 		strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(startFrom);
 		for(long i=0;i!=strGraphEdgeIRPSize(incoming);i++) {
-				reverseDepthSearch(graphEdgeIRIncoming(incoming[i]),vars,visited,roots);
+				__auto_type inNode=graphEdgeIRIncoming(incoming[i]);
+				__auto_type stmtStart=IRGetStmtStart(inNode);
+				inNode=stmtStart?stmtStart:inNode;
+				reverseDepthSearch(sourceExpression,inNode,vars,visited,roots,depth+1);
 		}
 }
-static void findRootOfVars(graphNodeIR startFrom,strIRVar vars) {
+STR_TYPE_DEF(llGNIR,LLGNIR);
+STR_TYPE_FUNCS(llGNIR,LLGNIR);
+STR_TYPE_DEF(struct graphNodeDepthPair,Pair);
+STR_TYPE_FUNCS(struct graphNodeDepthPair,Pair);
+static int pairCmpType(const struct graphNodeDepthPair *a,const struct graphNodeDepthPair *b) {
+		return ptrPtrCmp(&a->node, &b->node);
+}
+static strPair removeDominatedNodes(strPair items) {
+	loop:;
+		for(long i=0;i!=strPairSize(items);i++) {
+				strGraphNodeIRP in CLEANUP(strGraphNodeIRPDestroy)= graphNodeIRIncomingNodes(items[i].node);
+				//Check if incoming nodes contain an node from items,if so it is dominated so remove it
+				for(long i2=0;i2!=strGraphNodeIRPSize(in);i2++) {
+						struct graphNodeDepthPair dummy;
+						dummy.depth=0;
+						dummy.refCount=0;
+						dummy.node=in[i2];
+						__auto_type find=strPairSortedFind(items, dummy, pairCmpType);
+						if(find) {
+								//Remove find from items
+								memmove(find, find+1, ((items+strPairSize(items))-find-1)*sizeof(*find));
+								//Pop to reduce size by 1
+								items=strPairPop(items, NULL);
+								
+								goto loop;
+						}
+				}
+		}
+
+		return items;
+}
+static int pairCmpRefCount(const struct graphNodeDepthPair *a,const struct graphNodeDepthPair *b) {
+		if( a->refCount>b->refCount)
+				return 1;
+		else if( a->refCount<b->refCount)
+				return -1;
+		else
+				return 0;
+}
+static strPair llGNIRToStr(llGNIR ll) {
+		long size=llGNIRSize(ll);
+		strPair retVal=strPairResize(NULL,size);
+
+		long i=0;
+		for(__auto_type node=llGNIRFirst(ll);node!=NULL;ll=llGNIRNext(node))
+				retVal[i++]=*llGNIRValuePtr(ll);
+
+		qsort(retVal, i, sizeof(*retVal),  (int(*)(const void*,const void*))pairCmpType);
+
+		return retVal;
+}
+static int pairContainsSubExprs(const struct graphNodeDepthPair *pair,const void *subExprs) {
+		strSubExpr exprs=(void*)subExprs;
+		for(long i=0;i!=strSubExprSize(exprs);i++) {
+				if(exprs[i].node==pair->sourceExpression->node)
+						return 1;
+		}
+
+		return 0;
+}
+struct insertAtStruct {
+		graphNodeIR insertAt;
+		strSubExpr subExprs;
+};
+STR_TYPE_DEF(struct insertAtStruct,  InsertAt);
+STR_TYPE_FUNCS(struct insertAtStruct,  InsertAt);
+static struct variable *insertSubExpressions(strSubExpr subExprs,strIRVar vars,graphNodeIR clonedExpression) {
 		strGraphNodeIRP varTops CLEANUP(strGraphNodeIRPDestroy) =NULL;
-		strGraphNodeIRP visited CLEANUP(strGraphNodeIRPDestroy) =strGraphNodeIRPAppendItem(NULL, startFrom);	
+		strLLGNIR pathsPerStart=NULL;
+		
+		for(long i=0;i!=strSubExprSize(subExprs);i++) {
+				llGNIR visited=NULL;
+				reverseDepthSearch(&subExprs[i],subExprs[i].node, vars, &visited, &varTops,0);
+
+				pathsPerStart=strLLGNIRAppendItem(pathsPerStart, visited);
+		}
+		strLLGNIR pathsPerStartClone=strLLGNIRClone(pathsPerStart);
+
+		strPair intersections CLEANUP(strPairDestroy)=NULL;
+	loop:
+		for(long i=0;i<strLLGNIRSize(pathsPerStart)-1;i++) {
+				strPair a CLEANUP(strPairDestroy)=llGNIRToStr(pathsPerStart[i]);
+				strPair b CLEANUP(strPairDestroy)=llGNIRToStr(pathsPerStart[i+1]);
+
+				strPair intersect CLEANUP(strPairDestroy)=strPairSetIntersection(a, b, pairCmpType, NULL);
+				for(long i2=0;i2!=strPairSize(intersect);i2++) {
+						//Check if item already exists in intersections
+						struct graphNodeDepthPair dummy;
+						dummy.depth=0;
+						dummy.node=intersect[i].node;
+						dummy.refCount=0;
+						__auto_type find=strPairSortedFind(intersect, dummy, pairCmpType);
+						if(NULL!=find) {
+								//Exists so increment reference count 
+								find->refCount++;
+						} else {
+								//Add to intersections
+								dummy.refCount=2; //(Two items compared at once)
+								intersect=strPairSortedInsert(intersect, dummy, pairCmpType);
+						}
+				}
+		}
+		
+		//Remove items that are dominated(alive nodes are comming into it)
+		intersections=removeDominatedNodes(intersections);
+
+		//Sort interesections by  reference count
+		qsort(intersections, strPairSize(intersections), sizeof(*intersections),  (int(*)(const void*,const void*))pairCmpRefCount);
+
+		//Remove top with most references
+		strInsertAt insertAt CLEANUP(strInsertAtDestroy)=NULL;
+		
+		for(;strLLGNIRSize(pathsPerStartClone);) {
+				struct graphNodeDepthPair top;
+				strPairPop(intersections, &top);
+
+				//
+				struct insertAtStruct where;
+				where.insertAt=top.node;
+				where.subExprs=NULL;
+				insertAt=strInsertAtAppendItem(insertAt, where);
+
+				__auto_type subExprsPtr=&insertAt[strInsertAtSize(insertAt)-1].subExprs;
+				
+		loop2:
+				for(long i=0;i!=strLLGNIRSize(pathsPerStartClone);i++) {
+						//Find iems from clone that have top.node in their path
+						for(__auto_type node=llGNIRFirst(pathsPerStartClone[i]);node!=NULL;node=llGNIRNext(node)) {
+								//Sorted by ptr
+								int cmp=ptrPtrCmp(&llGNIRValuePtr(node)->node,&top.node);
+								if(cmp<0) {
+										break;
+								} else if(cmp==0) {
+										//Add sub-expression to add current insertAt item
+										*subExprsPtr=strSubExprAppendItem(*subExprsPtr, *top.sourceExpression);
+										
+										//Destroy entry
+										llGNIRDestroy(&pathsPerStartClone[i],NULL);
+										//Remove from clones
+										long len=sizeof(*pathsPerStartClone)*(strLLGNIRSize(pathsPerStartClone)-1);
+										memmove(&pathsPerStartClone[i],&pathsPerStartClone[i+1],len);
+										//Pop to reduce size by 1
+										pathsPerStartClone=strLLGNIRPop(pathsPerStartClone, NULL);
+										
+										goto loop2;
+								}
+						}
+				}
+		}
+
+		//
+		// Insert sub-expression 
+		//
+		__auto_type var=createVirtVar(IRNodeType(clonedExpression)); //
+		for(long i=0;i!=strInsertAtSize(insertAt);i++) {
+				__auto_type stmtEnd=IRGetEndOfExpr(insertAt[i].insertAt);
+				if(!stmtEnd)
+						stmtEnd=insertAt[i].insertAt;
+				
+				__auto_type clone=cloneNode(clonedExpression, IR_CLONE_EXPR, NULL);
+				//Assign clone to variable
+				__auto_type assignTo=createVarRef(var);
+				graphNodeIRConnect(IRGetEndOfExpr(clone),assignTo, IR_CONN_DEST);
+				
+				IRInsertAfter(stmtEnd, IRGetStmtStart(clone), IRGetEndOfExpr(clone), IR_CONN_FLOW);
+		}
+
+		return var;
 }

@@ -338,7 +338,6 @@ void registerAllocatorTests() {
 							createReturn(binop, NULL);
 							}
 				setArch(ARCH_TEST_SYSV);
-				IREvalInit();
 				int success;
 				__auto_type res1= IREvalPath(start, &success);
 				assert(success);

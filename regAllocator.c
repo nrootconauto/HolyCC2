@@ -2,7 +2,6 @@
 #include <SSA.h>
 #include <assert.h>
 #include <graphColoring.h>
-#include <subExprElim.h>
 #define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 #include <graphDominance.h>
@@ -772,8 +771,6 @@ static void removeDeadExpresions(graphNodeIR startAt,strIRVar liveVars) {
 		__continue:;
 		}
 }
-STR_TYPE_DEF(struct IRVar,Var);;
-STR_TYPE_FUNCS(struct IRVar,Var);
 static int nodeEqual(const graphNodeIR *a,const graphNodeIR *b) {
 		return *a==*b;
 }
