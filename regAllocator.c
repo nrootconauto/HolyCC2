@@ -1068,7 +1068,7 @@ static int isLiveVar(graphNodeIR start, const void *live) {
 	__auto_type find = llIRAttrFind(graphNodeIRValuePtr(start)->attrs,
 	                                IR_ATTR_VARIABLE, IRAttrGetPred);
 	if (find) {
-		struct IRAttrVariable *var = (void *)find;
+			struct IRAttrVariable *var = (void *)llIRAttrValuePtr(find);
 
 		struct IRNodeValue *val = (void *)graphNodeIRValuePtr(start);
 		strVar liveVars = (void *)live;
@@ -1441,6 +1441,15 @@ static void rematerialize(graphNodeIR start, mapRegSlice live2Reg,
 	// Find spills that dominate loads
 	//
 	__auto_type doms = graphComputeDominatorsPerNode(filtered);
+	{
+			IRGraphMap2GraphViz(filtered, "viz", "/tmp/dot.dot", NULL, NULL, NULL, NULL);
+	char buffer[1024];
+	sprintf(buffer,
+	        "sleep 0.1 &&dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg & ",
+	        "/tmp/dot.dot");
+
+	system(buffer);
+	}
 	for (long i = 0; i != strGraphNodeMappingPSize(loads); i++) {
 		struct IRNodeSpill *spill =
 		    (void *)graphNodeIRValuePtr(*graphNodeMappingValuePtr(loads[i]));

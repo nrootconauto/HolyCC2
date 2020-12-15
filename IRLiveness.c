@@ -215,7 +215,6 @@ getBasicBlocksFromExpr(graphNodeIR dontDestroy, mapBlockMetaNode metaNodes,
 	strGraphNodeMappingP assignNodes = NULL;
 	for (long i = 0; i != strGraphNodeMappingPSize(nodes); i++) {
 		__auto_type ir = *graphNodeMappingValuePtr(nodes[i]);
-		const char *name = var2Str(ir);
 		__auto_type irNode = graphNodeIRValuePtr(ir);
 		// Check if var
 		if (isVarNode(irNode)) {
@@ -223,7 +222,7 @@ getBasicBlocksFromExpr(graphNodeIR dontDestroy, mapBlockMetaNode metaNodes,
 			if (varFilter)
 				if (!varFilter(ir, data))
 					continue;
-
+			
 			// Check if assign var
 			strGraphEdgeIRP incomingEdges =
 			    graphNodeIRIncoming(*graphNodeMappingValuePtr(nodes[i]));

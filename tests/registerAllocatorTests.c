@@ -160,7 +160,12 @@ void registerAllocatorTests() {
 				__auto_type c=createVirtVar(&typeI32i);
 				__auto_type d=createVirtVar(&typeI32i);
 				__auto_type e=createVirtVar(&typeI32i);
-
+				a->name="A";
+				b->name="B";
+				c->name="C";
+				d->name="D";
+				e->name="E";
+				
 				//a+1
 				graphNodeIR aP1,start;
 				aP1=createBinop(createVarRef(a), createIntLit(2), IR_ADD);
