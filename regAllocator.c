@@ -947,6 +947,7 @@ static void replaceVarsWithRegisters(mapRegSlice map,strGraphNodeIRLiveP allLive
 						struct IRNodeValue *value=(void*)graphNodeIRValuePtr(allNodes[i]);
 
 						//Ensure variable is in the current liveness graph
+						struct IRVar var=value->val.value.var;
 						struct varToLiveNode dummy;
 						dummy.live=NULL;
 						dummy.var=value->val.value.var;
@@ -968,7 +969,7 @@ static void replaceVarsWithRegisters(mapRegSlice map,strGraphNodeIRLiveP allLive
 								//Add attrbute to regRef that marks as originating from varaible
 								struct IRAttrVariable attr;
 								attr.base.name=IR_ATTR_VARIABLE;
-								attr.var=value->val.value.var;
+								attr.var=var;
 								__auto_type attrLL=__llCreate(&attr,sizeof(attr ));
 								//Insert
 								__auto_type attrPtr=&graphNodeIRValuePtr(regRef)->attrs;
@@ -1105,11 +1106,68 @@ static void addToNodes(struct __graphNode *node,void *data) {
 		strGraphNodeIRP *Data=(void*)data;
 		*Data=strGraphNodeIRPSortedInsert(*Data, node, (gnCmpType)ptrPtrCmp);
 }
+static void mapGraphNodeDestroy2(mapGraphNode *node) {
+		mapGraphNodeDestroy(*node, NULL);
+}
 #define MAXIMUM_REMATIALIZATION_OPS 5
-static int rematRecur(graphNodeIR node,strGraphNodeIRP *retmatNodes,strGraphNodeIRP *operationNodes,strGraphNodeIRP *tempVarNodes,strRegSlice affected) {
+static graphNodeIR findSinglePreviousAssign(graphNodeIR node) {
+		//Find variable
+		struct IRVar var;
+		struct IRNode *irNode=(void*)graphNodeIRValuePtr(node);
+		if(irNode->type==IR_SPILL) {
+				struct IRNodeSpill *spill=(void*)irNode;
+				if(spill->item.type!=IR_VAL_VAR_REF)
+						return NULL;
+
+				var=spill->item.value.var;
+		} else if(irNode->type==IR_VALUE) {
+				struct IRNodeValue *value=(void*)irNode;
+				if(value->val.type==IR_VAL_VAR_REF) { 
+						var=value->val.value.var;
+				} else if(value->val.type==IR_VAL_REG) { 
+						//Check for vairiable attribute if in register
+						__auto_type find=llIRAttrFind(irNode->attrs, IR_ATTR_VARIABLE, IRAttrGetPred);
+						if(!find)
+								return NULL;
+
+						var=((struct IRAttrVariable*)llIRAttrValuePtr(find))->var;
+				} else
+						return NULL;
+		} else
+				return NULL;
+
+		//
+		// Travel upwards looking for varaible or untill we find a node that has multiple entrances(This means there may be
+		// multiple values of var so we cant ensure a single one exists)
+		//
+		for(;;) {
+				//Is multiple entry points?
+				strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(node);
+				strGraphEdgeIRP incomingFlow CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(incoming, IR_CONN_FLOW);
+				if(strGraphEdgeIRPSize(incomingFlow)>1)
+						break;
+				else if(strGraphEdgeIRPSize(incoming)<1)
+						break;
+				
+				//Is assigned into?
+				strGraphEdgeIRP assigns CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(incoming, IR_CONN_DEST);
+				if(strGraphEdgeIRPSize(assigns)==1) {
+						//Assign
+						return node;
+				}
+
+				node=graphEdgeIRIncoming(incoming[0]);
+		}
+
+		return NULL;
+}
+static graphNodeIR rematRecur(graphNodeIR node,strGraphNodeIRP *retmatNodes,strGraphNodeIRP *operationNodes,strGraphNodeIRP *tempVarNodes,strRegSlice affected,graphNodeIR parentNode) {
 				strGraphNodeIRP nodes CLEANUP(strGraphNodeIRPDestroy)=NULL;
 				strGraphNodeIRP tops2 CLEANUP(strGraphNodeIRPDestroy)=NULL;
 				infectUntilReg(node, &tops2,&nodes);
+
+				mapGraphNode mappings CLEANUP(mapGraphNodeDestroy2);
+				__auto_type retVal=IRCloneUpTo(node, tops2, &mappings);
 				
 				//Find operation nodes of nodes
 				long newOpCount=0;
@@ -1124,10 +1182,11 @@ static int rematRecur(graphNodeIR node,strGraphNodeIRP *retmatNodes,strGraphNode
 						__auto_type inNode=tops2[i];
 						// If incoming is register
 						struct IRNodeValue *val=(void*)graphNodeIRValuePtr(inNode);
-						if(val->base.type!=IR_VALUE)
-								goto foundEnd;
+						if(val->base.type!=IR_VALUE) {graphNodeIRKill(&retVal, (void(*)(void*))IRNodeDestroy, NULL);
+								return NULL;}
 						if(val->val.type!=IR_VAL_REG)
-								goto foundEnd;
+								{graphNodeIRKill(&retVal, (void(*)(void*))IRNodeDestroy, NULL);
+								return NULL;}
 				
 						// Check if interferes with affected registers on path
 						strRegSlice dummy CLEANUP(strRegSliceDestroy)=strRegSliceAppendItem(NULL,  val->val.value.reg);
@@ -1137,24 +1196,46 @@ static int rematRecur(graphNodeIR node,strGraphNodeIRP *retmatNodes,strGraphNode
 								//
 
 								//Check for incoming assign
-								strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy)= graphNodeIRIncoming(tops2[i]);
-								strGraphEdgeIRP assigns CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(assigns, IR_CONN_DEST);
-								if(strGraphEdgeIRPSize(assigns)==1) {
-										if(rematRecur(graphEdgeIRIncoming(assigns[0]), retmatNodes, operationNodes,tempVarNodes, affected)) {
+								__auto_type assign=findSinglePreviousAssign(tops2[i]);
+								if(assign) {
+										//Connect the upper rematerizialization to cloned tops2[i]
+										char *key=ptr2Str(tops2[i]);
+										__auto_type top=*mapGraphNodeGet(mappings, key);
+										free(key);
+
+										//Recur
+										__auto_type upper=rematRecur(assign, retmatNodes, operationNodes,tempVarNodes, affected,top);
+										if(upper) {
 												//Can be rematerialized
-												*tempVarNodes=strGraphNodeIRPSortedInsert(*tempVarNodes, tops2[i], (gnCmpType)ptrPtrCmp);
+												*tempVarNodes=strGraphNodeIRPSortedInsert(*tempVarNodes, upper, (gnCmpType)ptrPtrCmp);
 												continue;
 										}
-										 
 								}
-								goto foundEnd;
+						foundEnd:
+								//Can't rematerialize
+								graphNodeIRKill(&retVal, (void(*)(void*))IRNodeDestroy, NULL);
+								return NULL;
 						}
 				}
+				
 				//Merge nodes with rematerization nodes
 				*retmatNodes=strGraphNodeIRPSetUnion(*retmatNodes, nodes, (gnCmpType)ptrPtrCmp);
-				return 1;
-	foundEnd:;
-				return 0;
+
+				//If last node is an assign,remove the assign node
+				__auto_type lastNode=IRGetEndOfExpr(retVal);
+				strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(lastNode);
+				strGraphEdgeIRP assign CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(incoming, IR_CONN_DEST);
+				if(strGraphEdgeIRPSize(assign)==1) {
+						//Make retVal point to value before assign
+						retVal=graphEdgeIRIncoming(assign[0]);
+						//Remove last node(assign node)
+						graphNodeIRKill(&lastNode, (void(*)(void*))IRNodeDestroy,NULL);
+				}
+				
+				//Replace parentNode with retVal (if not NULL)
+				if(parentNode!=NULL)
+						replaceNodeWithExpr(parentNode,  IRGetEndOfExpr(retVal));
+				return retVal;
 }
 static void mapRegSliceDestroy2(mapRegSlice *toDestroy) {
 		mapRegSliceDestroy(*toDestroy, NULL);
@@ -1167,8 +1248,9 @@ static struct rematerialization *getRematerialization(graphNodeIR node,strRegSli
 		strGraphNodeIRP retmatNodes=strGraphNodeIRPAppendItem(NULL, node);
 		strGraphNodeIRP operationNodes CLEANUP(strGraphNodeIRPDestroy)=NULL;
 		strGraphNodeIRP tempVarNodes CLEANUP(strGraphNodeIRPDestroy)=NULL;
-		
-		if(rematRecur(node, &retmatNodes, &operationNodes, &tempVarNodes, affected)) {
+
+		__auto_type rematExpr=rematRecur(node, &retmatNodes, &operationNodes, &tempVarNodes, affected,NULL);
+		if(rematExpr) {
 				//Map that mapped temp-varaible node to register slice
 				mapRegSlice node2Var CLEANUP(mapRegSliceDestroy2)=mapRegSliceCreate();
 
@@ -1210,9 +1292,27 @@ static struct rematerialization *getRematerialization(graphNodeIR node,strRegSli
 						if(!foundAvailableRegister)
 								goto fail;						
 				}
+
+				//
+				// Can fit in registers,so rematerialize
+				//
+
+				//Replace node with rematExpr
+				replaceNodeWithExpr(node, IRGetEndOfExpr(rematExpr));
 				
+				//Getstart of expression of node so we can re-connect tops of retmatExpr to top of expression
+				__auto_type start=IRGetStmtStart(node);
+
+				//get retmatExpr starts and connect them to start
+				strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(rematExpr);
+				for(long i=0;i!=strGraphNodeIRPSize(allNodes);i++) {
+						strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(allNodes[i]);
+						if(strGraphEdgeIRPSize(in)==0) {
+								//Connect to start
+								graphNodeIRConnect(start,allNodes[i],IR_CONN_FLOW);
+						}
+				}
 		}
-		
 		
 	fail:;
 		return NULL;

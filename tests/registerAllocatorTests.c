@@ -15,6 +15,7 @@ static void debugShowGraph(graphNodeIR enter) {
 }
 void registerAllocatorTests() {
 		initIR();
+		IREvalInit();
 		{
 				__auto_type a=createVirtVar(&typeI64i);
 				__auto_type b=createVirtVar(&typeI64i);

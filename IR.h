@@ -327,3 +327,4 @@ void IRRemoveDeadExpression(graphNodeIR end,strGraphNodeP *removed);
 int IRIsDeadExpression(graphNodeIR end);
 struct object *IRNodeType(graphNodeIR node);
 void IRNodeDestroy(struct IRNode *node);
+graphNodeIR IRCloneUpTo(graphNodeIR node,strGraphNodeIRP to,mapGraphNode *mappings);
