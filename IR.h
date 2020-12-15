@@ -311,6 +311,7 @@ enum IRCloneMode {
 	IR_CLONE_NODE,
 	IR_CLONE_EXPR,
 	IR_CLONE_EXPR_UNTIL_ASSIGN,
+	IR_CLONE_UP_TO,
 };
 graphNodeIR cloneNode(graphNodeIR node, enum IRCloneMode mode,
                       mapGraphNode *mappings);

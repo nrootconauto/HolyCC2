@@ -4,7 +4,7 @@
 #include <exprParser.h>
 #include <stdarg.h>
 #include <stdint.h>
-#include <subExprElim.h>
+#include <cleanup.h>
 typedef int (*gnIRCmpType)(const graphNodeIR *, const graphNodeIR *);
 typedef int (*geIRCmpType)(const graphEdgeIR *, const graphEdgeIR *);
 typedef int (*geMapCmpType)(const graphEdgeMapping *, const graphEdgeMapping *);
@@ -275,7 +275,6 @@ strGraphNodeP getStatementNodes(const graphNodeIR stmtStart,
 	return allNodes;
 }
 void initIR() {
-	clearSubExprs();
 	IRVars = mapIRVarRefsCreate();
 }
 graphNodeIR createFuncStart(const struct function *func) {
@@ -1091,12 +1090,13 @@ void IRGraphMap2GraphViz(
 	fclose(dumpTo);
 }
 static graphNodeIR __cloneNode(mapGraphNode mappings, graphNodeIR node,
-                               enum IRCloneMode mode);
+                               enum IRCloneMode mode,const void *data);
 static void __cloneNodeCopyConnections(mapGraphNode mappings,
                                        graphNodeIR connectTo,
-                                       enum IRCloneMode mode) {
+                                       enum IRCloneMode mode,const void *data) {
 	int ignoreAssigns = 0;
 	switch (mode) {
+	case IR_CLONE_UP_TO:
 	case IR_CLONE_EXPR: {
 		ignoreAssigns = 0;
 		goto cloneExpressions;
@@ -1116,10 +1116,10 @@ cloneExpressions:;
 			// If ignore assigns,ignore IR_CONN_DEST
 			if (ignoreAssigns && type == IR_CONN_DEST)
 				continue;
-
+			
 			// Clone
 			__auto_type newNode =
-			    __cloneNode(mappings, graphEdgeIRIncoming(incoming[i]), mode);
+					__cloneNode(mappings, graphEdgeIRIncoming(incoming[i]), mode,data);
 
 			graphNodeIRConnect(newNode, connectTo, type);
 		}
@@ -1128,7 +1128,7 @@ cloneExpressions:;
 	return;
 }
 static graphNodeIR __cloneNode(mapGraphNode mappings, graphNodeIR node,
-                               enum IRCloneMode mode) {
+                               enum IRCloneMode mode,const void *data) {
 	strChar key = ptr2Str(mappings);
 	__auto_type find = mapGraphNodeGet(mappings, key);
 	if (find)
@@ -1146,7 +1146,23 @@ static graphNodeIR __cloneNode(mapGraphNode mappings, graphNodeIR node,
 
 		__auto_type newNode = GRAPHN_ALLOCATE(clone);
 
-		if (mode == IR_CLONE_EXPR) {
+		//Quit if we are where we want to bne
+		if(IR_CLONE_UP_TO) {
+				//Check if we are to stop at node
+				if(NULL!=strGraphNodeIRPSortedFind((strGraphNodeIRP)data, node, (gnIRCmpType)ptrPtrCmp))
+						return newNode;
+		}
+		
+		if(mode==IR_CLONE_UP_TO) {
+				if(NULL==strGraphNodeIRPSortedFind((strGraphNodeIRP)data, node, (gnIRCmpType)ptrPtrCmp)) {
+								strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(node);
+								for (long i = 0; i != strGraphEdgeIRPSize(incoming); i++) {
+										__auto_type newNode2 =	__cloneNode(mappings, graphEdgeIRIncoming(incoming[i]), mode,data);
+										graphNodeIRConnect(newNode2, newNode,
+																													*graphEdgeIRValuePtr(incoming[i]));
+								}
+				}
+		} else 		if (mode == IR_CLONE_EXPR) {
 			__auto_type incoming = graphNodeIRIncoming(node);
 			// Connect all incoming that arg args,those will be done later(IN ORDER)
 			for (long i = 0; i != strGraphEdgeIRPSize(incoming); i++) {
@@ -1155,7 +1171,7 @@ static graphNodeIR __cloneNode(mapGraphNode mappings, graphNodeIR node,
 					continue;
 
 				__auto_type newNode2 =
-				    __cloneNode(mappings, graphEdgeIRIncoming(incoming[i]), mode);
+						__cloneNode(mappings, graphEdgeIRIncoming(incoming[i]), mode,data);
 				graphNodeIRConnect(newNode2, newNode,
 				                   *graphEdgeIRValuePtr(incoming[i]));
 			}
@@ -1165,7 +1181,7 @@ static graphNodeIR __cloneNode(mapGraphNode mappings, graphNodeIR node,
 			    (struct IRNodeFuncCall *)graphNodeIRValuePtr(newNode);
 			for (long i = 0; i != strGraphNodeIRPSize(reference->incomingArgs); i++) {
 				__auto_type newNode2 =
-				    __cloneNode(mappings, graphEdgeIRIncoming(incoming[i]), mode);
+						__cloneNode(mappings, graphEdgeIRIncoming(incoming[i]), mode,data);
 				graphNodeIRConnect(newNode2, newNode, IR_CONN_FUNC_ARG);
 				// Append in order
 				newNodeCall->incomingArgs =
@@ -1174,7 +1190,7 @@ static graphNodeIR __cloneNode(mapGraphNode mappings, graphNodeIR node,
 		}
 
 		// Copy connections
-		__cloneNodeCopyConnections(mappings, newNode, mode);
+		__cloneNodeCopyConnections(mappings, newNode, mode,data);
 
 		// Register node
 		char *key = ptr2Str(newNode);
@@ -1191,8 +1207,16 @@ static graphNodeIR __cloneNode(mapGraphNode mappings, graphNodeIR node,
 		choose.canidates = strGraphNodeIRPClone(nodeValue->canidates);
 		__auto_type retVal = GRAPHN_ALLOCATE(choose);
 
+		//Quit if we are at where we want to be
+		if(IR_CLONE_UP_TO) {
+				//Check if we are to stop at node
+				if(NULL!=strGraphNodeIRPSortedFind((strGraphNodeIRP)data, node, (gnIRCmpType)ptrPtrCmp))
+						return retVal;
+		}
+		
 		// Copy connections
-		__cloneNodeCopyConnections(mappings, retVal, mode);
+		
+		__cloneNodeCopyConnections(mappings, retVal, mode,data);
 
 		// Register node
 		char *key = ptr2Str(retVal);
@@ -1247,8 +1271,15 @@ static graphNodeIR __cloneNode(mapGraphNode mappings, graphNodeIR node,
 		                                       graphNodeValueSize(node), 0);
 		graphNodeIRValuePtr(retVal)->attrs = NULL;
 
+		//Quit if we are where we want to be
+		if(IR_CLONE_UP_TO) {
+				//Check if we are to stop at node
+				if(NULL!=strGraphNodeIRPSortedFind((strGraphNodeIRP)data, node, (gnIRCmpType)ptrPtrCmp))
+						return retVal;
+		}
+
 		// Copy connections
-		__cloneNodeCopyConnections(mappings, retVal, mode);
+		__cloneNodeCopyConnections(mappings, retVal, mode,data);
 
 		// Register node
 		strChar key = ptr2Str(retVal);
@@ -1269,8 +1300,15 @@ static graphNodeIR __cloneNode(mapGraphNode mappings, graphNodeIR node,
 
 		__auto_type retVal = GRAPHN_ALLOCATE(newTable);
 
+		//Quit if we are where we want to be
+		if(IR_CLONE_UP_TO) {
+					//Check if we are to stop at node
+					if(NULL!=strGraphNodeIRPSortedFind((strGraphNodeIRP)data, node, (gnIRCmpType)ptrPtrCmp))
+							return retVal;
+			}
+		
 		// Copy connections
-		__cloneNodeCopyConnections(mappings, retVal, mode);
+		__cloneNodeCopyConnections(mappings, retVal, mode,data);
 
 		// Register node
 		strChar key = ptr2Str(retVal);
@@ -1283,7 +1321,7 @@ static graphNodeIR __cloneNode(mapGraphNode mappings, graphNodeIR node,
 graphNodeIR cloneNode(graphNodeIR node, enum IRCloneMode mode,
                       mapGraphNode *mappings) {
 	__auto_type mappings2 = mapGraphNodeCreate();
-	__auto_type retVal = __cloneNode(mappings2, node, mode);
+	__auto_type retVal = __cloneNode(mappings2, node, mode,NULL);
 
 	if (mappings) {
 		*mappings = mappings2;
@@ -1293,6 +1331,18 @@ graphNodeIR cloneNode(graphNodeIR node, enum IRCloneMode mode,
 
 	return retVal;
 }
+graphNodeIR IRCloneUpTo(graphNodeIR node,strGraphNodeIRP to,mapGraphNode *mappings) {
+		__auto_type mappings2 = mapGraphNodeCreate();
+__auto_type retVal = __cloneNode(mappings2, node, IR_CLONE_UP_TO,NULL);
+
+	if (mappings) {
+		*mappings = mappings2;
+	} else {
+		mapGraphNodeDestroy(mappings2, NULL);
+	}
+
+	return retVal;
+} 
 graphNodeIR IRGetEndOfExpr(graphNodeIR node) {
 		for(;;) {
 		loop:;

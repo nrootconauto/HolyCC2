@@ -850,6 +850,7 @@ static int conflictPairContains(graphNodeIRLive node,const struct conflictPair *
 		return pair->a==node||pair->b==node;
 }
 static void *IR_ATTR_VARIABLE="IS_VARIABLE";
+static void *IR_ATTR_TEMP_VARIABLE="TMP_VAR";
 struct IRAttrVariable {
 		struct IRAttr base;
 		struct IRVar var;
@@ -1064,6 +1065,9 @@ static void strGraphPathsDestroy2(strGraphPath *paths) {
 				strGraphEdgePDestroy(&paths[0][i]);		
 		strGraphPathDestroy(paths);
 }
+static int isExprEdge(const void *data,const graphEdgeIR *edge) {
+		return IRIsExprEdge(*graphEdgeIRValuePtr(*edge));
+}
 static int registerConflict(strRegSlice  a,strRegSlice b) {
 		for(long i=0;i!=strRegSliceSize(a);i++)
 				for(long j=0;j!=strRegSliceSize(b);j++)
@@ -1073,6 +1077,146 @@ static int registerConflict(strRegSlice  a,strRegSlice b) {
 		return 0;
 }
 typedef int(*geCmpType)(const graphEdgeIR *,const graphEdgeIR *);
+struct rematerialization {
+		graphNodeIR clone;
+		strRegSlice registers;
+};
+static void infectUntilReg(graphNodeIR node,strGraphNodeP *regs,strGraphNodeIRP *visited) {
+		if(NULL!=strGraphNodeIRPSortedFind(*visited, node, (gnCmpType)ptrPtrCmp)) {
+				*visited=strGraphNodeIRPSortedInsert(*visited, node, (gnCmpType)ptrPtrCmp);
+		} else
+				return ; //Already visited
+
+		struct IRNodeValue *val=(void*)graphNodeIRValuePtr(node);
+		if(val->base.type==IR_VALUE) {
+				if(val->val.type==IR_VAL_REG) {
+						*regs=strGraphNodeIRPSortedInsert(*regs, node, (gnCmpType)ptrPtrCmp);
+						return;
+				}
+		}
+		
+		strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(node);
+		incoming=strGraphEdgeIRPRemoveIf(incoming, NULL, isExprEdge);
+
+		for(long i=0;i!=strGraphEdgeIRPSize(incoming);i++)
+				infectUntilReg(graphEdgeIRIncoming(incoming[i]),regs,visited);
+}
+static void addToNodes(struct __graphNode *node,void *data) {
+		strGraphNodeIRP *Data=(void*)data;
+		*Data=strGraphNodeIRPSortedInsert(*Data, node, (gnCmpType)ptrPtrCmp);
+}
+#define MAXIMUM_REMATIALIZATION_OPS 5
+static int rematRecur(graphNodeIR node,strGraphNodeIRP *retmatNodes,strGraphNodeIRP *operationNodes,strGraphNodeIRP *tempVarNodes,strRegSlice affected) {
+				strGraphNodeIRP nodes CLEANUP(strGraphNodeIRPDestroy)=NULL;
+				strGraphNodeIRP tops2 CLEANUP(strGraphNodeIRPDestroy)=NULL;
+				infectUntilReg(node, &tops2,&nodes);
+				
+				//Find operation nodes of nodes
+				long newOpCount=0;
+				for(long i=0;i!=strGraphNodeIRPSize(nodes);i++)
+						if(graphNodeIRValuePtr(nodes[i])->type!=IR_VALUE) newOpCount++;
+				
+				//Check if (if added) would excede MAXIMUM_REMATIALIZATION_OPS operations 
+				if(newOpCount+strGraphNodeIRPSize(*operationNodes)>MAXIMUM_REMATIALIZATION_OPS)
+						return 0;
+		
+				for(long i=0;i!=strGraphNodeIRPSize(tops2);i++) {
+						__auto_type inNode=tops2[i];
+						// If incoming is register
+						struct IRNodeValue *val=(void*)graphNodeIRValuePtr(inNode);
+						if(val->base.type!=IR_VALUE)
+								goto foundEnd;
+						if(val->val.type!=IR_VAL_REG)
+								goto foundEnd;
+				
+						// Check if interferes with affected registers on path
+						strRegSlice dummy CLEANUP(strRegSliceDestroy)=strRegSliceAppendItem(NULL,  val->val.value.reg);
+						if(registerConflict(dummy, affected)) {
+								//
+								// If register conflict check if said register's value can be rematerialized
+								//
+
+								//Check for incoming assign
+								strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy)= graphNodeIRIncoming(tops2[i]);
+								strGraphEdgeIRP assigns CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(assigns, IR_CONN_DEST);
+								if(strGraphEdgeIRPSize(assigns)==1) {
+										if(rematRecur(graphEdgeIRIncoming(assigns[0]), retmatNodes, operationNodes,tempVarNodes, affected)) {
+												//Can be rematerialized
+												*tempVarNodes=strGraphNodeIRPSortedInsert(*tempVarNodes, tops2[i], (gnCmpType)ptrPtrCmp);
+												continue;
+										}
+										 
+								}
+								goto foundEnd;
+						}
+				}
+				//Merge nodes with rematerization nodes
+				*retmatNodes=strGraphNodeIRPSetUnion(*retmatNodes, nodes, (gnCmpType)ptrPtrCmp);
+				return 1;
+	foundEnd:;
+				return 0;
+}
+static void mapRegSliceDestroy2(mapRegSlice *toDestroy) {
+		mapRegSliceDestroy(*toDestroy, NULL);
+}
+static struct rematerialization *getRematerialization(graphNodeIR node,strRegSlice affected,mapRegSlice liveToReg,strVarToLiveNode varToLive) {
+		//Assert that node is a spill to be re-computed
+		__auto_type irNode=graphNodeIRValuePtr(node);
+		assert(irNode->type==IR_SPILL);
+		
+		strGraphNodeIRP retmatNodes=strGraphNodeIRPAppendItem(NULL, node);
+		strGraphNodeIRP operationNodes CLEANUP(strGraphNodeIRPDestroy)=NULL;
+		strGraphNodeIRP tempVarNodes CLEANUP(strGraphNodeIRPDestroy)=NULL;
+		
+		if(rematRecur(node, &retmatNodes, &operationNodes, &tempVarNodes, affected)) {
+				//Map that mapped temp-varaible node to register slice
+				mapRegSlice node2Var CLEANUP(mapRegSliceDestroy2)=mapRegSliceCreate();
+
+				//
+				// Check if  we can fit in the temporary variables into registers
+				//
+				int allPassed=0;
+				strRegSlice affected2=strRegSliceClone(affected);
+				for(long i=0;i!=strGraphNodeIRPSize(tempVarNodes);i++) {
+						__auto_type type=IRNodeType(tempVarNodes[i]);
+						strRegP regs CLEANUP(strRegPDestroy)=regGetForType(type);
+
+						int foundAvailableRegister=0;
+						//Check if register of type is avilable.
+						for(long i=0;i!=strRegPSize(regs);i++) {
+								struct regSlice slice;
+								slice.reg=regs[i];
+								slice.offset=0;
+								slice.widthInBits=slice.reg->size*8;
+
+								for(long i=0;i!=strRegSliceSize(affected2);i++) {
+										if(regSliceConflict(&slice, &affected2[i])) {
+												goto regConflict;
+										}
+								}
+								
+								//found an avialable register
+								foundAvailableRegister=1;
+								affected2=strRegSliceSortedInsert(affected2, slice, regSliceCompare);
+
+								//Add to map
+								char *key=ptr2Str(tempVarNodes[i]);
+								mapRegSliceInsert(node2Var, key, slice);
+								free(key);
+								break;
+						regConflict:;
+						}
+
+						if(!foundAvailableRegister)
+								goto fail;						
+				}
+				
+		}
+		
+		
+	fail:;
+		return NULL;
+}
 static void rematerialize(graphNodeIR start,mapRegSlice live2Reg,strGraphNodeIRLiveP live) {
 		strVar vars=NULL;
 		for(long i=0;i!=strGraphNodeIRLivePSize(live);i++) {
@@ -1116,8 +1260,8 @@ static void rematerialize(graphNodeIR start,mapRegSlice live2Reg,strGraphNodeIRL
 						//Find paths from dominator to load
 						strGraphPath pathsTo CLEANUP(strGraphPathsDestroy2)= graphAllPathsTo(doms[i], loads[i]);
 						//Ensure all paths dont variables whoose registers conflict with rematerialized value
-						strRegSlice rematerializeRegisters=NULL; //TODO;
-						strRegSlice registersInPath=NULL;
+						strRegSlice rematerializeRegisters CLEANUP(strRegSliceDestroy)=NULL; //TODO;
+						strRegSlice registersInPath CLEANUP(strRegSliceDestroy)=NULL;
 
 						//Get all edges
 						strGraphEdgeMappingP allEdges CLEANUP(strGraphEdgeIRPDestroy)=NULL;
@@ -1141,6 +1285,8 @@ static void rematerialize(graphNodeIR start,mapRegSlice live2Reg,strGraphNodeIRL
 						//Check for conflicts
 						if(!registerConflict(rematerializeRegisters, registersInPath))
 								continue; //Registers are modified in path
+
+						
 				}
 		}
 		
@@ -1375,5 +1521,6 @@ void IRRegisterAllocate(graphNodeIR start,color2RegPredicate colorFunc,void *col
 	}
 	
 	removeDeadExpresions(start, liveVars);
+	IRLivenessRemoveBasicBlockAttrs(start); //TODO free all
 	//	debugShowGraphIR(start);
 }

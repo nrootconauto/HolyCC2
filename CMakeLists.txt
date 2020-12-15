@@ -1,5 +1,4 @@
 cmake_minimum_required(VERSION 3.0)
-set (CMAKE_CC_STANDARD 11)
 project(holycc2 LANGUAGES C)
 
 if(ENABLE_ASAN)
@@ -72,10 +71,6 @@ if(ENABLE_ASAN)
 endif()
 
 install(TARGETS holycc2 RUNTIME DESTINATION bin)
-
-if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-			target_compile_options(holycc2 PRIVATE -fblocks)
-endif()
 
 find_program(codedoc "codedoc")
 if(TRUE)
