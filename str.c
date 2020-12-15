@@ -23,7 +23,6 @@ struct __vec *__vecResize(struct __vec *a, long size) {
 			return NULL;
 
 		a = (void *)a + 2 * sizeof(long);
-		
 	}
 	//
 	if (size == 0) {
@@ -64,7 +63,7 @@ struct __vec *__vecReserve(struct __vec *a, long capacity) {
 		memset(a, 0, 2 * sizeof(long));
 		if (a == NULL)
 			return NULL;
-		
+
 		a = (void *)a + 2 * sizeof(long);
 	}
 	//
@@ -195,7 +194,7 @@ struct __vec *__vecUnique(struct __vec *vec, long itemSize,
 		if (++first == end)
 			break;
 
-		if (0!= pred((void *)vec + moveBuffer[res] * itemSize,
+		if (0 != pred((void *)vec + moveBuffer[res] * itemSize,
 		              (void *)vec + moveBuffer[first] * itemSize)) {
 			moveBuffer[++res] = moveBuffer[first];
 		}
@@ -214,7 +213,7 @@ struct __vec *__vecUnique(struct __vec *vec, long itemSize,
 	res++;
 	for (long i = 0; i != res; i++)
 		memmove((void *)vec + itemSize * i, (void *)vec + itemSize * moveBuffer[i],
-		       itemSize);
+		        itemSize);
 
 	return __vecResize(vec, res * itemSize);
 }
@@ -257,7 +256,7 @@ struct __vec *__vecSetIntersection(struct __vec *a, const struct __vec *b,
 
 	for (long i = 0; i != result / itemSize; i++) {
 		memmove((void *)a + i * itemSize, (void *)a + moveBuffer[i] * itemSize,
-		       itemSize);
+		        itemSize);
 	}
 
 	return __vecResize(a, result);
@@ -300,8 +299,8 @@ struct __vec *__vecSetUnion(struct __vec *a, struct __vec *b, long itemSize,
 	}
 }
 void __vecDestroy(struct __vec **vec) {
-		if(*vec==NULL)
-				return;
-		
-		free((void*)*vec-2*sizeof(long));
+	if (*vec == NULL)
+		return;
+
+	free((void *)*vec - 2 * sizeof(long));
 }

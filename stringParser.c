@@ -7,7 +7,7 @@ int stringParse(const struct __vec *new, long pos, long *end,
 	if (err != NULL)
 		*err = 0;
 
-	__auto_type endPtr = strlen((char*)new) + (char *)new;
+	__auto_type endPtr = strlen((char *)new) + (char *)new;
 	__auto_type currPtr = pos + (char *)new;
 
 	if (currPtr < endPtr) {

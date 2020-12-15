@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <cleanup.h>
 #include <ctype.h>
 #include <hashTable.h>
 #include <preprocessor.h>
@@ -7,15 +8,14 @@
 #include <string.h>
 #include <stringParser.h>
 #include <unistd.h>
-#include <cleanup.h>
 // TODO implement exe,if,ifdef,ifndef
 static void fileDestroy(FILE **file) { fclose(*file); }
 MAP_TYPE_DEF(struct defineMacro, DefineMacro);
 MAP_TYPE_FUNCS(struct defineMacro, DefineMacro);
 ;
-static   long lineStart ;
-static   strTextModify sourceMappings  = NULL;
-static   strFileMappings allFileMappings  = NULL;
+static long lineStart;
+static strTextModify sourceMappings = NULL;
+static strFileMappings allFileMappings = NULL;
 static FILE *createPreprocessedFileLine(mapDefineMacro defines,
                                         struct __vec *text_, int *err);
 static void expandDefinesInRange(struct __vec **retVal, mapDefineMacro defines,
@@ -96,7 +96,7 @@ loop:;
 		int err;
 		stringParse(text, pos, &endOfString, NULL, &err);
 
-		pos=endOfString;
+		pos = endOfString;
 		if (err)
 			return NULL;
 	} else {
@@ -327,7 +327,7 @@ static long fstreamSeekEndOfLine(FILE *stream) {
 loop:;
 	__auto_type count = fread(buffer, 1, 1024, stream);
 	traveled += count;
-	buffer[count]='\0';
+	buffer[count] = '\0';
 
 	if (count == 0) { // EOF
 		return ftell(stream);
@@ -394,7 +394,7 @@ static void expandDefinesInRangeRecur(struct __vec **retVal,
 			for (__auto_type i = nextReplacement; isalnum(*(char *)i);
 			     i++, alnumCount++)
 				;
-			struct __vec *slice CLEANUP(__vecDestroy) ;
+			struct __vec *slice CLEANUP(__vecDestroy);
 			slice = __vecAppendItem(NULL, nextReplacement, alnumCount);
 			slice = __vecAppendItem(slice, "\0", 1);
 			__auto_type replacement = mapDefineMacroGet(defines, (void *)slice);
@@ -424,7 +424,7 @@ static void expandDefinesInRangeRecur(struct __vec **retVal,
 				*expanded = 1;
 
 			int expanded2 = 0;
-			where=insertAt;
+			where = insertAt;
 			do {
 				expandDefinesInRangeRecur(retVal, defines, where,
 				                          where + __vecSize(replacement->text),
@@ -435,7 +435,7 @@ static void expandDefinesInRangeRecur(struct __vec **retVal,
 			} while (expanded2);
 
 			long oldWhere = where;
-			where = where + strlen((char*)replacement->text);
+			where = where + strlen((char *)replacement->text);
 
 			// Check if macro was inserted,if so quit
 			long nextMacroStart2 =
@@ -448,7 +448,7 @@ static void expandDefinesInRangeRecur(struct __vec **retVal,
 static void expandDefinesInRange(struct __vec **retVal, mapDefineMacro defines,
                                  long where, long end, int *expanded,
                                  int *err) {
- 	if (expanded != NULL)
+	if (expanded != NULL)
 		*expanded = 0;
 
 	__auto_type used = mapUsedDefinesCreate();
@@ -716,13 +716,13 @@ static FILE *createPreprocessedFileLine(mapDefineMacro defines,
 
 			// Insert new macro
 			mapDefineMacroInsert(defines, (char *)nameStr, define);
-			
+
 			// Remove macro text from source
 			__auto_type at = nextMacro - (void *)retVal;
 			insertMacroText(&retVal, NULL, at, endPos - at);
 
-			//endPos-at is deleted text,so start at at
-			where=at;
+			// endPos-at is deleted text,so start at at
+			where = at;
 		} else if (includeMacroLex(&retVal, &afterLines, defines,
 		                           nextMacro - (void *)retVal, &endPos, &include,
 		                           err)) {
@@ -735,7 +735,7 @@ static FILE *createPreprocessedFileLine(mapDefineMacro defines,
 			destroy.type = MODIFY_REMOVE;
 			sourceMappings = strTextModifyAppendItem(sourceMappings, destroy);
 
-			struct __vec *fn ;
+			struct __vec *fn;
 
 			fn = createNullTerminated(include.fileName);
 			assert(fn != NULL); // TODO whine about file not found
@@ -782,7 +782,7 @@ FILE *createPreprocessedFile(const char *fileName, strTextModify *mappings,
                              strFileMappings *fileMappings, int *err) {
 	if (err != NULL)
 		*err = 0;
-	
+
 	sourceMappings = NULL;
 	allFileMappings = NULL;
 	lineStart = 0;

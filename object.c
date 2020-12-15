@@ -1,45 +1,41 @@
 #include <assert.h>
 #include <base64.h>
+#include <cleanup.h>
 #include <hashTable.h>
 #include <object.h>
 #include <parserA.h>
 #include <stdio.h>
 #include <string.h>
-#include <cleanup.h>
 MAP_TYPE_DEF(struct object *, Object);
 MAP_TYPE_FUNCS(struct object *, Object);
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
-static  mapObject objectRegistry  = NULL;
+static mapObject objectRegistry = NULL;
 struct object *objectBaseType(const struct object *obj) {
-		if(obj->type==TYPE_CLASS) {
-				struct objectClass *cls=(void*)obj;
-				if(!cls->baseType)
-						return (struct object*)obj;
-				
-				return objectBaseType(cls->baseType);
-		} else if(obj->type==TYPE_UNION) {
-				struct objectUnion *un=(void*)obj;
-				if(!un->baseType)
-						return (struct object*)obj;
+	if (obj->type == TYPE_CLASS) {
+		struct objectClass *cls = (void *)obj;
+		if (!cls->baseType)
+			return (struct object *)obj;
 
-				return objectBaseType(un->baseType);
-		}
+		return objectBaseType(cls->baseType);
+	} else if (obj->type == TYPE_UNION) {
+		struct objectUnion *un = (void *)obj;
+		if (!un->baseType)
+			return (struct object *)obj;
 
-		return (struct object*)obj;
-} 
+		return objectBaseType(un->baseType);
+	}
+
+	return (struct object *)obj;
+}
 /* This function clones a string. */
-static char * 
-strClone(const char *str) {
+static char *strClone(const char *str) {
 	__auto_type len = strlen(str);
 	char *retVal = malloc(len + 1);
 	strcpy(retVal, str);
 	return retVal;
 }
-static char *
-ptr2Str(const void *a) {
-	return base64Enc((void *)&a, sizeof(a));
-}
+static char *ptr2Str(const void *a) { return base64Enc((void *)&a, sizeof(a)); }
 /**
  * This function hashes an object,*it also assigns the hash to the object if it
  * doesn't exit.*
@@ -153,7 +149,7 @@ hashObject(struct object *obj, int *alreadyExists) {
 			argStr = strCharAppendData(argStr, buffer, strlen(buffer));
 		}
 
-		argStr=strCharAppendItem(argStr, '\0');
+		argStr = strCharAppendItem(argStr, '\0');
 		long len = snprintf(NULL, 0, "%s(*)(%s)", retVal, argStr);
 		char buffer[len + 1];
 		sprintf(buffer, "%s(*)(%s)", retVal, argStr);
@@ -422,7 +418,7 @@ objectArrayCreate(struct object *baseType, struct parserNode *dim) {
 	struct objectArray *array = malloc(sizeof(struct objectArray));
 	array->base.type = TYPE_ARRAY;
 	array->base.link = 0;
-	array->base.name=NULL;
+	array->base.name = NULL;
 	array->dim = dim;
 	array->type = baseType;
 
@@ -450,19 +446,19 @@ objectForwardDeclarationCreate(
 
 	return *mapObjectGet(objectRegistry, hash);
 }
-struct object   typeBool  = {TYPE_Bool};
-struct object  typeU0  = {TYPE_U0};
-struct object  typeU8i  = {TYPE_U8i};
-struct object  typeU16i   = {TYPE_U16i};
-struct object  typeU32i   = {TYPE_U32i};
-struct object  typeU64i   = {TYPE_U64i};
-struct object  typeI8i   = {TYPE_I8i};
-struct object  typeI16i   = {TYPE_I16i};
-struct object  typeI32i   = {TYPE_I32i};
-struct object  typeI64i   = {TYPE_I64i};
-struct object  typeF64   = {TYPE_F64};
-void initObjectRegistry() ;
- void initObjectRegistry() {
+struct object typeBool = {TYPE_Bool};
+struct object typeU0 = {TYPE_U0};
+struct object typeU8i = {TYPE_U8i};
+struct object typeU16i = {TYPE_U16i};
+struct object typeU32i = {TYPE_U32i};
+struct object typeU64i = {TYPE_U64i};
+struct object typeI8i = {TYPE_I8i};
+struct object typeI16i = {TYPE_I16i};
+struct object typeI32i = {TYPE_I32i};
+struct object typeI64i = {TYPE_I64i};
+struct object typeF64 = {TYPE_F64};
+void initObjectRegistry();
+void initObjectRegistry() {
 	objectRegistry = mapObjectCreate();
 
 	// hashObject assigns name to type
@@ -547,7 +543,7 @@ objectFuncCreate(struct object *retType, strFuncArg args) {
  * `hashObject`. This produces readable representations of objects that exclude
  * defualt arguemnt types for readabilty.
  */
-char * object2Str(struct object *obj) { return NULL; }
+char *object2Str(struct object *obj) { return NULL; }
 /**
  * This compares if objects are equal.
  */

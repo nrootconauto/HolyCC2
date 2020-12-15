@@ -17,9 +17,9 @@ static int isArith(const struct object *type) {
 }
 MAP_TYPE_DEF(void *, Set);
 MAP_TYPE_FUNCS(void *, Set);
-mapSet assignOps  = NULL;
-mapSet incOps  = NULL;
-void initAssignOps() ;
+mapSet assignOps = NULL;
+mapSet incOps = NULL;
+void initAssignOps();
 void initAssignOps() {
 	const char *assignOps2[] = {
 	    "=",
@@ -38,7 +38,7 @@ void initAssignOps() {
 	    "|=",
 	};
 	long count = sizeof(assignOps2) / sizeof(*assignOps2);
-	assignOps=NULL;
+	assignOps = NULL;
 	assignOps = mapSetCreate();
 	for (long i = 0; i != count; i++)
 		mapSetInsert(assignOps, assignOps2[i], NULL);
@@ -203,7 +203,7 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 			diagPushText(buffer);
 			diagHighlight(op->base.pos.start, op->base.pos.end);
 			diagEndMsg();
-			
+
 			noteItem(binop->a);
 			noteItem(binop->b);
 
@@ -281,7 +281,7 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 			diagPushText(buffer);
 			diagEndMsg();
 			noteItem(call->func);
-			
+
 			call->type = &typeI64i;
 			return &typeI64i;
 		} else {

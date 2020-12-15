@@ -4,11 +4,11 @@
 #include <string.h>
 MAP_TYPE_DEF(char *, Str);
 MAP_TYPE_FUNCS(char *, Str);
-static  mapStr ptrNames  = NULL;
+static mapStr ptrNames = NULL;
 static char *ptr2Str(const void *ptr) {
 	return base64Enc((void *)&ptr, sizeof(ptr));
 }
- void initDebugPrint();
+void initDebugPrint();
 void initDebugPrint() { ptrNames = mapStrCreate(); }
 static char *strClone(const char *str) {
 	char *retVal = malloc(strlen(str) + 1);

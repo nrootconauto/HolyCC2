@@ -226,7 +226,7 @@ MAP_TYPE_DEF(graphNodeMapping, GraphNode);
 MAP_TYPE_FUNCS(graphNodeMapping, GraphNode);
 graphNodeMapping
 createFilteredGraph(struct __graphNode *start, strGraphNodeP nodes, void *data,
-                    int (*pred)(struct __graphNode *,void *data));
+                    int (*pred)(struct __graphNode *, void *data));
 MAP_TYPE_DEF(char *, GraphVizAttr);
 MAP_TYPE_FUNCS(char *, GraphVizAttr);
 void graph2GraphViz(FILE *dumpTo, graphNodeMapping graph, const char *title,
@@ -241,9 +241,12 @@ long graphNodeValueSize(const struct __graphNode *node);
 long graphEdgeValueSize(const struct __graphEdge *edge);
 graphNodeMapping graphNodeCreateMapping(const struct __graphNode *node,
                                         int preserveConnections);
-strGraphPath graphAllPathsToPredicate(struct __graphNode *from, const void *data,int(*predicate)(const struct __graphNode *node,const void *data));
-void graph2GraphVizUndir(FILE *dumpTo, graphNodeMapping graph, const char *title,
-                    char *(*nodeToLabel)(const struct __graphNode *node,
-                                         mapGraphVizAttr *attrs,
-                                         const void *data),
-																									const void *nodeData);
+strGraphPath graphAllPathsToPredicate(
+    struct __graphNode *from, const void *data,
+    int (*predicate)(const struct __graphNode *node, const void *data));
+void graph2GraphVizUndir(FILE *dumpTo, graphNodeMapping graph,
+                         const char *title,
+                         char *(*nodeToLabel)(const struct __graphNode *node,
+                                              mapGraphVizAttr *attrs,
+                                              const void *data),
+                         const void *nodeData);

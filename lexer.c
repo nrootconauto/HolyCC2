@@ -120,7 +120,8 @@ STR_TYPE_FUNCS(char *, Str);
 const void *skipWhitespace(const struct __vec *text, long from) {
 	for (__auto_type ptr = (void *)text + from;
 	     ptr != (void *)text + __vecSize(text); ptr++)
-		if (!isblank(*(char *)ptr) && *(char *)ptr != '\n' && *(char *)ptr != '\r' &&ptr!='\0')
+		if (!isblank(*(char *)ptr) && *(char *)ptr != '\n' &&
+		    *(char *)ptr != '\r' && ptr != '\0')
 			return ptr;
 	return __vecSize(text) + (void *)text;
 }
@@ -163,7 +164,7 @@ static struct __vec *intLex(const struct __vec *new, long pos, long *end,
 			__auto_type slice =
 			    __vecAppendItem(NULL, startAt, (void *)New - (void *)startAt);
 			sscanf((char *)slice, "%lx", &valueU);
-			
+
 			goto dumpU;
 		} else if (*New >= 0 && *New <= '7') {
 			base = 8;
@@ -182,7 +183,7 @@ static struct __vec *intLex(const struct __vec *new, long pos, long *end,
 			__auto_type slice =
 			    __vecAppendItem(NULL, startAt, (void *)New - (void *)startAt);
 			sscanf((char *)slice, "%lo", &valueU);
-			
+
 			goto dumpU;
 		} else if (*New == 'b' || *New == 'B') {
 			base = 2;
@@ -215,7 +216,7 @@ static struct __vec *intLex(const struct __vec *new, long pos, long *end,
 		((char *)slice)[alnumCount] = '\0';
 
 		sscanf((char *)slice, "%lu", &valueU);
-		
+
 		New += alnumCount;
 		goto dumpU;
 	}
@@ -278,10 +279,10 @@ static struct __vec *floatingLex(const struct __vec *vec, long pos, long *end,
 	if (alnumCount != 0) {
 		__auto_type slice = __vecAppendItem(
 		    NULL, currPtr,
-						((exponetIndex != -1) ? exponetIndex -pos: alnumCount));
+		    ((exponetIndex != -1) ? exponetIndex - pos : alnumCount));
 		sscanf((char *)slice, "%lu", &f.base);
-		
-		currPtr += (exponetIndex == -1) ? alnumCount : exponetIndex + 1-pos;
+
+		currPtr += (exponetIndex == -1) ? alnumCount : exponetIndex + 1 - pos;
 	}
 
 	if (*currPtr == '.')
@@ -302,7 +303,7 @@ dot : {
 	__auto_type slice = __vecAppendItem(NULL, currPtr, digitCount);
 	slice = __vecAppendItem(slice, "\0", 1);
 	sscanf((char *)slice, "%lu", &f.frac);
-	
+
 	currPtr += digitCount;
 
 	if (currPtr < endPtr)
@@ -432,8 +433,8 @@ static struct lexerItemTemplate *templates[] = {
     &nameTemplate, &opTemplate,  &kwTemplate,
 };
 void initTemplates();
- void initTemplates() {
-			sortKeywords();
+void initTemplates() {
+	sortKeywords();
 	intTemplate.killItemData = NULL;
 	intTemplate.lexItem = intLex;
 
@@ -465,7 +466,7 @@ llLexerItem lexText(const struct __vec *text, int *err) {
 	llLexerItem retVal = NULL;
 	int err2;
 
-	__auto_type len = strlen((char*)text);
+	__auto_type len = strlen((char *)text);
 	long pos = 0;
 	for (;;) {
 		pos = (char *)skipWhitespace(text, pos) - (char *)text;

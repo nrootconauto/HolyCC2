@@ -1,4 +1,5 @@
 #include <IR.h>
+#include <IRFilter.h>
 #include <SSA.h>
 #include <assert.h>
 #include <base64.h>
@@ -6,7 +7,6 @@
 #include <hashTable.h>
 #include <stdio.h>
 #include <topoSort.h>
-#include <IRFilter.h>
 #define GRAPHN_ALLOCATE(x) ({ __graphNodeCreate(&x, sizeof(x), 0); })
 typedef int (*strGN_IRCmpType)(const strGraphNodeIRP *,
                                const strGraphNodeIRP *);
@@ -16,7 +16,7 @@ typedef int (*gnCmpType)(const graphNodeIR *, const graphNodeIR *);
 static char *ptr2Str(const void *a) { return base64Enc((void *)&a, sizeof(a)); }
 MAP_TYPE_DEF(struct IRVar *, VarRef);
 MAP_TYPE_FUNCS(struct IRVar *, VarRef);
-static  mapVarRef varRefs  = NULL;
+static mapVarRef varRefs = NULL;
 static graphNodeIR createChoose(graphNodeIR insertBefore,
                                 strGraphNodeIRP pathPairs) {
 	// Make the choose node
@@ -76,9 +76,9 @@ struct varAndEnterPair {
 	graphNodeIR enter;
 	struct IRVar *var;
 };
-static int occurOfVar(graphNodeIR node,const void *pair) {
-		const struct varAndEnterPair *expectedVar =pair;
-		struct IRNode *ir = graphNodeIRValuePtr((graphNodeIR)node);
+static int occurOfVar(graphNodeIR node, const void *pair) {
+	const struct varAndEnterPair *expectedVar = pair;
+	struct IRNode *ir = graphNodeIRValuePtr((graphNodeIR)node);
 	if (node == expectedVar->enter)
 		return 1;
 
@@ -97,8 +97,7 @@ static int __isAssignedVar(struct varAndEnterPair *data,
 	struct IRVar *expectedVar = data->var;
 
 	if (ignoreChoose) {
-		strGraphNodeIRP incoming  =
-		    graphNodeIRIncomingNodes(node);
+		strGraphNodeIRP incoming = graphNodeIRIncomingNodes(node);
 		if (1 == strGraphNodeIRPSize(incoming)) {
 			if (graphNodeIRValuePtr(incoming[0])->type == IR_CHOOSE)
 				return 0;
@@ -129,15 +128,13 @@ checkForAssign:;
 	//
 	// Check if assigned to choose node
 	//
-	strGraphEdgeIRP in  =
-	    graphNodeIRIncoming((graphNodeIR)node);
-	strGraphEdgeIRP dstConns =
-	    IRGetConnsOfType(in, IR_CONN_DEST);
+	strGraphEdgeIRP in = graphNodeIRIncoming((graphNodeIR)node);
+	strGraphEdgeIRP dstConns = IRGetConnsOfType(in, IR_CONN_DEST);
 	return 0 != strGraphEdgeIRPSize(dstConns);
 }
-static int isAssignedVar(graphNodeIR node,const void *data) {
-		const struct varAndEnterPair *pair=data;
-		return __isAssignedVar((void*)pair, node, 0);
+static int isAssignedVar(graphNodeIR node, const void *data) {
+	const struct varAndEnterPair *pair = data;
+	return __isAssignedVar((void *)pair, node, 0);
 }
 static graphNodeMapping filterVarRefs(graphNodeIR enter, strGraphNodeIRP nodes,
                                       struct IRVar *var) {
@@ -145,7 +142,7 @@ static graphNodeMapping filterVarRefs(graphNodeIR enter, strGraphNodeIRP nodes,
 	struct varAndEnterPair pair;
 	pair.enter = enter;
 	pair.var = var;
-	return IRFilter(enter, occurOfVar,&pair);
+	return IRFilter(enter, occurOfVar, &pair);
 }
 static char *node2Str(struct __graphNode *node) {
 	node = *graphNodeMappingValuePtr(node);
@@ -204,10 +201,9 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 	struct varAndEnterPair pair;
 	pair.enter = start;
 	pair.var = var;
-	
+
 	// Get references to all vars
-	__auto_type varRefsG =IRFilter(start,
-																																occurOfVar,&pair);
+	__auto_type varRefsG = IRFilter(start, occurOfVar, &pair);
 	__auto_type allVarRefs = graphNodeMappingAllNodes(varRefsG);
 	// graphPrint(varRefsG, node2Str);
 	// Hash the vars
@@ -219,14 +215,13 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 		mapGraphNodeInsert(IR2MappingNode, hash, allVarRefs[i]);
 	}
 
-	__auto_type varAssignG =
-	    IRFilter(start, isAssignedVar,&pair);
-	
-	if(!varAssignG) {
-			mapGraphNodeDestroy(IR2MappingNode, NULL);
-			return ;
+	__auto_type varAssignG = IRFilter(start, isAssignedVar, &pair);
+
+	if (!varAssignG) {
+		mapGraphNodeDestroy(IR2MappingNode, NULL);
+		return;
 	}
-	
+
 	__auto_type allVarAssigns = graphNodeMappingAllNodes(varAssignG);
 	__auto_type allAssignPaths = graphAllPathsTo(varAssignG, NULL);
 
@@ -279,7 +274,7 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 
 		__auto_type mappedStart = *mapGraphNodeGet(IR2MappingNode, startHash);
 		__auto_type mappedEnd = *mapGraphNodeGet(IR2MappingNode, endHash);
-		
+
 		// Find all paths from start->end
 		__auto_type allPaths = graphAllPathsTo(mappedStart, mappedEnd);
 		for (long pathI = 0; pathI != strGraphPathSize(allPaths); pathI++) {
@@ -289,8 +284,7 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 			allPaths[pathI] = strGraphEdgePPop(allPaths[pathI], NULL);
 
 			versionAllVarsBetween(allPaths[pathI], versionStarts);
-
-			}
+		}
 	}
 	//
 	// Find exit nodes
@@ -310,7 +304,6 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 			versionAllVarsBetween(nullPaths[i2], versionStarts);
 		}
 	}
-	
 }
 /**
  * Returns list of new varaible references
@@ -387,7 +380,7 @@ static strGraphNodeIRP IRSSACompute(graphNodeMapping start, struct IRVar *var) {
 	mapGraphNodeDestroy(nodeKey2Ptr, NULL);
 	return retVal;
 }
-static int filterVars(graphNodeIR node,const void *data) {
+static int filterVars(graphNodeIR node, const void *data) {
 	__auto_type ir = graphNodeIRValuePtr(node);
 	if (ir->type == IR_VALUE) {
 		struct IRNodeValue *irValue = (void *)ir;
@@ -414,16 +407,15 @@ void IRToSSA(graphNodeIR enter) {
 	//
 	// Find all the vars
 	//
-	__auto_type filteredVars =
-	    IRFilter(enter, filterVars, NULL);
+	__auto_type filteredVars = IRFilter(enter, filterVars, NULL);
 	__auto_type filteredVarsNodes = graphNodeMappingAllNodes(filteredVars);
 	strIRVar allVars = NULL;
 	for (long i = 0; i != strGraphNodeMappingPSize(filteredVarsNodes); i++) {
 		__auto_type irNode = *graphNodeMappingValuePtr(filteredVarsNodes[i]);
 		struct IRNodeValue *val = (void *)graphNodeIRValuePtr(irNode);
-		//Could be enter node
-		if(val->base.type != IR_VALUE)
-				continue;
+		// Could be enter node
+		if (val->base.type != IR_VALUE)
+			continue;
 
 		// Insert if doesnt exist
 		if (NULL == strIRVarSortedFind(allVars, val->val.value.var, IRVarCmp)) {
@@ -437,7 +429,7 @@ void IRToSSA(graphNodeIR enter) {
 	sprintf(buffer, "dot -Tsvg %s >/tmp/dot.svg && firefox /tmp/dot.svg &", fn);
 	system(buffer);
 	}*/
-	
+
 	//
 	// Find SSA choose nodes for all vars
 	//
@@ -460,50 +452,57 @@ end:
 	graphNodeMappingKillGraph(&filteredVars, NULL, NULL);
 }
 struct __pathToChoosePredPair {
-		graphNodeIR start;
-		graphNodeIR choose;
+	graphNodeIR start;
+	graphNodeIR choose;
 };
-static int __lastIsNotChoose(const void *data,const strGraphEdgeIRP *path) {
-		__auto_type last=path[0][strGraphEdgeIRPSize(*path)-1];
-		return graphNodeIRValuePtr(graphEdgeIROutgoing(last))->type!=IR_CHOOSE;
+static int __lastIsNotChoose(const void *data, const strGraphEdgeIRP *path) {
+	__auto_type last = path[0][strGraphEdgeIRPSize(*path) - 1];
+	return graphNodeIRValuePtr(graphEdgeIROutgoing(last))->type != IR_CHOOSE;
 }
-static int __pathToChoosePred(const struct __graphNode *node,const void *data) {
-		const struct __pathToChoosePredPair *pair=data;
-		//Dont stop at start node
-		if(node==pair->start)
-				return 0;
-
-		//Stop at other canidate's path
-		__auto_type canidates=((struct IRNodeChoose*)graphNodeIRValuePtr(pair->choose))->canidates;
-		if(NULL!=strGraphNodeIRPSortedFind(canidates, (graphNodeIR)node, (gnCmpType)ptrPtrCmp))
-				return 1;
-
-		//Stop at choose;
-		if(node==pair->choose)
-				return 1;
-
+static int __pathToChoosePred(const struct __graphNode *node,
+                              const void *data) {
+	const struct __pathToChoosePredPair *pair = data;
+	// Dont stop at start node
+	if (node == pair->start)
 		return 0;
-}
-static strGraphPath chooseNodeCandidatePathsToChoose(graphNodeIR canidate,graphNodeIR choose) {
-		//Find paths that are either dead ends that stop at other candiate starts,or path to choose,will filter out dead ends later.
-		struct __pathToChoosePredPair pair;
-		pair.choose=choose;
-		pair.start=canidate;
-		__auto_type pathsToChoose=graphAllPathsToPredicate(canidate, &pair, __pathToChoosePred);
 
-		//Filter out dead ends
-		pathsToChoose=strGraphPathRemoveIf(pathsToChoose, choose, __lastIsNotChoose);
+	// Stop at other canidate's path
+	__auto_type canidates =
+	    ((struct IRNodeChoose *)graphNodeIRValuePtr(pair->choose))->canidates;
+	if (NULL != strGraphNodeIRPSortedFind(canidates, (graphNodeIR)node,
+	                                      (gnCmpType)ptrPtrCmp))
+		return 1;
 
-		return pathsToChoose;
-}
-static int __edgeIsEqual(void *a,void *b) {
-		return *(graphEdgeIR*)a==*(graphEdgeIR*)b;
-}
-static int gnIRCmpVar(const graphNodeIR *a,const graphNodeIR *b) {
-		struct IRNodeValue *A=(void*)graphNodeIRValuePtr(*a);
-		struct IRNodeValue *B=(void*)graphNodeIRValuePtr(*b);
+	// Stop at choose;
+	if (node == pair->choose)
+		return 1;
 
-		return IRVarCmp(&A->val.value.var, &B->val.value.var);
+	return 0;
+}
+static strGraphPath chooseNodeCandidatePathsToChoose(graphNodeIR canidate,
+                                                     graphNodeIR choose) {
+	// Find paths that are either dead ends that stop at other candiate starts,or
+	// path to choose,will filter out dead ends later.
+	struct __pathToChoosePredPair pair;
+	pair.choose = choose;
+	pair.start = canidate;
+	__auto_type pathsToChoose =
+	    graphAllPathsToPredicate(canidate, &pair, __pathToChoosePred);
+
+	// Filter out dead ends
+	pathsToChoose =
+	    strGraphPathRemoveIf(pathsToChoose, choose, __lastIsNotChoose);
+
+	return pathsToChoose;
+}
+static int __edgeIsEqual(void *a, void *b) {
+	return *(graphEdgeIR *)a == *(graphEdgeIR *)b;
+}
+static int gnIRCmpVar(const graphNodeIR *a, const graphNodeIR *b) {
+	struct IRNodeValue *A = (void *)graphNodeIRValuePtr(*a);
+	struct IRNodeValue *B = (void *)graphNodeIRValuePtr(*b);
+
+	return IRVarCmp(&A->val.value.var, &B->val.value.var);
 }
 static void transparentKill(graphNodeIR node) {
 	__auto_type incoming = graphNodeIRIncoming(node);
@@ -511,66 +510,73 @@ static void transparentKill(graphNodeIR node) {
 	for (long i1 = 0; i1 != strGraphEdgeIRPSize(incoming); i1++)
 		for (long i2 = 0; i2 != strGraphEdgeIRPSize(outgoing); i2++)
 			graphNodeIRConnect(graphEdgeIRIncoming(incoming[i1]),
-			                   graphEdgeIROutgoing(outgoing[i2]),
-			                   IR_CONN_FLOW);
+			                   graphEdgeIROutgoing(outgoing[i2]), IR_CONN_FLOW);
 
 	graphNodeIRKill(&node, NULL, NULL);
 }
-void IRSSAReplaceChooseWithAssigns(graphNodeIR node,strGraphNodeIRP *replaced) {
-		assert(graphNodeIRValuePtr(node)->type==IR_CHOOSE);
-		struct IRNodeChoose *choose=(void*)graphNodeIRValuePtr(node);
-		
-		__auto_type outgoing=graphNodeIROutgoingNodes(node);
-		//Outgoing that must be assign (TODO validate this)
-		
-		//Make (unique) collection of canidates that point to unique varaibles.
-		__auto_type clone=strGraphNodeIRPClone(choose->canidates);
-		qsort(clone, strGraphNodeIRPSize(clone), sizeof(*clone), (int(*)(const void*,const void*))gnIRCmpVar);
-		clone=strGraphNodeIRPUnique(clone, gnIRCmpVar, NULL);
-		
-		for(long i=0;i!=strGraphNodeIRPSize(clone);i++) {
-				__auto_type paths=chooseNodeCandidatePathsToChoose(clone[i],node);
-				assert(strGraphPathSize(paths)!=0);
+void IRSSAReplaceChooseWithAssigns(graphNodeIR node,
+                                   strGraphNodeIRP *replaced) {
+	assert(graphNodeIRValuePtr(node)->type == IR_CHOOSE);
+	struct IRNodeChoose *choose = (void *)graphNodeIRValuePtr(node);
 
-				//Insert an assign before final edge leading up to choose
-				strGraphEdgeIRP insertedAt=NULL;
-				for(long i2=0;i2!=strGraphPathSize(paths);i2++) {
-						graphEdgeIR last;
-						paths[i2]=strGraphEdgeIRPPop(paths[i2], &last);
+	__auto_type outgoing = graphNodeIROutgoingNodes(node);
+	// Outgoing that must be assign (TODO validate this)
 
-						//Ensure edge isn't already accounted for 
-						if(NULL!=strGraphEdgeIRPSortedFind(insertedAt, last, (geCmpType)ptrPtrCmp))
-								continue;
+	// Make (unique) collection of canidates that point to unique varaibles.
+	__auto_type clone = strGraphNodeIRPClone(choose->canidates);
+	qsort(clone, strGraphNodeIRPSize(clone), sizeof(*clone),
+	      (int (*)(const void *, const void *))gnIRCmpVar);
+	clone = strGraphNodeIRPUnique(clone, gnIRCmpVar, NULL);
 
-						insertedAt=strGraphEdgeIRPSortedInsert(insertedAt, last, (geCmpType)ptrPtrCmp);
+	for (long i = 0; i != strGraphNodeIRPSize(clone); i++) {
+		__auto_type paths = chooseNodeCandidatePathsToChoose(clone[i], node);
+		assert(strGraphPathSize(paths) != 0);
 
-						//Start with current node ,assign to result,then use that as the parent node and so on
-						graphNodeIR parent=cloneNode(clone[i], IR_CLONE_NODE, NULL);
-						__auto_type startAt=parent;
-						
-						for(long i3=0;i3!=strGraphNodeIRPSize(outgoing);i3++) {
-								__auto_type clone=cloneNode(outgoing[i3], IR_CLONE_NODE, NULL);
-								graphNodeIRConnect(parent, clone, IR_CONN_DEST);
+		// Insert an assign before final edge leading up to choose
+		strGraphEdgeIRP insertedAt = NULL;
+		for (long i2 = 0; i2 != strGraphPathSize(paths); i2++) {
+			graphEdgeIR last;
+			paths[i2] = strGraphEdgeIRPPop(paths[i2], &last);
 
-								parent=clone;
-						}
+			// Ensure edge isn't already accounted for
+			if (NULL !=
+			    strGraphEdgeIRPSortedFind(insertedAt, last, (geCmpType)ptrPtrCmp))
+				continue;
 
-						//Replace edge with startAt-> parent
-						graphNodeIRConnect(graphEdgeIRIncoming(last),startAt,*graphEdgeIRValuePtr(last));
-						graphNodeIRConnect(parent,graphEdgeIROutgoing(last),IR_CONN_FLOW);
-						graphEdgeIRKill(graphEdgeIRIncoming(last), graphEdgeIROutgoing(last), graphEdgeIRValuePtr(last), __edgeIsEqual, NULL);
-				}
+			insertedAt =
+			    strGraphEdgeIRPSortedInsert(insertedAt, last, (geCmpType)ptrPtrCmp);
+
+			// Start with current node ,assign to result,then use that as the parent
+			// node and so on
+			graphNodeIR parent = cloneNode(clone[i], IR_CLONE_NODE, NULL);
+			__auto_type startAt = parent;
+
+			for (long i3 = 0; i3 != strGraphNodeIRPSize(outgoing); i3++) {
+				__auto_type clone = cloneNode(outgoing[i3], IR_CLONE_NODE, NULL);
+				graphNodeIRConnect(parent, clone, IR_CONN_DEST);
+
+				parent = clone;
+			}
+
+			// Replace edge with startAt-> parent
+			graphNodeIRConnect(graphEdgeIRIncoming(last), startAt,
+			                   *graphEdgeIRValuePtr(last));
+			graphNodeIRConnect(parent, graphEdgeIROutgoing(last), IR_CONN_FLOW);
+			graphEdgeIRKill(graphEdgeIRIncoming(last), graphEdgeIROutgoing(last),
+			                graphEdgeIRValuePtr(last), __edgeIsEqual, NULL);
 		}
-		
-		__auto_type endOfExpression=IRGetEndOfExpr(node);
+	}
 
-		strGraphNodeIRP  exprNodes=getStatementNodes(IRGetStmtStart(node), endOfExpression);
-		__auto_type dummy=createLabel();
-		graphReplaceWithNode(exprNodes, dummy, NULL, NULL,sizeof(graphEdgeIR));
-		transparentKill(dummy);
+	__auto_type endOfExpression = IRGetEndOfExpr(node);
 
-		if(replaced)
-				*replaced=exprNodes;
-		else
-				strGraphNodeIRPDestroy(&exprNodes);
+	strGraphNodeIRP exprNodes =
+	    getStatementNodes(IRGetStmtStart(node), endOfExpression);
+	__auto_type dummy = createLabel();
+	graphReplaceWithNode(exprNodes, dummy, NULL, NULL, sizeof(graphEdgeIR));
+	transparentKill(dummy);
+
+	if (replaced)
+		*replaced = exprNodes;
+	else
+		strGraphNodeIRPDestroy(&exprNodes);
 }

@@ -111,11 +111,11 @@ void *__llValuePtr(const struct __ll *node) {
 static void __llKillRight(struct __ll *node, void (*killFunc)(void *)) {
 	for (__auto_type current = node->prev; current != NULL;) {
 		__auto_type prev = current->prev;
-		
+
 		if (killFunc)
 			killFunc(__llValuePtr(current));
 		free(current);
-		
+
 		current = prev;
 	}
 }
@@ -126,7 +126,7 @@ static void __llKillLeft(struct __ll *node, void (*killFunc)(void *)) {
 		if (killFunc)
 			killFunc(__llValuePtr(current));
 		free(current);
-		
+
 		current = next;
 	}
 }

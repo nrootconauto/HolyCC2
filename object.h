@@ -57,7 +57,7 @@ LL_TYPE_DEF(struct objectMethod, Method);
 LL_TYPE_FUNCS(struct objectMethod, Method);
 struct objectClass {
 	struct object base;
-		struct object *baseType;
+	struct object *baseType;
 	struct parserNode *name;
 	strObjectMember members;
 	llMethod methods;
@@ -66,8 +66,8 @@ struct objectClass {
 };
 struct objectUnion {
 	struct object base;
-		struct object *baseType;
-		struct parserNode *name;
+	struct object *baseType;
+	struct parserNode *name;
 	strObjectMember members;
 	long align;
 	long size;
@@ -117,17 +117,17 @@ struct object *objectForwardDeclarationCreate(const struct parserNode *name,
 struct object *objectByName(const char *name);
 struct object *objectFuncCreate(struct object *retType, strFuncArg args);
 
-extern struct object  typeBool;
-extern struct object  typeU0;
-extern struct object  typeU8i; 
-extern struct object  typeU16i;
-extern struct object  typeU32i;
-extern struct object  typeU64i;
-extern struct object  typeI8i;
-extern struct object  typeI16i;
-extern struct object  typeI32i;
-extern struct object  typeI64i;
-extern struct object  typeF64;
+extern struct object typeBool;
+extern struct object typeU0;
+extern struct object typeU8i;
+extern struct object typeU16i;
+extern struct object typeU32i;
+extern struct object typeU64i;
+extern struct object typeI8i;
+extern struct object typeI16i;
+extern struct object typeI32i;
+extern struct object typeI64i;
+extern struct object typeF64;
 
 void strFuncArgDestroy2(strFuncArg *args);
 char *object2Str(struct object *obj);

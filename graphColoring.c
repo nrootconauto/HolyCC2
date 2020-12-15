@@ -1,13 +1,12 @@
-#include <graphColoring.h>
-#include <debugPrint.h>
 #include <cleanup.h>
+#include <debugPrint.h>
+#include <graphColoring.h>
 //
-//http://supertech.csail.mit.edu/papers/HasenplaughKaSc14.pdf figure 8
+// http://supertech.csail.mit.edu/papers/HasenplaughKaSc14.pdf figure 8
 //
-static int intCmp(const int *a, const int *b) {
-	return *(int *)a - *(int *)b;
-}
-typedef int(*gnCmpType)(const struct __graphNode **,const struct __graphNode **);
+static int intCmp(const int *a, const int *b) { return *(int *)a - *(int *)b; }
+typedef int (*gnCmpType)(const struct __graphNode **,
+                         const struct __graphNode **);
 STR_TYPE_DEF(int, Int);
 STR_TYPE_FUNCS(int, Int);
 struct vertexInfo {
@@ -26,7 +25,8 @@ static int ptrPtrCmp(const void *a, const void *b) {
 	else
 		return 0;
 }
-static int llVertexColorInsertCmp(const struct vertexColoring *a, const struct vertexColoring *b) {
+static int llVertexColorInsertCmp(const struct vertexColoring *a,
+                                  const struct vertexColoring *b) {
 	const struct vertexColoring *A = a, *B = b;
 	return ptrPtrCmp(&A->node, &B->node);
 }
@@ -38,7 +38,8 @@ static int llDataGetCmp(const void *a, const struct vertexInfo *b) {
 	const struct vertexInfo *B = b;
 	return ptrPtrCmp(&a, &B->node);
 }
-static int llDataInsertCmp(const struct vertexInfo *a, const struct vertexInfo *b) {
+static int llDataInsertCmp(const struct vertexInfo *a,
+                           const struct vertexInfo *b) {
 	const struct vertexInfo *A = a, *B = b;
 	return ptrPtrCmp(&A->node, &B->node);
 }
@@ -66,20 +67,20 @@ struct __predPair {
 	strGraphNodeP preds;
 };
 static strGraphNodeP adj(struct __graphNode *node) {
-		strGraphEdgeP  out CLEANUP(strGraphEdgePDestroy) = __graphNodeOutgoing(node);
+	strGraphEdgeP out CLEANUP(strGraphEdgePDestroy) = __graphNodeOutgoing(node);
 	strGraphEdgeP in CLEANUP(strGraphEdgePDestroy) = __graphNodeIncoming(node);
 
-	strGraphNodeP retVal  = NULL;
+	strGraphNodeP retVal = NULL;
 
 	for (long i = 0; i != strGraphEdgePSize(out); i++)
-		if (NULL ==
-		    strGraphNodePSortedFind(retVal, __graphEdgeOutgoing(out[i]), (gnCmpType)ptrPtrCmp))
+		if (NULL == strGraphNodePSortedFind(retVal, __graphEdgeOutgoing(out[i]),
+		                                    (gnCmpType)ptrPtrCmp))
 			retVal = strGraphNodePSortedInsert(retVal, __graphEdgeOutgoing(out[i]),
 			                                   (gnCmpType)ptrPtrCmp);
 
 	for (long i = 0; i != strGraphEdgePSize(in); i++)
-		if (NULL ==
-		    strGraphNodePSortedFind(retVal, __graphEdgeIncoming(in[i]), (gnCmpType)ptrPtrCmp))
+		if (NULL == strGraphNodePSortedFind(retVal, __graphEdgeIncoming(in[i]),
+		                                    (gnCmpType)ptrPtrCmp))
 			retVal = strGraphNodePSortedInsert(retVal, __graphEdgeIncoming(in[i]),
 			                                   (gnCmpType)ptrPtrCmp);
 
@@ -151,7 +152,7 @@ llVertexColor graphColor(const struct __graphNode *node) {
 
 			__auto_type ptr = &Q[strIntSize(uData->adjColors)]
 			                    [strGraphNodePSize(uData->adjUncolored)];
-			*ptr = strGraphNodePRemoveIf(*ptr,  &uData->node,removeIfNodeEq);
+			*ptr = strGraphNodePRemoveIf(*ptr, &uData->node, removeIfNodeEq);
 
 			DEBUG_PRINT("NODE: %i removed at %li ,%li\n",
 			            *(int *)__graphNodeValuePtr(uData->node),
@@ -161,7 +162,7 @@ llVertexColor graphColor(const struct __graphNode *node) {
 			uData->adjColors =
 			    strIntSortedInsert(uData->adjColors, vData->color, intCmp);
 			uData->adjUncolored = strGraphNodePRemoveIf(uData->adjUncolored,
-			                                            &vData->node,removeIfNodeEq);
+			                                            &vData->node, removeIfNodeEq);
 
 			ptr = &Q[strIntSize(uData->adjColors)]
 			        [strGraphNodePSize(uData->adjUncolored)];
@@ -203,10 +204,10 @@ llVertexColor graphColor(const struct __graphNode *node) {
 	}
 	llDataDestroy(&datas, NULL);
 
-		for (long i = 0; i != allNodesLen; i++)
+	for (long i = 0; i != allNodesLen; i++)
 		for (long i2 = 0; i2 != allNodesLen; i2++)
-				strGraphNodePDestroy(&Q[i][i2]);
-	
+			strGraphNodePDestroy(&Q[i][i2]);
+
 	return colors;
 }
 long vertexColorCount(const llVertexColor colors) {

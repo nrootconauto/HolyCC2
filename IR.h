@@ -6,7 +6,6 @@
 #include <parserA.h>
 #include <registers.h>
 #include <str.h>
-#include <registers.h>
 enum IRFlag {
 	IR_FLAG_EQZ,
 	IR_FLAG_NEQZ,
@@ -277,7 +276,7 @@ struct IRVarRefs {
 };
 MAP_TYPE_DEF(struct IRVarRefs, IRVarRefs);
 MAP_TYPE_FUNCS(struct IRVarRefs, IRVarRefs);
-extern  mapIRVarRefs IRVars;
+extern mapIRVarRefs IRVars;
 strGraphNodeP getStatementNodes(graphNodeIR stmtStart, graphNodeIR stmtEnd);
 graphNodeIR createStmtEnd(graphNodeIR start);
 graphNodeIR createStmtStart();
@@ -323,8 +322,9 @@ graphNodeIR createSpill(struct IRVar *var);
 graphNodeIR createRegRef(const struct regSlice *slice);
 graphNodeIR IRGetEndOfExpr(graphNodeIR node);
 strGraphNodeIRP IRStmtNodes(graphNodeIR end);
-void IRRemoveDeadExpression(graphNodeIR end,strGraphNodeP *removed);
+void IRRemoveDeadExpression(graphNodeIR end, strGraphNodeP *removed);
 int IRIsDeadExpression(graphNodeIR end);
 struct object *IRNodeType(graphNodeIR node);
 void IRNodeDestroy(struct IRNode *node);
-graphNodeIR IRCloneUpTo(graphNodeIR node,strGraphNodeIRP to,mapGraphNode *mappings);
+graphNodeIR IRCloneUpTo(graphNodeIR node, strGraphNodeIRP to,
+                        mapGraphNode *mappings);

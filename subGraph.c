@@ -203,10 +203,10 @@ static strGraphNodeSubP reconstructFromAdj(
 				__auto_type graphNodeFrom = *graphNodeSubValuePtr(nodes[i1]);
 				__auto_type graphNodeTo = *graphNodeSubValuePtr(nodes[i2]);
 
-				strGraphEdgeP edgesGraph ;
+				strGraphEdgeP edgesGraph;
 				edgesGraph = edgesConnectedToNode(graphNodeFrom, graphNodeTo);
 				if (edgePred != NULL) {
-					strGraphEdgeP edgesSub ;
+					strGraphEdgeP edgesSub;
 					edgesSub = edgesConnectedToNode(subGraph[i1], subGraph[i2]);
 					int connectionCount = 0;
 
@@ -257,7 +257,7 @@ strSub isolateSubGraph(strGraphNodeP graph, strGraphNodeP sub,
 	__auto_type graphSize = strGraphNodePSize(graph);
 	__auto_type subSize = strGraphNodePSize(sub);
 
-	strInt unused ;
+	strInt unused;
 	unused = strIntResize(NULL, graphSize);
 	memset(unused, 0, sizeof(int) * graphSize);
 

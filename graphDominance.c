@@ -1,12 +1,12 @@
 #include <assert.h>
 #include <base64.h>
+#include <cleanup.h>
 #include <graph.h>
 #include <graphDominance.h>
 #include <linkedList.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <str.h>
-#include <cleanup.h>
 typedef int (*geCmpType)(const struct __graphEdge **,
                          const struct __graphEdge **);
 typedef int (*gnCmpType)(const struct __graphNode **,
@@ -61,7 +61,8 @@ static strGraphNodeP uniqueUnion(strGraphNodeP items,
 	return items;
 }
 llDominators graphComputeDominatorsPerNode(struct __graphNode *start) {
-	strGraphNodeP allNodes CLEANUP(strGraphNodePDestroy) = __graphNodeVisitAll(start);
+	strGraphNodeP allNodes CLEANUP(strGraphNodePDestroy) =
+	    __graphNodeVisitAll(start);
 	llDominators list = NULL;
 	for (long i = 0; i != strGraphNodePSize(allNodes); i++) {
 		struct graphDominators tmp;
@@ -190,8 +191,7 @@ static strGraphNodeP graphDominatorIdoms(const llDominators doms,
 }
 struct __graphNode *graphDominatorIdom(const llDominators doms,
                                        struct __graphNode *node) {
-	strGraphNodeP idoms  =
-	    graphDominatorIdoms(doms, node);
+	strGraphNodeP idoms = graphDominatorIdoms(doms, node);
 	if (strGraphNodePSize(idoms) == 0)
 		return NULL;
 

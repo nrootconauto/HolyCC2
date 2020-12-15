@@ -2,39 +2,39 @@
 #include <IRExec.h>
 #include <assert.h>
 #include <base64.h>
+#include <cleanup.h>
 #include <exprParser.h>
 #include <hashTable.h>
 #include <intExponet.h>
 #include <math.h>
 #include <object.h>
+#include <registers.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <registers.h>
-#include <cleanup.h>
 static char *ptr2Str(const void *a) { return base64Enc((void *)&a, sizeof(a)); }
 MAP_TYPE_DEF(graphNodeIR, Func);
 MAP_TYPE_FUNCS(graphNodeIR, Func);
-static   mapFunc funcs  = NULL;
+static mapFunc funcs = NULL;
 MAP_TYPE_DEF(struct IREvalVal, VarVal);
 MAP_TYPE_FUNCS(struct IREvalVal, VarVal);
-static   mapVarVal varVals  = NULL;
+static mapVarVal varVals = NULL;
 struct frameItem {
-		struct IRVar *var;
-		struct IREvalVal value;
+	struct IRVar *var;
+	struct IREvalVal value;
 };
 LL_TYPE_DEF(struct frameItem, FrameItem);
 LL_TYPE_FUNCS(struct frameItem, FrameItem);
-MAP_TYPE_DEF(struct IREvalVal,RegVal);
-MAP_TYPE_FUNCS(struct IREvalVal,RegVal);
-static    mapRegVal registerValues =NULL;
-static    llFrameItem frame =NULL;
+MAP_TYPE_DEF(struct IREvalVal, RegVal);
+MAP_TYPE_FUNCS(struct IREvalVal, RegVal);
+static mapRegVal registerValues = NULL;
+static llFrameItem frame = NULL;
 void IREvalInit() {
 	if (varVals)
 		mapVarValDestroy(varVals, NULL);
-	if(registerValues)
-			mapRegValDestroy(registerValues, NULL);
-	
-	registerValues=mapRegValCreate();
+	if (registerValues)
+		mapRegValDestroy(registerValues, NULL);
+
+	registerValues = mapRegValCreate();
 	varVals = mapVarValCreate();
 }
 static struct IREvalVal dftValueType(enum IREvalValType type) {
@@ -42,8 +42,8 @@ static struct IREvalVal dftValueType(enum IREvalValType type) {
 	retVal.type = type;
 	switch (type) {
 	case IREVAL_VAL_REG: {
-			retVal.value.reg=&regX86EAX;
-			break;
+		retVal.value.reg = &regX86EAX;
+		break;
 	}
 	case IREVAL_VAL_DFT:
 		//?
@@ -80,33 +80,37 @@ loop:;
 
 	return find;
 }
-static int llFrameItemGetPred(const struct IRVar * a,const struct frameItem *item) {
-		return IRVarCmpIgnoreVersion(a, item->var);
+static int llFrameItemGetPred(const struct IRVar *a,
+                              const struct frameItem *item) {
+	return IRVarCmpIgnoreVersion(a, item->var);
 }
-static int llFrameItemInsertPred(const struct frameItem *a,const struct frameItem *b) {
-		return IRVarCmpIgnoreVersion(a->var, b->var);
+static int llFrameItemInsertPred(const struct frameItem *a,
+                                 const struct frameItem *b) {
+	return IRVarCmpIgnoreVersion(a->var, b->var);
 }
 typedef int (*frameItemGetPredType)(const void *, const struct frameItem *);
 static struct IREvalVal *valueHash(struct IRValue *value) {
-		if(value->type==IR_VAL_REG){
-		registerValueLoop:;
-				__auto_type regValue=mapRegValGet(registerValues, value->value.reg.reg->name);
-				if(!regValue) {
-						mapRegValInsert(registerValues, value->value.reg.reg->name, dftValueType(IREVAL_VAL_INT));
-						goto registerValueLoop;
-				}
+	if (value->type == IR_VAL_REG) {
+	registerValueLoop:;
+		__auto_type regValue =
+		    mapRegValGet(registerValues, value->value.reg.reg->name);
+		if (!regValue) {
+			mapRegValInsert(registerValues, value->value.reg.reg->name,
+			                dftValueType(IREVAL_VAL_INT));
+			goto registerValueLoop;
+		}
 
-				return regValue;
-		} else if(value->type == IR_VAL_VAR_REF) {
+		return regValue;
+	} else if (value->type == IR_VAL_VAR_REF) {
 		if (value->value.var.type == IR_VAR_VAR) {
 			__auto_type ptrStr = ptr2Str(value->value.var.value.var);
 		loopVar:;
 			__auto_type find = mapVarValGet(varVals, ptrStr);
 			if (!find) {
-				mapVarValInsert(varVals, ptrStr, dftValueType( IREVAL_VAL_INT));
+				mapVarValInsert(varVals, ptrStr, dftValueType(IREVAL_VAL_INT));
 				goto loopVar;
 			}
-			
+
 			assert(find);
 			return find;
 		} else if (value->value.var.type == IR_VAR_MEMBER) {
@@ -118,15 +122,14 @@ static struct IREvalVal *valueHash(struct IRValue *value) {
 				mapVarValInsert(varVals, ptrStr, dftValueType(IREVAL_VAL_INT));
 				goto loopMember;
 			}
-			
+
 			assert(find);
 			return find;
 		}
 	} else if (value->type == IR_VAL_REG) {
 		// TODO implement me
 	} else if (value->type == __IR_VAL_MEM_FRAME) {
-		long len =
-		    snprintf(NULL, 0, "FRM:[%li]", value->value.__frame.offset);
+		long len = snprintf(NULL, 0, "FRM:[%li]", value->value.__frame.offset);
 		char buffer[len + 1];
 		sprintf(buffer, "FRM:[%li]", value->value.__frame.offset);
 
@@ -145,7 +148,7 @@ static struct IREvalVal *valueHash(struct IRValue *value) {
 		long len = snprintf(NULL, 0, "GLB:[%s]", sym);
 		char buffer[len + 1];
 		sprintf(buffer, "GLB:[%s]", sym);
-		
+
 	loopGlob:;
 		__auto_type find = mapVarValGet(varVals, buffer);
 		// If doesnt exist,make a value for the frame spot
@@ -161,30 +164,32 @@ static struct IREvalVal *valueHash(struct IRValue *value) {
 	assert(0);
 	return NULL;
 }
-static void spillToFrame(struct IREvalVal value,struct IRVar *frameVar) {
-	loop:;
-		__auto_type find=llFrameItemFind(frame, frameVar, (frameItemGetPredType)llFrameItemGetPred);
-		if(!find) {
-				//Insert if doesn't exit
-				struct frameItem new;
-				new.var=frameVar;
-				__auto_type newLL=llFrameItemCreate(new);
+static void spillToFrame(struct IREvalVal value, struct IRVar *frameVar) {
+loop:;
+	__auto_type find = llFrameItemFind(frame, frameVar,
+	                                   (frameItemGetPredType)llFrameItemGetPred);
+	if (!find) {
+		// Insert if doesn't exit
+		struct frameItem new;
+		new.var = frameVar;
+		__auto_type newLL = llFrameItemCreate(new);
 
-				llFrameItemInsert(frame,newLL, llFrameItemInsertPred);
-				frame=newLL;
-				goto loop;
-		}
+		llFrameItemInsert(frame, newLL, llFrameItemInsertPred);
+		frame = newLL;
+		goto loop;
+	}
 
-		//Assign value to frame item
-		llFrameItemValuePtr(find)->value= value;
+	// Assign value to frame item
+	llFrameItemValuePtr(find)->value = value;
 }
 static struct IREvalVal *loadFromFrame(struct IRVar *frameVar) {
-		__auto_type find=llFrameItemFind(frame, frameVar, (frameItemGetPredType)llFrameItemGetPred);
-		if(!find) {
-				return NULL;
-		}
+	__auto_type find = llFrameItemFind(frame, frameVar,
+	                                   (frameItemGetPredType)llFrameItemGetPred);
+	if (!find) {
+		return NULL;
+	}
 
-		return &llFrameItemValuePtr(find)->value;
+	return &llFrameItemValuePtr(find)->value;
 }
 
 struct object *IRValuegetType(struct IRValue *node) {
@@ -257,7 +262,7 @@ static int getBinopArgs(graphNodeIR node, struct IREvalVal *arg1,
 		a = b;
 		b = tmp;
 	}
-	
+
 	*arg1 = a;
 	*arg2 = b;
 	return 1;
@@ -333,29 +338,30 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 	struct IRNode *ir = graphNodeIRValuePtr(node);
 	switch (ir->type) {
 	case IR_VALUE: {
-			//Check for incoming assign
-			int assignedInto=0;
-			strGraphEdgeIRP incoming  CLEANUP(strGraphEdgeIRPDestroy)= graphNodeIRIncoming(node);
-			strGraphEdgeIRP assign CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(incoming, IR_CONN_DEST);
-			struct IREvalVal res;
-			if(strGraphEdgeIRPSize(assign)!=0) {
-					assignedInto=1;
-					int success2;
-					res=IREvalNode(graphEdgeIRIncoming(incoming[0]), &success2);
-					if(!success2)
-							goto fail;
-			}
-			
+		// Check for incoming assign
+		int assignedInto = 0;
+		strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) =
+		    graphNodeIRIncoming(node);
+		strGraphEdgeIRP assign CLEANUP(strGraphEdgeIRPDestroy) =
+		    IRGetConnsOfType(incoming, IR_CONN_DEST);
+		struct IREvalVal res;
+		if (strGraphEdgeIRPSize(assign) != 0) {
+			assignedInto = 1;
+			int success2;
+			res = IREvalNode(graphEdgeIRIncoming(incoming[0]), &success2);
+			if (!success2)
+				goto fail;
+		}
+
 		struct IRNodeValue *__value = (void *)ir;
 		struct IRValue *value = &__value->val;
 		switch (value->type) {
 		case IR_VAL_VAR_REF: {
-			int success2=1;
+			int success2 = 1;
 			if (assignedInto) {
-				*valueHash(value) =
-				    res;
+				*valueHash(value) = res;
 			}
-			
+
 			if (!success2)
 				goto fail;
 
@@ -369,12 +375,12 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 			return IREValValIntCreate(value->value.intLit.value.sLong);
 		}
 		case IR_VAL_REG: {
-				if(success)
-						*success=1;
-				if(assignedInto)
-				*valueHash(value)=res;
+			if (success)
+				*success = 1;
+			if (assignedInto)
+				*valueHash(value) = res;
 
-				return *valueHash(value);
+			return *valueHash(value);
 		}
 		case IR_VAL_FUNC:
 		default:
@@ -656,51 +662,51 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 		return *arrayAccessHash(&a, &b, a.type);
 	}
 	case IR_SIMD:
-			goto fail;
+		goto fail;
 	case IR_SPILL: {
-			//Expect 1 incoming assign
-			strGraphEdgeIRP incoming =graphNodeIRIncoming(node);
-			strGraphEdgeIRP assigns =IRGetConnsOfType(incoming, IR_CONN_DEST);
-			assert(strGraphEdgeIRPSize(assigns)==1);
+		// Expect 1 incoming assign
+		strGraphEdgeIRP incoming = graphNodeIRIncoming(node);
+		strGraphEdgeIRP assigns = IRGetConnsOfType(incoming, IR_CONN_DEST);
+		assert(strGraphEdgeIRPSize(assigns) == 1);
 
-			graphNodeIR incomingNode=graphEdgeIRIncoming(assigns[0]);
+		graphNodeIR incomingNode = graphEdgeIRIncoming(assigns[0]);
 
-			int success2;
-			__auto_type val=IREvalNode(incomingNode, &success2);
-			if(!success2)
-					goto fail;
-			
-			struct IRNodeSpill *spill=(void*)graphNodeIRValuePtr(node);
-			assert(spill->item.type==IR_VAL_VAR_REF);
-			spillToFrame(val, &spill->item.value.var);
+		int success2;
+		__auto_type val = IREvalNode(incomingNode, &success2);
+		if (!success2)
+			goto fail;
 
-			return val;
+		struct IRNodeSpill *spill = (void *)graphNodeIRValuePtr(node);
+		assert(spill->item.type == IR_VAL_VAR_REF);
+		spillToFrame(val, &spill->item.value.var);
+
+		return val;
 	}
 	case IR_LOAD: {
-			struct IRNodeLoad *load=(void*)graphNodeIRValuePtr(node);
-			//Ensure is a variable
-			if(load->item.type!=IR_VAL_VAR_REF)
-					goto fail;
+		struct IRNodeLoad *load = (void *)graphNodeIRValuePtr(node);
+		// Ensure is a variable
+		if (load->item.type != IR_VAL_VAR_REF)
+			goto fail;
 
-			if(success)
-					*success=1;
-			
-			__auto_type find=loadFromFrame(&load->item.value.var);
-			if(find)
-					return *find;
+		if (success)
+			*success = 1;
 
-			return dftValueType(IREVAL_VAL_INT);
+		__auto_type find = loadFromFrame(&load->item.value.var);
+		if (find)
+			return *find;
+
+		return dftValueType(IREVAL_VAL_INT);
 	}
 	case IR_FUNC_RETURN: {
-			strGraphEdgeIRP  incoming CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(node);
-			if(strGraphEdgeIRPSize(incoming)!=1)
-					goto fail;
+		strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) =
+		    graphNodeIRIncoming(node);
+		if (strGraphEdgeIRPSize(incoming) != 1)
+			goto fail;
 
-			if(!IRIsExprEdge(*graphEdgeIRValuePtr(incoming[0])))
-					return dftValueType(IREVAL_VAL_INT);
+		if (!IRIsExprEdge(*graphEdgeIRValuePtr(incoming[0])))
+			return dftValueType(IREVAL_VAL_INT);
 
-			return IREvalNode(graphEdgeIRIncoming(incoming[0]), success);
-			
+		return IREvalNode(graphEdgeIRIncoming(incoming[0]), success);
 	}
 	default:
 		goto fail;
@@ -716,157 +722,158 @@ void IREvalSetVarVal(const struct variable *var, struct IREvalVal value) {
 	ref.value.var.value.var = (void *)var;
 	*valueHash(&ref) = value;
 }
-static struct IREvalVal __IREvalPath(graphNodeIR start,struct IREvalVal *currentValue,int *success) {
-		if(success)
-						*success=1;
+static struct IREvalVal
+__IREvalPath(graphNodeIR start, struct IREvalVal *currentValue, int *success) {
+	if (success)
+		*success = 1;
 
-		graphNodeIR endNode=NULL;
-		struct IREvalVal retVal;
-		
-		graphNodeIR current=start;
-		__auto_type nodeValue=graphNodeIRValuePtr(start);
-		switch(nodeValue->type) {
-		case IR_JUMP_TAB:
-		case IR_CHOOSE:
-				goto fail;
-		case IR_COND_JUMP: {
-				if(!currentValue)
-						goto fail;
-				
-				if(currentValue->type==IREVAL_VAL_PTR) {
-						if(currentValue->value.ptr.value!=0)
-								goto trueBranch;
-						else
-								goto falseBranch;
-				} else if(currentValue->type==IREVAL_VAL_FLT) {
-						if(currentValue->value.flt!=.00)
-								goto trueBranch;
-						else
-								goto falseBranch;
-				} else if(currentValue->type==IREVAL_VAL_INT) {
-						if(currentValue->value.i!=0)
-								goto trueBranch;
-						else
-								goto falseBranch;
-				} else {
-						goto fail;
-				}
-				
-				trueBranch: {
-						__auto_type outgoing=graphNodeIROutgoing(start);
-						__auto_type truePath=IRGetConnsOfType(outgoing, IR_CONN_COND_TRUE);
+	graphNodeIR endNode = NULL;
+	struct IREvalVal retVal;
 
-						int success2;
-						__IREvalPath(graphEdgeIROutgoing(truePath[0]),NULL,&success2);
-						
-						if(!success2)
-								goto fail;
-						
-						return dftValueType(IREVAL_VAL_INT);
-				}
-				falseBranch: {
-						__auto_type outgoing=graphNodeIROutgoing(start);
-						__auto_type falsePath=IRGetConnsOfType(outgoing, IR_CONN_COND_FALSE);
+	graphNodeIR current = start;
+	__auto_type nodeValue = graphNodeIRValuePtr(start);
+	switch (nodeValue->type) {
+	case IR_JUMP_TAB:
+	case IR_CHOOSE:
+		goto fail;
+	case IR_COND_JUMP: {
+		if (!currentValue)
+			goto fail;
 
-						int success2;
-						__IREvalPath(graphEdgeIROutgoing(falsePath[0]),NULL,&success2);
-
-						if(!success2)
-								goto fail;
-						
-						return dftValueType(IREVAL_VAL_INT);
-				}
-		}
-		case IR_VALUE: {
-				__auto_type end=IRGetEndOfExpr(start);
-				int success2;
-				retVal=IREvalNode(end, &success2);
-				if(!success2)
-						goto fail;
-
-				endNode=end;
-				goto findNext;
-		}
-		case IR_LABEL: {
-				//If multiple outputs,check if see if they end a shared expression node
-				strGraphNodeIRP outgoing =graphNodeIROutgoingNodes(start);
-				
-				if(strGraphNodeIRPSize(outgoing)>1) {
-						graphNodeIR commonEnd=IRGetEndOfExpr(outgoing[0]);
-						for(long i=1;i!=strGraphNodeIRPSize(outgoing);i++) {
-								__auto_type end=IRGetEndOfExpr(outgoing[i]);
-								if(commonEnd!=end)
-										goto fail;
-						}
-
-						//All share common end if reached here
-						int success2;
-						__auto_type value=IREvalNode(commonEnd, &success2);
-						retVal=value;
-						if(!success2)
-								goto fail;
-
-						endNode=commonEnd;
-						goto findNext;
-				}
-
-				//1 or less exits so just continue
-				endNode=start;
-				goto findNext;
-				}
-		case IR_SPILL: {
-				struct IRNodeSpill *value=(void*)nodeValue;
-				if(value->item.type!=IR_VAL_VAR_REF)
-						goto fail;
-				
-				spillToFrame(*currentValue, &value->item.value.var);
-				retVal=*currentValue;
-				
-				endNode=start;
-				goto findNext;
-		}
-		case IR_LOAD: {
-				int success2;
-				retVal=IREvalNode(start, &success2);
-				if(!success2)
-						goto fail;
-				
-				endNode=IRGetEndOfExpr(start);
-				goto findNext;
-		}
-		case IR_STATEMENT_END:
-		case IR_STATEMENT_START:
-				endNode=start;
-				goto findNext;
-		default:;
-				//Perhaps is an expression node
-				__auto_type end=IRGetEndOfExpr(start);
-				int success2;
-				retVal=IREvalNode(end, &success2);
-				if(!success2)
-						goto fail;
-
-				endNode= end;
-				goto findNext;
-		}
-	fail: {
-				if(success)
-						*success=0;
-				return dftValueType(IREVAL_VAL_INT);
-		}
-	findNext:;
-		strGraphEdgeIRP outgoing =graphNodeIROutgoing(endNode);
-		strGraphEdgeIRP flow =IRGetConnsOfType(outgoing, IR_CONN_FLOW);
-		long flowCount=strGraphEdgeIRPSize(flow);
-		if(flowCount>1) {
-				goto fail;
-		} else if(flowCount==1) {
-				return __IREvalPath(graphEdgeIROutgoing(flow[0]), &retVal, success);
+		if (currentValue->type == IREVAL_VAL_PTR) {
+			if (currentValue->value.ptr.value != 0)
+				goto trueBranch;
+			else
+				goto falseBranch;
+		} else if (currentValue->type == IREVAL_VAL_FLT) {
+			if (currentValue->value.flt != .00)
+				goto trueBranch;
+			else
+				goto falseBranch;
+		} else if (currentValue->type == IREVAL_VAL_INT) {
+			if (currentValue->value.i != 0)
+				goto trueBranch;
+			else
+				goto falseBranch;
 		} else {
-				return retVal;
+			goto fail;
 		}
+
+	trueBranch : {
+		__auto_type outgoing = graphNodeIROutgoing(start);
+		__auto_type truePath = IRGetConnsOfType(outgoing, IR_CONN_COND_TRUE);
+
+		int success2;
+		__IREvalPath(graphEdgeIROutgoing(truePath[0]), NULL, &success2);
+
+		if (!success2)
+			goto fail;
+
+		return dftValueType(IREVAL_VAL_INT);
+	}
+	falseBranch : {
+		__auto_type outgoing = graphNodeIROutgoing(start);
+		__auto_type falsePath = IRGetConnsOfType(outgoing, IR_CONN_COND_FALSE);
+
+		int success2;
+		__IREvalPath(graphEdgeIROutgoing(falsePath[0]), NULL, &success2);
+
+		if (!success2)
+			goto fail;
+
+		return dftValueType(IREVAL_VAL_INT);
+	}
+	}
+	case IR_VALUE: {
+		__auto_type end = IRGetEndOfExpr(start);
+		int success2;
+		retVal = IREvalNode(end, &success2);
+		if (!success2)
+			goto fail;
+
+		endNode = end;
+		goto findNext;
+	}
+	case IR_LABEL: {
+		// If multiple outputs,check if see if they end a shared expression node
+		strGraphNodeIRP outgoing = graphNodeIROutgoingNodes(start);
+
+		if (strGraphNodeIRPSize(outgoing) > 1) {
+			graphNodeIR commonEnd = IRGetEndOfExpr(outgoing[0]);
+			for (long i = 1; i != strGraphNodeIRPSize(outgoing); i++) {
+				__auto_type end = IRGetEndOfExpr(outgoing[i]);
+				if (commonEnd != end)
+					goto fail;
+			}
+
+			// All share common end if reached here
+			int success2;
+			__auto_type value = IREvalNode(commonEnd, &success2);
+			retVal = value;
+			if (!success2)
+				goto fail;
+
+			endNode = commonEnd;
+			goto findNext;
+		}
+
+		// 1 or less exits so just continue
+		endNode = start;
+		goto findNext;
+	}
+	case IR_SPILL: {
+		struct IRNodeSpill *value = (void *)nodeValue;
+		if (value->item.type != IR_VAL_VAR_REF)
+			goto fail;
+
+		spillToFrame(*currentValue, &value->item.value.var);
+		retVal = *currentValue;
+
+		endNode = start;
+		goto findNext;
+	}
+	case IR_LOAD: {
+		int success2;
+		retVal = IREvalNode(start, &success2);
+		if (!success2)
+			goto fail;
+
+		endNode = IRGetEndOfExpr(start);
+		goto findNext;
+	}
+	case IR_STATEMENT_END:
+	case IR_STATEMENT_START:
+		endNode = start;
+		goto findNext;
+	default:;
+		// Perhaps is an expression node
+		__auto_type end = IRGetEndOfExpr(start);
+		int success2;
+		retVal = IREvalNode(end, &success2);
+		if (!success2)
+			goto fail;
+
+		endNode = end;
+		goto findNext;
+	}
+fail : {
+	if (success)
+		*success = 0;
+	return dftValueType(IREVAL_VAL_INT);
+}
+findNext:;
+	strGraphEdgeIRP outgoing = graphNodeIROutgoing(endNode);
+	strGraphEdgeIRP flow = IRGetConnsOfType(outgoing, IR_CONN_FLOW);
+	long flowCount = strGraphEdgeIRPSize(flow);
+	if (flowCount > 1) {
+		goto fail;
+	} else if (flowCount == 1) {
+		return __IREvalPath(graphEdgeIROutgoing(flow[0]), &retVal, success);
+	} else {
+		return retVal;
+	}
 }
 
-struct IREvalVal IREvalPath(graphNodeIR start,int *success) {
-		return __IREvalPath(start, NULL, success);
-} 
+struct IREvalVal IREvalPath(graphNodeIR start, int *success) {
+	return __IREvalPath(start, NULL, success);
+}

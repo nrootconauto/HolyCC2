@@ -17,7 +17,7 @@ struct IREvalVal {
 		} ptr;
 		double flt;
 		int64_t i;
-			struct reg *reg;
+		struct reg *reg;
 	} value;
 };
 struct IREvalVal IREvalNode(graphNodeIR node, int *success);
@@ -25,4 +25,4 @@ void IREvalSetVarVal(const struct variable *var, struct IREvalVal value);
 struct IREvalVal IREvalValFltCreate(double f);
 struct IREvalVal IREValValIntCreate(long i);
 void IREvalInit();
-struct IREvalVal IREvalPath(graphNodeIR start,int *success);
+struct IREvalVal IREvalPath(graphNodeIR start, int *success);

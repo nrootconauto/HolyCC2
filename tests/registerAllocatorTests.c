@@ -152,6 +152,55 @@ void registerAllocatorTests() {
 				assert(strGraphEdgeIRPSize(assigns)==0);
 		}
 		//
+		// Rematerialization test
+		//
+		{
+				__auto_type a=createVirtVar(&typeI32i);
+				__auto_type b=createVirtVar(&typeI32i);
+				__auto_type c=createVirtVar(&typeI32i);
+				__auto_type d=createVirtVar(&typeI32i);
+				__auto_type e=createVirtVar(&typeI32i);
+
+				//a+1
+				graphNodeIR aP1,start;
+				aP1=createBinop(createVarRef(a), createIntLit(2), IR_ADD);
+
+				//b=a+1
+				graphNodeIR current;
+				{
+						__auto_type bRef=createVarRef(b);
+						graphNodeIRConnect(cloneNode(aP1, IR_CLONE_EXPR, NULL), bRef, IR_CONN_DEST);
+						current=bRef;
+						start=IRGetStmtStart(bRef);
+				}
+				//c=a+1
+				{
+						__auto_type cRef=createVarRef(c);
+						graphNodeIRConnect(cloneNode(aP1, IR_CLONE_EXPR, NULL), cRef, IR_CONN_DEST);
+						graphNodeIRConnect(current, IRGetStmtStart(cRef), IR_CONN_FLOW);
+						current=cRef;
+				}
+				//d=a+1
+					{
+						__auto_type dRef=createVarRef(d);
+						graphNodeIRConnect(cloneNode(aP1, IR_CLONE_EXPR, NULL), dRef, IR_CONN_DEST);
+						graphNodeIRConnect(current, IRGetStmtStart(dRef), IR_CONN_FLOW);
+						current=dRef;
+					}
+						//e=a+1
+					{
+						__auto_type eRef=createVarRef(e);
+						graphNodeIRConnect(cloneNode(aP1, IR_CLONE_EXPR, NULL), eRef, IR_CONN_DEST);
+						graphNodeIRConnect(current, IRGetStmtStart(eRef), IR_CONN_FLOW);
+						current=eRef;
+					}
+
+					setArch(ARCH_TEST_SYSV);
+					debugShowGraph(start);
+					IRRegisterAllocate(start, NULL, NULL);
+					debugShowGraph(start);
+		}
+		//
 		// Register allocater test
 		//
 		{

@@ -3,7 +3,7 @@
 #include <hashTable.h>
 #include <parserB.h>
 #include <string.h>
-static  llScope currentScope  = NULL;
+static llScope currentScope = NULL;
 void enterScope() {
 	struct scope new;
 	new.parent = currentScope;

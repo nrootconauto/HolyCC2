@@ -69,11 +69,11 @@ struct diagInst {
 };
 MAP_TYPE_DEF(struct diagInst, Inst);
 MAP_TYPE_FUNCS(struct diagInst, Inst);
-static  mapInst   insts  = NULL;
+static mapInst insts = NULL;
 // TODO implement file mappings
-static  strFileMappings fileMappings ;
-static  strTextModify mappings ;
-static  struct diagInst *currentInst = NULL;
+static strFileMappings fileMappings;
+static strTextModify mappings;
+static struct diagInst *currentInst = NULL;
 static int errCount = 0;
 static struct diagInst *diagInstByPos(long where) {
 	if (where == diagInputSize()) {
@@ -309,9 +309,9 @@ static void qouteLine(struct diagInst *inst, long start, long end,
 	long oldPos = lineStart;
 	for (long searchPos = lineStart; searchPos < lineEnd;) {
 		long newPos;
-		strLong hitStarts ;
+		strLong hitStarts;
 		hitStarts = NULL;
-		strLong hitEnds ;
+		strLong hitEnds;
 		hitEnds = NULL;
 		// Find next boundary(start/end) of qoute at pos
 		// closesPos is made to point to end of buffer so all compares with initial
@@ -369,7 +369,7 @@ static void qouteLine(struct diagInst *inst, long start, long end,
 				                              textAttrCmp);
 
 			attrs = strTextAttrSetDifference(attrs, tmp, textAttrCmp);
-			}
+		}
 
 		// Add attrs for starts to attrs
 		for (long i = 0; i != strLongSize(hitStarts); i++) {
@@ -397,7 +397,6 @@ static void qouteLine(struct diagInst *inst, long start, long end,
 	endAttrs(inst);
 
 	start = end;
-	
 }
 void diagPushText(const char *text) {
 	assert(currentInst != NULL);
@@ -527,9 +526,7 @@ void diagInstCreate(enum outputType type, const strFileMappings __fileMappings,
 		mapInstInsert(insts, fileName, retVal);
 	}
 }
-static void diagInstDestroy(struct diagInst *inst) {
-	fclose(inst->sourceFile);
-}
+static void diagInstDestroy(struct diagInst *inst) { fclose(inst->sourceFile); }
 static void destroyDiags() {
 	if (insts != NULL)
 		mapInstDestroy(insts, (void (*)(void *))diagInstDestroy);
