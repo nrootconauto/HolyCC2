@@ -1155,30 +1155,44 @@ struct rematerialization {
 	graphNodeIR clone;
 	strRegSlice registers;
 };
-static void infectUntilReg(graphNodeIR node, strGraphNodeP *regs,
+static int infectUntilReg(graphNodeIR node, strGraphNodeP *regs,
                            strGraphNodeIRP *visited) {
 	if (NULL== strGraphNodeIRPSortedFind(*visited, node, (gnCmpType)ptrPtrCmp)) {
 		*visited =
 		    strGraphNodeIRPSortedInsert(*visited, node, (gnCmpType)ptrPtrCmp);
 	} else
-		return; // Already visited
+		return 0; // Already visited
 
+	//Ensure isn't a simd  operation or function call
+	__auto_type type=graphNodeIRValuePtr(node)->type;
+	if(type==IR_FUNC_CALL||type==IR_SIMD)
+			return 0;
+	
 	struct IRNodeValue *val = (void *)graphNodeIRValuePtr(node);
 	if (val->base.type == IR_VALUE) {
 		if (val->val.type == IR_VAL_REG) {
 			*regs = strGraphNodeIRPSortedInsert(*regs, node, (gnCmpType)ptrPtrCmp);
-			return;
+			return 1;
 		}
 	}
 
 	strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) =
 	    graphNodeIRIncoming(node);
 	for (long i = 0; i != strGraphEdgeIRPSize(incoming); i++) {
-			if(!IRIsExprEdge(*graphEdgeIRValuePtr(incoming[i])))
+			__auto_type type=*graphEdgeIRValuePtr(incoming[i]);
+			if(!IRIsExprEdge(type))
 					continue;
+
+			//Only want destination if first node
+			if(type==IR_CONN_DEST)
+					if(strGraphNodeIRPSize(*visited)!=1)
+							continue;
 			
-			infectUntilReg(graphEdgeIRIncoming(incoming[i]), regs, visited);
+			if(!infectUntilReg(graphEdgeIRIncoming(incoming[i]), regs, visited))
+					return 0;
 	}
+
+	return 1;
 }
 static void addToNodes(struct __graphNode *node, void *data) {
 	strGraphNodeIRP *Data = (void *)data;
@@ -1258,7 +1272,8 @@ static graphNodeIR rematRecur(graphNodeIR node, strGraphNodeIRP *retmatNodes,
                               strRegSlice affected, graphNodeIR parentNode) {
 	strGraphNodeIRP nodes CLEANUP(strGraphNodeIRPDestroy) = NULL;
 	strGraphNodeIRP tops2 CLEANUP(strGraphNodeIRPDestroy) = NULL;
-	infectUntilReg(node, &tops2, &nodes);
+	if(!infectUntilReg(node, &tops2, &nodes))
+			return NULL;
 
 	mapGraphNode mappings CLEANUP(mapGraphNodeDestroy2);
 	__auto_type retVal = IRCloneUpTo(node, tops2, &mappings);
@@ -1266,7 +1281,7 @@ static graphNodeIR rematRecur(graphNodeIR node, strGraphNodeIRP *retmatNodes,
 	// Find operation nodes of nodes
 	long newOpCount = 0;
 	for (long i = 0; i != strGraphNodeIRPSize(nodes); i++)
-		if (graphNodeIRValuePtr(nodes[i])->type != IR_VALUE)
+		if (IRIsOperator(nodes[i]))
 			newOpCount++;
 
 	// Check if (if added) would excede MAXIMUM_REMATIALIZATION_OPS operations

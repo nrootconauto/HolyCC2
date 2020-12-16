@@ -1367,3 +1367,43 @@ struct object *IRNodeType(graphNodeIR node) {
 	return &typeI64i;
 }
 void IRNodeDestroy(struct IRNode *node) {}
+int IRIsOperator(graphNodeIR node) {
+		switch(graphNodeIRValuePtr(node)->type) {
+		case IR_ADD:
+		case IR_ADDR_OF:
+		case IR_ARRAY_ACCESS:
+		case IR_ASSIGN:
+		case IR_BAND:
+		case IR_BNOT:
+		case IR_BOR:
+		case IR_BXOR:
+		case IR_DEC:
+		case IR_DERREF:
+		case IR_DIV:
+		case IR_EQ:
+		case IR_FUNC_CALL:
+		case IR_GE:
+		case IR_GT:
+		case IR_INC:
+		case IR_LAND:
+		case IR_LE:
+		case IR_LNOT:
+		case IR_LOR:
+		case IR_LSHIFT:
+		case IR_LT:
+		case IR_LXOR:
+		case IR_MOD:
+		case IR_MULT:
+		case IR_NE:
+		case IR_NEG:
+		case IR_POS:
+		case IR_POW:
+		case IR_RSHIFT:
+		case IR_SIMD:
+		case IR_SUB:
+		case IR_TYPECAST:
+				return 1;
+		default:
+				return 0;
+		}
+}

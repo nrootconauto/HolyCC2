@@ -328,3 +328,4 @@ struct object *IRNodeType(graphNodeIR node);
 void IRNodeDestroy(struct IRNode *node);
 graphNodeIR IRCloneUpTo(graphNodeIR node, strGraphNodeIRP to,
                         mapGraphNode *mappings);
+int IRIsOperator(graphNodeIR node);
