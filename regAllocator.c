@@ -1196,6 +1196,14 @@ static graphNodeIR findSinglePreviousAssign(graphNodeIR node) {
 			return NULL;
 
 		var = spill->item.value.var;
+	} else if(irNode->type == IR_LOAD) {
+			struct IRNodeLoad *load = (void *)irNode;
+			if (load->item.type != IR_VAL_VAR_REF)
+					return NULL;
+			if (load->item.type != IR_VAL_VAR_REF)
+					return NULL;
+			
+			var=load->item.value.var;
 	} else if (irNode->type == IR_VALUE) {
 		struct IRNodeValue *value = (void *)irNode;
 		if (value->val.type == IR_VAL_VAR_REF) {
@@ -1340,13 +1348,14 @@ static void replaceWithRemat(graphNodeIR node, strRegSlice affected,
                      mapRegSlice liveToReg, strVarToLiveNode varToLive) {
 	// Assert that node is a spill to be re-computed
 	__auto_type irNode = graphNodeIRValuePtr(node);
-	assert(irNode->type == IR_SPILL);
+	assert(irNode->type == IR_LOAD);
 
 	strGraphNodeIRP retmatNodes = strGraphNodeIRPAppendItem(NULL, node);
 	strGraphNodeIRP operationNodes CLEANUP(strGraphNodeIRPDestroy) = NULL;
 	strGraphNodeIRP tempVarNodes CLEANUP(strGraphNodeIRPDestroy) = NULL;
 
-	__auto_type rematExpr = rematRecur(node, &retmatNodes, &operationNodes,
+	__auto_type assign=findSinglePreviousAssign(node);
+	__auto_type rematExpr = rematRecur(assign, &retmatNodes, &operationNodes,
 	                                   &tempVarNodes, affected, NULL);
 	if (rematExpr) {
 		// Map that mapped temp-varaible node to register slice
@@ -1509,7 +1518,7 @@ static void rematerialize(graphNodeIR start, mapRegSlice live2Reg,
 				}
 			}
 
-			replaceWithRemat(loads[i], registersInPath, live2Reg, assoc);
+			replaceWithRemat(*graphNodeMappingValuePtr(loads[i]), registersInPath, live2Reg, assoc);
 		}
 	}
 }
