@@ -199,6 +199,19 @@ void registerAllocatorTests() {
 						graphNodeIRConnect(current, IRGetStmtStart(eRef), IR_CONN_FLOW);
 						current=eRef;
 					}
+					//a+b+c+d+e
+					{
+							__auto_type aRef=createVarRef(a);
+							__auto_type bRef=createVarRef(b);
+							__auto_type cRef=createVarRef(c);
+							__auto_type dRef=createVarRef(d);
+							__auto_type eRef=createVarRef(e);
+							__auto_type one= createBinop(bRef, cRef, IR_ADD);
+							__auto_type two= createBinop(one, dRef, IR_ADD);
+							__auto_type three= createBinop(two, eRef, IR_ADD);
+							__auto_type four= createBinop(three, aRef, IR_ADD);
+							graphNodeIRConnect(current, IRGetStmtStart(four), IR_CONN_FLOW);
+					}
 
 					setArch(ARCH_TEST_SYSV);
 					debugShowGraph(start);

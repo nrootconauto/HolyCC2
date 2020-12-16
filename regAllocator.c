@@ -1051,7 +1051,7 @@ void IRAttrVariableRemoveAllNodes(graphNodeIR node) {
 		}
 	}
 }
-static int isLiveVar(graphNodeIR start, const void *live) {
+static int isAssignedLiveVarOrLoad(graphNodeIR start, const void *live) {
 	// Check if load of live variable
 	if (graphNodeIRValuePtr(start)->type == IR_LOAD) {
 		struct IRNodeLoad *load = (void *)graphNodeIRValuePtr(start);
@@ -1077,9 +1077,14 @@ static int isLiveVar(graphNodeIR start, const void *live) {
 
 	return 0;
 }
-static int isLoadMappedNode(const void *data, const graphNodeMapping *mapping) {
-	return graphNodeIRValuePtr(*graphNodeMappingValuePtr(*mapping))->type ==
+static int isNotLMappedLoadNode(const void *data, const graphNodeMapping *mapping) {
+	return graphNodeIRValuePtr(*graphNodeMappingValuePtr(*mapping))->type !=
 	       IR_LOAD;
+}
+static int isAssignRegMappedNode(const void *data, const graphNodeMapping *mapping) {
+		strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(*graphNodeMappingValuePtr((graphNodeMapping)*mapping));
+		strGraphEdgeIRP assigns CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(incoming, IR_CONN_DEST);
+		return strGraphEdgeIRPSize(assigns)!=0;
 }
 struct varInReg {
 	struct IRVar var;
@@ -1430,13 +1435,12 @@ static void rematerialize(graphNodeIR start, mapRegSlice live2Reg,
 		assoc = strVarToLiveNodeSortedInsert(assoc, pair, varToLiveNodeCompare);
 	}
 
-	__auto_type filtered = IRFilter(start, isLiveVar, vars);
+	__auto_type filtered = IRFilter(start, isAssignedLiveVarOrLoad, vars);
 	strGraphNodeMappingP filteredNodes CLEANUP(strGraphNodeMappingPDestroy) =
 	    graphNodeMappingAllNodes(filtered);
 	strGraphNodeMappingP loads CLEANUP(strGraphNodeMappingPDestroy) =
 	    strGraphNodeMappingPRemoveIf(strGraphNodeMappingPClone(filteredNodes),
-	                                 NULL, isLoadMappedNode);
-
+	                                 NULL, isNotLMappedLoadNode);
 	//
 	// Find spills that dominate loads
 	//
@@ -1451,7 +1455,7 @@ static void rematerialize(graphNodeIR start, mapRegSlice live2Reg,
 	system(buffer);
 	}
 	for (long i = 0; i != strGraphNodeMappingPSize(loads); i++) {
-		struct IRNodeSpill *spill =
+		struct IRNodeLoad *load =
 		    (void *)graphNodeIRValuePtr(*graphNodeMappingValuePtr(loads[i]));
 
 		__auto_type find = llDominatorsFind(doms, loads[i], llDominatorCmp);
@@ -1460,9 +1464,9 @@ static void rematerialize(graphNodeIR start, mapRegSlice live2Reg,
 		strGraphNodeMappingP doms = llDominatorsValuePtr(find)->dominators;
 		for (long i2 = 0; i2 != strGraphNodeMappingPSize(doms); i2++) {
 			// Check for spill in dominators
-			struct IRNodeLoad *load =
+			struct IRNodeLoad *spill =
 			    (void *)graphNodeIRValuePtr(*graphNodeMappingValuePtr(doms[i2]));
-			if (load->base.type != IR_LOAD)
+			if (spill->base.type != IR_SPILL)
 				continue;
 
 			// Check if vars equal
@@ -1474,8 +1478,6 @@ static void rematerialize(graphNodeIR start, mapRegSlice live2Reg,
 			    graphAllPathsTo(doms[i], loads[i]);
 			// Ensure all paths dont variables whoose registers conflict with
 			// rematerialized value
-			strRegSlice rematerializeRegisters CLEANUP(strRegSliceDestroy) =
-			    NULL; // TODO;
 			strRegSlice registersInPath CLEANUP(strRegSliceDestroy) = NULL;
 
 			// Get all edges
@@ -1484,10 +1486,15 @@ static void rematerialize(graphNodeIR start, mapRegSlice live2Reg,
 				allEdges = strGraphEdgeMappingPSetUnion(allEdges, pathsTo[i],
 				                                        (geCmpType)ptrPtrCmp);
 
-			// Find all the registers
+			// Find all the (assigned) registers
 			for (long i = 0; i != strGraphEdgeIRPSize(allEdges); i++) {
-				__auto_type ir =
-				    *graphNodeMappingValuePtr(graphEdgeMappingOutgoing(allEdges[i]));
+					__auto_type node=graphEdgeMappingOutgoing(allEdges[i]);
+					//Ensure is assigned
+					if(!isAssignRegMappedNode(NULL, &node))
+							continue;
+					
+					__auto_type ir =
+				    *graphNodeMappingValuePtr(node);
 				struct IRNodeValue *val = (void *)graphNodeIRValuePtr(ir);
 				// Check if register value
 				if (val->base.type == IR_VALUE) {
