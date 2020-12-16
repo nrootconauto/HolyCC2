@@ -1171,8 +1171,11 @@ static int infectUntilReg(graphNodeIR node, strGraphNodeP *regs,
 	struct IRNodeValue *val = (void *)graphNodeIRValuePtr(node);
 	if (val->base.type == IR_VALUE) {
 		if (val->val.type == IR_VAL_REG) {
-			*regs = strGraphNodeIRPSortedInsert(*regs, node, (gnCmpType)ptrPtrCmp);
-			return 1;
+				//Ignore quit register if first node
+				if(strGraphNodeIRPSize(*visited)!=1) {
+						*regs = strGraphNodeIRPSortedInsert(*regs, node, (gnCmpType)ptrPtrCmp);
+						return 1;
+				}
 		}
 	}
 
@@ -1282,12 +1285,14 @@ static graphNodeIR rematRecur(graphNodeIR node, strGraphNodeIRP *retmatNodes,
 	long newOpCount = 0;
 	for (long i = 0; i != strGraphNodeIRPSize(nodes); i++)
 		if (IRIsOperator(nodes[i]))
-			newOpCount++;
+				*operationNodes=strGraphNodeIRPSortedInsert(*operationNodes, nodes[i], (gnCmpType)ptrPtrCmp);
 
 	// Check if (if added) would excede MAXIMUM_REMATIALIZATION_OPS operations
-	if (newOpCount + strGraphNodeIRPSize(*operationNodes) >
-	    MAXIMUM_REMATIALIZATION_OPS)
-		return 0;
+	if (strGraphNodeIRPSize(*operationNodes) >
+	    MAXIMUM_REMATIALIZATION_OPS) {
+			graphNodeIRKill(&retVal, (void(*)(void*))IRNodeDestroy,  NULL);
+			return 0;
+	}
 
 	for (long i = 0; i != strGraphNodeIRPSize(tops2); i++) {
 		__auto_type inNode = tops2[i];
@@ -1365,9 +1370,10 @@ static graphNodeIR rematRecur(graphNodeIR node, strGraphNodeIRP *retmatNodes,
 static void mapRegSliceDestroy2(mapRegSlice *toDestroy) {
 	mapRegSliceDestroy(*toDestroy, NULL);
 }
-static void replaceWithRemat(graphNodeIR node, strRegSlice affected,
+static int replaceWithRemat(graphNodeIR node, strRegSlice affected,
                      mapRegSlice liveToReg, strVarToLiveNode varToLive) {
-	// Assert that node is a spill to be re-computed
+		int changed=0;
+		// Assert that node is a spill to be re-computed
 	__auto_type irNode = graphNodeIRValuePtr(node);
 	assert(irNode->type == IR_LOAD);
 
@@ -1428,10 +1434,11 @@ static void replaceWithRemat(graphNodeIR node, strRegSlice affected,
 		// Replace node with rematExpr
 		replaceNodeWithExpr(node, IRGetEndOfExpr(rematExpr));
 		debugShowGraphIR(IRGetStmtStart(rematExpr));
+		changed=1;
 	}
 
 fail:;
-	return;
+	return changed;
 }
 static void rematerialize(graphNodeIR start, mapRegSlice live2Reg,
                           strGraphNodeIRLiveP live) {
@@ -1525,8 +1532,8 @@ static void rematerialize(graphNodeIR start, mapRegSlice live2Reg,
 									}
 							}
 
-							replaceWithRemat(*graphNodeMappingValuePtr(loads[i]), registersInPath, live2Reg, assoc);
-							goto loop;
+							if(replaceWithRemat(*graphNodeMappingValuePtr(loads[i]), registersInPath, live2Reg, assoc))
+									goto loop;
 					}
 			}
 	}
