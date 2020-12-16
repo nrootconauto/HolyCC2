@@ -1423,22 +1423,7 @@ static void replaceWithRemat(graphNodeIR node, strRegSlice affected,
 
 		// Replace node with rematExpr
 		replaceNodeWithExpr(node, IRGetEndOfExpr(rematExpr));
-
-		// Getstart of expression of node so we can re-connect tops of retmatExpr to
-		// top of expression
-		__auto_type start = IRGetStmtStart(node);
-
-		// get retmatExpr starts and connect them to start
-		strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy) =
-		    graphNodeIRAllNodes(rematExpr);
-		for (long i = 0; i != strGraphNodeIRPSize(allNodes); i++) {
-			strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy) =
-			    graphNodeIRIncoming(allNodes[i]);
-			if (strGraphEdgeIRPSize(in) == 0) {
-				// Connect to start
-				graphNodeIRConnect(start, allNodes[i], IR_CONN_FLOW);
-			}
-		}
+		debugShowGraphIR(IRGetStmtStart(rematExpr));
 	}
 
 fail:;
