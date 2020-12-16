@@ -1157,7 +1157,7 @@ struct rematerialization {
 };
 static void infectUntilReg(graphNodeIR node, strGraphNodeP *regs,
                            strGraphNodeIRP *visited) {
-	if (NULL != strGraphNodeIRPSortedFind(*visited, node, (gnCmpType)ptrPtrCmp)) {
+	if (NULL== strGraphNodeIRPSortedFind(*visited, node, (gnCmpType)ptrPtrCmp)) {
 		*visited =
 		    strGraphNodeIRPSortedInsert(*visited, node, (gnCmpType)ptrPtrCmp);
 	} else
@@ -1173,10 +1173,12 @@ static void infectUntilReg(graphNodeIR node, strGraphNodeP *regs,
 
 	strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) =
 	    graphNodeIRIncoming(node);
-	incoming = strGraphEdgeIRPRemoveIf(incoming, NULL, isExprEdge);
-
-	for (long i = 0; i != strGraphEdgeIRPSize(incoming); i++)
-		infectUntilReg(graphEdgeIRIncoming(incoming[i]), regs, visited);
+	for (long i = 0; i != strGraphEdgeIRPSize(incoming); i++) {
+			if(!IRIsExprEdge(*graphEdgeIRValuePtr(incoming[i])))
+					continue;
+			
+			infectUntilReg(graphEdgeIRIncoming(incoming[i]), regs, visited);
+	}
 }
 static void addToNodes(struct __graphNode *node, void *data) {
 	strGraphNodeIRP *Data = (void *)data;
