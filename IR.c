@@ -1124,7 +1124,7 @@ cloneExpressions:;
 }
 static graphNodeIR __cloneNode(mapGraphNode mappings, graphNodeIR node,
                                enum IRCloneMode mode, const void *data) {
-	strChar key = ptr2Str(mappings);
+	strChar key = ptr2Str(node);
 	__auto_type find = mapGraphNodeGet(mappings, key);
 	if (find)
 		return *find;
@@ -1192,7 +1192,7 @@ static graphNodeIR __cloneNode(mapGraphNode mappings, graphNodeIR node,
 		__cloneNodeCopyConnections(mappings, node,newNode, mode, data);
 
 		// Register node
-		char *key = ptr2Str(newNode);
+		char *key = ptr2Str(node);
 		mapGraphNodeInsert(mappings, key, newNode);
 
 		return newNode;
@@ -1219,7 +1219,7 @@ static graphNodeIR __cloneNode(mapGraphNode mappings, graphNodeIR node,
 		__cloneNodeCopyConnections(mappings, node,retVal, mode, data);
 
 		// Register node
-		char *key = ptr2Str(retVal);
+		char *key = ptr2Str(node);
 		mapGraphNodeInsert(mappings, key, retVal);
 
 		return retVal;
@@ -1283,7 +1283,7 @@ static graphNodeIR __cloneNode(mapGraphNode mappings, graphNodeIR node,
 		__cloneNodeCopyConnections(mappings, node,retVal, mode, data);
 
 		// Register node
-		strChar key = ptr2Str(retVal);
+		strChar key = ptr2Str(node);
 		mapGraphNodeInsert(mappings, key, retVal);
 
 		return retVal;
@@ -1313,7 +1313,7 @@ static graphNodeIR __cloneNode(mapGraphNode mappings, graphNodeIR node,
 		__cloneNodeCopyConnections(mappings, node,retVal, mode, data);
 
 		// Register node
-		strChar key = ptr2Str(retVal);
+		strChar key = ptr2Str(node);
 		mapGraphNodeInsert(mappings, key, retVal);
 
 		return retVal;

@@ -1316,7 +1316,11 @@ static graphNodeIR rematRecur(graphNodeIR node, strGraphNodeIRP *retmatNodes,
 			if (assign) {
 				// Connect the upper rematerizialization to cloned tops2[i]
 				char *key = ptr2Str(tops2[i]);
-				__auto_type top = *mapGraphNodeGet(mappings, key);
+				long count;
+						mapGraphNodeKeys(mappings, NULL, &count);
+						const char *keys[count];
+						mapGraphNodeKeys(mappings, keys, &count);
+						__auto_type top = *mapGraphNodeGet(mappings, key);
 				free(key);
 
 				// Recur
