@@ -49,7 +49,7 @@ static char *interfereNode2Label(const struct __graphNode *node,
 	mapRegSlice map = (void *)data;
 
 	__auto_type var = &graphNodeIRLiveValuePtr((graphNodeIRLive)node)->ref;
-	__auto_type dummy = createVarRef(var->value.var);
+	__auto_type dummy = IRCreateVarRef(var->value.var);
 	((struct IRNodeValue *)graphNodeIRValuePtr(dummy))->val.value.var.SSANum =
 	    var->SSANum;
 	char *name = var2Str(dummy);
@@ -376,7 +376,7 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 			DEBUG_PRINT("Replacing %s with %s\n", var2Str(refs[i][i2]),
 			            var2Str(master));
 			// Replace with cloned value
-			replaceNodeWithExpr(refs[i][i2], cloneNode(master, IR_CLONE_NODE, NULL));
+			replaceNodeWithExpr(refs[i][i2], IRCloneNode(master, IR_CLONE_NODE, NULL));
 		}
 	}
 }
@@ -711,7 +711,7 @@ static void replaceVarWithLoad(struct __graphNode *node, void *data) {
 			__auto_type var = vars[i];
 
 			if (0 == IRVarCmp(var, &nodeVal->val.value.var)) {
-				__auto_type load = createLoad(var);
+				__auto_type load = IRCreateLoad(var);
 
 				replaceNodeWithExpr(node, load);
 
@@ -734,7 +734,7 @@ static void insertLoadsInExpression(graphNodeIR expressionNode,
 	pair.vars = varsToReplace;
 	pair.replaced = replaced;
 
-	__auto_type end = IRGetEndOfExpr(expressionNode);
+	__auto_type end = IREndOfExpr(expressionNode);
 	graphNodeIRVisitBackward(end, &pair, untillStartOfExpr, replaceVarWithLoad);
 }
 struct varToLiveNode {
@@ -965,10 +965,10 @@ static void replaceVarsWithSpillOrLoad(strGraphNodeIRLiveP spillNodes,
 				// If writen into ,make a spill
 				graphNodeIR node = NULL;
 				if (isWrite) {
-					node = createSpill(&dummy.var);
+					node = IRCreateSpill(&dummy.var);
 				}
 				if (isRead) {
-					__auto_type load = createLoad(&dummy.var);
+					__auto_type load = IRCreateLoad(&dummy.var);
 					if (node)
 						graphNodeIRConnect(node, load, IR_CONN_FLOW);
 
@@ -979,7 +979,7 @@ static void replaceVarsWithSpillOrLoad(strGraphNodeIRLiveP spillNodes,
 				if (!isWrite && !isRead)
 					continue;
 
-				replaceNodeWithExpr(allNodes[i], IRGetEndOfExpr(node));
+				replaceNodeWithExpr(allNodes[i], IREndOfExpr(node));
 			}
 		}
 	}
@@ -1023,7 +1023,7 @@ static void replaceVarsWithRegisters(mapRegSlice map,
 				__auto_type slice = *find;
 
 				// Replace
-				__auto_type regRef = createRegRef(&slice);
+				__auto_type regRef = IRCreateRegRef(&slice);
 				replaceNodeWithExpr(allNodes[i], regRef);
 
 				// Add attrbute to regRef that marks as originating from varaible
@@ -1350,7 +1350,7 @@ static graphNodeIR rematRecur(graphNodeIR node, strGraphNodeIRP *retmatNodes,
 	    strGraphNodeIRPSetUnion(*retmatNodes, nodes, (gnCmpType)ptrPtrCmp);
 
 	// If last node is an assign,remove the assign node
-	__auto_type lastNode = IRGetEndOfExpr(retVal);
+	__auto_type lastNode = IREndOfExpr(retVal);
 	strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) =
 	    graphNodeIRIncoming(lastNode);
 	strGraphEdgeIRP assign CLEANUP(strGraphEdgeIRPDestroy) =
@@ -1364,7 +1364,7 @@ static graphNodeIR rematRecur(graphNodeIR node, strGraphNodeIRP *retmatNodes,
 
 	// Replace parentNode with retVal (if not NULL)
 	if (parentNode != NULL)
-		replaceNodeWithExpr(parentNode, IRGetEndOfExpr(retVal));
+		replaceNodeWithExpr(parentNode, IREndOfExpr(retVal));
 	return retVal;
 }
 static void mapRegSliceDestroy2(mapRegSlice *toDestroy) {
@@ -1432,8 +1432,8 @@ static int replaceWithRemat(graphNodeIR node, strRegSlice affected,
 		//
 
 		// Replace node with rematExpr
-		replaceNodeWithExpr(node, IRGetEndOfExpr(rematExpr));
-		debugShowGraphIR(IRGetStmtStart(rematExpr));
+		replaceNodeWithExpr(node, IREndOfExpr(rematExpr));
+		debugShowGraphIR(IRStmtStart(rematExpr));
 		changed=1;
 	}
 

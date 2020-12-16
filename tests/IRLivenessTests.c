@@ -11,12 +11,12 @@ void LivenessTests() {
 		initIR();
 		{
 				//https://lambda.uta.edu/cse5317/spring15/l10.pdf
-				__auto_type u=createVirtVar(&typeI64i);
-				__auto_type v=createVirtVar(&typeI64i);
-				__auto_type w=createVirtVar(&typeI64i);
-				__auto_type x=createVirtVar(&typeI64i);
-				__auto_type y=createVirtVar(&typeI64i);
-				__auto_type z=createVirtVar(&typeI64i);
+				__auto_type u=IRCreateVirtVar(&typeI64i);
+				__auto_type v=IRCreateVirtVar(&typeI64i);
+				__auto_type w=IRCreateVirtVar(&typeI64i);
+				__auto_type x=IRCreateVirtVar(&typeI64i);
+				__auto_type y=IRCreateVirtVar(&typeI64i);
+				__auto_type z=IRCreateVirtVar(&typeI64i);
 
 				debugAddPtrName(u, "U");
 				debugAddPtrName(v, "V");
@@ -26,11 +26,11 @@ void LivenessTests() {
 				debugAddPtrName(z, "Z");
 		
 				graphNodeIR exit=NULL;
-				__auto_type entry=createLabel();
+				__auto_type entry=IRCreateLabel();
 				//v=1
 				{
-						__auto_type one1=createIntLit(1);
-						__auto_type vRef1=createVarRef(v);
+						__auto_type one1=IRCreateIntLit(1);
+						__auto_type vRef1=IRCreateVarRef(v);
 						graphNodeIRConnect(entry, one1, IR_CONN_FLOW);
 						graphNodeIRConnect(one1, vRef1, IR_CONN_DEST);
 						debugAddPtrName(one1, "1.1");
@@ -41,10 +41,10 @@ void LivenessTests() {
 		
 				//z=v+1
 				{
-						__auto_type one2=createIntLit(1);
-						__auto_type vRef2=createVarRef(v);
-						__auto_type zRef1=createVarRef(z);
-						__auto_type binop=createBinop(one2, vRef2, IR_ADD);
+						__auto_type one2=IRCreateIntLit(1);
+						__auto_type vRef2=IRCreateVarRef(v);
+						__auto_type zRef1=IRCreateVarRef(z);
+						__auto_type binop=IRCreateBinop(one2, vRef2, IR_ADD);
 						graphNodeIRConnect(binop, zRef1, IR_CONN_DEST);
 						graphNodeIRConnect(exit, one2, IR_CONN_FLOW);
 						graphNodeIRConnect(exit, vRef2, IR_CONN_FLOW);
@@ -57,10 +57,10 @@ void LivenessTests() {
 				}
 				//x=z*v
 				{
-						__auto_type vRef=createVarRef(v);
-						__auto_type zRef=createVarRef(z);
-						__auto_type xRef=createVarRef(x);
-						__auto_type binop=createBinop(vRef, zRef, IR_ADD);
+						__auto_type vRef=IRCreateVarRef(v);
+						__auto_type zRef=IRCreateVarRef(z);
+						__auto_type xRef=IRCreateVarRef(x);
+						__auto_type binop=IRCreateBinop(vRef, zRef, IR_ADD);
 						graphNodeIRConnect(binop, xRef,IR_CONN_DEST);
 						graphNodeIRConnect(exit, vRef, IR_CONN_FLOW);
 						graphNodeIRConnect(exit, zRef, IR_CONN_FLOW);
@@ -74,12 +74,12 @@ void LivenessTests() {
 		
 				//y=x+2
 				{
-						__auto_type xRef1=createVarRef(x);
-						__auto_type two1=createIntLit(2);
-						__auto_type yRef1=createVarRef(y);
+						__auto_type xRef1=IRCreateVarRef(x);
+						__auto_type two1=IRCreateIntLit(2);
+						__auto_type yRef1=IRCreateVarRef(y);
 						graphNodeIRConnect(exit, two1, IR_CONN_FLOW);
 						graphNodeIRConnect(exit, xRef1, IR_CONN_FLOW);
-						__auto_type binop=createBinop(two1, xRef1, IR_ADD);
+						__auto_type binop=IRCreateBinop(two1, xRef1, IR_ADD);
 						graphNodeIRConnect(binop, yRef1, IR_CONN_DEST);
 						exit=yRef1;
 
@@ -91,15 +91,15 @@ void LivenessTests() {
 
 				//w=x+y*z
 				{
-						__auto_type xRef2=createVarRef(x);
-						__auto_type yRef2=createVarRef(y);
-						__auto_type zRef2=createVarRef(z);
-						__auto_type wRef1=createVarRef(w);
+						__auto_type xRef2=IRCreateVarRef(x);
+						__auto_type yRef2=IRCreateVarRef(y);
+						__auto_type zRef2=IRCreateVarRef(z);
+						__auto_type wRef1=IRCreateVarRef(w);
 						graphNodeIRConnect(exit, xRef2, IR_CONN_FLOW);
 						graphNodeIRConnect(exit, yRef2, IR_CONN_FLOW);
 						graphNodeIRConnect(exit, zRef2, IR_CONN_FLOW);
-						__auto_type binopB=createBinop(yRef2, zRef2, IR_MULT);
-						__auto_type binopA=createBinop(xRef2,binopB,IR_ADD);
+						__auto_type binopB=IRCreateBinop(yRef2, zRef2, IR_MULT);
+						__auto_type binopA=IRCreateBinop(xRef2,binopB,IR_ADD);
 						graphNodeIRConnect(binopA, wRef1, IR_CONN_DEST);
 						exit=wRef1;
 
@@ -115,12 +115,12 @@ void LivenessTests() {
 		
 				//u=z+2
 				{
-						__auto_type two2=createIntLit(2);
-						__auto_type zRef3=createVarRef(z);
-						__auto_type uRef1=createVarRef(u);
+						__auto_type two2=IRCreateIntLit(2);
+						__auto_type zRef3=IRCreateVarRef(z);
+						__auto_type uRef1=IRCreateVarRef(u);
 						graphNodeIRConnect(exit, two2, IR_CONN_FLOW);
 						graphNodeIRConnect(exit, zRef3, IR_CONN_FLOW);
-						__auto_type binop=createBinop(two2, zRef3, IR_ADD);
+						__auto_type binop=IRCreateBinop(two2, zRef3, IR_ADD);
 						graphNodeIRConnect(binop, uRef1, IR_CONN_DEST);
 						exit=uRef1;
 
@@ -132,15 +132,15 @@ void LivenessTests() {
 
 				//v=u+w+y
 				{
-						__auto_type uRef=createVarRef(u);
-						__auto_type wRef=createVarRef(w);
-						__auto_type yRef=createVarRef(y);
-						__auto_type vRef=createVarRef(v);
+						__auto_type uRef=IRCreateVarRef(u);
+						__auto_type wRef=IRCreateVarRef(w);
+						__auto_type yRef=IRCreateVarRef(y);
+						__auto_type vRef=IRCreateVarRef(v);
 						graphNodeIRConnect(exit, uRef, IR_CONN_FLOW);
 						graphNodeIRConnect(exit, wRef, IR_CONN_FLOW);
 						graphNodeIRConnect(exit, yRef, IR_CONN_FLOW);
-						__auto_type binopB=createBinop(yRef, wRef, IR_ADD);
-						__auto_type binopA=createBinop(uRef,binopB,IR_ADD);
+						__auto_type binopB=IRCreateBinop(yRef, wRef, IR_ADD);
+						__auto_type binopA=IRCreateBinop(uRef,binopB,IR_ADD);
 						graphNodeIRConnect(binopA,vRef, IR_CONN_DEST);
 						exit=vRef;
 				
@@ -154,9 +154,9 @@ void LivenessTests() {
 
 				//u*v
 				{
-						__auto_type uRef=createVarRef(u);
-						__auto_type vRef=createVarRef(v);
-						__auto_type  binop=createBinop(uRef, vRef, IR_MULT);
+						__auto_type uRef=IRCreateVarRef(u);
+						__auto_type vRef=IRCreateVarRef(v);
+						__auto_type  binop=IRCreateBinop(uRef, vRef, IR_MULT);
 						graphNodeIRConnect(exit, uRef, IR_CONN_FLOW);
 						graphNodeIRConnect(exit, vRef, IR_CONN_FLOW);
 						debugAddPtrName(uRef, "u.7");
@@ -235,20 +235,20 @@ void LivenessTests() {
 				assert(graphNodeIRLiveConnectedTo(zNode, vNode));
 		}
 		{
-				__auto_type a=createVirtVar(&typeI64i);
-				__auto_type b=createVirtVar(&typeI64i);
-				__auto_type c=createVirtVar(&typeI64i);
+				__auto_type a=IRCreateVirtVar(&typeI64i);
+				__auto_type b=IRCreateVirtVar(&typeI64i);
+				__auto_type c=IRCreateVirtVar(&typeI64i);
 				DEBUG_PRINT_REGISTER_VAR(a);
 				DEBUG_PRINT_REGISTER_VAR(b);
 				DEBUG_PRINT_REGISTER_VAR(c);
 				
-				__auto_type enter=createLabel();
+				__auto_type enter=IRCreateLabel();
 				DEBUG_PRINT_REGISTER_VAR(enter);
 				graphNodeIR exit=NULL;
 				//1: a=0
 				{
-						__auto_type aRef1=createVarRef(a);
-						__auto_type zero1=createIntLit(0);
+						__auto_type aRef1=IRCreateVarRef(a);
+						__auto_type zero1=IRCreateIntLit(0);
 						DEBUG_PRINT_REGISTER_VAR(aRef1);
 						DEBUG_PRINT_REGISTER_VAR(zero1);
 						graphNodeIRConnect(enter, zero1, IR_CONN_FLOW);
@@ -257,15 +257,15 @@ void LivenessTests() {
 				}
 				
 				//Label (for loop)
-				__auto_type label2=createLabel();
+				__auto_type label2=IRCreateLabel();
 				DEBUG_PRINT_REGISTER_VAR(label2);
 				graphNodeIRConnect(exit, label2, IR_CONN_FLOW);
 				//2: b=a+1
 				{
-				__auto_type bRef2=createVarRef(b);
-				__auto_type aRef2=createVarRef(a); 
-				__auto_type one2=createIntLit(1);
-				__auto_type binop2=createBinop(aRef2, one2, IR_ADD);
+				__auto_type bRef2=IRCreateVarRef(b);
+				__auto_type aRef2=IRCreateVarRef(a); 
+				__auto_type one2=IRCreateIntLit(1);
+				__auto_type binop2=IRCreateBinop(aRef2, one2, IR_ADD);
 				DEBUG_PRINT_REGISTER_VAR(bRef2);
 				DEBUG_PRINT_REGISTER_VAR(aRef2);
 				DEBUG_PRINT_REGISTER_VAR(one2);
@@ -279,10 +279,10 @@ void LivenessTests() {
 				
 				//3: c=c+b
 				{
-				__auto_type cRef3_Src=createVarRef(c);
-				__auto_type cRef3_Dst=createVarRef(c);
-				__auto_type bRef3=createVarRef(b);
-				__auto_type binop3=createBinop(cRef3_Src, bRef3, IR_ADD);
+				__auto_type cRef3_Src=IRCreateVarRef(c);
+				__auto_type cRef3_Dst=IRCreateVarRef(c);
+				__auto_type bRef3=IRCreateVarRef(b);
+				__auto_type binop3=IRCreateBinop(cRef3_Src, bRef3, IR_ADD);
 				DEBUG_PRINT_REGISTER_VAR(bRef3);
 				DEBUG_PRINT_REGISTER_VAR(cRef3_Src);
 				DEBUG_PRINT_REGISTER_VAR(cRef3_Dst);
@@ -296,12 +296,12 @@ void LivenessTests() {
 				
 				//4: a=b+2
 				{
-						__auto_type aRef4=createVarRef(a);
-						__auto_type bRef4=createVarRef(b);
-						__auto_type two4=createIntLit(2);
+						__auto_type aRef4=IRCreateVarRef(a);
+						__auto_type bRef4=IRCreateVarRef(b);
+						__auto_type two4=IRCreateIntLit(2);
 						graphNodeIRConnect(exit, two4, IR_CONN_FLOW);
 						graphNodeIRConnect(exit, bRef4, IR_CONN_FLOW);
-						__auto_type binop4=createBinop(bRef4, two4, IR_ADD);
+						__auto_type binop4=IRCreateBinop(bRef4, two4, IR_ADD);
 						graphNodeIRConnect(binop4, aRef4, IR_CONN_DEST);
 						exit=aRef4;
 
@@ -312,11 +312,11 @@ void LivenessTests() {
 				}
 
 				//6: return c(DOESNT NOT ATTACH TO exit,IT IS USED AHEAD IN JUMP)
-				graphNodeIR retLabel=createLabel();
+				graphNodeIR retLabel=IRCreateLabel();
 				DEBUG_PRINT_REGISTER_VAR(retLabel);
 				{
-						__auto_type cRef6=createVarRef(c);
-						__auto_type ret=createReturn(cRef6, NULL);
+						__auto_type cRef6=IRCreateVarRef(c);
+						__auto_type ret=IRCreateReturn(cRef6, NULL);
 						DEBUG_PRINT_REGISTER_VAR(cRef6);
 						DEBUG_PRINT_REGISTER_VAR(ret);
 						graphNodeIRConnect(retLabel, cRef6, IR_CONN_FLOW);
@@ -324,16 +324,16 @@ void LivenessTests() {
 
 				//5: a<10
 				{
-						__auto_type aRef5=createVarRef(a);
-						__auto_type ten5=createIntLit(10);
-						__auto_type cmp=createBinop(aRef5, ten5, IR_GT);
+						__auto_type aRef5=IRCreateVarRef(a);
+						__auto_type ten5=IRCreateIntLit(10);
+						__auto_type cmp=IRCreateBinop(aRef5, ten5, IR_GT);
 						DEBUG_PRINT_REGISTER_VAR(aRef5);
 						DEBUG_PRINT_REGISTER_VAR(ten5);
 						DEBUG_PRINT_REGISTER_VAR(cmp);
 						
 						graphNodeIRConnect(exit, aRef5, IR_CONN_FLOW);
 						graphNodeIRConnect(exit, ten5, IR_CONN_FLOW);
-						__auto_type jump=createCondJmp(cmp, retLabel, label2);
+						__auto_type jump=IRCreateCondJmp(cmp, retLabel, label2);
 						DEBUG_PRINT_REGISTER_VAR(jump);
 						
 						exit=jump;

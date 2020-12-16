@@ -46,7 +46,7 @@ static char *strClone(const char *text) {
 
 	return retVal;
 }
-graphNodeIR createSpill(struct IRVar *var) {
+graphNodeIR IRCreateSpill(struct IRVar *var) {
 	struct IRNodeSpill spill;
 	spill.base.attrs = NULL;
 	spill.base.type = IR_SPILL;
@@ -55,7 +55,7 @@ graphNodeIR createSpill(struct IRVar *var) {
 
 	return GRAPHN_ALLOCATE(spill);
 }
-graphNodeIR createRegRef(const struct regSlice *slice) {
+graphNodeIR IRCreateRegRef(const struct regSlice *slice) {
 	struct IRNodeValue val;
 	val.base.attrs = NULL;
 	val.base.type = IR_VALUE;
@@ -64,7 +64,7 @@ graphNodeIR createRegRef(const struct regSlice *slice) {
 
 	return GRAPHN_ALLOCATE(val);
 }
-graphNodeIR createLoad(struct IRVar *var) {
+graphNodeIR IRCreateLoad(struct IRVar *var) {
 	struct IRNodeSpill load;
 	load.base.attrs = NULL;
 	load.base.type = IR_LOAD;
@@ -73,7 +73,7 @@ graphNodeIR createLoad(struct IRVar *var) {
 
 	return GRAPHN_ALLOCATE(load);
 }
-graphNodeIR createFuncCall(graphNodeIR func, ...) {
+graphNodeIR IRCreateFuncCall(graphNodeIR func, ...) {
 	struct IRNodeFuncCall call;
 	call.base.attrs = NULL;
 	call.base.type = IR_FUNC_CALL;
@@ -95,7 +95,7 @@ graphNodeIR createFuncCall(graphNodeIR func, ...) {
 
 	return retVal;
 }
-graphNodeIR createIntLit(int64_t lit) {
+graphNodeIR IRCreateIntLit(int64_t lit) {
 	struct IRNodeValue val;
 	val.base.attrs = NULL;
 	val.base.type = IR_VALUE;
@@ -107,7 +107,7 @@ graphNodeIR createIntLit(int64_t lit) {
 	return GRAPHN_ALLOCATE(val);
 }
 
-graphNodeIR createStrLit(const char *text) {
+graphNodeIR IRCreateStrLit(const char *text) {
 	struct IRNodeValue val;
 	val.base.attrs = NULL;
 	val.base.type = IR_VALUE;
@@ -116,7 +116,7 @@ graphNodeIR createStrLit(const char *text) {
 
 	return GRAPHN_ALLOCATE(val);
 }
-graphNodeIR createUnop(graphNodeIR a, enum IRNodeType type) {
+graphNodeIR IRCreateUnop(graphNodeIR a, enum IRNodeType type) {
 	struct IRNodeBinop unop;
 	unop.base.type = type;
 	unop.base.attrs = NULL;
@@ -126,7 +126,7 @@ graphNodeIR createUnop(graphNodeIR a, enum IRNodeType type) {
 
 	return retVal;
 }
-graphNodeIR createBinop(graphNodeIR a, graphNodeIR b, enum IRNodeType type) {
+graphNodeIR IRCreateBinop(graphNodeIR a, graphNodeIR b, enum IRNodeType type) {
 	struct IRNodeBinop binop2;
 	binop2.base.type = type;
 	binop2.base.attrs = NULL;
@@ -137,14 +137,14 @@ graphNodeIR createBinop(graphNodeIR a, graphNodeIR b, enum IRNodeType type) {
 
 	return retVal;
 }
-graphNodeIR createLabel() {
+graphNodeIR IRCreateLabel() {
 	struct IRNodeLabel lab;
 	lab.base.attrs = NULL;
 	lab.base.type = IR_LABEL;
 
 	return GRAPHN_ALLOCATE(lab);
 }
-graphNodeIR createStmtStart() {
+graphNodeIR IRCreateStmtStart() {
 	struct IRNodeStatementStart start;
 	start.base.attrs = NULL;
 	start.base.type = IR_STATEMENT_START;
@@ -152,7 +152,7 @@ graphNodeIR createStmtStart() {
 
 	return GRAPHN_ALLOCATE(start);
 }
-graphNodeIR createStmtEnd(graphNodeIR start) {
+graphNodeIR IRCreateStmtEnd(graphNodeIR start) {
 	struct IRNodeStatementStart end;
 	end.base.attrs = NULL;
 	end.base.type = IR_STATEMENT_END;
@@ -161,7 +161,7 @@ graphNodeIR createStmtEnd(graphNodeIR start) {
 	((struct IRNodeStatementStart *)graphNodeIRValuePtr(start))->end = retVal;
 	return retVal;
 }
-struct variable *createVirtVar(struct object *type) {
+struct variable *IRCreateVirtVar(struct object *type) {
 	struct variable var;
 	var.name = NULL;
 	var.refs = NULL;
@@ -178,7 +178,7 @@ struct variable *createVirtVar(struct object *type) {
 
 	return alloced;
 }
-graphNodeIR createTypecast(graphNodeIR in, struct object *inType,
+graphNodeIR IRCreateTypecast(graphNodeIR in, struct object *inType,
                            struct object *outType) {
 	struct IRNodeTypeCast cast;
 	cast.base.attrs = NULL;
@@ -191,7 +191,7 @@ graphNodeIR createTypecast(graphNodeIR in, struct object *inType,
 
 	return retVal;
 }
-graphNodeIR createVarRef(struct variable *var) {
+graphNodeIR IRCreateVarRef(struct variable *var) {
 	__auto_type ptrStr = ptr2Str(var);
 	__auto_type find = mapIRVarRefsGet(IRVars, ptrStr);
 	// TODO add on not find
@@ -208,7 +208,7 @@ graphNodeIR createVarRef(struct variable *var) {
 
 	return GRAPHN_ALLOCATE(val);
 }
-graphNodeIR createValueFromLabel(graphNodeIR lab) {
+graphNodeIR IRCreateValueFromLabel(graphNodeIR lab) {
 	struct IRNodeValue val;
 	val.base.attrs = NULL;
 	val.base.type = IR_VALUE;
@@ -226,7 +226,7 @@ static int ptrPtrCmp(const void *a, const void *b) {
 	else
 		return 0;
 }
-strGraphNodeP getStatementNodes(const graphNodeIR stmtStart,
+strGraphNodeP IRStatementNodes(const graphNodeIR stmtStart,
                                 const graphNodeIR stmtEnd) {
 	//
 	// Visit all nodes from start->end node of statement
@@ -358,11 +358,11 @@ void IRInsertAfter(graphNodeIR insertAfter, graphNodeIR entry, graphNodeIR exit,
 
 	graphNodeIRConnect(insertAfter, entry, connType);
 }
-graphNodeIR createAssign(graphNodeIR in, graphNodeIR dst) {
+graphNodeIR IRCreateAssign(graphNodeIR in, graphNodeIR dst) {
 	graphNodeIRConnect(in, dst, IR_CONN_DEST);
 	return dst;
 }
-graphNodeIR createCondJmp(graphNodeIR cond, graphNodeIR t, graphNodeIR f) {
+graphNodeIR IRCreateCondJmp(graphNodeIR cond, graphNodeIR t, graphNodeIR f) {
 	struct IRNodeCondJump cJmp;
 	cJmp.base.attrs = NULL;
 	cJmp.base.type = IR_COND_JUMP;
@@ -471,7 +471,7 @@ void IRRemoveDeadExpression(graphNodeIR end, strGraphNodeP *removed) {
 	if (removed)
 		*removed = starts;
 }
-graphNodeIR IRGetStmtStart(graphNodeIR node) {
+graphNodeIR IRStmtStart(graphNodeIR node) {
 	strGraphNodeIRP starts = strGraphNodeIRPAppendItem(NULL, node);
 	graphNodeIRVisitBackward(node, &starts, exprEdgePred, addNode2List);
 
@@ -514,7 +514,7 @@ graphNodeIR IRGetStmtStart(graphNodeIR node) {
 		return firstIncoming[0];
 
 	// Otherwise route all incoming "traffic" through a label
-	__auto_type label = createLabel();
+	__auto_type label = IRCreateLabel();
 	for (long i = 0; i != len; i++) {
 		__auto_type incoming = graphNodeIRIncoming(tops[i]);
 		// Connect incoming to node
@@ -625,7 +625,7 @@ char *graphEdgeIR2Str(struct __graphEdge *edge) {
 
 	return NULL;
 }
-graphNodeIR createReturn(graphNodeIR exp, graphNodeIR func) {
+graphNodeIR IRCreateReturn(graphNodeIR exp, graphNodeIR func) {
 	struct IRNodeFuncReturn ret;
 	ret.base.attrs = NULL;
 	ret.base.type = IR_FUNC_RETURN;
@@ -1320,7 +1320,7 @@ static graphNodeIR __cloneNode(mapGraphNode mappings, graphNodeIR node,
 	}
 	}
 }
-graphNodeIR cloneNode(graphNodeIR node, enum IRCloneMode mode,
+graphNodeIR IRCloneNode(graphNodeIR node, enum IRCloneMode mode,
                       mapGraphNode *mappings) {
 	__auto_type mappings2 = mapGraphNodeCreate();
 	__auto_type retVal = __cloneNode(mappings2, node, mode, NULL);
@@ -1346,7 +1346,7 @@ graphNodeIR IRCloneUpTo(graphNodeIR node, strGraphNodeIRP to,
 
 	return retVal;
 }
-graphNodeIR IRGetEndOfExpr(graphNodeIR node) {
+graphNodeIR IREndOfExpr(graphNodeIR node) {
 	for (;;) {
 	loop:;
 		strGraphEdgeIRP outgoing;

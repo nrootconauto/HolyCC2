@@ -439,7 +439,7 @@ void replaceSubExprsWithVars() {
 			__auto_type refs = *mapSubExprsGet(subExprRegistry, hashAttr);
 
 			//Clone the expression
-			graphNodeIR clonedExpression CLEANUP(graphNodeIRDestroy2)=cloneNode(nodes[i], IR_CLONE_EXPR, NULL);;
+			graphNodeIR clonedExpression CLEANUP(graphNodeIRDestroy2)=IRCloneNode(nodes[i], IR_CLONE_EXPR, NULL);;
 
 			//Insert copieis of the sub  expression at key points
 			__auto_type var=insertSubExpressions(refs, NULL, clonedExpression);
@@ -447,8 +447,8 @@ void replaceSubExprsWithVars() {
 				__auto_type outgoing = graphNodeIROutgoing(refs[i3].node);
 
 				//Make a clone of firstRef's node(which points to a variable),copy all outgoing traffic from refs[i3].node to the clone
-				__auto_type stmtStart=IRGetStmtStart(refs[i3].node);
-				__auto_type varRef=createVarRef(var);
+				__auto_type stmtStart=IRStmtStart(refs[i3].node);
+				__auto_type varRef=IRCreateVarRef(var);
 				moveConnectionsOutgoing(refs[i3].node, varRef);
 				graphNodeIRConnect(stmtStart, varRef, IR_CONN_FLOW);
 				
@@ -516,7 +516,7 @@ static void reverseDepthSearch(struct subExpr *sourceExpression,graphNodeIR star
 		*visited=inserted;
 		
 		//Check if current node expression has a variable in it that is expected
-		__auto_type end=IRGetEndOfExpr(startFrom);
+		__auto_type end=IREndOfExpr(startFrom);
 		if(end) {
 				if(expressionContainsVar(end,  vars)) {
 						*roots=strGraphNodeIRPSortedInsert(*roots, end, (gnIRCmpType)ptrPtrCmp);
@@ -527,7 +527,7 @@ static void reverseDepthSearch(struct subExpr *sourceExpression,graphNodeIR star
 		strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(startFrom);
 		for(long i=0;i!=strGraphEdgeIRPSize(incoming);i++) {
 				__auto_type inNode=graphEdgeIRIncoming(incoming[i]);
-				__auto_type stmtStart=IRGetStmtStart(inNode);
+				__auto_type stmtStart=IRStmtStart(inNode);
 				inNode=stmtStart?stmtStart:inNode;
 				reverseDepthSearch(sourceExpression,inNode,vars,visited,roots,depth+1);
 		}
@@ -685,18 +685,18 @@ static struct variable *insertSubExpressions(strSubExpr subExprs,strIRVar vars,g
 		//
 		// Insert sub-expression 
 		//
-		__auto_type var=createVirtVar(IRNodeType(clonedExpression)); //
+		__auto_type var=IRCreateVirtVar(IRNodeType(clonedExpression)); //
 		for(long i=0;i!=strInsertAtSize(insertAt);i++) {
-				__auto_type stmtEnd=IRGetEndOfExpr(insertAt[i].insertAt);
+				__auto_type stmtEnd=IREndOfExpr(insertAt[i].insertAt);
 				if(!stmtEnd)
 						stmtEnd=insertAt[i].insertAt;
 				
-				__auto_type clone=cloneNode(clonedExpression, IR_CLONE_EXPR, NULL);
+				__auto_type clone=IRCloneNode(clonedExpression, IR_CLONE_EXPR, NULL);
 				//Assign clone to variable
-				__auto_type assignTo=createVarRef(var);
-				graphNodeIRConnect(IRGetEndOfExpr(clone),assignTo, IR_CONN_DEST);
+				__auto_type assignTo=IRCreateVarRef(var);
+				graphNodeIRConnect(IREndOfExpr(clone),assignTo, IR_CONN_DEST);
 				
-				IRInsertAfter(stmtEnd, IRGetStmtStart(clone), IRGetEndOfExpr(clone), IR_CONN_FLOW);
+				IRInsertAfter(stmtEnd, IRStmtStart(clone), IREndOfExpr(clone), IR_CONN_FLOW);
 		}
 
 		return var;

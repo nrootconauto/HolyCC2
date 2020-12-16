@@ -42,7 +42,7 @@ static graphNodeIR createChoose(graphNodeIR insertBefore,
 
 	graphNodeIRConnect(chooseNode, valueNode, IR_CONN_DEST);
 
-	__auto_type stmtStart = IRGetStmtStart(IRGetEndOfExpr(insertBefore));
+	__auto_type stmtStart = IRStmtStart(IREndOfExpr(insertBefore));
 	IRInsertBefore(stmtStart, chooseNode, valueNode, IR_CONN_FLOW);
 	return valueNode;
 }
@@ -548,11 +548,11 @@ void IRSSAReplaceChooseWithAssigns(graphNodeIR node,
 
 			// Start with current node ,assign to result,then use that as the parent
 			// node and so on
-			graphNodeIR parent = cloneNode(clone[i], IR_CLONE_NODE, NULL);
+			graphNodeIR parent = IRCloneNode(clone[i], IR_CLONE_NODE, NULL);
 			__auto_type startAt = parent;
 
 			for (long i3 = 0; i3 != strGraphNodeIRPSize(outgoing); i3++) {
-				__auto_type clone = cloneNode(outgoing[i3], IR_CLONE_NODE, NULL);
+				__auto_type clone = IRCloneNode(outgoing[i3], IR_CLONE_NODE, NULL);
 				graphNodeIRConnect(parent, clone, IR_CONN_DEST);
 
 				parent = clone;
@@ -567,11 +567,11 @@ void IRSSAReplaceChooseWithAssigns(graphNodeIR node,
 		}
 	}
 
-	__auto_type endOfExpression = IRGetEndOfExpr(node);
+	__auto_type endOfExpression = IREndOfExpr(node);
 
 	strGraphNodeIRP exprNodes =
-	    getStatementNodes(IRGetStmtStart(node), endOfExpression);
-	__auto_type dummy = createLabel();
+	       IRStatementNodes(IRStmtStart(node), endOfExpression);
+	__auto_type dummy = IRCreateLabel();
 	graphReplaceWithNode(exprNodes, dummy, NULL, NULL, sizeof(graphEdgeIR));
 	transparentKill(dummy);
 

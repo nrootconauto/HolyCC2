@@ -455,7 +455,7 @@ static void copyConnectionsOutcomingTo(strGraphEdgeIRP outgoing,
 //
 static graphNodeIR __createSwitchCodeAfterBody(graphNodeIR cond,
                                                const struct parserNode *node) {
-	__auto_type entry = createLabel();
+	__auto_type entry = IRCreateLabel();
 	connectCurrentsToNode(entry);
 	setCurrentNodes(currentGen, entry, NULL);
 
@@ -510,16 +510,16 @@ static graphNodeIR __createSwitchCodeAfterBody(graphNodeIR cond,
 
 		miniTab.labels = labels;
 		__auto_type miniTableNode = GRAPHN_ALLOCATE(miniTab);
-		__auto_type mtSkipLab = createLabel();
+		__auto_type mtSkipLab = IRCreateLabel();
 		graphNodeIRConnect(miniTableNode, mtSkipLab, IR_CONN_FLOW);
 
 		// Create range check
-		__auto_type startNode = createIntLit(consecStart);
-		__auto_type endNode = createIntLit(currentV);
+		__auto_type startNode = IRCreateIntLit(consecStart);
+		__auto_type endNode = IRCreateIntLit(currentV);
 
-		__auto_type ge = createBinop(startNode, cond, IR_GE);
-		__auto_type lt = createBinop(cond, startNode, IR_LT);
-		__auto_type and = createBinop(ge, lt, IR_LAND);
+		__auto_type ge = IRCreateBinop(startNode, cond, IR_GE);
+		__auto_type lt = IRCreateBinop(cond, startNode, IR_LT);
+		__auto_type and = IRCreateBinop(ge, lt, IR_LAND);
 		__auto_type cJmp = IRCondJump(cond, NULL, mtSkipLab);
 
 		// condJump
@@ -535,17 +535,17 @@ static graphNodeIR __createSwitchCodeAfterBody(graphNodeIR cond,
 	}
 	}
 
-	__auto_type switchEndLabel = createLabel();
+	__auto_type switchEndLabel = IRCreateLabel();
 
 	if (dft != NULL) {
 		// Jump to default label
 		__auto_type dftNode = parserNode2IRStmt(dft);
-		__auto_type jmpToDft = createJmp(dftNode);
+		__auto_type jmpToDft = IRCreateJmp(dftNode);
 		connectCurrentsToNode(jmpToDft);
 		setCurrentNodes(currentGen, jmpToDft, NULL);
 	} else {
 		// Jump to default label
-		__auto_type endJmp = createJmp(switchEndLabel);
+		__auto_type endJmp = IRCreateJmp(switchEndLabel);
 		connectCurrentsToNode(endJmp);
 		setCurrentNodes(currentGen, endJmp, NULL);
 	}
@@ -599,7 +599,7 @@ static graphNodeIR __createSwitchCodeAfterBody(graphNodeIR cond,
 		if (NULL == strParserNodeSortedFind(subs, cs->parent, (pnCmpType)ptrPtrCmp))
 			subs = strParserNodeSortedInsert(subs, cs->parent, (pnCmpType)ptrPtrCmp);
 	}
-	__auto_type jmpBack = createVirtVar(U0Ptr);
+	__auto_type jmpBack = IRCreateVirtVar(U0Ptr);
 	for (long i = 0; i != strParserNodeSize(subs); i++) {
 		// Will create IR_SUB_SWITCH_START_LABEL
 		__auto_type node = parserNode2IRStmt(subs[i]);
@@ -626,10 +626,10 @@ static graphNodeIR __createSwitchCodeAfterBody(graphNodeIR cond,
 			//    \/
 			// firstCase
 
-			__auto_type null = createIntLit(0);
+			__auto_type null = IRCreateIntLit(0);
 			// See NOTE 2
-			__auto_type nullCmp = createBinop(null, createVarRef(jmpBack), IR_EQ);
-			__auto_type endLabel = createLabel();
+			__auto_type nullCmp = IRCreateBinop(null, IRCreateVarRef(jmpBack), IR_EQ);
+			__auto_type endLabel = IRCreateLabel();
 			__auto_type incoming =
 			    graphNodeIRIncoming(parserNode2IRStmt((void *)firstCase));
 			__auto_type cJmp = IRCondJump(nullCmp, endLabel, NULL);
@@ -637,7 +637,7 @@ static graphNodeIR __createSwitchCodeAfterBody(graphNodeIR cond,
 			copyConnectionsIncomingTo(incoming, cJmp);
 			setCurrentNodes(currentGen, cJmp, NULL);
 			//->jump(JUMP_BACK)
-			__auto_type gotoEnd = createJmp(createVarRef(jmpBack));
+			__auto_type gotoEnd = IRCreateJmp(IRCreateVarRef(jmpBack));
 			connectCurrentsToNode(gotoEnd);
 			//->end
 			setCurrentNodes(currentGen, gotoEnd, NULL);
@@ -658,14 +658,14 @@ static graphNodeIR __createSwitchCodeAfterBody(graphNodeIR cond,
 
 			struct parserNodeCase *cs = (void *)sub->caseSubcases[i];
 
-			__auto_type endLabel = createLabel();
+			__auto_type endLabel = IRCreateLabel();
 			__auto_type jmp2SubStart =
-			    createJmp(parserNode2IRStmt((void *)firstCase));
-			__auto_type jmp2End = createJmp(endLabel);
+			             IRCreateJmp(parserNode2IRStmt((void *)firstCase));
+			__auto_type jmp2End = IRCreateJmp(endLabel);
 
 			// JUMP_BACK=endLabel
 			__auto_type assignJmpBack =
-			    IRAssign(createVarRef(jmpBack), createValueFromLabel(endLabel));
+			    IRAssign(IRCreateVarRef(jmpBack), IRCreateValueFromLabel(endLabel));
 
 			//"Replace" case with structure from NOTE 1(collect the in/out connections
 			// then disconnect case)
@@ -742,7 +742,7 @@ static graphNodeIR __parserNode2IRNoStmt(const struct parserNode *node) {
 		// If non-assign binop
 		__auto_type b = mapIRNodeTypeGet(binop2IRType, op->text);
 		if (b) {
-			__auto_type retVal = createBinop(aVal, bVal, *b);
+			__auto_type retVal = IRCreateBinop(aVal, bVal, *b);
 			;
 
 			setCurrentNodes(currentGen, retVal, NULL);
@@ -1110,9 +1110,9 @@ static graphNodeIR __parserNode2IRNoStmt(const struct parserNode *node) {
 	case NODE_SWITCH: {
 		struct parserNodeSwitch *swit = (void *)node;
 		__auto_type condRes = parserNode2IRStmt(swit->exp);
-		__auto_type condVar = createVirtVar(assignTypeToOp(swit->exp));
-		IRAssign(createVarRef(condVar), condRes);
-		return __createSwitchCodeAfterBody(createVarRef(condVar), node);
+		__auto_type condVar = IRCreateVirtVar(assignTypeToOp(swit->exp));
+		IRAssign(IRCreateVarRef(condVar), condRes);
+		return __createSwitchCodeAfterBody(IRCreateVarRef(condVar), node);
 	}
 	case NODE_TYPE_CAST: {
 		struct parserNodeTypeCast *pnCast = (void *)node;
@@ -1127,15 +1127,15 @@ static graphNodeIR __parserNode2IRNoStmt(const struct parserNode *node) {
 	}
 	case NODE_VAR: {
 		struct parserNodeVar *var = (void *)node;
-		return createVarRef(var->var);
+		return IRCreateVarRef(var->var);
 	}
 	case NODE_WHILE: {
 		struct parserNodeWhile *wh = (void *)node;
 
 		__auto_type cond = parserNode2IRStmt(wh->cond);
 
-		__auto_type startLab = createLabel();
-		__auto_type endLab = createLabel();
+		__auto_type startLab = IRCreateLabel();
+		__auto_type endLab = IRCreateLabel();
 		__auto_type cJmp = IRCondJump(cond, NULL, endLab);
 
 		// Create scope for break statement

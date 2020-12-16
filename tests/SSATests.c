@@ -36,7 +36,7 @@ static void assertSSANodes(graphNodeIR node,...) {
 		}
 		va_end(args);
 
-		node=IRGetStmtStart(node);
+		node=IRStmtStart(node);
 		//   [Choose]
 		//      ||  (IR_CONN_DEST)
 		//      \/
@@ -65,26 +65,26 @@ void SSATests() {
 		// http://pages.cs.wisc.edu/~fischer/cs701.f05/lectures/Lecture22.pdf
 		{
 				initIR();
-				__auto_type var=createVirtVar(&typeI64i);
+				__auto_type var=IRCreateVirtVar(&typeI64i);
 
-				__auto_type enter=createLabel();
+				__auto_type enter=IRCreateLabel();
 		
-				__auto_type a=createVarRef(var);
-				__auto_type b=createVarRef(var);
-				__auto_type c=createVarRef(var);
-				__auto_type d=createVarRef(var);
-				__auto_type e=createVarRef(var);
-				__auto_type f=createVarRef(var);
+				__auto_type a=IRCreateVarRef(var);
+				__auto_type b=IRCreateVarRef(var);
+				__auto_type c=IRCreateVarRef(var);
+				__auto_type d=IRCreateVarRef(var);
+				__auto_type e=IRCreateVarRef(var);
+				__auto_type f=IRCreateVarRef(var);
 				
 				graphNodeIRConnect(enter, a, IR_CONN_FLOW);
 		
-				__auto_type cond1=createIntLit(101);
-				__auto_type cond2=createIntLit(101);
+				__auto_type cond1=IRCreateIntLit(101);
+				__auto_type cond2=IRCreateIntLit(101);
 		
-				__auto_type aB_FCJmp=createCondJmp(cond1, b ,f);
+				__auto_type aB_FCJmp=IRCreateCondJmp(cond1, b ,f);
 				graphNodeIRConnect(a,cond1,IR_CONN_FLOW);
 		
-				__auto_type bC_DCJmp=createCondJmp(cond2, c ,d);
+				__auto_type bC_DCJmp=IRCreateCondJmp(cond2, c ,d);
 				graphNodeIRConnect(b,cond2,IR_CONN_FLOW);	
 	
 				graphNodeIRConnect(c, e, IR_CONN_FLOW);
@@ -138,13 +138,13 @@ void SSATests() {
 		}
 		//http://pages.cs.wisc.edu/~fischer/cs701.f05/lectures/Lecture22.pdf
 		{
-				__auto_type var=createVirtVar(&typeI64i);
+				__auto_type var=IRCreateVirtVar(&typeI64i);
 
-				__auto_type enter=createLabel();
+				__auto_type enter=IRCreateLabel();
 
-				__auto_type a=createVarRef(var);
-				__auto_type b=createVarRef(var);
-				__auto_type c=createVarRef(var);
+				__auto_type a=IRCreateVarRef(var);
+				__auto_type b=IRCreateVarRef(var);
+				__auto_type c=IRCreateVarRef(var);
 				
 				INSERT_NAME(enter);
 				INSERT_NAME(a);
@@ -153,8 +153,8 @@ void SSATests() {
 
 				graphNodeIRConnect(enter, a, IR_CONN_FLOW);
 				graphNodeIRConnect(a, b, IR_CONN_FLOW);
-				__auto_type cond=createIntLit(101);
-				__auto_type bA_CCJmp=createCondJmp(cond, a ,c);
+				__auto_type cond=IRCreateIntLit(101);
+				__auto_type bA_CCJmp=IRCreateCondJmp(cond, a ,c);
 				graphNodeIRConnect(b,cond, IR_CONN_FLOW);
 
 				

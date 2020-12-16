@@ -263,13 +263,13 @@ struct IRNodeChoose {
 
 char *IR2Str();
 graphNodeIR parserNode2IRStmt(const struct parserNode *node);
-graphNodeIR createIntLit(int64_t lit);
-graphNodeIR createBinop(graphNodeIR a, graphNodeIR b, enum IRNodeType type);
-graphNodeIR createLabel();
-graphNodeIR createJmp(graphNodeIR to);
-graphNodeIR createVarRef(struct variable *var);
-graphNodeIR createValueFromLabel(graphNodeIR lab);
-struct variable *createVirtVar(struct object *type);
+graphNodeIR IRCreateIntLit(int64_t lit);
+graphNodeIR IRCreateBinop(graphNodeIR a, graphNodeIR b, enum IRNodeType type);
+graphNodeIR IRCreateLabel();
+graphNodeIR IRCreateJmp(graphNodeIR to);
+graphNodeIR IRCreateVarRef(struct variable *var);
+graphNodeIR IRCreateValueFromLabel(graphNodeIR lab);
+struct variable *IRCreateVirtVar(struct object *type);
 struct IRVarRefs {
 	struct IRVar var;
 	long refs;
@@ -277,23 +277,23 @@ struct IRVarRefs {
 MAP_TYPE_DEF(struct IRVarRefs, IRVarRefs);
 MAP_TYPE_FUNCS(struct IRVarRefs, IRVarRefs);
 extern mapIRVarRefs IRVars;
-strGraphNodeP getStatementNodes(graphNodeIR stmtStart, graphNodeIR stmtEnd);
-graphNodeIR createStmtEnd(graphNodeIR start);
-graphNodeIR createStmtStart();
+strGraphNodeP IRStatementNodes(graphNodeIR stmtStart, graphNodeIR stmtEnd);
+graphNodeIR IRCreateStmtEnd(graphNodeIR start);
+graphNodeIR IRCreateStmtStart();
 void initIR();
 strGraphEdgeIRP IRGetConnsOfType(strGraphEdgeIRP conns, enum IRConnType type);
 void IRInsertBefore(graphNodeIR insertBefore, graphNodeIR entry,
                     graphNodeIR exit, enum IRConnType connType);
 void IRInsertAfter(graphNodeIR insertAfter, graphNodeIR entry, graphNodeIR exit,
                    enum IRConnType connType);
-graphNodeIR createAssign(graphNodeIR in, graphNodeIR dst);
-graphNodeIR createCondJmp(graphNodeIR cond, graphNodeIR t, graphNodeIR f);
+graphNodeIR IRCreateAssign(graphNodeIR in, graphNodeIR dst);
+graphNodeIR IRCreateCondJmp(graphNodeIR cond, graphNodeIR t, graphNodeIR f);
 void IRStmtBlockFromTailNode(graphNodeIR tail, graphNodeIR *enter,
                              graphNodeIR *exit);
-graphNodeIR IRGetStmtStart(graphNodeIR node);
+graphNodeIR IRStmtStart(graphNodeIR node);
 int IRVarCmp(const struct IRVar *a, const struct IRVar *b);
 char *graphEdgeIR2Str(struct __graphEdge *edge);
-graphNodeIR createReturn(graphNodeIR exp, graphNodeIR func);
+graphNodeIR IRCreateReturn(graphNodeIR exp, graphNodeIR func);
 void IRGraphMap2GraphViz(
     graphNodeMapping graph, const char *title, const char *fn,
     char *(*nodeLabelOverride)(graphNodeIR node, mapGraphVizAttr *attrs,
@@ -301,10 +301,10 @@ void IRGraphMap2GraphViz(
     char *(*edgeLabelOverride)(graphEdgeIR node, mapGraphVizAttr *attrs,
                                const void *data),
     const void *dataNodes, const void *dataEdge);
-graphNodeIR createStrLit(const char *text);
-graphNodeIR createUnop(graphNodeIR a, enum IRNodeType type);
-graphNodeIR createFuncCall(graphNodeIR func, ...);
-graphNodeIR createTypecast(graphNodeIR in, struct object *inType,
+graphNodeIR IRCreateStrLit(const char *text);
+graphNodeIR IRCreateUnop(graphNodeIR a, enum IRNodeType type);
+graphNodeIR IRCreateFuncCall(graphNodeIR func, ...);
+graphNodeIR IRCreateTypecast(graphNodeIR in, struct object *inType,
                            struct object *outType);
 enum IRCloneMode {
 	IR_CLONE_NODE,
@@ -312,15 +312,15 @@ enum IRCloneMode {
 	IR_CLONE_EXPR_UNTIL_ASSIGN,
 	IR_CLONE_UP_TO,
 };
-graphNodeIR cloneNode(graphNodeIR node, enum IRCloneMode mode,
+graphNodeIR IRCloneNode(graphNodeIR node, enum IRCloneMode mode,
                       mapGraphNode *mappings);
 int IRVarCmpIgnoreVersion(const struct IRVar *a, const struct IRVar *b);
 int IRIsExprEdge(enum IRConnType type);
 struct object *IRValueGetType(struct IRValue *node);
-graphNodeIR createLoad(struct IRVar *var);
-graphNodeIR createSpill(struct IRVar *var);
-graphNodeIR createRegRef(const struct regSlice *slice);
-graphNodeIR IRGetEndOfExpr(graphNodeIR node);
+graphNodeIR IRCreateLoad(struct IRVar *var);
+graphNodeIR IRCreateSpill(struct IRVar *var);
+graphNodeIR IRCreateRegRef(const struct regSlice *slice);
+graphNodeIR IREndOfExpr(graphNodeIR node);
 strGraphNodeIRP IRStmtNodes(graphNodeIR end);
 void IRRemoveDeadExpression(graphNodeIR end, strGraphNodeP *removed);
 int IRIsDeadExpression(graphNodeIR end);
