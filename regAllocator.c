@@ -1277,7 +1277,7 @@ static graphNodeIR rematRecur(graphNodeIR node, strGraphNodeIRP *retmatNodes,
 
 	mapGraphNode mappings CLEANUP(mapGraphNodeDestroy2);
 	__auto_type retVal = IRCloneUpTo(node, tops2, &mappings);
-
+	debugShowGraphIR(retVal);
 	// Find operation nodes of nodes
 	long newOpCount = 0;
 	for (long i = 0; i != strGraphNodeIRPSize(nodes); i++)
@@ -1431,13 +1431,13 @@ fail:;
 }
 static void rematerialize(graphNodeIR start, mapRegSlice live2Reg,
                           strGraphNodeIRLiveP live) {
-	strVar vars = NULL;
+		strVar vars CLEANUP(strVarDestroy) = NULL;
 	for (long i = 0; i != strGraphNodeIRLivePSize(live); i++) {
 		vars = strVarSortedInsert(vars, &graphNodeIRLiveValuePtr(live[i])->ref,
 		                          IRVarCmp2);
 	}
 
-	strVarToLiveNode assoc = NULL;
+	strVarToLiveNode assoc CLEANUP(strVarToLiveNodeDestroy) = NULL;
 	for (long i = 0; i != strGraphNodeIRLivePSize(live); i++) {
 		__auto_type var = graphNodeIRLiveValuePtr(live[i])->ref;
 		struct varToLiveNode pair;
@@ -1445,83 +1445,86 @@ static void rematerialize(graphNodeIR start, mapRegSlice live2Reg,
 		pair.live = live[i];
 		assoc = strVarToLiveNodeSortedInsert(assoc, pair, varToLiveNodeCompare);
 	}
-
-	__auto_type filtered = IRFilter(start, isAssignedLiveVarOrLoad, vars);
-	strGraphNodeMappingP filteredNodes CLEANUP(strGraphNodeMappingPDestroy) =
+	loop:
+	{
+			__auto_type filtered = IRFilter(start, isAssignedLiveVarOrLoad, vars);
+			strGraphNodeMappingP filteredNodes CLEANUP(strGraphNodeMappingPDestroy) =
 	    graphNodeMappingAllNodes(filtered);
-	strGraphNodeMappingP loads CLEANUP(strGraphNodeMappingPDestroy) =
+			strGraphNodeMappingP loads CLEANUP(strGraphNodeMappingPDestroy) =
 	    strGraphNodeMappingPRemoveIf(strGraphNodeMappingPClone(filteredNodes),
 	                                 NULL, isNotLMappedLoadNode);
-	//
-	// Find spills that dominate loads
-	//
-	__auto_type doms = graphComputeDominatorsPerNode(filtered);
-	{
-			IRGraphMap2GraphViz(filtered, "viz", "/tmp/dot.dot", NULL, NULL, NULL, NULL);
-	char buffer[1024];
-	sprintf(buffer,
-	        "sleep 0.1 &&dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg & ",
-	        "/tmp/dot.dot");
+			//
+			// Find spills that dominate loads
+			//
+			__auto_type doms = graphComputeDominatorsPerNode(filtered);
+			{
+					IRGraphMap2GraphViz(filtered, "viz", "/tmp/dot.dot", NULL, NULL, NULL, NULL);
+					char buffer[1024];
+					sprintf(buffer,
+													"sleep 0.1 &&dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg & ",
+													"/tmp/dot.dot");
 
-	system(buffer);
-	}
-	for (long i = 0; i != strGraphNodeMappingPSize(loads); i++) {
-		struct IRNodeLoad *load =
-		    (void *)graphNodeIRValuePtr(*graphNodeMappingValuePtr(loads[i]));
-
-		__auto_type find = llDominatorsFind(doms, loads[i], llDominatorCmp);
-		assert(find);
-
-		strGraphNodeMappingP doms = llDominatorsValuePtr(find)->dominators;
-		for (long i2 = 0; i2 != strGraphNodeMappingPSize(doms); i2++) {
-			// Check for spill in dominators
-			struct IRNodeLoad *spill =
-			    (void *)graphNodeIRValuePtr(*graphNodeMappingValuePtr(doms[i2]));
-			if (spill->base.type != IR_SPILL)
-				continue;
-
-			// Check if vars equal
-			if (0 != IRVarCmp(&spill->item.value.var, &load->item.value.var))
-				continue;
-
-			// Find paths from dominator to load
-			strGraphPath pathsTo CLEANUP(strGraphPathsDestroy2) =
-			    graphAllPathsTo(doms[i], loads[i]);
-			// Ensure all paths dont variables whoose registers conflict with
-			// rematerialized value
-			strRegSlice registersInPath CLEANUP(strRegSliceDestroy) = NULL;
-
-			// Get all edges
-			strGraphEdgeMappingP allEdges CLEANUP(strGraphEdgeIRPDestroy) = NULL;
-			for (long i = 0; i != strGraphPathSize(pathsTo); i++)
-				allEdges = strGraphEdgeMappingPSetUnion(allEdges, pathsTo[i],
-				                                        (geCmpType)ptrPtrCmp);
-
-			// Find all the (assigned) registers
-			for (long i = 0; i != strGraphEdgeIRPSize(allEdges); i++) {
-					__auto_type node=graphEdgeMappingOutgoing(allEdges[i]);
-					//Ensure is assigned
-					if(!isAssignRegMappedNode(NULL, &node))
-							continue;
-					
-					__auto_type ir =
-				    *graphNodeMappingValuePtr(node);
-				struct IRNodeValue *val = (void *)graphNodeIRValuePtr(ir);
-				// Check if register value
-				if (val->base.type == IR_VALUE) {
-					if (val->val.type == IR_VAL_REG) {
-						// Only insert if slice doesnt already exist
-						if (NULL == strRegSliceSortedFind(registersInPath,
-						                                  val->val.value.reg,
-						                                  regSliceCompare))
-							registersInPath = strRegSliceSortedInsert(
-							    registersInPath, val->val.value.reg, regSliceCompare);
-					}
-				}
+					system(buffer);
 			}
+			for (long i = 0; i != strGraphNodeMappingPSize(loads); i++) {
+					struct IRNodeLoad *load =
+							(void *)graphNodeIRValuePtr(*graphNodeMappingValuePtr(loads[i]));
 
-			replaceWithRemat(*graphNodeMappingValuePtr(loads[i]), registersInPath, live2Reg, assoc);
-		}
+					__auto_type find = llDominatorsFind(doms, loads[i], llDominatorCmp);
+					assert(find);
+
+					strGraphNodeMappingP doms = llDominatorsValuePtr(find)->dominators;
+					for (long i2 = 0; i2 != strGraphNodeMappingPSize(doms); i2++) {
+							// Check for spill in dominators
+							struct IRNodeLoad *spill =
+									(void *)graphNodeIRValuePtr(*graphNodeMappingValuePtr(doms[i2]));
+							if (spill->base.type != IR_SPILL)
+									continue;
+
+							// Check if vars equal
+							if (0 != IRVarCmp(&spill->item.value.var, &load->item.value.var))
+									continue;
+
+							// Find paths from dominator to load
+							strGraphPath pathsTo CLEANUP(strGraphPathsDestroy2) =
+									graphAllPathsTo(doms[i], loads[i]);
+							// Ensure all paths dont variables whoose registers conflict with
+							// rematerialized value
+							strRegSlice registersInPath CLEANUP(strRegSliceDestroy) = NULL;
+
+							// Get all edges
+							strGraphEdgeMappingP allEdges CLEANUP(strGraphEdgeIRPDestroy) = NULL;
+							for (long i = 0; i != strGraphPathSize(pathsTo); i++)
+									allEdges = strGraphEdgeMappingPSetUnion(allEdges, pathsTo[i],
+																																																	(geCmpType)ptrPtrCmp);
+
+							// Find all the (assigned) registers
+							for (long i = 0; i != strGraphEdgeIRPSize(allEdges); i++) {
+									__auto_type node=graphEdgeMappingOutgoing(allEdges[i]);
+									//Ensure is assigned
+									if(!isAssignRegMappedNode(NULL, &node))
+											continue;
+					
+									__auto_type ir =
+											*graphNodeMappingValuePtr(node);
+									struct IRNodeValue *val = (void *)graphNodeIRValuePtr(ir);
+									// Check if register value
+									if (val->base.type == IR_VALUE) {
+											if (val->val.type == IR_VAL_REG) {
+													// Only insert if slice doesnt already exist
+													if (NULL == strRegSliceSortedFind(registersInPath,
+																																															val->val.value.reg,
+																																															regSliceCompare))
+															registersInPath = strRegSliceSortedInsert(
+																																																									registersInPath, val->val.value.reg, regSliceCompare);
+											}
+									}
+							}
+
+							replaceWithRemat(*graphNodeMappingValuePtr(loads[i]), registersInPath, live2Reg, assoc);
+							goto loop;
+					}
+			}
 	}
 }
 void IRRegisterAllocate(graphNodeIR start, color2RegPredicate colorFunc,
