@@ -1456,6 +1456,7 @@ static void rematerialize(graphNodeIR start, mapRegSlice live2Reg,
 		pair.live = live[i];
 		assoc = strVarToLiveNodeSortedInsert(assoc, pair, varToLiveNodeCompare);
 	}
+	strGraphNodeIRP blackList CLEANUP(strGraphNodeIRPDestroy)=NULL;
 	loop:
 	{
 			__auto_type filtered = IRFilter(start, isAssignedLiveVarOrLoad, vars);
@@ -1478,6 +1479,10 @@ static void rematerialize(graphNodeIR start, mapRegSlice live2Reg,
 					system(buffer);
 			}
 			for (long i = 0; i != strGraphNodeMappingPSize(loads); i++) {
+					//Ignore items in blacklist
+					if(strGraphNodeIRPSortedFind(blackList, loads[i], (gnCmpType)ptrPtrCmp))
+							continue;
+					
 					struct IRNodeLoad *load =
 							(void *)graphNodeIRValuePtr(*graphNodeMappingValuePtr(loads[i]));
 
@@ -1532,6 +1537,9 @@ static void rematerialize(graphNodeIR start, mapRegSlice live2Reg,
 									}
 							}
 
+							//Done with loads[i],so ignore it
+							blackList=strGraphNodeIRPSortedInsert(blackList, loads[i], (gnCmpType)ptrPtrCmp);
+							
 							if(replaceWithRemat(*graphNodeMappingValuePtr(loads[i]), registersInPath, live2Reg, assoc))
 									goto loop;
 					}
