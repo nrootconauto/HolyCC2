@@ -21,18 +21,18 @@ static int isVarPred(graphNodeIR node,const void *var) {
 }
 void IRFilterTests() {
 		initIR();
-		__auto_type a=createVirtVar(&typeI64i);
-		__auto_type b=createVirtVar(&typeI64i);
-		__auto_type c=createVirtVar(&typeI64i);
+		__auto_type a=IRCreateVirtVar(&typeI64i);
+		__auto_type b=IRCreateVirtVar(&typeI64i);
+		__auto_type c=IRCreateVirtVar(&typeI64i);
 
-		__auto_type current=createLabel();
+		__auto_type current=IRCreateLabel();
 		__auto_type start=current;
 		{
-				__auto_type aRef=createVarRef(a);
-				__auto_type bRef1=createVarRef(b);
-				__auto_type cRef=createVarRef(c);
-				__auto_type add=createBinop(aRef, bRef1, IR_ADD);
-				__auto_type mult=createBinop(add, cRef, IR_MULT);
+				__auto_type aRef=IRCreateVarRef(a);
+				__auto_type bRef1=IRCreateVarRef(b);
+				__auto_type cRef=IRCreateVarRef(c);
+				__auto_type add=IRCreateBinop(aRef, bRef1, IR_ADD);
+				__auto_type mult=IRCreateBinop(add, cRef, IR_MULT);
 	
 				graphNodeIRConnect(current, aRef, IR_CONN_FLOW);
 				graphNodeIRConnect(current, bRef1, IR_CONN_FLOW);
@@ -41,13 +41,13 @@ void IRFilterTests() {
 				current=mult;
 		}
 
-		__auto_type label=createLabel();
+		__auto_type label=IRCreateLabel();
 		graphNodeIRConnect(current, label, IR_CONN_FLOW);
-		__auto_type cRef2=createVarRef(c);
+		__auto_type cRef2=IRCreateVarRef(c);
 		graphNodeIRConnect(label, cRef2, IR_CONN_FLOW);
 		graphNodeIRConnect( cRef2,label, IR_CONN_FLOW);
 
-		__auto_type cRef3=createVarRef(c);
+		__auto_type cRef3=IRCreateVarRef(c);
 		graphNodeIRConnect( cRef2,cRef3,IR_CONN_FLOW);
 		graphNodeIRConnect( cRef3,cRef3,IR_CONN_FLOW);
 

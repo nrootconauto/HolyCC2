@@ -1165,7 +1165,7 @@ static int infectUntilReg(graphNodeIR node, strGraphNodeP *regs,
 
 	//Ensure isn't a simd  operation or function call
 	__auto_type type=graphNodeIRValuePtr(node)->type;
-	if(type==IR_FUNC_CALL||type==IR_SIMD)
+	if(type==IR_FUNC_CALL||type==IR_SIMD||type==IR_LOAD||type==IR_SPILL)
 			return 0;
 	
 	struct IRNodeValue *val = (void *)graphNodeIRValuePtr(node);
@@ -1491,7 +1491,7 @@ static void rematerialize(graphNodeIR start, mapRegSlice live2Reg,
 									(void *)graphNodeIRValuePtr(*graphNodeMappingValuePtr(doms[i2]));
 							if (spill->base.type != IR_SPILL)
 									continue;
-
+							
 							// Check if vars equal
 							if (0 != IRVarCmp(&spill->item.value.var, &load->item.value.var))
 									continue;

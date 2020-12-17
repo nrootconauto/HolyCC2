@@ -17,9 +17,9 @@ void registerAllocatorTests() {
 		initIR();
 		IREvalInit();
 		{
-				__auto_type a=createVirtVar(&typeI64i);
-				__auto_type b=createVirtVar(&typeI64i);
-				__auto_type c=createVirtVar(&typeI64i);
+				__auto_type a=IRCreateVirtVar(&typeI64i);
+				__auto_type b=IRCreateVirtVar(&typeI64i);
+				__auto_type c=IRCreateVirtVar(&typeI64i);
 				a->name="A";
 				b->name="B";
 				c->name="C";
@@ -28,14 +28,14 @@ void registerAllocatorTests() {
 					* if(a) {b=a} else {b=2}
 					* c=b
 					*/
-				__auto_type one=createIntLit(1);
-				__auto_type two=createIntLit(2);
-				__auto_type aRef1=createVarRef(a);
-				__auto_type aRef2=createVarRef(a); // b=a
-				__auto_type bRef1=createVarRef(b); // b=a
-				__auto_type bRef2=createVarRef(b); // b=2
-				__auto_type bRef3=createVarRef(b); // c=b
-				__auto_type cRef=createVarRef(c);
+				__auto_type one=IRCreateIntLit(1);
+				__auto_type two=IRCreateIntLit(2);
+				__auto_type aRef1=IRCreateVarRef(a);
+				__auto_type aRef2=IRCreateVarRef(a); // b=a
+				__auto_type bRef1=IRCreateVarRef(b); // b=a
+				__auto_type bRef2=IRCreateVarRef(b); // b=2
+				__auto_type bRef3=IRCreateVarRef(b); // c=b
+				__auto_type cRef=IRCreateVarRef(c);
 
 				debugAddPtrName(one, "One");
 				debugAddPtrName(two, "two");
@@ -47,15 +47,15 @@ void registerAllocatorTests() {
 				debugAddPtrName(cRef, "cRef");
 		
 		
-				createAssign( one,aRef1);
+				IRCreateAssign( one,aRef1);
 		
-				createAssign(aRef2,bRef1);
-				createAssign( two,bRef2);
-				__auto_type cond=createCondJmp(aRef1, aRef2, two);
+				IRCreateAssign(aRef2,bRef1);
+				IRCreateAssign( two,bRef2);
+				__auto_type cond=IRCreateCondJmp(aRef1, aRef2, two);
 				debugAddPtrName(cond, "cond");
 		
 		
-				createAssign(bRef3,cRef);
+				IRCreateAssign(bRef3,cRef);
 				graphNodeIRConnect(bRef1, bRef3, IR_CONN_FLOW);
 				graphNodeIRConnect(bRef2, bRef3, IR_CONN_FLOW);
 
@@ -64,8 +64,8 @@ void registerAllocatorTests() {
 				//Do SSA on strucure
 				IRToSSA(one);
 				
-				__auto_type beforeBref3=graphNodeIRIncomingNodes(IRGetStmtStart(bRef3))[0];
-				__auto_type type=graphNodeIRValuePtr(IRGetStmtStart(beforeBref3))->type;
+				__auto_type beforeBref3=graphNodeIRIncomingNodes(IRStmtStart(bRef3))[0];
+				__auto_type type=graphNodeIRValuePtr(IRStmtStart(beforeBref3))->type;
 				assert(type==IR_CHOOSE);
 		
 				//Merge
@@ -94,17 +94,17 @@ void registerAllocatorTests() {
 		//
 		{
 
-				__auto_type one=createIntLit(1);
-				__auto_type a=createVirtVar(&typeI64i);
-				__auto_type b=createVirtVar(&typeI64i);
-				__auto_type c=createVirtVar(&typeI64i);
-				__auto_type d=createVirtVar(&typeI64i);
+				__auto_type one=IRCreateIntLit(1);
+				__auto_type a=IRCreateVirtVar(&typeI64i);
+				__auto_type b=IRCreateVirtVar(&typeI64i);
+				__auto_type c=IRCreateVirtVar(&typeI64i);
+				__auto_type d=IRCreateVirtVar(&typeI64i);
 
-				__auto_type aRef1=createVarRef(a);
-				__auto_type bRef1=createVarRef(b);
-				__auto_type bRef2=createVarRef(b);
-				__auto_type cRef=createVarRef(c);
-				__auto_type dRef=createVarRef(d);
+				__auto_type aRef1=IRCreateVarRef(a);
+				__auto_type bRef1=IRCreateVarRef(b);
+				__auto_type bRef2=IRCreateVarRef(b);
+				__auto_type cRef=IRCreateVarRef(c);
+				__auto_type dRef=IRCreateVarRef(d);
 
 				DEBUG_PRINT_REGISTER_VAR(aRef1);
 				DEBUG_PRINT_REGISTER_VAR(bRef1);
@@ -135,7 +135,7 @@ void registerAllocatorTests() {
 				//b=c,a=b,d=b ... 1+1+1
 				for(long i=0;i!=1+1+1+1;i++) {
 						outgoingFrom=graphNodeIROutgoingNodes(outgoingFrom[0]);
-						struct IRNodeValue *val=(void*)graphNodeIRValuePtr(outgoingFrom[0]);
+ 						struct IRNodeValue *val=(void*)graphNodeIRValuePtr(outgoingFrom[0]);
 						assert(val->val.value.var.value.var==var);
 				}
 
@@ -155,11 +155,11 @@ void registerAllocatorTests() {
 		// Rematerialization test
 		//
 		{
-				__auto_type a=createVirtVar(&typeI32i);
-				__auto_type b=createVirtVar(&typeI32i);
-				__auto_type c=createVirtVar(&typeI32i);
-				__auto_type d=createVirtVar(&typeI32i);
-				__auto_type e=createVirtVar(&typeI32i);
+				__auto_type a=IRCreateVirtVar(&typeI32i);
+				__auto_type b=IRCreateVirtVar(&typeI32i);
+				__auto_type c=IRCreateVirtVar(&typeI32i);
+				__auto_type d=IRCreateVirtVar(&typeI32i);
+				__auto_type e=IRCreateVirtVar(&typeI32i);
 				a->name="A";
 				b->name="B";
 				c->name="C";
@@ -168,49 +168,49 @@ void registerAllocatorTests() {
 				
 				//a+1
 				graphNodeIR aP1,start;
-				aP1=createBinop(createVarRef(a), createIntLit(2), IR_ADD);
+				aP1=IRCreateBinop(IRCreateVarRef(a), IRCreateIntLit(2), IR_ADD);
 
 				//b=a+1
 				graphNodeIR current;
 				{
-						__auto_type bRef=createVarRef(b);
-						graphNodeIRConnect(cloneNode(aP1, IR_CLONE_EXPR, NULL), bRef, IR_CONN_DEST);
+						__auto_type bRef=IRCreateVarRef(b);
+						graphNodeIRConnect(IRCloneNode(aP1, IR_CLONE_EXPR, NULL), bRef, IR_CONN_DEST);
 						current=bRef;
-						start=IRGetStmtStart(bRef);
+						start=IRStmtStart(bRef);
 				}
 				//c=a+1
 				{
-						__auto_type cRef=createVarRef(c);
-						graphNodeIRConnect(cloneNode(aP1, IR_CLONE_EXPR, NULL), cRef, IR_CONN_DEST);
-						graphNodeIRConnect(current, IRGetStmtStart(cRef), IR_CONN_FLOW);
+						__auto_type cRef=IRCreateVarRef(c);
+						graphNodeIRConnect(IRCloneNode(aP1, IR_CLONE_EXPR, NULL), cRef, IR_CONN_DEST);
+						graphNodeIRConnect(current, IRStmtStart(cRef), IR_CONN_FLOW);
 						current=cRef;
 				}
 				//d=a+1
 					{
-						__auto_type dRef=createVarRef(d);
-						graphNodeIRConnect(cloneNode(aP1, IR_CLONE_EXPR, NULL), dRef, IR_CONN_DEST);
-						graphNodeIRConnect(current, IRGetStmtStart(dRef), IR_CONN_FLOW);
+						__auto_type dRef=IRCreateVarRef(d);
+						graphNodeIRConnect(IRCloneNode(aP1, IR_CLONE_EXPR, NULL), dRef, IR_CONN_DEST);
+						graphNodeIRConnect(current, IRStmtStart(dRef), IR_CONN_FLOW);
 						current=dRef;
 					}
 						//e=a+1
 					{
-						__auto_type eRef=createVarRef(e);
-						graphNodeIRConnect(cloneNode(aP1, IR_CLONE_EXPR, NULL), eRef, IR_CONN_DEST);
-						graphNodeIRConnect(current, IRGetStmtStart(eRef), IR_CONN_FLOW);
+						__auto_type eRef=IRCreateVarRef(e);
+						graphNodeIRConnect(IRCloneNode(aP1, IR_CLONE_EXPR, NULL), eRef, IR_CONN_DEST);
+						graphNodeIRConnect(current, IRStmtStart(eRef), IR_CONN_FLOW);
 						current=eRef;
 					}
 					//a+b+c+d+e
 					{
-							__auto_type aRef=createVarRef(a);
-							__auto_type bRef=createVarRef(b);
-							__auto_type cRef=createVarRef(c);
-							__auto_type dRef=createVarRef(d);
-							__auto_type eRef=createVarRef(e);
-							__auto_type one= createBinop(bRef, cRef, IR_ADD);
-							__auto_type two= createBinop(one, dRef, IR_ADD);
-							__auto_type three= createBinop(two, eRef, IR_ADD);
-							__auto_type four= createBinop(three, aRef, IR_ADD);
-							graphNodeIRConnect(current, IRGetStmtStart(four), IR_CONN_FLOW);
+							__auto_type aRef=IRCreateVarRef(a);
+							__auto_type bRef=IRCreateVarRef(b);
+							__auto_type cRef=IRCreateVarRef(c);
+							__auto_type dRef=IRCreateVarRef(d);
+							__auto_type eRef=IRCreateVarRef(e);
+							__auto_type one= IRCreateBinop(bRef, cRef, IR_ADD);
+							__auto_type two= IRCreateBinop(one, dRef, IR_ADD);
+							__auto_type three= IRCreateBinop(two, eRef, IR_ADD);
+							__auto_type four= IRCreateBinop(three, aRef, IR_ADD);
+							graphNodeIRConnect(current, IRStmtStart(four), IR_CONN_FLOW);
 					}
 
 					setArch(ARCH_TEST_SYSV);
@@ -222,12 +222,12 @@ void registerAllocatorTests() {
 		// Register allocater test
 		//
 		{
-				__auto_type u=createVirtVar(&typeI32i);
-				__auto_type v=createVirtVar(&typeI32i);
-				__auto_type w=createVirtVar(&typeI32i);
-				__auto_type x=createVirtVar(&typeI32i);
-				__auto_type y=createVirtVar(&typeI32i);
-				__auto_type z=createVirtVar(&typeI32i);
+				__auto_type u=IRCreateVirtVar(&typeI32i);
+				__auto_type v=IRCreateVirtVar(&typeI32i);
+				__auto_type w=IRCreateVirtVar(&typeI32i);
+				__auto_type x=IRCreateVirtVar(&typeI32i);
+				__auto_type y=IRCreateVirtVar(&typeI32i);
+				__auto_type z=IRCreateVirtVar(&typeI32i);
 				u->name="U";
 				v->name="V";
 				w->name="W";
@@ -241,13 +241,13 @@ void registerAllocatorTests() {
 				DEBUG_PRINT_REGISTER_VAR(y);
 				DEBUG_PRINT_REGISTER_VAR(z);
 				
-				__auto_type start=createLabel();
+				__auto_type start=IRCreateLabel();
 				__auto_type end=start;
 				//Assign u-z;
 				{
 						{
-								__auto_type uRef0=createVarRef(u);
-								__auto_type zero0=createIntLit(0);
+								__auto_type uRef0=IRCreateVarRef(u);
+								__auto_type zero0=IRCreateIntLit(0);
 								DEBUG_PRINT_REGISTER_VAR(uRef0);
 								DEBUG_PRINT_REGISTER_VAR(zero0);
 								graphNodeIRConnect(end,zero0,IR_CONN_FLOW);
@@ -256,8 +256,8 @@ void registerAllocatorTests() {
 						}
 
 						{
-								__auto_type vRef0=createVarRef(v);
-								__auto_type one0=createIntLit(1);
+								__auto_type vRef0=IRCreateVarRef(v);
+								__auto_type one0=IRCreateIntLit(1);
 								DEBUG_PRINT_REGISTER_VAR(vRef0);
 								DEBUG_PRINT_REGISTER_VAR(one0);
 								graphNodeIRConnect(end,one0,IR_CONN_FLOW);
@@ -265,8 +265,8 @@ void registerAllocatorTests() {
 								end=vRef0;
 						}
 						{
-								__auto_type wRef0=createVarRef(w);
-								__auto_type two0=createIntLit(2);
+								__auto_type wRef0=IRCreateVarRef(w);
+								__auto_type two0=IRCreateIntLit(2);
 								DEBUG_PRINT_REGISTER_VAR(wRef0);
 								DEBUG_PRINT_REGISTER_VAR(two0);
 								graphNodeIRConnect(end,two0,IR_CONN_FLOW);
@@ -274,8 +274,8 @@ void registerAllocatorTests() {
 								end=wRef0;
 						}
 						{
-								__auto_type xRef0=createVarRef(x);
-								__auto_type three0=createIntLit(3);
+								__auto_type xRef0=IRCreateVarRef(x);
+								__auto_type three0=IRCreateIntLit(3);
 								DEBUG_PRINT_REGISTER_VAR(xRef0);
 								DEBUG_PRINT_REGISTER_VAR(three0);
 								graphNodeIRConnect(end,three0,IR_CONN_FLOW);
@@ -283,8 +283,8 @@ void registerAllocatorTests() {
 								end=xRef0;
 						}
 						{
-								__auto_type yRef0=createVarRef(y);
-								__auto_type four0=createIntLit(4);
+								__auto_type yRef0=IRCreateVarRef(y);
+								__auto_type four0=IRCreateIntLit(4);
 								DEBUG_PRINT_REGISTER_VAR(yRef0);
 								DEBUG_PRINT_REGISTER_VAR(four0);
 								graphNodeIRConnect(end,four0,IR_CONN_FLOW);
@@ -292,8 +292,8 @@ void registerAllocatorTests() {
 								end=yRef0;
 						}
 						{
-								__auto_type zRef0=createVarRef(z);
-								__auto_type five0=createIntLit(5);
+								__auto_type zRef0=IRCreateVarRef(z);
+								__auto_type five0=IRCreateIntLit(5);
 								DEBUG_PRINT_REGISTER_VAR(zRef0);
 								DEBUG_PRINT_REGISTER_VAR(five0);
 								graphNodeIRConnect(end,five0,IR_CONN_FLOW);
@@ -304,84 +304,84 @@ void registerAllocatorTests() {
 				DEBUG_PRINT_REGISTER_VAR(start);
 				
 				{
-						__auto_type zRef2=createVarRef(z);
-						__auto_type vRef2=createVarRef(v);
-						__auto_type one2=createIntLit(1);
+						__auto_type zRef2=IRCreateVarRef(z);
+						__auto_type vRef2=IRCreateVarRef(v);
+						__auto_type one2=IRCreateIntLit(1);
 						DEBUG_PRINT_REGISTER_VAR(zRef2);
 						DEBUG_PRINT_REGISTER_VAR(vRef2);
 						DEBUG_PRINT_REGISTER_VAR(one2);
-						__auto_type binop2=createBinop(vRef2, one2, IR_ADD);
+						__auto_type binop2=IRCreateBinop(vRef2, one2, IR_ADD);
 						DEBUG_PRINT_REGISTER_VAR(binop2);
 						graphNodeIRConnect(binop2, zRef2, IR_CONN_DEST);
-						graphNodeIRConnect( end,IRGetStmtStart(zRef2),  IR_CONN_FLOW) ;
+						graphNodeIRConnect( end,IRStmtStart(zRef2),  IR_CONN_FLOW) ;
 						
 						end=zRef2;
 				} {
-						__auto_type xRef3=createVarRef(x);
-						__auto_type vRef3=createVarRef(v);
-						__auto_type zRef3=createVarRef(z);
-						__auto_type binop3=createBinop(zRef3, vRef3, IR_MULT);
+						__auto_type xRef3=IRCreateVarRef(x);
+						__auto_type vRef3=IRCreateVarRef(v);
+						__auto_type zRef3=IRCreateVarRef(z);
+						__auto_type binop3=IRCreateBinop(zRef3, vRef3, IR_MULT);
 						DEBUG_PRINT_REGISTER_VAR(xRef3);
 						DEBUG_PRINT_REGISTER_VAR(vRef3);
 						DEBUG_PRINT_REGISTER_VAR(zRef3);
 						DEBUG_PRINT_REGISTER_VAR(binop3);
 						
 						graphNodeIRConnect(binop3, xRef3, IR_CONN_DEST);
-						graphNodeIRConnect( end,IRGetStmtStart(xRef3),  IR_CONN_FLOW);
+						graphNodeIRConnect( end,IRStmtStart(xRef3),  IR_CONN_FLOW);
 						end=xRef3;
 				}
 				{
-						__auto_type yRef4=createVarRef(y);
-						__auto_type xRef4=createVarRef(x);
-						__auto_type two4=createIntLit(2);
-						__auto_type binop4=createBinop(xRef4, two4, IR_MULT);
+						__auto_type yRef4=IRCreateVarRef(y);
+						__auto_type xRef4=IRCreateVarRef(x);
+						__auto_type two4=IRCreateIntLit(2);
+						__auto_type binop4=IRCreateBinop(xRef4, two4, IR_MULT);
 						DEBUG_PRINT_REGISTER_VAR(xRef4);
 						DEBUG_PRINT_REGISTER_VAR(yRef4);
 						DEBUG_PRINT_REGISTER_VAR(two4);
 						DEBUG_PRINT_REGISTER_VAR(binop4);
 						graphNodeIRConnect(binop4, yRef4, IR_CONN_DEST);
-						graphNodeIRConnect( end,IRGetStmtStart(yRef4),  IR_CONN_FLOW);
+						graphNodeIRConnect( end,IRStmtStart(yRef4),  IR_CONN_FLOW);
 
 						end=yRef4;
 				}
 					{
-							__auto_type wRef5=createVarRef(w);
-							__auto_type yRef5=createVarRef(y);
-							__auto_type zRef5=createVarRef(z);
-							__auto_type xRef5=createVarRef(x);
+							__auto_type wRef5=IRCreateVarRef(w);
+							__auto_type yRef5=IRCreateVarRef(y);
+							__auto_type zRef5=IRCreateVarRef(z);
+							__auto_type xRef5=IRCreateVarRef(x);
 							DEBUG_PRINT_REGISTER_VAR(wRef5);
 							DEBUG_PRINT_REGISTER_VAR(yRef5);
 							DEBUG_PRINT_REGISTER_VAR(zRef5);
 							DEBUG_PRINT_REGISTER_VAR(xRef5);
-							__auto_type binop5_1=createBinop(zRef5, yRef5, IR_MULT);
-							__auto_type binop5_2=createBinop(binop5_1,xRef5,IR_ADD);
+							__auto_type binop5_1=IRCreateBinop(zRef5, yRef5, IR_MULT);
+							__auto_type binop5_2=IRCreateBinop(binop5_1,xRef5,IR_ADD);
 							graphNodeIRConnect(binop5_2, wRef5, IR_CONN_DEST);
-							graphNodeIRConnect( end,IRGetStmtStart(wRef5),  IR_CONN_FLOW);
+							graphNodeIRConnect( end,IRStmtStart(wRef5),  IR_CONN_FLOW);
 
 						end=wRef5;
 				}
 					{
-							__auto_type uRef6=createVarRef(u);
-							__auto_type zRef6=createVarRef(z);
-							__auto_type two6=createIntLit(2);
-							__auto_type binop6=createBinop(two6, zRef6, IR_ADD);
+							__auto_type uRef6=IRCreateVarRef(u);
+							__auto_type zRef6=IRCreateVarRef(z);
+							__auto_type two6=IRCreateIntLit(2);
+							__auto_type binop6=IRCreateBinop(two6, zRef6, IR_ADD);
 							DEBUG_PRINT_REGISTER_VAR(binop6);
 							DEBUG_PRINT_REGISTER_VAR(uRef6);
 							DEBUG_PRINT_REGISTER_VAR(zRef6);
 							DEBUG_PRINT_REGISTER_VAR(two6);
 							
 							graphNodeIRConnect(binop6, uRef6, IR_CONN_DEST);
-							graphNodeIRConnect( end,IRGetStmtStart(uRef6),  IR_CONN_FLOW);
+							graphNodeIRConnect( end,IRStmtStart(uRef6),  IR_CONN_FLOW);
 							
 							end=uRef6;
 					}
 					{
-							__auto_type vRef7=createVarRef(v);
-							__auto_type uRef7=createVarRef(u);
-							__auto_type wRef7=createVarRef(w);
-							__auto_type yRef7=createVarRef(y);
-							__auto_type binop7_1=createBinop(uRef7, wRef7, IR_ADD);
-							__auto_type binop7_2=createBinop(binop7_1,yRef7,IR_ADD);
+							__auto_type vRef7=IRCreateVarRef(v);
+							__auto_type uRef7=IRCreateVarRef(u);
+							__auto_type wRef7=IRCreateVarRef(w);
+							__auto_type yRef7=IRCreateVarRef(y);
+							__auto_type binop7_1=IRCreateBinop(uRef7, wRef7, IR_ADD);
+							__auto_type binop7_2=IRCreateBinop(binop7_1,yRef7,IR_ADD);
 							DEBUG_PRINT_REGISTER_VAR(vRef7);
 							DEBUG_PRINT_REGISTER_VAR(uRef7);
 							DEBUG_PRINT_REGISTER_VAR(wRef7);
@@ -390,20 +390,20 @@ void registerAllocatorTests() {
 							DEBUG_PRINT_REGISTER_VAR(binop7_2);
 							
 							graphNodeIRConnect(binop7_2, vRef7, IR_CONN_DEST);
-							graphNodeIRConnect( end,IRGetStmtStart(vRef7),  IR_CONN_FLOW);
+							graphNodeIRConnect( end,IRStmtStart(vRef7),  IR_CONN_FLOW);
 							
 							end=vRef7;
 					}
 					{
-							__auto_type uRef8=createVarRef(u);
-							__auto_type vRef8=createVarRef(v);
-							__auto_type binop=createBinop(uRef8, vRef8, IR_MULT);
+							__auto_type uRef8=IRCreateVarRef(u);
+							__auto_type vRef8=IRCreateVarRef(v);
+							__auto_type binop=IRCreateBinop(uRef8, vRef8, IR_MULT);
 							DEBUG_PRINT_REGISTER_VAR(uRef8);
 							DEBUG_PRINT_REGISTER_VAR(vRef8);
 							DEBUG_PRINT_REGISTER_VAR(binop);
 							
-							graphNodeIRConnect( end,IRGetStmtStart(binop),  IR_CONN_FLOW);
-							createReturn(binop, NULL);
+							graphNodeIRConnect( end,IRStmtStart(binop),  IR_CONN_FLOW);
+							IRCreateReturn(binop, NULL);
 							}
 				setArch(ARCH_TEST_SYSV);
 				int success;

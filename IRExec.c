@@ -785,7 +785,7 @@ __IREvalPath(graphNodeIR start, struct IREvalVal *currentValue, int *success) {
 	}
 	}
 	case IR_VALUE: {
-		__auto_type end = IRGetEndOfExpr(start);
+		__auto_type end = IREndOfExpr(start);
 		int success2;
 		retVal = IREvalNode(end, &success2);
 		if (!success2)
@@ -799,9 +799,9 @@ __IREvalPath(graphNodeIR start, struct IREvalVal *currentValue, int *success) {
 		strGraphNodeIRP outgoing = graphNodeIROutgoingNodes(start);
 
 		if (strGraphNodeIRPSize(outgoing) > 1) {
-			graphNodeIR commonEnd = IRGetEndOfExpr(outgoing[0]);
+			graphNodeIR commonEnd = IREndOfExpr(outgoing[0]);
 			for (long i = 1; i != strGraphNodeIRPSize(outgoing); i++) {
-				__auto_type end = IRGetEndOfExpr(outgoing[i]);
+				__auto_type end = IREndOfExpr(outgoing[i]);
 				if (commonEnd != end)
 					goto fail;
 			}
@@ -838,7 +838,7 @@ __IREvalPath(graphNodeIR start, struct IREvalVal *currentValue, int *success) {
 		if (!success2)
 			goto fail;
 
-		endNode = IRGetEndOfExpr(start);
+		endNode = IREndOfExpr(start);
 		goto findNext;
 	}
 	case IR_STATEMENT_END:
@@ -847,7 +847,7 @@ __IREvalPath(graphNodeIR start, struct IREvalVal *currentValue, int *success) {
 		goto findNext;
 	default:;
 		// Perhaps is an expression node
-		__auto_type end = IRGetEndOfExpr(start);
+		__auto_type end = IREndOfExpr(start);
 		int success2;
 		retVal = IREvalNode(end, &success2);
 		if (!success2)
