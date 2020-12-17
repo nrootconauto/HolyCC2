@@ -1165,7 +1165,7 @@ static int infectUntilReg(graphNodeIR node, strGraphNodeP *regs,
 
 	//Ensure isn't a simd  operation or function call
 	__auto_type type=graphNodeIRValuePtr(node)->type;
-	if(type==IR_FUNC_CALL||type==IR_SIMD||type==IR_LOAD||type==IR_SPILL)
+	if(type==IR_FUNC_CALL||type==IR_SIMD||type==IR_LOAD)
 			return 0;
 	
 	struct IRNodeValue *val = (void *)graphNodeIRValuePtr(node);
@@ -1526,7 +1526,7 @@ static void rematerialize(graphNodeIR start, mapRegSlice live2Reg,
 									if (val->base.type == IR_VALUE) {
 											if (val->val.type == IR_VAL_REG) {
 													//Is assigned ?
-													if(!isAssignRegMappedNode(NULL, &node)) {
+													if(isAssignRegMappedNode(NULL, &node)) {
 															// Only insert if slice doesnt already exist
 															if (NULL == strRegSliceSortedFind(assignedRegistersInPath,
 																																																	val->val.value.reg,
@@ -1547,7 +1547,7 @@ static void rematerialize(graphNodeIR start, mapRegSlice live2Reg,
 
 							//Done with loads[i],so ignore it
 							blackList=strGraphNodeIRPSortedInsert(blackList, loads[i], (gnCmpType)ptrPtrCmp);
-							
+							debugShowGraphIR(start);
 							if(replaceWithRemat(*graphNodeMappingValuePtr(loads[i]), assignedRegistersInPath, live2Reg, assoc))
 									goto loop;
 					}
