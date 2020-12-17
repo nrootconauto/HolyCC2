@@ -165,18 +165,26 @@ void registerAllocatorTests() {
 				c->name="C";
 				d->name="D";
 				e->name="E";
+
+				//a=2
+				graphNodeIR start,current;
+				{
+						__auto_type aRef=IRCreateVarRef(a);
+						graphNodeIRConnect(IRCreateIntLit(2), aRef, IR_CONN_DEST);
+						current=aRef;
+						start=IRStmtStart(aRef);
+				}
 				
 				//a+1
-				graphNodeIR aP1,start;
-				aP1=IRCreateBinop(IRCreateVarRef(a), IRCreateIntLit(2), IR_ADD);
+				graphNodeIR aP1;
+				aP1=IRCreateBinop(IRCreateVarRef(a), IRCreateIntLit(1), IR_ADD);
 
 				//b=a+1
-				graphNodeIR current;
 				{
 						__auto_type bRef=IRCreateVarRef(b);
 						graphNodeIRConnect(IRCloneNode(aP1, IR_CLONE_EXPR, NULL), bRef, IR_CONN_DEST);
+						graphNodeIRConnect(current, IRStmtStart(bRef), IR_CONN_FLOW);
 						current=bRef;
-						start=IRStmtStart(bRef);
 				}
 				//c=a+1
 				{
@@ -199,7 +207,7 @@ void registerAllocatorTests() {
 						graphNodeIRConnect(current, IRStmtStart(eRef), IR_CONN_FLOW);
 						current=eRef;
 					}
-					//a+b+c+d+e
+					//return a+b+c+d+e
 					{
 							__auto_type aRef=IRCreateVarRef(a);
 							__auto_type bRef=IRCreateVarRef(b);
@@ -210,13 +218,25 @@ void registerAllocatorTests() {
 							__auto_type two= IRCreateBinop(one, dRef, IR_ADD);
 							__auto_type three= IRCreateBinop(two, eRef, IR_ADD);
 							__auto_type four= IRCreateBinop(three, aRef, IR_ADD);
-							graphNodeIRConnect(current, IRStmtStart(four), IR_CONN_FLOW);
+							__auto_type ret=IRCreateReturn(four, NULL);
+							graphNodeIRConnect(current, IRStmtStart(ret), IR_CONN_FLOW);
 					}
 
 					setArch(ARCH_TEST_SYSV);
+					int success;
+					__auto_type res1= IREvalPath(start, &success);
+					assert(success);
+					assert(res1.type==IREVAL_VAL_INT);
+					assert(res1.value.i==14);
+
 					debugShowGraph(start);
 					IRRegisterAllocate(start, NULL, NULL);
 					debugShowGraph(start);
+
+					__auto_type res2= IREvalPath(start, &success);
+					assert(success);
+					assert(res2.type==IREVAL_VAL_INT);
+					assert(res2.value.i==14);
 		}
 		//
 		// Register allocater test

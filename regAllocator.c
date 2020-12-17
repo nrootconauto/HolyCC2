@@ -1506,8 +1506,9 @@ static void rematerialize(graphNodeIR start, mapRegSlice live2Reg,
 									graphAllPathsTo(doms[i], loads[i]);
 							// Ensure all paths dont variables whoose registers conflict with
 							// rematerialized value
-							strRegSlice registersInPath CLEANUP(strRegSliceDestroy) = NULL;
-
+							strRegSlice assignedRegistersInPath CLEANUP(strRegSliceDestroy) = NULL;
+							strRegSlice readRegistersInPath CLEANUP(strRegSliceDestroy) = NULL;
+							
 							// Get all edges
 							strGraphEdgeMappingP allEdges CLEANUP(strGraphEdgeIRPDestroy) = NULL;
 							for (long i = 0; i != strGraphPathSize(pathsTo); i++)
@@ -1517,22 +1518,29 @@ static void rematerialize(graphNodeIR start, mapRegSlice live2Reg,
 							// Find all the (assigned) registers
 							for (long i = 0; i != strGraphEdgeIRPSize(allEdges); i++) {
 									__auto_type node=graphEdgeMappingOutgoing(allEdges[i]);
-									//Ensure is assigned
-									if(!isAssignRegMappedNode(NULL, &node))
-											continue;
-					
+									
 									__auto_type ir =
 											*graphNodeMappingValuePtr(node);
 									struct IRNodeValue *val = (void *)graphNodeIRValuePtr(ir);
 									// Check if register value
 									if (val->base.type == IR_VALUE) {
 											if (val->val.type == IR_VAL_REG) {
-													// Only insert if slice doesnt already exist
-													if (NULL == strRegSliceSortedFind(registersInPath,
-																																															val->val.value.reg,
-																																															regSliceCompare))
-															registersInPath = strRegSliceSortedInsert(
-																																																									registersInPath, val->val.value.reg, regSliceCompare);
+													//Is assigned ?
+													if(!isAssignRegMappedNode(NULL, &node)) {
+															// Only insert if slice doesnt already exist
+															if (NULL == strRegSliceSortedFind(assignedRegistersInPath,
+																																																	val->val.value.reg,
+																																																	regSliceCompare))
+																	assignedRegistersInPath = strRegSliceSortedInsert(
+																																																																			assignedRegistersInPath, val->val.value.reg, regSliceCompare);
+													} else {
+															// Only insert if slice doesnt already exist
+															if (NULL == strRegSliceSortedFind(readRegistersInPath,
+																																																	val->val.value.reg,
+																																																	regSliceCompare))
+															readRegistersInPath= strRegSliceSortedInsert(
+																																																																			readRegistersInPath, val->val.value.reg, regSliceCompare);
+													}
 											}
 									}
 							}
@@ -1540,7 +1548,7 @@ static void rematerialize(graphNodeIR start, mapRegSlice live2Reg,
 							//Done with loads[i],so ignore it
 							blackList=strGraphNodeIRPSortedInsert(blackList, loads[i], (gnCmpType)ptrPtrCmp);
 							
-							if(replaceWithRemat(*graphNodeMappingValuePtr(loads[i]), registersInPath, live2Reg, assoc))
+							if(replaceWithRemat(*graphNodeMappingValuePtr(loads[i]), assignedRegistersInPath, live2Reg, assoc))
 									goto loop;
 					}
 			}
