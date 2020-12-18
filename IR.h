@@ -267,7 +267,6 @@ struct IRNodeChoose {
 };
 
 char *IR2Str();
-graphNodeIR parserNode2IRStmt(const struct parserNode *node);
 graphNodeIR IRCreateIntLit(int64_t lit);
 graphNodeIR IRCreateBinop(graphNodeIR a, graphNodeIR b, enum IRNodeType type);
 graphNodeIR IRCreateLabel();
