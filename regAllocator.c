@@ -2,10 +2,10 @@
 #include <SSA.h>
 #include <assert.h>
 #include <graphColoring.h>
-#define DEBUG_PRINT_ENABLE 1
 #include <IRFilter.h>
 #include <base64.h>
 #include <cleanup.h>
+#define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 #include <graphDominance.h>
 static char *ptr2Str(const void *a) { return base64Enc((void *)&a, sizeof(a)); }
@@ -293,13 +293,11 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 
 				if (!find) {
 					// Add a vec of references(only reference is nodes[i])
-					DEBUG_PRINT("Adding var node %s\n", var2Str(nodes[i]));
-
+					
 					strGraphNodeIRP tmp = strGraphNodeIRPAppendItem(NULL, nodes[i]);
 					refs = strVarRefsAppendItem(refs, tmp);
 				} else {
-					DEBUG_PRINT("Adding existing var to ref %s\n", var2Str(nodes[i]));
-
+					
 					// Add nodes[i] to references
 					__auto_type vec = find;
 					*vec =
@@ -334,9 +332,7 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 				struct IRNodeValue *inValueNode = (void *)inNode;
 				if (inValueNode->val.type == IR_VAL_VAR_REF) {
 					aliasNode = graphEdgeIRIncoming(filtered[0]);
-					DEBUG_PRINT("%s aliased to node %s\n", var2Str(aliasNode),
-					            var2Str(nodes[i]));
-
+					
 					// Union
 					__auto_type aIndex = getVarRefIndex(refs, aliasNode);
 					__auto_type bIndex = getVarRefIndex(refs, nodes[i]);
@@ -372,9 +368,7 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 			// Dont replace self
 			if (refs[i][i2] == master)
 				continue;
-
-			DEBUG_PRINT("Replacing %s with %s\n", var2Str(refs[i][i2]),
-			            var2Str(master));
+			
 			// Replace with cloned value
 			replaceNodeWithExpr(refs[i][i2], IRCloneNode(master, IR_CLONE_NODE, NULL));
 		}
@@ -567,12 +561,6 @@ static strConflictPair recolorAdjacentNodes(mapRegSlice node2RegSlice,
 					double bWeight = interfereMetric(1.1, outgoingNodes[i2]);
 					pair.aWeight = aWeight;
 					pair.bWeight = bWeight;
-#if DEBUG_PRINT_ENABLE
-					char *aName = interfereNode2Label(allNodes[i], NULL, NULL);
-					char *bName = interfereNode2Label(outgoingNodes[i2], NULL, NULL);
-
-					DEBUG_PRINT("Adding [%s,%s] to conflicts\n", aName, bName);
-#endif
 
 					conflicts =
 					    strConflictPairSortedInsert(conflicts, pair, conflictPairCmp);
@@ -880,19 +868,6 @@ strConflictPair conflictPairFindAffects(graphNodeIRLive node,
 		// Continue from after find
 		start = find + 1;
 	}
-
-#if DEBUG_PRINT_ENABLE
-	char *firstName = interfereNode2Label(node, NULL, NULL);
-	DEBUG_PRINT("These conflict with %s\n", firstName);
-
-	for (long i = 0; i != strConflictPairSize(retVal); i++) {
-		char *aName = interfereNode2Label(retVal[i].a, NULL, NULL);
-		char *bName = interfereNode2Label(retVal[i].b, NULL, NULL);
-
-		DEBUG_PRINT("    [%s,%s]\n", aName, bName);
-	}
-#endif
-
 	return retVal;
 }
 static int conflictPairContains(graphNodeIRLive node,
@@ -1204,17 +1179,15 @@ static void addToNodes(struct __graphNode *node, void *data) {
 static void mapGraphNodeDestroy2(mapGraphNode *node) {
 	mapGraphNodeDestroy(*node, NULL);
 }
-#define MAXIMUM_REMATIALIZATION_OPS 5
-static graphNodeIR findSinglePreviousAssign(graphNodeIR node) {
-	// Find variable
-	struct IRVar var;
-	struct IRNode *irNode = (void *)graphNodeIRValuePtr(node);
+#define MAXIMUM_REMATIALIZATION_OPS 1
+static struct IRVar *getVar(graphNodeIR node) {
+		struct IRNode *irNode = (void *)graphNodeIRValuePtr(node);
 	if (irNode->type == IR_SPILL) {
 		struct IRNodeSpill *spill = (void *)irNode;
 		if (spill->item.type != IR_VAL_VAR_REF)
 			return NULL;
 
-		var = spill->item.value.var;
+		return &spill->item.value.var;
 	} else if(irNode->type == IR_LOAD) {
 			struct IRNodeLoad *load = (void *)irNode;
 			if (load->item.type != IR_VAL_VAR_REF)
@@ -1222,11 +1195,11 @@ static graphNodeIR findSinglePreviousAssign(graphNodeIR node) {
 			if (load->item.type != IR_VAL_VAR_REF)
 					return NULL;
 			
-			var=load->item.value.var;
+			return &load->item.value.var;
 	} else if (irNode->type == IR_VALUE) {
 		struct IRNodeValue *value = (void *)irNode;
 		if (value->val.type == IR_VAL_VAR_REF) {
-			var = value->val.value.var;
+			return &value->val.value.var;
 		} else if (value->val.type == IR_VAL_REG) {
 			// Check for vairiable attribute if in register
 			__auto_type find =
@@ -1234,11 +1207,16 @@ static graphNodeIR findSinglePreviousAssign(graphNodeIR node) {
 			if (!find)
 				return NULL;
 
-			var = ((struct IRAttrVariable *)llIRAttrValuePtr(find))->var;
+			return &((struct IRAttrVariable *)llIRAttrValuePtr(find))->var;
 		} else
 			return NULL;
 	} else
 		return NULL;
+}
+static graphNodeIR findSinglePreviousAssign(graphNodeIR node) {
+	// Find variable
+		struct IRVar var=*getVar(node);
+	
 
 	//
 	// Travel upwards looking for varaible or untill we find a node that has
@@ -1260,8 +1238,13 @@ static graphNodeIR findSinglePreviousAssign(graphNodeIR node) {
 		strGraphEdgeIRP assigns CLEANUP(strGraphEdgeIRPDestroy) =
 		    IRGetConnsOfType(incoming, IR_CONN_DEST);
 		if (strGraphEdgeIRPSize(assigns) == 1) {
-			// Assign
-			return node;
+				if(!getVar(node))
+						continue;
+				__auto_type var2=*getVar(node);
+				
+				if(0==IRVarCmp(&var, &var2))
+						// Assign
+						return node;
 		}
 
 		node = graphEdgeIRIncoming(incoming[0]);
@@ -1273,20 +1256,21 @@ static graphNodeIR rematRecur(graphNodeIR node, strGraphNodeIRP *retmatNodes,
                               strGraphNodeIRP *operationNodes,
                               strGraphNodeIRP *tempVarNodes,
                               strRegSlice affected, graphNodeIR parentNode) {
-	strGraphNodeIRP nodes CLEANUP(strGraphNodeIRPDestroy) = NULL;
+		strGraphNodeIRP nodes CLEANUP(strGraphNodeIRPDestroy) = NULL;
 	strGraphNodeIRP tops2 CLEANUP(strGraphNodeIRPDestroy) = NULL;
 	if(!infectUntilReg(node, &tops2, &nodes))
 			return NULL;
 
 	mapGraphNode mappings CLEANUP(mapGraphNodeDestroy2);
 	__auto_type retVal = IRCloneUpTo(node, tops2, &mappings);
-	debugShowGraphIR(retVal);
+	
 	// Find operation nodes of nodes
 	long newOpCount = 0;
 	for (long i = 0; i != strGraphNodeIRPSize(nodes); i++)
-		if (IRIsOperator(nodes[i]))
+			if (IRIsOperator(nodes[i])) {
 				*operationNodes=strGraphNodeIRPSortedInsert(*operationNodes, nodes[i], (gnCmpType)ptrPtrCmp);
-
+			}
+				
 	// Check if (if added) would excede MAXIMUM_REMATIALIZATION_OPS operations
 	if (strGraphNodeIRPSize(*operationNodes) >
 	    MAXIMUM_REMATIALIZATION_OPS) {
@@ -1433,7 +1417,6 @@ static int replaceWithRemat(graphNodeIR node, strRegSlice affected,
 
 		// Replace node with rematExpr
 		replaceNodeWithExpr(node, IREndOfExpr(rematExpr));
-		debugShowGraphIR(IRStmtStart(rematExpr));
 		changed=1;
 	}
 
@@ -1469,15 +1452,6 @@ static void rematerialize(graphNodeIR start, mapRegSlice live2Reg,
 			// Find spills that dominate loads
 			//
 			__auto_type doms = graphComputeDominatorsPerNode(filtered);
-			{
-					IRGraphMap2GraphViz(filtered, "viz", "/tmp/dot.dot", NULL, NULL, NULL, NULL);
-					char buffer[1024];
-					sprintf(buffer,
-													"sleep 0.1 &&dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg & ",
-													"/tmp/dot.dot");
-
-					system(buffer);
-			}
 			for (long i = 0; i != strGraphNodeMappingPSize(loads); i++) {
 					//Ignore items in blacklist
 					if(strGraphNodeIRPSortedFind(blackList, loads[i], (gnCmpType)ptrPtrCmp))
@@ -1503,7 +1477,7 @@ static void rematerialize(graphNodeIR start, mapRegSlice live2Reg,
 
 							// Find paths from dominator to load
 							strGraphPath pathsTo CLEANUP(strGraphPathsDestroy2) =
-									graphAllPathsTo(doms[i], loads[i]);
+									graphAllPathsTo(doms[i2], loads[i]);
 							// Ensure all paths dont variables whoose registers conflict with
 							// rematerialized value
 							strRegSlice assignedRegistersInPath CLEANUP(strRegSliceDestroy) = NULL;
@@ -1547,9 +1521,10 @@ static void rematerialize(graphNodeIR start, mapRegSlice live2Reg,
 
 							//Done with loads[i],so ignore it
 							blackList=strGraphNodeIRPSortedInsert(blackList, loads[i], (gnCmpType)ptrPtrCmp);
-							debugShowGraphIR(start);
-							if(replaceWithRemat(*graphNodeMappingValuePtr(loads[i]), assignedRegistersInPath, live2Reg, assoc))
+							struct IRNodeLoad *load=(void*)graphNodeIRValuePtr(*graphNodeMappingValuePtr(loads[i]));
+							if(replaceWithRemat(*graphNodeMappingValuePtr(loads[i]), assignedRegistersInPath, live2Reg, assoc)) {
 									goto loop;
+							}
 					}
 			}
 	}
@@ -1591,8 +1566,6 @@ loop:
 	// debugShowGraphIR(start);
 	IRRemoveRepeatAssigns(start);
 
-	debugShowGraphIR(start);
-
 	__auto_type intInterfere =
 	    IRInterferenceGraphFilter(start, filterIntVars, NULL);
 
@@ -1605,8 +1578,7 @@ loop:
 	strIRVar liveVars = NULL;
 	for (long i = 0; i != strGraphNodeIRLivePSize(intInterfere); i++) {
 		__auto_type interfere = intInterfere[i];
-		debugPrintInterferenceGraph(interfere, NULL);
-
+		
 		__auto_type vertexColors = graphColor(interfere);
 
 		__auto_type allNodes = graphNodeIRAllNodes(start);
@@ -1629,13 +1601,6 @@ loop:
 				if (find)
 					adj = strRegSliceAppendItem(adj, *find);
 			}
-#if DEBUG_PRINT_ENABLE
-			for (long i2 = 0; i2 != strRegSliceSize(adj); i2++) {
-				char *nodeName = interfereNode2Label(allColorNodes[i], NULL, NULL);
-				DEBUG_PRINT("Register %s is adjacent to %s\n", adj[i2].reg->name,
-				            nodeName);
-			}
-#endif
 
 			// Assign register to
 
@@ -1650,29 +1615,17 @@ loop:
 			    color2Reg(adj, regsForType, allColorNodes[i],
 			              llVertexColorGet(vertexColors, allColorNodes[i])->color,
 			              NULL, strIntSize(colors), colors);
-#if DEBUG_PRINT_ENABLE
-			char *nodeName = interfereNode2Label(allColorNodes[i], NULL, NULL);
-			DEBUG_PRINT("Assigning register %s to %s\n", slice.reg->name, nodeName);
-#endif
 
 			// Insert find
 			char *key = ptr2Str(allColorNodes[i]);
 			mapRegSliceInsert(regsByLivenessNode, key, slice);
 
-#if DEBUG_PRINT_ENABLE
-			char *nodeName2 = interfereNode2Label(allColorNodes[i], NULL, NULL);
-			char buffer[512];
-			sprintf(buffer, "%s:REG(%s)", nodeName2, slice.reg->name);
-			debugAddPtrName(graphNodeIRLiveValuePtr(allColorNodes[i])->ref.value.var,
-			                buffer);
-#endif
 		}
 		// Get conflicts and spill nodes
 		strGraphNodeIRLiveP spillNodes = NULL;
 		__auto_type conflicts =
 		    recolorAdjacentNodes(regsByLivenessNode, allColorNodes[0]);
-		debugPrintInterferenceGraph(interfere, regsByLivenessNode);
-
+		
 		// Sort conflicts by minimum spill metric
 		__auto_type conflictsSortedByWeight = strConflictPairClone(conflicts);
 		qsort(conflictsSortedByWeight, strConflictPairSize(conflicts),
@@ -1712,7 +1665,6 @@ loop:
 				// Break if no change
 				long newSize = strConflictPairSize(conflictsWithFirst);
 
-				DEBUG_PRINT("OldSize %li,newSize %li\n", oldSize, newSize);
 				if (oldSize == newSize)
 					break;
 			}
@@ -1730,11 +1682,6 @@ loop:
 			}
 
 			assert(lowestConflictI != -1);
-#if DEBUG_PRINT_ENABLE
-			char *lowestName =
-			    interfereNode2Label(conflicts[lowestConflictI].a, NULL, NULL);
-			DEBUG_PRINT("Lowest metric conflict is %s\n", lowestName);
-#endif
 
 			// Add to spill nodes
 			spillNodes = strGraphNodeIRLivePSortedInsert(
@@ -1780,10 +1727,6 @@ loop:
 						nodesWithRegisterConflict = strGraphNodeIRLivePSortedInsert(
 						    nodesWithRegisterConflict, allColorNodes[i],
 						    (gnCmpType)ptrPtrCmp);
-#if DEBUG_PRINT_ENABLE
-						char *name = interfereNode2Label(allColorNodes[i], NULL, NULL);
-						DEBUG_PRINT("Node %s interferes with an adajecnt item.\n", name);
-#endif
 						break;
 					}
 				}
@@ -1817,7 +1760,7 @@ loop:
 		// Replce spill nodes with spill/load
 		replaceVarsWithSpillOrLoad(spillNodes, start);
 
-		rematerialize(start, regsByLivenessNode, allColorNodes);
+				rematerialize(start, regsByLivenessNode, allColorNodes);
 	}
 
 	removeDeadExpresions(start, liveVars);

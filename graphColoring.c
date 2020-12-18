@@ -91,12 +91,7 @@ static int removeIfNodeEq(const void *a, const struct __graphNode **b) {
 	return (*A == *B);
 }
 llVertexColor graphColor(const struct __graphNode *node) {
-	__auto_type allNodes =
-	    strGraphNodePAppendItem(NULL, (struct __graphNode *)node);
-	__graphNodeVisitForward((struct __graphNode *)node, &allNodes, alwaysTrue,
-	                        visitNode);
-	__graphNodeVisitBackward((struct __graphNode *)node, &allNodes, alwaysTrue,
-	                         visitNode);
+		__auto_type allNodes = __graphNodeVisitAll(node);
 	__auto_type allNodesLen = strGraphNodePSize(allNodes);
 	strGraphNodeP Q[allNodesLen][allNodesLen];
 	for (long i = 0; i != allNodesLen; i++)

@@ -2,7 +2,7 @@
 #include <regAllocator.h>
 #include <SSA.h>
 #include <IRExec.h>
-#define DEBUG_PRINT_ENABLE 1
+//#define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 static void debugShowGraph(graphNodeIR enter) {
 		const char *name=tmpnam(NULL);
@@ -229,10 +229,9 @@ void registerAllocatorTests() {
 					assert(res1.type==IREVAL_VAL_INT);
 					assert(res1.value.i==14);
 
-					debugShowGraph(start);
 					IRRegisterAllocate(start, NULL, NULL);
 					debugShowGraph(start);
-
+					
 					__auto_type res2= IREvalPath(start, &success);
 					assert(success);
 					assert(res2.type==IREVAL_VAL_INT);
@@ -430,9 +429,7 @@ void registerAllocatorTests() {
 				__auto_type res1= IREvalPath(start, &success);
 				assert(success);
 				
-				debugShowGraph(start);;
 				IRRegisterAllocate(start, NULL, NULL);
-				debugShowGraph(start);
 				
 				IREvalInit();
 				__auto_type  res2= IREvalPath(start, &success);
