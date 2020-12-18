@@ -1407,3 +1407,12 @@ int IRIsOperator(graphNodeIR node) {
 				return 0;
 		}
 }
+graphNodeIR IRCreateFuncArg(struct object *type,long funcIndex) {
+		struct IRNodeFuncArg arg;
+		arg.argIndex=funcIndex;
+		arg.base.attrs=NULL;
+		arg.base.type=IR_FUNC_ARG;
+		arg.type=type;
+
+		return GRAPHN_ALLOCATE(arg);
+}

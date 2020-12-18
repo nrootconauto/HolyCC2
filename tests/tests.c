@@ -22,7 +22,6 @@ void IRFilterTests();
 void init();
 int main() {
 		init();
-		/*
 		strTests();
 		preprocessorTests();
 		base64Tests();
@@ -43,12 +42,8 @@ int main() {
 		LivenessTests();
 		//subExprElimTests();
 		//graphVizTests();
-		graphColoringTests();		
-		
-		
-*/
+		graphColoringTests();
 		registerAllocatorTests();;
-		return 0;
 		SSATests();
 		IRFilterTests();
 		return 0;

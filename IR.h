@@ -85,6 +85,7 @@ enum IRNodeType {
 	IR_VALUE,
 	IR_LABEL,
 	//
+	IR_FUNC_ARG,
 	IR_FUNC_CALL,
 	IR_FUNC_RETURN,
 	IR_FUNC_START,
@@ -246,14 +247,18 @@ struct IRNodeStatementEnd {
 struct IRNodeFuncStart {
 	struct IRNode base;
 	graphNodeIR end;
-	struct function *func;
+		struct object *type;
+};
+struct IRNodeFuncArg {
+		struct IRNode base;
+		struct object *type;
+		long argIndex;
 };
 struct IRNodeFuncEnd {
 	struct IRNode base;
 };
 struct IRNodeFuncReturn {
 	struct IRNode base;
-	graphNodeIR funcStart;
 	graphNodeIR exp;
 };
 struct IRNodeChoose {
@@ -329,3 +334,4 @@ void IRNodeDestroy(struct IRNode *node);
 graphNodeIR IRCloneUpTo(graphNodeIR node, strGraphNodeIRP to,
                         mapGraphNode *mappings);
 int IRIsOperator(graphNodeIR node);
+graphNodeIR IRCreateFuncArg(struct object *type,long funcIndex);
