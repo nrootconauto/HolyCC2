@@ -191,6 +191,7 @@ struct parserNodeCase {
  */
 struct parserNodeLabel {
 	struct parserNode base;
+		struct parserNode *scope;
 	struct parserNode *name;
 };
 struct parserNodeSubSwitch {
@@ -198,6 +199,8 @@ struct parserNodeSubSwitch {
 	struct parserNode *parent;
 	struct parserNode *start;
 	struct parserNode *end;
+		struct parserNode *__startCodeScope;
+		strParserNode startCodeStatements;
 	strParserNode caseSubcases;
 	struct parserNode *dft;
 };

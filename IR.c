@@ -281,7 +281,6 @@ graphNodeIR createFuncStart(const struct function *func) {
 	start.base.attrs = NULL;
 	start.base.type = IR_FUNC_START;
 	start.end = NULL;
-	start.func = (void *)func;
 
 	return GRAPHN_ALLOCATE(start);
 }
@@ -629,7 +628,6 @@ graphNodeIR IRCreateReturn(graphNodeIR exp, graphNodeIR func) {
 	struct IRNodeFuncReturn ret;
 	ret.base.attrs = NULL;
 	ret.base.type = IR_FUNC_RETURN;
-	ret.funcStart = func;
 	ret.exp = exp;
 
 	__auto_type retVal = GRAPHN_ALLOCATE(ret);

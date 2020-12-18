@@ -223,13 +223,22 @@ struct IRNodeFuncCall {
 	struct IRNode base;
 	strGraphNodeIRP incomingArgs;
 };
+struct IRNodeJumpTableRange {
+		graphNodeIR to;
+		long start,end;
+};
+STR_TYPE_DEF(struct IRNodeJumpTableRange,IRTableRange);
+STR_TYPE_FUNCS(struct IRNodeJumpTableRange,IRTableRange);
 struct IRNodeJumpTable {
-	struct IRNode base;
-	long startIndex;
-	strGraphNodeIRP labels;
+		struct IRNode base;
+		long startIndex;
+		long count;
+		strIRTableRange labels;
 };
 struct IRNodeSubSwit {
 	struct IRNode base;
+		graphNodeIR startCode;
+		
 };
 struct IRNodeTypeCast {
 	struct IRNode base;
@@ -270,7 +279,6 @@ char *IR2Str();
 graphNodeIR IRCreateIntLit(int64_t lit);
 graphNodeIR IRCreateBinop(graphNodeIR a, graphNodeIR b, enum IRNodeType type);
 graphNodeIR IRCreateLabel();
-graphNodeIR IRCreateJmp(graphNodeIR to);
 graphNodeIR IRCreateVarRef(struct variable *var);
 graphNodeIR IRCreateValueFromLabel(graphNodeIR lab);
 struct variable *IRCreateVirtVar(struct object *type);

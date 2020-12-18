@@ -64,6 +64,7 @@ MAP_TYPE_FUNCS(struct gotoPair, GotoPair);
 struct IRGenInst {
 		mapIRNodeByPtr casesByParserNode;
 		mapIRNodeByPtr labelsByParserNode;
+		mapIRNodeByPtr subSwitchsByParserNode;
 		mapGotoPair gotoLabelPairByName;
 		strGraphNodeIRP currentNodes;
 		strScopeStack scopes;
@@ -453,10 +454,8 @@ static void copyConnectionsOutcomingTo(strGraphEdgeIRP outgoing,
 		graphNodeIRConnect(outNode, to, eV);
 	}
 }
-//
-// Groups consecutive elemetns in "mini" jump tables,this prevents gaint
-// jump-tables
-//
+MAP_TYPE_DEF(strGraphNodeIRP,GraphNodes);
+MAP_TYPE_FUNCS(strGraphNodeIRP,GraphNodes);
 static graphNodeIR __createSwitchCodeAfterBody(graphNodeIR cond,
                                                const struct parserNode *node) {
 	__auto_type entry = IRCreateLabel();
@@ -469,91 +468,24 @@ static graphNodeIR __createSwitchCodeAfterBody(graphNodeIR cond,
 	// Get cases
 	__auto_type bootstrap = strParserNodeAppendItem(NULL, (void *)node);
 	getCases(bootstrap, &cases, &dft);
+	
 	strParserNodeDestroy(&bootstrap);
 
-	// Sort by order
+	mapGraphNode caseByNumber=mapGraphNodeCreate();
+	mapGraphNode subcaseByNumber=mapGraphNodeCreate();
+	
 	qsort(cases, strParserNodeSize(cases), sizeof(*cases), caseCmp);
-
-	long currentV = 0, consecCaseLen = 0, consecStart;
-	for (long i = 0; i != strParserNodeSize(cases); i++) {
-	consecLoop:;
-		// For for consecutive cases to group togheter in a mini-table
-		struct parserNodeCase *caseN = (void *)cases[i];
-		if (consecCaseLen == 0) {
-			// If case represent a range,ensure isnt a big range
-			if (caseN->valueUpper - caseN->valueLower >= 5)
-				goto makeMiniJumpTable;
-
-			currentV = caseN->valueUpper;
-			consecStart = caseN->valueLower;
-		}
-		if (consecStart + 1 == caseN->valueLower) {
-			currentV = caseN->valueUpper;
-			consecCaseLen++;
-
-			continue;
-		}
-
-		// Make a jump table
-	makeMiniJumpTable : {
-		struct IRNodeJumpTable miniTab;
-		miniTab.base.attrs = NULL;
-		miniTab.base.type = IR_JUMP_TAB;
-		miniTab.startIndex = consecStart;
-
-		long start = i - consecCaseLen;
-		strGraphNodeIRP labels = NULL;
-		for (long i2 = start; i2 != i; i2++) {
-
-			// Create copies of ranged labels,if 1 value,it is still a range of line
-			struct parserNodeCase *caseN = (void *)cases[i2];
-			for (long i3 = caseN->valueLower; i3 != caseN->valueUpper; i3++)
-				labels =
-				    strGraphNodeIRPAppendItem(labels, __parserNode2IRStmt((void *)caseN));
-		}
-
-		miniTab.labels = labels;
-		__auto_type miniTableNode = GRAPHN_ALLOCATE(miniTab);
-		__auto_type mtSkipLab = IRCreateLabel();
-		graphNodeIRConnect(miniTableNode, mtSkipLab, IR_CONN_FLOW);
-
-		// Create range check
-		__auto_type startNode = IRCreateIntLit(consecStart);
-		__auto_type endNode = IRCreateIntLit(currentV);
-
-		__auto_type ge = IRCreateBinop(startNode, cond, IR_GE);
-		__auto_type lt = IRCreateBinop(cond, startNode, IR_LT);
-		__auto_type and = IRCreateBinop(ge, lt, IR_LAND);
-		__auto_type cJmp = IRCondJump(cond, NULL, mtSkipLab);
-
-		// condJump
-		//    ||
-		//    \/
-		// jump table
-		//    ||
-		//    \/
-		// endNode
-		connectCurrentsToNode(cJmp);
-		graphNodeIRConnect(cJmp, miniTableNode, IR_CONN_FLOW);
-		setCurrentNodes(currentGen, endNode, NULL);
-	}
+	//Register cases by number
+	for(long i=0;i!=strParserNodeSize(cases);i++) {
+			struct parserNodeCase *caseNode=(void*)cases[i];
+			if(caseNode->base.type==NODE_CASE) {
+							char buffer[64];
+							sprintf(buffer, "%li-%li", caseNode->valueLower,caseNode->valueUpper);
+							mapGraphNodeInsert(caseByNumber,  buffer, IRCreateLabel());
+			}
 	}
 
 	__auto_type switchEndLabel = IRCreateLabel();
-
-	if (dft != NULL) {
-		// Jump to default label
-		__auto_type dftNode = __parserNode2IRStmt(dft);
-		__auto_type jmpToDft = IRCreateJmp(dftNode);
-		connectCurrentsToNode(jmpToDft);
-		setCurrentNodes(currentGen, jmpToDft, NULL);
-	} else {
-		// Jump to default label
-		__auto_type endJmp = IRCreateJmp(switchEndLabel);
-		connectCurrentsToNode(endJmp);
-		setCurrentNodes(currentGen, endJmp, NULL);
-	}
-
 	// Create scope for switch
 	struct IRGenScopeStack scope;
 	scope.type = SCOPE_TYPE_SWIT;
@@ -565,141 +497,90 @@ static graphNodeIR __createSwitchCodeAfterBody(graphNodeIR cond,
 	__auto_type body = __parserNode2IRStmt(swit->body);
 
 	// Pop scope
-	currentGen->scopes = strScopeStackResize(
-	    currentGen->scopes, strScopeStackSize(currentGen->scopes) - 1);
+	struct IRGenScopeStack topScope;
+	currentGen->scopes = strScopeStackPop(currentGen->scopes, &topScope);
 
-	//
-	// Sub-switches always start at "start:" label,not cases,so
-	// replace each sub-switch's case with
-	// NOTE 1
-	// ```
-	// goto end;
-	//
-	// subSwitch-case:
-	//
-	// set JUMP_BACK=end;
-	// goto subswitchStart;
-	//
-	// end:
-	//```
-
-	// NOTE 2
-	// First Sub-switch cases will be replaced with
-	// ```
-	// if(JUMP_BACK!=NULL)
-	//     goto JUMP_BACK
-	// ```
-	// This allows returning back to case
+	if (dft != NULL) {
+		// Jump to default label
+		__auto_type dftNode = __parserNode2IRStmt(dft);
+		connectCurrentsToNode(dftNode);
+		setCurrentNodes(currentGen, dftNode, NULL);
+	} else {
+		// Jump to end label
+		connectCurrentsToNode(switchEndLabel);
+		setCurrentNodes(currentGen, switchEndLabel, NULL);
+	}
 
 	// Collect list of sub-switchs
-	strParserNode subs = NULL;
+	mapGraphNodes casesBySubSwitch=mapGraphNodesCreate();
+	strGraphNodeIRP  subs = NULL;
 	for (long i = 0; i != strParserNodeSize(cases); i++) {
-		struct parserNodeCase *cs = (void *)cases[i];
+			struct parserNodeCase *cs = (void *)cases[i];
+			
+			// Check if sub-case
+			if (cs->parent->type != NODE_SUBSWITCH)
+				continue;
 
-		// Check if sub-case
-		if (cs->parent->type != NODE_SUBSWITCH)
-			continue;
+		//Get case label from earilier
+		char buffer[64];
+		sprintf(buffer, "%li-%li", cs->valueLower,cs->valueUpper);
+		__auto_type label=*mapGraphNodeGet(caseByNumber,  buffer);		
+		
+		//Check if sub-switch exists
+		char *key=ptr2Str(cs->parent);
+		__auto_type find=mapGraphNodesGet(casesBySubSwitch,  key);
+		if(find) {
+				*find=strGraphNodeIRPSortedInsert(*find, label, (gnIRCmpType)ptrPtrCmp);
+		} else {
+				mapGraphNodesInsert(casesBySubSwitch, key, strGraphNodeIRPAppendItem(NULL, label));
+		}
+		free(key);
 
-		if (NULL == strParserNodeSortedFind(subs, cs->parent, (pnCmpType)ptrPtrCmp))
-			subs = strParserNodeSortedInsert(subs, cs->parent, (pnCmpType)ptrPtrCmp);
+		subs=strGraphNodeIRPSortedInsert(subs, label, (gnIRCmpType)ptrPtrCmp);
 	}
-	__auto_type jmpBack = IRCreateVirtVar(U0Ptr);
-	for (long i = 0; i != strParserNodeSize(subs); i++) {
-		// Will create IR_SUB_SWITCH_START_LABEL
-		__auto_type node = __parserNode2IRStmt(subs[i]);
-		assert(graphNodeIRValuePtr(node)->type == IR_SUB_SWITCH_START_LABEL);
 
-		struct parserNodeSubSwitch *sub = (void *)subs[i];
-		// First label,SEE NOTE 1
-		struct parserNodeCase *firstCase = NULL;
-		for (long i = 0; i != strParserNodeSize(sub->caseSubcases); i++) {
-			if (sub->caseSubcases[i]->type == NODE_CASE) {
-				firstCase = (void *)sub->caseSubcases[i];
-				break;
+	long count;
+	mapGraphNodeKeys(currentGen->casesByParserNode,NULL,&count);
+	const char *keys[count];
+	mapGraphNodeKeys(currentGen->casesByParserNode,keys,NULL);
+
+	for(long i=0;i!=count;i++) {
+			//Keys are garneteed to exist
+			__auto_type find=*mapGraphNodeGet(caseByNumber, keys[i]);
+			//Connect jump table to case if not a sub-case
+			if(NULL==strGraphNodeIRPSortedFind(subs, find, (gnIRCmpType)ptrPtrCmp)) {
+					
+			} else {
+					//Connect to sub-expression's start code
 			}
-		}
-		if (firstCase) {
-
-			//  previousNodes
-			//    ||
-			//    \/
-			// if JUMP_BACK==NULL) jmp(end);
-			// jump(JUMP_BACK)
-			// end:
-			//    ||
-			//    \/
-			// firstCase
-
-			__auto_type null = IRCreateIntLit(0);
-			// See NOTE 2
-			__auto_type nullCmp = IRCreateBinop(null, IRCreateVarRef(jmpBack), IR_EQ);
-			__auto_type endLabel = IRCreateLabel();
-			__auto_type incoming =
-			    graphNodeIRIncoming(__parserNode2IRStmt((void *)firstCase));
-			__auto_type cJmp = IRCondJump(nullCmp, endLabel, NULL);
-			// Pevious nodes->if...
-			copyConnectionsIncomingTo(incoming, cJmp);
-			setCurrentNodes(currentGen, cJmp, NULL);
-			//->jump(JUMP_BACK)
-			__auto_type gotoEnd = IRCreateJmp(IRCreateVarRef(jmpBack));
-			connectCurrentsToNode(gotoEnd);
-			//->end
-			setCurrentNodes(currentGen, gotoEnd, NULL);
-			connectCurrentsToNode(endLabel);
-			//->firstCast
-			setCurrentNodes(currentGen, endLabel, NULL);
-			connectCurrentsToNode(__parserNode2IRStmt((void *)firstCase));
-		}
-
-		// See NOTE 1
-		for (long i = 0; i != strParserNodeSize(sub->caseSubcases); i++) {
-			if (sub->caseSubcases[i] == (void *)firstCase)
-				continue;
-
-			// Ignore non-cases
-			if (sub->caseSubcases[i]->type != NODE_CASE)
-				continue;
-
-			struct parserNodeCase *cs = (void *)sub->caseSubcases[i];
-
-			__auto_type endLabel = IRCreateLabel();
-			__auto_type jmp2SubStart =
-			             IRCreateJmp(__parserNode2IRStmt((void *)firstCase));
-			__auto_type jmp2End = IRCreateJmp(endLabel);
-
-			// JUMP_BACK=endLabel
-			__auto_type assignJmpBack =
-			    IRAssign(IRCreateVarRef(jmpBack), IRCreateValueFromLabel(endLabel));
-
-			//"Replace" case with structure from NOTE 1(collect the in/out connections
-			// then disconnect case)
-			__auto_type incoming = graphNodeIRIncoming(__parserNode2IRStmt((void *)cs));
-			__auto_type outgoing = graphNodeIROutgoing(__parserNode2IRStmt((void *)cs));
-
-			// incoming ->goto end
-			copyConnectionsIncomingTo(incoming, jmp2End);
-			//->JUMP_BACK=endLabel
-			graphNodeIRConnect(jmp2End, assignJmpBack, IR_CONN_FLOW);
-			//->goto firstCase
-			graphNodeIRConnect(assignJmpBack, jmp2SubStart, IR_CONN_FLOW);
-			//->end:
-			graphNodeIRConnect(jmp2SubStart, endLabel, IR_CONN_FLOW);
-			//-> outgoing
-			copyConnectionsOutcomingTo(outgoing, endLabel);
-
-			// destroy "old" case
-			__auto_type csNode = __parserNode2IRStmt((void *)cs);
-			graphNodeIRKill(&csNode, (void(*)(void*))IRNodeDestroy, NULL);
-		}
-
-		// Remove
-		graphNodeIRKill(&node, (void(*)(void*))IRNodeDestroy, NULL);
 	}
+	
+	//Route sub-switch cases 
+	
 	strParserNodeDestroy(&subs);
 
 	return entry;
 }
 static graphNodeIR __parserNode2IRNoStmt(const struct parserNode *node);
+static graphNodeIR findSubSwitchStartCode(strParserNode nodes,long *index) {
+		struct parserNodeSubSwitch * sub=(void*)nodes[*index];
+		//Dont connect to current nodes
+		__auto_type old=currentGen->currentNodes;
+
+		__auto_type start=IRCreateLabel();
+		currentGen->currentNodes=strGraphNodeIRPAppendItem(NULL, start);
+		for(long i=*index;i!=strParserNodeSize(nodes);*index=++i) {
+				//Untill another sub-switch or a case/defualt
+				
+				
+				__parserNode2IRStmt(nodes[i]);
+		}
+
+		strGraphNodeIRPDestroy(&currentGen->currentNodes);
+		currentGen->currentNodes=old;
+
+		return start;
+};
 static graphNodeIR __parserNode2IRStmt(const struct parserNode *node) {
 	if (node == NULL)
 		return NULL;
@@ -1151,7 +1032,7 @@ static graphNodeIR __parserNode2IRNoStmt(const struct parserNode *node) {
 		struct IRNodeSubSwit subSwitNode;
 		subSwitNode.base.attrs = NULL;
 		subSwitNode.base.type = IR_SUB_SWITCH_START_LABEL;
-
+		
 		return GRAPHN_ALLOCATE(subSwitNode);
 	}
 	case NODE_SWITCH: {
@@ -1202,6 +1083,13 @@ static graphNodeIR __parserNode2IRNoStmt(const struct parserNode *node) {
 	}
 	}
 	return NULL;
+}
+static void parserNodes2IR(strParserNode nodes) {
+		for(long i=0;i!=strParserNodeSize(nodes);i++) {
+				if(nodes[i]->) {
+						__parserNode2IRStmt(nodes[i]);
+				}
+		}
 }
 graphNodeIR parserNode2IR(struct parserNode *node) {
 		__auto_type retVal= __parserNode2IRStmt(node);

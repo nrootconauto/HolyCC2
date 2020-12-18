@@ -9,6 +9,8 @@
 #include <exprParser.h>
 #include <hashTable.h>
 #include <parserB.h>
+#include <cleanup.h>
+static __thread struct parserNode *currentScope=NULL;
 static char *strCopy(const char *text) {
 	char *retVal = malloc(strlen(text) + 1);
 	strcpy(retVal, text);
@@ -1380,7 +1382,17 @@ static void addDeclsToScope(struct parserNode *varDecls) {
 }
 struct parserNode *parseScope(llLexerItem start, llLexerItem *end,
                               strParserNode vars) {
-	__auto_type originalStart = start;
+		struct parserNodeScope *oldScope=(void*)currentScope;
+		
+		struct parserNodeScope  *retVal=malloc(sizeof(struct parserNodeScope));
+		retVal->base.pos.start=-1;
+		retVal->base.pos.end=-1;
+		retVal->base.type=NODE_SCOPE;
+		retVal->stmts=NULL;
+		//Enter new scope
+		currentScope=retVal;
+		
+		__auto_type originalStart = start;
 
 	struct parserNode *lC = NULL, *rC = NULL;
 	lC = expectKeyword(start, "{");
@@ -1424,18 +1436,49 @@ struct parserNode *parseScope(llLexerItem start, llLexerItem *end,
 		*end = start;
 
 	if (nodes != NULL) {
-		struct parserNodeScope scope;
-		scope.base.type = NODE_SCOPE;
-		scope.stmts = nodes;
+			retVal->stmts=nodes;
 		if (end)
-			assignPosByLexerItems((struct parserNode *)&scope, originalStart, *end);
+			assignPosByLexerItems((struct parserNode *)retVal, originalStart, *end);
 		else
-			assignPosByLexerItems((struct parserNode *)&scope, originalStart, NULL);
+			assignPosByLexerItems((struct parserNode *)retVal, originalStart, NULL);
 
-		return ALLOCATE(scope);
+		currentScope=(void*)oldScope;
+		return (void*)retVal;
 	}
 
+	currentScope=(void*)oldScope;
 	return NULL;
+}
+static void getSubswitchStartCode(struct parserNodeSubSwitch *sub) {
+		strParserNode *nodes=&((struct parserNodeScope*)sub->__startCodeScope)->stmts;
+		long index=0;
+		for(;index!=strParserNodeSize(*nodes);index++)
+				if(nodes[0][index]==(struct parserNode*)sub)
+						break;
+		
+		for(long i=index;i!=strParserNodeSize(*nodes);i++) {
+				if(nodes[0][i]->type==NODE_CASE||nodes[0][i]->type==NODE_DEFAULT) {
+						//Found a case so yay
+						sub->startCodeStatements=strParserNodeAppendData(NULL, (const struct parserNode**)&nodes[0][index], i-index);
+						
+						//Remove "consumed" items form nodes
+						memmove(&nodes[0][index], &nodes[0][i+1],  (strParserNodeSize(*nodes)-(i+1))*sizeof(**nodes));
+						*nodes=strParserNodeResize(*nodes,  strParserNodeSize(*nodes)-(i-index));
+						return ;
+				}
+				
+				if(nodes[0][i]->type==NODE_SUBSWITCH) {
+						diagErrorStart(sub->base.pos.start, sub->base.pos.end);
+						diagPushText("Nested sub-switches are require cases between them.");
+						diagEndMsg();
+						return;
+				}
+				if(nodes[0][i]==sub->end)
+						goto failLexical;
+		}
+
+	failLexical:
+		return;
 }
 struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 	// If end is NULL,make a dummy version for testing for ";" ahead
@@ -1956,10 +1999,11 @@ struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 	struct parserNodeName *name2 = (void *)name;
 	if (0 == strcmp(name2->text, "end") && 0 != strParserNodeSize(switchStack)) {
 		// Create sub-switch
-		struct parserNodeSubSwitch sub;
+			struct parserNode *sub;
 		// Pop
 		switchStack =
-		    strParserNodeResize(switchStack, strParserNodeSize(switchStack) - 1);
+		    strParserNodePop(switchStack, &sub);
+		getSubswitchStartCode((struct parserNodeSubSwitch*)sub);
 	} else if (0 == strcmp(name2->text, "start") &&
 	           0 != strParserNodeSize(switchStack)) {
 		// Create sub-switch
@@ -1969,6 +2013,7 @@ struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 		sub.dft = NULL;
 		sub.end = NULL;
 		sub.start = retVal;
+		sub.__startCodeScope=currentScope;
 		struct parserNode *top = switchStack[strParserNodeSize(switchStack) - 1];
 		struct parserNode *sub2 = ALLOCATE(sub);
 		retVal = sub2;

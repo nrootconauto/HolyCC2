@@ -61,6 +61,7 @@ list(APPEND tests "tests/IRLivenessTests.c")
 list(APPEND tests "tests/graphVizTests.c")
 list(APPEND tests "tests/registerAllocatorTests.c")
 list(APPEND tests "tests/IRFilterTests.c")
+list(APPEND tests "tests/parse2IRTests.c")
 add_executable(holycc2 ${sources} ${tests})
 
 
