@@ -480,8 +480,8 @@ static double interfereMetric(double cost, graphNodeIRLive node) {
 	//
 	// graphNodeIRLive is undirected node!!!
 	//
-	__auto_type connections = graphNodeIRLiveOutgoing(node);
-	double retVal = cost / strGraphEdgeIRLivePSize(connections);
+		strGraphEdgeIRP  connections CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRLiveOutgoing(node);
+	double retVal = cost / (strGraphEdgeIRLivePSize(connections));
 
 	return retVal;
 }
@@ -1534,6 +1534,7 @@ void IRRegisterAllocate(graphNodeIR start, color2RegPredicate colorFunc,
 	// SSA
 	__auto_type allNodes = graphNodeIRAllNodes(start);
 	removeChooseNodes(allNodes, start);
+	//debugShowGraphIR(start);
 	IRToSSA(start);
 	// debugShowGraphIR(start);
 
@@ -1584,7 +1585,7 @@ loop:
 		__auto_type allNodes = graphNodeIRAllNodes(start);
 
 		__auto_type colors = getColorList(vertexColors);
-
+		
 		// Choose registers
 		mapRegSlice regsByLivenessNode = mapRegSliceCreate(); // TODO rename
 		__auto_type allColorNodes = graphNodeIRLiveAllNodes(interfere);
@@ -1621,6 +1622,7 @@ loop:
 			mapRegSliceInsert(regsByLivenessNode, key, slice);
 
 		}
+		
 		// Get conflicts and spill nodes
 		strGraphNodeIRLiveP spillNodes = NULL;
 		__auto_type conflicts =
@@ -1684,8 +1686,9 @@ loop:
 			assert(lowestConflictI != -1);
 
 			// Add to spill nodes
+			graphNodeIRLive lowestConflictNode=(conflicts[lowestConflictI].aWeight<conflicts[lowestConflictI].bWeight)?conflicts[lowestConflictI].a:conflicts[lowestConflictI].b;
 			spillNodes = strGraphNodeIRLivePSortedInsert(
-			    spillNodes, conflicts[lowestConflictI].a, (gnCmpType)ptrPtrCmp);
+																																																spillNodes, lowestConflictNode,(gnCmpType)ptrPtrCmp);
 
 			// Remove all references to spilled node in conflicts and
 			// conflictsSortedByWeight
