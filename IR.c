@@ -1414,3 +1414,32 @@ graphNodeIR IRCreateFuncArg(struct object *type,long funcIndex) {
 
 		return GRAPHN_ALLOCATE(arg);
 }
+graphNodeIR IRCreateMemberAccess(graphNodeIR input,const char *name) {
+		__auto_type type=IRNodeType(input);
+		
+		struct IRVar var;
+		var.SSANum=0;
+		var.type=IR_VAR_MEMBER;
+		var.value.member.base=input;
+
+		if(type->type==TYPE_CLASS) {
+				struct objectClass *cls=(void*)type;
+				for(long i=0;i!=strObjectMemberSize(cls->members);i++)
+						if(0==strcmp(cls->members[i].name,name))
+								var.value.member.mem=&cls->members[i];
+				
+		} else if(type->type==TYPE_UNION) {
+				struct objectUnion *un=(void*)type;
+				for(long i=0;i!=strObjectMemberSize(un->members);i++)
+						if(0==strcmp(un->members[i].name,name))
+								var.value.member.mem=&un->members[i];
+		}
+
+		struct IRNodeValue val;
+		val.base.attrs=NULL;
+		val.base.type=IR_VALUE;
+		val.val.type=IR_VAL_VAR_REF;
+		val.val.value.var=var;
+
+		return GRAPHN_ALLOCATE(val);
+}

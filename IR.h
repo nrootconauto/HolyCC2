@@ -147,7 +147,10 @@ struct IRVar {
 	enum IRVarType type;
 	union {
 		struct variable *var;
-		struct parserNodeMemberAccess *member;
+			struct {
+					graphNodeIR base;
+					struct objectMember *mem;
+			} member;
 	} value;
 	long SSANum;
 };
@@ -223,12 +226,12 @@ struct IRNodeFuncCall {
 	struct IRNode base;
 	strGraphNodeIRP incomingArgs;
 };
-struct IRNodeJumpTableRange {
+struct IRJumpTableRange {
 		graphNodeIR to;
 		long start,end;
 };
-STR_TYPE_DEF(struct IRNodeJumpTableRange,IRTableRange);
-STR_TYPE_FUNCS(struct IRNodeJumpTableRange,IRTableRange);
+STR_TYPE_DEF(struct IRJumpTableRange,IRTableRange);
+STR_TYPE_FUNCS(struct IRJumpTableRange,IRTableRange);
 struct IRNodeJumpTable {
 		struct IRNode base;
 		long startIndex;
@@ -342,3 +345,4 @@ graphNodeIR IRCloneUpTo(graphNodeIR node, strGraphNodeIRP to,
                         mapGraphNode *mappings);
 int IRIsOperator(graphNodeIR node);
 graphNodeIR IRCreateFuncArg(struct object *type,long funcIndex);
+graphNodeIR IRCreateMemberAccess(graphNodeIR input,const char *name);
