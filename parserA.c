@@ -1372,11 +1372,13 @@ static void addDeclsToScope(struct parserNode *varDecls) {
 	if (varDecls->type == NODE_VAR_DECL) {
 		struct parserNodeVarDecl *decl = (void *)varDecls;
 		addVar(decl->name, decl->type);
+		decl->var=getVar(decl->name);
 	} else if (varDecls->type == NODE_VAR_DECLS) {
 		struct parserNodeVarDecls *decls = (void *)varDecls;
 		for (long i = 0; i != strParserNodeSize(decls->decls); i++) {
 			struct parserNodeVarDecl *decl = (void *)decls->decls[i];
 			addVar(decl->name, decl->type);
+			decl->var=getVar(decl->name);
 		}
 	}
 }

@@ -122,11 +122,12 @@ struct parserNodeMetaData {
 	struct parserNode *value;
 };
 struct parserNodeVarDecl {
-	struct parserNode base;
-	struct parserNode *name;
-	struct object *type;
-	struct parserNode *dftVal;
-	strParserNode metaData;
+		struct parserNode base;
+		struct parserNode *name;
+		struct object *type;
+		struct parserNode *dftVal;
+		struct variable *var;
+		strParserNode metaData;
 };
 struct parserNodeVarDecls {
 	struct parserNode base;
