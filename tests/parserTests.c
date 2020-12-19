@@ -661,11 +661,13 @@ void keywordTests() {
 	}
 
 	text = "switch(1) {"
-	       "start:\n"
-	       "case :\n"
-	       "default :\n"
-	       "end:\n"
-	       "}";
+			"start:\n"
+			"'Hi';"
+			"case :\n"
+			"default :\n"
+			"end:\n"
+			"case 3:"
+			"}";
 	createFile(text);
 	textStr = strCharAppendData(NULL, text, strlen(text)+1);
 
@@ -678,10 +680,11 @@ void keywordTests() {
 		assert(switStmt->type == NODE_SWITCH);
 
 		struct parserNodeSwitch *swit = (void *)switStmt;
-		assert(1 == strParserNodeSize(swit->caseSubcases));
+		assert(2 == strParserNodeSize(swit->caseSubcases));
 
 		assert(swit->caseSubcases[0]->type == NODE_SUBSWITCH);
 		struct parserNodeSubSwitch *sub = (void *)swit->caseSubcases[0];
+		assert(1==strParserNodeSize(sub->startCodeStatements));
 		assert(1 == strParserNodeSize(sub->caseSubcases));
 		assert(sub->dft != NULL);
 	}

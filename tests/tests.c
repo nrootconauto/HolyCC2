@@ -27,14 +27,10 @@ int main() {
 		base64Tests();
 		graphTests();
 		graphDominanceTests();
-		
-
-	  llTests();
+		llTests();
 	  mapTests();
 	  strTests();
-
-
-	  subGraphTests();
+			subGraphTests();
 		lexerTests();
 	parserTests();
 	parserDiagTests();
