@@ -19,6 +19,7 @@ void ptrMapTests() {
 			for(long i=0;i!=count;i++) {
 					assert(*ptrMapIntGet(map, allocs[i])==i);
 					ptrMapIntRemove(map, allocs[i]);
+					assert(ptrMapIntGet(map, allocs[i])==NULL);
 			}
 
 			ptrMapIntDestroy(map, NULL);

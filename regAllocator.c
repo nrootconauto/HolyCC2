@@ -42,11 +42,10 @@ static void debugShowGraphIR(graphNodeIR enter) {
 
 	system(buffer);
 }
-MAP_TYPE_DEF(struct regSlice, RegSlice);
-MAP_TYPE_FUNCS(struct regSlice, RegSlice);
+PTR_MAP_FUNCS(struct __graphNode *, struct regSlice, regSlice);
 static char *interfereNode2Label(const struct __graphNode *node,
                                  mapGraphVizAttr *attrs, const void *data) {
-	mapRegSlice map = (void *)data;
+	ptrMapregSlice map = (void *)data;
 
 	__auto_type var = &graphNodeIRLiveValuePtr((graphNodeIRLive)node)->ref;
 	__auto_type dummy = IRCreateVarRef(var->value.var);
@@ -62,21 +61,20 @@ static char *interfereNode2Label(const struct __graphNode *node,
 	else
 		name = ptr2Str(var);
 
-	__auto_type key = ptr2Str(node);
 	if (map)
-		if (mapRegSliceGet(map, key)) {
+			if (ptrMapregSliceGet(map, (struct __graphNode*)node)) {
 			const char *format = "%s(%s)";
 			long len =
-			    snprintf(NULL, 0, format, name, mapRegSliceGet(map, key)->reg->name);
+			    snprintf(NULL, 0, format, name, ptrMapregSliceGet(map, (struct __graphNode*)node)->reg->name);
 			char buffer[len + 1];
-			sprintf(buffer, format, name, mapRegSliceGet(map, key)->reg->name);
+			sprintf(buffer, format, name, ptrMapregSliceGet(map, (struct __graphNode*)node)->reg->name);
 
 			return strClone(buffer);
 		}
 	return name;
 }
 static void debugPrintInterferenceGraph(graphNodeIRLive graph,
-                                        mapRegSlice map) {
+                                        ptrMapregSlice map) {
 	char *fn = tmpnam(NULL);
 	FILE *file = fopen(fn, "w");
 	graph2GraphVizUndir(file, graph, "interference", interfereNode2Label, map);
@@ -513,7 +511,7 @@ static int conflictPairCmp(const struct conflictPair *a,
 }
 STR_TYPE_DEF(struct conflictPair, ConflictPair);
 STR_TYPE_FUNCS(struct conflictPair, ConflictPair);
-static strConflictPair recolorAdjacentNodes(mapRegSlice node2RegSlice,
+static strConflictPair recolorAdjacentNodes(ptrMapregSlice node2RegSlice,
                                             graphNodeIRLive node) {
 	__auto_type allNodes = graphNodeIRLiveAllNodes(node);
 
@@ -522,12 +520,11 @@ static strConflictPair recolorAdjacentNodes(mapRegSlice node2RegSlice,
 		__auto_type outgoingNodes = graphNodeIRLiveOutgoingNodes(allNodes[i]);
 
 		// Get current register
-		char *key = ptr2Str(allNodes[i]);
-		__auto_type find = mapRegSliceGet(node2RegSlice, key);
+		__auto_type find = ptrMapregSliceGet(node2RegSlice, allNodes[i]);
 		if (!find) {
 		whineNotColored:
 			printf(
-			    "Dear programmer,try assigning registers to nodes before calling %s",
+			    "Dear programmer,try assigning registers to nodes before calling %s\n",
 			    __FUNCTION__);
 			abort();
 		}
@@ -536,8 +533,7 @@ static strConflictPair recolorAdjacentNodes(mapRegSlice node2RegSlice,
 
 		// Check for conflicting adjacent items
 		for (long i2 = 0; i2 != strGraphNodeIRLivePSize(outgoingNodes); i2++) {
-			char *key = ptr2Str(outgoingNodes[i2]);
-			__auto_type find = mapRegSliceGet(node2RegSlice, key);
+			__auto_type find = ptrMapregSliceGet(node2RegSlice, outgoingNodes[i2]);
 			// Not a register node
 			if (!find)
 				continue;
@@ -959,7 +955,7 @@ static void replaceVarsWithSpillOrLoad(strGraphNodeIRLiveP spillNodes,
 		}
 	}
 }
-static void replaceVarsWithRegisters(mapRegSlice map,
+static void replaceVarsWithRegisters(ptrMapregSlice map,
                                      strGraphNodeIRLiveP allLiveNodes,
                                      graphNodeIR enter) {
 	//
@@ -990,12 +986,11 @@ static void replaceVarsWithRegisters(mapRegSlice map,
 
 			if (find) {
 				// Get register slice from liveness node to register slice map
-				char *key = ptr2Str(find->live);
-				__auto_type find = mapRegSliceGet(map, key);
-				if (!find)
+				__auto_type find2 = ptrMapregSliceGet(map, find->live);
+				if (!find2)
 					continue;
 
-				__auto_type slice = *find;
+				__auto_type slice = *find2;
 
 				// Replace
 				__auto_type regRef = IRCreateRegRef(&slice);
@@ -1070,45 +1065,6 @@ static int varInRegCmp(const struct varInReg *a, const struct varInReg *b) {
 }
 STR_TYPE_DEF(struct varInReg, VarInReg);
 STR_TYPE_FUNCS(struct varInReg, VarInReg);
-static strVarInReg nodeGetLiveRegs(graphNodeIR start, mapRegSlice live2Reg,
-                                   strGraphNodeIRLiveP live,
-                                   strVarToLiveNode assoc) {
-	__auto_type bb = (struct IRAttrBasicBlock *)llIRAttrFind(
-	    graphNodeIRValuePtr(start)->attrs, IR_ATTR_BASIC_BLOCK, IRAttrGetPred);
-	if (!bb)
-		return NULL;
-
-	strVarInReg retVal = NULL;
-	for (long i = 0; i != strVarSize(bb->block->in); i++) {
-		struct varInReg pair;
-		pair.var = *bb->block->in[i];
-
-		// Find regsiter in assoc array
-		struct varToLiveNode dummy;
-		dummy.live = NULL;
-		dummy.var = pair.var;
-		__auto_type find =
-		    strVarToLiveNodeSortedFind(assoc, dummy, varToLiveNodeCompare);
-		assert(find);
-
-		// Get register slice from map
-		__auto_type key = ptr2Str(live2Reg);
-		__auto_type slice = mapRegSliceGet(live2Reg, key);
-		free(key);
-
-		// Not stored in a register
-		if (!slice)
-			continue;
-		else
-			pair.slice = *slice;
-
-		retVal = strVarInRegSortedInsert(retVal, pair, varInRegCmp);
-	}
-
-	return retVal;
-}
-MAP_TYPE_DEF(strGraphNodeIRP, IRNodes);
-MAP_TYPE_FUNCS(strGraphNodeIRP, IRNodes);
 static void strGraphPathsDestroy2(strGraphPath *paths) {
 	for (long i = 0; i != strGraphPathSize(*paths); i++)
 		strGraphEdgePDestroy(&paths[0][i]);
@@ -1348,11 +1304,11 @@ static graphNodeIR rematRecur(graphNodeIR node, strGraphNodeIRP *retmatNodes,
 		replaceNodeWithExpr(parentNode, IREndOfExpr(retVal));
 	return retVal;
 }
-static void mapRegSliceDestroy2(mapRegSlice *toDestroy) {
-	mapRegSliceDestroy(*toDestroy, NULL);
+static void mapRegSliceDestroy2(ptrMapregSlice *toDestroy) {
+	ptrMapregSliceDestroy(*toDestroy, NULL);
 }
 static int replaceWithRemat(graphNodeIR node, strRegSlice affected,
-                     mapRegSlice liveToReg, strVarToLiveNode varToLive) {
+                     ptrMapregSlice liveToReg, strVarToLiveNode varToLive) {
 		int changed=0;
 		// Assert that node is a spill to be re-computed
 	__auto_type irNode = graphNodeIRValuePtr(node);
@@ -1367,7 +1323,7 @@ static int replaceWithRemat(graphNodeIR node, strRegSlice affected,
 	                                   &tempVarNodes, affected, NULL);
 	if (rematExpr) {
 		// Map that mapped temp-varaible node to register slice
-		mapRegSlice node2Var CLEANUP(mapRegSliceDestroy2) = mapRegSliceCreate();
+		ptrMapregSlice node2Var CLEANUP(mapRegSliceDestroy2) = ptrMapregSliceCreate();
 
 		//
 		// Check if  we can fit in the temporary variables into registers
@@ -1397,9 +1353,7 @@ static int replaceWithRemat(graphNodeIR node, strRegSlice affected,
 				affected2 = strRegSliceSortedInsert(affected2, slice, regSliceCompare);
 
 				// Add to map
-				char *key = ptr2Str(tempVarNodes[i]);
-				mapRegSliceInsert(node2Var, key, slice);
-				free(key);
+				ptrMapregSliceAdd(node2Var, tempVarNodes[i], slice);
 				break;
 			regConflict:;
 			}
@@ -1420,7 +1374,7 @@ static int replaceWithRemat(graphNodeIR node, strRegSlice affected,
 fail:;
 	return changed;
 }
-static void rematerialize(graphNodeIR start, mapRegSlice live2Reg,
+static void rematerialize(graphNodeIR start, ptrMapregSlice live2Reg,
                           strGraphNodeIRLiveP live) {
 		strVar vars CLEANUP(strVarDestroy) = NULL;
 	for (long i = 0; i != strGraphNodeIRLivePSize(live); i++) {
@@ -1584,7 +1538,7 @@ loop:
 		__auto_type colors = getColorList(vertexColors);
 		
 		// Choose registers
-		mapRegSlice regsByLivenessNode = mapRegSliceCreate(); // TODO rename
+		ptrMapregSlice regsByLivenessNode = ptrMapregSliceCreate(); // TODO rename
 		__auto_type allColorNodes = graphNodeIRLiveAllNodes(interfere);
 		for (long i = 0; i != strGraphNodeIRLivePSize(allColorNodes); i++) {
 			// Get adjacent items
@@ -1592,8 +1546,7 @@ loop:
 			strRegSlice adj = NULL;
 			for (long i = 0; i != strGraphNodeIRLivePSize(outgoing); i++) {
 				// search for adjacent
-				char *key = ptr2Str(allColorNodes[i]);
-				__auto_type find = mapRegSliceGet(regsByLivenessNode, key);
+				__auto_type find = ptrMapregSliceGet(regsByLivenessNode, allColorNodes[i]);
 
 				// Insert if exists
 				if (find)
@@ -1615,8 +1568,7 @@ loop:
 			              NULL, strIntSize(colors), colors);
 
 			// Insert find
-			char *key = ptr2Str(allColorNodes[i]);
-			mapRegSliceInsert(regsByLivenessNode, key, slice);
+			ptrMapregSliceAdd(regsByLivenessNode, allColorNodes[i],slice);
 
 		}
 		
@@ -1713,10 +1665,8 @@ loop:
 				if (NULL != strGraphNodeIRLivePSortedFind(spillNodes, outgoing[i2],
 				                                          (gnCmpType)ptrPtrCmp)) {
 					// Registers conflict ?
-					char *key1 = ptr2Str(allColorNodes[i]);
-					char *key2 = ptr2Str(outgoing[i2]);
-					__auto_type currReg = mapRegSliceGet(regsByLivenessNode, key1);
-					__auto_type outReg = mapRegSliceGet(regsByLivenessNode, key2);
+					__auto_type currReg = ptrMapregSliceGet(regsByLivenessNode, allColorNodes[i]);
+					__auto_type outReg = ptrMapregSliceGet(regsByLivenessNode, outgoing[i2]);
 
 					// Both vairables are put in registers?
 					if (currReg && outReg) {
@@ -1749,9 +1699,7 @@ loop:
 
 		// Remove spilled vars from regsByLivenessNode
 		for (long i = 0; i != strGraphNodeIRLivePSize(spillNodes); i++) {
-			char *key = ptr2Str(spillNodes[i]);
-			mapRegSliceRemove(regsByLivenessNode, key, NULL);
-			free(key);
+			ptrMapregSliceRemove(regsByLivenessNode, spillNodes[i]);
 		}
 
 		// Replace with registers

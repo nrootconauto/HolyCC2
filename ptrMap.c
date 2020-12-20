@@ -94,7 +94,7 @@ void *__ptrMapGet(struct __ptrMap *map,const void * key) {
 }
 void __ptrMapRemove(struct __ptrMap *map,const void * key) {
 		__auto_type bucketI=__ptrMapHash(map,key);
-		__auto_type find=__llFind(map->buckets[bucketI], key, llPtrInsertPred);
+		__auto_type find=__llFind(map->buckets[bucketI], key, llPtrGetPred);
 		if(!find)
 				return;
 

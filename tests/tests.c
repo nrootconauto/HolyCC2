@@ -40,9 +40,9 @@ int main() {
 		//subExprElimTests();
 		//graphVizTests();
 		graphColoringTests();
+		ptrMapTests();
 		registerAllocatorTests();;
 		SSATests();
 		IRFilterTests();
-		ptrMapTests();
 		return 0;
 }
