@@ -8,6 +8,7 @@ if(ENABLE_ASAN)
 endif()
 
 set(sources "")
+list(APPEND sources "ptrMap.c")
 list(APPEND sources "linkedList.c")
 list(APPEND sources "hashTable.c")
 list(APPEND sources "linkedList.c")

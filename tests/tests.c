@@ -20,6 +20,7 @@ void graphVizTests();
 void registerAllocatorTests();
 void IRFilterTests();
 void init();
+void ptrMapTests();
 int main() {
 		init();
 		strTests();
@@ -42,5 +43,6 @@ int main() {
 		registerAllocatorTests();;
 		SSATests();
 		IRFilterTests();
+		ptrMapTests();
 		return 0;
 }
