@@ -164,8 +164,7 @@ struct blockMetaNode {
 	graphNodeMapping node;
 	struct basicBlock *block;
 };
-MAP_TYPE_DEF(struct blockMetaNode, BlockMetaNode);
-MAP_TYPE_FUNCS(struct blockMetaNode, BlockMetaNode);
+PTR_MAP_FUNCS(struct __graphNode *,struct blockMetaNode, BlockMetaNode);
 static strGraphNodeMappingP visitAllAdjExprTo(graphNodeMapping node) {
 	strGraphNodeMappingP visited = strGraphNodeMappingPAppendItem(NULL, node);
 
@@ -200,7 +199,7 @@ static strGraphNodeMappingP visitAllAdjExprTo(graphNodeMapping node) {
 	return visited;
 }
 static strBasicBlock
-getBasicBlocksFromExpr(graphNodeIR dontDestroy, mapBlockMetaNode metaNodes,
+getBasicBlocksFromExpr(graphNodeIR dontDestroy, ptrMapBlockMetaNode metaNodes,
                        graphNodeMapping start, const void *data,
                        int (*varFilter)(graphNodeIR var, const void *data)) {
 	strGraphNodeMappingP nodes = visitAllAdjExprTo(start);
@@ -426,8 +425,7 @@ getBasicBlocksFromExpr(graphNodeIR dontDestroy, mapBlockMetaNode metaNodes,
 		struct blockMetaNode pair;
 		pair.block = retVal[i];
 		pair.node = metaNode;
-		char *hash = ptr2Str(metaNode);
-		mapBlockMetaNodeInsert(metaNodes, hash, pair);
+		ptrMapBlockMetaNodeAdd(metaNodes, metaNode, pair);
 
 #if DEBUG_PRINT_ENABLE
 		char buffer[128];
@@ -514,7 +512,7 @@ static void validateStrVarSet(strVar vars) {
 strGraphNodeIRLiveP __IRInterferenceGraphFilter(
     graphNodeMapping start, const void *data,
     int (*varFilter)(graphNodeIR node, const void *data)) {
-	mapBlockMetaNode metaNodes = mapBlockMetaNodeCreate();
+	ptrMapBlockMetaNode metaNodes = ptrMapBlockMetaNodeCreate();
 
 	//
 	// First find basic blocks by searching alVarRefs for basic blocks,removing
@@ -578,8 +576,7 @@ char *name=tmpnam(NULL);
 			continue;
 
 		//"Transparent" remove if not metaNode
-		char *hash = ptr2Str(allMappedNodes2[i]);
-		if (NULL == mapBlockMetaNodeGet(metaNodes, hash))
+		if (NULL == ptrMapBlockMetaNodeGet(metaNodes, allMappedNodes2[i]))
 			__filterTransparentKill(allMappedNodes2[i]);
 	}
 
@@ -597,8 +594,7 @@ char *name=tmpnam(NULL);
 	// Contains only metaNodes node
 	// Init ins/outs to empty sets
 	for (long i = strGraphNodeMappingPSize(forwards) - 1; i >= 0; i--) {
-		char *hash = ptr2Str(forwards[i]);
-		__auto_type find = mapBlockMetaNodeGet(metaNodes, hash);
+		__auto_type find = ptrMapBlockMetaNodeGet(metaNodes, forwards[i]);
 
 #if DEBUG_PRINT_ENABLE
 		DEBUG_PRINT("Reseting in/outs of %s to empty.\n", var2Str(find->node));
@@ -616,8 +612,7 @@ char *name=tmpnam(NULL);
 		int changed = 0;
 
 		for (long i = strGraphNodeMappingPSize(forwards) - 1; i >= 0; i--) {
-			char *hash = ptr2Str(forwards[i]);
-			__auto_type find = mapBlockMetaNodeGet(metaNodes, hash);
+			__auto_type find = ptrMapBlockMetaNodeGet(metaNodes, forwards[i]);
 
 			// Could be start node
 			if (!find)
@@ -648,8 +643,7 @@ char *name=tmpnam(NULL);
 			strVar newOuts = NULL;
 			__auto_type succs = graphNodeMappingOutgoingNodes(forwards[i]);
 			for (long i = 0; i != strGraphNodeMappingPSize(succs); i++) {
-				char *hash = ptr2Str(succs[i]);
-				__auto_type find2 = mapBlockMetaNodeGet(metaNodes, hash);
+				__auto_type find2 = ptrMapBlockMetaNodeGet(metaNodes, succs[i]);
 
 				// Skip if not found(may be start node)
 				if (!find2)
@@ -698,8 +692,7 @@ char *name=tmpnam(NULL);
 	strVarRefNodePair assocArray = NULL;
 	for (long i = 0; i != strGraphNodePSize(forwards); i++) {
 		// Find meta node
-		char *hash = ptr2Str(forwards[i]);
-		__auto_type find = mapBlockMetaNodeGet(metaNodes, hash);
+		__auto_type find = ptrMapBlockMetaNodeGet(metaNodes, forwards[i]);
 
 		// Could be start node
 		if (!find)
@@ -765,7 +758,7 @@ char *name=tmpnam(NULL);
 		}
 	}
 
-	mapBlockMetaNodeDestroy(metaNodes, killNode);
+	ptrMapBlockMetaNodeDestroy(metaNodes, killNode);
 
 	//
 	strGraphNodeIRLiveP allGraphs = NULL;
