@@ -15,7 +15,7 @@ long __ptrMapSize(struct __ptrMap *map) {
 		return map->size;
 }
 static long __ptrMapHash(const struct __ptrMap *map,const void *ptr) {
-		return (((unsigned long)ptr>>3u)*3u)%strLLSize(map->buckets);
+		return (((unsigned long)ptr>>3u)/3u)%strLLSize(map->buckets);
 }
 static int ptrPtrCmp(const void *a, const void *b) {
 	if (*(void **)a > *(void **)b)
@@ -114,4 +114,12 @@ struct __ptrMap *__ptrMapCreate() {
 		*alloced=retVal;
 
 		return alloced;
+}
+void __ptrMapKeys(const struct __ptrMap *map,void **dumpTo) {
+		long count=0;
+		for(long i=0;i!=strLLSize(map->buckets);i++) {
+				for(__auto_type node=__llGetFirst(map->buckets[i]);node!=NULL;node=__llNext(node)) {
+						dumpTo[count++]=*(void**)__llValuePtr(node);
+				}
+		}
 }

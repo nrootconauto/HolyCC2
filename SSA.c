@@ -69,9 +69,7 @@ struct SSANode {
 GRAPH_TYPE_DEF(struct SSANode, void *, SSANode);
 GRAPH_TYPE_FUNCS(struct SSANode, void *, SSANode);
 
-MAP_TYPE_DEF(strGraphNodeIRP, ChooseIncomings);
-MAP_TYPE_FUNCS(strGraphNodeIRP, ChooseIncomings);
-
+PTR_MAP_FUNCS(struct __graphNode *, strGraphNodeP, ChooseIncomings);
 struct varAndEnterPair {
 	graphNodeIR enter;
 	struct IRVar *var;
@@ -207,18 +205,17 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 	__auto_type allVarRefs = graphNodeMappingAllNodes(varRefsG);
 	// graphPrint(varRefsG, node2Str);
 	// Hash the vars
-	mapGraphNode IR2MappingNode = mapGraphNodeCreate();
+	ptrMapGraphNode IR2MappingNode = ptrMapGraphNodeCreate();
 	for (long i = 0; i != strGraphNodeMappingPSize(allVarRefs); i++) {
 		graphNodeIR sourceNode = *graphNodeMappingValuePtr(allVarRefs[i]);
-
-		char *hash = ptr2Str(sourceNode);
-		mapGraphNodeInsert(IR2MappingNode, hash, allVarRefs[i]);
+		
+		ptrMapGraphNodeAdd(IR2MappingNode, sourceNode, allVarRefs[i]);
 	}
 
 	__auto_type varAssignG = IRFilter(start, isAssignedVar, &pair);
 
 	if (!varAssignG) {
-		mapGraphNodeDestroy(IR2MappingNode, NULL);
+		ptrMapGraphNodeDestroy(IR2MappingNode, NULL);
 		return;
 	}
 
@@ -269,11 +266,9 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 		    *graphNodeMappingValuePtr(graphEdgeMappingIncoming(un[i]));
 		__auto_type end =
 		    *graphNodeMappingValuePtr(graphEdgeMappingOutgoing(un[i]));
-		char *startHash = ptr2Str(start);
-		char *endHash = ptr2Str(end);
 
-		__auto_type mappedStart = *mapGraphNodeGet(IR2MappingNode, startHash);
-		__auto_type mappedEnd = *mapGraphNodeGet(IR2MappingNode, endHash);
+		__auto_type mappedStart = *ptrMapGraphNodeGet(IR2MappingNode, start);
+		__auto_type mappedEnd = *ptrMapGraphNodeGet(IR2MappingNode, end);
 
 		// Find all paths from start->end
 		__auto_type allPaths = graphAllPathsTo(mappedStart, mappedEnd);
@@ -293,8 +288,7 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 		if (versionStarts[i] == start)
 			continue;
 
-		char *hash = ptr2Str(versionStarts[i]);
-		__auto_type mappedNode = *mapGraphNodeGet(IR2MappingNode, hash);
+		__auto_type mappedNode = *ptrMapGraphNodeGet(IR2MappingNode, versionStarts[i]);
 
 		// Find all null paths from assign
 		__auto_type nullPaths = graphAllPathsTo(mappedNode, NULL);
@@ -311,8 +305,8 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 static strGraphNodeIRP IRSSACompute(graphNodeMapping start, struct IRVar *var) {
 	// graphPrint(start, node2Str);
 	//
-	__auto_type frontiersToMaster = mapChooseIncomingsCreate();
-	__auto_type nodeKey2Ptr = mapGraphNodeCreate();
+	__auto_type frontiersToMaster = ptrMapChooseIncomingsCreate();
+	__auto_type nodeKey2Ptr = ptrMapGraphNodeCreate();
 
 	__auto_type mappedNodes = graphNodeMappingAllNodes(start);
 	__auto_type doms = graphComputeDominatorsPerNode(start);
@@ -336,9 +330,8 @@ static strGraphNodeIRP IRSSACompute(graphNodeMapping start, struct IRVar *var) {
 		for (long i = 0; i != strGraphNodePSize(nodeValue->nodes); i++) {
 			// Register the master node if doesnt exist
 			__auto_type frontier = *graphNodeMappingValuePtr(nodeValue->nodes[i]);
-			char *hash = ptr2Str(frontier);
 		loop:;
-			__auto_type find = mapChooseIncomingsGet(frontiersToMaster, hash);
+			__auto_type find = ptrMapChooseIncomingsGet(frontiersToMaster, frontier);
 			if (!find) {
 				// Make a list of incoming nodes to frontier
 				__auto_type incomingMapped =
@@ -354,8 +347,8 @@ static strGraphNodeIRP IRSSACompute(graphNodeMapping start, struct IRVar *var) {
 						    incomingSources, sourceNode, (gnCmpType)(ptrPtrCmp));
 				}
 
-				mapChooseIncomingsInsert(frontiersToMaster, hash, incomingSources);
-				mapGraphNodeInsert(nodeKey2Ptr, hash, frontier);
+				ptrMapChooseIncomingsAdd(frontiersToMaster, frontier, incomingSources);
+				ptrMapGraphNodeAdd(nodeKey2Ptr, frontier, frontier);
 				goto loop;
 			}
 		}
@@ -364,20 +357,19 @@ static strGraphNodeIRP IRSSACompute(graphNodeMapping start, struct IRVar *var) {
 	//
 	// Insert the choose nodes
 	//
-	long kCount;
-	mapChooseIncomingsKeys(frontiersToMaster, NULL, &kCount);
-	const char *keys[kCount];
-	mapChooseIncomingsKeys(frontiersToMaster, keys, NULL);
+	long kCount=ptrMapChooseIncomingsSize(frontiersToMaster);
+	struct __graphNode *keys[kCount];
+	ptrMapChooseIncomingsKeys(frontiersToMaster, keys);
 
 	for (long i = 0; i != kCount; i++) {
-		__auto_type masters = *mapChooseIncomingsGet(frontiersToMaster, keys[i]);
+		__auto_type masters = *ptrMapChooseIncomingsGet(frontiersToMaster, keys[i]);
 		__auto_type masterNode =
-		    *mapGraphNodeGet(nodeKey2Ptr, keys[i]); // TODO change to frontier
+		    *ptrMapGraphNodeGet(nodeKey2Ptr, keys[i]); // TODO change to frontier
 		createChoose(masterNode, masters);
 	}
 
-	mapChooseIncomingsDestroy(frontiersToMaster, NULL);
-	mapGraphNodeDestroy(nodeKey2Ptr, NULL);
+	ptrMapChooseIncomingsDestroy(frontiersToMaster, NULL);
+	ptrMapGraphNodeDestroy(nodeKey2Ptr, NULL);
 	return retVal;
 }
 static int filterVars(graphNodeIR node, const void *data) {

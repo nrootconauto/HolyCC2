@@ -222,8 +222,6 @@ void graphReplaceWithNode(strGraphNodeP toReplace,
 
 GRAPH_TYPE_DEF(struct __graphNode *, struct __graphEdge *, Mapping);
 GRAPH_TYPE_FUNCS(struct __graphNode *, struct __graphEdge *, Mapping);
-MAP_TYPE_DEF(graphNodeMapping, GraphNode);
-MAP_TYPE_FUNCS(graphNodeMapping, GraphNode);
 graphNodeMapping
 createFilteredGraph(struct __graphNode *start, strGraphNodeP nodes, void *data,
                     int (*pred)(struct __graphNode *, void *data));

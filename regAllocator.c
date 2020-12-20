@@ -1176,8 +1176,8 @@ static void addToNodes(struct __graphNode *node, void *data) {
 	strGraphNodeIRP *Data = (void *)data;
 	*Data = strGraphNodeIRPSortedInsert(*Data, node, (gnCmpType)ptrPtrCmp);
 }
-static void mapGraphNodeDestroy2(mapGraphNode *node) {
-	mapGraphNodeDestroy(*node, NULL);
+static void ptrMapGraphNodeDestroy2(ptrMapGraphNode *node) {
+	ptrMapGraphNodeDestroy(*node, NULL);
 }
 #define MAXIMUM_REMATIALIZATION_OPS 1
 static struct IRVar *getVar(graphNodeIR node) {
@@ -1261,7 +1261,7 @@ static graphNodeIR rematRecur(graphNodeIR node, strGraphNodeIRP *retmatNodes,
 	if(!infectUntilReg(node, &tops2, &nodes))
 			return NULL;
 
-	mapGraphNode mappings CLEANUP(mapGraphNodeDestroy2);
+	ptrMapGraphNode  mappings CLEANUP(ptrMapGraphNodeDestroy2);
 	__auto_type retVal = IRCloneUpTo(node, tops2, &mappings);
 	
 	// Find operation nodes of nodes
@@ -1304,13 +1304,10 @@ static graphNodeIR rematRecur(graphNodeIR node, strGraphNodeIRP *retmatNodes,
 			__auto_type assign = findSinglePreviousAssign(tops2[i]);
 			if (assign) {
 				// Connect the upper rematerizialization to cloned tops2[i]
-				char *key = ptr2Str(tops2[i]);
-				long count;
-						mapGraphNodeKeys(mappings, NULL, &count);
-						const char *keys[count];
-						mapGraphNodeKeys(mappings, keys, &count);
-						__auto_type top = *mapGraphNodeGet(mappings, key);
-				free(key);
+					long count=ptrMapGraphNodeSize(mappings);
+					struct __graphNode* keys[count];
+						ptrMapGraphNodeKeys(mappings, keys);
+						__auto_type top = *ptrMapGraphNodeGet(mappings, tops2[i]);
 
 				// Recur
 				__auto_type upper = rematRecur(assign, retmatNodes, operationNodes,

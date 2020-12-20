@@ -7,6 +7,8 @@ struct nameVarPair {
 		struct variable *var;
 		graphNodeIRLive node;
 };
+MAP_TYPE_DEF(struct __graphNode *, GraphNode);
+MAP_TYPE_FUNCS(struct __graphNode *, GraphNode);
 void LivenessTests() {
 		initIR();
 		{

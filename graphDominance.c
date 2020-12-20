@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <str.h>
+#include <ptrMap.h>
 typedef int (*geCmpType)(const struct __graphEdge **,
                          const struct __graphEdge **);
 typedef int (*gnCmpType)(const struct __graphNode **,
@@ -16,6 +17,7 @@ static int alwaysTrue(const struct __graphNode *node,
                       const struct __graphEdge *edge, const void *data) {
 	return 1;
 }
+PTR_MAP_FUNCS(struct __graphNode*, struct __graphNode*, GraphNode);
 static int ptrPtrCmp(const void *a, const void *b) {
 	if (*(void **)a > *(void **)b)
 		return 1;
@@ -250,34 +252,30 @@ llDomFrontier graphDominanceFrontiers(struct __graphNode *start,
 	return fronts;
 }
 static char *ptr2Str(const void *a) { return base64Enc((void *)&a, sizeof(a)); }
-static void connnectIdoms(mapGraphNode nodes, llDominators valids,
+static void connnectIdoms(ptrMapGraphNode nodes, llDominators valids,
                           llDominators BNode) {
 	strGraphNodeP B = llDominatorsValuePtr(BNode)->dominators;
 
 	struct __graphNode *bFirst = *strGraphNodePSortedFind(
 	    B, llDominatorsValuePtr(BNode)->node, (gnCmpType)ptrPtrCmp);
-
-	char *str = ptr2Str(bFirst);
-	graphNodeMapping bNodeMapped = *mapGraphNodeGet(nodes, str);
+	graphNodeMapping bNodeMapped = *ptrMapGraphNodeGet(nodes, bFirst);
 
 	__auto_type idoms = graphDominatorIdoms(valids, bFirst);
 
 	// Connect immediate dominators of B
 	for (long i = 0; i != strGraphNodePSize(idoms); i++) {
-		__auto_type str = ptr2Str(idoms[i]);
-		__auto_type node = mapGraphNodeGet(nodes, str);
+		__auto_type node = ptrMapGraphNodeGet(nodes, idoms[i]);
 		assert(node);
 		graphNodeMappingConnect(*node, bNodeMapped, NULL);
 	}
 }
 graphNodeMapping dominatorsTreeCreate(llDominators doms) {
-	mapGraphNode map = mapGraphNodeCreate();
+  __auto_type  map = ptrMapGraphNodeCreate();
 
 	for (__auto_type node = llDominatorsFirst(doms); node != NULL;
 	     node = llDominatorsNext(node)) {
 		__auto_type node2 = llDominatorsValuePtr(node)->node;
-		char *str = ptr2Str(node2);
-		mapGraphNodeInsert(map, str, graphNodeMappingCreate(node2, 0));
+		ptrMapGraphNodeAdd(map, node2, graphNodeMappingCreate(node2, 0));
 	}
 
 	// Connect idoms
@@ -286,16 +284,15 @@ graphNodeMapping dominatorsTreeCreate(llDominators doms) {
 		connnectIdoms(map, doms, node);
 
 	// See Below
-	long count;
-	mapGraphNodeKeys(map, NULL, &count);
-	const char *toCheck[count];
-	mapGraphNodeKeys(map, (void *)toCheck, NULL);
+	long count=ptrMapGraphNodeSize(map);
+	struct __graphNode *toCheck[count];
+	ptrMapGraphNodeKeys(map, toCheck);
 
 	// Find the firstNode to have no incoming nodes,this is the master node(of one
 	// of the master nodes).
 	graphNodeMapping firstNode = NULL;
 	for (long i = 0; i != count; i++) {
-		__auto_type find = *mapGraphNodeGet(map, toCheck[i]);
+		__auto_type find = *ptrMapGraphNodeGet(map, toCheck[i]);
 
 		// Check if no incoming
 		__auto_type in = graphNodeMappingIncomingNodes(find);
@@ -309,7 +306,7 @@ graphNodeMapping dominatorsTreeCreate(llDominators doms) {
 		assert(firstNode);
 	}
 
-	mapGraphNodeDestroy(map, NULL);
+	ptrMapGraphNodeDestroy(map, NULL);
 
 	return firstNode;
 }

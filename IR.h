@@ -6,6 +6,7 @@
 #include <parserA.h>
 #include <registers.h>
 #include <str.h>
+#include <ptrMap.h>
 enum IRFlag {
 	IR_FLAG_EQZ,
 	IR_FLAG_NEQZ,
@@ -327,8 +328,9 @@ enum IRCloneMode {
 	IR_CLONE_EXPR_UNTIL_ASSIGN,
 	IR_CLONE_UP_TO,
 };
+PTR_MAP_FUNCS(struct __graphNode *, struct __graphNode *, GraphNode);
 graphNodeIR IRCloneNode(graphNodeIR node, enum IRCloneMode mode,
-                      mapGraphNode *mappings);
+                      ptrMapGraphNode *mappings);
 int IRVarCmpIgnoreVersion(const struct IRVar *a, const struct IRVar *b);
 int IRIsExprEdge(enum IRConnType type);
 struct object *IRValueGetType(struct IRValue *node);
@@ -342,7 +344,7 @@ int IRIsDeadExpression(graphNodeIR end);
 struct object *IRNodeType(graphNodeIR node);
 void IRNodeDestroy(struct IRNode *node);
 graphNodeIR IRCloneUpTo(graphNodeIR node, strGraphNodeIRP to,
-                        mapGraphNode *mappings);
+                        ptrMapGraphNode *mappings);
 int IRIsOperator(graphNodeIR node);
 graphNodeIR IRCreateFuncArg(struct object *type,long funcIndex);
 graphNodeIR IRCreateMemberAccess(graphNodeIR input,const char *name);
