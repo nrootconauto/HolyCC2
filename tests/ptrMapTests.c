@@ -13,6 +13,7 @@ void ptrMapTests() {
 
 					ptrMapIntAdd(map, mem, i);
 					allocs[i]=mem;
+					assert(*ptrMapIntGet(map, allocs[i])==i);
 			}
 
 			for(long i=0;i!=count;i++) {

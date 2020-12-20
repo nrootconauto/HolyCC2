@@ -15,7 +15,7 @@ long __ptrMapSize(struct __ptrMap *map) {
 		return map->size;
 }
 static long __ptrMapHash(const struct __ptrMap *map,const void *ptr) {
-		return (((long)ptr>>3)*3)%map->size;
+		return (((unsigned long)ptr>>3u)*3u)%strLLSize(map->buckets);
 }
 static int ptrPtrCmp(const void *a, const void *b) {
 	if (*(void **)a > *(void **)b)
@@ -27,6 +27,9 @@ static int ptrPtrCmp(const void *a, const void *b) {
 }
 static int llPtrInsertPred(const void *a,const void *b) {
 		return ptrPtrCmp(a, b);
+}
+static int llPtrGetPred(const void *a,const void *b) {
+		return ptrPtrCmp(&a, b);
 }
 void __ptrMapDestroy(struct __ptrMap *map,void(*destroy)(void*)) {
 		for(long i=0;i!=strLLSize(map->buckets);i++)
@@ -51,9 +54,14 @@ static void __ptrMapRehash(struct __ptrMap *map,long newBuckets,long dataSize)  
 		new.buckets=strLLResize(NULL, newBuckets);
 		new.size=0;
 
+		for(long i=0;i!=newBuckets;i++) {
+				new.buckets[i]=NULL;
+				new.bucketSizes[i]=0;
+		}
+		
 		for(long i=0;i!=strLLSize(map->buckets);i++) {
 				for(__auto_type node=__llGetFirst(map->buckets[i]);node!=NULL;node=__llNext(node)) {
-						__ptrMapAdd(&new, __ptrMapGet(map, *(const void**)__llValuePtr(node)),sizeof(void*)+__llValuePtr(node),dataSize);
+						__ptrMapAdd(&new, __ptrMapGet(map, *(const void**)__llValuePtr(node)),*(void**)__llValuePtr(node),dataSize);
 				}
 		}
 		
@@ -61,7 +69,8 @@ static void __ptrMapRehash(struct __ptrMap *map,long newBuckets,long dataSize)  
 		*map=new;
 }
 void __ptrMapAdd(struct __ptrMap *map,const void *data,const void *key,long dataSize) {
-		__auto_type ll=__llCreate(data, dataSize+sizeof(void*));
+		char buffer[dataSize+sizeof(void*)];
+		__auto_type ll=__llCreate(buffer, dataSize+sizeof(void*));
 		*(const void**)__llValuePtr(ll)=key;
 		memcpy(__llValuePtr(ll)+sizeof(void*),data,dataSize);
 		
@@ -77,7 +86,7 @@ void __ptrMapAdd(struct __ptrMap *map,const void *data,const void *key,long data
 }
 void *__ptrMapGet(struct __ptrMap *map,const void * key) {
 		__auto_type bucketI=__ptrMapHash(map,key);
-		__auto_type find=__llFind(map->buckets[bucketI], key, llPtrInsertPred);
+		__auto_type find=__llFind(map->buckets[bucketI], key, llPtrGetPred);
 		if(!find)
 				return NULL;
 
