@@ -114,17 +114,7 @@ static struct IREvalVal *valueHash(struct IRValue *value) {
 			assert(find);
 			return find;
 		} else if (value->value.var.type == IR_VAR_MEMBER) {
-			__auto_type ptrStr = ptr2Str(value->value.var.value.member);
-
-		loopMember:;
-			__auto_type find = mapVarValGet(varVals, ptrStr);
-			if (!find) {
-				mapVarValInsert(varVals, ptrStr, dftValueType(IREVAL_VAL_INT));
-				goto loopMember;
-			}
-
-			assert(find);
-			return find;
+				assert(-0);
 		}
 	} else if (value->type == IR_VAL_REG) {
 		// TODO implement me
@@ -198,7 +188,7 @@ struct object *IRValuegetType(struct IRValue *node) {
 		if (node->value.var.type == IR_VAR_VAR)
 			return node->value.var.value.var->type;
 		else if (node->value.var.type == IR_VAR_MEMBER)
-			return assignTypeToOp((void *)node->value.var.value.member);
+			return (void *)node->value.var.value.member.mem->type;
 		return NULL;
 	}
 	case IR_VAL_STR_LIT:
@@ -680,6 +670,8 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 		assert(spill->item.type == IR_VAL_VAR_REF);
 		spillToFrame(val, &spill->item.value.var);
 
+		if(success)
+				*success=1;
 		return val;
 	}
 	case IR_LOAD: {

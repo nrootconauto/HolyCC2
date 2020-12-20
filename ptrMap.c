@@ -1,5 +1,6 @@
 #include <linkedList.h>
 #include <str.h>
+#include <stdlib.h>
 #include <ptrMap.h>
 STR_TYPE_DEF(struct __ll*,LL);
 STR_TYPE_FUNCS(struct __ll*,LL);
@@ -91,4 +92,17 @@ void __ptrMapRemove(struct __ptrMap *map,const void * key) {
 		map->buckets[bucketI]=__llRemoveNode(find);
 		map->bucketSizes[bucketI]--;
 		map->size--;
+}
+struct __ptrMap *__ptrMapCreate() {
+		struct __ptrMap retVal;
+		retVal.bucketSizes=NULL;
+		retVal.buckets=NULL;
+		retVal.size=0;
+
+		__ptrMapRehash(&retVal, 4,0);
+
+		struct __ptrMap *alloced=malloc(sizeof(retVal));
+		*alloced=retVal;
+
+		return alloced;
 }

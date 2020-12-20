@@ -59,7 +59,7 @@ void registerAllocatorTests() {
 				graphNodeIRConnect(bRef1, bRef3, IR_CONN_FLOW);
 				graphNodeIRConnect(bRef2, bRef3, IR_CONN_FLOW);
 
-				debugShowGraph(aRef1);
+				//debugShowGraph(aRef1);
 		
 				//Do SSA on strucure
 				IRToSSA(one);
@@ -429,7 +429,7 @@ void registerAllocatorTests() {
 				assert(success);
 				
 				IRRegisterAllocate(start, NULL, NULL);
-				debugShowGraph(start);
+				//debugShowGraph(start);
 				
 				IREvalInit();
 				__auto_type  res2= IREvalPath(start, &success);
