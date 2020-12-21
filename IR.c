@@ -430,9 +430,6 @@ strGraphNodeIRP IRStmtNodes(graphNodeIR end) {
 
 	return starts;
 }
-void IRRemoveNeedlessLabels(graphNodeIR start) {
-	__auto_type all = graphNodeIRAllNodes(start);
-}
 static void transparentKill(graphNodeIR node) {
 	__auto_type incoming = graphNodeIRIncoming(node);
 	__auto_type outgoing = graphNodeIROutgoing(node);
@@ -442,6 +439,27 @@ static void transparentKill(graphNodeIR node) {
 			                   graphEdgeIROutgoing(outgoing[i2]), IR_CONN_FLOW);
 
 	graphNodeIRKill(&node, NULL, NULL);
+}
+void IRRemoveNeedlessLabels(graphNodeIR start) {
+		strGraphNodeIRP all CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRAllNodes(start);
+		for(long i=0;i!=strGraphNodeIRPSize(all);i++) {
+				if(graphNodeIRValuePtr(all[i])->type!=IR_LABEL)
+						continue;
+				if(all[i]==start)
+						continue;
+				strGraphNodeIRP in CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRIncomingNodes(all[i]);
+				strGraphNodeIRP out CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRIncomingNodes(all[i]);
+				if(strGraphNodeIRPSize(in)==1&&strGraphNodeIRPSize(out)==1) {
+				destroy:
+						transparentKill(all[i]);
+						continue;
+				}
+
+				if(strGraphNodeIRPSize(in)==1) {
+						if(graphNodeIRValuePtr(in[0])->type==IR_STATEMENT_START)
+								goto destroy;
+				}
+		}
 }
 int IRIsDeadExpression(graphNodeIR end) {
 	strGraphNodeIRP starts = strGraphNodeIRPAppendItem(NULL, end);

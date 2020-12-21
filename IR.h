@@ -348,3 +348,4 @@ graphNodeIR IRCloneUpTo(graphNodeIR node, strGraphNodeIRP to,
 int IRIsOperator(graphNodeIR node);
 graphNodeIR IRCreateFuncArg(struct object *type,long funcIndex);
 graphNodeIR IRCreateMemberAccess(graphNodeIR input,const char *name);
+void IRRemoveNeedlessLabels(graphNodeIR start) ;

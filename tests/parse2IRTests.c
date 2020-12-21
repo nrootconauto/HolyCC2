@@ -38,4 +38,11 @@ void parse2IRTests() {
 				__auto_type res=parserNodes2IR(nodes);
 				debugShowGraph(res.enter);
 		}
+		{
+				__auto_type nodes=parseText("if(1+2) {3+4;} else {5+6;}");
+				IRGenInit();
+				__auto_type res=parserNodes2IR(nodes);
+				IRRemoveNeedlessLabels(res.enter);
+				debugShowGraph(res.enter);
+		}
 }
