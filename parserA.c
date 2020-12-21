@@ -1822,7 +1822,7 @@ struct parserNode *parseIf(llLexerItem start, llLexerItem *end) {
 		elKw = expectKeyword(start, "else");
 		start = llLexerItemNext(start);
 		if (elKw) {
-			elBody = parseStatement(start, NULL);
+			elBody = parseStatement(start, &start);
 			failed |= elBody == NULL;
 		}
 
@@ -1832,6 +1832,9 @@ struct parserNode *parseIf(llLexerItem start, llLexerItem *end) {
 		ifNode.body = body;
 		ifNode.el = elBody;
 
+		if(end)
+				*end=start;
+		
 		if (end)
 			assignPosByLexerItems((struct parserNode *)&ifNode, originalStart, *end);
 		else
