@@ -1019,7 +1019,7 @@ static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 		__auto_type body=__parserNode2IRStmt(wh->body);
 		currentGen->scopes = strScopeStackPop(currentGen->scopes, NULL);
 		__auto_type cJmp = IRCreateCondJmp(cond.exit, body.enter, endLab);
-		graphNodeIRConnect(body.exit, endLab, IR_CONN_FLOW);
+		graphNodeIRConnect(body.exit, cond.enter, IR_CONN_FLOW);
 		return (struct enterExit){cond.enter,endLab};
 	}
 	case NODE_CLASS_DEF:
