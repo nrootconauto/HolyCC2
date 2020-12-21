@@ -903,8 +903,8 @@ void graph2GraphViz(FILE *dumpTo, graphNodeMapping graph, const char *title,
                                          const void *data),
                     const void *nodeData, const void *edgeData) {
 	__auto_type allNodes = __graphNodeVisitAll(graph);
-	__auto_type allNodes2 = graphVizRankSort(graph, allNodes);
-	allNodes = allNodes2;
+	//__auto_type allNodes2 = graphVizRankSort(graph, allNodes);
+	//	allNodes = allNodes2;
 	//
 	// Make nodes
 	//

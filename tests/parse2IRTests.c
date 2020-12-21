@@ -33,7 +33,8 @@ strParserNode parseText(const char *text) {
 }
 void parse2IRTests() {
 		{
-				__auto_type nodes=parseText("if(10) {1+2;} else {3+4;}");
+				__auto_type nodes=parseText("1+2;");
+				IRGenInit();
 				__auto_type res=parserNodes2IR(nodes);
 				debugShowGraph(res.enter);
 		}

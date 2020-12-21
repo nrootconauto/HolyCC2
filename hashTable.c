@@ -41,7 +41,7 @@ static struct __ll *__mapNodeCreate(const char *key, const void *item,
 }
 static unsigned char *__mapNodeKey(const void *nodeValue) {
 	__auto_type data = nodeValue;
-	data += sizeof(long) + sizeof(long) + *(long *)data;
+ 	data += sizeof(long) + sizeof(long) + *(long *)data;
 	return (unsigned char *)data;
 }
 static long *__mapNodeHashValue(const void *nodeValue) {

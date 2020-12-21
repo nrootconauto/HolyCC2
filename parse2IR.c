@@ -92,6 +92,16 @@ void IRGenInstDestroy(struct IRGenInst *inst) {
 }
 
 static __thread struct IRGenInst *currentGen = NULL;
+static __thread strGraphNodeIRP currentStatement = NULL;
+void IRGenInit() {
+		if(currentGen!=NULL)
+				IRGenInstDestroy(currentGen);
+		strGraphNodeIRPDestroy(&currentStatement);
+
+		currentStatement=NULL;
+		currentGen=IRGenInstCreate();
+}
+
 static struct IRGenScopeStack *IRGenScopePush(enum scopeType type) {
 		struct IRGenScopeStack tmp;
 		tmp.type=type;
@@ -185,31 +195,26 @@ static void visitNode(struct __graphNode *node, void *data) {
 		visited =
 		    strGraphNodeIRPSortedInsert(visited, node, (gnIRCmpType)ptrPtrCmp);
 }
-static __thread graphNodeIR currentStatement = NULL;
-static void enterStatement() {
+static graphNodeIR enterStatement() {
 	assert(currentStatement == NULL);
 
-	struct IRNodeStatementStart start;
-	start.base.attrs = NULL;
-	start.base.type = IR_STATEMENT_START;
-
-	__auto_type node = GRAPHN_ALLOCATE(start);
+	__auto_type node=IRCreateStmtStart();
 	connectCurrentsToNode(node);
 	setCurrentNodes(currentGen, node, NULL);
+
+	currentStatement=strGraphNodeIRPAppendItem(currentStatement, node);
+
+	return node;
 }
-static void leaveStatement() {
-	struct IRNodeStatementStart end;
-	end.base.attrs = NULL;
-	end.base.type = IR_STATEMENT_END;
-
-	__auto_type node = GRAPHN_ALLOCATE(end);
+static graphNodeIR leaveStatement() {
+		graphNodeIR popped;
+		currentStatement=strGraphNodeIRPPop(currentStatement, &popped);
+		__auto_type node=IRCreateStmtEnd(popped);
+		
 	connectCurrentsToNode(node);
 	setCurrentNodes(currentGen, node, NULL);
 
-	((struct IRNodeStatementStart *)graphNodeIRValuePtr(currentStatement))->end =
-	    node;
-
-	currentStatement = NULL;
+	return node;
 }
 static char *IRVarHash(const struct parserNode *node) {
 	if (node->type == NODE_VAR) {
@@ -692,7 +697,6 @@ static graphNodeIR parserNode2Expr(const struct parserNode *node) {
 				if (b) {
 						__auto_type retVal = IRCreateBinop(aVal, bVal, *b);
 
-						setCurrentNodes(currentGen, retVal, NULL);
 						return retVal;
 				}
 
@@ -732,7 +736,6 @@ static graphNodeIR parserNode2Expr(const struct parserNode *node) {
 			if(i==0)
 					firstNode=IRStmtStart(node);
 			
-			setCurrentNodes(currentGen, node, NULL);
 		}
 
 		return lastNode;
@@ -765,7 +768,6 @@ static graphNodeIR parserNode2Expr(const struct parserNode *node) {
 						assert(newNode != NULL);
 						
 						graphNodeIRConnect(in, newNode, IR_CONN_SOURCE_A);
-						setCurrentNodes(currentGen, newNode, NULL);
 
 						return newNode;
 		}
@@ -811,6 +813,7 @@ static struct enterExit __parserNode2IRStmt(const struct parserNode *node) {
 
 	// Create statement if node is an expression type.
 	int inStatement = 0;
+	struct enterExit stmtEnterExit;
 	switch (node->type) {
 	case NODE_COMMA_SEQ:
 	case NODE_BINOP:
@@ -821,7 +824,7 @@ static struct enterExit __parserNode2IRStmt(const struct parserNode *node) {
 	case NODE_LIT_STR:
 	case NODE_ARRAY_ACCESS: {
 		inStatement = 1;
-		enterStatement();
+		stmtEnterExit.enter=enterStatement();
 	}
 	default:;
 	}
@@ -829,8 +832,10 @@ static struct enterExit __parserNode2IRStmt(const struct parserNode *node) {
 	__auto_type retVal = __parserNode2IRNoStmt(node);
 
 	// Leave statement if in statement
-	if (inStatement)
-		leaveStatement();
+	if (inStatement) {
+		stmtEnterExit.exit=leaveStatement();
+		return stmtEnterExit;
+	}
 
 	return retVal;
 }
@@ -1013,21 +1018,17 @@ static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 		retVal.enter=cond.enter;
 		
 		connectCurrentsToNode(condJ);
-		setCurrentNodes(currentGen, condJ, NULL);
+		setCurrentNodes(currentGen, NULL);
 		__auto_type body = __parserNode2IRStmt(ifNode->body);
-
+		graphNodeIRConnect(condJ, body.enter, IR_CONN_COND_TRUE);
+		graphNodeIRConnect(body.exit,endBranch, IR_CONN_FLOW);
+		
 		if (ifNode->el) {
-			// Jump to end on true path
-			connectCurrentsToNode(endBranch);
-
-			// Connect cond to fBranch label
-			setCurrentNodes(currentGen, condJ, NULL);
-			connectCurrentsToNode(fBranch);
-
-			setCurrentNodes(currentGen, fBranch, NULL);
-			__auto_type elseBody = __parserNode2IRStmt(ifNode->body);
-			// Connect else to end
-			connectCurrentsToNode(endBranch);
+				__auto_type elseBody = __parserNode2IRStmt(ifNode->body);
+			graphNodeIRConnect(condJ, elseBody.enter, IR_CONN_COND_FALSE);
+			graphNodeIRConnect(elseBody.exit,endBranch, IR_CONN_FLOW);
+		} else {
+				graphNodeIRConnect(condJ, endBranch, IR_CONN_COND_FALSE);
 		}
 
 		setCurrentNodes(currentGen, endBranch, NULL);
@@ -1117,6 +1118,9 @@ static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 	case NODE_VAR: {
 			__auto_type retVal=parserNode2Expr(node);
 			__auto_type start=IRStmtStart(retVal);
+			connectCurrentsToNode(start);
+			setCurrentNodes(currentGen, retVal,NULL);
+						
 			return (struct enterExit){start,retVal};
 	}
 	case NODE_VAR_DECL: {
