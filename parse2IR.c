@@ -919,19 +919,13 @@ static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 		struct parserNodeFor *forStmt = (void *)node;
 		__auto_type init = __parserNode2IRStmt(forStmt->init);
 		retVal.enter=init.enter;
-
-		__auto_type condLab=IRCreateLabel();
 		__auto_type trueLab=IRCreateLabel();
-		// Cond
 		__auto_type cond = __parserNode2IRStmt(forStmt->cond);
+		graphNodeIRConnect(init.exit , cond.enter, IR_CONN_FLOW);
 		IRCreateCondJmp(cond.exit, trueLab, labExit);
-
-		// Make "scope" for body to hold next loop
-		struct IRGenScopeStack scope;
-		scope.type = SCOPE_TYPE_LOOP;
-		scope.value.loop.next = labNext;
-		scope.value.loop.exit = labExit;
-		currentGen->scopes = strScopeStackAppendItem(currentGen->scopes, scope);
+		__auto_type scope=IRGenScopePush(SCOPE_TYPE_LOOP);
+		scope->value.loop.next = labNext;
+		scope->value.loop.exit = labExit;
 
 		// Enter body
 		__auto_type body = __parserNode2IRStmt(forStmt->body);
@@ -945,7 +939,7 @@ static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 		graphNodeIRConnect(labNext,inc.enter,IR_CONN_FLOW);
 		retVal.exit=inc.exit;
 		// Connect increment to cond code
-		graphNodeIRConnect(inc.exit, condLab, IR_CONN_FLOW);
+		graphNodeIRConnect(inc.exit, cond.enter, IR_CONN_FLOW);
 		
 		return retVal;
 	} 

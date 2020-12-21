@@ -2487,3 +2487,10 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 fail:
 	return NULL;
 }
+struct variable *variableClone(struct variable *var) {
+		struct variable *retVal=ALLOCATE(*var);
+		if(var->name)
+				retVal->name=strClone(var->name);
+		retVal->refs=NULL;
+		return retVal;
+}

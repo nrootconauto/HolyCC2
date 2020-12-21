@@ -193,8 +193,17 @@ graphNodeIR IRCreateTypecast(graphNodeIR in, struct object *inType,
 }
 graphNodeIR IRCreateVarRef(struct variable *var) {
 	__auto_type ptrStr = ptr2Str(var);
+	loop:;
 	__auto_type find = mapIRVarRefsGet(IRVars, ptrStr);
-	// TODO add on not find
+	if(!find) {
+			struct IRVarRefs refs;
+			refs.refs=1;
+			refs.var.SSANum=0;
+			refs.var.type=IR_VAR_VAR;
+			refs.var.value.var=var;
+			mapIRVarRefsInsert(IRVars, ptrStr, refs);
+			goto loop;
+	}
 	assert(find);
 
 	struct IRNodeValue val;
@@ -370,7 +379,7 @@ graphNodeIR IRCreateCondJmp(graphNodeIR cond, graphNodeIR t, graphNodeIR f) {
 	graphNodeIR retVal = GRAPHN_ALLOCATE(cJmp);
 	graphNodeIRConnect(cond, retVal, IR_CONN_SOURCE_A);
 	graphNodeIRConnect(retVal, t, IR_CONN_COND_TRUE);
-	graphNodeIRConnect(retVal, f, IR_CONN_COND_TRUE);
+	graphNodeIRConnect(retVal, f, IR_CONN_COND_FALSE);
 
 	return retVal;
 }
@@ -608,7 +617,7 @@ dumpS:
 	return retVal;
 dumpU:
 	do {
-		retVal = strCharAppendItem(retVal, digits[Unsigned % 10]);
+		retVal = strCharAppendItem(retVal, '\0');
 		memmove(retVal + 1, retVal, strlen(retVal));
 		retVal[0] = digits[Signed % 10];
 		Unsigned /= 10;

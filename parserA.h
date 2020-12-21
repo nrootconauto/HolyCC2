@@ -40,6 +40,7 @@ enum parserNodeType {
 STR_TYPE_DEF(struct parserNode *, ParserNode);
 STR_TYPE_FUNCS(struct parserNode *, ParserNode);
 struct parserNode;
+struct variable *variableClone(struct variable *var);
 struct variable {
 	char *name;
 	struct object *type;

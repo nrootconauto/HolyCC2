@@ -45,4 +45,11 @@ void parse2IRTests() {
 				IRRemoveNeedlessLabels(res.enter);
 				debugShowGraph(res.enter);
 		}
+		{
+				__auto_type nodes=parseText("for(I64i x=0;x!=10;x++) {'foo'\n;}");
+				IRGenInit();
+				__auto_type res=parserNodes2IR(nodes);
+				//IRRemoveNeedlessLabels(res.enter);
+				debugShowGraph(res.enter);
+		}
 }
