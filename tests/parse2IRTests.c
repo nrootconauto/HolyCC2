@@ -16,16 +16,25 @@ static void debugShowGraph(graphNodeIR enter) {
 static struct __vec *str2Vec(const char *text) {
 		return __vecAppendItem(NULL, text, strlen(text)+1);
 }
+strParserNode parseText(const char *text) {
+		int err;
+		__auto_type lexed=lexText(str2Vec(text),&err);
+		assert(err);
+
+		strParserNode retVal=NULL;
+		llLexerItem at=llLexerItemFirst(lexed);
+		while(at) {
+				__auto_type item=parseStatement(at, &at);
+				assert(item);
+				retVal=strParserNodeAppendItem(retVal, item);
+		}
+
+		return retVal;
+}
 void parse2IRTests() {
 		{
-				const char *text="if(1+2) {I64i x=10;}";
-				int err;
-				__auto_type lexed=lexText(str2Vec(text),&err);
-				assert(err);
-				__auto_type item=parseStatement(llLexerItemFirst(lexed), NULL);
-				assert(item);
-
-				__auto_type node= parserNode2IR(item);
-				debugShowGraph(node);
+				__auto_type nodes=parseText("if(10) {1+2} else {3+4;}");
+				__auto_type res=parserNodes2IR(nodes);
+				debugShowGraph(res.enter);
 		}
 }

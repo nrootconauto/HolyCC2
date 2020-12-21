@@ -1,3 +1,7 @@
 #include <IR.h>
 #include <parserA.h>
-graphNodeIR parserNodes2IR(strParserNode node);
+struct enterExit {
+		graphNodeIR enter,exit;
+};
+void initParse2IR();
+struct enterExit parserNodes2IR(strParserNode node);

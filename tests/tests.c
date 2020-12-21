@@ -21,6 +21,7 @@ void registerAllocatorTests();
 void IRFilterTests();
 void init();
 void ptrMapTests();
+void parse2IRTests();
 int main() {
 		init();
 		strTests();
@@ -44,5 +45,6 @@ int main() {
 		registerAllocatorTests();;
 		SSATests();
 		IRFilterTests();
+		parse2IRTests();
 		return 0;
 }
