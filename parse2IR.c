@@ -793,6 +793,18 @@ static struct enterExit __parserNode2IRStmt(const struct parserNode *node) {
 }
 static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 	switch (node->type) {
+	case NODE_BREAK: {
+			__auto_type lab=IRCreateLabel();
+			__auto_type dummy=IRCreateLabel();
+			graphNodeIRConnect(lab, dummy, IR_CONN_NEVER_FLOW);
+			for(long i=strScopeStackSize(currentGen->scopes)-1;i>=0;i--) {
+					if(currentGen->scopes[i].type==SCOPE_TYPE_LOOP) {
+							graphNodeIRConnect(lab, currentGen->scopes[i].value.loop.exit, IR_CONN_FLOW);
+							break;
+					}
+			}
+			return (struct enterExit){lab,dummy};
+	}
 	case NODE_GOTO: {
 			//Create label,we will connect later after all labels are garenteed to exist
 			__auto_type label=IRCreateLabel();
@@ -887,24 +899,17 @@ static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 		struct parserNodeDo *doStmt = (void *)node;
 
 		// Label
-		struct IRNodeLabel lab;
-		lab.base.type = IR_LABEL;
-		lab.base.attrs = NULL;
-		__auto_type lab2 = GRAPHN_ALLOCATE(lab);
-		
-		// Body
-		__auto_type body = __parserNode2IRStmt(doStmt->body);
-		graphNodeIRConnect(lab2, body.enter, IR_CONN_FLOW);
-		
-		// Cond
-		__auto_type cond = __parserNode2IRStmt(doStmt->cond);
-		graphNodeIRConnect(body.exit,cond.enter, IR_CONN_FLOW);
-
-		//Conditional jump
 		__auto_type exitLabel=IRCreateLabel();
-		__auto_type cJump=IRCreateCondJmp(cond.exit, lab2,exitLabel);
+		__auto_type cond = __parserNode2IRStmt(doStmt->cond);
+		__auto_type scope=IRGenScopePush(SCOPE_TYPE_LOOP);
+		scope->value.loop.exit=exitLabel;
+		scope->value.loop.next=cond.enter;
+		__auto_type body = __parserNode2IRStmt(doStmt->body);
+		IRGenScopePop(SCOPE_TYPE_LOOP);
+		graphNodeIRConnect(body.exit,cond.enter, IR_CONN_FLOW);
+		__auto_type cJump=IRCreateCondJmp(cond.exit, body.enter,exitLabel);
 
-		return (struct enterExit){lab2,cJump};
+		return (struct enterExit){body.enter,cJump};
 	}
 	case NODE_FOR: {
 			struct enterExit retVal;

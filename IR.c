@@ -989,6 +989,9 @@ static char *IRCreateGraphVizEdge(const struct __graphEdge *__edge,
 	}
 
 	switch (*edgeVal) {
+	case IR_CONN_NEVER_FLOW:
+			mapGraphVizAttrInsert(*attrs, "style", strClone("dashed"));
+			return NULL;
 	case IR_CONN_COND:
 	case IR_CONN_FLOW:
 		mapGraphVizAttrInsert(*attrs, "color", strClone("black"));
