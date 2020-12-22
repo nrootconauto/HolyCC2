@@ -1452,20 +1452,15 @@ struct parserNode *parseScope(llLexerItem start, llLexerItem *end,
 	return NULL;
 }
 static void getSubswitchStartCode(struct parserNodeSubSwitch *sub) {
-		strParserNode *nodes=&((struct parserNodeScope*)sub->__startCodeScope)->stmts;
-		long index=0;
-		for(;index!=strParserNodeSize(*nodes);index++)
-				if(nodes[0][index]==(struct parserNode*)sub)
-						break;
-		
-		for(long i=index+1;i!=strParserNodeSize(*nodes);i++) {
+		strParserNode *nodes=&sub->body;
+		for(long i=0;i!=strParserNodeSize(*nodes);i++) {
 				if(nodes[0][i]->type==NODE_CASE||nodes[0][i]->type==NODE_DEFAULT) {
 						//Found a case so yay
-						sub->startCodeStatements=strParserNodeAppendData(NULL, (const struct parserNode**)&nodes[0][index+1], i-(index+1));
+						sub->startCodeStatements=strParserNodeAppendData(NULL, (const struct parserNode**)&nodes[0][0], i);
 						
 						//Remove "consumed" items form nodes
-						memmove(&nodes[0][index+1], &nodes[0][i],  (strParserNodeSize(*nodes)-i)*sizeof(**nodes));
-						*nodes=strParserNodeResize(*nodes,  strParserNodeSize(*nodes)-(i-(index+1)));
+						memmove(&nodes[0][0], &nodes[0][i],  (strParserNodeSize(*nodes)-i)*sizeof(**nodes));
+						*nodes=strParserNodeResize(*nodes,  strParserNodeSize(*nodes)-i);
 						return ;
 				}
 				
@@ -1475,8 +1470,6 @@ static void getSubswitchStartCode(struct parserNodeSubSwitch *sub) {
 						diagEndMsg();
 						return;
 				}
-				if(nodes[0][i]==sub->end)
-						goto failLexical;
 		}
 
 	failLexical:
@@ -2042,6 +2035,7 @@ struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 	if (name == NULL)
 		return NULL;
 	colon1 = expectKeyword(start, ":");
+	__auto_type colonPos=start;
 	if (!colon1)
 		goto end;
 	start = llLexerItemNext(start);
@@ -2052,27 +2046,15 @@ struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 	retVal = ALLOCATE(lab);
 
 	struct parserNodeName *name2 = (void *)name;
-	if (0 == strcmp(name2->text, "end") && 0 != strParserNodeSize(switchStack)) {
-			if(switchStack[strParserNodeSize(switchStack)-1]->type==NODE_SUBSWITCH) {
-					// Create sub-switch
-					struct parserNode *sub;
-					// Pop
-					switchStack =
-							strParserNodePop(switchStack, &sub);
-					
-					//Assign "start" code to sub-switch
-					getSubswitchStartCode((void*)sub);
-			}
-	} else if (0 == strcmp(name2->text, "start") &&
+	if (0 == strcmp(name2->text, "start") &&
 	           0 != strParserNodeSize(switchStack)) {
 		// Create sub-switch
 		struct parserNodeSubSwitch sub;
 		sub.base.type = NODE_SUBSWITCH;
 		sub.caseSubcases = NULL;
 		sub.dft = NULL;
-		sub.end = NULL;
 		sub.start = retVal;
-		sub.__startCodeScope=currentScope;
+		sub.body=NULL;
 		struct parserNode *top = switchStack[strParserNodeSize(switchStack) - 1];
 		struct parserNode *sub2 = ALLOCATE(sub);
 		retVal = sub2;
@@ -2085,6 +2067,34 @@ struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 		}
 
 		switchStack = strParserNodeAppendItem(switchStack, retVal);
+		//Continue untill find end:
+		for(;;) {
+				llLexerItem colonPos;
+				struct parserNodeName *name = (void*)nameParse(start, NULL, &colonPos);
+				if(name) {
+						if(name->base.type==NODE_NAME) {
+								if(0==strcmp("end", name->text)) {
+										__auto_type colon=expectKeyword(colonPos, ":");
+										if(colon) {
+												start=llLexerItemNext(colonPos);
+												break;
+										}
+								}
+						}
+				}
+				
+				__auto_type stmt= parseStatement(start,&start);
+				if(!stmt) {
+						diagErrorStart( llLexerItemValuePtr(originalStart)->start, llLexerItemValuePtr(colonPos)->end);
+						diagPushText("Expected end label to complete sub-switch.");
+						diagEndMsg();
+						break;
+				}
+				((struct parserNodeSubSwitch*)sub2)->body=strParserNodeAppendItem(((struct parserNodeSubSwitch*)sub2)->body, stmt);
+		}
+		
+		getSubswitchStartCode((struct parserNodeSubSwitch*)retVal);
+		switchStack=strParserNodePop(switchStack, NULL);
 	};
 end:
 	// Check if success

@@ -71,10 +71,17 @@ void parse2IRTests() {
 				__auto_type res=parserNodes2IR(nodes);
 				//IRRemoveNeedlessLabels(res.enter);
 				//debugShowGraph(res.enter);
+		}{
+				initParserData();
+				__auto_type nodes=parseText("switch(1) {case 0: break;case 1:break;default:break;};");
+				IRGenInit();
+				__auto_type res=parserNodes2IR(nodes);
+				//IRRemoveNeedlessLabels(res.enter);
+				//debugShowGraph(res.enter);
 		}
 		{
 				initParserData();
-				__auto_type nodes=parseText("switch(1) {case 0: break;case 1:break;default:break;};");
+				__auto_type nodes=parseText("switch(1) {start: 1+2; case 0: break;case 1:break;default:break;end:3+4;};");
 				IRGenInit();
 				__auto_type res=parserNodes2IR(nodes);
 				//IRRemoveNeedlessLabels(res.enter);

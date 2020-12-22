@@ -28,6 +28,7 @@ enum parserNodeType {
 	NODE_DEFAULT,
 	NODE_SWITCH,
 	NODE_SUBSWITCH,
+	NODE_SUBSWITCH_END,
 	NODE_LABEL,
 	NODE_TYPE_CAST,
 	NODE_ARRAY_ACCESS,
@@ -198,14 +199,14 @@ struct parserNodeLabel {
 	struct parserNode *name;
 };
 struct parserNodeSubSwitch {
-	struct parserNode base;
-	struct parserNode *parent;
-	struct parserNode *start;
-	struct parserNode *end;
+		struct parserNode base;
+		struct parserNode *parent;
+		struct parserNode *start;
+		strParserNode body;
 		struct parserNode *__startCodeScope;
 		strParserNode startCodeStatements;
-	strParserNode caseSubcases;
-	struct parserNode *dft;
+		strParserNode caseSubcases;
+		struct parserNode *dft;
 };
 struct parserNodeDefault {
 	struct parserNode base;

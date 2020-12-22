@@ -43,6 +43,7 @@ enum scopeType {
 	SCOPE_TYPE_SCOPE,
 	SCOPE_TYPE_LOOP,
 	SCOPE_TYPE_SWIT,
+	SCOPE_TYPE_SUB_SWIT,
 };
 struct IRGenScopeStack {
 		enum scopeType type;
@@ -57,6 +58,10 @@ struct IRGenScopeStack {
 						ptrMapGNIRByParserNode subSwitchEnterCodeByParserNode;
 						graphNodeIR switExitLab;
 				} swit;
+				struct {
+						struct IRGenScopeStack *parentSwitch;
+						graphNodeIR exit;
+				}subSwit;
 		} value;
 };
 STR_TYPE_DEF(struct IRGenScopeStack, ScopeStack);
@@ -1023,7 +1028,19 @@ static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 		subSwitNode.base.type = IR_SUB_SWITCH_START_LABEL;
 		
 		__auto_type retVal=GRAPHN_ALLOCATE(subSwitNode);
+
+		__auto_type scope=IRGenScopePush(SCOPE_TYPE_SUB_SWIT);
+		long i;
+		for(long i=strScopeStackSize(currentGen->scopes)-1;i>=0;i--)
+				if(currentGen->scopes[i].type==SCOPE_TYPE_SUB_SWIT||currentGen->scopes[i].type==SCOPE_TYPE_SWIT)
+						break;
+		
+		scope->value.subSwit.parentSwitch=&currentGen->scopes[i];
+		scope;
 		return (struct enterExit){retVal,retVal};
+	}
+	case NODE_SUBSWITCH_END: {
+
 	}
 	case NODE_SWITCH: {
 		return __createSwitchCodeAfterBody(node);
