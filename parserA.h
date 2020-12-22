@@ -245,7 +245,6 @@ struct parserNodeFuncForwardDec {
 };
 struct parserNodeBreak {
 		struct parserNode base;
-		struct parserNode *parent;
 };
 struct parserNode *parseExpression(llLexerItem start, llLexerItem end,
                                    llLexerItem *result);

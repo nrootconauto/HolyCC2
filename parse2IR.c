@@ -372,14 +372,15 @@ static void copyConnectionsOutcomingTo(strGraphEdgeIRP outgoing,
 PTR_MAP_FUNCS(graphNodeIR, struct parserNode *, ParserNodeByGN);
 static struct enterExit  __createSwitchCodeAfterBody(
                                                const struct parserNode *node) {
-		strParserNode cases = NULL;
-	struct parserNode *dft = NULL;
-	struct enterExit retVal;
+		struct parserNode *dft = NULL;
+		struct enterExit retVal;
 	
 	__auto_type switchEndLabel = IRCreateLabel();
 
 	//Exit enter
 	struct parserNodeSwitch *swit=(void*)node;
+	strParserNode cases=NULL;
+	getCases(swit->caseSubcases, &cases, &dft);
 	__auto_type cond=__parserNode2IRStmt(swit->exp);
 	retVal.enter=cond.enter;
 	
@@ -391,7 +392,8 @@ static struct enterExit  __createSwitchCodeAfterBody(
 	newScope->value.swit.switExitLab=switchEndLabel;
 	// Parse Body
 	__auto_type body = __parserNode2IRStmt(swit->body);
-
+	graphNodeIRConnect(body.exit, switchEndLabel, IR_CONN_FLOW);
+	
 	//Create a jump Table
 	struct IRNodeJumpTable table;
 	table.base.attrs=NULL;
@@ -400,7 +402,8 @@ static struct enterExit  __createSwitchCodeAfterBody(
 	table.startIndex=-1;
 	table.labels=NULL;
 	__auto_type tableNode=GRAPHN_ALLOCATE(table);
-
+	graphNodeIRConnect(cond.exit, tableNode, IR_CONN_SOURCE_A);
+	
 	graphNodeIR *dftNode=mapIRCaseGet(newScope->value.swit.casesByRange,  DFT_HASH_FORMAT); 
 	
 	if (dftNode) {
@@ -477,6 +480,12 @@ static struct enterExit  __createSwitchCodeAfterBody(
 			//Keys are garneteed to exist
 			__auto_type find=*mapIRCaseGet(newScope->value.swit.casesByRange, keys[i]);
 
+			//Check if default
+			if(0==strcmp(DFT_HASH_FORMAT,keys[i])) {
+					graphNodeIRConnect(tableNode, find, IR_CONN_DFT);
+					continue;
+			}
+			
 			//Get range of case based on key
 			long start,end;
 			sscanf(keys[i], "%li-%li", &start,&end);
@@ -487,6 +496,7 @@ static struct enterExit  __createSwitchCodeAfterBody(
 					struct IRJumpTableRange range;
 					range.start=start,range.end=end,range.to=find;
 					strIRTableRangeAppendItem(table.labels, range);
+					graphNodeIRConnect(tableNode,find,IR_CONN_CASE);
 			} else {
 					//Is a sub case
 					
@@ -801,6 +811,9 @@ static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 					if(currentGen->scopes[i].type==SCOPE_TYPE_LOOP) {
 							graphNodeIRConnect(lab, currentGen->scopes[i].value.loop.exit, IR_CONN_FLOW);
 							break;
+					} else if(currentGen->scopes[i].type==SCOPE_TYPE_SWIT) {
+							graphNodeIRConnect(lab, currentGen->scopes[i].value.swit.switExitLab, IR_CONN_FLOW);
+							break;
 					}
 			}
 			return (struct enterExit){lab,dummy};
@@ -852,10 +865,9 @@ static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 			assert(i!=-1);
 			
 			strChar key  CLEANUP(strCharDestroy)=caseHash(node);
-			mapParserNodeInsert(currentGen->scopes[i].value.swit.casesByRange, key,
-		                    (struct parserNode *)node);
-
-		__auto_type retVal=IRCreateLabel();
+			__auto_type retVal=IRCreateLabel();
+			mapIRCaseInsert(currentGen->scopes[i].value.swit.casesByRange, key,
+		                    retVal);
 		return (struct enterExit){retVal,retVal};
 	};
 	case NODE_FUNC_DEF: {
@@ -997,6 +1009,8 @@ static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 			__auto_type body = __parserNode2IRStmt(scope->stmts[i]);
 			if (top == NULL)
 				top = body.enter;
+			else
+					graphNodeIRConnect(bottom, body.enter, IR_CONN_FLOW); //Bottom is old exit
 			
 			bottom=body.exit;
 		}

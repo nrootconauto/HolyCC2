@@ -1062,6 +1062,10 @@ static char *IRCreateGraphVizEdge(const struct __graphEdge *__edge,
 	case IR_CONN_SOURCE_B:
 		mapGraphVizAttrInsert(*attrs, "color", strClone(COLOR_BLUE));
 		return strClone("B");
+	case IR_CONN_CASE:
+	case IR_CONN_DFT:
+			//TODO
+			return NULL;
 	}
 
 	return strClone("\?\?\?!");

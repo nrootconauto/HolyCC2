@@ -12,6 +12,7 @@
 #include <cleanup.h>
 static __thread struct parserNode *currentScope=NULL;
 static __thread struct parserNode *currentLoop=NULL;
+static strParserNode switchStack = NULL;
 static char *strCopy(const char *text) {
 		char *retVal = malloc(strlen(text) + 1);
 	strcpy(retVal, text);
@@ -1617,12 +1618,11 @@ struct parserNode *parseBreak(llLexerItem item,llLexerItem *end) {
 				retVal.base.type=NODE_BREAK;
 				__auto_type next=llLexerItemNext(item);
 				assignPosByLexerItems((struct parserNode*)&retVal, item, next);
-				if(!currentLoop) {
+				if(!currentLoop&&strParserNodeSize(switchStack)==0) {
 						diagErrorStart(retVal.base.pos.start, retVal.base.pos.end);
 						diagPushText("Break appears in non-loop!");
 						diagEndMsg();
 				}
-				retVal.parent=currentLoop;
 				if(!expectKeyword(next, ";")) {
 						whineExpected(next, ";");
 				} else
@@ -1910,7 +1910,6 @@ end:;
 /**
  * Switch section
  */
-static strParserNode switchStack = NULL;
 static long getNextCaseValue(struct parserNode *parent) {
 	struct parserNode *entry = NULL;
 
@@ -1949,8 +1948,7 @@ getValue : {
 }
 }
 struct parserNode *parseSwitch(llLexerItem start, llLexerItem *end) {
-	__auto_type originalStart = start;
-
+	__auto_type originalStart = start;	
 	struct parserNode *kw = NULL, *lP = NULL, *rP = NULL, *exp = NULL,
 	                  *body = NULL, *retVal = NULL;
 
@@ -2016,13 +2014,15 @@ struct parserNode *parseSwitch(llLexerItem start, llLexerItem *end) {
 
 		switchStack = strParserNodeResize(switchStack, oldStackSize);
 	}
-
+	((struct parserNodeSwitch*)retVal)->body=body;
 	if (retVal) {
 		if (end)
 			assignPosByLexerItems(retVal, originalStart, *end);
 		else
 			assignPosByLexerItems(retVal, originalStart, NULL);
 	}
+	if(end)
+			*end=start;
 	return retVal;
 }
 static long searchForNode(const strParserNode nodes,

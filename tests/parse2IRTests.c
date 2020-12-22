@@ -38,7 +38,7 @@ void parse2IRTests() {
 				__auto_type nodes=parseText("1+2;");
 				IRGenInit();
 				__auto_type res=parserNodes2IR(nodes);
-				debugShowGraph(res.enter);
+				//debugShowGraph(res.enter);
 		}
 		{
 				initParserData();
@@ -46,7 +46,7 @@ void parse2IRTests() {
 				IRGenInit();
 				__auto_type res=parserNodes2IR(nodes);
 				IRRemoveNeedlessLabels(res.enter);
-				debugShowGraph(res.enter);
+				//debugShowGraph(res.enter);
 		}
 		{
 				initParserData();
@@ -54,7 +54,7 @@ void parse2IRTests() {
 				IRGenInit();
 				__auto_type res=parserNodes2IR(nodes);
 				//IRRemoveNeedlessLabels(res.enter);
-				debugShowGraph(res.enter);
+				//debugShowGraph(res.enter);
 		}
 		{
 				initParserData();
@@ -62,11 +62,19 @@ void parse2IRTests() {
 				IRGenInit();
 				__auto_type res=parserNodes2IR(nodes);
 				//IRRemoveNeedlessLabels(res.enter);
-				debugShowGraph(res.enter);
+				//debugShowGraph(res.enter);
 		}
 		{
 				initParserData();
 				__auto_type nodes=parseText(" do {break;} while(1)");
+				IRGenInit();
+				__auto_type res=parserNodes2IR(nodes);
+				//IRRemoveNeedlessLabels(res.enter);
+				//debugShowGraph(res.enter);
+		}
+		{
+				initParserData();
+				__auto_type nodes=parseText("switch(1) {case 0: break;case 1:break;default:break;};");
 				IRGenInit();
 				__auto_type res=parserNodes2IR(nodes);
 				//IRRemoveNeedlessLabels(res.enter);
