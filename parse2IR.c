@@ -37,6 +37,7 @@ MAP_TYPE_FUNCS(struct parserNode *, ParserNode);
 MAP_TYPE_DEF(graphNodeIR,IRCase);
 MAP_TYPE_FUNCS(graphNodeIR,IRCase);
 PTR_MAP_FUNCS(struct parserNode *, graphNodeIR, GNIRByParserNode);
+PTR_MAP_FUNCS(struct parserNode *, struct enterExit, EnterExitByParserNode);
 PTR_MAP_FUNCS(struct parserNode *, strGraphNodeIRP, GNsByParserNode);
 enum scopeType {
 	SCOPE_TYPE_FUNC,
@@ -55,7 +56,7 @@ struct IRGenScopeStack {
 				struct {
 						mapIRCase casesByRange;
 						ptrMapGNIRByParserNode subSwitchsByParserNode;
-						ptrMapGNIRByParserNode subSwitchEnterCodeByParserNode;
+						ptrMapEnterExitByParserNode subSwitchEnterCodeByParserNode;
 						graphNodeIR switExitLab;
 				} swit;
 				struct {
@@ -391,7 +392,7 @@ static struct enterExit  __createSwitchCodeAfterBody(
 	
 	// "Push scope"
 	__auto_type newScope=IRGenScopePush(SCOPE_TYPE_SWIT);
-	newScope->value.swit.subSwitchEnterCodeByParserNode=ptrMapGNIRByParserNodeCreate();
+	newScope->value.swit.subSwitchEnterCodeByParserNode=ptrMapEnterExitByParserNodeCreate();
 	newScope->value.swit.casesByRange=mapIRCaseCreate();
 	newScope->value.swit.subSwitchsByParserNode=ptrMapGNIRByParserNodeCreate();
 	newScope->value.swit.switExitLab=switchEndLabel;
@@ -441,15 +442,9 @@ static struct enterExit  __createSwitchCodeAfterBody(
 		//Get case label from earilier
 		char buffer[64];
 		sprintf(buffer, "%li-%li", cs->valueLower,cs->valueUpper);
-		__auto_type label=*mapIRCaseGet(newScope->value.swit.casesByRange,  buffer);		
-		
-		//Check if sub-switch exists
-		__auto_type find=ptrMapGNIRByParserNodeGet(newScope->value.swit.subSwitchsByParserNode, cs->parent);
-		if(find) {
-				//Exists in subswitch
-				ptrMapGNIRByParserNodeAdd(subSwitchsByIRPtr, cs->parent, label);
-				subs=strGraphNodeIRPSortedInsert(subs, label, (gnIRCmpType)ptrPtrCmp);
-		}
+		__auto_type label=*mapIRCaseGet(newScope->value.swit.casesByRange,  buffer);
+		ptrMapParserNodeByGNAdd(subSwitchsByIRPtr, label,cs->parent);
+		subs=strGraphNodeIRPSortedInsert(subs, label, (gnIRCmpType)ptrPtrCmp);
 	}
 
 	long count;
@@ -509,7 +504,8 @@ static struct enterExit  __createSwitchCodeAfterBody(
 					struct IRJumpTableRange range;
 					range.start=start,range.end=end,range.to=find;
 					strIRTableRangeAppendItem(table.labels, range);
-
+					graphNodeIRConnect(tableNode,find,IR_CONN_CASE);
+					
 			registerLoop:
 					{
 							// See above
@@ -521,12 +517,12 @@ static struct enterExit  __createSwitchCodeAfterBody(
 							//
 							//
 							__auto_type sub=ptrMapParserNodeByGNGet(subSwitchsByIRPtr, find);
-							__auto_type enter=ptrMapGNIRByParserNodeGet(newScope->value.swit.subSwitchEnterCodeByParserNode, *sub);
+							__auto_type enter=ptrMapEnterExitByParserNodeGet(newScope->value.swit.subSwitchEnterCodeByParserNode, *sub)->enter;
 							if(enter) {
 									__auto_type endIf=IRCreateLabel();
 									//run=1,goto subSwitchCode
 									__auto_type assign=IRCreateAssign(IRCreateIntLit(1), IRCreateVarRef(enteredSubCondition));
-									graphNodeIRConnect(assign, *enter, IR_CONN_FLOW);
+									graphNodeIRConnect(assign, enter, IR_CONN_FLOW);
 
 									//if(!run)
 									__auto_type cond=IRCreateUnop(IRCreateVarRef(enteredSubCondition), IR_LNOT);
@@ -819,6 +815,9 @@ static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 					} else if(currentGen->scopes[i].type==SCOPE_TYPE_SWIT) {
 							graphNodeIRConnect(lab, currentGen->scopes[i].value.swit.switExitLab, IR_CONN_FLOW);
 							break;
+					} else if(currentGen->scopes[i].type==SCOPE_TYPE_SUB_SWIT) {
+							graphNodeIRConnect(lab, currentGen->scopes[i].value.subSwit.exit, IR_CONN_FLOW);
+							break;
 					}
 			}
 			return (struct enterExit){lab,dummy};
@@ -1027,20 +1026,26 @@ static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 		subSwitNode.base.attrs = NULL;
 		subSwitNode.base.type = IR_SUB_SWITCH_START_LABEL;
 		
-		__auto_type retVal=GRAPHN_ALLOCATE(subSwitNode);
-
 		__auto_type scope=IRGenScopePush(SCOPE_TYPE_SUB_SWIT);
+		__auto_type exitNode=IRCreateLabel();
 		long i;
-		for(long i=strScopeStackSize(currentGen->scopes)-1;i>=0;i--)
+		for(i=strScopeStackSize(currentGen->scopes)-1;i>=0;i--)
 				if(currentGen->scopes[i].type==SCOPE_TYPE_SUB_SWIT||currentGen->scopes[i].type==SCOPE_TYPE_SWIT)
 						break;
-		
 		scope->value.subSwit.parentSwitch=&currentGen->scopes[i];
-		scope;
-		return (struct enterExit){retVal,retVal};
-	}
-	case NODE_SUBSWITCH_END: {
-
+		scope->value.subSwit.exit=exitNode;
+		long iSwitOnly;
+		for(iSwitOnly=strScopeStackSize(currentGen->scopes)-1;iSwitOnly>=0;iSwitOnly--)
+				if(currentGen->scopes[iSwitOnly].type==SCOPE_TYPE_SWIT)
+						break;
+		struct parserNodeSubSwitch *subSwit=(void*)node;
+		__auto_type enterCode=parserNodes2IR(subSwit->startCodeStatements);
+		ptrMapEnterExitByParserNodeAdd(currentGen->scopes[iSwitOnly].value.swit.subSwitchEnterCodeByParserNode,(struct parserNode*)node,enterCode);
+		__auto_type bodyCode=parserNodes2IR(subSwit->body);
+		graphNodeIRConnect(enterCode.exit, bodyCode.enter, IR_CONN_FLOW);
+		IRGenScopePop(SCOPE_TYPE_SUB_SWIT);
+		graphNodeIRConnect(bodyCode.exit, exitNode, IR_CONN_FLOW);
+		return (struct enterExit){enterCode.enter,exitNode};
 	}
 	case NODE_SWITCH: {
 		return __createSwitchCodeAfterBody(node);
@@ -1109,6 +1114,8 @@ struct enterExit parserNodes2IR(strParserNode nodes) {
 					__auto_type tmp=	__parserNode2IRStmt(nodes[i]);
 					if(!retVal.enter)
 							retVal.enter=tmp.enter;
+					if(retVal.exit)
+							graphNodeIRConnect(retVal.exit, tmp.enter, IR_CONN_FLOW); //retVal.exit at this point contains previous exit
 					retVal.exit=tmp.exit;
 				}
 		}
