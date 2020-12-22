@@ -19,6 +19,7 @@ enum parserNodeType {
 	NODE_UNION_DEF,
 	NODE_IF,
 	NODE_SCOPE,
+	NODE_BREAK,
 	NODE_DO,
 	NODE_WHILE,
 	NODE_FOR,
@@ -242,6 +243,10 @@ struct parserNodeFuncForwardDec {
 	struct parserNode *name;
 	struct object *funcType;
 };
+struct parserNodeBreak {
+		struct parserNode base;
+		struct parserNode *parent;
+};
 struct parserNode *parseExpression(llLexerItem start, llLexerItem end,
                                    llLexerItem *result);
 struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end);
@@ -257,3 +262,4 @@ struct parserNode *parseLabel(llLexerItem start, llLexerItem *end);
 struct parserNode *parseFunction(llLexerItem start, llLexerItem *end);
 struct parserNode *parseReturn(llLexerItem start, llLexerItem *end);
 struct parserNode *parseGoto(llLexerItem start, llLexerItem *end);
+struct parserNode *parseBreak(llLexerItem item,llLexerItem *end);

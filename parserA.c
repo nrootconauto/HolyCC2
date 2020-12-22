@@ -11,8 +11,9 @@
 #include <parserB.h>
 #include <cleanup.h>
 static __thread struct parserNode *currentScope=NULL;
+static __thread struct parserNode *currentLoop=NULL;
 static char *strCopy(const char *text) {
-	char *retVal = malloc(strlen(text) + 1);
+		char *retVal = malloc(strlen(text) + 1);
 	strcpy(retVal, text);
 
 	return retVal;
@@ -1495,7 +1496,10 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 		return NULL;
 	}
 	struct parserNode *retVal = NULL;
-
+	__auto_type brk=parseBreak(originalStart, end);
+	if(brk)
+			return brk;
+	
 	__auto_type func = parseFunction(originalStart, end);
 	if (func) {
 		return func;
@@ -1607,17 +1611,48 @@ end : {
 	return retVal;
 }
 }
+struct parserNode *parseBreak(llLexerItem item,llLexerItem *end) {
+		if(expectKeyword(item, "break")) {
+				struct parserNodeBreak retVal;
+				retVal.base.type=NODE_BREAK;
+				__auto_type next=llLexerItemNext(item);
+				assignPosByLexerItems((struct parserNode*)&retVal, item, next);
+				if(!currentLoop) {
+						diagErrorStart(retVal.base.pos.start, retVal.base.pos.end);
+						diagPushText("Break appears in non-loop!");
+						diagEndMsg();
+				}
+				retVal.parent=currentLoop;
+				if(!expectKeyword(next, ";")) {
+						whineExpected(next, ";");
+				} else
+						next=llLexerItemNext(next);
+				if(end)
+						*end=next;
+				
+				return ALLOCATE(retVal);
+		}
+		return NULL;
+}
 struct parserNode *parseWhile(llLexerItem start, llLexerItem *end) {
 	__auto_type originalStart = start;
-
+	//Store old loop for push ahead(if while)
+	__auto_type oldLoop=currentLoop;
+	
+	struct parserNodeWhile *retVal=NULL;
+	
 	struct parserNode *kwWhile = NULL, *lP = NULL, *rP = NULL, *cond = NULL,
-	                  *body = NULL, *retVal = NULL;
+	                  *body = NULL;
 	kwWhile = expectKeyword(start, "while");
 
 	int failed = 0;
 	if (kwWhile) {
 		start = llLexerItemNext(start);
-
+	struct parserNodeWhile node;
+	node.base.type = NODE_WHILE;
+	node.body=NULL;
+	node.cond=NULL;
+	retVal=ALLOCATE(node);
 		lP = expectOp(start, "(");
 		if (!lP) {
 			failed = 1;
@@ -1638,30 +1673,34 @@ struct parserNode *parseWhile(llLexerItem start, llLexerItem *end) {
 		}
 		start = llLexerItemNext(start);
 
+		//Push loop
+		currentLoop=(struct parserNode*)retVal;
 		body = parseStatement(start, &start);
+		
+	retVal->body = body;
+	retVal->cond = cond;
+	if (end)
+			assignPosByLexerItems((struct parserNode*)retVal, originalStart, *end);
+	else
+		assignPosByLexerItems((struct parserNode*)retVal, originalStart, NULL);
 	} else
 		goto fail;
-	struct parserNodeWhile node;
-	node.base.type = NODE_WHILE;
-	node.body = body;
-	node.cond = cond;
-	if (end)
-		assignPosByLexerItems((struct parserNode *)&node, originalStart, *end);
-	else
-		assignPosByLexerItems((struct parserNode *)&node, originalStart, NULL);
 
-	retVal = ALLOCATE(node);
 	goto end;
 fail:
 end:
 	if (end != NULL)
 		*end = start;
 
-	return retVal;
+	//Restore old loop stack
+	currentLoop=oldLoop;
+	return (struct parserNode*)retVal;
 }
 struct parserNode *parseFor(llLexerItem start, llLexerItem *end) {
 	__auto_type originalStart = start;
-
+	//Store old loop for push/pop of loop(if for is present)
+	__auto_type oldLoop=currentLoop;
+	
 	struct parserNode *lP = NULL, *rP = NULL, *kwFor = NULL, *semi1 = NULL,
 	                  *semi2 = NULL, *cond = NULL, *inc = NULL, *body = NULL,
 	                  *init = NULL;
@@ -1697,16 +1736,19 @@ struct parserNode *parseFor(llLexerItem start, llLexerItem *end) {
 		rP = expectOp(start, ")");
 		start = llLexerItemNext(start);
 
-		body = parseStatement(start, &start);
-
 		struct parserNodeFor forStmt;
 		forStmt.base.type = NODE_FOR;
-		forStmt.body = body;
+		forStmt.body = NULL;
 		forStmt.cond = cond;
 		forStmt.init = init;
 		forStmt.inc = inc;
 
 		retVal = ALLOCATE(forStmt);
+		//"Push" loop
+		currentLoop=retVal;
+		body = parseStatement(start, &start);
+
+		((struct parserNodeFor *)retVal)->body=body;
 		if (end)
 			assignPosByLexerItems(retVal, originalStart, *end);
 		else
@@ -1721,18 +1763,29 @@ end:
 	if (end != NULL)
 		*end = start;
 
+	//Restore old loop stack
+	currentLoop=oldLoop;
 	return retVal;
 }
 struct parserNode *parseDo(llLexerItem start, llLexerItem *end) {
 	__auto_type originalStart = start;
-
+	//Store old loop stack for push/pop
+	__auto_type oldLoop=currentLoop;
+	
 	__auto_type kwDo = expectKeyword(start, "do");
 	if (kwDo == NULL)
 		return NULL;
 
+	struct parserNodeDo doNode;
+	doNode.base.type = NODE_DO;
+	doNode.body = NULL;
+	doNode.cond = NULL;
+	struct parserNodeDo *retVal=ALLOCATE(doNode);
+	
+	currentLoop=(struct parserNode*)retVal;
+	
 	struct parserNode *body = NULL, *cond = NULL, *kwWhile = NULL, *lP = NULL,
 	                  *rP = NULL;
-	struct parserNode *retVal = NULL;
 	start = llLexerItemNext(start);
 	body = parseStatement(start, &start);
 
@@ -1765,17 +1818,14 @@ struct parserNode *parseDo(llLexerItem start, llLexerItem *end) {
 		whineExpected(start, ")");
 	}
 	start = llLexerItemNext(start);
-
-	struct parserNodeDo doNode;
-	doNode.base.type = NODE_DO;
-	doNode.body = body;
-	doNode.cond = cond;
+	
+	retVal->body=body;
+	retVal->cond=cond;
 	if (end)
-		assignPosByLexerItems((struct parserNode *)&doNode, originalStart, *end);
+			assignPosByLexerItems((struct parserNode*)retVal, originalStart, *end);
 	else
-		assignPosByLexerItems((struct parserNode *)&doNode, originalStart, NULL);
-
-	retVal = ALLOCATE(doNode);
+		assignPosByLexerItems((struct parserNode*)retVal, originalStart, NULL);
+	
 	goto end;
 fail:
 end:
@@ -1783,7 +1833,9 @@ end:
 	if (end != NULL)
 		*end = start;
 
-	return retVal;
+	//Restore loop stack
+	currentLoop=oldLoop;
+	return (struct parserNode*)retVal;
 }
 struct parserNode *parseIf(llLexerItem start, llLexerItem *end) {
 	__auto_type originalStart = start;
