@@ -875,6 +875,9 @@ __IREvalPath(graphNodeIR start, struct IREvalVal *currentValue, int *success) {
 			endNode=func->end;
 			goto findNext;
 	}
+	case IR_FUNC_RETURN: {
+			return IREvalNode(start, success);
+	}
 	default:;
 		// Perhaps is an expression node
 		__auto_type end = IREndOfExpr(start);
@@ -892,13 +895,12 @@ fail : {
 	return dftValueType(IREVAL_VAL_INT);
 }
 findNext:;
-	strGraphEdgeIRP outgoing = graphNodeIROutgoing(endNode);
-	strGraphEdgeIRP flow = IRGetConnsOfType(outgoing, IR_CONN_FLOW);
-	long flowCount = strGraphEdgeIRPSize(flow);
+	strGraphEdgeIRP outgoing CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIROutgoing(endNode);
+	long flowCount = strGraphEdgeIRPSize(outgoing);
 	if (flowCount > 1) {
 		goto fail;
 	} else if (flowCount == 1) {
-		return __IREvalPath(graphEdgeIROutgoing(flow[0]), &retVal, success);
+		return __IREvalPath(graphEdgeIROutgoing(outgoing[0]), &retVal, success);
 	} else {
 		return retVal;
 	}
