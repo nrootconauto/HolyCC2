@@ -2545,6 +2545,10 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 		assignPosByLexerItems(retVal, originalStart, NULL);
 
 	addFunc(name, funcType, retVal);
+	if(retVal->type==NODE_FUNC_DEF)
+			((struct parserNodeFuncDef*)retVal)->func=getFunc(name);
+	else if(retVal->type==NODE_FUNC_FORWARD_DECL)
+			((struct parserNodeFuncRef*)retVal)->func=getFunc(name);
 	return retVal;
 fail:
 	return NULL;

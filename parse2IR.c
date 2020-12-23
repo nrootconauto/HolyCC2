@@ -879,7 +879,7 @@ static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 		struct IRNodeFuncStart start;
 		start.base.attrs=NULL;
 		start.base.type=IR_FUNC_START;
-		start.type=def->funcType;
+		start.func=def->func;
 		start.end=NULL;
 		__auto_type startNode=GRAPHN_ALLOCATE(start);
 

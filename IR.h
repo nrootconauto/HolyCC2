@@ -261,9 +261,9 @@ struct IRNodeStatementEnd {
 	graphNodeIR start;
 };
 struct IRNodeFuncStart {
-	struct IRNode base;
-	graphNodeIR end;
-		struct object *type;
+		struct IRNode base;
+		graphNodeIR end;
+		struct function *func;
 };
 struct IRNodeFuncArg {
 		struct IRNode base;

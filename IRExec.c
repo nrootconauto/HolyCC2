@@ -11,13 +11,14 @@
 #include <registers.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdarg.h>
+#include <ptrMap.h>
 static char *ptr2Str(const void *a) { return base64Enc((void *)&a, sizeof(a)); }
-MAP_TYPE_DEF(graphNodeIR, Func);
-MAP_TYPE_FUNCS(graphNodeIR, Func);
-static mapFunc funcs = NULL;
+PTR_MAP_FUNCS(struct function *, graphNodeIR, Func);
+static __thread ptrMapFunc funcs = NULL;
 MAP_TYPE_DEF(struct IREvalVal, VarVal);
 MAP_TYPE_FUNCS(struct IREvalVal, VarVal);
-static mapVarVal varVals = NULL;
+static __thread mapVarVal varVals = NULL;
 struct frameItem {
 	struct IRVar *var;
 	struct IREvalVal value;
@@ -26,11 +27,16 @@ LL_TYPE_DEF(struct frameItem, FrameItem);
 LL_TYPE_FUNCS(struct frameItem, FrameItem);
 MAP_TYPE_DEF(struct IREvalVal, RegVal);
 MAP_TYPE_FUNCS(struct IREvalVal, RegVal);
+STR_TYPE_DEF(struct IREvalVal,IREvalVal);
+STR_TYPE_FUNCS(struct IREvalVal,IREvalVal);
+static __thread strIREvalVal currentFuncArgs=NULL;
 static mapRegVal registerValues = NULL;
 static llFrameItem frame = NULL;
 void IREvalInit() {
 	if (varVals)
 		mapVarValDestroy(varVals, NULL);
+	if(funcs)
+			ptrMapFuncDestroy(funcs, NULL);
 	if (registerValues)
 		mapRegValDestroy(registerValues, NULL);
 
@@ -319,14 +325,28 @@ fail:
 			return IREValValIntCreate(0);                                            \
 		}                                                                          \
 	})
-
-// TODO implement me
-static struct IREvalVal evalIRCallFunc(struct function *func) {
-	return IREValValIntCreate(0);
+static struct IREvalVal evalIRCallFunc(graphNodeIR funcStart,strIREvalVal args,int *success) {
+		
+		//Ensure 1 outgoing connection to start of function
+		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(funcStart);
+		strGraphEdgeIRP outFlow CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(out, IR_CONN_FLOW);
+		assert(strGraphEdgeIRPSize(outFlow)==1);
+		
+		//Store old currentFuncArgs for "push/pop"
+		__auto_type old=currentFuncArgs;
+		currentFuncArgs=args; //"Push"
+		__auto_type retVal=IREvalNode(graphEdgeIROutgoing(outFlow[0]), success);
+		currentFuncArgs=old;//"Pop"
+	return retVal;
 }
 struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 	struct IRNode *ir = graphNodeIRValuePtr(node);
 	switch (ir->type) {
+	case IR_FUNC_ARG: {
+			struct IRNodeFuncArg *arg=(void*)graphNodeIRValuePtr(node);
+			assert(arg->argIndex<strIREvalValSize(currentFuncArgs));
+			return currentFuncArgs[arg->argIndex];
+	}
 	case IR_VALUE: {
 		// Check for incoming assign
 		int assignedInto = 0;
@@ -620,29 +640,26 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 		return retVal;
 	}
 	case IR_FUNC_CALL: {
-		/**
 		struct IRNodeFuncCall *call=(void*)graphNodeIRValuePtr(node);
-
-		struct IREvalVal vals[strGraphNodeIRPSize(call->incomingArgs)];
+		strIREvalVal args CLEANUP(strIREvalValDestroy)=strIREvalValResize(NULL, strGraphNodeIRPSize(call->incomingArgs));
 		for(long i=0;i!=strGraphNodeIRPSize(call->incomingArgs);i++) {
 		    int success2;
-		    vals[i]=IREvalNode(call->incomingArgs[i],&success2);
+		    args[i]=IREvalNode(call->incomingArgs[i],&success2);
 		    if(!success2)
 		        goto fail;
 		}
-
-		__auto_type incoming=graphNodeIRIncoming(node);
-		__auto_type in=IRGetConnsOfType(incoming, IR_CONN_FUNC);
-		assert(strGraphEdgeIRPSize(in)==1);
-
+		strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(node);
+		strGraphEdgeIRP inFuncs CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(incoming, IR_CONN_FUNC);
+		assert(strGraphEdgeIRPSize(inFuncs)==1);
 		int success2;
-		__auto_type func=IREvalNode(graphEdgeIRIncoming(in[0]), &success2);
-
-		strGraphEdgeIRPDestroy(&incoming);
-		strGraphEdgeIRPDestroy(&in);
+		__auto_type func=(struct IRNodeValue*)graphNodeIRValuePtr(graphEdgeIRIncoming(inFuncs[0]));
+		assert(func->base.type==IR_VALUE);
+		assert(func->val.type==IR_VAL_FUNC);
+		__auto_type find=ptrMapFuncGet(funcs, func->val.value.func);
+		assert(find);
+		__auto_type retVal= evalIRCallFunc(*find, args, &success2);
 		if(!success2) goto fail;
-		*/
-		goto fail;
+		return retVal;
 	}
 	case IR_ARRAY_ACCESS: {
 		struct IREvalVal a, b;
@@ -701,7 +718,7 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 		return IREvalNode(graphEdgeIRIncoming(incoming[0]), success);
 	}
 	default:
-		goto fail;
+			goto fail;
 	}
 fail:
 	*success = 0;
@@ -837,6 +854,12 @@ __IREvalPath(graphNodeIR start, struct IREvalVal *currentValue, int *success) {
 	case IR_STATEMENT_START:
 		endNode = start;
 		goto findNext;
+	case IR_FUNC_START: {
+			struct IRNodeFuncStart *func=(void*)start;
+			ptrMapFuncAdd(funcs,func->func,start);
+			endNode=func->end;
+			goto findNext;
+	}
 	default:;
 		// Perhaps is an expression node
 		__auto_type end = IREndOfExpr(start);

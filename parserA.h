@@ -226,6 +226,7 @@ struct parserNodeFuncDef {
 	struct parserNode base;
 	struct object *funcType;
 	struct parserNode *name;
+		struct function *func;
 	struct parserNode *bodyScope;
 };
 struct parserNodeFuncRef {

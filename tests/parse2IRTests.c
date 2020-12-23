@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <parse2IR.h>
 #include <parserB.h>
+#include <IRExec.h>
 static void debugShowGraph(graphNodeIR enter) {
 		const char *name=tmpnam(NULL);
 		__auto_type map=graphNodeCreateMapping(enter, 1);
@@ -39,6 +40,7 @@ void parse2IRTests() {
 				IRGenInit();
 				__auto_type res=parserNodes2IR(nodes);
 				//debugShowGraph(res.enter);
+				
 		}
 		{
 				initParserData();
@@ -50,9 +52,12 @@ void parse2IRTests() {
 		}
 		{
 				initParserData();
-				__auto_type nodes=parseText("for(I64i x=0;x!=10;x++) {'foo11'\n;}");
+				__auto_type nodes=parseText("I64i foo() {I64i a=0; for(I64i x=0;x!=10;x++) {a=a+1;} return a;}; foo();");
 				IRGenInit();
 				__auto_type res=parserNodes2IR(nodes);
+				IREvalInit();
+				int success;
+				IREvalPath(res.enter, &success);
 				//IRRemoveNeedlessLabels(res.enter);
 				//debugShowGraph(res.enter);
 		}
@@ -92,6 +97,6 @@ void parse2IRTests() {
 				__auto_type nodes=parseText("U8i foo(U64i a) {return a+4;}");
 				IRGenInit();
 				__auto_type res=parserNodes2IR(nodes);
-				debugShowGraph(res.enter);
+				//				debugShowGraph(res.enter);
 		}
 } 
