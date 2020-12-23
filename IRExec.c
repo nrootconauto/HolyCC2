@@ -16,6 +16,7 @@
 static char *ptr2Str(const void *a) { return base64Enc((void *)&a, sizeof(a)); }
 PTR_MAP_FUNCS(struct function *, graphNodeIR, Func);
 static __thread ptrMapFunc funcs = NULL;
+static __thread struct IREvalVal returnValue;
 MAP_TYPE_DEF(struct IREvalVal, VarVal);
 MAP_TYPE_FUNCS(struct IREvalVal, VarVal);
 static __thread mapVarVal varVals = NULL;
@@ -336,9 +337,9 @@ static struct IREvalVal evalIRCallFunc(graphNodeIR funcStart,strIREvalVal args,i
 		//Store old currentFuncArgs for "push/pop"
 		__auto_type old=currentFuncArgs;
 		currentFuncArgs=args; //"Push"
-		__auto_type retVal=IREvalPath(graphEdgeIROutgoing(outFlow[0]), success);
+		IREvalPath(graphEdgeIROutgoing(outFlow[0]), success);
 		currentFuncArgs=old;//"Pop"
-	return retVal;
+	return returnValue;
 }
 struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 	struct IRNode *ir = graphNodeIRValuePtr(node);
@@ -716,7 +717,7 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 		if (!IRIsExprEdge(*graphEdgeIRValuePtr(incoming[0])))
 			return dftValueType(IREVAL_VAL_INT);
 
-		return IREvalNode(graphEdgeIRIncoming(incoming[0]), success);
+		return returnValue=IREvalNode(graphEdgeIRIncoming(incoming[0]), success);
 	}
 	default:
 			goto fail;
@@ -876,7 +877,7 @@ __IREvalPath(graphNodeIR start, struct IREvalVal *currentValue, int *success) {
 			goto findNext;
 	}
 	case IR_FUNC_RETURN: {
-			return IREvalNode(start, success);
+			return returnValue=IREvalNode(start, success);
 	}
 	default:;
 		// Perhaps is an expression node
