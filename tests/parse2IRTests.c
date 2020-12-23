@@ -26,8 +26,12 @@ strParserNode parseText(const char *text) {
 		strParserNode retVal=NULL;
 		llLexerItem at=llLexerItemFirst(lexed);
 		while(at) {
+				__auto_type oldAt=at;
 				__auto_type item=parseStatement(at, &at);
-				assert(item);
+				assert(oldAt!=at);
+				//item may be NULL if empty statement.
+				if(!item)
+						continue;
 				retVal=strParserNodeAppendItem(retVal, item);
 		}
 
@@ -57,6 +61,7 @@ void parse2IRTests() {
 				__auto_type res=parserNodes2IR(nodes);
 				IREvalInit();
 				int success;
+				debugShowGraph(res.enter);
 				IREvalPath(res.enter, &success);
 				//IRRemoveNeedlessLabels(res.enter);
 				//debugShowGraph(res.enter);

@@ -665,7 +665,7 @@ static graphNodeIR parserNode2Expr(const struct parserNode *node) {
 
 				__auto_type assign = mapIRNodeTypeGet(assign2IRType, op->text);
 				if (assign) {
-						retVal = IRCreateAssign(aVal, bVal);
+						retVal = IRCreateAssign(bVal,aVal);
 						return retVal;
 				}
 
@@ -883,12 +883,10 @@ static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 		start.end=NULL;
 		__auto_type startNode=GRAPHN_ALLOCATE(start);
 
-		graphNodeIR currentNode=NULL;
+		graphNodeIR currentNode=startNode;
 		//Assign arguments to variables
   struct objectFunction *func=(void*)def->funcType;
 		for(long i=0;i!=strFuncArgSize(func->args);i++) {
-				currentNode=startNode;
-				
 				__auto_type arg=IRCreateFuncArg(func->args[i].type, i);
 				__auto_type var=IRCreateVarRef(IRCreateVirtVar(func->args[i].type));
 				graphNodeIRConnect(currentNode, arg, IR_CONN_FLOW);
@@ -958,7 +956,7 @@ static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 		// Inc code
 		__auto_type inc=__parserNode2IRStmt(forStmt->inc);
 		graphNodeIRConnect(labNext,inc.enter,IR_CONN_FLOW);
-		retVal.exit=inc.exit;
+		retVal.exit=labExit;
 		// Connect increment to cond code
 		graphNodeIRConnect(inc.exit, cond.enter, IR_CONN_FLOW);
 		

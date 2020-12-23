@@ -243,6 +243,7 @@ struct parserNodeFuncForwardDec {
 	struct parserNode base;
 	struct parserNode *name;
 	struct object *funcType;
+		struct function *func;
 };
 struct parserNodeBreak {
 		struct parserNode base;
