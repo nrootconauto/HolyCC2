@@ -61,14 +61,17 @@ void parse2IRTests() {
 				__auto_type res=parserNodes2IR(nodes);
 				IREvalInit();
 				int success;
-				debugShowGraph(res.enter);
-				IREvalPath(res.enter, &success);
+				//				debugShowGraph(res.enter);
+				__auto_type retVal=IREvalPath(res.enter, &success);
+				assert(success);
+				assert(retVal.type==IREVAL_VAL_INT);
+				assert(retVal.value.i==2);
 				//IRRemoveNeedlessLabels(res.enter);
 				//debugShowGraph(res.enter);
 		}
 		{
 				initParserData();
-				__auto_type nodes=parseText("while(1) {'foo11'\n;}");
+				__auto_type nodes=parseText("while(1) {}");
 				IRGenInit();
 				__auto_type res=parserNodes2IR(nodes);
 				//IRRemoveNeedlessLabels(res.enter);

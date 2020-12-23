@@ -14,6 +14,12 @@
 #include <stdarg.h>
 #include <ptrMap.h>
 static char *ptr2Str(const void *a) { return base64Enc((void *)&a, sizeof(a)); }
+static int isNoFlow(const void *data,const graphEdgeIR *edge) {
+		return *graphEdgeIRValuePtr(*edge)==IR_CONN_NEVER_FLOW;
+}
+static strGraphEdgeIRP filterNoFlows(strGraphEdgeIRP edges) {
+		return strGraphEdgeIRPRemoveIf(edges, NULL, isNoFlow);
+}
 PTR_MAP_FUNCS(struct function *, graphNodeIR, Func);
 static __thread ptrMapFunc funcs = NULL;
 static __thread struct IREvalVal returnValue;
@@ -328,6 +334,8 @@ fail:
 		}                                                                          \
 	})
 static struct IREvalVal evalIRCallFunc(graphNodeIR funcStart,strIREvalVal args,int *success) {
+		if(success)
+				*success=1;
 		
 		//Ensure 1 outgoing connection to start of function
 		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(funcStart);
@@ -897,6 +905,7 @@ fail : {
 }
 findNext:;
 	strGraphEdgeIRP outgoing CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIROutgoing(endNode);
+	outgoing=filterNoFlows(outgoing);
 	long flowCount = strGraphEdgeIRPSize(outgoing);
 	if (flowCount > 1) {
 		goto fail;
