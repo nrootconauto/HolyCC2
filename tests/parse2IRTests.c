@@ -89,7 +89,7 @@ void parse2IRTests() {
 				IRGenInit();
 				__auto_type res=parserNodes2IR(nodes);
 				//IRRemoveNeedlessLabels(res.enter);
-				debugShowGraph(res.enter);
+				//debugShowGraph(res.enter);
 				IREvalInit();
 				int success;
 				__auto_type retVal=IREvalPath(res.enter, &success);
@@ -98,11 +98,17 @@ void parse2IRTests() {
 				assert(retVal.value.i==10);
 		}{
 				initParserData();
-				__auto_type nodes=parseText("switch(1) {case 0: break;case 1:break;default:break;};");
+				__auto_type nodes=parseText("I64i foo() {switch(1) {case 0: break;case 1:return 1;default:break;} return 0;} foo();");
 				IRGenInit();
 				__auto_type res=parserNodes2IR(nodes);
 				//IRRemoveNeedlessLabels(res.enter);
-				//debugShowGraph(res.enter);
+				debugShowGraph(res.enter);
+				IREvalInit();
+				int success;
+				__auto_type retVal=IREvalPath(res.enter, &success);
+				assert(success);
+				assert(retVal.type==IREVAL_VAL_INT);
+				assert(retVal.value.i==1);
 		}
 		{
 				initParserData();

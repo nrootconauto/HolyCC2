@@ -754,7 +754,30 @@ __IREvalPath(graphNodeIR start, struct IREvalVal *currentValue, int *success) {
 	graphNodeIR current = start;
 	__auto_type nodeValue = graphNodeIRValuePtr(start);
 	switch (nodeValue->type) {
-	case IR_JUMP_TAB:
+	case IR_JUMP_TAB: {
+			struct IRNodeJumpTable *table=(void*)graphNodeIRValuePtr(start);
+			struct IREvalVal inputValue;
+			if(!currentValue) {
+					strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
+					strGraphEdgeIRP inCond CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_SOURCE_A);
+					assert(strGraphEdgeIRPSize(inCond)==1);
+					int success2;
+					inputValue=IREvalNode(graphEdgeIRIncoming(inCond[0]),&success2);
+					if(!success2) goto fail;
+					currentValue=&inputValue;
+			}
+			assert(currentValue->type==IREVAL_VAL_INT);
+			__auto_type have=currentValue->value.i;
+			for(long i=0;i!=strIRTableRangeSize(table->labels);i++) {
+					if(table->labels[i].start<=have&&have<table->labels[i].end) {
+							return IREvalPath(table->labels[i].to,success);
+					}
+			}
+			strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(start);
+			strGraphEdgeIRP outDft CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(out, IR_CONN_DFT);
+			assert(strGraphEdgeIRPSize(outDft)==1);
+			return IREvalPath(graphEdgeIROutgoing(outDft[0]),success);
+	}
 	case IR_CHOOSE:
 		goto fail;
 	case IR_COND_JUMP: {

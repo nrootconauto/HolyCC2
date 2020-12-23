@@ -1931,7 +1931,7 @@ static long getNextCaseValue(struct parserNode *parent) {
 getValue : {
 	if (entry->type == NODE_CASE) {
 		struct parserNodeCase *node = (void *)entry;
-		return node->valueUpper + 1;
+		return node->valueUpper;
 	} else if (entry->type == NODE_SUBSWITCH) {
 		return getNextCaseValue(entry);
 	} else {
@@ -2226,7 +2226,7 @@ struct parserNode *parseCase(llLexerItem start, llLexerItem *end) {
 		if (parent == NULL)
 			whineCaseNoSwitch(kwCase, startP, endP);
 
-		caseValueUpper = (caseValueUpper == -1) ? caseValue : caseValue + 1;
+		caseValueUpper = (caseValueUpper == -1) ? caseValue + 1 : caseValue;
 
 		ensureCaseDoesntExist(caseValue, caseValueUpper, startP, endP);
 

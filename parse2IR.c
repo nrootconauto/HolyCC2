@@ -495,7 +495,8 @@ static struct enterExit  __createSwitchCodeAfterBody(
 					//Connect to table
 					struct IRJumpTableRange range;
 					range.start=start,range.end=end,range.to=find;
-					strIRTableRangeAppendItem(table.labels, range);
+					__auto_type table=(struct IRNodeJumpTable*)graphNodeIRValuePtr(tableNode);
+					table->labels=strIRTableRangeAppendItem(table->labels, range);
 					graphNodeIRConnect(tableNode,find,IR_CONN_CASE);
 			} else {
 					//Is a sub case
@@ -503,7 +504,8 @@ static struct enterExit  __createSwitchCodeAfterBody(
 					//Connect case to table
 					struct IRJumpTableRange range;
 					range.start=start,range.end=end,range.to=find;
-					strIRTableRangeAppendItem(table.labels, range);
+					__auto_type table=(struct IRNodeJumpTable*)graphNodeIRValuePtr(tableNode);
+					table->labels=strIRTableRangeAppendItem(table->labels, range);
 					graphNodeIRConnect(tableNode,find,IR_CONN_CASE);
 					
 			registerLoop:
