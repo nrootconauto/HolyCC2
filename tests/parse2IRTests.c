@@ -56,7 +56,7 @@ void parse2IRTests() {
 		}
 		{
 				initParserData();
-				__auto_type nodes=parseText("I64i foo() {I64i a=0; for(I64i x=0;x!=10;x++) {a=a+1;} return a;}; foo();");
+				__auto_type nodes=parseText("I64i foo() {I64i a=0; for(I64i x=0;x!=2;x++) {a=a+1;} return a;}; foo();");
 				IRGenInit();
 				__auto_type res=parserNodes2IR(nodes);
 				IREvalInit();

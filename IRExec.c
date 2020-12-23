@@ -42,6 +42,7 @@ void IREvalInit() {
 
 	registerValues = mapRegValCreate();
 	varVals = mapVarValCreate();
+	funcs=ptrMapFuncCreate();
 }
 static struct IREvalVal dftValueType(enum IREvalValType type) {
 	struct IREvalVal retVal;
@@ -335,7 +336,7 @@ static struct IREvalVal evalIRCallFunc(graphNodeIR funcStart,strIREvalVal args,i
 		//Store old currentFuncArgs for "push/pop"
 		__auto_type old=currentFuncArgs;
 		currentFuncArgs=args; //"Push"
-		__auto_type retVal=IREvalNode(graphEdgeIROutgoing(outFlow[0]), success);
+		__auto_type retVal=IREvalPath(graphEdgeIROutgoing(outFlow[0]), success);
 		currentFuncArgs=old;//"Pop"
 	return retVal;
 }
@@ -746,8 +747,17 @@ __IREvalPath(graphNodeIR start, struct IREvalVal *currentValue, int *success) {
 	case IR_CHOOSE:
 		goto fail;
 	case IR_COND_JUMP: {
-		if (!currentValue)
-			goto fail;
+			struct IREvalVal inputValue;
+			if (!currentValue) {
+					strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
+					strGraphEdgeIRP inArg CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_SOURCE_A);
+					assert(strGraphEdgeIRPSize(inArg)==1);
+					int success2;
+					inputValue=IREvalNode(graphEdgeIRIncoming(inArg[0]), &success2);
+					if(!success2)
+							goto fail;
+					currentValue=&inputValue;
+			}
 
 		if (currentValue->type == IREVAL_VAL_PTR) {
 			if (currentValue->value.ptr.value != 0)
@@ -817,11 +827,16 @@ __IREvalPath(graphNodeIR start, struct IREvalVal *currentValue, int *success) {
 
 			// All share common end if reached here
 			int success2;
+			//Check if points to jump-table or conditional jump
+			if(graphNodeIRValuePtr(commonEnd)->type==IR_COND_JUMP) {
+					return __IREvalPath(commonEnd, NULL, success);
+			} else if(graphNodeIRValuePtr(commonEnd)->type==IR_JUMP_TAB) {
+					return __IREvalPath(commonEnd, NULL, success);
+			}
 			__auto_type value = IREvalNode(commonEnd, &success2);
 			retVal = value;
 			if (!success2)
 				goto fail;
-
 			endNode = commonEnd;
 			goto findNext;
 		}
@@ -855,7 +870,7 @@ __IREvalPath(graphNodeIR start, struct IREvalVal *currentValue, int *success) {
 		endNode = start;
 		goto findNext;
 	case IR_FUNC_START: {
-			struct IRNodeFuncStart *func=(void*)start;
+			struct IRNodeFuncStart *func=(void*)graphNodeIRValuePtr(start);
 			ptrMapFuncAdd(funcs,func->func,start);
 			endNode=func->end;
 			goto findNext;

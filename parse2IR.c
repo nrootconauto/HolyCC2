@@ -775,7 +775,8 @@ static  struct enterExit __parserNode2IRNoStmt(const struct parserNode *node);
 static struct enterExit __parserNode2IRStmt(const struct parserNode *node) {
 
 	// Create statement if node is an expression type.
-	int inStatement = 0;
+		/*
+		int inStatement = 0;
 	struct enterExit stmtEnterExit;
 	switch (node->type) {
 	case NODE_COMMA_SEQ:
@@ -787,18 +788,21 @@ static struct enterExit __parserNode2IRStmt(const struct parserNode *node) {
 	case NODE_LIT_STR:
 	case NODE_ARRAY_ACCESS: {
 		inStatement = 1;
-		stmtEnterExit.enter=enterStatement();
+		//stmtEnterExit.enter=enterStatement();
 	}
 	default:;
 	}
+		*/
 
 	__auto_type retVal = __parserNode2IRNoStmt(node);
 
 	// Leave statement if in statement
+	/*
 	if (inStatement) {
 		stmtEnterExit.exit=leaveStatement(retVal);
 		return stmtEnterExit;
 	}
+	*/
 
 	return retVal;
 }
@@ -904,6 +908,7 @@ static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 		end.base.attrs=NULL;
 		end.base.type=IR_FUNC_END;
 		__auto_type endNode=GRAPHN_ALLOCATE(end);
+		((struct IRNodeFuncStart*)graphNodeIRValuePtr(startNode))->end=endNode;
 		
 		graphNodeIRConnect(body.exit, endNode, IR_CONN_FLOW);
 
