@@ -71,19 +71,31 @@ void parse2IRTests() {
 		}
 		{
 				initParserData();
-				__auto_type nodes=parseText("while(1) {}");
+				__auto_type nodes=parseText("I64i foo() {I64i a=0;while(3>a) {a=a+1;} return a;}; foo();");
 				IRGenInit();
 				__auto_type res=parserNodes2IR(nodes);
 				//IRRemoveNeedlessLabels(res.enter);
 				//debugShowGraph(res.enter);
+				int success;
+				IREvalInit();
+				__auto_type retVal=IREvalPath(res.enter, &success);
+				assert(success);
+				assert(retVal.type==IREVAL_VAL_INT);
+				assert(retVal.value.i==3);
 		}
 		{
 				initParserData();
-				__auto_type nodes=parseText(" do {break;} while(1)");
+				__auto_type nodes=parseText("I64i foo() {I64i x=10; do {break;x=20;} while(1); return x;} foo();");
 				IRGenInit();
 				__auto_type res=parserNodes2IR(nodes);
 				//IRRemoveNeedlessLabels(res.enter);
-				//debugShowGraph(res.enter);
+				debugShowGraph(res.enter);
+				IREvalInit();
+				int success;
+				__auto_type retVal=IREvalPath(res.enter, &success);
+				assert(success);
+				assert(retVal.type==IREVAL_VAL_INT);
+				assert(retVal.value.i==10);
 		}{
 				initParserData();
 				__auto_type nodes=parseText("switch(1) {case 0: break;case 1:break;default:break;};");

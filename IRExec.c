@@ -351,6 +351,8 @@ static struct IREvalVal evalIRCallFunc(graphNodeIR funcStart,strIREvalVal args,i
 }
 struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 	struct IRNode *ir = graphNodeIRValuePtr(node);
+	if(success)
+				*success=1;
 	switch (ir->type) {
 	case IR_FUNC_ARG: {
 			struct IRNodeFuncArg *arg=(void*)graphNodeIRValuePtr(node);
@@ -824,12 +826,13 @@ __IREvalPath(graphNodeIR start, struct IREvalVal *currentValue, int *success) {
 	}
 	case IR_LABEL: {
 		// If multiple outputs,check if see if they end a shared expression node
-		strGraphNodeIRP outgoing = graphNodeIROutgoingNodes(start);
+			strGraphEdgeIRP outgoing CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIROutgoing(start);
+			outgoing=filterNoFlows(outgoing);
 
-		if (strGraphNodeIRPSize(outgoing) > 1) {
-			graphNodeIR commonEnd = IREndOfExpr(outgoing[0]);
-			for (long i = 1; i != strGraphNodeIRPSize(outgoing); i++) {
-				__auto_type end = IREndOfExpr(outgoing[i]);
+		if (strGraphEdgeIRPSize(outgoing) > 1) {
+				graphNodeIR commonEnd = IREndOfExpr(graphEdgeIROutgoing(outgoing[0]));
+			for (long i = 1; i != strGraphEdgeIRPSize(outgoing); i++) {
+					__auto_type end = IREndOfExpr(graphEdgeIROutgoing(outgoing[i]));
 				if (commonEnd != end)
 					goto fail;
 			}

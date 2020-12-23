@@ -928,7 +928,7 @@ static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 		graphNodeIRConnect(body.exit,cond.enter, IR_CONN_FLOW);
 		__auto_type cJump=IRCreateCondJmp(cond.exit, body.enter,exitLabel);
 
-		return (struct enterExit){body.enter,cJump};
+		return (struct enterExit){body.enter,exitLabel};
 	}
 	case NODE_FOR: {
 			struct enterExit retVal;
