@@ -2507,7 +2507,7 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 	currentFuncsStack = strFuncInfoStackAppendItem(currentFuncsStack, info);
 
 	struct parserNode *retVal = NULL;
-	__auto_type scope = parseScope(start, end, args);
+	__auto_type scope = parseScope(start, &start, args);
 	if (!scope) {
 		// If no scope follows,is a forward declaration
 		__auto_type semi = expectKeyword(start, ";");
