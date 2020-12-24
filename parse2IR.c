@@ -481,10 +481,13 @@ static struct enterExit  __createSwitchCodeAfterBody(
 	for(long i=0;i!=count;i++) {
 			//Keys are garneteed to exist
 			__auto_type find=*mapIRCaseGet(newScope->value.swit.casesByRange, keys[i]);
+			int isSubCase=NULL!=strGraphNodeIRPSortedFind(subs, find, (gnIRCmpType)ptrPtrCmp);
 
 			//Check if default
 			if(0==strcmp(DFT_HASH_FORMAT,keys[i])) {
 					graphNodeIRConnect(tableNode, find, IR_CONN_DFT);
+					if(isSubCase)
+							goto insertJumpBackCode;
 					continue;
 			}
 			
@@ -493,7 +496,7 @@ static struct enterExit  __createSwitchCodeAfterBody(
 			sscanf(keys[i], "%li-%li", &start,&end);
 			
 			//Connect jump table to case if not a sub-case
-			if(NULL==strGraphNodeIRPSortedFind(subs, find, (gnIRCmpType)ptrPtrCmp)) {
+			if(!isSubCase) {
 					//Connect to table
 					struct IRJumpTableRange range;
 					range.start=start,range.end=end,range.to=find;
@@ -509,8 +512,11 @@ static struct enterExit  __createSwitchCodeAfterBody(
 					__auto_type table=(struct IRNodeJumpTable*)graphNodeIRValuePtr(tableNode);
 					table->labels=strIRTableRangeAppendItem(table->labels, range);
 					graphNodeIRConnect(tableNode,find,IR_CONN_CASE);
-					
-			registerLoop:
+					goto insertJumpBackCode;
+			}
+
+			continue;
+			insertJumpBackCode:
 					{
 							// See above
 							// ```
@@ -533,7 +539,6 @@ static struct enterExit  __createSwitchCodeAfterBody(
 									IRInsertAfter(find, IRStmtStart(cond), endIf, IR_CONN_FLOW);
 							}
 					}
-			}
 	}
 	count=ptrMapEnterExitByParserNodeSize(newScope->value.swit.subSwitchEnterCodeByParserNode);
 	struct parserNode *keys2[count];
