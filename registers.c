@@ -63,7 +63,8 @@ struct regSlice createRegSlice(const struct reg *reg, int offset, int width) {
 	slice.reg = (void *)reg;
 	slice.offset = offset;
 	slice.widthInBits = width;
-
+	slice.type=NULL;
+	
 	return slice;
 }
 static struct reg createRegister(const char *name, int size, enum regType type,

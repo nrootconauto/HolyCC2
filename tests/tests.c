@@ -25,7 +25,6 @@ void parse2IRTests();
 void IRTypeInferenceTests();
 int main() {
 		init();
-		/*
 		strTests();
 		preprocessorTests();
 		base64Tests();
@@ -48,7 +47,6 @@ int main() {
 		SSATests();
 		IRFilterTests();
 		parse2IRTests();
-		*/
  IRTypeInferenceTests();
 		return 0;
 }
