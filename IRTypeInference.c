@@ -67,6 +67,7 @@ struct object *__IRNodeType(graphNodeIR node) {
 						if(nodeVal->val.value.var.type==IR_VAR_VAR)
 								return nodeVal->val.value.var.value.var->type;
 				}
+				return NULL;
 		}
 
 		//Cant find type directly so intfer
