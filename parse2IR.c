@@ -463,11 +463,13 @@ static struct enterExit  __createSwitchCodeAfterBody(
 	//
 	// sub-swtich-enter-code:
 	// [code]
-	// goto jump-table
+	// if(!run) {
+	//     run=1
+	//     goto jump-table
+	// }
 	//
 	// sub-switch-label:
 	// if(!run) {
-	//     run=1
 	//     goto sub-swtich-enter-code
 	// }
 	// ```
@@ -513,7 +515,6 @@ static struct enterExit  __createSwitchCodeAfterBody(
 							// See above
 							// ```
 							// if(!run) {
-							//     run=1;
 							//     goto subSwitchcode
 							// }
 							//
@@ -523,17 +524,63 @@ static struct enterExit  __createSwitchCodeAfterBody(
 							if(enter) {
 									__auto_type endIf=IRCreateLabel();
 									//run=1,goto subSwitchCode
-									__auto_type assign=IRCreateAssign(IRCreateIntLit(1), IRCreateVarRef(enteredSubCondition));
-									graphNodeIRConnect(assign, enter, IR_CONN_FLOW);
 
 									//if(!run)
-									__auto_type cond=IRCreateUnop(IRCreateVarRef(enteredSubCondition), IR_LNOT);
-									IRCreateCondJmp(cond,IRStmtStart(assign),endIf);
+									__auto_type cond=IRCreateVarRef(enteredSubCondition);
+									IRCreateCondJmp(cond,endIf,enter);
 
 									//Insert after
 									IRInsertAfter(find, IRStmtStart(cond), endIf, IR_CONN_FLOW);
 							}
 					}
+			}
+	}
+	count=ptrMapEnterExitByParserNodeSize(newScope->value.swit.subSwitchEnterCodeByParserNode);
+	struct parserNode *keys2[count];
+	ptrMapEnterExitByParserNodeKeys(newScope->value.swit.subSwitchEnterCodeByParserNode,keys2);
+	if(count) {
+			//
+			// If we have sub-switchs,store result of cond in a variable so we dont have to recompute it upon re-entering switch
+			// ```
+			//  label
+			// backup=cond
+			// jump-table
+			// ...
+			// sub-switch-start:
+			// if(!run) {run=1,goto label}
+			// ```
+			//
+
+			//```
+			// backup=cond
+			//	label:
+			// jumpTable(backup) 
+			//```
+			struct variable *cond2Var=IRCreateVirtVar(&typeI64i);
+			__auto_type cond2Store=IRCreateVarRef(cond2Var);
+			graphNodeIRConnect(cond.exit, cond2Store, IR_CONN_DEST);
+
+			__auto_type label=IRCreateLabel();
+			graphNodeIRConnect(cond2Store, label, IR_CONN_FLOW);
+			
+			__auto_type cond2Load=IRCreateVarRef(cond2Var);
+			graphNodeIRConnect(label, cond2Load,IR_CONN_FLOW);
+			
+			//Replace incoming connection to cond.eixt with cond2Load
+			graphEdgeIRKill(cond.exit, tableNode, NULL, NULL, NULL);
+			graphNodeIRConnect(cond2Load,tableNode ,IR_CONN_SOURCE_A);
+			
+			
+			for(long i=0;i!=count;i++) {
+					__auto_type enterCode=*ptrMapEnterExitByParserNodeGet(newScope->value.swit.subSwitchEnterCodeByParserNode,keys2[i]);
+					// run=1
+					__auto_type assign=IRCreateAssign(IRCreateIntLit(1), IRCreateVarRef(enteredSubCondition));
+					//goto switch-start(label)
+					__auto_type cond=IRCreateUnop(IRCreateVarRef(enteredSubCondition),  IR_LNOT);
+					graphNodeIRConnect(assign, label, IR_CONN_FLOW);
+					__auto_type endIf=IRCreateLabel();
+					__auto_type condJmp=IRCreateCondJmp(cond, IRStmtStart(assign), endIf);
+					IRInsertAfter(enterCode.exit, IRStmtStart(cond), endIf, IR_CONN_FLOW);
 			}
 	}
 
