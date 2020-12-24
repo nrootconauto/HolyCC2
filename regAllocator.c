@@ -1480,6 +1480,8 @@ static void rematerialize(graphNodeIR start, ptrMapregSlice live2Reg,
 			}
 	}
 }
+void IRInsertIntermeddiateNodes() {
+}
 void IRRegisterAllocate(graphNodeIR start, color2RegPredicate colorFunc,
                         void *colorData) {
 	// SSA

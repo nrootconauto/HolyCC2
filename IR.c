@@ -1398,10 +1398,6 @@ graphNodeIR IREndOfExpr(graphNodeIR node) {
 		return node;
 	}
 }
-struct object *IRNodeType(graphNodeIR node) {
-	// TODO implement
-	return &typeI64i;
-}
 void IRNodeDestroy(struct IRNode *node) {}
 int IRIsOperator(graphNodeIR node) {
 		switch(graphNodeIRValuePtr(node)->type) {

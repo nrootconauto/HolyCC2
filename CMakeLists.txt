@@ -41,6 +41,7 @@ list(APPEND sources "regAllocator.c")
 list(APPEND sources "registers.c")
 list(APPEND sources "init.c")
 list(APPEND sources "IRFilter.c")
+list(APPEND sources "IRTypeInference.c")
 
 set(tests "")
 list(APPEND tests "tests/tests.c")
@@ -64,6 +65,7 @@ list(APPEND tests "tests/registerAllocatorTests.c")
 list(APPEND tests "tests/IRFilterTests.c")
 list(APPEND tests "tests/parse2IRTests.c")
 list(APPEND sources "tests/ptrMapTests.c")
+list(APPEND sources "tests/IRTypeInferenceTests.c")
 add_executable(holycc2 ${sources} ${tests})
 
 

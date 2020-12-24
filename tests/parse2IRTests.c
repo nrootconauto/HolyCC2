@@ -116,7 +116,7 @@ void parse2IRTests() {
 				IRGenInit();
 				__auto_type res=parserNodes2IR(nodes);
 				//IRRemoveNeedlessLabels(res.enter);
-				debugShowGraph(res.enter);
+				//debugShowGraph(res.enter);
 				IREvalInit();
 				int success;
 				__auto_type retVal=IREvalPath(res.enter, &success);

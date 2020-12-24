@@ -22,6 +22,7 @@ struct reg {
 struct regSlice {
 	struct reg *reg;
 	int offset, widthInBits;
+		struct object *type;
 };
 STR_TYPE_FUNCS(struct regSlice, RegSlice);
 extern struct reg regX86AL;
