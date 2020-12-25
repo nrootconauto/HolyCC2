@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <base64.h>
 #include <cleanup.h>
-#define DEBUG_PRINT_ENABLE 1
+//#define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 #include <stdio.h>
 void *IR_ATTR_BASIC_BLOCK = "BASIC_BLOCK";

@@ -352,3 +352,4 @@ int IRIsOperator(graphNodeIR node);
 graphNodeIR IRCreateFuncArg(struct object *type,long funcIndex);
 graphNodeIR IRCreateMemberAccess(graphNodeIR input,const char *name);
 void IRRemoveNeedlessLabels(graphNodeIR start) ;
+void IRInsertNodesBetweenExprs(graphNodeIR expr);
