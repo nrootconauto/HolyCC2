@@ -1515,23 +1515,34 @@ static int IsEndOfExprNode(graphNodeIR node,const void *data) {
 				switch(graphNodeIRValuePtr(node)->type) {
 				case IR_COND_JUMP:
 				case IR_JUMP_TAB:
+				case IR_FUNC_RETURN:
 						return 0;
 				default:;
 				}
-				return IREndOfExpr(node)==node;
+				if( IREndOfExpr(node)==node)
+						return 1;
 		}
 		
 		return 0;
 }
 void IRInsertNodesBetweenExprs(graphNodeIR expr) {
 		__auto_type filtered=IRFilter(expr,  IsEndOfExprNode,  NULL);
+		IRPrintMappedGraph(filtered);
 		strGraphNodeMappingP all CLEANUP(strGraphNodeMappingPDestroy)= graphNodeMappingAllNodes(filtered);
 		__auto_type affected=ptrMapAffectedNodesCreate();
 		for(long i=0;i!=strGraphNodeMappingPSize(all);i++) {
 				//Assign types to  nodes of expression
-				IRNodeType(all[i]);
+				IRNodeType(*graphNodeMappingValuePtr(all[i]));
 				__IRInsertNodesBetweenExprs(*graphNodeMappingValuePtr(all[i]),affected);
 		}
 		ptrMapAffectedNodesDestroy(affected, NULL);
 		graphNodeMappingKillGraph(&filtered, NULL, NULL);
+}
+void IRPrintMappedGraph(graphNodeMapping map) {
+		const char *name=tmpnam(NULL);
+		IRGraphMap2GraphViz(map, "viz", name, NULL,NULL,NULL,NULL);
+		char buffer[1024];
+		sprintf(buffer, "sleep 0.1 &&dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg &", name);
+
+		system(buffer);
 }
