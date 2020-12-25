@@ -2,6 +2,7 @@
 #include <cleanup.h>
 #include <ptrMap.h>
 #include <IRFilter.h>
+#include <IRTypeInference.h>
 static int isNotExprEdge(const void *data,const graphEdgeIR *edge) {
 		return !IRIsExprEdge(*graphEdgeIRValuePtr(*edge));
 }
@@ -9,7 +10,7 @@ PTR_MAP_FUNCS(graphNodeIR, graphNodeIR, AffectedNodes);
 static void __IRInsertNodesBetweenExprs(graphNodeIR expr,ptrMapAffectedNodes affected) {
 		if(ptrMapAffectedNodesGet(affected,expr))
 				return;
-
+		
 		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy) =graphNodeIRIncoming(expr);
 		in=strGraphEdgeIRPRemoveIf(in, NULL, isNotExprEdge);
 		for(long i=0;i!=strGraphEdgeIRPSize(in);i++) {
@@ -30,18 +31,30 @@ static void __IRInsertNodesBetweenExprs(graphNodeIR expr,ptrMapAffectedNodes aff
 		}
 		ptrMapAffectedNodesAdd(affected, expr, NULL);
 }
-static int isExprNode(graphNodeIR node,const void *data) {
+static int IsEndOfExprNode(graphNodeIR node,const void *data) {
 		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(node);
 		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(node);
 		in=strGraphEdgeIRPRemoveIf(in, NULL, isNotExprEdge);
 		out=strGraphEdgeIRPRemoveIf(out, NULL, isNotExprEdge);
-		return strGraphEdgeIRPSize(in)||strGraphEdgeIRPSize(out);
+		if(strGraphEdgeIRPSize(in)||strGraphEdgeIRPSize(out)) {
+				switch(graphNodeIRValuePtr(node)->type) {
+				case IR_COND_JUMP:
+				case IR_JUMP_TAB:
+						return 0;
+				default:;
+				}
+				return IREndOfExpr(node)==node;
+		}
+		
+		return 0;
 }
 static void IRInsertNodesBetweenExprs(graphNodeIR expr) {
-		__auto_type filtered=IRFilter(expr,  isExprNode,  NULL);
+		__auto_type filtered=IRFilter(expr,  IsEndOfExprNode,  NULL);
 		strGraphNodeMappingP all CLEANUP(strGraphNodeMappingPDestroy)= graphNodeMappingAllNodes(filtered);
 		__auto_type affected=ptrMapAffectedNodesCreate();
 		for(long i=0;i!=strGraphNodeMappingPSize(all);i++) {
+				//Assign types to  nodes of expression
+				IRNodeType(all[i]);
 				__IRInsertNodesBetweenExprs(*graphNodeMappingValuePtr(all[i]),affected);
 		}
 		ptrMapAffectedNodesDestroy(affected, NULL);

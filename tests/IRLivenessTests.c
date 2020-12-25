@@ -9,6 +9,27 @@ struct nameVarPair {
 };
 MAP_TYPE_DEF(struct __graphNode *, GraphNode);
 MAP_TYPE_FUNCS(struct __graphNode *, GraphNode);
+mapGraphNode getInterfereVars(graphNodeIRLive interfere,struct nameVarPair *expected,long len) {
+		mapGraphNode byVar=mapGraphNodeCreate();
+		__auto_type allNodes=graphNodeIRLiveAllNodes(interfere);
+				
+				for(long i=0;i!=len;i++) {
+						for(long i2=0;i2!=len;i2++) {
+								if(graphNodeIRLiveValuePtr(allNodes[i2])->ref.value.var==expected[i].var) {
+										expected[i].node=allNodes[i2];
+
+										//Register in map
+										mapGraphNodeInsert(byVar, expected[i].name, expected[i].node);
+
+										goto found;
+								}
+						}
+						assert(0);
+				found:;
+				}
+
+				return byVar;
+}
 void LivenessTests() {
 		initIR();
 		{
@@ -167,8 +188,6 @@ void LivenessTests() {
 				}
 				
 				__auto_type interfere=IRInterferenceGraph(entry);
-				
-				mapGraphNode byVar=mapGraphNodeCreate();
 				__auto_type allNodes=graphNodeIRLiveAllNodes(interfere);
 				assert(strGraphNodeIRLivePSize(allNodes)==6);
 
@@ -184,20 +203,7 @@ void LivenessTests() {
 				// Find expected items
 				//
 				long len=sizeof(expected)/sizeof(*expected);
-				for(long i=0;i!=len;i++) {
-						for(long i2=0;i2!=len;i2++) {
-								if(graphNodeIRLiveValuePtr(allNodes[i2])->ref.value.var==expected[i].var) {
-										expected[i].node=allNodes[i2];
-
-										//Register in map
-										mapGraphNodeInsert(byVar, expected[i].name, expected[i].node);
-
-										goto found;
-								}
-						}
-						assert(0);
-				found:;
-				}
+				mapGraphNode byVar=getInterfereVars(interfere,expected,len);
 
 				__auto_type uNode=*mapGraphNodeGet(byVar, "u");
 				__auto_type vNode=*mapGraphNodeGet(byVar, "v");
@@ -342,5 +348,35 @@ void LivenessTests() {
 				}
 
 				__auto_type interfere=IRInterferenceGraph(enter);
+		}
+		{
+				__auto_type a=IRCreateVirtVar(&typeI64i);
+				__auto_type b=IRCreateVirtVar(&typeI64i);
+				__auto_type c=IRCreateVirtVar(&typeI64i);
+				a->name="A";
+				b->name="B";
+				c->name="C";
+				__auto_type binop1=IRCreateBinop(IRCreateVarRef(a), IRCreateVarRef(b), IR_ADD);
+				IRCreateAssign(binop1, IRCreateVarRef(a));
+				__auto_type binop2=IRCreateBinop(IRCreateVarRef(c), IREndOfExpr(binop1),IR_ADD);
+				__auto_type ret=IRCreateReturn(binop2, NULL);
+				
+				__auto_type interfere=IRInterferenceGraph(IRStmtStart(ret));
+
+				__auto_type allNodes=graphNodeIRLiveAllNodes(interfere);
+				assert(strGraphNodeIRLivePSize(allNodes)==3);
+
+				struct nameVarPair expected[]={
+						{"a",a,NULL},
+						{"b",b,NULL},
+						{"c",c,NULL},
+				};
+				__auto_type map= getInterfereVars(interfere,expected,3);
+				assert(graphNodeIRConnectedTo(*mapGraphNodeGet(map, "a"), *mapGraphNodeGet(map, "b")));
+				assert(graphNodeIRConnectedTo(*mapGraphNodeGet(map, "a"), *mapGraphNodeGet(map, "c")));
+				assert(graphNodeIRConnectedTo(*mapGraphNodeGet(map, "b"), *mapGraphNodeGet(map, "a")));
+				assert(graphNodeIRConnectedTo(*mapGraphNodeGet(map, "b"), *mapGraphNodeGet(map, "c")));
+				assert(graphNodeIRConnectedTo(*mapGraphNodeGet(map, "c"), *mapGraphNodeGet(map, "a")));
+				assert(graphNodeIRConnectedTo(*mapGraphNodeGet(map, "c"), *mapGraphNodeGet(map, "b")));
 		}
 }
