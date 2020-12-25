@@ -112,12 +112,10 @@ static int untilWriteOut(const struct __graphNode *node,
 	if (!isExprEdge(edgeValue))
 		return 0;
 
-	strGraphEdgeIRP outgoing =
+	strGraphEdgeIRP outgoing CLEANUP(strGraphEdgeIRPDestroy) =
 	    graphNodeIROutgoing(*graphNodeMappingValuePtr((graphNodeMapping)node));
-
-	if (strGraphEdgeIRPSize(outgoing) == 1) {
-		__auto_type type = graphEdgeIRValuePtr(outgoing[0]);
-		if (*type == IR_CONN_DEST)
+	strGraphEdgeIRP outgoingAssigns CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(outgoing, IR_CONN_DEST);
+	if (strGraphEdgeIRPSize(outgoingAssigns)) {
 			return 0;
 	}
 
@@ -228,8 +226,8 @@ getBasicBlocksFromExpr(graphNodeIR dontDestroy, ptrMapBlockMetaNode metaNodes,
 			// Check if assign var
 			strGraphEdgeIRP incomingEdges =
 			    graphNodeIRIncoming(*graphNodeMappingValuePtr(nodes[i]));
-			if (strGraphEdgeIRPSize(incomingEdges) == 1)
-				if (*graphEdgeIRValuePtr(incomingEdges[0]) == IR_CONN_DEST) {
+			strGraphEdgeIRP incomingAssigns CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(incomingEdges, IR_CONN_DEST);
+				if (strGraphEdgeIRPSize(incomingAssigns)) {
 					assignNodes = strGraphNodeMappingPSortedInsert(assignNodes, nodes[i],
 					                                               (gnCmpType)ptrPtrCmp);
 #if DEBUG_PRINT_ENABLE
@@ -304,15 +302,14 @@ getBasicBlocksFromExpr(graphNodeIR dontDestroy, ptrMapBlockMetaNode metaNodes,
 		__auto_type node = *graphNodeMappingValuePtr(startFroms[i]);
 		strGraphEdgeIRP incoming = graphNodeIRIncoming(node);
 		strGraphNodeIRP writeNodes CLEANUP(strGraphNodeIRPDestroy)=NULL;
-		
-		if (strGraphEdgeIRPSize(incoming) == 1) {
-			if (*graphEdgeIRValuePtr(incoming[0]) == IR_CONN_DEST) {
+
+		strGraphEdgeIRP incomingAssigns CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(incoming, IR_CONN_DEST);
+		if (strGraphEdgeIRPSize(incomingAssigns)) {
 				// is Connected to dest node
 				struct IRNode *irNode = (void *)graphNodeIRValuePtr(node);
 				assert(isVarNode(irNode));
 				block.define = strVarAppendItem(
-				    NULL, &((struct IRNodeValue *)irNode)->val.value.var);
-			}
+																																				NULL, &((struct IRNodeValue *)irNode)->val.value.var);
 		}
 
 		//

@@ -719,9 +719,9 @@ loop:
 		//
 
 		// Check for assign
-		strGraphEdgeIRP incoming = graphNodeIRIncoming(allNodes[i]); // TODO
-		if (strGraphEdgeIRPSize(incoming) == 1) {
-			if (*graphEdgeIRValuePtr(incoming[0]) == IR_CONN_DEST) {
+		strGraphEdgeIRP incoming = graphNodeIRIncoming(allNodes[i]);
+		strGraphEdgeIRP incomingAssigns=IRGetConnsOfType(incoming, IR_CONN_DEST);
+		if(strGraphEdgeIRPSize(incomingAssigns)) {
 				// If destination is a variable that isn't alive,destroy it
 				if (isVar(allNodes[i])) {
 					// Ensure allNodes[i ] is end of expression
@@ -755,7 +755,6 @@ loop:
 							goto loop;
 						}
 					}
-				}
 			}
 		}
 	__continue:;
