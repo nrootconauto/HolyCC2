@@ -1500,7 +1500,7 @@ static int IsEndOfExprNode(graphNodeIR node,const void *data) {
 }
 void IRInsertNodesBetweenExprs(graphNodeIR expr) {
 		__auto_type filtered=IRFilter(expr,  IsEndOfExprNode,  NULL);
-		IRPrintMappedGraph(filtered);
+		//IRPrintMappedGraph(filtered);
 		strGraphNodeMappingP all CLEANUP(strGraphNodeMappingPDestroy)= graphNodeMappingAllNodes(filtered);
 		__auto_type affected=ptrMapAffectedNodesCreate();
 		for(long i=0;i!=strGraphNodeMappingPSize(all);i++) {

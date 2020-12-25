@@ -1132,7 +1132,7 @@ loop:
 
 		}
 
-		debugPrintInterferenceGraph(interfere, regsByLivenessNode);
+		//debugPrintInterferenceGraph(interfere, regsByLivenessNode);
 		
 		// Get conflicts and spill nodes
 		strGraphNodeIRLiveP spillNodes = NULL;

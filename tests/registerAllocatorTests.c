@@ -234,7 +234,7 @@ void registerAllocatorTests() {
 
 					//debugShowGraph(start);
 					IRRegisterAllocate(start, NULL, NULL);
-					debugShowGraph(start);
+					//debugShowGraph(start);
 					__auto_type res2= IREvalPath(start, &success);
 					assert(success);
 					assert(res2.type==IREVAL_VAL_INT);
@@ -433,7 +433,7 @@ void registerAllocatorTests() {
 				assert(success);
 				
 				IRInsertNodesBetweenExprs(start);
-				debugShowGraph(start);
+				//debugShowGraph(start);
 				IRRegisterAllocate(start, NULL, NULL);
 				//debugShowGraph(start);
 				

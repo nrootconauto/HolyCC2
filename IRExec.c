@@ -883,7 +883,7 @@ __IREvalPath(graphNodeIR start, struct IREvalVal *currentValue, int *success) {
 			goto findNext;
 	}
 	case IR_FUNC_RETURN: {
-			return *currentValue;
+			return returnValue=*currentValue;
 	}
 	default:;
 		// Perhaps is an expression node
