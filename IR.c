@@ -1469,11 +1469,13 @@ static void __IRInsertNodesBetweenExprs(graphNodeIR expr,ptrMapAffectedNodes aff
 		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy) =graphNodeIRIncoming(expr);
 		in=strGraphEdgeIRPRemoveIf(in, NULL, isNotExprEdge);
 		for(long i=0;i!=strGraphEdgeIRPSize(in);i++) {
+				__auto_type node=graphEdgeIRIncoming(in[i]);
+				//Recursivly do the same for incoming expression
+				__IRInsertNodesBetweenExprs(node,affected);
 				//Ignore existing assigns
 				if(*graphEdgeIRValuePtr(in[i])==IR_CONN_DEST)
 						continue;
 				
-				__auto_type node=graphEdgeIRIncoming(in[i]);
 				struct IRNodeValue *nodeValue=(void*)graphNodeIRValuePtr(node);
 				if(nodeValue->base.type==IR_VALUE)
 						continue;
@@ -1481,8 +1483,6 @@ static void __IRInsertNodesBetweenExprs(graphNodeIR expr,ptrMapAffectedNodes aff
 				__auto_type tmp=IRCreateVirtVar(IRNodeType(node));
 				__auto_type tmpRef=IRCreateVarRef(tmp);
 				IRInsertAfter(node,tmpRef,tmpRef, IR_CONN_DEST);
-				//Recursivly do the same for incoming expression
-				__IRInsertNodesBetweenExprs(node,affected);
 		}
 		ptrMapAffectedNodesAdd(affected, expr, NULL);
 }

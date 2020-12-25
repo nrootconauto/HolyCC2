@@ -223,7 +223,7 @@ void registerAllocatorTests() {
 					}
 
 					IRInsertNodesBetweenExprs(start);
-					debugShowGraph(start);
+					//					debugShowGraph(start);
 					
 					setArch(ARCH_TEST_SYSV);
 					int success;
@@ -232,6 +232,7 @@ void registerAllocatorTests() {
 					assert(res1.type==IREVAL_VAL_INT);
 					assert(res1.value.i==14);
 
+					//debugShowGraph(start);
 					IRRegisterAllocate(start, NULL, NULL);
 					debugShowGraph(start);
 					__auto_type res2= IREvalPath(start, &success);
@@ -431,6 +432,8 @@ void registerAllocatorTests() {
 				__auto_type res1= IREvalPath(start, &success);
 				assert(success);
 				
+				IRInsertNodesBetweenExprs(start);
+				debugShowGraph(start);
 				IRRegisterAllocate(start, NULL, NULL);
 				//debugShowGraph(start);
 				

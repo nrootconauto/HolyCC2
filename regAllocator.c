@@ -814,7 +814,7 @@ __conflictPairFindAffects(graphNodeIRLive node,
 	for (; start != end; start++) {
 		if (start->a == node)
 			return (void *)start;
-		else if (start->a == node)
+		else if (start->b == node)
 			return (void *)start;
 	}
 
@@ -1131,6 +1131,8 @@ loop:
 			ptrMapregSliceAdd(regsByLivenessNode, allColorNodes[i],slice);
 
 		}
+
+		debugPrintInterferenceGraph(interfere, regsByLivenessNode);
 		
 		// Get conflicts and spill nodes
 		strGraphNodeIRLiveP spillNodes = NULL;
@@ -1202,50 +1204,13 @@ loop:
 			// Remove all references to spilled node in conflicts and
 			// conflictsSortedByWeight
 			typedef int (*removeIfPred)(const void *, const struct conflictPair *);
-			__auto_type node = conflicts[lowestConflictI].a;
+			__auto_type node = lowestConflictNode;
 
 			conflicts = strConflictPairRemoveIf(conflicts, node,
 			                                    (removeIfPred)conflictPairContains);
 			conflictsSortedByWeight = strConflictPairRemoveIf(
 			    conflictsSortedByWeight, node, (removeIfPred)conflictPairContains);
 		}
-
-		// Get list of variables that have conflicts(are adjacent to spill nodes)
-		strGraphNodeIRLiveP nodesWithRegisterConflict = NULL;
-
-		for (long i = 0; i != strGraphNodeIRLivePSize(allColorNodes); i++) {
-			// Check if not a spill node
-			if (NULL != strGraphNodeIRLivePSortedFind(spillNodes, allColorNodes[i],
-			                                          (gnCmpType)ptrPtrCmp))
-				continue;
-
-			__auto_type outgoing = graphNodeIRLiveOutgoingNodes(allColorNodes[i]);
-			for (long i2 = 0; i2 != strGraphNodeIRLivePSize(outgoing); i2++) {
-				// If adjacent to spilled node?
-				if (NULL != strGraphNodeIRLivePSortedFind(spillNodes, outgoing[i2],
-				                                          (gnCmpType)ptrPtrCmp)) {
-					// Registers conflict ?
-					__auto_type currReg = ptrMapregSliceGet(regsByLivenessNode, allColorNodes[i]);
-					__auto_type outReg = ptrMapregSliceGet(regsByLivenessNode, outgoing[i2]);
-
-					// Both vairables are put in registers?
-					if (currReg && outReg) {
-						// Do they conflict
-						if (!regSliceConflict(currReg, outReg))
-							continue;
-
-						nodesWithRegisterConflict = strGraphNodeIRLivePSortedInsert(
-						    nodesWithRegisterConflict, allColorNodes[i],
-						    (gnCmpType)ptrPtrCmp);
-						break;
-					}
-				}
-			}
-		}
-
-		// Add spilled nodes to conflicts
-		nodesWithRegisterConflict = strGraphNodeIRLivePSetUnion(
-		    nodesWithRegisterConflict, spillNodes, (gnCmpType)ptrPtrCmp);
 
 		// Add variables in liveness nodes to liveVars
 		for (long i = 0; i != strGraphNodeIRLivePSize(allColorNodes); i++) {

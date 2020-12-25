@@ -93,8 +93,7 @@ struct object *__IRNodeType(graphNodeIR node) {
 				//Unop
 				__auto_type aType=IRNodeType(graphEdgeIRIncoming(sourceA[0]));
 				return aType;
-		} else
-				assert(0); //Not an expression node
+		} 
 		return NULL;
 }
 struct object *IRNodeType(graphNodeIR node) {
