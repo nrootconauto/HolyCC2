@@ -1492,13 +1492,6 @@ static int IsEndOfExprNode(graphNodeIR node,const void *data) {
 		in=strGraphEdgeIRPRemoveIf(in, NULL, isNotExprEdge);
 		out=strGraphEdgeIRPRemoveIf(out, NULL, isNotExprEdge);
 		if(strGraphEdgeIRPSize(in)||strGraphEdgeIRPSize(out)) {
-				switch(graphNodeIRValuePtr(node)->type) {
-				case IR_COND_JUMP:
-				case IR_JUMP_TAB:
-				case IR_FUNC_RETURN:
-						return 0;
-				default:;
-				}
 				if( IREndOfExpr(node)==node)
 						return 1;
 		}
