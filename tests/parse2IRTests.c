@@ -130,5 +130,6 @@ void parse2IRTests() {
 				IRGenInit();
 				__auto_type res=parserNodes2IR(nodes);
 				//				debugShowGraph(res.enter);
+				
 		}
 } 
