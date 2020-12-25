@@ -46,10 +46,10 @@ static char *strClone(const char *text) {
 
 	return retVal;
 }
-graphNodeIR IRCreateSpill(struct IRVar *var) {
+graphNodeIR IRCreateSpillLoad(struct IRVar *var) {
 	struct IRNodeSpill spill;
 	spill.base.attrs = NULL;
-	spill.base.type = IR_SPILL;
+	spill.base.type = IR_SPILL_LOAD;
 	spill.item.type = IR_VAL_VAR_REF;
 	spill.item.value.var = *var;
 
@@ -63,15 +63,6 @@ graphNodeIR IRCreateRegRef(const struct regSlice *slice) {
 	val.val.value.reg = *slice;
 
 	return GRAPHN_ALLOCATE(val);
-}
-graphNodeIR IRCreateLoad(struct IRVar *var) {
-	struct IRNodeSpill load;
-	load.base.attrs = NULL;
-	load.base.type = IR_LOAD;
-	load.item.type = IR_VAL_VAR_REF;
-	load.item.value.var = *var;
-
-	return GRAPHN_ALLOCATE(load);
 }
 graphNodeIR IRCreateFuncCall(graphNodeIR func, ...) {
 	struct IRNodeFuncCall call;
@@ -865,17 +856,7 @@ static char *IRCreateGraphVizNode(const struct __graphNode *node,
 	struct IRNode *value = graphNodeIRValuePtr(
 	    *graphNodeMappingValuePtr((struct __graphNode *)node));
 	switch (value->type) {
-	case IR_LOAD: {
-		struct IRNodeLoad *load = (void *)value;
-		char *val = IRValue2GraphVizLabel(&load->item);
-		const char *format = "LOAD: %s";
-		long len = snprintf(NULL, 0, format, val);
-		char buffer[len + 1];
-		sprintf(buffer, format, val);
-
-		return strClone(buffer);
-	}
-	case IR_SPILL: {
+	case IR_SPILL_LOAD: {
 		struct IRNodeLoad *load = (void *)value;
 		char *val = IRValue2GraphVizLabel(&load->item);
 		const char *format = "SPILL: %s";
@@ -1289,8 +1270,7 @@ static graphNodeIR __cloneNode(ptrMapGraphNode mappings, graphNodeIR node,
 	case IR_POW:
 	case IR_RSHIFT:
 	case IR_STATEMENT_END:
-	case IR_SPILL:
-	case IR_LOAD:
+	case IR_SPILL_LOAD:
 	case IR_STATEMENT_START:
 	case IR_SUB:
 	case IR_SUB_SWITCH_START_LABEL:

@@ -411,7 +411,7 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 		}
 	}
 	case IR_ADD: {
-		BINOP_ARITH(+, success);
+ 		BINOP_ARITH(+, success);
 	}
 	case IR_SUB: {
 		BINOP_ARITH(-, success);
@@ -682,41 +682,24 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 	}
 	case IR_SIMD:
 		goto fail;
-	case IR_SPILL: {
-		// Expect 1 incoming assign
+	case IR_SPILL_LOAD: {
+			struct IRNodeSpill *spill = (void *)graphNodeIRValuePtr(node);
+			// Expect 1 incoming assign
 		strGraphEdgeIRP incoming = graphNodeIRIncoming(node);
 		strGraphEdgeIRP assigns = IRGetConnsOfType(incoming, IR_CONN_DEST);
-		assert(strGraphEdgeIRPSize(assigns) == 1);
-
+		if(strGraphEdgeIRPSize(assigns) == 1) {
 		graphNodeIR incomingNode = graphEdgeIRIncoming(assigns[0]);
-
 		int success2;
 		__auto_type val = IREvalNode(incomingNode, &success2);
 		if (!success2)
 			goto fail;
-
-		struct IRNodeSpill *spill = (void *)graphNodeIRValuePtr(node);
 		assert(spill->item.type == IR_VAL_VAR_REF);
 		spillToFrame(val, &spill->item.value.var);
-
+		}
+		
 		if(success)
 				*success=1;
-		return val;
-	}
-	case IR_LOAD: {
-		struct IRNodeLoad *load = (void *)graphNodeIRValuePtr(node);
-		// Ensure is a variable
-		if (load->item.type != IR_VAL_VAR_REF)
-			goto fail;
-
-		if (success)
-			*success = 1;
-
-		__auto_type find = loadFromFrame(&load->item.value.var);
-		if (find)
-			return *find;
-
-		return dftValueType(IREVAL_VAL_INT);
+		return *loadFromFrame(&spill->item.value.var);
 	}
 	case IR_FUNC_RETURN: {
 		strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) =
@@ -880,18 +863,7 @@ __IREvalPath(graphNodeIR start, struct IREvalVal *currentValue, int *success) {
 		endNode = start;
 		goto findNext;
 	}
-	case IR_SPILL: {
-		struct IRNodeSpill *value = (void *)nodeValue;
-		if (value->item.type != IR_VAL_VAR_REF)
-			goto fail;
-
-		spillToFrame(*currentValue, &value->item.value.var);
-		retVal = *currentValue;
-
-		endNode = start;
-		goto findNext;
-	}
-	case IR_LOAD: {
+	case IR_SPILL_LOAD: {
 		int success2;
 		retVal = IREvalNode(start, &success2);
 		if (!success2)
@@ -911,7 +883,7 @@ __IREvalPath(graphNodeIR start, struct IREvalVal *currentValue, int *success) {
 			goto findNext;
 	}
 	case IR_FUNC_RETURN: {
-			return returnValue=IREvalNode(start, success);
+			return *currentValue;
 	}
 	default:;
 		// Perhaps is an expression node

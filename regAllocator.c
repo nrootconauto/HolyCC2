@@ -685,42 +685,11 @@ struct varsAndReplaced {
 	strIRVar vars;
 	strGraphNodeIRP *replaced;
 };
-static void replaceVarWithLoad(struct __graphNode *node, void *data) {
-	const struct varsAndReplaced *Data = data;
-	strIRVar vars = Data->vars;
-
-	if (isVar(node)) {
-		__auto_type nodeVal = (struct IRNodeValue *)graphNodeIRValuePtr(node);
-		for (long i = 0; i != strIRVarSize(vars); i++) {
-			__auto_type var = vars[i];
-
-			if (0 == IRVarCmp(var, &nodeVal->val.value.var)) {
-				__auto_type load = IRCreateLoad(var);
-
-				replaceNodeWithExpr(node, load);
-
-				if (Data->replaced)
-					*Data->replaced = strGraphNodeIRPSortedInsert(*Data->replaced, node,
-					                                              (gnCmpType)ptrPtrCmp);
-			}
-		}
-	}
-}
 static int untillStartOfExpr(const struct __graphNode *node,
                              const struct __graphEdge *edge, const void *data) {
 	return IRIsExprEdge(*graphEdgeIRValuePtr((graphEdgeIR)edge));
 };
 
-static void insertLoadsInExpression(graphNodeIR expressionNode,
-                                    strIRVar varsToReplace,
-                                    strGraphNodeIRP *replaced) {
-	struct varsAndReplaced pair;
-	pair.vars = varsToReplace;
-	pair.replaced = replaced;
-
-	__auto_type end = IREndOfExpr(expressionNode);
-	graphNodeIRVisitBackward(end, &pair, untillStartOfExpr, replaceVarWithLoad);
-}
 struct varToLiveNode {
 	struct IRVar var;
 	graphNodeIRLive live;
@@ -907,53 +876,7 @@ static void replaceVarsWithSpillOrLoad(strGraphNodeIRLiveP spillNodes,
 			    strVarToLiveNodeSortedFind(varToLive, dummy, varToLiveNodeCompare);
 
 			if (find) {
-				// Is a spill var,so check if we are reading or writing or both
-				int isWrite = 0, isRead = 0;
-
-				// Assigned into?
-				strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) =
-				    graphNodeIRIncoming(allNodes[i]);
-				strGraphEdgeIRP assigns CLEANUP(strGraphEdgeIRPDestroy) =
-				    IRGetConnsOfType(incoming, IR_CONN_DEST);
-				if (strGraphEdgeIRPSize(assigns) != 0)
-					isWrite = 1;
-
-				// Is read from
-				strGraphEdgeIRP outgoing CLEANUP(strGraphEdgeIRPDestroy) =
-				    graphNodeIROutgoing(allNodes[i]);
-				for (long i = 0; i != strGraphEdgeIRPSize(outgoing); i++) {
-					switch (*graphEdgeIRValuePtr(outgoing[i])) {
-					case IR_CONN_COND:
-					case IR_CONN_SIMD_ARG:
-					case IR_CONN_FUNC_ARG:
-					case IR_CONN_SOURCE_A:
-					case IR_CONN_SOURCE_B:
-					case IR_CONN_FUNC:
-						isRead = 1;
-						goto isReadFromBreak;
-					default:
-						continue;
-					}
-				}
-			isReadFromBreak:;
-
-				// If writen into ,make a spill
-				graphNodeIR node = NULL;
-				if (isWrite) {
-					node = IRCreateSpill(&dummy.var);
-				}
-				if (isRead) {
-					__auto_type load = IRCreateLoad(&dummy.var);
-					if (node)
-						graphNodeIRConnect(node, load, IR_CONN_FLOW);
-
-					node = load;
-				}
-
-				// Neither?
-				if (!isWrite && !isRead)
-					continue;
-
+					__auto_type node=IRCreateSpillLoad(&value->val.value.var);
 				replaceNodeWithExpr(allNodes[i], IREndOfExpr(node));
 			}
 		}
@@ -1027,11 +950,7 @@ void IRAttrVariableRemoveAllNodes(graphNodeIR node) {
 }
 static int isAssignedLiveVarOrLoad(graphNodeIR start, const void *live) {
 	// Check if load of live variable
-	if (graphNodeIRValuePtr(start)->type == IR_LOAD) {
-		struct IRNodeLoad *load = (void *)graphNodeIRValuePtr(start);
-		strVar liveVars = (void *)live;
-		return NULL != strVarSortedFind(liveVars, &load->item.value.var, IRVarCmp2);
-	} else if (graphNodeIRValuePtr(start)->type == IR_SPILL) {
+if (graphNodeIRValuePtr(start)->type == IR_SPILL_LOAD) {
 		struct IRNodeSpill *spill = (void *)graphNodeIRValuePtr(start);
 		strVar liveVars = (void *)live;
 		return NULL !=
@@ -1050,10 +969,6 @@ static int isAssignedLiveVarOrLoad(graphNodeIR start, const void *live) {
 	}
 
 	return 0;
-}
-static int isNotLMappedLoadNode(const void *data, const graphNodeMapping *mapping) {
-	return graphNodeIRValuePtr(*graphNodeMappingValuePtr(*mapping))->type !=
-	       IR_LOAD;
 }
 static int isAssignRegMappedNode(const void *data, const graphNodeMapping *mapping) {
 		strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(*graphNodeMappingValuePtr((graphNodeMapping)*mapping));
@@ -1090,48 +1005,6 @@ struct rematerialization {
 	graphNodeIR clone;
 	strRegSlice registers;
 };
-static int infectUntilReg(graphNodeIR node, strGraphNodeP *regs,
-                           strGraphNodeIRP *visited) {
-	if (NULL== strGraphNodeIRPSortedFind(*visited, node, (gnCmpType)ptrPtrCmp)) {
-		*visited =
-		    strGraphNodeIRPSortedInsert(*visited, node, (gnCmpType)ptrPtrCmp);
-	} else
-		return 0; // Already visited
-
-	//Ensure isn't a simd  operation or function call
-	__auto_type type=graphNodeIRValuePtr(node)->type;
-	if(type==IR_FUNC_CALL||type==IR_SIMD||type==IR_LOAD)
-			return 0;
-	
-	struct IRNodeValue *val = (void *)graphNodeIRValuePtr(node);
-	if (val->base.type == IR_VALUE) {
-		if (val->val.type == IR_VAL_REG) {
-				//Ignore quit register if first node
-				if(strGraphNodeIRPSize(*visited)!=1) {
-						*regs = strGraphNodeIRPSortedInsert(*regs, node, (gnCmpType)ptrPtrCmp);
-						return 1;
-				}
-		}
-	}
-
-	strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) =
-	    graphNodeIRIncoming(node);
-	for (long i = 0; i != strGraphEdgeIRPSize(incoming); i++) {
-			__auto_type type=*graphEdgeIRValuePtr(incoming[i]);
-			if(!IRIsExprEdge(type))
-					continue;
-
-			//Only want destination if first node
-			if(type==IR_CONN_DEST)
-					if(strGraphNodeIRPSize(*visited)!=1)
-							continue;
-			
-			if(!infectUntilReg(graphEdgeIRIncoming(incoming[i]), regs, visited))
-					return 0;
-	}
-
-	return 1;
-}
 static void addToNodes(struct __graphNode *node, void *data) {
 	strGraphNodeIRP *Data = (void *)data;
 	*Data = strGraphNodeIRPSortedInsert(*Data, node, (gnCmpType)ptrPtrCmp);
@@ -1141,20 +1014,12 @@ static void ptrMapGraphNodeDestroy2(ptrMapGraphNode *node) {
 }
 static struct IRVar *getVar(graphNodeIR node) {
 		struct IRNode *irNode = (void *)graphNodeIRValuePtr(node);
-	if (irNode->type == IR_SPILL) {
+	if (irNode->type == IR_SPILL_LOAD) {
 		struct IRNodeSpill *spill = (void *)irNode;
 		if (spill->item.type != IR_VAL_VAR_REF)
 			return NULL;
 
 		return &spill->item.value.var;
-	} else if(irNode->type == IR_LOAD) {
-			struct IRNodeLoad *load = (void *)irNode;
-			if (load->item.type != IR_VAL_VAR_REF)
-					return NULL;
-			if (load->item.type != IR_VAL_VAR_REF)
-					return NULL;
-			
-			return &load->item.value.var;
 	} else if (irNode->type == IR_VALUE) {
 		struct IRNodeValue *value = (void *)irNode;
 		if (value->val.type == IR_VAL_VAR_REF) {
