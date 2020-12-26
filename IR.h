@@ -362,3 +362,4 @@ void IRInsertNodesBetweenExprs(graphNodeIR expr);
 void IRPrintMappedGraph(graphNodeMapping map);
 graphNodeIR IRCreatePtrRef(graphNodeIR ptr);
 void IRMarkPtrVars(graphNodeIR start);
+strGraphNodeIRP IRVarRefs(struct variable *var,long *SSANum);
