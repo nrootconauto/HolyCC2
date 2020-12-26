@@ -36,9 +36,12 @@ MAP_TYPE_DEF(struct IREvalVal, RegVal);
 MAP_TYPE_FUNCS(struct IREvalVal, RegVal);
 STR_TYPE_DEF(struct IREvalVal,IREvalVal);
 STR_TYPE_FUNCS(struct IREvalVal,IREvalVal);
+MAP_TYPE_DEF(struct IREvalVal, IREvalVal);
+MAP_TYPE_FUNCS(struct IREvalVal, IREvalVal);
+static __thread mapIREvalVal pointers;
 static __thread strIREvalVal currentFuncArgs=NULL;
-static mapRegVal registerValues = NULL;
-static llFrameItem frame = NULL;
+static __thread mapRegVal registerValues = NULL;
+static __thread llFrameItem frame = NULL;
 void IREvalInit() {
 	if (varVals)
 		mapVarValDestroy(varVals, NULL);
@@ -53,6 +56,7 @@ void IREvalInit() {
 }
 static struct IREvalVal dftValueType(enum IREvalValType type) {
 	struct IREvalVal retVal;
+	retVal.valueStoredAt=NULL;
 	retVal.type = type;
 	switch (type) {
 	case IREVAL_VAL_REG: {
@@ -69,12 +73,24 @@ static struct IREvalVal dftValueType(enum IREvalValType type) {
 		retVal.value.i = 0;
 		break;
 	case IREVAL_VAL_VAR:
-	case IREVAL_VAL_PTR:
-		retVal.value.ptr.type = IREVAL_VAL_INT;
-		retVal.value.ptr.value = 0;
+	case IREVAL_VAL_PTR:;
+			break;
+	case IREVAL_VAL_CLASS:
+			retVal.value.class=NULL;
 	}
 
 	return retVal;
+}
+static void IREvalValClone(struct IREvalVal *dst,const struct IREvalVal *src) {
+		if(src->type!=IREVAL_VAL_CLASS) {
+				*dst=*src;
+				return;
+		}
+		mapIREvalMembersClone(src->value.class, (void(*)(void *,const void *))IREvalValClone);
+}
+static void IREvalValAssign(struct IREvalVal *dst,const struct IREvalVal *src) {
+		IREvalValDestroy(dst);
+		IREvalValClone(dst,src);
 }
 static struct IREvalVal *arrayAccessHash(struct IREvalVal *array,
                                          struct IREvalVal *index,
@@ -224,14 +240,16 @@ struct IREvalVal IREValValIntCreate(long i) {
 	struct IREvalVal val;
 	val.type = IREVAL_VAL_INT;
 	val.value.i = i;
-
+	val.valueStoredAt=NULL;
+	
 	return val;
 }
 struct IREvalVal IREvalValFltCreate(double f) {
 	struct IREvalVal val;
 	val.type = IREVAL_VAL_FLT;
 	val.value.flt = f;
-
+	val.valueStoredAt=NULL;
+	
 	return val;
 }
 static struct IREvalVal maskInt2Width(struct IREvalVal input, int width,
@@ -381,7 +399,7 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 		case IR_VAL_VAR_REF: {
 			int success2 = 1;
 			if (assignedInto) {
-				*valueHash(value) = res;
+					IREvalValAssign(valueHash(value), &res);
 			}
 
 			if (!success2)
@@ -400,14 +418,12 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 			if (success)
 				*success = 1;
 			if (assignedInto)
-				*valueHash(value) = res;
+				IREvalValAssign(valueHash(value), &res);
 
 			return *valueHash(value);
 		}
-		case IR_VAL_FUNC:
-		default:
-			if (success)
-				*success = 0;
+				default:
+						goto fail;
 		}
 	}
 	case IR_ADD: {
@@ -415,23 +431,6 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 	}
 	case IR_SUB: {
 		BINOP_ARITH(-, success);
-	}
-	case IR_ASSIGN: {
-		__auto_type incoming = graphNodeIRIncomingNodes(node);
-		__auto_type outgoing = graphNodeIRIncomingNodes(node);
-		__auto_type left = graphNodeIRValuePtr(outgoing[0]);
-		assert(left->type == IR_VALUE);
-		struct IRNodeValue *val = (void *)left;
-
-		__auto_type value = IREvalNode(incoming[0], success);
-		__auto_type assignTo = valueHash(&val->val);
-		if (assignTo) {
-			*assignTo = value;
-			if (success)
-				*success = 1;
-		} else if (success)
-			*success = 0;
-		return value;
 	}
 	case IR_BAND: {
 		struct IREvalVal a, b;
@@ -712,8 +711,76 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 
 		return returnValue=IREvalNode(graphEdgeIRIncoming(incoming[0]), success);
 	}
-	default:
+	case IR_STATEMENT_START:
+	case IR_STATEMENT_END:
+	case IR_COND_JUMP:
+	case IR_JUMP_TAB:
+	case IR_LABEL:
+	case IR_FUNC_START:
+	case IR_FUNC_END:
+	case IR_SUB_SWITCH_START_LABEL:
 			goto fail;
+	case IR_ADDR_OF: {
+			strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) =
+		    graphNodeIRIncoming(node);
+			__auto_type value=IREvalNode(graphEdgeIRIncoming(incoming[0]),success);
+			struct IREvalVal retVal;
+			retVal.type=IREVAL_VAL_PTR;
+			retVal.value.ptr=value.valueStoredAt;
+			retVal.valueStoredAt=NULL;
+
+			return retVal;
+	}
+	case IR_DERREF: {
+			strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) =
+					graphNodeIRIncoming(node);
+			strGraphEdgeIRP inSource CLEANUP(strGraphEdgeIRPDestroy) =
+					IRGetConnsOfType(inSource, IR_CONN_SOURCE_A);
+			strGraphEdgeIRP inAssign CLEANUP(strGraphEdgeIRPDestroy) =
+					IRGetConnsOfType(inSource, IR_CONN_DEST);
+			
+			__auto_type source=IREvalNode(graphEdgeIRIncoming(inSource[0]),success);
+			if(source.valueStoredAt==NULL)
+					goto fail;
+			
+			if(strGraphEdgeIRPSize(inAssign)) {
+					__auto_type value=IREvalNode(graphEdgeIRIncoming(inAssign[0]),success);
+					IREvalValAssign(source.valueStoredAt, &value);
+			}
+
+			return *source.valueStoredAt;
+	}
+	case IR_MEMBERS: {
+			strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) =
+					graphNodeIRIncoming(node);
+			strGraphEdgeIRP inSource CLEANUP(strGraphEdgeIRPDestroy) =
+					IRGetConnsOfType(inSource, IR_CONN_SOURCE_A);
+			strGraphEdgeIRP inAssign CLEANUP(strGraphEdgeIRPDestroy) =
+					IRGetConnsOfType(inSource, IR_CONN_DEST);
+			int success2;
+			__auto_type source=IREvalNode(graphEdgeIRIncoming(inSource[0]),&success2);
+			if(!success2) goto fail;
+			struct IRNodeMembers *members=(void*)graphNodeIRValuePtr(node);
+			struct IREvalVal *member=&source;
+			for(long i=0;i!=strObjectMemberSize(members->members);i++) {
+					if(member->valueStoredAt==NULL)
+							goto fail;
+					if(member->type!=IREVAL_VAL_CLASS)
+							goto fail;
+					member=mapIREvalMembersGet(member->value.class, members->members[i].name);
+					if(member==NULL)
+							goto fail;
+			}
+			
+			if(strGraphEdgeIRPSize(inAssign)) {
+					int success2;
+					__auto_type value=IREvalNode(graphEdgeIRIncoming(inAssign[0]), &success2);
+					if(!success2) goto fail;
+					IREvalValAssign(source.valueStoredAt, &value);
+			}
+
+			return *member;
+	}
 	}
 fail:
 	*success = 0;
@@ -777,7 +844,7 @@ __IREvalPath(graphNodeIR start, struct IREvalVal *currentValue, int *success) {
 			}
 
 		if (currentValue->type == IREVAL_VAL_PTR) {
-			if (currentValue->value.ptr.value != 0)
+			if (currentValue->value.ptr != NULL)
 				goto trueBranch;
 			else
 				goto falseBranch;
@@ -916,4 +983,9 @@ findNext:;
 
 struct IREvalVal IREvalPath(graphNodeIR start, int *success) {
 	return __IREvalPath(start, NULL, success);
+}
+void IREvalValDestroy(struct IREvalVal *val) {
+		if(val->type==IREVAL_VAL_CLASS) {
+				mapIREvalMembersDestroy(val->value.class, (void(*)(void*))IREvalValDestroy);
+		}
 }

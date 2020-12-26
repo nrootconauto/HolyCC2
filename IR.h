@@ -70,6 +70,7 @@ enum IRNodeType {
 	IR_RSHIFT,
 	//
 	IR_ARRAY_ACCESS,
+	IR_ASSIGN,
 	//
 	IR_SIMD,
 	//
@@ -79,7 +80,6 @@ enum IRNodeType {
 	IR_LE,
 	IR_EQ,
 	IR_NE,
-	IR_ASSIGN,
 	//
 	IR_CHOOSE,
 	//
