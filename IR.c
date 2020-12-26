@@ -16,6 +16,7 @@ typedef int (*gnMapCmpType)(const graphNodeMapping *, const graphNodeMapping *);
 		ptr;                                                                       \
 	})
 #define GRAPHN_ALLOCATE(x) ({ __graphNodeCreate(&x, sizeof(x), 0); })
+static __thread ptrMapIRVarRefs IRVars;
 static int ptrCmp(const void *a, const void *b) {
 	if (a > b)
 		return 1;
@@ -139,7 +140,7 @@ graphNodeIR IRCreateStmtStart() {
 	struct IRNodeStatementStart start;
 	start.base.attrs = NULL;
 	start.base.type = IR_STATEMENT_START;
-	start.end = NULL;
+	start.end = NULL; 
 
 	return GRAPHN_ALLOCATE(start);
 }
@@ -159,14 +160,6 @@ struct variable *IRCreateVirtVar(struct object *type) {
 	var.type = type;
 	__auto_type alloced = ALLOCATE(var);
 
-	struct IRVarRefs refs;
-	refs.var.type = IR_VAR_VAR;
-	refs.var.value.var = alloced;
-	refs.refs = 0;
-
-	__auto_type ptrStr = ptr2Str(alloced);
-	mapIRVarRefsInsert(IRVars, ptrStr, refs);
-
 	return alloced;
 }
 graphNodeIR IRCreateTypecast(graphNodeIR in, struct object *inType,
@@ -182,17 +175,30 @@ graphNodeIR IRCreateTypecast(graphNodeIR in, struct object *inType,
 
 	return retVal;
 }
+static int isNotOfSSANum(const long *ssa,const graphNodeIR *node) {
+		struct IRNodeValue *val=(void*)graphNodeIRValuePtr((graphNodeIR)*node);
+		return val->val.value.var.SSANum!=*ssa;
+}
+strGraphNodeIRP IRVarRefs(struct variable *var,long *SSANum) {
+		__auto_type find = ptrMapIRVarRefsGet(IRVars, var);
+		if(!find)
+				return NULL;
+		strGraphNodeIRP clone=strGraphNodeIRPClone(find->refs);
+		if(!SSANum)
+				return clone;
+		return strGraphNodeIRPRemoveIf(clone, SSANum,  (int(*)(const void *,const graphNodeIR*))isNotOfSSANum);
+}
 graphNodeIR IRCreateVarRef(struct variable *var) {
-	__auto_type ptrStr = ptr2Str(var);
 	loop:;
-	__auto_type find = mapIRVarRefsGet(IRVars, ptrStr);
+	__auto_type find = ptrMapIRVarRefsGet(IRVars, var);
 	if(!find) {
+			struct IRVar ref;
+			ref.SSANum=0;
+			ref.type=IR_VAR_VAR;
+			ref.value.var=var;
 			struct IRVarRefs refs;
-			refs.refs=1;
-			refs.var.SSANum=0;
-			refs.var.type=IR_VAR_VAR;
-			refs.var.value.var=var;
-			mapIRVarRefsInsert(IRVars, ptrStr, refs);
+			refs.refs=NULL;
+			ptrMapIRVarRefsAdd(IRVars, var, refs);
 			goto loop;
 	}
 	assert(find);
@@ -203,11 +209,13 @@ graphNodeIR IRCreateVarRef(struct variable *var) {
 	val.val.type = IR_VAL_VAR_REF;
 
 	val.val.value.var.addressedByPtr=0;
-	val.val.value.var.SSANum = find->refs;
+	val.val.value.var.SSANum = 0;
 	val.val.value.var.type = IR_VAR_VAR;
 	val.val.value.var.value.var = var;
 
-	return GRAPHN_ALLOCATE(val);
+	__auto_type alloced=GRAPHN_ALLOCATE(val);
+	find->refs=strGraphNodeIRPSortedInsert(find->refs, alloced, (gnIRCmpType)ptrCmp);
+	return alloced;
 }
 graphNodeIR IRCreateValueFromLabel(graphNodeIR lab) {
 	struct IRNodeValue val;
@@ -218,7 +226,6 @@ graphNodeIR IRCreateValueFromLabel(graphNodeIR lab) {
 
 	return GRAPHN_ALLOCATE(lab);
 }
-mapIRVarRefs IRVars;
 static int ptrPtrCmp(const void *a, const void *b) {
 	if (*(void **)a > *(void **)b)
 		return 1;
@@ -276,7 +283,7 @@ strGraphNodeP IRStatementNodes(const graphNodeIR stmtStart,
 
 	return allNodes;
 }
-void initIR() { IRVars = mapIRVarRefsCreate(); }
+void initIR() { IRVars = ptrMapIRVarRefsCreate(); }
 graphNodeIR createFuncStart(const struct function *func) {
 	struct IRNodeFuncStart start;
 	start.base.attrs = NULL;

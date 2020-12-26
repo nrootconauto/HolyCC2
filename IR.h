@@ -103,6 +103,8 @@ enum IRNodeType {
 	IR_SPILL_LOAD,
 	//
 	IR_MEMBERS,
+	//
+	IR_ARRAY,
 };
 struct IRNode;
 struct IRAttr {
@@ -298,12 +300,9 @@ graphNodeIR IRCreateVarRef(struct variable *var);
 graphNodeIR IRCreateValueFromLabel(graphNodeIR lab);
 struct variable *IRCreateVirtVar(struct object *type);
 struct IRVarRefs {
-	struct IRVar var;
-	long refs;
+		strGraphNodeIRP refs;
 };
-MAP_TYPE_DEF(struct IRVarRefs, IRVarRefs);
-MAP_TYPE_FUNCS(struct IRVarRefs, IRVarRefs);
-extern mapIRVarRefs IRVars;
+PTR_MAP_FUNCS(struct variable *, struct IRVarRefs, IRVarRefs);
 strGraphNodeP IRStatementNodes(graphNodeIR stmtStart, graphNodeIR stmtEnd);
 graphNodeIR IRCreateStmtEnd(graphNodeIR start);
 graphNodeIR IRCreateStmtStart();
