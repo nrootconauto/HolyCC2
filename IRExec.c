@@ -34,8 +34,6 @@ LL_TYPE_DEF(struct frameItem, FrameItem);
 LL_TYPE_FUNCS(struct frameItem, FrameItem);
 MAP_TYPE_DEF(struct IREvalVal, RegVal);
 MAP_TYPE_FUNCS(struct IREvalVal, RegVal);
-STR_TYPE_DEF(struct IREvalVal,IREvalVal);
-STR_TYPE_FUNCS(struct IREvalVal,IREvalVal);
 MAP_TYPE_DEF(struct IREvalVal, IREvalVal);
 MAP_TYPE_FUNCS(struct IREvalVal, IREvalVal);
 static __thread mapIREvalVal pointers;
@@ -59,6 +57,10 @@ static struct IREvalVal dftValueType(enum IREvalValType type) {
 	retVal.valueStoredAt=NULL;
 	retVal.type = type;
 	switch (type) {
+	case IREVAL_VAL_ARRAY: {
+			retVal.value.array=NULL;
+			break;
+	}
 	case IREVAL_VAL_REG: {
 		retVal.value.reg = &regX86EAX;
 		break;
@@ -91,6 +93,7 @@ static void IREvalValClone(struct IREvalVal *dst,const struct IREvalVal *src) {
 static void IREvalValAssign(struct IREvalVal *dst,const struct IREvalVal *src) {
 		IREvalValDestroy(dst);
 		IREvalValClone(dst,src);
+		dst->valueStoredAt=dst;
 }
 static struct IREvalVal *arrayAccessHash(struct IREvalVal *array,
                                          struct IREvalVal *index,
@@ -676,8 +679,12 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 		struct IREvalVal a, b;
 		if (!getBinopArgs(node, &a, &b))
 			goto fail;
-
-		return *arrayAccessHash(&a, &b, a.type);
+		if(a.type!=IREVAL_VAL_ARRAY||b.type==IREVAL_VAL_INT||b.value.i<0)
+				goto fail;
+		if(strIREvalValSize(a.value.array)>b.value.i)
+				goto fail;
+		IREvalValAssign(&a.value.array[b.value.i], &a);
+		return a.value.array[b.value.i];
 	}
 	case IR_SIMD:
 		goto fail;
@@ -987,5 +994,9 @@ struct IREvalVal IREvalPath(graphNodeIR start, int *success) {
 void IREvalValDestroy(struct IREvalVal *val) {
 		if(val->type==IREVAL_VAL_CLASS) {
 				mapIREvalMembersDestroy(val->value.class, (void(*)(void*))IREvalValDestroy);
+		} else if(val->type==IREVAL_VAL_ARRAY) {
+				for(long i=0;i!=strIREvalValSize(val->value.array);i++)
+						IREvalValDestroy(&val->value.array[i]);
+				strIREvalValDestroy(&val->value.array);
 		}
 }

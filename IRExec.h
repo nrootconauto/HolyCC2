@@ -6,22 +6,26 @@ enum IREvalValType {
 	IREVAL_VAL_DFT,
 	IREVAL_VAL_FLT,
 	IREVAL_VAL_VAR,
+	IREVAL_VAL_ARRAY,
 	IREVAL_VAL_REG,
 	IREVAL_VAL_CLASS,
 };
 MAP_TYPE_DEF(struct IREvalVal,IREvalMembers);
+STR_TYPE_DEF(struct IREvalVal,IREvalVal);
 struct IREvalVal {
 		enum IREvalValType type;
 		union {
-			double flt;
-			int64_t i;
-			struct reg *reg;
-			struct IREvalVal *ptr;
+				double flt;
+				int64_t i;
+				struct reg *reg;
+				struct IREvalVal *ptr;
 				mapIREvalMembers class;
+				strIREvalVal array;
 	} value;
 		struct IREvalVal *valueStoredAt;
 };
-MAP_TYPE_FUNCS(struct IREvalVal,IREvalMembers);;
+MAP_TYPE_FUNCS(struct IREvalVal,IREvalMembers);
+STR_TYPE_FUNCS(struct IREvalVal,IREvalVal);
 struct IREvalVal IREvalNode(graphNodeIR node, int *success);
 void IREvalSetVarVal(const struct variable *var, struct IREvalVal value);
 struct IREvalVal IREvalValFltCreate(double f);
