@@ -101,6 +101,8 @@ enum IRNodeType {
 	IR_DERREF,
 	//
 	IR_SPILL_LOAD,
+	//
+	IR_MEMBERS,
 };
 struct IRNode;
 struct IRAttr {
@@ -147,15 +149,16 @@ enum IRVarType {
 	IR_VAR_MEMBER,
 };
 struct IRVar {
-	enum IRVarType type;
-	union {
-		struct variable *var;
-			struct {
-					graphNodeIR base;
-					struct objectMember *mem;
-			} member;
-	} value;
-	long SSANum;
+		unsigned int addressedByPtr:1;
+		enum IRVarType type;
+		union {
+				struct variable *var;
+				struct {
+						graphNodeIR base;
+						struct objectMember *mem;
+				} member;
+		} value;
+		long SSANum;
 };
 struct IRValue {
 	enum IRValueType type;
@@ -212,6 +215,10 @@ struct IRNodeInc {
 	struct IRNode base;
 	long isSuffix;
 };
+struct IRNodeMembers {
+		struct IRNode base;
+		strObjectMember members;
+};
 struct IRNodeDec {
 	struct IRNode base;
 	long isSuffix;
@@ -224,6 +231,9 @@ struct IRNodeArrayAccess {
 };
 struct IRNodeLabel {
 	struct IRNode base;
+};
+struct IRNodePtrRef {
+		struct IRNode base;
 };
 struct IRNodeFuncCall {
 	struct IRNode base;
@@ -244,7 +254,6 @@ struct IRNodeJumpTable {
 struct IRNodeSubSwit {
 	struct IRNode base;
 		graphNodeIR startCode;
-		
 };
 struct IRNodeTypeCast {
 	struct IRNode base;
@@ -352,3 +361,5 @@ graphNodeIR IRCreateMemberAccess(graphNodeIR input,const char *name);
 void IRRemoveNeedlessLabels(graphNodeIR start) ;
 void IRInsertNodesBetweenExprs(graphNodeIR expr);
 void IRPrintMappedGraph(graphNodeMapping map);
+graphNodeIR IRCreatePtrRef(graphNodeIR ptr);
+void IRMarkPtrVars(graphNodeIR start);

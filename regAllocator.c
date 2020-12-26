@@ -261,6 +261,9 @@ static int getVarRefIndex(strVarRefs refs, graphNodeIR node) {
 	assert(0);
 	return -1;
 }
+//
+// Dont Alias variables that exist in memory
+//
 void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 	strVarRefs refs CLEANUP(strVarRefsDestroy) = NULL;
 	strAliasPair aliases CLEANUP(strAliasPairDestroy) = NULL;
@@ -270,11 +273,14 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 		if (!val)
 			continue;
 
+		// Find an existing reference to varaible in val
 		if (val->type == IR_VALUE) {
-			// Is a var,check for direct assign
 			if (((struct IRNodeValue *)val)->val.type == IR_VAL_VAR_REF) {
-			findVarLoop:;
-				strGraphNodeIRLiveP *find = NULL;
+					//If variable is addressed by pointer,dont coalasce
+					if(((struct IRNodeValue*)val)->val.value.var.addressedByPtr)
+							continue;
+					
+					strGraphNodeIRP *find = NULL;
 				// An an eqivalent variable in refs
 				for (long i2 = 0; i2 != strVarRefsSize(refs); i2++) {
 					for (long i3 = 0; i3 != strGraphNodeIRPSize(refs[i2]); i3++) {
@@ -570,15 +576,25 @@ static int filterIntVars(graphNodeIR node, const void *data) {
 	struct IRNodeValue *value = (void *)graphNodeIRValuePtr(node);
 	if (value->base.type != IR_VALUE)
 		return 0;
-
-	return IsInteger(IRValueGetType(&value->val));
+	if(value->val.type!=IR_VAL_VAR_REF)
+		return 0;
+	if(!IsInteger(IRValueGetType(&value->val)))
+			return 0;
+	if(value->val.value.var.addressedByPtr)
+			return 0;
+	return 1;
 }
 static int filterFloatVars(graphNodeIR node, const void *data) {
 	struct IRNodeValue *value = (void *)graphNodeIRValuePtr(node);
 	if (value->base.type != IR_VALUE)
 		return 0;
-
-	return isFloating(IRValueGetType(&value->val));
+	if(value->val.type!=IR_VAL_VAR_REF)
+		return 0;
+	if(!isFloating(IRValueGetType(&value->val)))
+			return 0;
+	if(value->val.value.var.addressedByPtr)
+			return 0;
+	return 1;
 }
 static int isVarNode(const struct IRNode *irNode) {
 	if (irNode->type == IR_VALUE) {
