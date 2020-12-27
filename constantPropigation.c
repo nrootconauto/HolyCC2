@@ -166,6 +166,18 @@ void IRConstPropigation(graphNodeIR start) {
 												if(value->val.type==IR_VAL_VAR_REF) {
 														if(0==IRVarCmp(newBlocks[i]->define[assign], &value->val.value.var)) {
 																assignNode=node;
+
+														assignLoop:;
+																struct var2Nodes dummy;
+																dummy.var=value->val.value.var;
+																dummy.users=NULL;
+																dummy.assign=NULL;
+																__auto_type find=strVar2NodeSortedFind(useAssoc, dummy, var2NodesCmp);
+																if(!find) {
+																		useAssoc=strVar2NodeSortedInsert(useAssoc, dummy, var2NodesCmp);
+																		goto assignLoop;
+																}
+																find->assign=assignNode;
 																break;
 														}
 												}
@@ -182,7 +194,7 @@ void IRConstPropigation(graphNodeIR start) {
 														if(0==IRVarCmp(newBlocks[i]->define[assign], &value->val.value.var)) {
 																continue;
 														}
-												assignLoop:;
+												useLoop:;
 														struct var2Nodes dummy;
 														dummy.var=value->val.value.var;
 														dummy.users=NULL;
@@ -190,7 +202,7 @@ void IRConstPropigation(graphNodeIR start) {
 														__auto_type find=strVar2NodeSortedFind(useAssoc, dummy, var2NodesCmp);
 														if(!find) {
 																useAssoc=strVar2NodeSortedInsert(useAssoc, dummy, var2NodesCmp);
-																goto assignLoop;
+																goto useLoop;
 														}
 														if(strGraphNodeIRPSortedFind(find->users,assignNode,(gnCmpType)ptrPtrCmp))
 																continue;
@@ -209,7 +221,7 @@ void IRConstPropigation(graphNodeIR start) {
 		
 		IREvalInit();
 		ptrMapIREvalValByGN nodeValues=ptrMapIREvalValByGNCreate();;
-		for(;;) {
+		for(;strIRVarSize(worklist);) {
 				strIRVar worklist2=NULL;
 				for(long i=0;i!=strIRVarSize(worklist);i++) {
 						struct var2Nodes dummy;
