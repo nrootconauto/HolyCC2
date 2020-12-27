@@ -33,3 +33,4 @@ struct IREvalVal IREValValIntCreate(long i);
 void IREvalInit();
 struct IREvalVal IREvalPath(graphNodeIR start, int *success);
 void IREvalValDestroy(struct IREvalVal *val);
+int IREvalValEqual(const struct IREvalVal *a,const struct IREvalVal *b);

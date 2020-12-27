@@ -43,7 +43,7 @@ list(APPEND sources "init.c")
 list(APPEND sources "IRFilter.c")
 list(APPEND sources "IRTypeInference.c")
 list(APPEND sources "basicBlocks.c")
-#list(APPEND sources "constantPropigation.c")
+list(APPEND sources "constantPropigation.c")
 
 set(tests "")
 list(APPEND tests "tests/tests.c")

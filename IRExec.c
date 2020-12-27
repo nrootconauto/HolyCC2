@@ -1000,3 +1000,51 @@ void IREvalValDestroy(struct IREvalVal *val) {
 				strIREvalValDestroy(&val->value.array);
 		}
 }
+int IREvalValEqual(const struct IREvalVal *a,const struct IREvalVal *b) {
+		if(a->type!=b->type)
+				return 0;
+		switch(a->type) {
+		case IREVAL_VAL_ARRAY: {
+				if(strIREvalValSize(a->value.array)!=strIREvalValSize(a->value.array))
+						return 0;
+				for(long i=0;i!=strIREvalValSize(a->value.array);i++)
+						if(!IREvalValEqual(&a->value.array[i],&b->value.array[i]))
+								return 0;
+				return 1;
+		}
+		case IREVAL_VAL_CLASS: {
+				long count;
+				mapIREvalMembersKeys(a->value.class, NULL, &count);
+				long bCount;
+				mapIREvalMembersKeys(a->value.class, NULL, &bCount);
+				if(count!=bCount)
+						return 0;
+				const char *keysA[count];
+				mapIREvalMembersKeys(a->value.class, keysA, NULL);
+				const char *keysB[count];
+				mapIREvalMembersKeys(b->value.class, keysB, NULL);
+				for(long i=0;i!=count;i++) {
+						__auto_type aFind=mapIREvalMembersGet(a->value.class, keysA[i]);
+						__auto_type bFind=mapIREvalMembersGet(b->value.class, keysA[i]);
+						if(!aFind||!bFind)
+								return 0;
+						if(!IREvalValEqual(aFind,bFind))
+								return 0;
+				}
+
+				return 1;
+		}
+		case IREVAL_VAL_DFT:
+				return 0;
+		case IREVAL_VAL_FLT:
+				return a->value.flt==b->value.flt;
+		case IREVAL_VAL_PTR:
+				return a->value.ptr==b->value.ptr;
+		case IREVAL_VAL_INT:
+				return a->value.i==b->value.i;
+		case IREVAL_VAL_REG: 
+				return a->value.reg==b->value.reg;
+		case IREVAL_VAL_VAR:
+				return 0; //Variables should reduce to values
+		}
+}

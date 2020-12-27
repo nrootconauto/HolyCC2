@@ -1575,3 +1575,11 @@ void IRMarkPtrVars(graphNodeIR start) {
 				}
 		}
 }
+graphNodeIR IRCreateFloat(double value) {
+		struct IRNodeValue nv;
+		nv.base.attrs=NULL;
+		nv.base.type=IR_VALUE;
+		nv.val.type=IR_VAL_FLT_LIT;
+		nv.val.value.fltLit=value;
+		return GRAPHN_ALLOCATE(nv);
+}

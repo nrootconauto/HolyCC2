@@ -129,6 +129,7 @@ enum IRValueType {
 	IR_VAL_FUNC,
 	IR_VAL_INT_LIT,
 	IR_VAL_STR_LIT,
+	IR_VAL_FLT_LIT,
 };
 struct IRValue;
 struct IRValOpResult {
@@ -174,6 +175,7 @@ struct IRValue {
 		struct IRValOpResult opRes;
 		struct function *func;
 		struct lexerInt intLit;
+			double fltLit;
 		const char *strLit;
 		graphNodeIR memLabel;
 	} value;
@@ -363,3 +365,4 @@ void IRPrintMappedGraph(graphNodeMapping map);
 graphNodeIR IRCreatePtrRef(graphNodeIR ptr);
 void IRMarkPtrVars(graphNodeIR start);
 strGraphNodeIRP IRVarRefs(struct variable *var,long *SSANum);
+graphNodeIR IRCreateFloat(double value);
