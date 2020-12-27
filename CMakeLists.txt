@@ -68,6 +68,7 @@ list(APPEND tests "tests/IRFilterTests.c")
 list(APPEND tests "tests/parse2IRTests.c")
 list(APPEND sources "tests/ptrMapTests.c")
 list(APPEND sources "tests/IRTypeInferenceTests.c")
+list(APPEND sources "tests/constantPropigation.c")
 add_executable(holycc2 ${sources} ${tests})
 
 

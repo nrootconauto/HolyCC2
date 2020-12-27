@@ -23,6 +23,7 @@ void init();
 void ptrMapTests();
 void parse2IRTests();
 void IRTypeInferenceTests();
+void constantPropigationTests();
 int main() {
 		init();
 		strTests();
@@ -48,5 +49,6 @@ int main() {
 		IRFilterTests();
 		parse2IRTests();
  IRTypeInferenceTests();
-		return 0;
+	constantPropigationTests();
+	return 0;
 }

@@ -120,18 +120,33 @@ static void replaceExprWithConstant(graphNodeIR node, struct IREvalVal value,str
 		graphReplaceWithNode(nodes, replaceWith, NULL, (void(*)(void *))IRNodeDestroy, sizeof(*graphEdgeIRValuePtr(NULL)));
 		*replaced=strGraphNodeIRPSetUnion(*replaced, nodes, (gnCmpType)ptrPtrCmp);
 }
+PTR_MAP_FUNCS(graphNodeMapping, graphNodeIR , Mapping2IR);
 void IRConstPropigation(graphNodeIR start) {
 		IRToSSA(start);
 		graphNodeMapping map=graphNodeCreateMapping(start, 1);
 		strGraphNodeMappingP allMappedNodes CLEANUP(strGraphNodeMappingPDestroy) = graphNodeMappingAllNodes(map);
 		strGraphNodeMappingP allMappedChooses CLEANUP(strGraphNodeMappingPDestroy)=strGraphNodeMappingPClone(allMappedNodes);
 		allMappedChooses=strGraphNodeMappingPRemoveIf(allMappedChooses, NULL, isNotMappedChoose);
+		//Mapped nodes will be replaced with metaNodes,so create a map of the mapping node's(pointer) to the graphNodeIR it represents
+		ptrMapMapping2IR mappingPtr2IR=ptrMapMapping2IRCreate();
+		for(long i=0;i!=strGraphNodeMappingPSize(allMappedNodes);i++) {
+				ptrMapMapping2IRAdd(mappingPtr2IR,allMappedNodes[i],*graphNodeMappingValuePtr(allMappedNodes[i]));
+		}
 		//Find basic blocks
 		ptrMapBlockMetaNode metaNodes=ptrMapBlockMetaNodeCreate();
 		strBasicBlock blocks=NULL;
 		strVar2Node useAssoc CLEANUP(strVar2NodeDestroy)=NULL;
 		for(;strGraphNodeMappingPSize(allMappedNodes);) {
-				__auto_type newBlocks=IRGetBasicBlocksFromExpr(start, metaNodes, allMappedChooses[0], NULL,NULL);
+				__auto_type node= *graphNodeMappingValuePtr(allMappedNodes[0]);
+				__auto_type stmtStart=IRStmtStart(node);
+				//Wont move upwards if not part of expression
+				if(stmtStart==node) {
+						strGraphNodeMappingP dummy CLEANUP(strGraphNodeMappingPDestroy)=strGraphNodeMappingPAppendItem(NULL, allMappedNodes[0]);
+						allMappedNodes=strGraphNodeMappingPSetDifference(allMappedNodes, dummy, (gnCmpType)ptrPtrCmp);
+						continue;
+				}
+				
+				__auto_type newBlocks=IRGetBasicBlocksFromExpr(start, metaNodes, allMappedNodes[0], NULL,NULL);
 				blocks=strBasicBlockConcat(blocks, newBlocks);
 				for(long i=0;i!=strBasicBlockSize(newBlocks);i++) {
 						allMappedNodes=strGraphNodeMappingPSetDifference(allMappedNodes, newBlocks[i]->nodes, (gnCmpType)ptrPtrCmp);
@@ -144,7 +159,7 @@ void IRConstPropigation(graphNodeIR start) {
 								//Find assign node
 								graphNodeIR assignNode;
 								for(long i2=0;i2!=strGraphNodeMappingPSize(newBlocks[i]->nodes);i2++) {
-										__auto_type node=*graphNodeMappingValuePtr(newBlocks[i]->nodes[i2]);
+										__auto_type node=*ptrMapMapping2IRGet(mappingPtr2IR,newBlocks[i]->nodes[i2]);
 										struct IRNode *ir=graphNodeIRValuePtr(node);
 										if(ir->type==IR_VALUE) {
 												struct IRNodeValue *value=(void*)ir;
@@ -158,7 +173,7 @@ void IRConstPropigation(graphNodeIR start) {
 								}
 									
 								for(long i2=0;i2!=strGraphNodeMappingPSize(newBlocks[i]->nodes);i2++) {
-										__auto_type node=*graphNodeMappingValuePtr(newBlocks[i]->nodes[i2]);
+										__auto_type node=*ptrMapMapping2IRGet(mappingPtr2IR,newBlocks[i]->nodes[i2]);
 										struct IRNode *ir=graphNodeIRValuePtr(node);
 										if(ir->type==IR_VALUE) {
 												struct IRNodeValue *value=(void*)ir;
@@ -252,4 +267,7 @@ void IRConstPropigation(graphNodeIR start) {
 		strGraphNodeIRP replaced CLEANUP(strGraphNodeIRPDestroy)=NULL;
 		for(long k=0;k!=size;k++)
 				 replaceExprWithConstant(keys[k], *ptrMapIREvalValByGNGet(nodeValues, keys[k]),&replaced);
+
+		ptrMapMapping2IRDestroy(mappingPtr2IR,NULL);
+		ptrMapIREvalValByGNDestroy(nodeValues,NULL);
 }
