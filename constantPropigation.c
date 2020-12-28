@@ -137,8 +137,8 @@ static void killBranchPath(graphEdgeIR path,strGraphNodeIRP *killedNodes) {
 		if(killedNodes)
 				*killedNodes=strGraphNodeIRPSetUnion(*killedNodes, toKill, (gnCmpType)ptrPtrCmp);
 }
-static void removeConstantCondBranches(graphNodeIR start,strIRVar consts) {
-		strGraphNodeIRP removedNodes CLEANUP(strGraphNodeIRPDestroy)=NULL;
+static void removeConstantCondBranches(graphNodeIR start,strIRVar consts,strGraphNodeIRP *removedNodes) {
+		strGraphNodeIRP removedNodes2 CLEANUP(strGraphNodeIRPDestroy)=NULL;
 		strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);
 		strGraphNodeIRP visitedNodes CLEANUP(strGraphNodeIRPDestroy)=NULL;
 	loop:
@@ -191,7 +191,7 @@ static void removeConstantCondBranches(graphNodeIR start,strIRVar consts) {
 								strGraphEdgeIRP oppositeBranch CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(outPaths, opposite);
 								assert(strGraphEdgeIRPSize(oppositeBranch)==1);
 								__auto_type connectTo=graphEdgeIROutgoing(oppositeBranch[0]);
-								killBranchPath(killPath,&removedNodes);
+								killBranchPath(killPath,&removedNodes2);
 								graphNodeIRKill(&allNodes[i], (void(*)(void*))IRNodeDestroy, NULL);
 								graphNodeIRConnect(condNode, connectTo, IR_CONN_FLOW);
 						}
@@ -227,7 +227,7 @@ static void removeConstantCondBranches(graphNodeIR start,strIRVar consts) {
 						strGraphEdgeIRP cases CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(out, IR_CONN_CASE);
 						for(long c=0;c!=strGraphEdgeIRPSize(cases);c++) {
 								if(graphEdgeIROutgoing(cases[c])!=choosenNode) {
-										killBranchPath(cases[c], &removedNodes);
+										killBranchPath(cases[c], &removedNodes2);
 										break;
 								}
 						}
@@ -236,11 +236,31 @@ static void removeConstantCondBranches(graphNodeIR start,strIRVar consts) {
 				continue;
 		removeFromQueue:
 				allNodes=strGraphNodeIRPSetDifference(allNodes, visitedNodes, (gnCmpType)ptrPtrCmp);
-				allNodes=strGraphNodeIRPSetDifference(allNodes, removedNodes, (gnCmpType)ptrPtrCmp);
+				allNodes=strGraphNodeIRPSetDifference(allNodes, removedNodes2, (gnCmpType)ptrPtrCmp);
 				goto loop;
 		}
+		if(removedNodes)
+				*removedNodes=strGraphNodeIRPClone(removedNodes2);
 }
-void IRConstPropigation(graphNodeIR start) {
+static int isChooseNode(graphNodeIR node,const void *data) {
+		return graphNodeIRValuePtr(node)->type==IR_CHOOSE;
+}
+static void removeSSANodes(graphNodeIR start) {
+		graphNodeMapping chooses=IRFilter(start,isChooseNode,NULL);
+		strGraphNodeMappingP allNodes CLEANUP(strGraphNodeMappingPDestroy) = graphNodeMappingAllNodes(chooses);
+		for(long i=0;i!=strGraphNodeMappingPSize(allNodes);i++) {
+				__auto_type ir=*graphNodeMappingValuePtr(allNodes[i]);
+				if(graphNodeIRValuePtr(ir)->type==IR_CHOOSE) {
+						struct IRNodeChoose *choose=(void*)graphNodeIRValuePtr(ir);
+						__auto_type first=choose->canidates[0];
+						struct IRNodeValue *fValue=(void*)graphNodeIRValuePtr(first);
+						strGraphNodeIRP dummy CLEANUP(strGraphNodeIRPDestroy)=strGraphNodeIRPAppendItem(NULL, ir);
+						graphReplaceWithNode(dummy, IRCreateVarRef(fValue->val.value.var.value.var), NULL,(void(*)(void*))IRNodeDestroy, sizeof(enum IRConnType)) ;
+				}
+		}
+}
+static void __IRConstPropigation(graphNodeIR start) {
+		removeSSANodes(start);
 		IRToSSA(start);
 		graphNodeMapping map=graphNodeCreateMapping(start, 1);
 		strGraphNodeMappingP allMappedNodes CLEANUP(strGraphNodeMappingPDestroy) = graphNodeMappingAllNodes(map);
@@ -416,4 +436,10 @@ void IRConstPropigation(graphNodeIR start) {
 		
 		ptrMapMapping2IRDestroy(mappingPtr2IR,NULL);
 		ptrMapIREvalValByGNDestroy(nodeValues,NULL);
+}
+void IRConstPropigation(graphNodeIR start) {
+		for(;;) {
+				strGraphNodeIRP removed CLEANUP(strGraphNodeIRPDestroy)=NULL;
+				__
+		}
 }
