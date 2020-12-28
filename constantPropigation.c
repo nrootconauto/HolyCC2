@@ -115,7 +115,7 @@ static void replaceExprWithConstant(graphNodeIR node, struct IREvalVal value,str
 		else
 				return;
 		
-		strGraphNodeIRP nodes CLEANUP(strGraphNodeIRPDestroy)=NULL;
+		strGraphNodeIRP nodes CLEANUP(strGraphNodeIRPDestroy)=strGraphNodeIRPAppendItem(NULL, node);
 		nodes=strGraphNodeIRPSetDifference(nodes, *replaced, (gnCmpType)ptrPtrCmp);
 		//Get list of expression nodes
 		graphNodeIRVisitBackward(node, &nodes, isEdgePred, appendToNodes);
@@ -345,7 +345,7 @@ static strVar2Node getUseDefines(graphNodeIR start) {
 																		useAssoc=strVar2NodeSortedInsert(useAssoc, dummy, var2NodesCmp);
 																		goto useLoop;
 																}
-																if(strVarSortedFind(find->uses,&value->val.value.var,IRVarCmp2))
+																if(!strVarSortedFind(find->uses,&value->val.value.var,IRVarCmp2))
 																		find->uses=strVarSortedInsert(find->uses,&value->val.value.var,IRVarCmp2);
 														}
 														//Add assignVar to usedBy
@@ -357,10 +357,10 @@ static strVar2Node getUseDefines(graphNodeIR start) {
 																__auto_type find=strVar2NodeSortedFind(useAssoc, dummy, var2NodesCmp);
 																if(!find) {
 																		useAssoc=strVar2NodeSortedInsert(useAssoc, dummy, var2NodesCmp);
-																		goto useLoop;
+																		goto useLoop2;
 																}
-																if(strVarSortedFind(find->usedBy,&assignVar->val.value.var,IRVarCmp2))
-																		find->uses=strVarSortedInsert(find->usedBy,&assignVar->val.value.var,IRVarCmp2);
+																if(!strVarSortedFind(find->usedBy,&assignVar->val.value.var,IRVarCmp2))
+																		find->usedBy=strVarSortedInsert(find->usedBy,&assignVar->val.value.var,IRVarCmp2);
 														}
 												}
 										}
@@ -374,7 +374,7 @@ static strVar2Node getUseDefines(graphNodeIR start) {
 }
 PTR_MAP_FUNCS(graphNodeMapping, int, Executable);
 PTR_MAP_FUNCS(graphNodeMapping, int, Const);
-static void IRConstPropigation(graphNodeIR start) {
+ void IRConstPropigation(graphNodeIR start) {
 		removeSSANodes(start);
 		IRToSSA(start);
 		strVar2Node useDefines=getUseDefines(start);
@@ -391,6 +391,8 @@ static void IRConstPropigation(graphNodeIR start) {
 		strGraphNodeIRP flowWorklistClone CLEANUP(strGraphNodeIRPDestroy)=NULL;
 		strGraphNodeIRP ssaWorlistClone CLEANUP(strGraphNodeIRPDestroy)=NULL;
 	loop:;
+		flowWorklistClone=NULL;
+		ssaWorlistClone=NULL;
 		for(;strGraphNodeIRPSize(flowWorklist)||strGraphNodeIRPSize(ssaWorklist);) {
 				if(strGraphNodeIRPSize(ssaWorklist)) {
 						graphNodeIR chooseNode;
@@ -474,7 +476,10 @@ static void IRConstPropigation(graphNodeIR start) {
 																__auto_type value=IREvalNode(exprNodes[i], &success);
 																if(!success) goto notAllUsed;
 																ptrMapIREvalValByGNAdd(values, exprNodes[i], value);
-																defined=strVarSortedFind(defined,&irValue->val.value.var, IRVarCmp2);
+																defined=strVarSortedInsert(defined,&irValue->val.value.var, IRVarCmp2);
+																//Remove and restart loop
+																memmove(&exprNodes[i],&exprNodes[i+1],sizeof(*exprNodes)*(strGraphNodeIRPSize(exprNodes)-i-1));
+																exprNodes=strGraphNodeIRPResize(exprNodes, strGraphNodeIRPSize(exprNodes)-1);
 																goto basicBlockLoop;
 																continue;
 														notAllUsed:;
@@ -483,6 +488,7 @@ static void IRConstPropigation(graphNodeIR start) {
 										}
 								}
 						}
+						flowNode=IREndOfExpr(flowNode);
 						strGraphEdgeIRP outgoing CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(flowNode);
 						strGraphEdgeIRP flow CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(outgoing, IR_CONN_FLOW);
 						if(strGraphEdgeIRPSize(outgoing)) {
@@ -565,7 +571,7 @@ static void IRConstPropigation(graphNodeIR start) {
 		ptrMapIREvalValByGNKeys(values, __toReplace);
 		strGraphNodeIRP toReplace CLEANUP(strGraphNodeIRPDestroy)=strGraphNodeIRPAppendData(NULL, __toReplace, count);
 	replaceLoop:
-		for(;;) {
+		for(;strGraphNodeIRPSize(toReplace);) {
 				__auto_type value=*ptrMapIREvalValByGNGet(values, toReplace[0]);
 				strGraphNodeIRP replaced CLEANUP(strGraphNodeIRPDestroy)=NULL;
 				replaceExprWithConstant(toReplace[0], value,  &replaced);

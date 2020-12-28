@@ -1362,7 +1362,14 @@ graphNodeIR IRCloneUpTo(graphNodeIR node, strGraphNodeIRP to,
 	return retVal;
 }
 graphNodeIR IREndOfExpr(graphNodeIR node) {
-	for (;;) {
+		if(graphNodeIRValuePtr(node)->type==IR_LABEL) {
+				strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(node);
+				//Labels can be used to start statements that have 2 or more operands
+				if(strGraphEdgeIRPSize(out)<2)
+						return node;
+				node=graphEdgeIROutgoing(out[0]);
+		}
+		for (;;) {
 	loop:;
 		strGraphEdgeIRP outgoing;
 		outgoing = graphNodeIROutgoing(node);
