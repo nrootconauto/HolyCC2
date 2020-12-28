@@ -130,25 +130,115 @@ static int untillMultipleFlowIn(const struct __graphNode *node,const struct __gr
 static void killBranchPath(graphEdgeIR path,strGraphNodeIRP *killedNodes) {
 		__auto_type inNode=graphEdgeIRIncoming(path);
 		__auto_type outNode=graphEdgeIROutgoing(path);
-		//Replace cond-jump with flow connection if removing a possible branch
-		if(graphNodeIRValuePtr(inNode)->type==IR_COND_JUMP) {
-				strGraphNodeIRP condNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRIncomingNodes(inNode);
-				assert(strGraphNodeIRPSize(condNodes)==1);
-				graphNodeIR condNode=condNodes[0];
-				__auto_type opposite=(*graphEdgeIRValuePtr(path)==IR_CONN_COND_TRUE)?IR_CONN_COND_FALSE:IR_CONN_COND_TRUE;
-				strGraphEdgeIRP outPaths CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(inNode);
-				strGraphEdgeIRP oppositeBranch CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(outPaths, opposite);
-				assert(strGraphEdgeIRPSize(oppositeBranch)==1);
-				__auto_type connectTo=graphEdgeIROutgoing(oppositeBranch[0]);
-				graphNodeIRKill(&inNode, (void(*)(void*))IRNodeDestroy, NULL);
-				graphNodeIRConnect(condNode, connectTo, IR_CONN_FLOW);
-		}
 		strGraphNodeIRP toKill CLEANUP(strGraphNodeIRPDestroy)=NULL;
 		graphNodeIRVisitForward(outNode,  toKill,untillMultipleFlowIn,  appendToNodes);
 		for(long i=0;i!=strGraphNodeIRPSize(toKill);i++)
 				graphNodeIRKill(&toKill[i], (void(*)(void*))IRNodeDestroy, NULL);
 		if(killedNodes)
 				*killedNodes=strGraphNodeIRPSetUnion(*killedNodes, toKill, (gnCmpType)ptrPtrCmp);
+}
+static void removeConstantCondBranches(graphNodeIR start,strIRVar consts) {
+		strGraphNodeIRP removedNodes CLEANUP(strGraphNodeIRPDestroy)=NULL;
+		strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);
+		strGraphNodeIRP visitedNodes CLEANUP(strGraphNodeIRPDestroy)=NULL;
+	loop:
+		for(long i=0;i!=strGraphNodeIRPSize(allNodes);i++) {
+				visitedNodes=strGraphNodeIRPSortedInsert(visitedNodes, allNodes[i], (gnCmpType)ptrPtrCmp);
+				__auto_type type=graphNodeIRValuePtr(allNodes[i])->type;
+				if(type==IR_COND_JUMP||type==IR_JUMP_TAB) {
+						//Ensure Condition is constant
+						strGraphNodeIRP in CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRIncomingNodes(allNodes[i]);
+						assert(strGraphNodeIRPSize(in)==1);
+						if(!nodeIsConst(in[0], consts)) continue;
+				}
+				if(type==IR_COND_JUMP) {
+						strGraphNodeIRP in CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRIncomingNodes(allNodes[i]);
+						assert(strGraphNodeIRPSize(in)==1);
+
+						int success;
+						__auto_type value=IREvalNode(in[0], &success);
+						if(!success) continue;
+						if(value.type==IREVAL_VAL_INT) {
+								if(value.value.i) goto condTrue; else goto condFalse;
+						} else if(value.type==IREVAL_VAL_FLT) {
+								if(value.value.flt) goto condTrue; else goto condFalse;
+						}  else if(value.type==IREVAL_VAL_PTR) {
+								if(value.value.ptr) goto condTrue; else goto condFalse;
+						} else
+								continue; //?
+						graphEdgeIR killPath;
+				condTrue: {
+								strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(allNodes[i]);
+								strGraphEdgeIRP False CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(out, IR_CONN_COND_FALSE);
+								//Kill false edge as will never reach it
+								killPath=False[0];
+								goto killOppositeBranch;
+						}
+				condFalse: {
+								strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(allNodes[i]);
+								strGraphEdgeIRP True CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(out, IR_CONN_COND_TRUE);
+								//Kill true edge as will never reach it
+								killPath=True[0];
+								goto killOppositeBranch;
+						}
+				killOppositeBranch: {
+								//Replace cond-jump with flow connection if removing a possible branch
+								strGraphNodeIRP condNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRIncomingNodes(allNodes[i]);
+								assert(strGraphNodeIRPSize(condNodes)==1);
+								graphNodeIR condNode=condNodes[0];
+								__auto_type opposite=(*graphEdgeIRValuePtr(killPath)==IR_CONN_COND_TRUE)?IR_CONN_COND_FALSE:IR_CONN_COND_TRUE;
+								strGraphEdgeIRP outPaths CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(allNodes[i]);
+								strGraphEdgeIRP oppositeBranch CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(outPaths, opposite);
+								assert(strGraphEdgeIRPSize(oppositeBranch)==1);
+								__auto_type connectTo=graphEdgeIROutgoing(oppositeBranch[0]);
+								killBranchPath(killPath,&removedNodes);
+								graphNodeIRKill(&allNodes[i], (void(*)(void*))IRNodeDestroy, NULL);
+								graphNodeIRConnect(condNode, connectTo, IR_CONN_FLOW);
+						}
+						goto removeFromQueue;
+				} else if(type==IR_JUMP_TAB) {
+						strGraphNodeIRP in CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRIncomingNodes(allNodes[i]);
+						assert(strGraphNodeIRPSize(in)==1);
+						if(!nodeIsConst(in[0], consts))
+								continue;
+						int success;
+						__auto_type value=IREvalNode(in[0], &success);
+						if(!success)
+								continue;
+						int64_t condValue;
+						if(value.type==IREVAL_VAL_INT)
+								condValue=value.value.i;
+						else if(value.type==IREVAL_VAL_FLT)
+								condValue=value.value.flt;
+						else
+								continue;
+
+						struct IRNodeJumpTable *table=(void*)graphNodeIRValuePtr(allNodes[i]);
+						strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(allNodes[i]);
+						strGraphEdgeIRP dft CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(out, IR_CONN_DFT);
+						assert(strGraphEdgeIRPSize(dft)==1);
+						graphNodeIR choosenNode=graphEdgeIROutgoing(dft[0]);
+						for(long c=0;c!=strIRTableRangeSize(table->labels);c++) {
+								if(table->labels[c].start<=condValue&&table->labels[c].end>condValue) {
+										choosenNode=table->labels[c].to;
+										break;
+								}
+						}
+						strGraphEdgeIRP cases CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(out, IR_CONN_CASE);
+						for(long c=0;c!=strGraphEdgeIRPSize(cases);c++) {
+								if(graphEdgeIROutgoing(cases[c])!=choosenNode) {
+										killBranchPath(cases[c], &removedNodes);
+										break;
+								}
+						}
+						goto removeFromQueue;
+				}
+				continue;
+		removeFromQueue:
+				allNodes=strGraphNodeIRPSetDifference(allNodes, visitedNodes, (gnCmpType)ptrPtrCmp);
+				allNodes=strGraphNodeIRPSetDifference(allNodes, removedNodes, (gnCmpType)ptrPtrCmp);
+				goto loop;
+		}
 }
 void IRConstPropigation(graphNodeIR start) {
 		IRToSSA(start);
@@ -287,7 +377,14 @@ void IRConstPropigation(graphNodeIR start) {
 												goto notConst;
 										}
 								}
-								//All are constant and equal
+								//All are constant,check if equal
+								struct IREvalVal first;
+								for(long c=0;c!=strGraphNodeIRPSize(choose->canidates);c++) {
+										if(c==0)
+												first=*ptrMapIREvalValByGNGet(nodeValues, choose->canidates[c]);
+										else if(!IREvalValEqual(&first, ptrMapIREvalValByGNGet(nodeValues, choose->canidates[c])))
+												goto notConst;
+								}
 								goto allConst;		
 						} else {
 								//Check expression at node is constant
