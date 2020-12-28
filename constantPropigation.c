@@ -58,7 +58,8 @@ STR_TYPE_DEF(struct IRVar *, IRVar);
 STR_TYPE_FUNCS(struct IRVar *, IRVar);
 struct var2Nodes {
 		struct IRVar var;
-		strVar used;
+		strVar uses;
+		strVar usedBy;
 		graphNodeIR assign;
 };
 STR_TYPE_DEF(struct var2Nodes,Var2Node);
@@ -308,8 +309,7 @@ static strVar2Node getUseDefines(graphNodeIR start) {
 														assignLoop:;
 																struct var2Nodes dummy;
 																dummy.var=value->val.value.var;
-																dummy.used=NULL;
-																dummy.assign=NULL;
+																dummy.uses=NULL,dummy.assign=NULL,dummy.usedBy=NULL;
 																__auto_type find=strVar2NodeSortedFind(useAssoc, dummy, var2NodesCmp);
 																if(!find) {
 																		useAssoc=strVar2NodeSortedInsert(useAssoc, dummy, var2NodesCmp);
@@ -332,20 +332,36 @@ static strVar2Node getUseDefines(graphNodeIR start) {
 														if(0==IRVarCmp(newBlocks[i]->define[assign], &value->val.value.var)) {
 																continue;
 														}
-												useLoop:;
+												
 														struct IRNodeValue *assignVar=(void*)graphNodeIRValuePtr(assignNode);
-														struct var2Nodes dummy;
-														dummy.var=assignVar->val.value.var;
-														dummy.used=NULL;
-														dummy.assign=NULL;
-														__auto_type find=strVar2NodeSortedFind(useAssoc, dummy, var2NodesCmp);
-														if(!find) {
-																useAssoc=strVar2NodeSortedInsert(useAssoc, dummy, var2NodesCmp);
-																goto useLoop;
+														//Adde value to uses
+														{
+																useLoop:;
+																struct var2Nodes dummy;
+																dummy.var=assignVar->val.value.var;
+																dummy.uses=NULL,dummy.assign=NULL,dummy.usedBy=NULL;
+																__auto_type find=strVar2NodeSortedFind(useAssoc, dummy, var2NodesCmp);
+																if(!find) {
+																		useAssoc=strVar2NodeSortedInsert(useAssoc, dummy, var2NodesCmp);
+																		goto useLoop;
+																}
+																if(strVarSortedFind(find->uses,&value->val.value.var,IRVarCmp2))
+																		find->uses=strVarSortedInsert(find->uses,&value->val.value.var,IRVarCmp2);
 														}
-														if(strVarSortedFind(find->used,&value->val.value.var,IRVarCmp2))
-																continue;
-														find->used=strVarSortedInsert(find->used,&value->val.value.var,IRVarCmp2);
+														//Add assignVar to usedBy
+														{
+														useLoop2:;
+																struct var2Nodes dummy;
+																dummy.var=value->val.value.var;
+																dummy.uses=NULL,dummy.assign=NULL,dummy.usedBy=NULL;
+																__auto_type find=strVar2NodeSortedFind(useAssoc, dummy, var2NodesCmp);
+																if(!find) {
+																		useAssoc=strVar2NodeSortedInsert(useAssoc, dummy, var2NodesCmp);
+																		goto useLoop;
+																}
+																if(strVarSortedFind(find->usedBy,&assignVar->val.value.var,IRVarCmp2))
+																		find->uses=strVarSortedInsert(find->usedBy,&assignVar->val.value.var,IRVarCmp2);
+														}
 												}
 										}
 								}
@@ -358,7 +374,7 @@ static strVar2Node getUseDefines(graphNodeIR start) {
 }
 PTR_MAP_FUNCS(graphNodeMapping, int, Executable);
 PTR_MAP_FUNCS(graphNodeMapping, int, Const);
-static void sccp(graphNodeIR start) {
+static void IRConstPropigation(graphNodeIR start) {
 		removeSSANodes(start);
 		IRToSSA(start);
 		strVar2Node useDefines=getUseDefines(start);
@@ -379,7 +395,14 @@ static void sccp(graphNodeIR start) {
 				if(strGraphNodeIRPSize(ssaWorklist)) {
 						graphNodeIR chooseNode;
 						ssaWorklist=strGraphNodeIRPPop(ssaWorklist, &chooseNode);
-
+						//Add outgoing flow(if any) to flowWorklistClone
+						strGraphEdgeIRP outFlow CLEANUP(strGraphEdgeIRPDestroy) =graphNodeIROutgoing(IREndOfExpr(chooseNode));
+						if(strGraphEdgeIRPSize(outFlow)) {
+								assert(strGraphEdgeIRPSize(outFlow)==1);
+								if(!strGraphNodeIRPSortedFind(flowWorklistClone, graphEdgeIROutgoing(outFlow[0]), (gnCmpType)ptrPtrCmp))
+										flowWorklistClone=strGraphNodeIRPSortedInsert(flowWorklistClone, graphEdgeIROutgoing(outFlow[0]), (gnCmpType)ptrPtrCmp);
+						}
+						
 						struct IRNodeChoose *choose=(void*)graphNodeIRValuePtr(chooseNode);
 						struct IREvalVal currentValue;
 						int firstValue=1;
@@ -427,14 +450,14 @@ static void sccp(graphNodeIR start) {
 						flowWorklist=strGraphNodeIRPPop(flowWorklist, &flowNode);
 						if(IREndOfExpr(flowNode)!=flowNode) {
 								strGraphNodeIRP exprNodes CLEANUP(strGraphNodeIRPDestroy)=IRStmtNodes(IREndOfExpr(flowNode));
+						basicBlockLoop:
 								for(long i=0;i!=strGraphNodeIRPSize(exprNodes);i++) {
 										struct IRNodeValue *irValue=(void*)graphNodeIRValuePtr(exprNodes[i]);
 										if(irValue->base.type==IR_VALUE) {
 												if(irValue->val.type==IR_VAL_VAR_REF) {
 														struct var2Nodes dummy;
 														dummy.var=irValue->val.value.var;
-														dummy.used=NULL;
-														dummy.assign=NULL;
+														dummy.uses=NULL,dummy.assign=NULL,dummy.usedBy=NULL;
 														__auto_type find=strVar2NodeSortedFind(useDefines, dummy, var2NodesCmp);
 														if(find) {
 																//Mark as executed
@@ -442,8 +465,8 @@ static void sccp(graphNodeIR start) {
 																		ptrMapExecutableAdd(exec, exprNodes[i], 1);
 																
 																//Ensure all used are defined
-																for(long i=0;i!=strVarSize(find->used);i++) {
-																		if(NULL==strVarSortedFind(defined, find->used[i], IRVarCmp2)) {
+																for(long i=0;i!=strVarSize(find->uses);i++) {
+																		if(NULL==strVarSortedFind(defined, find->uses[i], IRVarCmp2)) {
 																				goto notAllUsed;
 																		}
 																}
@@ -452,6 +475,7 @@ static void sccp(graphNodeIR start) {
 																if(!success) goto notAllUsed;
 																ptrMapIREvalValByGNAdd(values, exprNodes[i], value);
 																defined=strVarSortedFind(defined,&irValue->val.value.var, IRVarCmp2);
+																goto basicBlockLoop;
 																continue;
 														notAllUsed:;
 														}
@@ -536,5 +560,17 @@ static void sccp(graphNodeIR start) {
 		if(strGraphNodeIRPSize(ssaWorklist)||strGraphNodeIRPSize(flowWorklist))
 				goto loop;
 
+		long count=ptrMapIREvalValByGNSize(values);
+		graphNodeIR __toReplace[count];
+		ptrMapIREvalValByGNKeys(values, __toReplace);
+		strGraphNodeIRP toReplace CLEANUP(strGraphNodeIRPDestroy)=strGraphNodeIRPAppendData(NULL, __toReplace, count);
+	replaceLoop:
+		for(;;) {
+				__auto_type value=*ptrMapIREvalValByGNGet(values, toReplace[0]);
+				strGraphNodeIRP replaced CLEANUP(strGraphNodeIRPDestroy)=NULL;
+				replaceExprWithConstant(toReplace[0], value,  &replaced);
+				toReplace=strGraphNodeIRPSetDifference(toReplace, replaced, (gnCmpType)ptrPtrCmp);
+		}
 		
+		ptrMapIREvalValByGNDestroy(values, (void(*)(void*))IREvalValDestroy);
 }
