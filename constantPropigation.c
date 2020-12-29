@@ -123,7 +123,7 @@ static void replaceExprWithConstant(graphNodeIR node, struct IREvalVal value,str
 		else
 				return;
 		
-		strGraphNodeIRP nodes CLEANUP(strGraphNodeIRPDestroy)=NULL;
+		strGraphNodeIRP nodes CLEANUP(strGraphNodeIRPDestroy)=strGraphNodeIRPAppendItem(NULL, node);
 		nodes=strGraphNodeIRPSetDifference(nodes, *replaced, (gnCmpType)ptrPtrCmp);
 		//Get list of expression nodes
 		graphNodeIRVisitBackward(node, &nodes, isEdgePred, appendToNodes);
@@ -262,11 +262,7 @@ static void removeSSANodes(graphNodeIR start) {
 		for(long i=0;i!=strGraphNodeMappingPSize(allNodes);i++) {
 				__auto_type ir=*graphNodeMappingValuePtr(allNodes[i]);
 				if(graphNodeIRValuePtr(ir)->type==IR_CHOOSE) {
-						struct IRNodeChoose *choose=(void*)graphNodeIRValuePtr(ir);
-						__auto_type first=choose->canidates[0];
-						struct IRNodeValue *fValue=(void*)graphNodeIRValuePtr(first);
-						strGraphNodeIRP dummy CLEANUP(strGraphNodeIRPDestroy)=strGraphNodeIRPAppendItem(NULL, ir);
-						graphReplaceWithNode(dummy, IRCreateVarRef(fValue->val.value.var.value.var), NULL,(void(*)(void*))IRNodeDestroy, sizeof(enum IRConnType)) ;
+						__filterTransparentKill(ir);
 				}
 		}
 }
@@ -459,6 +455,12 @@ static strIRVar  __IRConstPropigation(graphNodeIR start,strIRVar consts) {
 						for(long u=0;u!=strVarSize(find->users);u++) {
 								if(NULL==strIRVarSortedFind(worklist2, *find->users[u], IRVarCmp))
 										worklist2=strIRVarSortedInsert(worklist2, *find->users[u], IRVarCmp);
+						}
+
+						//Replace all occurances of assigned var with value
+						strGraphNodeIRP  refs CLEANUP(strGraphNodeIRPDestroy)=IRVarRefs(find->var.value.var, &find->var.SSANum);
+						for(long i=0;i!=strGraphNodeIRPSize(refs);i++) {
+								replaceExprWithConstant(refs[i], *ptrMapIREvalValByGNGet(nodeValues, find->assign),&toKillItems);
 						}
 				}
 				strIRVarDestroy(&worklist);

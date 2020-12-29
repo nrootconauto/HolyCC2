@@ -1393,14 +1393,6 @@ graphNodeIR IREndOfExpr(graphNodeIR node) {
 		return node;
 	}
 }
-void IRNodeDestroy(struct IRNode *node) {
-		for(__auto_type attr=llIRAttrFirst(node->attrs);attr!=NULL;attr=llIRAttrNext(attr)) {
-				__auto_type attrValue=llIRAttrValuePtr(attr);
-				if(attrValue->destroy) {
-						attrValue->destroy(attrValue);
-				}
-		}
-}
 int IRIsOperator(graphNodeIR node) {
 		switch(graphNodeIRValuePtr(node)->type) {
 		case IR_ADD:
@@ -1609,4 +1601,26 @@ void IRAttrReplace(graphNodeIR node,llIRAttr attribute) {
 
 		llIRAttrInsert(graphNodeIRValuePtr(node)->attrs, attribute, IRAttrInsertPred);
 		graphNodeIRValuePtr(node)->attrs=attribute;
+}
+void IRNodeDestroy(struct IRNode *node) {
+		for(__auto_type attr=llIRAttrFirst(node->attrs);attr!=NULL;attr=llIRAttrNext(attr)) {
+				__auto_type attrValue=llIRAttrValuePtr(attr);
+				if(attrValue->destroy) {
+						attrValue->destroy(attrValue);
+				}
+		}
+		if(node->type==IR_VALUE) {
+				struct IRNodeValue *valueNode=(void*)node;
+				if(valueNode->val.type==IR_VAL_VAR_REF) {
+						__auto_type find=ptrMapIRVarRefsGet(IRVars, valueNode->val.value.var.value.var);
+						assert(find);
+						for(long i=0;i!=strGraphNodeIRPSize(find->refs);i++) {
+								if(graphNodeIRValuePtr(find->refs[i])==node) {
+										memmove(&find->refs[i], &find->refs[i+1], (strGraphNodeIRPSize(find->refs)-i-1)*sizeof(find->refs[i]));
+										find->refs=strGraphNodeIRPPop(find->refs, NULL); //Decrease size by 1
+										break;
+								}
+						}
+				}
+		}
 }
