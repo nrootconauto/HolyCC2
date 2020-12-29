@@ -141,7 +141,7 @@ static __thread strGraphNodeIRP toKillItems=NULL;
 static void markPathForDestroy(graphEdgeIR path,int destroy) {
 		__auto_type inNode=graphEdgeIRIncoming(path);
 		__auto_type outNode=graphEdgeIROutgoing(path);
-		strGraphNodeIRP toKill CLEANUP(strGraphNodeIRPDestroy)=NULL;
+		strGraphNodeIRP toKill CLEANUP(strGraphNodeIRPDestroy)=strGraphNodeIRPAppendItem(NULL, outNode);
 		graphNodeIRVisitForward(outNode,  &toKill,untillMultipleFlowIn,  appendToNodes);
 		if(destroy)
 				for(long i=0;i!=strGraphNodeIRPSize(toKill);i++)
