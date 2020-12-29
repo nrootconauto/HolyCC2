@@ -874,24 +874,24 @@ __IREvalPath(graphNodeIR start, struct IREvalVal *currentValue, int *success) {
 		__auto_type truePath = IRGetConnsOfType(outgoing, IR_CONN_COND_TRUE);
 
 		int success2;
-		__IREvalPath(graphEdgeIROutgoing(truePath[0]), NULL, &success2);
+__auto_type retVal=	__IREvalPath(graphEdgeIROutgoing(truePath[0]), NULL, &success2);
 
 		if (!success2)
 			goto fail;
 
-		return dftValueType(IREVAL_VAL_INT);
+		return retVal;
 	}
 	falseBranch : {
 		__auto_type outgoing = graphNodeIROutgoing(start);
 		__auto_type falsePath = IRGetConnsOfType(outgoing, IR_CONN_COND_FALSE);
 
 		int success2;
-		__IREvalPath(graphEdgeIROutgoing(falsePath[0]), NULL, &success2);
+		__auto_type retVal= __IREvalPath(graphEdgeIROutgoing(falsePath[0]), NULL, &success2);
 
 		if (!success2)
 			goto fail;
 
-		return dftValueType(IREVAL_VAL_INT);
+		return retVal;
 	}
 	}
 	case IR_VALUE: {

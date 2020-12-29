@@ -85,8 +85,13 @@ void constantPropigationTests() {
 						__auto_type assign= IRCreateAssign(IRCreateVarRef(c), IRCreateVarRef(d));
 						graphNodeIRConnect(current, IRStmtStart(assign), IR_CONN_FLOW);
 				}
-
-				__auto_type map= graphNodeCreateMapping(start, 1);
-				IRPrintMappedGraph(map);
+				int success;
+				__auto_type value= IREvalPath(start, &success);
+				assert(value.type==IREVAL_VAL_INT);
+				assert(value.value.i==4);
+				IRConstPropigation(start);
+				value=IREvalPath(start, &success);
+				assert(value.type==IREVAL_VAL_INT);
+				assert(value.value.i==4);
 		}
 }

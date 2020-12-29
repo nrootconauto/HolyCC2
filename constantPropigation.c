@@ -20,7 +20,7 @@ static int ptrPtrCmp(const void *a, const void *b) {
 	else
 		return 0;
 }
-
+PTR_MAP_FUNCS(graphNodeIR ,struct IREvalVal, IREvalValByGN);
 PTR_MAP_FUNCS(graphNodeMapping, enum IRIsConst, IRIsConst);
 static int isNotMappedChoose(const void *data,const graphNodeMapping *node) {
 		__auto_type irNode=graphNodeMappingValuePtr(*node);
@@ -57,7 +57,7 @@ LL_TYPE_FUNCS(graphNodeIR,GNIR);
 STR_TYPE_DEF(struct IRVar *, IRVar);
 STR_TYPE_FUNCS(struct IRVar *, IRVar);
 struct var2Nodes {
-		struct IRVar var;
+		struct IRVar *var;
 		strVar users;
 		graphNodeIR assign;
 };
@@ -65,7 +65,7 @@ STR_TYPE_DEF(struct var2Nodes,Var2Node);
 STR_TYPE_FUNCS(struct var2Nodes,Var2Node);
 PTR_MAP_FUNCS(graphNodeIR, enum IRIsConst, GNIsConst);
 static int var2NodesCmp(const struct var2Nodes *a,const struct var2Nodes *b) {
-		return IRVarCmp(&a->var, &b->var);
+		return IRVarCmp(a->var, b->var);
 }
 static int isEdgePred(const struct __graphNode *node,const struct __graphEdge *edge,const void *data) {
 		return IRIsExprEdge(*graphEdgeIRValuePtr((graphEdgeIR)edge));
@@ -92,15 +92,24 @@ static void isConstVisit(struct __graphNode *node,struct isConstPair *data) {
 				//A non-value in expression!?!?
 		}
 }
-static int nodeIsConst(graphNodeIR node,strIRVar consts) {
+static int nodeIsConst(graphNodeIR node,strIRVar consts,ptrMapIREvalValByGN values) {
 		graphNodeIR irNode=node;
 		struct isConstPair pair;
 		pair.isConst=1;
 		pair.consts=consts;
 		graphNodeIRVisitBackward(irNode, &pair, isEdgePred, (void(*)(struct __graphNode*,void*))isConstVisit);
+		if(pair.isConst) {
+				if(ptrMapIREvalValByGNGet(values, node))
+						return 1;
+				
+				int success;
+				__auto_type value=IREvalNode(node, &success);
+				if(!success)
+						return 0;
+				ptrMapIREvalValByGNAdd(values, node, value);
+		}
 		return pair.isConst;
 }
-PTR_MAP_FUNCS(graphNodeIR ,struct IREvalVal, IREvalValByGN);
 static void appendToNodes(struct __graphNode *node,void *nodes) {
 		strGraphNodeIRP *nodes2=nodes;
 		*nodes2=strGraphNodeIRPSortedInsert(*nodes2, node, (gnCmpType)ptrPtrCmp);
@@ -126,18 +135,20 @@ static int untillMultipleFlowIn(const struct __graphNode *node,const struct __gr
 		strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming((graphNodeIR)node);
 		strGraphEdgeIRP inFlow CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(incoming, IR_CONN_FLOW);
 		return 2>strGraphEdgeIRPSize(inFlow);
-} 
-static void killBranchPath(graphEdgeIR path,strGraphNodeIRP *killedNodes) {
+}
+static __thread ptrMapIREvalValByGN  nodeValues=NULL;
+static __thread strGraphNodeIRP toKillItems=NULL;
+static void markPathForDestroy(graphEdgeIR path,int destroy) {
 		__auto_type inNode=graphEdgeIRIncoming(path);
 		__auto_type outNode=graphEdgeIROutgoing(path);
 		strGraphNodeIRP toKill CLEANUP(strGraphNodeIRPDestroy)=NULL;
-		graphNodeIRVisitForward(outNode,  toKill,untillMultipleFlowIn,  appendToNodes);
-		for(long i=0;i!=strGraphNodeIRPSize(toKill);i++)
-				graphNodeIRKill(&toKill[i], (void(*)(void*))IRNodeDestroy, NULL);
-		if(killedNodes)
-				*killedNodes=strGraphNodeIRPSetUnion(*killedNodes, toKill, (gnCmpType)ptrPtrCmp);
+		graphNodeIRVisitForward(outNode,  &toKill,untillMultipleFlowIn,  appendToNodes);
+		if(destroy)
+				for(long i=0;i!=strGraphNodeIRPSize(toKill);i++)
+						graphNodeIRKill(&toKill[i], (void(*)(void*))IRNodeDestroy, NULL);
+		toKillItems=strGraphNodeIRPSetUnion(toKillItems, toKill, (gnCmpType)ptrPtrCmp);
 }
-static void removeConstantCondBranches(graphNodeIR start,strIRVar consts,strGraphNodeIRP *removedNodes) {
+static void removeConstantCondBranches(graphNodeIR start,strIRVar consts,int destroy) {
 		strGraphNodeIRP removedNodes2 CLEANUP(strGraphNodeIRPDestroy)=NULL;
 		strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);
 		strGraphNodeIRP visitedNodes CLEANUP(strGraphNodeIRPDestroy)=NULL;
@@ -149,7 +160,7 @@ static void removeConstantCondBranches(graphNodeIR start,strIRVar consts,strGrap
 						//Ensure Condition is constant
 						strGraphNodeIRP in CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRIncomingNodes(allNodes[i]);
 						assert(strGraphNodeIRPSize(in)==1);
-						if(!nodeIsConst(in[0], consts)) continue;
+						if(!nodeIsConst(in[0], consts,nodeValues)) continue;
 				}
 				if(type==IR_COND_JUMP) {
 						strGraphNodeIRP in CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRIncomingNodes(allNodes[i]);
@@ -190,16 +201,18 @@ static void removeConstantCondBranches(graphNodeIR start,strIRVar consts,strGrap
 								strGraphEdgeIRP outPaths CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(allNodes[i]);
 								strGraphEdgeIRP oppositeBranch CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(outPaths, opposite);
 								assert(strGraphEdgeIRPSize(oppositeBranch)==1);
-								__auto_type connectTo=graphEdgeIROutgoing(oppositeBranch[0]);
-								killBranchPath(killPath,&removedNodes2);
-								graphNodeIRKill(&allNodes[i], (void(*)(void*))IRNodeDestroy, NULL);
-								graphNodeIRConnect(condNode, connectTo, IR_CONN_FLOW);
+								markPathForDestroy(killPath,destroy);
+								if(destroy) {
+										__auto_type connectTo=graphEdgeIROutgoing(oppositeBranch[0]);
+										graphNodeIRKill(&allNodes[i], (void(*)(void*))IRNodeDestroy, NULL);
+										graphNodeIRConnect(condNode, connectTo, IR_CONN_FLOW);
+								}
 						}
 						goto removeFromQueue;
 				} else if(type==IR_JUMP_TAB) {
 						strGraphNodeIRP in CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRIncomingNodes(allNodes[i]);
 						assert(strGraphNodeIRPSize(in)==1);
-						if(!nodeIsConst(in[0], consts))
+						if(!nodeIsConst(in[0], consts,nodeValues))
 								continue;
 						int success;
 						__auto_type value=IREvalNode(in[0], &success);
@@ -227,7 +240,7 @@ static void removeConstantCondBranches(graphNodeIR start,strIRVar consts,strGrap
 						strGraphEdgeIRP cases CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(out, IR_CONN_CASE);
 						for(long c=0;c!=strGraphEdgeIRPSize(cases);c++) {
 								if(graphEdgeIROutgoing(cases[c])!=choosenNode) {
-										killBranchPath(cases[c], &removedNodes2);
+										markPathForDestroy(cases[c],destroy);
 										break;
 								}
 						}
@@ -239,8 +252,6 @@ static void removeConstantCondBranches(graphNodeIR start,strIRVar consts,strGrap
 				allNodes=strGraphNodeIRPSetDifference(allNodes, removedNodes2, (gnCmpType)ptrPtrCmp);
 				goto loop;
 		}
-		if(removedNodes)
-				*removedNodes=strGraphNodeIRPClone(removedNodes2);
 }
 static int isChooseNode(graphNodeIR node,const void *data) {
 		return graphNodeIRValuePtr(node)->type==IR_CHOOSE;
@@ -259,6 +270,8 @@ static void removeSSANodes(graphNodeIR start) {
 				}
 		}
 }
+PTR_MAP_FUNCS(graphNodeIR, strGraphNodeIRP, GN2Chooses);
+PTR_MAP_FUNCS(graphNodeIR, struct IRVar *, Choose2Var);
 static strIRVar  __IRConstPropigation(graphNodeIR start,strIRVar consts) {
 		removeSSANodes(start);
 		IRToSSA(start);
@@ -286,11 +299,11 @@ static strIRVar  __IRConstPropigation(graphNodeIR start,strIRVar consts) {
 				}
 				
 				__auto_type newBlocks=IRGetBasicBlocksFromExpr(start, metaNodes, allMappedNodes[0], NULL,NULL);
+				strGraphNodeMappingP dummy CLEANUP(strGraphNodeMappingPDestroy)=strGraphNodeMappingPAppendItem(NULL, allMappedNodes[0]);
 				blocks=strBasicBlockConcat(blocks, newBlocks);
 				for(long i=0;i!=strBasicBlockSize(newBlocks);i++) {
 						allMappedNodes=strGraphNodeMappingPSetDifference(allMappedNodes, newBlocks[i]->nodes, (gnCmpType)ptrPtrCmp);
 				}
-				strGraphNodeMappingP dummy CLEANUP(strGraphNodeMappingPDestroy)=strGraphNodeMappingPAppendItem(NULL, allMappedNodes[0]);
 				allMappedNodes=strGraphNodeMappingPSetDifference(allMappedNodes, dummy, (gnCmpType)ptrPtrCmp);
 					
 				for(long i=0;i!=strBasicBlockSize(newBlocks);i++) {
@@ -308,7 +321,7 @@ static strIRVar  __IRConstPropigation(graphNodeIR start,strIRVar consts) {
 
 														assignLoop:;
 																struct var2Nodes dummy;
-																dummy.var=value->val.value.var;
+																dummy.var=&value->val.value.var;
 																dummy.users=NULL;
 																dummy.assign=NULL;
 																__auto_type find=strVar2NodeSortedFind(useAssoc, dummy, var2NodesCmp);
@@ -335,7 +348,7 @@ static strIRVar  __IRConstPropigation(graphNodeIR start,strIRVar consts) {
 														}
 												useLoop:;
 														struct var2Nodes dummy;
-														dummy.var=value->val.value.var;
+														dummy.var=&value->val.value.var;
 														dummy.users=NULL;
 														dummy.assign=NULL;
 														__auto_type find=strVar2NodeSortedFind(useAssoc, dummy, var2NodesCmp);
@@ -355,10 +368,11 @@ static strIRVar  __IRConstPropigation(graphNodeIR start,strIRVar consts) {
 		}
 
 		strIRVar worklist CLEANUP(strIRVarDestroy)=NULL;
+		ptrMapGN2Chooses node2Chooses=ptrMapGN2ChoosesCreate(); //FREE
+		ptrMapChoose2Var chooses2Var=ptrMapChoose2VarCreate(); //FREE
+		strGraphNodeIRP unresolvedChooses CLEANUP(strGraphNodeIRPDestroy)=NULL;
 		for(long i=0;i!=strVar2NodeSize(useAssoc);i++)
-				worklist=strIRVarSortedInsert(worklist, &useAssoc[i].var, IRVarCmp2);
-		
-		ptrMapIREvalValByGN nodeValues=ptrMapIREvalValByGNCreate();
+				worklist=strIRVarSortedInsert(worklist, useAssoc[i].var, IRVarCmp2);
 		//
 		// We replace the items in the order we find them,a varible a that is used by b needs to be  computed before b
 		// ```
@@ -372,7 +386,7 @@ static strIRVar  __IRConstPropigation(graphNodeIR start,strIRVar consts) {
 				strIRVar worklist2=NULL;
 				for(long i=0;i!=strIRVarSize(worklist);i++) {
 						struct var2Nodes dummy;
-						dummy.var=*worklist[i];
+						dummy.var=worklist[i];
 						dummy.users=NULL;
 						dummy.assign=NULL;
 						__auto_type find=strVar2NodeSortedFind(useAssoc, dummy, var2NodesCmp);
@@ -388,37 +402,57 @@ static strIRVar  __IRConstPropigation(graphNodeIR start,strIRVar consts) {
 						}
 
 						if(choose) {
+								if(!ptrMapChoose2VarGet(chooses2Var, chooseNode))
+										ptrMapChoose2VarAdd(chooses2Var, chooseNode,find->var);
+
 								int success=1;
-								struct IREvalVal value;
 								for(long c=0;c!=strGraphNodeIRPSize(choose->canidates);c++) {
-										if(!nodeIsConst(choose->canidates[c], consts)) {
+										if(strGraphNodeIRPSortedFind(toKillItems, choose->canidates[c], (gnCmpType)ptrPtrCmp))
+												continue;
+										if(!nodeIsConst(choose->canidates[c], consts,nodeValues)) {
+												unresolvedChooses=strGraphNodeIRPSortedInsert(unresolvedChooses, chooseNode, (gnCmpType)ptrPtrCmp);
 												goto notConst;
 										}
 								}
 								//All are constant,check if equal
 								struct IREvalVal first;
+								int notConst=0;
+								int isFirstItem=1;
 								for(long c=0;c!=strGraphNodeIRPSize(choose->canidates);c++) {
-										if(c==0)
+										if(strGraphNodeIRPSortedFind(toKillItems, choose->canidates[c], (gnCmpType)ptrPtrCmp))
+												continue;
+										if(isFirstItem) {
+												isFirstItem=0;
 												first=*ptrMapIREvalValByGNGet(nodeValues, choose->canidates[c]);
-										else if(!IREvalValEqual(&first, ptrMapIREvalValByGNGet(nodeValues, choose->canidates[c])))
-												goto notConst;
+										} else if(!IREvalValEqual(&first, ptrMapIREvalValByGNGet(nodeValues, choose->canidates[c]))) {
+												notConst=1;
+										}
+
+										__auto_type find=ptrMapGN2ChoosesGet(node2Chooses, choose->canidates[c]);
+												if(!find) {
+														ptrMapGN2ChoosesAdd(node2Chooses, choose->canidates[c],strGraphNodeIRPAppendItem(NULL, chooseNode));
+												} else {
+														if(NULL==strGraphNodeIRPSortedFind(*find,chooseNode,(gnCmpType)ptrPtrCmp))
+																*find=strGraphNodeIRPSortedInsert(*find,chooseNode,(gnCmpType)ptrPtrCmp);
+												}
 								}
-								goto allConst;		
+								if(notConst) {
+										unresolvedChooses=strGraphNodeIRPSortedInsert(unresolvedChooses, chooseNode, (gnCmpType)ptrPtrCmp);
+										goto notConst;
+								}
+								IREvalSetVarVal(find->var->value.var,first);
+								ptrMapIREvalValByGNAdd(nodeValues, find->assign, first);
 						} else {
 								//Check expression at node is constant
-								if(nodeIsConst(find->assign, consts))
+								if(nodeIsConst(find->assign, consts,nodeValues)) {
 										goto allConst;
+								}
 						}
 				notConst:;
 						continue;
 				allConst:;
 						replaceOrder=strGraphNodeIRPAppendItem(replaceOrder, find->assign);
-						int success;
-						__auto_type value=IREvalNode(find->assign, &success);
-						if(!success)
-								goto notConst;
-						ptrMapIREvalValByGNAdd(nodeValues, find->assign, value);
-						consts=strIRVarSortedInsert(consts, worklist[i], IRVarCmp2);
+						consts=strIRVarSortedInsert(consts, find->var, IRVarCmp2);
 						for(long u=0;u!=strVarSize(find->users);u++) {
 								if(NULL==strIRVarSortedFind(worklist2, find->users[u], IRVarCmp2))
 										worklist2=strIRVarSortedInsert(worklist2, find->users[u], IRVarCmp2);
@@ -426,24 +460,46 @@ static strIRVar  __IRConstPropigation(graphNodeIR start,strIRVar consts) {
 				}
 				strIRVarDestroy(&worklist);
 				worklist=worklist2;
+				if(strIRVarSize(worklist)==0) {
+						__auto_type oldToKillSize=strGraphNodeIRPSize(toKillItems);
+						removeConstantCondBranches(start, consts,0);
+						if(strGraphNodeIRPSize(toKillItems)!=oldToKillSize) {
+								long count=ptrMapGN2ChoosesSize(node2Chooses);
+								graphNodeIR keys[count];
+								ptrMapGN2ChoosesKeys(node2Chooses, keys);
+								for(long i=0;i!=count;i++) {
+										__auto_type find=strGraphNodeIRPSortedFind(toKillItems, keys[i], (gnCmpType)ptrPtrCmp);
+										if(!find) {
+												__auto_type chooses=*ptrMapGN2ChoosesGet(node2Chooses, keys[i]);
+												//Add variables of choose nodes
+												for(long c=0;c!=strGraphNodeIRPSize(chooses);c++) {
+														if(NULL==strGraphNodeIRPSortedFind(unresolvedChooses, chooses[c], (gnCmpType)ptrPtrCmp))
+																continue;
+														__auto_type var=*ptrMapChoose2VarGet(chooses2Var, chooses[c]);
+														if(NULL==strIRVarSortedFind(worklist, var, IRVarCmp2))
+																worklist=strIRVarSortedInsert(worklist, var, IRVarCmp2);
+												}
+										}
+								}
+						}
+				}
 		}
 		long size=strGraphNodeIRPSize(replaceOrder);
 		strGraphNodeIRP replaced CLEANUP(strGraphNodeIRPDestroy) =NULL;
 		for(long k=0;k!=size;k++)
 				replaceExprWithConstant(replaceOrder[k], *ptrMapIREvalValByGNGet(nodeValues, replaceOrder[k]),&replaced);
+		removeConstantCondBranches(start, consts,1);
 		
 		ptrMapMapping2IRDestroy(mappingPtr2IR,NULL);
-		ptrMapIREvalValByGNDestroy(nodeValues,NULL);
 		return consts; 
 }
 void IRConstPropigation(graphNodeIR start) {
 		IREvalInit();
 		strIRVar consts CLEANUP(strIRVarDestroy)=NULL;
-		for(;;) {
-				strGraphNodeIRP removed CLEANUP(strGraphNodeIRPDestroy)=NULL;
-				consts=__IRConstPropigation(start,consts);
-				removeConstantCondBranches(start, consts, &removed);
-				if(strGraphNodeIRPSize(removed)==0)
-						break;
-		}
+		toKillItems=NULL;
+		nodeValues=ptrMapIREvalValByGNCreate();
+		consts=__IRConstPropigation(start,consts);
+		removeSSANodes(start);
+		strGraphNodeIRPDestroy(&toKillItems);
+		ptrMapIREvalValByGNDestroy(nodeValues,(void(*)(void*))IREvalValDestroy);
 }
