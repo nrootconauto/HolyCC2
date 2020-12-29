@@ -54,10 +54,10 @@ static void __filterTransparentKill(graphNodeMapping node) {
 }
 LL_TYPE_DEF(graphNodeIR,GNIR);
 LL_TYPE_FUNCS(graphNodeIR,GNIR);
-STR_TYPE_DEF(struct IRVar *, IRVar);
-STR_TYPE_FUNCS(struct IRVar *, IRVar);
+STR_TYPE_DEF(struct IRVar, IRVar);
+STR_TYPE_FUNCS(struct IRVar, IRVar);
 struct var2Nodes {
-		struct IRVar *var;
+		struct IRVar var;
 		strVar users;
 		graphNodeIR assign;
 };
@@ -65,7 +65,7 @@ STR_TYPE_DEF(struct var2Nodes,Var2Node);
 STR_TYPE_FUNCS(struct var2Nodes,Var2Node);
 PTR_MAP_FUNCS(graphNodeIR, enum IRIsConst, GNIsConst);
 static int var2NodesCmp(const struct var2Nodes *a,const struct var2Nodes *b) {
-		return IRVarCmp(a->var, b->var);
+		return IRVarCmp(&a->var, &b->var);
 }
 static int isEdgePred(const struct __graphNode *node,const struct __graphEdge *edge,const void *data) {
 		return IRIsExprEdge(*graphEdgeIRValuePtr((graphEdgeIR)edge));
@@ -85,7 +85,7 @@ static void isConstVisit(struct __graphNode *node,struct isConstPair *data) {
 		if(irNodeVal->type==IR_VALUE) {
 				struct IRNodeValue *value=(void*)irNodeVal;
 				if(value->val.type==IR_VAL_VAR_REF) {
-						if(NULL==strIRVarSortedFind(data->consts, &value->val.value.var, IRVarCmp2))
+						if(NULL==strIRVarSortedFind(data->consts, value->val.value.var, IRVarCmp))
 								data->isConst=0;
 				}
 		} else {
@@ -249,7 +249,7 @@ static void removeConstantCondBranches(graphNodeIR start,strIRVar consts,int des
 				continue;
 		removeFromQueue:
 				allNodes=strGraphNodeIRPSetDifference(allNodes, visitedNodes, (gnCmpType)ptrPtrCmp);
-				allNodes=strGraphNodeIRPSetDifference(allNodes, removedNodes2, (gnCmpType)ptrPtrCmp);
+				allNodes=strGraphNodeIRPSetDifference(allNodes, toKillItems, (gnCmpType)ptrPtrCmp);
 				goto loop;
 		}
 }
@@ -321,7 +321,7 @@ static strIRVar  __IRConstPropigation(graphNodeIR start,strIRVar consts) {
 
 														assignLoop:;
 																struct var2Nodes dummy;
-																dummy.var=&value->val.value.var;
+																dummy.var=value->val.value.var;
 																dummy.users=NULL;
 																dummy.assign=NULL;
 																__auto_type find=strVar2NodeSortedFind(useAssoc, dummy, var2NodesCmp);
@@ -348,7 +348,7 @@ static strIRVar  __IRConstPropigation(graphNodeIR start,strIRVar consts) {
 														}
 												useLoop:;
 														struct var2Nodes dummy;
-														dummy.var=&value->val.value.var;
+														dummy.var=value->val.value.var;
 														dummy.users=NULL;
 														dummy.assign=NULL;
 														__auto_type find=strVar2NodeSortedFind(useAssoc, dummy, var2NodesCmp);
@@ -372,7 +372,7 @@ static strIRVar  __IRConstPropigation(graphNodeIR start,strIRVar consts) {
 		ptrMapChoose2Var chooses2Var=ptrMapChoose2VarCreate(); //FREE
 		strGraphNodeIRP unresolvedChooses CLEANUP(strGraphNodeIRPDestroy)=NULL;
 		for(long i=0;i!=strVar2NodeSize(useAssoc);i++)
-				worklist=strIRVarSortedInsert(worklist, useAssoc[i].var, IRVarCmp2);
+				worklist=strIRVarSortedInsert(worklist, useAssoc[i].var, IRVarCmp);
 		//
 		// We replace the items in the order we find them,a varible a that is used by b needs to be  computed before b
 		// ```
@@ -385,11 +385,13 @@ static strIRVar  __IRConstPropigation(graphNodeIR start,strIRVar consts) {
 		for(;strIRVarSize(worklist);) {
 				strIRVar worklist2=NULL;
 				for(long i=0;i!=strIRVarSize(worklist);i++) {
-						struct var2Nodes dummy;
+						struct  var2Nodes dummy;
 						dummy.var=worklist[i];
 						dummy.users=NULL;
 						dummy.assign=NULL;
 						__auto_type find=strVar2NodeSortedFind(useAssoc, dummy, var2NodesCmp);
+						if(NULL!=strGraphNodeIRPSortedFind(toKillItems, find->assign, (gnCmpType)ptrPtrCmp))
+								continue;						
 						struct IRNodeChoose *choose=NULL;
 						graphNodeIR chooseNode=NULL;
 						strGraphNodeIRP in CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRIncomingNodes(find->assign);
@@ -403,7 +405,7 @@ static strIRVar  __IRConstPropigation(graphNodeIR start,strIRVar consts) {
 
 						if(choose) {
 								if(!ptrMapChoose2VarGet(chooses2Var, chooseNode))
-										ptrMapChoose2VarAdd(chooses2Var, chooseNode,find->var);
+										ptrMapChoose2VarAdd(chooses2Var, chooseNode,&find->var);
 
 								int success=1;
 								for(long c=0;c!=strGraphNodeIRPSize(choose->canidates);c++) {
@@ -440,7 +442,7 @@ static strIRVar  __IRConstPropigation(graphNodeIR start,strIRVar consts) {
 										unresolvedChooses=strGraphNodeIRPSortedInsert(unresolvedChooses, chooseNode, (gnCmpType)ptrPtrCmp);
 										goto notConst;
 								}
-								IREvalSetVarVal(find->var->value.var,first);
+								IREvalSetVarVal(find->var.value.var,first);
 								ptrMapIREvalValByGNAdd(nodeValues, find->assign, first);
 						} else {
 								//Check expression at node is constant
@@ -452,10 +454,11 @@ static strIRVar  __IRConstPropigation(graphNodeIR start,strIRVar consts) {
 						continue;
 				allConst:;
 						replaceOrder=strGraphNodeIRPAppendItem(replaceOrder, find->assign);
-						consts=strIRVarSortedInsert(consts, find->var, IRVarCmp2);
+						replaceExprWithConstant(find->assign, *ptrMapIREvalValByGNGet(nodeValues, find->assign),&toKillItems);
+						consts=strIRVarSortedInsert(consts, find->var, IRVarCmp);
 						for(long u=0;u!=strVarSize(find->users);u++) {
-								if(NULL==strIRVarSortedFind(worklist2, find->users[u], IRVarCmp2))
-										worklist2=strIRVarSortedInsert(worklist2, find->users[u], IRVarCmp2);
+								if(NULL==strIRVarSortedFind(worklist2, *find->users[u], IRVarCmp))
+										worklist2=strIRVarSortedInsert(worklist2, *find->users[u], IRVarCmp);
 						}
 				}
 				strIRVarDestroy(&worklist);
@@ -476,8 +479,8 @@ static strIRVar  __IRConstPropigation(graphNodeIR start,strIRVar consts) {
 														if(NULL==strGraphNodeIRPSortedFind(unresolvedChooses, chooses[c], (gnCmpType)ptrPtrCmp))
 																continue;
 														__auto_type var=*ptrMapChoose2VarGet(chooses2Var, chooses[c]);
-														if(NULL==strIRVarSortedFind(worklist, var, IRVarCmp2))
-																worklist=strIRVarSortedInsert(worklist, var, IRVarCmp2);
+														if(NULL==strIRVarSortedFind(worklist, *var, IRVarCmp))
+																worklist=strIRVarSortedInsert(worklist, *var, IRVarCmp);
 												}
 										}
 								}
@@ -486,8 +489,6 @@ static strIRVar  __IRConstPropigation(graphNodeIR start,strIRVar consts) {
 		}
 		long size=strGraphNodeIRPSize(replaceOrder);
 		strGraphNodeIRP replaced CLEANUP(strGraphNodeIRPDestroy) =NULL;
-		for(long k=0;k!=size;k++)
-				replaceExprWithConstant(replaceOrder[k], *ptrMapIREvalValByGNGet(nodeValues, replaceOrder[k]),&replaced);
 		removeConstantCondBranches(start, consts,1);
 		
 		ptrMapMapping2IRDestroy(mappingPtr2IR,NULL);

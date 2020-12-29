@@ -30,15 +30,7 @@ static graphNodeIR createChoose(graphNodeIR insertBefore,
 
 	// Create a variable ref
 	struct IRNodeValue *firstNode = (void *)graphNodeIRValuePtr(insertBefore);
-	struct IRNodeValue value;
-	value.base.attrs = NULL;
-	value.base.type = IR_VALUE;
-	// Copy over value
-	assert(firstNode->base.type == IR_VALUE);
-	value.val = firstNode->val;
-	value.val.value.var.SSANum = -1;
-	// Create node
-	__auto_type valueNode = GRAPHN_ALLOCATE(value);
+	__auto_type valueNode=IRCreateVarRef(firstNode->val.value.var.value.var);
 
 	graphNodeIRConnect(chooseNode, valueNode, IR_CONN_DEST);
 
