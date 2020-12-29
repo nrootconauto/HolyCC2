@@ -93,10 +93,6 @@ static const char *IR_ATTR_NODE_VARS_SPILLED_AT = "SPILLED_VAR_AT";
 static const char *IR_ATTR_NODE_LOAD_VAR_AT = "LOADED_VAR_AT";
 STR_TYPE_DEF(struct IRVar *, IRVar);
 STR_TYPE_FUNCS(struct IRVar *, IRVar);
-struct IRAttrSpilledVarsAt {
-	struct IRAttr base;
-	strIRVar vars;
-};
 typedef int (*gnCmpType)(const graphNodeIR *, const graphNodeIR *);
 static int ptrPtrCmp(const void *a, const void *b) {
 	if (*(void **)a > *(void **)b)
@@ -941,6 +937,7 @@ static void replaceVarsWithRegisters(ptrMapregSlice map,
 				// Add attrbute to regRef that marks as originating from varaible
 				struct IRAttrVariable attr;
 				attr.base.name = IR_ATTR_VARIABLE;
+				attr.base.destroy=NULL;
 				attr.var = var;
 				__auto_type attrLL = __llCreate(&attr, sizeof(attr));
 				// Insert
@@ -1250,6 +1247,5 @@ loop:
 	}
 
 	removeDeadExpresions(start, liveVars);
-	IRLivenessRemoveBasicBlockAttrs(start); // TODO free all
 	//	debugShowGraphIR(start);
 }

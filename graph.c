@@ -263,7 +263,7 @@ loop:;
 	node->outgoing = NULL;
 	//
 	if (killNode != NULL)
-		killNode(node + sizeof(struct __graphNode));
+			killNode((void*)node + sizeof(struct __graphNode));
 
 	free(node);
 }

@@ -10,6 +10,7 @@ typedef int (*varRefCmpType)(const struct IRVar **, const struct IRVar **);
 		*ptr = x;                                                                  \
 		ptr;                                                                       \
 	})
+static void basicBlockAttrDestroy(struct IRAttr *attr);
 static int IRVarRefCmp(const struct IRVar **a, const struct IRVar **b) {
 	return IRVarCmp(a[0], b[0]);
 }
@@ -83,8 +84,6 @@ static int isExprNodeOrNotVisited(const struct __graphNode *node,
 
 	return isExprEdge(edgeVal);
 }
-
-
 static strGraphNodeMappingP visitAllAdjExprTo(graphNodeMapping node) {
 	strGraphNodeMappingP visited = strGraphNodeMappingPAppendItem(NULL, node);
 
@@ -289,15 +288,11 @@ IRGetBasicBlocksFromExpr(graphNodeIR dontDestroy, ptrMapBlockMetaNode metaNodes,
 		for (long i = 0; i != strGraphNodeMappingPSize(blockPtr->nodes); i++) {
 			struct IRAttrBasicBlock bbAttr;
 			bbAttr.base.name = IR_ATTR_BASIC_BLOCK;
+			bbAttr.base.destroy=basicBlockAttrDestroy;
 			bbAttr.block = blockPtr;
 
 			__auto_type attr = __llCreate(&bbAttr, sizeof(bbAttr));
-			__auto_type attrs =
-			    &graphNodeIRValuePtr(*graphNodeMappingValuePtr(blockPtr->nodes[i]))
-			         ->attrs;
-
-			llIRAttrInsert(*attrs, attr, IRAttrInsertPred);
-			*attrs = attr;
+			IRAttrReplace(*graphNodeMappingValuePtr(blockPtr->nodes[i]), attr);
 
 			blockPtr->refCount++;
 		}
@@ -366,4 +361,18 @@ IRGetBasicBlocksFromExpr(graphNodeIR dontDestroy, ptrMapBlockMetaNode metaNodes,
 
 	return retVal;
 }
+static void basicBlockDestroy(struct basicBlock *bb) {
+	if (0 >= bb->refCount--) {
+		strVarDestroy(&bb->define);
+		strVarDestroy(&bb->in);
+		strVarDestroy(&bb->out);
+		strVarDestroy(&bb->read);
+		strGraphNodeIRPDestroy(&bb->nodes);
 
+		free(bb);
+	}
+}
+static void basicBlockAttrDestroy(struct IRAttr *attr) {
+		struct IRAttrBasicBlock *bbAttr=(void*)attr;
+		basicBlockDestroy(bbAttr->block);
+}

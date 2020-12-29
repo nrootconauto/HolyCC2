@@ -16,6 +16,7 @@ static struct object **getType(graphNodeIR node) {
 				struct IRAttrNodeType dummy;
 				dummy.base.name=IR_ATTR_NODE_TYPE;
 				dummy.type=NULL;
+				dummy.base.destroy=NULL;
 				graphNodeIRValuePtr(node)->attrs=llIRAttrInsert(graphNodeIRValuePtr(node)->attrs,__llCreate(&dummy, sizeof(dummy)),IRAttrInsertPred);
 				goto loop;
 		}

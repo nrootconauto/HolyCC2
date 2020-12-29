@@ -17,4 +17,3 @@ graphNodeIRLive IRInterferenceGraph(graphNodeIR start);
 strGraphNodeIRLiveP
 IRInterferenceGraphFilter(graphNodeIR start, const void *data,
                           int (*varFilter)(graphNodeIR node, const void *data));
-void IRLivenessRemoveBasicBlockAttrs(graphNodeIR node);

@@ -109,6 +109,7 @@ enum IRNodeType {
 struct IRNode;
 struct IRAttr {
 	void *name;
+		void(*destroy)(struct IRAttr*);
 };
 LL_TYPE_DEF(struct IRAttr, IRAttr);
 LL_TYPE_FUNCS(struct IRAttr, IRAttr);
@@ -366,3 +367,4 @@ graphNodeIR IRCreatePtrRef(graphNodeIR ptr);
 void IRMarkPtrVars(graphNodeIR start);
 strGraphNodeIRP IRVarRefs(struct variable *var,long *SSANum);
 graphNodeIR IRCreateFloat(double value);
+void IRAttrReplace(graphNodeIR node,llIRAttr attribute);

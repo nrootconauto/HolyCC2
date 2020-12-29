@@ -503,30 +503,3 @@ strGraphNodeIRLiveP IRInterferenceGraphFilter(
 	__auto_type mappedClone = graphNodeCreateMapping(start, 0);
 	return __IRInterferenceGraphFilter(mappedClone, data, varFilter);
 }
-void basicBlockDestroy(struct basicBlock *bb) {
-	if (0 >= bb->refCount--) {
-		strVarDestroy(&bb->define);
-		strVarDestroy(&bb->in);
-		strVarDestroy(&bb->out);
-		strVarDestroy(&bb->read);
-		strGraphNodeIRPDestroy(&bb->nodes);
-
-		free(bb);
-	}
-}
-void IRLivenessRemoveBasicBlockAttrs(graphNodeIR node) {
-	strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy) =
-	    graphNodeIRAllNodes(node);
-	for (long i = 0; i != strGraphNodeIRPSize(allNodes); i++) {
-		__auto_type attrs = &graphNodeIRValuePtr(allNodes[i])->attrs;
-		__auto_type attr = llIRAttrFind(*attrs, IR_ATTR_BASIC_BLOCK, IRAttrGetPred);
-		if (attr) {
-			*attrs = llIRAttrRemove(attr);
-			struct IRAttrBasicBlock *bb = (void *)llIRAttrValuePtr(attr);
-
-			basicBlockDestroy(bb->block);
-
-			llIRAttrDestroy(&attr, NULL);
-		}
-	}
-}

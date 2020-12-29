@@ -1393,7 +1393,14 @@ graphNodeIR IREndOfExpr(graphNodeIR node) {
 		return node;
 	}
 }
-void IRNodeDestroy(struct IRNode *node) {}
+void IRNodeDestroy(struct IRNode *node) {
+		for(__auto_type attr=llIRAttrFirst(node->attrs);attr!=NULL;attr=llIRAttrNext(attr)) {
+				__auto_type attrValue=llIRAttrValuePtr(attr);
+				if(attrValue->destroy) {
+						attrValue->destroy(attrValue);
+				}
+		}
+}
 int IRIsOperator(graphNodeIR node) {
 		switch(graphNodeIRValuePtr(node)->type) {
 		case IR_ADD:
@@ -1589,4 +1596,17 @@ graphNodeIR IRCreateFloat(double value) {
 		nv.val.type=IR_VAL_FLT_LIT;
 		nv.val.value.fltLit=value;
 		return GRAPHN_ALLOCATE(nv);
+}
+void IRAttrReplace(graphNodeIR node,llIRAttr attribute) {
+		__auto_type key=llIRAttrValuePtr(attribute)->name;
+		__auto_type find=llIRAttrFind(graphNodeIRValuePtr(node)->attrs,key , IRAttrGetPred);
+		if(find) {
+				graphNodeIRValuePtr(node)->attrs=llIRAttrRemove(find);
+				__auto_type valuePtr=llIRAttrValuePtr(find);
+				valuePtr->destroy(valuePtr);
+				llIRAttrDestroy(&find, NULL);
+		}
+
+		llIRAttrInsert(graphNodeIRValuePtr(node)->attrs, attribute, IRAttrInsertPred);
+		graphNodeIRValuePtr(node)->attrs=attribute;
 }
