@@ -83,15 +83,12 @@ static void __IRFilter(graphNodeMapping connectTo, graphNodeIR startAt,
 
 	int foundNewPredItem = 0, foundPredItem = 0;
 	for (long i2 = 0; i2 < strGraphPathSize(paths); i2++) {
-		int pathIncludedFlow = 0;
 
 		__auto_type connectTo2 = connectTo;
 		if (strGraphEdgeIRPSize(paths[i2]) == 0)
 			continue;
 
 		for (long i3 = 0; i3 != strGraphEdgeIRPSize(paths[i2]); i3++) {
-			if (IR_CONN_FLOW == *graphEdgeIRValuePtr(paths[i2][i3]))
-				pathIncludedFlow = 1;
 
 			__auto_type node = graphEdgeIROutgoing(paths[i2][i3]);
 

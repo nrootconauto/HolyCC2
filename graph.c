@@ -503,6 +503,34 @@ createFilteredGraph(struct __graphNode *start, strGraphNodeP nodes, void *data,
 
 	return retVal;
 }
+static void __graphAllNodesBetween(strGraphNodeP *nodes,strGraphNodeP  *visitedNodes,strGraphNodeP *currentPath,const struct __graphNode *from,const void *data,
+                              int (*predicate)(const struct __graphNode *node,
+                                               const void *data)) {
+		if(strGraphNodePSortedFind(*visitedNodes, from, (gnCmpType)ptrCompare))
+				return;
+		if(predicate(from,data)) {
+				long len=strGraphNodePSize(*currentPath)-1; //Exclude last node
+				strGraphNodeP pathClone CLEANUP(strGraphNodePDestroy)=strGraphNodePAppendData(NULL,(const struct __graphNode**)*currentPath,len);
+				qsort(pathClone, len, sizeof(*pathClone), ptrCompare);
+				*nodes=strGraphNodePSetUnion(*nodes, pathClone, (gnCmpType)ptrCompare);
+				return;
+		}
+		*visitedNodes=strGraphNodePSortedInsert(*visitedNodes, (struct __graphNode*)from,(gnCmpType)ptrCompare);
+		for(long i=0;i!=strGraphEdgePSize(from->outgoing);i++) {
+				*currentPath=strGraphNodePAppendItem(*currentPath, from->outgoing[i]->to);
+				__graphAllNodesBetween(nodes,visitedNodes,currentPath,from->outgoing[i]->to,data,predicate);
+				*currentPath=strGraphNodePPop(*currentPath,NULL);
+		}
+}
+strGraphNodeP graphAllNodesBetween(const struct __graphNode *node,const void *data,
+                              int (*predicate)(const struct __graphNode *node,
+                                               const void *data)) {
+		strGraphNodeP nodes =strGraphNodePAppendItem(NULL, (struct __graphNode*)node);
+		strGraphNodeP visited CLEANUP(strGraphNodePDestroy)=NULL;
+		strGraphNodeP currentPath CLEANUP(strGraphNodePDestroy)=NULL;
+		__graphAllNodesBetween(&nodes,&visited,&currentPath,node,data,predicate);
+		return nodes;
+}
 // https://efficientcodeblog.wordpress.com/2018/02/15/finding-all-paths-between-two-nodes-in-a-graph/
 static void __graphAllPathsTo(strGraphEdgeP *currentPath, strGraphPath *paths,
                               const struct __graphNode *from, const void *data,

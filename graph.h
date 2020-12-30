@@ -248,3 +248,6 @@ void graph2GraphVizUndir(FILE *dumpTo, graphNodeMapping graph,
                                               mapGraphVizAttr *attrs,
                                               const void *data),
                          const void *nodeData);
+strGraphNodeP graphAllNodesBetween(const struct __graphNode *node,const void *data,
+                              int (*predicate)(const struct __graphNode *node,
+                                               const void *data));
