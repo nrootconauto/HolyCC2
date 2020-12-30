@@ -90,8 +90,6 @@ void constantPropigationTests() {
 				assert(value.type==IREVAL_VAL_INT);
 				assert(value.value.i==4);
 				IRConstPropigation(start);
-				__auto_type  map=graphNodeCreateMapping(start, 1);
-				IRPrintMappedGraph(map);
 				
 				value=IREvalPath(start, &success);
 				assert(value.type==IREVAL_VAL_INT);

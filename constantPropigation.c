@@ -249,6 +249,12 @@ static void removeConstantCondBranches(graphNodeIR start,strIRVar consts,int des
 						}
 						if(choosenNode!=graphEdgeIROutgoing(dft[0]))
 								markPathForDestroy(dft[0],destroy);
+
+						if(destroy) {
+								toKillItems=strGraphNodeIRPSortedInsert(toKillItems, allNodes[i], (gnCmpType)ptrPtrCmp);
+								graphNodeIRConnect(in[0], choosenNode, IR_CONN_FLOW);
+								graphNodeIRKill(&allNodes[i], (void(*)(void*))IRNodeDestroy, NULL);
+						}
 						goto removeFromQueue;
 				}
 				continue;
