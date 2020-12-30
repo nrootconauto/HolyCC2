@@ -46,7 +46,7 @@ int main() {
 		ptrMapTests();
 		registerAllocatorTests();;
 		SSATests();
-		IRFilterTests();
+		//IRFilterTests();
 		parse2IRTests();
  IRTypeInferenceTests();
 	constantPropigationTests();

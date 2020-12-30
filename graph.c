@@ -54,20 +54,15 @@ static strGraphEdgeP __graphEdgeByDirection(const struct __graphNode *node,
 }
 STR_TYPE_DEF(long, Long);
 STR_TYPE_FUNCS(long, Long);
-LL_TYPE_DEF(struct __graphNode *, GraphNode);
-LL_TYPE_FUNCS(struct __graphNode *, GraphNode);
-static void llGraphNodeDestroy2(llGraphNode *node) {
-	llGraphNodeDestroy(node, NULL);
-}
 static void __graphNodeVisitDirPred(struct __graphNode *node, void *data,
                                     int(pred)(const struct __graphNode *,
                                               const struct __graphEdge *,
                                               const void *),
                                     void (*visit)(struct __graphNode *, void *),
                                     enum dir d) {
-	llGraphNode visited CLEANUP(llGraphNodeDestroy2);
+	strGraphNodeP visited CLEANUP(strGraphNodePDestroy);
 	visited = NULL;
-	llGraphNode toVisit CLEANUP(llGraphNodeDestroy2);
+	strGraphNodeP toVisit CLEANUP(strGraphNodePDestroy);
 	toVisit = NULL;
 	strGraphNodeP stack CLEANUP(strGraphNodePDestroy);
 	stack = NULL;
@@ -98,14 +93,13 @@ static void __graphNodeVisitDirPred(struct __graphNode *node, void *data,
 			cond = pred(connection, edges[topIndex], data);
 		//
 		if (cond) {
-			__auto_type find = llGraphNodeFind(
-			    visited, &connection,
-			    (int (*)(const void *, const struct __graphNode **))ptrCompare);
+			__auto_type find = strGraphNodePSortedFind(
+																																														visited, connection,(gnCmpType)ptrCompare);
 			if (find == NULL) {
-				visited = llGraphNodeInsert(visited, llGraphNodeCreate(connection),
+				visited = strGraphNodePSortedInsert(visited, connection,
 				                            (gnCmpType)ptrCompare);
 				// Push to node-to-visit
-				toVisit = llGraphNodeInsert(toVisit, llGraphNodeCreate(connection),
+				toVisit = strGraphNodePSortedInsert(toVisit, connection,
 				                            (gnCmpType)ptrCompare);
 				// Push node and index
 				stack = strGraphNodePAppendItem(stack, connection);
@@ -141,9 +135,9 @@ static void __graphNodeVisitDirPred(struct __graphNode *node, void *data,
 		}
 	}
 	if (visit != NULL) {
-		for (__auto_type node = llGraphNodeFirst(toVisit); node != NULL;
-		     node = llGraphNodeNext(node)) {
-			visit(*llGraphNodeValuePtr(node), data);
+		for (__auto_type node = 0; node != strGraphNodePSize(toVisit);
+		     node++) {
+			visit(toVisit[node], data);
 		}
 	}
 }
@@ -268,39 +262,28 @@ loop:;
 static int __graphPredNotVisited(const struct __graphNode *node,
                                  const struct __graphEdge *edge,
                                  const void *data) {
-	const llGraphNode *visited = data;
+	const strGraphNodeP *visited = data;
 	return NULL ==
-	       llGraphNodeFind(
-	           *visited, &node,
-	           (int (*)(const void *, const struct __graphNode **))ptrCompare);
+	       strGraphNodePSortedFind(
+																																*visited, node,(gnCmpType)ptrCompare);
 }
 
 static void __graphVisitAppend(struct __graphNode *node, void *data) {
-	llGraphNode *visited = data;
-	__auto_type newNode = llGraphNodeCreate(node);
-	llGraphNodeInsert(*visited, newNode, (gnCmpType)ptrCompare);
-	*visited = newNode;
+		strGraphNodeP *visited = data;
+	*visited=strGraphNodePSortedInsert(*visited, node, (gnCmpType)ptrCompare);
 }
-static void dumpllGraphNodeToArray(llGraphNode list,
-                                   struct __graphNode **dumpTo) {
-	long i = 0;
-	for (__auto_type node = llGraphNodeFirst(list); node != NULL;
-	     node = llGraphNodeNext(node))
-		dumpTo[i++] = *llGraphNodeValuePtr(node);
-}
-
 strGraphNodeP __graphNodeVisitAll(const struct __graphNode *start) {
 	if (!start)
 		return NULL;
 
-	llGraphNode visited = llGraphNodeCreate((void *)start);
+	strGraphNodeP visited = strGraphNodePAppendItem(NULL,(void *)start);
 
 loop:;
 	{
 		// Dump to array
-		long oldSize = llGraphNodeSize(visited);
+		long oldSize = strGraphNodePSize(visited);
 		struct __graphNode *array[oldSize];
-		dumpllGraphNodeToArray(visited, array);
+		memcpy(array, visited, oldSize*sizeof(*array));
 
 		// Dont use visited as for loop as it will be modified use clone
 		for (long i = 0; i != oldSize; i++) {
@@ -314,16 +297,12 @@ loop:;
 		}
 
 		// If added new node(s), re-run
-		__auto_type newSize = llGraphNodeSize(visited);
+		__auto_type newSize = strGraphNodePSize(visited);
 		if (newSize != oldSize)
 			goto loop;
 	}
 
-	long size = llGraphNodeSize(visited);
-	struct __graphNode *array[size];
-	dumpllGraphNodeToArray(visited, array);
-
-	return strGraphNodePAppendData(NULL, (void *)array, size);
+	return strGraphNodePAppendData(NULL, (void *)visited, strGraphNodePSize(visited));
 }
 
 void __graphKillAll(struct __graphNode *start, void (*killFunc)(void *),
