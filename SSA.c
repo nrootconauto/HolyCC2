@@ -1,6 +1,7 @@
 #include <IR.h>
 #include <IRFilter.h>
 #include <SSA.h>
+#include <cleanup.h>
 #include <assert.h>
 #include <base64.h>
 #include <graphDominance.h>
@@ -212,7 +213,6 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 	}
 
 	__auto_type allVarAssigns = graphNodeMappingAllNodes(varAssignG);
-	__auto_type allAssignPaths = graphAllPathsTo(varAssignG, NULL);
 
 	// graphPrint(varAssignG, node2Str);
 	// Number the assigns
@@ -235,9 +235,10 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 	// items between each edge's node(is a mapped graph) of the assign graph.
 	//
 	strGraphEdgeMappingP un = NULL;
-	for (long i = 0; i != strGraphPathSize(allAssignPaths); i++) {
-		__auto_type p = allAssignPaths[i];
-		un = strGraphEdgePSetUnion(un, allAssignPaths[i],
+	strGraphNodeMappingP allMappingNodes CLEANUP(strGraphNodeMappingPDestroy)=NULL;
+	for (long i = 0; i != strGraphNodeMappingPSize(allMappingNodes); i++) {
+			strGraphEdgeMappingP allEdges CLEANUP(strGraphEdgeMappingPDestroy)=graphNodeMappingOutgoing(allMappingNodes[i]);
+		un = strGraphEdgePSetUnion(un, allEdges,
 		                           (int (*)(const struct __graphEdge **,
 		                                    const struct __graphEdge **))ptrPtrCmp);
 	}
