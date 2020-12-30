@@ -368,3 +368,4 @@ void IRMarkPtrVars(graphNodeIR start);
 strGraphNodeIRP IRVarRefs(struct variable *var,long *SSANum);
 graphNodeIR IRCreateFloat(double value);
 void IRAttrReplace(graphNodeIR node,llIRAttr attribute);
+graphNodeIR IRCreateJumpTable();

@@ -605,7 +605,11 @@ static strChar lexerInt2Str(struct lexerInt *i) {
 		Unsigned = i->value.uLong;
 		goto dumpU;
 	}
-dumpS:
+	dumpS:;
+	int originalSigned=Signed;
+	if(Signed<0)
+			Signed=-Signed;
+	
 	do {
 		retVal = strCharAppendItem(retVal, '\0');
 		memmove(retVal + 1, retVal, strlen(retVal));
@@ -613,6 +617,13 @@ dumpS:
 		Signed /= 10;
 	} while (Signed != 0);
 
+
+	if(originalSigned<0) {
+			retVal = strCharAppendItem(retVal, '\0');
+			memmove(retVal + 1, retVal, strlen(retVal));
+			retVal[0]='-';
+	}
+	
 	return retVal;
 dumpU:
 	do {
@@ -1623,4 +1634,14 @@ void IRNodeDestroy(struct IRNode *node) {
 						}
 				}
 		}
+}
+graphNodeIR IRCreateJumpTable() {
+		struct IRNodeJumpTable table;
+		table.base.attrs=NULL;
+		table.base.type=IR_JUMP_TAB;
+		table.count=0;
+		table.startIndex=-1;
+		table.labels=NULL;
+		__auto_type tableNode=GRAPHN_ALLOCATE(table);
+		return tableNode;
 }

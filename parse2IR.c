@@ -401,13 +401,7 @@ static struct enterExit  __createSwitchCodeAfterBody(
 	graphNodeIRConnect(body.exit, switchEndLabel, IR_CONN_FLOW);
 	
 	//Create a jump Table
-	struct IRNodeJumpTable table;
-	table.base.attrs=NULL;
-	table.base.type=IR_JUMP_TAB;
-	table.count=0;
-	table.startIndex=-1;
-	table.labels=NULL;
-	__auto_type tableNode=GRAPHN_ALLOCATE(table);
+	graphNodeIR tableNode= IRCreateJumpTable();
 	graphNodeIRConnect(cond.exit, tableNode, IR_CONN_SOURCE_A);
 	
 	graphNodeIR *dftNode=mapIRCaseGet(newScope->value.swit.casesByRange,  DFT_HASH_FORMAT); 
