@@ -90,6 +90,8 @@ void constantPropigationTests() {
 				assert(value.type==IREVAL_VAL_INT);
 				assert(value.value.i==4);
 				IRConstPropigation(start);
+				__auto_type  map=graphNodeCreateMapping(start, 1);
+				IRPrintMappedGraph(map);
 				
 				value=IREvalPath(start, &success);
 				assert(value.type==IREVAL_VAL_INT);
@@ -129,11 +131,11 @@ void constantPropigationTests() {
 						struct IRNodeJumpTable *tableValue=(void*)graphNodeIRValuePtr(table);
 						struct IRJumpTableRange tmp;
 						tmp.to=IRStmtStart(case0),tmp.start=0,tmp.end=1;
-						tableValue->labels=strIRTableRangeAppendItem(NULL, tmp);
+						tableValue->labels=strIRTableRangeAppendItem(tableValue->labels, tmp);
 						tmp.to=IRStmtStart(case1),tmp.start=1,tmp.end=2;
-						tableValue->labels=strIRTableRangeAppendItem(NULL, tmp);
+						tableValue->labels=strIRTableRangeAppendItem(tableValue->labels, tmp);
 						tmp.to=IRStmtStart(case2),tmp.start=2,tmp.end=3;
-						tableValue->labels=strIRTableRangeAppendItem(NULL, tmp);
+						tableValue->labels=strIRTableRangeAppendItem(tableValue->labels, tmp);
 
 						__auto_type endLabel=IRCreateLabel();
 						graphNodeIRConnect(case0, endLabel, IR_CONN_FLOW);
@@ -143,7 +145,14 @@ void constantPropigationTests() {
 
 						graphNodeIRConnect(endLabel,IRCreateVarRef(b), IR_CONN_FLOW);
 				}
-				__auto_type   map=graphNodeCreateMapping(start, 1);
+				int success;
+				__auto_type value=IREvalPath(start, &success);
+				assert(success);
+				assert(value.type==IREVAL_VAL_INT);
+				assert(value.value.i==1);
+
+				IRConstPropigation(start);
+				__auto_type  map=graphNodeCreateMapping(start, 1);
 				IRPrintMappedGraph(map);
 		}
 }
