@@ -501,11 +501,11 @@ static strIRVar  __IRConstPropigation(graphNodeIR start,strIRVar consts) {
 		}
 		long size=strGraphNodeIRPSize(replaceOrder);
 		strGraphNodeIRP replaced CLEANUP(strGraphNodeIRPDestroy) =NULL;
+		removeConstantCondBranches(start, consts,1);
+		replacedItems=strGraphNodeIRPSetUnion(replacedItems, toKillItems, (gnCmpType)ptrPtrCmp);
 		for(long i=0;i!=strGraphNodeIRPSize(replaceOrder);i++) {
 				replaceExprWithConstant(replaceOrder[i], *ptrMapIREvalValByGNGet(validNodeValues, replaceOrder[i]), &replacedItems);
 		}
-		
-		removeConstantCondBranches(start, consts,1);
 
 		
 		
