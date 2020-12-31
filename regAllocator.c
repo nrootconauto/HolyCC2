@@ -1101,8 +1101,10 @@ loop:
 	strGraphNodeIRLiveP spillNodes = NULL;
 
 	strIRVar liveVars = NULL;
-	for (long i = 0; i != strGraphNodeIRLivePSize(intInterfere); i++) {
-		__auto_type interfere = intInterfere[i];
+	strGraphNodeIRLiveP interferes=strGraphNodeIRLivePClone(intInterfere);
+	interferes=strGraphNodeIRLivePConcat(interferes,strGraphNodeIRLivePClone(floatInterfere));
+	for (long i = 0; i != strGraphNodeIRLivePSize(interferes); i++) {
+			__auto_type interfere = interferes[i];
 		
 		__auto_type vertexColors = graphColor(interfere);
 
@@ -1135,6 +1137,12 @@ loop:
 			__auto_type type = IRValueGetType(&value);
 
 			__auto_type regsForType = regGetForType(type);
+			//
+			// If type is F64,ignore ST(0) and ST(1),they are used for arithmetic
+			//
+			regsForType=strRegPRemoveItem(regsForType, &regX86ST0, (regCmpType)ptrPtrCmp);
+			regsForType=strRegPRemoveItem(regsForType, &regX86ST1, (regCmpType)ptrPtrCmp);
+			
 			__auto_type slice =
 			    color2Reg(adj, regsForType, allColorNodes[i],
 			              llVertexColorGet(vertexColors, allColorNodes[i])->color,

@@ -304,3 +304,11 @@ void __vecDestroy(struct __vec **vec) {
 
 	free((void *)*vec - 2 * sizeof(long));
 }
+struct __vec *__vecRemoveItem(struct __vec *str,long itemSize,const void *item,int(*pred)(const void*,const void*)) {
+		void *find=bsearch(item, str, __vecSize(str)/itemSize, itemSize, pred);
+		if(!find)
+				return str;
+		memmove(find, find+itemSize, __vecSize(str)-(find-(void*)str)-itemSize);
+		*__vecSizePtr(str)-=itemSize;
+		return str;
+}

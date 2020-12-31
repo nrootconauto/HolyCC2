@@ -43,4 +43,8 @@ void strTests() {
 	str2 = strCharSetUnion(str2, str3, chrFind);
 	assert(strCharSize(str2) == 5);
 	assert(0 == strncmp(str2, "abcde", 5));
+	//Remove item
+	str2=strCharRemoveItem(str2, 'b', chrFind);
+	str2=strCharRemoveItem(str2, 'e', chrFind);
+	assert(0 == strncmp(str2, "acd", 3));
 }
