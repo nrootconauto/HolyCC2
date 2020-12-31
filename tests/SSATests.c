@@ -159,6 +159,7 @@ void SSATests() {
 
 				
 				IRToSSA(enter);
+				
 				__auto_type aSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(a))->val.value.var.SSANum;
 				__auto_type bSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(b))->val.value.var.SSANum;
 				__auto_type cSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(c))->val.value.var.SSANum;

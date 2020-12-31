@@ -222,7 +222,6 @@ void registerAllocatorTests() {
 							graphNodeIRConnect(current, IRStmtStart(ret), IR_CONN_FLOW);
 					}
 
-					IRInsertNodesBetweenExprs(start);
 					//					debugShowGraph(start);
 					
 					setArch(ARCH_TEST_SYSV);
@@ -432,7 +431,6 @@ void registerAllocatorTests() {
 				__auto_type res1= IREvalPath(start, &success);
 				assert(success);
 				
-				IRInsertNodesBetweenExprs(start);
 				//debugShowGraph(start);
 				IRRegisterAllocate(start, NULL, NULL);
 				//debugShowGraph(start);
