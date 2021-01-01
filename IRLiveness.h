@@ -7,7 +7,6 @@ struct IRVarLiveness {
 };
 GRAPH_TYPE_DEF(struct IRVarLiveness, void *, IRLive);
 GRAPH_TYPE_FUNCS(struct IRVarLiveness, void *, IRLive);
-
 extern void *IR_ATTR_BASIC_BLOCK;
 struct IRAttrBasicBlock {
 	struct IRAttr base;

@@ -158,6 +158,7 @@ struct variable *IRCreateVirtVar(struct object *type) {
 	var.name = NULL;
 	var.refs = NULL;
 	var.type = type;
+	var.isGlobal=0;
 	__auto_type alloced = ALLOCATE(var);
 
 	return alloced;

@@ -265,6 +265,7 @@ objectSize(const struct object *type, int *success) {
 		__auto_type ptr = (struct objectClass *)type;
 		return ptr->size;
 	}
+	case TYPE_Bool:
 	case TYPE_I8i:
 	case TYPE_U8i: {
 		return 1;
@@ -277,6 +278,7 @@ objectSize(const struct object *type, int *success) {
 	case TYPE_U32i: {
 		return 4;
 	}
+	case TYPE_F64:
 	case TYPE_I64i:
 	case TYPE_U64i: {
 		return 8;

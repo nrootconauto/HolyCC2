@@ -64,8 +64,11 @@ static void reColorNodeIfAdj(graphNodeIRLive node,llVertexColor colors,int *colo
 }
 MAP_TYPE_DEF(strGraphNodeIRLiveP, LiveNodesByColor);
 MAP_TYPE_FUNCS(strGraphNodeIRLiveP, LiveNodesByColor);
+static void __strGraphNodeIRLivePDestroy(void *str) {
+		strGraphNodeIRLivePDestroy(str);
+}
 static void mapLiveNodesByColorDestroy2(mapLiveNodesByColor *map) {
-		mapLiveNodesByColorDestroy(*map, (void(*)(void*))strGraphNodeIRLivePDestroy);
+		mapLiveNodesByColorDestroy(*map, (void(*)(void*))__strGraphNodeIRLivePDestroy);
 }
 struct colorPair {
 		int a,b;
@@ -97,6 +100,7 @@ strFrameEntry IRComputeFrameLayout(graphNodeIR start) {
 				long kCount;
 				mapLiveNodesByColorKeys(byColor, NULL, &kCount);
 				const char *keys[kCount];
+				mapLiveNodesByColorKeys(byColor, keys, &kCount);
 				long currentOffset=0;
 				for(long k=0;k!=kCount;k++) {
 						long largestItemSize=-1;
@@ -104,7 +108,7 @@ strFrameEntry IRComputeFrameLayout(graphNodeIR start) {
 						//Get biggest item of color
 						for(long i=0;i!=strGraphNodeIRLivePSize(items);i++) {
 								int success;
-								long size=objectSize(graphNodeIRLiveValuePtr(items[i])->ref.value.var->type,&success);
+								long size=8*objectSize(graphNodeIRLiveValuePtr(items[i])->ref.value.var->type,&success);
 								assert(success);
 								if(largestItemSize<size)
 										largestItemSize=size;

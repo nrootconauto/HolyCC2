@@ -19,6 +19,8 @@ static int isExprEdge(graphEdgeIR edge) {
 		return IRIsExprEdge(*graphEdgeIRValuePtr(edge));
 };
 
+static __thread void *varFilterData;
+static __thread int (*varFilterPred)(graphNodeIR,const void*);
 static int untilWriteOut(const struct __graphNode *node,
                        const struct __graphEdge *edge, const void *data) {
 	//
@@ -36,6 +38,10 @@ static int untilWriteOut(const struct __graphNode *node,
 	    graphNodeIROutgoing(*graphNodeMappingValuePtr((graphNodeMapping)node));
 	strGraphEdgeIRP outgoingAssigns CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(outgoing, IR_CONN_DEST);
 	if (strGraphEdgeIRPSize(outgoingAssigns)) {
+			if(varFilterPred) {
+					if(!varFilterPred(graphEdgeIROutgoing(outgoingAssigns[0]),varFilterData))
+							return 1;
+			}
 			return 0;
 	}
 
@@ -122,6 +128,8 @@ strBasicBlock
 IRGetBasicBlocksFromExpr(graphNodeIR dontDestroy, ptrMapBlockMetaNode metaNodes,
                        graphNodeMapping start, const void *data,
                        int (*varFilter)(graphNodeIR var, const void *data)) {
+		varFilterPred=varFilter;
+		varFilterData=(void*)data;
 	strGraphNodeMappingP nodes = visitAllAdjExprTo(start);
 	if (nodes == NULL)
 		return NULL;
@@ -255,7 +263,7 @@ IRGetBasicBlocksFromExpr(graphNodeIR dontDestroy, ptrMapBlockMetaNode metaNodes,
 			if (isVarNode(irNode)) {
 				// If filter predicate provided,filter it out
 				if (varFilter)
-					if (!varFilter(exprNodes[i2], data))
+						if (!varFilter(*graphNodeMappingValuePtr(exprNodes[i2]), data))
 						continue;
 
 				//Ensure isn't a writen-into node of the sub-block

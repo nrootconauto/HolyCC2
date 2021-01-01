@@ -152,7 +152,7 @@ void constantPropigationTests() {
 				assert(value.value.i==1);
 
 				IRConstPropigation(start);
-				__auto_type  map=graphNodeCreateMapping(start, 1);
-				IRPrintMappedGraph(map);
+				//				__auto_type  map=graphNodeCreateMapping(start, 1);
+				//IRPrintMappedGraph(map);
 		}
 }

@@ -24,6 +24,7 @@ void ptrMapTests();
 void parse2IRTests();
 void IRTypeInferenceTests();
 void constantPropigationTests();
+void frameLayoutTests();
 int main() {
 		init();
 		strTests();
@@ -50,5 +51,6 @@ int main() {
 		parse2IRTests();
  IRTypeInferenceTests();
 	constantPropigationTests();
+	frameLayoutTests();
 	return 0;
 }
