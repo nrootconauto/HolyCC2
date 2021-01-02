@@ -35,6 +35,15 @@ extern struct reg regX86BH;
 extern struct reg regX86CH;
 extern struct reg regX86DH;
 
+extern struct reg regAMD64R8u8;
+extern struct reg regAMD64R9u8;
+extern struct reg regAMD64R10u8;
+extern struct reg regAMD64R11u8;
+extern struct reg regAMD64R12u8;
+extern struct reg regAMD64R13u8;
+extern struct reg regAMD64R14u8;
+extern struct reg regAMD64R15u8;
+
 extern struct reg regX86AX;
 extern struct reg regX86BX;
 extern struct reg regX86CX;
@@ -43,6 +52,14 @@ extern struct reg regX86SI;
 extern struct reg regX86DI;
 extern struct reg regX86BP;
 extern struct reg regX86SP;
+extern struct reg regAMD64R8u16;
+extern struct reg regAMD64R9u16;
+extern struct reg regAMD64R10u16;
+extern struct reg regAMD64R11u16;
+extern struct reg regAMD64R12u16;
+extern struct reg regAMD64R13u16;
+extern struct reg regAMD64R14u16;
+extern struct reg regAMD64R15u16;
 
 extern struct reg regX86EAX;
 extern struct reg regX86EBX;
@@ -52,6 +69,14 @@ extern struct reg regX86ESI;
 extern struct reg regX86EDI;
 extern struct reg regX86EBP;
 extern struct reg regX86ESP;
+extern struct reg regAMD64R8u32;
+extern struct reg regAMD64R9u32;
+extern struct reg regAMD64R10u32;
+extern struct reg regAMD64R11u32;
+extern struct reg regAMD64R12u32;
+extern struct reg regAMD64R13u32;
+extern struct reg regAMD64R14u32;
+extern struct reg regAMD64R15u32;
 
 extern struct reg regX86XMM0;
 extern struct reg regX86XMM1;
@@ -71,6 +96,23 @@ extern struct reg regX86ST5;
 extern struct reg regX86ST6;
 extern struct reg regX86ST7;
 
+extern struct reg regAMD64RAX;
+extern struct reg regAMD64RBX;
+extern struct reg regAMD64RCX;
+extern struct reg regAMD64RDX;
+extern struct reg regAMD64RSP;
+extern struct reg regAMD64RBP;
+extern struct reg regAMD64RDI;
+extern struct reg regAMD64RSI;
+
+extern struct reg regAMD64R8u64;
+extern struct reg regAMD64R9u64;
+extern struct reg regAMD64R10u64;
+extern struct reg regAMD64R11u64;
+extern struct reg regAMD64R12u64;
+extern struct reg regAMD64R13u64;
+extern struct reg regAMD64R14u64;
+extern struct reg regAMD64R15u64;
 enum archConfig {
 	ARCH_TEST_SYSV,
 	ARCH_X86_SYSV,

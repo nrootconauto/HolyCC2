@@ -3,6 +3,7 @@
 #include <registers.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <cleanup.h>
 struct reg regX86AL;
 struct reg regX86BL;
 struct reg regX86CL;
@@ -49,6 +50,13 @@ struct reg regX86ST5;
 struct reg regX86ST6;
 struct reg regX86ST7;
 
+struct reg regX86ES;
+struct reg regX86CS;
+struct reg regX86SS;
+struct reg regX86DS;
+struct reg regX86FS;
+struct reg regX86GS;
+
 static int ptrPtrCmp(const void *a, const void *b) {
 	if (*(void **)a > *(void **)b)
 		return 1;
@@ -85,18 +93,109 @@ static struct reg createRegister(const char *name, int size, enum regType type,
 		retVal.affects = strRegSliceSortedInsert(
 		    retVal.affects, *affects,
 		    (int (*)(const struct regSlice *, const struct regSlice *))ptrPtrCmp);
+		//Clone the affects->reg move move by offset
+		strRegSlice clone CLEANUP(strRegSliceDestroy)=strRegSliceClone(affects->reg->affects);
+		for(long i=0;i!=strRegSliceSize(clone);i++)
+				clone[i].offset+=affects->offset;
+		retVal.affects=strRegSliceSetUnion(retVal.affects, clone, regSliceCompare); 
 	}
 	va_end(list);
 
 	return retVal;
 }
 static strRegP regsX86;
+static strRegP regsAMD64;
 static strRegP regsTest;
-
 static strRegP regsX86FloatGiant;
+static strRegP regsAMD64;
 
+struct reg regAMD64R8u8;
+struct reg regAMD64R9u8;
+struct reg regAMD64R10u8;
+struct reg regAMD64R11u8;
+struct reg regAMD64R12u8;
+struct reg regAMD64R13u8;
+struct reg regAMD64R14u8;
+struct reg regAMD64R15u8;
+
+struct reg regAMD64R8u16;
+struct reg regAMD64R9u16;
+struct reg regAMD64R10u16;
+struct reg regAMD64R11u16;
+struct reg regAMD64R12u16;
+struct reg regAMD64R13u16;
+struct reg regAMD64R14u16;
+struct reg regAMD64R15u16;
+
+struct reg regAMD64R8u32;
+struct reg regAMD64R9u32;
+struct reg regAMD64R10u32;
+struct reg regAMD64R11u32;
+struct reg regAMD64R12u32;
+struct reg regAMD64R13u32;
+struct reg regAMD64R14u32;
+struct reg regAMD64R15u32;
+
+struct reg regAMD64RAX;
+struct reg regAMD64RBX;
+struct reg regAMD64RCX;
+struct reg regAMD64RDX;
+struct reg regAMD64RSP;
+struct reg regAMD64RBP;
+struct reg regAMD64RDI;
+struct reg regAMD64RSI;
+struct reg regAMD64R8u64;
+struct reg regAMD64R9u64;
+struct reg regAMD64R10u64;
+struct reg regAMD64R11u64;
+struct reg regAMD64R12u64;
+struct reg regAMD64R13u64;
+struct reg regAMD64R14u64;
+struct reg regAMD64R15u64;
 void initRegisters() {
+		regX86ES=createRegister("ES", 1, REG_TYPE_GP, 0 );
+		regX86CS=createRegister("CS", 1, REG_TYPE_GP, 0 );
+		regX86SS=createRegister("SS", 1, REG_TYPE_GP, 0 );
+		regX86DS=createRegister("DS", 1, REG_TYPE_GP, 0 );
+		regX86FS=createRegister("FS", 1, REG_TYPE_GP, 0 );
+		regX86GS=createRegister("GS", 1, REG_TYPE_GP, 0 );
+		
+		regAMD64R8u8=createRegister("R8u8", 1, REG_TYPE_GP, 0 );
+		regAMD64R8u8=createRegister("R9u8", 1, REG_TYPE_GP, 0 );
+		regAMD64R10u8=createRegister("R10u8", 1, REG_TYPE_GP, 0 );
+		regAMD64R11u8=createRegister("R11u8", 1, REG_TYPE_GP, 0 );
+		regAMD64R12u8=createRegister("R12u8", 1, REG_TYPE_GP, 0 );
+		regAMD64R13u8=createRegister("R13u8", 1, REG_TYPE_GP, 0 );
+		regAMD64R14u8=createRegister("R14u8", 1, REG_TYPE_GP, 0 );
+		regAMD64R15u8=createRegister("R15u8", 1, REG_TYPE_GP, 0 );
 
+		regAMD64R8u16=createRegister("R8u16", 1, REG_TYPE_GP, 1 ,createRegSlice(&regAMD64R8u8, 0, 8));
+		regAMD64R9u16=createRegister("R9u16", 1, REG_TYPE_GP, 1 ,createRegSlice(&regAMD64R9u8, 0, 8) );
+		regAMD64R10u16=createRegister("R12u16", 1, REG_TYPE_GP, 1 ,createRegSlice(&regAMD64R10u8, 0, 8) );
+		regAMD64R11u16=createRegister("R11u16", 1, REG_TYPE_GP, 1 ,createRegSlice(&regAMD64R11u8, 0, 8) );
+		regAMD64R12u16=createRegister("R12u16", 1, REG_TYPE_GP, 1 ,createRegSlice(&regAMD64R12u8, 0, 8) );
+		regAMD64R13u16=createRegister("R13u16", 1, REG_TYPE_GP, 1 ,createRegSlice(&regAMD64R13u8, 0, 8) );
+		regAMD64R14u16=createRegister("R14u16", 1, REG_TYPE_GP, 1 ,createRegSlice(&regAMD64R14u8, 0, 8) );
+		regAMD64R15u16=createRegister("R15u16", 1, REG_TYPE_GP, 1 ,createRegSlice(&regAMD64R15u8, 0, 8) );
+
+		regAMD64R8u32=createRegister("R8u32", 4, REG_TYPE_GP,1 ,createRegSlice(&regAMD64R8u16, 0, 16));
+		regAMD64R9u32=createRegister("R9u32", 4, REG_TYPE_GP, 1 ,createRegSlice(&regAMD64R9u16, 0, 16));
+		regAMD64R10u32=createRegister("R12u32", 4, REG_TYPE_GP, 1 ,createRegSlice(&regAMD64R10u16, 0, 16));
+		regAMD64R11u32=createRegister("R11u32", 4, REG_TYPE_GP, 1 ,createRegSlice(&regAMD64R11u16, 0, 16));
+		regAMD64R12u32=createRegister("R12u32", 4, REG_TYPE_GP, 1 ,createRegSlice(&regAMD64R12u16, 0, 16));
+		regAMD64R13u32=createRegister("R13u32", 4, REG_TYPE_GP, 1 ,createRegSlice(&regAMD64R13u16, 0, 16));
+		regAMD64R14u32=createRegister("R14u32", 4, REG_TYPE_GP, 1 ,createRegSlice(&regAMD64R14u16, 0, 16));
+		regAMD64R15u32=createRegister("R15u32", 4, REG_TYPE_GP, 1 ,createRegSlice(&regAMD64R15u16, 0, 16));
+
+		regAMD64R8u64=createRegister("R8u64", 8, REG_TYPE_GP, 1 ,createRegSlice(&regAMD64R8u32, 0, 32));
+		regAMD64R9u64=createRegister("R9u64", 8, REG_TYPE_GP, 1 ,createRegSlice(&regAMD64R9u32, 0, 32));
+		regAMD64R10u64=createRegister("R12u64", 8, REG_TYPE_GP, 1 ,createRegSlice(&regAMD64R10u32, 0, 32));
+		regAMD64R11u64=createRegister("R11u64", 8, REG_TYPE_GP, 1 ,createRegSlice(&regAMD64R11u32, 0, 32));
+		regAMD64R12u64=createRegister("R12u64", 8, REG_TYPE_GP, 1 ,createRegSlice(&regAMD64R12u32, 0, 32));
+		regAMD64R13u64=createRegister("R13u64", 8, REG_TYPE_GP, 1 ,createRegSlice(&regAMD64R13u32, 0, 32));
+		regAMD64R14u64=createRegister("R14u64", 8, REG_TYPE_GP, 1 ,createRegSlice(&regAMD64R14u32, 0, 32));
+		regAMD64R15u64=createRegister("R15u64", 8, REG_TYPE_GP, 1 ,createRegSlice(&regAMD64R15u32, 0, 32));
+		
 	regX86AL = createRegister("AL", 1, REG_TYPE_GP, 0);
 	regX86BL = createRegister("BL", 1, REG_TYPE_GP, 0);
 	regX86CL = createRegister("CL", 1, REG_TYPE_GP, 0);
@@ -108,43 +207,48 @@ void initRegisters() {
 	regX86DH = createRegister("DH", 1, REG_TYPE_GP, 0);
 
 	regX86AX =
-	    createRegister("AX", 2, REG_TYPE_GP, 2, createRegSlice(&regX86EAX, 0, 8),
-	                   createRegSlice(&regX86EAX, 8, 8));
+	    createRegister("AX", 2, REG_TYPE_GP, 2, createRegSlice(&regX86AL, 0, 8),
+	                   createRegSlice(&regX86AH, 8, 8));
 	regX86BX =
-	    createRegister("BX", 2, REG_TYPE_GP, 2, createRegSlice(&regX86EBX, 0, 8),
+	    createRegister("BX", 2, REG_TYPE_GP, 2, createRegSlice(&regX86BL, 0, 8),
 	                   createRegSlice(&regX86EBX, 8, 8));
 	regX86CX =
-	    createRegister("CX", 2, REG_TYPE_GP, 2, createRegSlice(&regX86ECX, 0, 8),
-	                   createRegSlice(&regX86ECX, 8, 8));
+			createRegister("CX", 2, REG_TYPE_GP, 2, createRegSlice(&regX86CL, 0, 8),
+	                   createRegSlice(&regX86CH, 8, 8));
 	regX86DX =
-	    createRegister("DX", 2, REG_TYPE_GP, 2, createRegSlice(&regX86EDX, 0, 8),
-	                   createRegSlice(&regX86EDX, 8, 8));
+	    createRegister("DX", 2, REG_TYPE_GP, 2, createRegSlice(&regX86DL, 0, 8),
+	                   createRegSlice(&regX86DH, 8, 8));
 	regX86SI = createRegister("SI", 2, REG_TYPE_GP, 0);
 	regX86DI = createRegister("DI", 2, REG_TYPE_GP, 0);
 	regX86BP = createRegister("BP", 2, REG_TYPE_GP, 0);
 	regX86SP = createRegister("SP", 2, REG_TYPE_GP, 0);
 
 	regX86EAX = createRegister(
-	    "EAX", 4, REG_TYPE_GP, 3, createRegSlice(&regX86EAX, 0, 8),
-	    createRegSlice(&regX86EAX, 8, 8), createRegSlice(&regX86EAX, 0, 16));
+	    "EAX", 4, REG_TYPE_GP, 1, createRegSlice(&regX86AX, 0, 16));
 	regX86EBX = createRegister(
-	    "EBX", 4, REG_TYPE_GP, 3, createRegSlice(&regX86EBX, 0, 8),
-	    createRegSlice(&regX86EBX, 8, 8), createRegSlice(&regX86EBX, 0, 16));
+	    "EBX", 4, REG_TYPE_GP, 1, createRegSlice(&regX86BX, 0, 16));
 	regX86ECX = createRegister(
-	    "ECX", 4, REG_TYPE_GP, 3, createRegSlice(&regX86ECX, 0, 8),
-	    createRegSlice(&regX86ECX, 8, 8), createRegSlice(&regX86ECX, 0, 16));
+	    "ECX", 4, REG_TYPE_GP, 1, createRegSlice(&regX86CX, 0, 16));
 	regX86EDX = createRegister(
-	    "EDX", 4, REG_TYPE_GP, 3, createRegSlice(&regX86EDX, 0, 8),
-	    createRegSlice(&regX86EDX, 8, 8), createRegSlice(&regX86EDX, 0, 16));
+	    "EDX", 4, REG_TYPE_GP, 1, createRegSlice(&regX86DX, 0, 16));
 	regX86ESI = createRegister("ESI", 4, REG_TYPE_GP, 1,
-	                           createRegSlice(&regX86ESI, 0, 16));
+	                           createRegSlice(&regX86SI, 0, 16));
 	regX86EDI = createRegister("EDI", 4, REG_TYPE_GP, 1,
-	                           createRegSlice(&regX86EDI, 0, 16));
+	                           createRegSlice(&regX86DI, 0, 16));
 	regX86EBP = createRegister("EBP", 4, REG_TYPE_GP, 1,
-	                           createRegSlice(&regX86EBP, 0, 16));
+	                           createRegSlice(&regX86BP, 0, 16));
 	regX86ESP = createRegister("ESP", 4, REG_TYPE_GP, 1,
-	                           createRegSlice(&regX86ESP, 0, 16));
+																												createRegSlice(&regX86SP, 0, 16));
 
+	regAMD64RAX=createRegister("RAX", 8, REG_TYPE_GP, 1, createRegSlice(&regX86EAX, 0, 32));
+	regAMD64RBX=createRegister("RAX", 8, REG_TYPE_GP, 1, createRegSlice(&regX86EAX, 0, 32));
+	regAMD64RCX=createRegister("RAX", 8, REG_TYPE_GP, 1, createRegSlice(&regX86EAX, 0, 32));
+	regAMD64RDX=createRegister("RAX", 8, REG_TYPE_GP, 1, createRegSlice(&regX86EAX, 0, 32));
+	regAMD64RSP=createRegister("RAX", 8, REG_TYPE_GP, 1, createRegSlice(&regX86EAX, 0, 32));
+	regAMD64RBP=createRegister("RAX", 8, REG_TYPE_GP, 1, createRegSlice(&regX86EAX, 0, 32));
+	regAMD64RDI=createRegister("RAX", 8, REG_TYPE_GP, 1, createRegSlice(&regX86EAX, 0, 32));
+	regAMD64RSI=createRegister("RAX", 8, REG_TYPE_GP, 1, createRegSlice(&regX86EAX, 0, 32));
+	
 	regX86XMM0 = createRegister("XMM0", 16, REG_TYPE_FLOATING, 0);
 	regX86XMM1 = createRegister("XMM1", 16, REG_TYPE_FLOATING, 0);
 	regX86XMM2 = createRegister("XMM2", 16, REG_TYPE_FLOATING, 0);
@@ -162,14 +266,7 @@ void initRegisters() {
 	regX86ST5 = createRegister("ST5", 16, REG_TYPE_FLOATING, 0);
 	regX86ST6 = createRegister("ST6", 16, REG_TYPE_FLOATING, 0);
 	regX86ST7 = createRegister("ST7", 16, REG_TYPE_FLOATING, 0);
-
-	// Gaint floats X86
-	struct reg *fltGiantX86[] = {&regX86ST0, &regX86ST1, &regX86ST2, &regX86ST3,
-	                             &regX86ST4, &regX86ST5, &regX86ST6, &regX86ST7};
-	long len = sizeof(fltGiantX86) / sizeof(*fltGiantX86);
-	qsort(fltGiantX86, len, sizeof(*fltGiantX86), ptrPtrCmp);
-	regsX86FloatGiant = strRegPAppendData(NULL, (void *)fltGiantX86, len);
-
+	
 	// General purpose x86
 	struct reg *gpX86[] = {
 	    &regX86AL,   &regX86BL,   &regX86CL,   &regX86DL,
@@ -183,10 +280,12 @@ void initRegisters() {
 
 	    &regX86EAX,  &regX86EBX,  &regX86ECX,  &regX86EDX,
 	    &regX86ESI,  &regX86EDI,  &regX86EBP,  &regX86ESP,
-	    &regX86XMM0, &regX86XMM1, &regX86XMM2, &regX86XMM3,
-	    &regX86XMM4, &regX86XMM5, &regX86XMM6, &regX86XMM7,
+
+					&regX86ES, &regX86CS,&regX86SS,&regX86DS,&regX86FS,&regX86SS,
+
+					&regX86ST0,&regX86ST1,&regX86ST2,&regX86ST3,&regX86ST4,&regX86ST5,&regX86ST6,&regX86ST7,
 	};
-	len = sizeof(gpX86) / sizeof(*gpX86);
+	long len = sizeof(gpX86) / sizeof(*gpX86);
 	qsort(gpX86, len, sizeof(*gpX86), ptrPtrCmp);
 	regsX86 = strRegPAppendData(NULL, (void *)gpX86, len);
 
@@ -206,8 +305,10 @@ void initRegisters() {
 	    &regX86EAX,
 	    &regX86EBX,
 	    &regX86ECX,
-	    //
-	    &regX86XMM0,
+					//
+					&regX86ST0,
+					&regX86ST1,
+					&regX86ST2,
 	};
 	len = sizeof(gpTest) / sizeof(*gpTest);
 	qsort(gpTest, len, sizeof(*gpTest), ptrPtrCmp);
