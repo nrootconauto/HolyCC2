@@ -45,6 +45,8 @@ list(APPEND sources "IRTypeInference.c")
 list(APPEND sources "basicBlocks.c")
 list(APPEND sources "constantPropigation.c")
 list(APPEND sources "frameLayout.c")
+list(APPEND sources "asm86.c")
+list(APPEND sources "opcodesParser.c")
 
 set(tests "")
 list(APPEND tests "tests/tests.c")

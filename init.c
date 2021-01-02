@@ -8,7 +8,8 @@
 #include <signal.h>
 #include <stdio.h>
 #include <parse2IR.h>
-#include <asm86.h>
+//#include <asm86.h>
+#include <opcodesParser.h>
 static void printBT(int sig) {
 	void *array[50];
 	int len = backtrace(array, 50);
@@ -28,5 +29,6 @@ void init() {
 	initRegisters();
 	initParserData();
 	initParse2IR();
+	parseOpcodeFile();
 	//	signal(SIGSEGV,printBT);
 }

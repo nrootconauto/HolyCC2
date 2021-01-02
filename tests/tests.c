@@ -27,6 +27,7 @@ void constantPropigationTests();
 void frameLayoutTests();
 int main() {
 		init();
+		/*
 		strTests();
 		preprocessorTests();
 		base64Tests();
@@ -52,5 +53,6 @@ int main() {
  IRTypeInferenceTests();
 	constantPropigationTests();
 	frameLayoutTests();
+		*/
 	return 0;
 }
