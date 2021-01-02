@@ -8,6 +8,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <parse2IR.h>
+#include <asm86.h>
 static void printBT(int sig) {
 	void *array[50];
 	int len = backtrace(array, 50);
@@ -19,6 +20,7 @@ static void printBT(int sig) {
 	abort();
 }
 void init() {
+		ASMX86Init();
 	initAssignOps();
 	initDebugPrint();
 	initTemplates();

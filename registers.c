@@ -236,6 +236,17 @@ int regSliceConflict(struct regSlice *a, struct regSlice *b) {
 
 	return 0;
 }
+strRegP regsForArch() {
+		switch(currentArch) {
+		case ARCH_TEST_SYSV:
+				return strRegPClone(regsTest);
+		case ARCH_X64_SYSV:
+				assert(0);
+				return NULL;
+		case ARCH_X86_SYSV:
+				return strRegPClone(regsX86);
+		}
+}
 strRegP regGetForType(struct object *type) {
 	const struct object *ints[] = {
 	    &typeU8i, &typeU16i, &typeU32i, &typeU64i,

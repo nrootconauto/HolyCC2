@@ -24,7 +24,10 @@ static const char *keywords[] = {"if", "else",
                                  "static", "public", "extern", "_extern",
                                  "import", "_import", "public",
                                  //
-                                 ";", "{", "}", ":", "..."};
+                                 ";", "{", "}", ":", "...",
+																																	//
+																																	"asm","@@","DU8","DU16","DU32","DU64","IMPORT","ALIGN","ORG","BINFILE"
+};
 const char *operators[] = {
     "++",
     "--",

@@ -2,8 +2,22 @@
 #include <lexer.h>
 #include <object.h>
 #include <str.h>
+#include <asm86.h>
 enum parserNodeType {
-	NODE_BINOP,
+		NODE_ASM_REG,
+		NODE_ASM_ADDRMODE_SIB,
+		NODE_ASM_LABEL,
+		NODE_ASM_GBL_LABEL,
+		NODE_ASM_LOCAL_LABEL,
+		NODE_ASM_IMPORT,
+		NODE_ASM_DU8,
+		NODE_ASM_DU16,
+		NODE_ASM_DU32,
+		NODE_ASM_DU64,
+		NODE_ASM_ORG,
+		NODE_ASM_ALIGN,
+		NODE_ASM_BINFILE,
+		NODE_BINOP,
 	NODE_UNOP,
 	NODE_NAME,
 	NODE_OP,
@@ -248,6 +262,21 @@ struct parserNodeFuncForwardDec {
 struct parserNodeBreak {
 		struct parserNode base;
 };
+struct parserNodeAsmReg {
+		struct parserNode base;
+		struct reg *reg;
+};
+struct parserNodeAsmSIB {
+		struct parserNode base;
+		struct parserNode *expression;
+		struct parserNode *offset;
+		struct parserNode *segment;
+};
+struct parserNodeAsmInstX86 {
+		struct parserNode base;
+		const char *name;
+		strParserNode args;
+};
 struct parserNode *parseExpression(llLexerItem start, llLexerItem end,
                                    llLexerItem *result);
 struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end);
@@ -264,3 +293,5 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end);
 struct parserNode *parseReturn(llLexerItem start, llLexerItem *end);
 struct parserNode *parseGoto(llLexerItem start, llLexerItem *end);
 struct parserNode *parseBreak(llLexerItem item,llLexerItem *end);
+struct parserNode *parseAsmRegister(llLexerItem start,llLexerItem *end);
+void parserNodeDestroy(struct parserNode** node);

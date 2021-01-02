@@ -81,3 +81,4 @@ int regSliceConflict(struct regSlice *a, struct regSlice *b);
 strRegP regGetForType(struct object *type);
 void initRegisters();
 int regSliceCompare(const struct regSlice *a, const struct regSlice *b);
+strRegP regsForArch();

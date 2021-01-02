@@ -10,6 +10,8 @@
 #include <hashTable.h>
 #include <parserB.h>
 #include <cleanup.h>
+#include <registers.h>
+#include <asm86.h>
 static __thread struct parserNode *currentScope=NULL;
 static __thread struct parserNode *currentLoop=NULL;
 static strParserNode switchStack = NULL;
@@ -169,6 +171,10 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end,
 
 		return ALLOCATE(lit);
 	} else if (item->template == &nameTemplate) {
+			__auto_type reg=parseAsmRegister(start,&start);
+			if(reg)
+					return reg;
+			
 		__auto_type name = nameParse(start, end, result);
 		// Look for var
 		__auto_type findVar = getVar(name);
@@ -2559,4 +2565,80 @@ struct variable *variableClone(struct variable *var) {
 				retVal->name=strClone(var->name);
 		retVal->refs=NULL;
 		return retVal;
+}
+struct parserNode *parseAsmRegister(llLexerItem start,llLexerItem *end) {
+		__auto_type item= llLexerItemValuePtr(start);
+		if(item->template==&nameTemplate) {
+				strRegP regs CLEANUP(strRegPDestroy)=regsForArch();
+				for(long i=0;i!=strRegPSize(regs);i++) {
+						if(0==strcasecmp(regs[i]->name, lexerItemValuePtr(item))) {
+								if(end)
+										*end=llLexerItemNext(start);
+								struct parserNodeAsmReg reg;
+								reg.base.pos.start=item->start;
+								reg.base.pos.end=item->end;
+								reg.base.type=NODE_ASM_REG;
+								reg.reg=regs[i];
+								return ALLOCATE(reg);
+						}
+				}
+		}
+		return NULL;
+}
+struct parserNode *parseAsmAddrModeSIB(llLexerItem start,llLexerItem *end) {
+		__auto_type originalStart=start;
+		struct parserNode *colon=NULL,*segment=NULL,* rB=NULL,*lB=NULL,*offset=NULL;
+		struct parserNode *toDestroy[]={
+				colon,segment,lB,rB,offset,
+		};
+		long startPos;
+		segment=parseAsmRegister(start, &start);
+		if(segment) {
+				startPos=segment->pos.start;
+				colon=expectOp(start, ":");
+				if(colon)
+						start=llLexerItemNext(start);
+				if(!start)
+						goto fail;
+				offset=literalRecur(start, NULL, &start);
+				if(!offset)
+						whineExpectedExpr(start);
+		}
+		lB=expectOp(start, "[");
+		if(lB==NULL) {
+				//If we were onto something(had a colon ) fail
+				if(colon)
+						whineExpected(start, "[");
+		}
+		start=llLexerItemNext(start);
+		__auto_type indirExp=parseExpression(start, NULL, &start);
+		rB=expectOp(start, "]");
+		if(rB) {
+				start=llLexerItemNext(start);
+		} else {
+				whineExpected(start, "]");
+		}
+		if(end)
+				*end=start;
+		
+		struct parserNodeAsmSIB indir;
+		indir.base.type=NODE_ASM_ADDRMODE_SIB;
+		getStartEndPos(originalStart,start,&indir.base.pos.start,&indir.base.pos.end);
+		indir.segment=segment;
+		indir.offset=offset;
+		indir.expression=indirExp;
+		if(lB) parserNodeDestroy(&lB);
+		if(rB) parserNodeDestroy(&rB);
+		if(colon) parserNodeDestroy(&colon);
+		return ALLOCATE(indir);
+	fail:;
+		long count=sizeof(toDestroy)/sizeof(*toDestroy);
+		for(long i=0;i!=count;i++)
+				parserNodeDestroy(&toDestroy[i]);
+		return NULL;
+}
+void parserNodeDestroy(struct parserNode **node) {
+}
+struct parserNode *parseAsmInstructionX86() {
+		
 }
