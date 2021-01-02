@@ -152,7 +152,25 @@ struct reg regAMD64R12u64;
 struct reg regAMD64R13u64;
 struct reg regAMD64R14u64;
 struct reg regAMD64R15u64;
+
+struct reg regX86MM0;
+struct reg regX86MM1;
+struct reg regX86MM2;
+struct reg regX86MM3;
+struct reg regX86MM4;
+struct reg regX86MM5;
+struct reg regX86MM6;
+struct reg regX86MM7;
 void initRegisters() {
+		regX86MM0=createRegister("MM0", 8, REG_TYPE_GP, 0);
+		regX86MM1=createRegister("MM1", 8, REG_TYPE_GP, 0);
+		regX86MM2=createRegister("MM2", 8, REG_TYPE_GP, 0);
+		regX86MM3=createRegister("MM3", 8, REG_TYPE_GP, 0);
+		regX86MM4=createRegister("MM4", 8, REG_TYPE_GP, 0);
+		regX86MM5=createRegister("MM5", 8, REG_TYPE_GP, 0);
+		regX86MM6=createRegister("MM6", 8, REG_TYPE_GP, 0);
+		regX86MM7=createRegister("MM7", 8, REG_TYPE_GP, 0);
+		
 		regX86ES=createRegister("ES", 1, REG_TYPE_GP, 0 );
 		regX86CS=createRegister("CS", 1, REG_TYPE_GP, 0 );
 		regX86SS=createRegister("SS", 1, REG_TYPE_GP, 0 );
@@ -241,13 +259,13 @@ void initRegisters() {
 																												createRegSlice(&regX86SP, 0, 16));
 
 	regAMD64RAX=createRegister("RAX", 8, REG_TYPE_GP, 1, createRegSlice(&regX86EAX, 0, 32));
-	regAMD64RBX=createRegister("RAX", 8, REG_TYPE_GP, 1, createRegSlice(&regX86EAX, 0, 32));
-	regAMD64RCX=createRegister("RAX", 8, REG_TYPE_GP, 1, createRegSlice(&regX86EAX, 0, 32));
-	regAMD64RDX=createRegister("RAX", 8, REG_TYPE_GP, 1, createRegSlice(&regX86EAX, 0, 32));
-	regAMD64RSP=createRegister("RAX", 8, REG_TYPE_GP, 1, createRegSlice(&regX86EAX, 0, 32));
-	regAMD64RBP=createRegister("RAX", 8, REG_TYPE_GP, 1, createRegSlice(&regX86EAX, 0, 32));
-	regAMD64RDI=createRegister("RAX", 8, REG_TYPE_GP, 1, createRegSlice(&regX86EAX, 0, 32));
-	regAMD64RSI=createRegister("RAX", 8, REG_TYPE_GP, 1, createRegSlice(&regX86EAX, 0, 32));
+	regAMD64RBX=createRegister("RBX", 8, REG_TYPE_GP, 1, createRegSlice(&regX86EBX, 0, 32));
+	regAMD64RCX=createRegister("RCX", 8, REG_TYPE_GP, 1, createRegSlice(&regX86ECX, 0, 32));
+	regAMD64RDX=createRegister("RDX", 8, REG_TYPE_GP, 1, createRegSlice(&regX86EDX, 0, 32));
+	regAMD64RSP=createRegister("RSP", 8, REG_TYPE_GP, 1, createRegSlice(&regX86ESP, 0, 32));
+	regAMD64RBP=createRegister("RBP", 8, REG_TYPE_GP, 1, createRegSlice(&regX86EBP, 0, 32));
+	regAMD64RDI=createRegister("RDI", 8, REG_TYPE_GP, 1, createRegSlice(&regX86EDI, 0, 32));
+	regAMD64RSI=createRegister("RSI", 8, REG_TYPE_GP, 1, createRegSlice(&regX86ESI, 0, 32));
 	
 	regX86XMM0 = createRegister("XMM0", 16, REG_TYPE_FLOATING, 0);
 	regX86XMM1 = createRegister("XMM1", 16, REG_TYPE_FLOATING, 0);

@@ -113,6 +113,16 @@ extern struct reg regAMD64R12u64;
 extern struct reg regAMD64R13u64;
 extern struct reg regAMD64R14u64;
 extern struct reg regAMD64R15u64;
+
+extern struct reg regX86MM0;
+extern struct reg regX86MM1;
+extern struct reg regX86MM2;
+extern struct reg regX86MM3;
+extern struct reg regX86MM4;
+extern struct reg regX86MM5;
+extern struct reg regX86MM6;
+extern struct reg regX86MM7;
+
 enum archConfig {
 	ARCH_TEST_SYSV,
 	ARCH_X86_SYSV,
