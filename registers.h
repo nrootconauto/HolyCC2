@@ -14,14 +14,15 @@ enum regType {
 	REG_TYPE_FRAME_SIMD = 32,
 };
 struct reg {
-	const char *name;
-	strRegSlice affects;
-	int size;
-	enum regType type;
+		const char *name;
+		struct reg *masterReg;
+		strRegSlice affects;
+		int size;
+		enum regType type;
 };
 struct regSlice {
-	struct reg *reg;
-	int offset, widthInBits;
+		struct reg *reg;
+		int offset, widthInBits;
 		struct object *type;
 };
 STR_TYPE_FUNCS(struct regSlice, RegSlice);
@@ -129,7 +130,7 @@ enum archConfig {
 	ARCH_X64_SYSV,
 };
 void setArch(enum archConfig Arch);
-int regSliceConflict(struct regSlice *a, struct regSlice *b);
+int regSliceConflict(const struct regSlice *a, const struct regSlice *b);
 strRegP regGetForType(struct object *type);
 void initRegisters();
 int regSliceCompare(const struct regSlice *a, const struct regSlice *b);
