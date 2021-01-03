@@ -53,7 +53,7 @@ STR_TYPE_DEF(struct opcodeTemplate,OpcodeTemplate);
 STR_TYPE_FUNCS(struct opcodeTemplate,OpcodeTemplate);
 MAP_TYPE_DEF(strOpcodeTemplate,OpcodeTemplates);
 MAP_TYPE_FUNCS(strOpcodeTemplate,OpcodeTemplates);
-#define OPCODES_FILE "OpCodes.txt"
+#define OPCODES_FILE "/home/tc/projects/holycc2/OpCodes.txt"
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
 static int lexInt(strChar text,long *Pos,long *retVal) {

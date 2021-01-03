@@ -441,8 +441,7 @@ strRegP regsForArch() {
 		case ARCH_TEST_SYSV:
 				return strRegPClone(regsTest);
 		case ARCH_X64_SYSV:
-				strRegPClone(regsAMD64);
-				return NULL;
+				return strRegPClone(regsAMD64);
 		case ARCH_X86_SYSV:
 				return strRegPClone(regsX86);
 		}
