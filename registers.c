@@ -298,7 +298,7 @@ void initRegisters() {
 	    &regX86EAX,  &regX86EBX,  &regX86ECX,  &regX86EDX,
 	    &regX86ESI,  &regX86EDI,  &regX86EBP,  &regX86ESP,
 
-					&regX86ES, &regX86CS,&regX86SS,&regX86DS,&regX86FS,&regX86SS,
+					&regX86ES, &regX86CS,&regX86SS,&regX86DS,&regX86FS,&regX86SS,&regX86GS,
 
 					&regX86ST0,&regX86ST1,&regX86ST2,&regX86ST3,&regX86ST4,&regX86ST5,&regX86ST6,&regX86ST7,
 	};
@@ -381,7 +381,7 @@ void initRegisters() {
 					&regAMD64RAX,  &regAMD64RBX,  &regAMD64RCX,  &regAMD64RDX,
 	    &regAMD64RSI,  &regAMD64RDI,  &regAMD64RBP,  &regAMD64RSP,
 					
-					&regX86ES, &regX86CS,&regX86SS,&regX86DS,&regX86FS,&regX86SS,
+					&regX86ES, &regX86CS,&regX86SS,&regX86DS,&regX86FS,&regX86SS,&regX86GS,
 
 					&regX86ST0,&regX86ST1,&regX86ST2,&regX86ST3,&regX86ST4,&regX86ST5,&regX86ST6,&regX86ST7,
 					&regX86MM0,&regX86MM1,&regX86MM2,&regX86MM3,&regX86MM4,&regX86MM5,&regX86MM6,&regX86MM7,

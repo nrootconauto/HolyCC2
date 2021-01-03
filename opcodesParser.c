@@ -29,6 +29,9 @@ struct opcodeTemplateArg {
 				OPC_TEMPLATE_ARG_R16,
 				OPC_TEMPLATE_ARG_R32,
 				OPC_TEMPLATE_ARG_R64,
+				OPC_TEMPLATE_ARG_MOFFS8,
+				OPC_TEMPLATE_ARG_MOFFS16,
+				OPC_TEMPLATE_ARG_MOFFS32,
 		} type;
 		union {
 				uint64_t uint;
@@ -58,10 +61,11 @@ STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
 static int lexInt(strChar text,long *Pos,long *retVal) {
 		long pos=*Pos;
-		long hex=strncmp(text+pos, "0x",2);
+		long hex=0==strncmp(text+pos, "0x",2);
 		if(hex) {
 				long originalPos=pos;
-				while(isxdigit(text+2+pos))
+				pos+=2;
+				while(isxdigit(text[pos]))
 						pos++;
 				char buffer[pos-originalPos+1];
 				buffer[pos-originalPos]='\0';
@@ -73,7 +77,7 @@ static int lexInt(strChar text,long *Pos,long *retVal) {
 		long dec=isdigit(text[pos]);
 		if(dec) {
 				long originalPos=pos;
-				while(isdigit(text+2+pos))
+				while(isdigit(text[pos]))
 						pos++;
 				char buffer[pos-originalPos+1];
 				buffer[pos-originalPos]='\0';
@@ -86,24 +90,25 @@ static int lexInt(strChar text,long *Pos,long *retVal) {
 }
 static int lexName(strChar text,long *Pos,strChar *retVal) {
 		long pos=*Pos;
-		if(!isalpha(text[pos]))
+		if(!isalpha(text[pos])&&text[pos]!='_')
 				return 0;
 		*retVal=NULL;
-		while(isalnum(text[pos]))
+		while(isalnum(text[pos])||text[pos]=='_')
 				*retVal=strCharAppendItem(*retVal, text[pos++]);
+		*retVal=strCharAppendItem(*retVal, '\0');
 		*Pos=pos;
 		return 1;
 }
 static long skipWhitespace(strChar text,long pos) {
 	start:
-		while(isblank(text[pos])) {
+		while(isblank(text[pos])||text[pos]=='\n'||text[pos]=='\0') {
 				if(text[pos]=='\0')
 						return pos;
 				pos++;
 		}
 		if(0==strncmp(text+pos, "/*", 2)) {
 				__auto_type end=strstr(text+pos, "*/");
-				pos= end-text;
+				pos= end-text+2;
 				goto start;
 		}
 		if(0==strncmp(text+pos, "//", 2)) {
@@ -118,14 +123,12 @@ static int strcmp2(const void *a,const void *b) {
 }
 static int lexKeyword(strChar text,long *Pos,const char **keywords,long kwCount,const char **result) {
 		long pos=*Pos;
-		for(long i=0;i!=kwCount;i++) {
-				long res=strcmp(keywords[i], text+pos);
+		for(long i=kwCount-1;i>=0;i--) {
+				long res=strncmp(keywords[i], text+pos,strlen(keywords[i]));
 				if(res==0) {
 						*result=keywords[i];
-						*Pos=pos;
+						*Pos=pos+strlen(keywords[i]);
 						return 1;
-				} else if(res>0)  {
-						break;
 				}
 		}
 		return 0;
@@ -223,6 +226,9 @@ void parseOpcodeFile() {
 				"R16",
 				"R32",
 				"R64",
+				"16",
+				"32",
+				"64",
 				"IMM8",
 				"IMM16",
 				"IMM32",
@@ -236,6 +242,9 @@ void parseOpcodeFile() {
 				";",
 				":",
 				"OPCODE",
+				"MOFFS8",
+				"MOFFS16",
+				"MOFFS32",
 		};
 		qsort(keywords, sizeof(keywords)/sizeof(*keywords), sizeof(*keywords), strcmp2);
 		
@@ -256,7 +265,7 @@ void parseOpcodeFile() {
 		for(long i=0;i!=strRegPSize(allRegs);i++)
 				mapRegInsert(regsByName, allRegs[i]->name, allRegs[i]);
 		for(;;) {
-		findOpcode:
+		findTemplate:
 				pos=skipWhitespace(text, pos);
 				if(text[pos]=='\0')
 						break;
@@ -267,6 +276,7 @@ void parseOpcodeFile() {
 								struct lexerItem *name CLEANUP(lexerItemDestroy)=lexItem(text, &pos, keywords, kwCount);
 								assert(name->type==LEXER_WORD);
 								strOpcodeTemplate templates=NULL;
+						findOpcode:
 								for(;;) {
 										if(item->type==LEXER_KW) {
 												if(0==strcmp(item->value.kw,":")) {
@@ -275,7 +285,7 @@ void parseOpcodeFile() {
 																struct lexerItem *next CLEANUP(lexerItemDestroy)=lexItem(text, &pos, keywords, kwCount);
 																if(item->type==LEXER_KW)
 																		if(0==strcmp(item->value.kw,";"))
-																				goto opcodeFinish;
+																				goto registerTemplates;
 																//Insert clone into map
 																assert(item->type==LEXER_WORD);
 																mapOpcodeTemplatesInsert(opcodes, item->value.name, strOpcodeTemplateClone2(templates));
@@ -284,27 +294,27 @@ void parseOpcodeFile() {
 										}
 										if(item->type==LEXER_KW)
 													if(0==strcmp(item->value.kw,";"))
-															goto opcodeFinish;
+															goto registerTemplates;
 											struct opcodeTemplate template;
+											memset(&template, 0,sizeof(template));
 											template.name=malloc(strlen(name->value.name)+1);
 											strcpy(template.name,name->value.name);
 											template.bytes=NULL;
 											template.args=NULL;
 											for(;;) {
 													long oldPos=pos;
-													struct lexerItem *byte CLEANUP(lexerItemDestroy)=lexItem(text, &pos, keywords, kwCount);
-													if(byte->type!=LEXER_INT) {
-															pos=oldPos;
-															break;
-													}
-													template.bytes=strOpcodeBytesAppendItem(template.bytes, byte->value.Int);
-													if(item->type==LEXER_KW) {
+													struct lexerItem *item CLEANUP(lexerItemDestroy)=lexItem(text, &pos, keywords, kwCount);
+													if(item->type==LEXER_INT)
+															template.bytes=strOpcodeBytesAppendItem(template.bytes, item->value.Int);
+													//Comma signifies end of bytes
+													else if(item->type==LEXER_KW) {
 															if(0==strcmp(item->value.kw,",")) {
 																	goto commaPassed;
-															}
-													}
-													fprintf(stderr, "EXPECTED COMMA IN " OPCODES_FILE "\n");
+															} else assert(0);
+													} else assert(0);
+													continue;
 															commaPassed:;
+													break;
 											}
 											//Look for arg keywords or flags
 											for(;;) {
@@ -312,10 +322,10 @@ void parseOpcodeFile() {
 													struct lexerItem *item CLEANUP(lexerItemDestroy)=lexItem(text, &pos, keywords, kwCount);
 													if(item->type==LEXER_INT) {
 															pos=oldPos;
-															goto findOpcode;
+															goto opcodeFinish;
 													} else if(item->type==LEXER_KW) {
 															if(0==strcmp(item->value.kw, ";")) {
-																	break;
+																	goto registerTemplates;
 															} else if(0==strcmp(item->value.kw, "+R")) {
 																	assert(!template.addRegNum);
 																	template.addRegNum=1;
@@ -402,7 +412,19 @@ void parseOpcodeFile() {
 																	struct opcodeTemplateArg arg;
 																	arg.type=OPC_TEMPLATE_ARG_UINT64;
 																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
-															} else if(0==strcmp(item->value.kw, "SREG")) {
+															} else if(0==strcmp(item->value.kw, "MOFFS32")) {
+																	struct opcodeTemplateArg arg;
+																	arg.type=OPC_TEMPLATE_ARG_MOFFS32;
+																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
+															}else if(0==strcmp(item->value.kw, "MOFFS16")) {
+																	struct opcodeTemplateArg arg;
+																	arg.type=OPC_TEMPLATE_ARG_MOFFS16;
+																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
+															}else if(0==strcmp(item->value.kw, "MOFFS8")) {
+																	struct opcodeTemplateArg arg;
+																	arg.type=OPC_TEMPLATE_ARG_MOFFS8;
+																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
+															}  else if(0==strcmp(item->value.kw, "SREG")) {
 																	struct opcodeTemplateArg arg;
 																	arg.type=OPC_TEMPLATE_ARG_SREG;
 																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
@@ -430,10 +452,10 @@ void parseOpcodeFile() {
 															assert(0);
 													}
 											}
+											opcodeFinish:;
 											templates=strOpcodeTemplateAppendItem(templates, template);
 								}
-								//
-						opcodeFinish:;
+						registerTemplates:
 								mapOpcodeTemplatesInsert(opcodes, item->value.name, templates);
 						}
 				}
