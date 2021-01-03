@@ -87,17 +87,15 @@ static struct reg createRegister(const char *name,struct reg *masterReg, int siz
 	va_list list;
 	va_start(list, affectsCount);
 	for (int i = 0; i != affectsCount; i++) {
-		__auto_type affects = va_arg(list, struct regSlice *);
-		if (!affects)
-			break;
+		__auto_type affects = va_arg(list, struct regSlice);
 
 		retVal.affects = strRegSliceSortedInsert(
-		    retVal.affects, *affects,
+		    retVal.affects, affects,
 		    (int (*)(const struct regSlice *, const struct regSlice *))ptrPtrCmp);
 		//Clone the affects->reg move move by offset
-		strRegSlice clone CLEANUP(strRegSliceDestroy)=strRegSliceClone(affects->reg->affects);
+		strRegSlice clone CLEANUP(strRegSliceDestroy)=strRegSliceClone(affects.reg->affects);
 		for(long i=0;i!=strRegSliceSize(clone);i++)
-				clone[i].offset+=affects->offset;
+				clone[i].offset+=affects.offset;
 		retVal.affects=strRegSliceSetUnion(retVal.affects, clone, regSliceCompare); 
 	}
 	va_end(list);
@@ -425,13 +423,15 @@ int regSliceConflict(const struct regSlice *a, const struct regSlice *b) {
 
 		int aEnd = a->offset + a->widthInBits+aRegOffsetInSuper;
 		int bEnd = b->offset + b->widthInBits+bRegOffsetInSuper;
-
-		if (a->offset >= b->offset)
-				if (bEnd > a->offset)
+		int aOffset=a->offset+aRegOffsetInSuper;
+		int bOffset=b->offset+bRegOffsetInSuper;
+		
+		if (aOffset >= bOffset)
+				if (bEnd > aOffset)
 						return 1;
 		
-		if (b->offset >= a->offset)
-				if (aEnd > b->offset)
+		if (bOffset >= aOffset)
+				if (aEnd > bOffset)
 						return 1;
 
 		return 0;
@@ -441,7 +441,7 @@ strRegP regsForArch() {
 		case ARCH_TEST_SYSV:
 				return strRegPClone(regsTest);
 		case ARCH_X64_SYSV:
-				assert(0);
+				strRegPClone(regsAMD64);
 				return NULL;
 		case ARCH_X86_SYSV:
 				return strRegPClone(regsX86);

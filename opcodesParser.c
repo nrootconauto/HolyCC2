@@ -49,8 +49,10 @@ struct opcodeTemplate {
 		unsigned int modRMReg:1;
 		unsigned int modRMExt:3;
 };
-MAP_TYPE_DEF(struct opcodeTemplate,OpcodeTemplate);
-MAP_TYPE_FUNCS(struct opcodeTemplate,OpcodeTemplate);
+STR_TYPE_DEF(struct opcodeTemplate,OpcodeTemplate);
+STR_TYPE_FUNCS(struct opcodeTemplate,OpcodeTemplate);
+MAP_TYPE_DEF(strOpcodeTemplate,OpcodeTemplates);
+MAP_TYPE_FUNCS(strOpcodeTemplate,OpcodeTemplates);
 #define OPCODES_FILE "OpCodes.txt"
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
@@ -146,6 +148,7 @@ static void lexerItemDestroy(struct lexerItem **item) {
 		free(item[0]);
 }
 static struct lexerItem *lexItem(strChar text,long *pos,const char **keywords,long kwCount) {
+		*pos=skipWhitespace(text, *pos);
 		struct lexerItem *item=malloc(sizeof(struct lexerItem));
 		if(lexKeyword(text, pos, keywords, kwCount, &item->value.kw)) {
 				item->type=LEXER_KW;
@@ -161,7 +164,32 @@ static struct lexerItem *lexItem(strChar text,long *pos,const char **keywords,lo
 		free(item);
 		return NULL;
 }
-static mapOpcodeTemplate opcodes;
+MAP_TYPE_DEF(struct reg*, Reg);
+MAP_TYPE_FUNCS(struct reg*, Reg);
+static mapOpcodeTemplates opcodes;
+static struct opcodeTemplate opcodeTemplateClone(struct opcodeTemplate from) {
+		struct opcodeTemplate retVal=from;
+		retVal.bytes=strOpcodeBytesClone(from.bytes);
+		retVal.args=strOpcodeTemplateArgClone(from.args);
+		retVal.name=malloc(strlen(from.name)+1);
+		strcpy(retVal.name, from.name);
+		return retVal;
+}
+static strOpcodeTemplate strOpcodeTemplateClone2(strOpcodeTemplate from) {
+		__auto_type retVal=strOpcodeTemplateClone(from);
+		for(long i=0;i!=strOpcodeTemplateSize(from);i++)
+				retVal[i]=opcodeTemplateClone(from[i]);
+		return retVal;
+}
+static void opcodeTemplateDestroy(struct opcodeTemplate *template) {
+		strOpcodeBytesDestroy(&template->bytes);
+		free(template->name);
+		strOpcodeTemplateArgDestroy(&template->args);
+}
+static void strOpcodeTemplateDestroy2(strOpcodeTemplate *str) {
+		for(long i=0;i!=strOpcodeTemplateSize(*str);i++)
+				 opcodeTemplateDestroy(&str[0][i]);
+}
 void parseOpcodeFile() {
 		const char *keywords[]={
 				"!", //?
@@ -219,8 +247,14 @@ void parseOpcodeFile() {
 		strChar text=strCharResize(NULL,end-start+1);
 		fread(text, end, end-start,file);
 
+		opcodes=mapOpcodeTemplatesCreate();
 		long pos=0;
 		long kwCount=sizeof(keywords)/sizeof(*keywords);
+		setArch(ARCH_X64_SYSV);
+		strRegP allRegs CLEANUP(strRegPDestroy)=regsForArch();
+		mapReg regsByName=mapRegCreate();
+		for(long i=0;i!=strRegPSize(allRegs);i++)
+				mapRegInsert(regsByName, allRegs[i]->name, allRegs[i]);
 		for(;;) {
 		findOpcode:
 				pos=skipWhitespace(text, pos);
@@ -232,10 +266,25 @@ void parseOpcodeFile() {
 						if(0==strcmp(item->value.kw,"OPCODE")) {
 								struct lexerItem *name CLEANUP(lexerItemDestroy)=lexItem(text, &pos, keywords, kwCount);
 								assert(name->type==LEXER_WORD);
+								strOpcodeTemplate templates=NULL;
 								for(;;) {
-											if(item->type==LEXER_KW)
+										if(item->type==LEXER_KW) {
+												if(0==strcmp(item->value.kw,":")) {
+														//Aliases
+														for(;;) {
+																struct lexerItem *next CLEANUP(lexerItemDestroy)=lexItem(text, &pos, keywords, kwCount);
+																if(item->type==LEXER_KW)
+																		if(0==strcmp(item->value.kw,";"))
+																				goto opcodeFinish;
+																//Insert clone into map
+																assert(item->type==LEXER_WORD);
+																mapOpcodeTemplatesInsert(opcodes, item->value.name, strOpcodeTemplateClone2(templates));
+														}
+												}
+										}
+										if(item->type==LEXER_KW)
 													if(0==strcmp(item->value.kw,";"))
-															break;
+															goto opcodeFinish;
 											struct opcodeTemplate template;
 											template.name=malloc(strlen(name->value.name)+1);
 											strcpy(template.name,name->value.name);
@@ -292,71 +341,71 @@ void parseOpcodeFile() {
 															} else if(0==strcmp(item->value.kw, "RM8")) {
 																	struct opcodeTemplateArg arg;
 																	arg.type=OPC_TEMPLATE_ARG_RM8;
-																	template.args=strOpcodeTemplateArgAppendItem(NULL, arg);
+																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
 															} else if(0==strcmp(item->value.kw, "RM16")) {
 																	struct opcodeTemplateArg arg;
 																	arg.type=OPC_TEMPLATE_ARG_RM16;
-																	template.args=strOpcodeTemplateArgAppendItem(NULL, arg);
+																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
 															} else if(0==strcmp(item->value.kw, "RM32")) {
 																	struct opcodeTemplateArg arg;
 																	arg.type=OPC_TEMPLATE_ARG_RM32;
-																	template.args=strOpcodeTemplateArgAppendItem(NULL, arg);
+																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
 															} else if(0==strcmp(item->value.kw, "RM64")) {
 																	struct opcodeTemplateArg arg;
 																	arg.type=OPC_TEMPLATE_ARG_RM64;
-																	template.args=strOpcodeTemplateArgAppendItem(NULL, arg);
+																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
 															} else if(0==strcmp(item->value.kw, "R8")) {
 																	struct opcodeTemplateArg arg;
 																	arg.type=OPC_TEMPLATE_ARG_R8;
-																	template.args=strOpcodeTemplateArgAppendItem(NULL, arg);
+																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
 															}else if(0==strcmp(item->value.kw, "R16")) {
 																	struct opcodeTemplateArg arg;
 																	arg.type=OPC_TEMPLATE_ARG_R16;
-																	template.args=strOpcodeTemplateArgAppendItem(NULL, arg);
+																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
 															}else if(0==strcmp(item->value.kw, "R32")) {
 																	struct opcodeTemplateArg arg;
 																	arg.type=OPC_TEMPLATE_ARG_R32;
-																	template.args=strOpcodeTemplateArgAppendItem(NULL, arg);
+																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
 															} else if(0==strcmp(item->value.kw, "R64")) {
 																	struct opcodeTemplateArg arg;
 																	arg.type=OPC_TEMPLATE_ARG_R64;
-																	template.args=strOpcodeTemplateArgAppendItem(NULL, arg);
+																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
 															} else if(0==strcmp(item->value.kw, "IMM8")) {
 																	struct opcodeTemplateArg arg;
 																	arg.type=OPC_TEMPLATE_ARG_SINT8;
-																	template.args=strOpcodeTemplateArgAppendItem(NULL, arg);
+																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
 															} else if(0==strcmp(item->value.kw, "IMM16")) {
 																	struct opcodeTemplateArg arg;
 																	arg.type=OPC_TEMPLATE_ARG_SINT16;
-																	template.args=strOpcodeTemplateArgAppendItem(NULL, arg);
+																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
 															} else if(0==strcmp(item->value.kw, "IMM32")) {
 																	struct opcodeTemplateArg arg;
 																	arg.type=OPC_TEMPLATE_ARG_SINT32;
-																	template.args=strOpcodeTemplateArgAppendItem(NULL, arg);
+																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
 															} else if(0==strcmp(item->value.kw, "IMM64")) {
 																	struct opcodeTemplateArg arg;
 																	arg.type=OPC_TEMPLATE_ARG_SINT64;
-																	template.args=strOpcodeTemplateArgAppendItem(NULL, arg);
+																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
 															} else if(0==strcmp(item->value.kw, "UIMM8")) {
 																	struct opcodeTemplateArg arg;
 																	arg.type=OPC_TEMPLATE_ARG_UINT8;
-																	template.args=strOpcodeTemplateArgAppendItem(NULL, arg);
+																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
 															} else if(0==strcmp(item->value.kw, "UIMM16")) {
 																	struct opcodeTemplateArg arg;
 																	arg.type=OPC_TEMPLATE_ARG_UINT16;
-																	template.args=strOpcodeTemplateArgAppendItem(NULL, arg);
+																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
 															} else if(0==strcmp(item->value.kw, "UIMM32")) {
 																	struct opcodeTemplateArg arg;
 																	arg.type=OPC_TEMPLATE_ARG_UINT32;
-																	template.args=strOpcodeTemplateArgAppendItem(NULL, arg);
+																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
 															} else if(0==strcmp(item->value.kw, "UIMM64")) {
 																	struct opcodeTemplateArg arg;
 																	arg.type=OPC_TEMPLATE_ARG_UINT64;
-																	template.args=strOpcodeTemplateArgAppendItem(NULL, arg);
+																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
 															} else if(0==strcmp(item->value.kw, "SREG")) {
 																	struct opcodeTemplateArg arg;
 																	arg.type=OPC_TEMPLATE_ARG_SREG;
-																	template.args=strOpcodeTemplateArgAppendItem(NULL, arg);
+																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
 															} else if(0==strcmp(item->value.kw, "!")) {
 															} else if(0==strcmp(item->value.kw, "&")) {
 															} else if(0==strcmp(item->value.kw, "%")) {
@@ -371,12 +420,23 @@ void parseOpcodeFile() {
 															}
 													} else if(item->type==LEXER_WORD) {
 															// Check for register
+															__auto_type find=mapRegGet(regsByName, item->value.name);
+															assert(find);
+															struct opcodeTemplateArg arg;
+															arg.type=OPC_TEMPLATE_ARG_REG;
+															arg.value.reg=*find;
+															template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
 													} else {
 															assert(0);
 													}
 											}
+											templates=strOpcodeTemplateAppendItem(templates, template);
 								}
+								//
+						opcodeFinish:;
+								mapOpcodeTemplatesInsert(opcodes, item->value.name, templates);
 						}
 				}
 		}
+		mapRegDestroy(regsByName, NULL);
 }
