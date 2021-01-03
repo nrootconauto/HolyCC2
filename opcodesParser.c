@@ -32,6 +32,9 @@ struct opcodeTemplateArg {
 				OPC_TEMPLATE_ARG_MOFFS8,
 				OPC_TEMPLATE_ARG_MOFFS16,
 				OPC_TEMPLATE_ARG_MOFFS32,
+				OPC_TEMPLATE_ARG_REL8,
+				OPC_TEMPLATE_ARG_REL16,
+				OPC_TEMPLATE_ARG_REL32,
 		} type;
 		union {
 				uint64_t uint;
@@ -191,7 +194,7 @@ static void opcodeTemplateDestroy(struct opcodeTemplate *template) {
 }
 static void strOpcodeTemplateDestroy2(strOpcodeTemplate *str) {
 		for(long i=0;i!=strOpcodeTemplateSize(*str);i++)
-				 opcodeTemplateDestroy(&str[0][i]);
+				opcodeTemplateDestroy(&str[0][i]);
 }
 void parseOpcodeFile() {
 		const char *keywords[]={
@@ -245,6 +248,12 @@ void parseOpcodeFile() {
 				"MOFFS8",
 				"MOFFS16",
 				"MOFFS32",
+				"CB",
+				"CW",
+				"CD",
+				"REL8",
+				"REL16",
+				"REL32",
 		};
 		qsort(keywords, sizeof(keywords)/sizeof(*keywords), sizeof(*keywords), strcmp2);
 		
@@ -276,187 +285,199 @@ void parseOpcodeFile() {
 								struct lexerItem *name CLEANUP(lexerItemDestroy)=lexItem(text, &pos, keywords, kwCount);
 								assert(name->type==LEXER_WORD);
 								strOpcodeTemplate templates=NULL;
-						findOpcode:
 								for(;;) {
 										if(item->type==LEXER_KW) {
-												if(0==strcmp(item->value.kw,":")) {
-														//Aliases
-														for(;;) {
-																struct lexerItem *next CLEANUP(lexerItemDestroy)=lexItem(text, &pos, keywords, kwCount);
-																if(item->type==LEXER_KW)
-																		if(0==strcmp(item->value.kw,";"))
-																				goto registerTemplates;
-																//Insert clone into map
-																assert(item->type==LEXER_WORD);
-																mapOpcodeTemplatesInsert(opcodes, item->value.name, strOpcodeTemplateClone2(templates));
+												struct opcodeTemplate template;
+												memset(&template, 0,sizeof(template));
+												template.name=malloc(strlen(name->value.name)+1);
+												strcpy(template.name,name->value.name);
+												template.bytes=NULL;
+												template.args=NULL;
+												for(;;) {
+														long oldPos=pos;
+														struct lexerItem *item CLEANUP(lexerItemDestroy)=lexItem(text, &pos, keywords, kwCount);
+														if(item->type==LEXER_INT)
+																template.bytes=strOpcodeBytesAppendItem(template.bytes, item->value.Int);
+														else if(item->type==LEXER_KW) {
+																if(0==strcmp(item->value.kw, ";")) {
+																		templates=strOpcodeTemplateAppendItem(templates, template);
+																		goto registerTemplates;
+																} else if(0==strcmp(item->value.kw,",")) {
+																		goto commaPassed;
+																} else assert(0);
+														} else assert(0);
+														continue;
+												commaPassed:;
+														break;
+												}
+												//Look for arg keywords or flags
+												for(;;) {
+														long oldPos=pos;
+														struct lexerItem *item CLEANUP(lexerItemDestroy)=lexItem(text, &pos, keywords, kwCount);
+														if(item->type==LEXER_INT) {
+																pos=oldPos;
+																goto opcodeFinish;
+														} else if(item->type==LEXER_KW) {
+																if(0==strcmp(item->value.kw, ";")) {
+																		goto registerTemplates;
+																} else if(0==strcmp(item->value.kw, "+R")) {
+																		assert(!template.addRegNum);
+																		template.addRegNum=1;
+																}else if(0==strcmp(item->value.kw, "+I")) {
+																		assert(!template.addRegNum);
+																		template.addRegNum=1;
+																} else if(0==strcmp(item->value.kw, "/R")) {
+																		assert(!template.modRMReg);
+																		template.modRMReg=1;
+																} else if(0==strcmp(item->value.kw, "/0")
+																										||0==strcmp(item->value.kw, "/1")
+																										||0==strcmp(item->value.kw, "/2")
+																										||0==strcmp(item->value.kw, "/3")
+																										||0==strcmp(item->value.kw, "/4")
+																										||0==strcmp(item->value.kw, "/5")
+																										||0==strcmp(item->value.kw, "/6")
+																										||0==strcmp(item->value.kw, "/7")) {
+																		template.modRMExt=item->value.kw[1]-'0';
+																} else if(0==strcmp(item->value.kw, "IB")
+																										||0==strcmp(item->value.kw, "IW")
+																										||0==strcmp(item->value.kw, "ID")) {
+																		//Immediate literals set immediate type
+																} else if(0==strcmp(item->value.kw, "RM8")) {
+																		struct opcodeTemplateArg arg;
+																		arg.type=OPC_TEMPLATE_ARG_RM8;
+																		template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
+																} else if(0==strcmp(item->value.kw, "RM16")) {
+																		struct opcodeTemplateArg arg;
+																		arg.type=OPC_TEMPLATE_ARG_RM16;
+																		template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
+																} else if(0==strcmp(item->value.kw, "RM32")) {
+																		struct opcodeTemplateArg arg;
+																		arg.type=OPC_TEMPLATE_ARG_RM32;
+																		template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
+																} else if(0==strcmp(item->value.kw, "RM64")) {
+																		struct opcodeTemplateArg arg;
+																		arg.type=OPC_TEMPLATE_ARG_RM64;
+																		template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
+																} else if(0==strcmp(item->value.kw, "R8")) {
+																		struct opcodeTemplateArg arg;
+																		arg.type=OPC_TEMPLATE_ARG_R8;
+																		template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
+																} else if(0==strcmp(item->value.kw, "CB")
+																										||0==strcmp(item->value.kw, "CW")
+																										||0==strcmp(item->value.kw, "CD")) {
+																} else if(0==strcmp(item->value.kw, "REL32")) {
+																		struct opcodeTemplateArg arg;
+																		arg.type=OPC_TEMPLATE_ARG_REL32;
+																		template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
+																}else if(0==strcmp(item->value.kw, "REL16")) {
+																		struct opcodeTemplateArg arg;
+																		arg.type=OPC_TEMPLATE_ARG_REL16;
+																		template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
+																}else if(0==strcmp(item->value.kw, "REL8")) {
+																		struct opcodeTemplateArg arg;
+																		arg.type=OPC_TEMPLATE_ARG_REL8;
+																		template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
+																}else if(0==strcmp(item->value.kw, "R16")) {
+																		struct opcodeTemplateArg arg;
+																		arg.type=OPC_TEMPLATE_ARG_R16;
+																		template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
+																} else if(0==strcmp(item->value.kw, "R32")) {
+																		struct opcodeTemplateArg arg;
+																		arg.type=OPC_TEMPLATE_ARG_R32;
+																		template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
+																} else if(0==strcmp(item->value.kw, "R64")) {
+																		struct opcodeTemplateArg arg;
+																		arg.type=OPC_TEMPLATE_ARG_R64;
+																		template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
+																} else if(0==strcmp(item->value.kw, "IMM8")) {
+																		struct opcodeTemplateArg arg;
+																		arg.type=OPC_TEMPLATE_ARG_SINT8;
+																		template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
+																} else if(0==strcmp(item->value.kw, "IMM16")) {
+																		struct opcodeTemplateArg arg;
+																		arg.type=OPC_TEMPLATE_ARG_SINT16;
+																		template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
+																} else if(0==strcmp(item->value.kw, "IMM32")) {
+																		struct opcodeTemplateArg arg;
+																		arg.type=OPC_TEMPLATE_ARG_SINT32;
+																		template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
+																} else if(0==strcmp(item->value.kw, "IMM64")) {
+																		struct opcodeTemplateArg arg;
+																		arg.type=OPC_TEMPLATE_ARG_SINT64;
+																		template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
+																} else if(0==strcmp(item->value.kw, "UIMM8")) {
+																		struct opcodeTemplateArg arg;
+																		arg.type=OPC_TEMPLATE_ARG_UINT8;
+																		template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
+																} else if(0==strcmp(item->value.kw, "UIMM16")) {
+																		struct opcodeTemplateArg arg;
+																		arg.type=OPC_TEMPLATE_ARG_UINT16;
+																		template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
+																} else if(0==strcmp(item->value.kw, "UIMM32")) {
+																		struct opcodeTemplateArg arg;
+																		arg.type=OPC_TEMPLATE_ARG_UINT32;
+																		template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
+																} else if(0==strcmp(item->value.kw, "UIMM64")) {
+																		struct opcodeTemplateArg arg;
+																		arg.type=OPC_TEMPLATE_ARG_UINT64;
+																		template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
+																} else if(0==strcmp(item->value.kw, "MOFFS32")) {
+																		struct opcodeTemplateArg arg;
+																		arg.type=OPC_TEMPLATE_ARG_MOFFS32;
+																		template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
+																}else if(0==strcmp(item->value.kw, "MOFFS16")) {
+																		struct opcodeTemplateArg arg;
+																		arg.type=OPC_TEMPLATE_ARG_MOFFS16;
+																		template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
+																}else if(0==strcmp(item->value.kw, "MOFFS8")) {
+																		struct opcodeTemplateArg arg;
+																		arg.type=OPC_TEMPLATE_ARG_MOFFS8;
+																		template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
+																}  else if(0==strcmp(item->value.kw, "SREG")) {
+																		struct opcodeTemplateArg arg;
+																		arg.type=OPC_TEMPLATE_ARG_SREG;
+																		template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
+																} else if(0==strcmp(item->value.kw, "!")) {
+																} else if(0==strcmp(item->value.kw, "&")) {
+																} else if(0==strcmp(item->value.kw, "%")) {
+																} else if(0==strcmp(item->value.kw, "=")) {
+																		assert(!template.needsREX);
+																		template.needsREX=1;
+																} else if(0==strcmp(item->value.kw, "^")) {
+																	
+																} else if(0==strcmp(item->value.kw, "*")) {
+																		//+I is used to detirmine if we need to add ST(i)
+																} else if(0==strcmp(item->value.kw, "$")) {
+																} else 	if(0==strcmp(item->value.kw,":")) {
+																		//Aliases
+																		for(;;) {
+																				struct lexerItem *next CLEANUP(lexerItemDestroy)=lexItem(text, &pos, keywords, kwCount);
+																				if(next->type==LEXER_KW)
+																						if(0==strcmp(next->value.kw,";"))
+																								goto registerTemplates;
+																				//Insert clone into map
+																				assert(next->type==LEXER_WORD);
+																				mapOpcodeTemplatesInsert(opcodes, next->value.name, strOpcodeTemplateClone2(templates));
+																		}
+																}
+														} else if(item->type==LEXER_WORD) {
+																// Check for register
+																__auto_type find=mapRegGet(regsByName, item->value.name);
+																assert(find);
+																struct opcodeTemplateArg arg;
+																arg.type=OPC_TEMPLATE_ARG_REG;
+																arg.value.reg=*find;
+																template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
+														} else {
+																assert(0);
 														}
 												}
+										opcodeFinish:;
+												templates=strOpcodeTemplateAppendItem(templates, template);
 										}
-										if(item->type==LEXER_KW)
-													if(0==strcmp(item->value.kw,";"))
-															goto registerTemplates;
-											struct opcodeTemplate template;
-											memset(&template, 0,sizeof(template));
-											template.name=malloc(strlen(name->value.name)+1);
-											strcpy(template.name,name->value.name);
-											template.bytes=NULL;
-											template.args=NULL;
-											for(;;) {
-													long oldPos=pos;
-													struct lexerItem *item CLEANUP(lexerItemDestroy)=lexItem(text, &pos, keywords, kwCount);
-													if(item->type==LEXER_INT)
-															template.bytes=strOpcodeBytesAppendItem(template.bytes, item->value.Int);
-													//Comma signifies end of bytes
-													else if(item->type==LEXER_KW) {
-															if(0==strcmp(item->value.kw,",")) {
-																	goto commaPassed;
-															} else assert(0);
-													} else assert(0);
-													continue;
-															commaPassed:;
-													break;
-											}
-											//Look for arg keywords or flags
-											for(;;) {
-													long oldPos=pos;
-													struct lexerItem *item CLEANUP(lexerItemDestroy)=lexItem(text, &pos, keywords, kwCount);
-													if(item->type==LEXER_INT) {
-															pos=oldPos;
-															goto opcodeFinish;
-													} else if(item->type==LEXER_KW) {
-															if(0==strcmp(item->value.kw, ";")) {
-																	goto registerTemplates;
-															} else if(0==strcmp(item->value.kw, "+R")) {
-																	assert(!template.addRegNum);
-																	template.addRegNum=1;
-															}else if(0==strcmp(item->value.kw, "+I")) {
-																	assert(!template.addRegNum);
-																	template.addRegNum=1;
-															} else if(0==strcmp(item->value.kw, "/R")) {
-																	assert(!template.modRMReg);
-																	template.modRMReg=1;
-															} else if(0==strcmp(item->value.kw, "/0")
-																									||0==strcmp(item->value.kw, "/1")
-																									||0==strcmp(item->value.kw, "/2")
-																									||0==strcmp(item->value.kw, "/3")
-																									||0==strcmp(item->value.kw, "/4")
-																									||0==strcmp(item->value.kw, "/5")
-																									||0==strcmp(item->value.kw, "/6")
-																									||0==strcmp(item->value.kw, "/7")) {
-																	template.modRMExt=item->value.kw[1]-'0';
-															} else if(0==strcmp(item->value.kw, "IB")
-																									||0==strcmp(item->value.kw, "IW")
-																									||0==strcmp(item->value.kw, "ID")) {
-																	//Immediate literals set immediate type
-															} else if(0==strcmp(item->value.kw, "RM8")) {
-																	struct opcodeTemplateArg arg;
-																	arg.type=OPC_TEMPLATE_ARG_RM8;
-																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
-															} else if(0==strcmp(item->value.kw, "RM16")) {
-																	struct opcodeTemplateArg arg;
-																	arg.type=OPC_TEMPLATE_ARG_RM16;
-																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
-															} else if(0==strcmp(item->value.kw, "RM32")) {
-																	struct opcodeTemplateArg arg;
-																	arg.type=OPC_TEMPLATE_ARG_RM32;
-																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
-															} else if(0==strcmp(item->value.kw, "RM64")) {
-																	struct opcodeTemplateArg arg;
-																	arg.type=OPC_TEMPLATE_ARG_RM64;
-																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
-															} else if(0==strcmp(item->value.kw, "R8")) {
-																	struct opcodeTemplateArg arg;
-																	arg.type=OPC_TEMPLATE_ARG_R8;
-																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
-															}else if(0==strcmp(item->value.kw, "R16")) {
-																	struct opcodeTemplateArg arg;
-																	arg.type=OPC_TEMPLATE_ARG_R16;
-																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
-															}else if(0==strcmp(item->value.kw, "R32")) {
-																	struct opcodeTemplateArg arg;
-																	arg.type=OPC_TEMPLATE_ARG_R32;
-																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
-															} else if(0==strcmp(item->value.kw, "R64")) {
-																	struct opcodeTemplateArg arg;
-																	arg.type=OPC_TEMPLATE_ARG_R64;
-																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
-															} else if(0==strcmp(item->value.kw, "IMM8")) {
-																	struct opcodeTemplateArg arg;
-																	arg.type=OPC_TEMPLATE_ARG_SINT8;
-																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
-															} else if(0==strcmp(item->value.kw, "IMM16")) {
-																	struct opcodeTemplateArg arg;
-																	arg.type=OPC_TEMPLATE_ARG_SINT16;
-																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
-															} else if(0==strcmp(item->value.kw, "IMM32")) {
-																	struct opcodeTemplateArg arg;
-																	arg.type=OPC_TEMPLATE_ARG_SINT32;
-																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
-															} else if(0==strcmp(item->value.kw, "IMM64")) {
-																	struct opcodeTemplateArg arg;
-																	arg.type=OPC_TEMPLATE_ARG_SINT64;
-																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
-															} else if(0==strcmp(item->value.kw, "UIMM8")) {
-																	struct opcodeTemplateArg arg;
-																	arg.type=OPC_TEMPLATE_ARG_UINT8;
-																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
-															} else if(0==strcmp(item->value.kw, "UIMM16")) {
-																	struct opcodeTemplateArg arg;
-																	arg.type=OPC_TEMPLATE_ARG_UINT16;
-																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
-															} else if(0==strcmp(item->value.kw, "UIMM32")) {
-																	struct opcodeTemplateArg arg;
-																	arg.type=OPC_TEMPLATE_ARG_UINT32;
-																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
-															} else if(0==strcmp(item->value.kw, "UIMM64")) {
-																	struct opcodeTemplateArg arg;
-																	arg.type=OPC_TEMPLATE_ARG_UINT64;
-																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
-															} else if(0==strcmp(item->value.kw, "MOFFS32")) {
-																	struct opcodeTemplateArg arg;
-																	arg.type=OPC_TEMPLATE_ARG_MOFFS32;
-																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
-															}else if(0==strcmp(item->value.kw, "MOFFS16")) {
-																	struct opcodeTemplateArg arg;
-																	arg.type=OPC_TEMPLATE_ARG_MOFFS16;
-																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
-															}else if(0==strcmp(item->value.kw, "MOFFS8")) {
-																	struct opcodeTemplateArg arg;
-																	arg.type=OPC_TEMPLATE_ARG_MOFFS8;
-																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
-															}  else if(0==strcmp(item->value.kw, "SREG")) {
-																	struct opcodeTemplateArg arg;
-																	arg.type=OPC_TEMPLATE_ARG_SREG;
-																	template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
-															} else if(0==strcmp(item->value.kw, "!")) {
-															} else if(0==strcmp(item->value.kw, "&")) {
-															} else if(0==strcmp(item->value.kw, "%")) {
-															} else if(0==strcmp(item->value.kw, "=")) {
-																	assert(!template.needsREX);
-																	template.needsREX=1;
-															} else if(0==strcmp(item->value.kw, "^")) {
-																	
-															} else if(0==strcmp(item->value.kw, "*")) {
-																	//+I is used to detirmine if we need to add ST(i)
-															} else if(0==strcmp(item->value.kw, "$")) {
-															}
-													} else if(item->type==LEXER_WORD) {
-															// Check for register
-															__auto_type find=mapRegGet(regsByName, item->value.name);
-															assert(find);
-															struct opcodeTemplateArg arg;
-															arg.type=OPC_TEMPLATE_ARG_REG;
-															arg.value.reg=*find;
-															template.args=strOpcodeTemplateArgAppendItem(template.args, arg);
-													} else {
-															assert(0);
-													}
-											}
-											opcodeFinish:;
-											templates=strOpcodeTemplateAppendItem(templates, template);
 								}
 						registerTemplates:
-								mapOpcodeTemplatesInsert(opcodes, item->value.name, templates);
+										mapOpcodeTemplatesInsert(opcodes, item->value.name, templates);
 						}
 				}
 		}
