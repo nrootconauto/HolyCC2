@@ -178,7 +178,7 @@ void initRegisters() {
 		regX86GS=createRegister("GS",NULL, 1, REG_TYPE_GP, 0 );
 		
 		regAMD64R8u8=createRegister("R8u8",&regAMD64R8u64, 1, REG_TYPE_GP, 0 );
-		regAMD64R8u8=createRegister("R9u8",&regAMD64R9u64, 1, REG_TYPE_GP, 0 );
+		regAMD64R9u8=createRegister("R9u8",&regAMD64R9u64, 1, REG_TYPE_GP, 0 );
 		regAMD64R10u8=createRegister("R10u8",&regAMD64R10u64, 1, REG_TYPE_GP, 0 );
 		regAMD64R11u8=createRegister("R11u8",&regAMD64R11u64, 1, REG_TYPE_GP, 0 );
 		regAMD64R12u8=createRegister("R12u8",&regAMD64R12u64, 1, REG_TYPE_GP, 0 );
