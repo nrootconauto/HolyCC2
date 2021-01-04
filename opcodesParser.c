@@ -449,3 +449,219 @@ void parseOpcodeFile() {
 		}
 		mapRegDestroy(regsByName, NULL);
 }
+struct X86MemoryLoc {
+		enum {
+				x86ADDR_MEM,
+				x86ADDR_INDIR_REG, //Indirect register aka [REG]
+				x86ADDR_INDIR_SIB, //Indirect scale-index-base aka [SCALE*REG+off/REG]
+		} type;
+		union {
+				uint64_t mem;
+				struct reg *indirReg;
+		} value;
+};
+struct X86AddressingMode {
+		enum {
+				X86ADDRMODE_REG,
+				X86ADDRMODE_SINT,
+				X86ADDRMODE_UINT,
+				X86ADDRMODE_MEM,
+				X86ADDRMODE_LABEL,
+		} type;
+		union {
+				uint64_t uint;
+				int64_t sint;
+				struct reg *reg;
+				struct X86MemoryLoc m;
+		} value;
+		struct object *valueType;
+};
+static int sizeMatchUnsigned(const struct X86AddressingMode *mode,long size) {
+		uint64_t upperBound;
+		switch(size) {
+		case 1:
+				upperBound=UINT8_MAX;
+				break;
+		case 2:
+				upperBound=UINT16_MAX;
+				break;
+		case 4:
+				upperBound=UINT32_MAX;
+				break;
+		case 8:
+				upperBound=UINT64_MAX;
+				break;
+		default:
+				assert(0);
+				}
+		switch(mode->type) {
+		case X86ADDRMODE_SINT:
+				return mode->value.sint<=upperBound;
+		case X86ADDRMODE_UINT:
+				return mode->value.uint<=upperBound;
+		case X86ADDRMODE_REG:
+				return mode->value.reg->size==size;
+		case X86ADDRMODE_MEM:
+				if(mode->valueType)
+						return objectSize(mode->valueType,NULL)==size;
+				return 1;
+		case X86ADDRMODE_LABEL:
+				return 1;
+		}
+		return 0;
+}
+static int sizeMatchSigned(const struct X86AddressingMode *mode,long size) {
+		int64_t upperBound,lowerBound;
+		switch(size) {
+		case 1:
+				upperBound=INT8_MAX,lowerBound=INT8_MIN;
+				break;
+		case 2:
+				upperBound=INT16_MAX,lowerBound=INT16_MIN;
+				break;
+		case 4:
+				upperBound=INT32_MAX,lowerBound=INT32_MIN;
+				break;
+		case 8:
+				upperBound=INT64_MAX,lowerBound=INT64_MIN;
+				break;
+		default:
+				assert(0);
+				}
+		switch(mode->type) {
+		case X86ADDRMODE_SINT:
+				return mode->value.sint>=lowerBound&&mode->value.sint<=upperBound;
+		case X86ADDRMODE_UINT:
+				return mode->value.uint<=upperBound;
+		case X86ADDRMODE_REG:
+				return mode->value.reg->size==size;
+		case X86ADDRMODE_MEM:
+				if(mode->valueType)
+						return objectSize(mode->valueType,NULL)==size;
+				return 1;
+		case X86ADDRMODE_LABEL:
+				return 1;
+		}
+		return 0;
+}
+static int templateAcceptsAddrMode(const struct opcodeTemplateArg *arg,const struct X86AddressingMode *mode) {
+		switch (arg->type) {
+		case OPC_TEMPLATE_ARG_M16:
+				if(mode->type==X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_MEM) {
+						return sizeMatchUnsigned(mode, 2);
+				}  else goto fail;
+		case OPC_TEMPLATE_ARG_M32:
+				if(mode->type==X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_MEM) {
+						return sizeMatchUnsigned(mode, 4);
+				}  else goto fail;
+		case OPC_TEMPLATE_ARG_M64:
+				if(mode->type==X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_MEM) {
+						return sizeMatchUnsigned(mode, 8);
+				}  else goto fail;
+		case  OPC_TEMPLATE_ARG_M8:
+				if(mode->type==X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_MEM) {
+						return sizeMatchUnsigned(mode, 1);
+				}  else goto fail;
+		case OPC_TEMPLATE_ARG_MOFFS16:
+				if(mode->type==X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_MEM) {
+						int64_t value=mode->value.m.value.mem;
+						return INT16_MIN<=value&&INT16_MAX>=value;
+				}  else goto fail;
+		case OPC_TEMPLATE_ARG_MOFFS32:
+				if(mode->type==X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_MEM) {
+						int64_t value=mode->value.m.value.mem;
+						return INT32_MIN<=value&&INT32_MAX>=value;
+				}  else goto fail;
+		case OPC_TEMPLATE_ARG_MOFFS8:
+				if(mode->type==X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_MEM) {
+						int64_t value=mode->value.m.value.mem;
+						return INT8_MIN<=value&&INT8_MAX>=value;
+				}  else goto fail;
+		case OPC_TEMPLATE_ARG_R16:
+				if(mode->type==X86ADDRMODE_REG) {
+						return sizeMatchUnsigned(mode, 2);
+				}  else goto fail;
+		case OPC_TEMPLATE_ARG_R32:
+				if(mode->type==X86ADDRMODE_REG) {
+						return sizeMatchUnsigned(mode, 4);
+				}  else goto fail;
+		case OPC_TEMPLATE_ARG_R64:
+				if(mode->type==X86ADDRMODE_REG) {
+						return sizeMatchUnsigned(mode, 8);
+				}  else goto fail;
+		case OPC_TEMPLATE_ARG_R8:
+				if(mode->type==X86ADDRMODE_REG) {
+						return sizeMatchUnsigned(mode, 1);
+				}  else goto fail;
+		case OPC_TEMPLATE_ARG_REG:
+				if(mode->type==X86ADDRMODE_REG) {
+						return mode->value.reg==arg->value.reg;
+				}  else goto fail;
+		case OPC_TEMPLATE_ARG_REL16:
+				if(mode->type==X86ADDRMODE_REG) {
+						return sizeMatchUnsigned(mode, 2);
+				}  else goto fail;
+		case OPC_TEMPLATE_ARG_SREG:
+				if(mode->type==X86ADDRMODE_REG) {
+						const struct reg *regs[]={
+								&regX86ES, &regX86CS,&regX86SS,&regX86DS,&regX86FS,&regX86SS,&regX86GS,
+						};
+						for(long i=0;i!=sizeof(regs)/sizeof(*regs);i++)
+								if(regs[i]==mode->value.reg)
+										return 1;
+						return 0;
+				}  else goto fail;
+		case OPC_TEMPLATE_ARG_SINT8:
+		case OPC_TEMPLATE_ARG_UINT8:
+				if(mode->type==X86ADDRMODE_SINT||mode->type==X86ADDRMODE_UINT) {
+						return sizeMatchUnsigned(mode, 1);
+				} else goto fail;
+		case OPC_TEMPLATE_ARG_UINT16:
+		case OPC_TEMPLATE_ARG_SINT16:
+				if(mode->type==X86ADDRMODE_SINT||mode->type==X86ADDRMODE_UINT) {
+						return sizeMatchUnsigned(mode, 2);
+				} else goto fail;
+		case OPC_TEMPLATE_ARG_SINT32:
+		case OPC_TEMPLATE_ARG_UINT32:
+				if(mode->type==X86ADDRMODE_SINT||mode->type==X86ADDRMODE_UINT) {
+						return sizeMatchUnsigned(mode, 4);
+				} else goto fail;
+		case OPC_TEMPLATE_ARG_SINT64:
+		case OPC_TEMPLATE_ARG_UINT64:
+				if(mode->type==X86ADDRMODE_SINT||mode->type==X86ADDRMODE_UINT) {
+						return sizeMatchUnsigned(mode, 8);
+				} else goto fail;
+		case OPC_TEMPLATE_ARG_RM8:
+				if(mode->type==X86ADDRMODE_REG||mode->type==X86ADDRMODE_MEM) {
+						return sizeMatchUnsigned(mode, 1);
+				} else goto fail;
+		case OPC_TEMPLATE_ARG_RM16:
+				if(mode->type==X86ADDRMODE_REG||mode->type==X86ADDRMODE_MEM) {
+						return sizeMatchUnsigned(mode, 2);
+				} else goto fail;
+		case OPC_TEMPLATE_ARG_RM32:
+				if(mode->type==X86ADDRMODE_REG||mode->type==X86ADDRMODE_MEM) {
+						return sizeMatchUnsigned(mode, 4);
+				} else goto fail;
+		case OPC_TEMPLATE_ARG_RM64:
+				if(mode->type==X86ADDRMODE_REG||mode->type==X86ADDRMODE_MEM) {
+						return sizeMatchUnsigned(mode, 8);
+				} else goto fail;
+		case OPC_TEMPLATE_ARG_REL8:
+				return mode->type==X86ADDRMODE_LABEL;
+		case OPC_TEMPLATE_ARG_REL32:
+				return mode->type==X86ADDRMODE_LABEL;
+		case OPC_TEMPLATE_ARG_STI:
+				if(mode->type==X86ADDRMODE_REG) {
+						const struct reg *fpuRegs[]={
+								&regX86ST0,&regX86ST1,&regX86ST2,&regX86ST3,&regX86ST4,&regX86ST5,&regX86ST6,&regX86ST7
+						};
+						for(long i=0;i!=sizeof(fpuRegs)/sizeof(*fpuRegs);i++)
+								if(fpuRegs[i]==mode->value.reg)
+										return 1;
+				}
+				return 0;
+		}
+	fail:
+		return 0;
+}

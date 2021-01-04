@@ -124,6 +124,7 @@ extern struct reg regX86MM5;
 extern struct reg regX86MM6;
 extern struct reg regX86MM7;
 
+extern struct reg regX86ES, regX86CS,regX86SS,regX86DS,regX86FS,regX86SS,regX86GS;
 enum archConfig {
 	ARCH_TEST_SYSV,
 	ARCH_X86_SYSV,
