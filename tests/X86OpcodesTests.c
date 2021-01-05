@@ -42,63 +42,63 @@ void X86OpcodesTests() {
 				//reg(CS)
 				__auto_type seg=X86AddrModeReg(&regX86CS);
 				strX86AddrMode args CLEANUP(strX86AddrModeDestroy)=strX86AddrModeAppendItem(NULL, seg);
-				strOpcodeTemplate  find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("PUSH",  args);
+				strOpcodeTemplate  find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("PUSH",  args,NULL);
 				assert(strOpcodeTemplateSize(find)!=0);
 		}
 		{
 				//R16
 				__auto_type reg=X86AddrModeReg(&regX86DX);
 				strX86AddrMode args CLEANUP(strX86AddrModeDestroy)=strX86AddrModeAppendItem(NULL, reg);
-				strOpcodeTemplate  find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("PUSH",  args);
+				strOpcodeTemplate  find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("PUSH",  args,NULL);
 				assert(strOpcodeTemplateSize(find)!=0);
 		}
 		{
 				//IMM8
 				__auto_type reg=X86AddrModeSint(2);
 				strX86AddrMode args CLEANUP(strX86AddrModeDestroy)=strX86AddrModeAppendItem(NULL, reg);
-				strOpcodeTemplate  find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("PUSH",  args);
+				strOpcodeTemplate  find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("PUSH",  args,NULL);
 				assert(strOpcodeTemplateSize(find)!=0);
 		}
 		{
 				//IMM16
 				__auto_type reg=X86AddrModeSint(256);
 				strX86AddrMode args CLEANUP(strX86AddrModeDestroy)=strX86AddrModeAppendItem(NULL, reg);
-				strOpcodeTemplate  find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("PUSH",  args);
+				strOpcodeTemplate  find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("PUSH",  args,NULL);
 				assert(strOpcodeTemplateSize(find)!=0);
 		}
 		{
 				//IMM32
 				__auto_type reg=X86AddrModeSint(INT16_MAX+1ll);
 				strX86AddrMode args CLEANUP(strX86AddrModeDestroy)=strX86AddrModeAppendItem(NULL, reg);
-				strOpcodeTemplate  find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("PUSH",  args);
+				strOpcodeTemplate  find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("PUSH",  args,NULL);
 				assert(strOpcodeTemplateSize(find)!=0);
 		}
 		{
 				//R32
 				__auto_type reg=X86AddrModeReg(&regX86EDX);
 				strX86AddrMode args CLEANUP(strX86AddrModeDestroy)=strX86AddrModeAppendItem(NULL, reg);
-				strOpcodeTemplate  find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("PUSH",  args);
+				strOpcodeTemplate  find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("PUSH",  args,NULL);
 				assert(strOpcodeTemplateSize(find)!=0);
 		}
 		{
 				//STI
 				__auto_type reg=X86AddrModeReg(&regX86ST3);
 				strX86AddrMode args CLEANUP(strX86AddrModeDestroy)=strX86AddrModeAppendItem(NULL, reg);
-				strOpcodeTemplate  find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("FLD",  args);
+				strOpcodeTemplate  find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("FLD",  args,NULL);
 				assert(strOpcodeTemplateSize(find)!=0);
 		}
 		{
 				//M64
 				__auto_type indir=X86AddrModeIndirReg(&regAMD64RAX, &typeI64i);
 				strX86AddrMode args CLEANUP(strX86AddrModeDestroy)=strX86AddrModeAppendItem(NULL, indir);
-				strOpcodeTemplate  find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("FSTP",  args);
+				strOpcodeTemplate  find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("FSTP",  args,NULL);
 				assert(strOpcodeTemplateSize(find)!=0);
 		}
 		{
 				//M32
 				__auto_type reg=X86AddrModeIndirReg(&regAMD64RAX, &typeI32i);
 				strX86AddrMode args CLEANUP(strX86AddrModeDestroy)=strX86AddrModeAppendItem(NULL, reg);
-				strOpcodeTemplate  find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("FSTP",  args);
+				strOpcodeTemplate  find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("FSTP",  args,NULL);
 				assert(strOpcodeTemplateSize(find)!=0);
 		}
 		{
@@ -107,7 +107,7 @@ void X86OpcodesTests() {
 				__auto_type st0=X86AddrModeReg(&regX86ST0);
 				strX86AddrMode args CLEANUP(strX86AddrModeDestroy)=strX86AddrModeAppendItem(NULL, st0);
 				args=strX86AddrModeAppendItem(args, mem);
-				strOpcodeTemplate find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("FIMUL",  args);
+				strOpcodeTemplate find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("FIMUL",  args,NULL);
 				assert(strOpcodeTemplateSize(find)!=0);
 		}
 		{
@@ -116,7 +116,7 @@ void X86OpcodesTests() {
 				__auto_type sreg=X86AddrModeReg(&regX86ES);
 				strX86AddrMode args CLEANUP(strX86AddrModeDestroy)=strX86AddrModeAppendItem(NULL, reg);
 				args=strX86AddrModeAppendItem(args, sreg);
-				strOpcodeTemplate  find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("MOV",  args);
+				strOpcodeTemplate  find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("MOV",  args,NULL);
 				assert(strOpcodeTemplateSize(find)!=0);
 		}
 		{
@@ -125,7 +125,7 @@ void X86OpcodesTests() {
 				__auto_type r8=X86AddrModeReg(&regX86DL);
 				strX86AddrMode args CLEANUP(strX86AddrModeDestroy)=strX86AddrModeAppendItem(NULL, rm8);
 				args=strX86AddrModeAppendItem(args, r8);
-				strOpcodeTemplate  find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("MOV",  args);
+				strOpcodeTemplate  find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("MOV",  args,NULL);
 				assert(strOpcodeTemplateSize(find)!=0);
 		}
 		{
@@ -134,7 +134,7 @@ void X86OpcodesTests() {
 				__auto_type r8=X86AddrModeReg(&regX86AL);
 				strX86AddrMode args CLEANUP(strX86AddrModeDestroy)=strX86AddrModeAppendItem(NULL, r8);
 				args=strX86AddrModeAppendItem(args, uimm);
-				strOpcodeTemplate  find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("XOR",  args);
+				strOpcodeTemplate  find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("XOR",  args,NULL);
 				assert(strOpcodeTemplateSize(find)!=0);
 		}
 }

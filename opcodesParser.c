@@ -612,7 +612,7 @@ static int imcompatWithArgs(const strX86AddrMode args,struct opcodeTemplate **te
 						return 1;
 		return 0;
 }
-strOpcodeTemplate X86OpcodesByArgs(const char *name,strX86AddrMode args) {
+static strOpcodeTemplate __X86OpcodesByArgs(const char *name,strX86AddrMode args) {
 		__auto_type list=mapOpcodeTemplatesGet(opcodes, name);
 		if(!list)
 				return NULL;
@@ -672,4 +672,142 @@ struct X86AddressingMode X86AddrModeIndirSIB(long scale,struct reg *index,struct
 		retVal.value.m.value.sib.offset=offset;
 		retVal.valueType=type;
 		return retVal;
+}
+STR_TYPE_DEF(long,Long);
+STR_TYPE_FUNCS(long,Long);
+struct sizeTypePair {
+		long size;
+		struct object *type;
+};
+static long templateOperandSize(struct opcodeTemplateArg arg) {
+		long operandSize;
+		switch(arg.type) {
+		case OPC_TEMPLATE_ARG_SREG:
+				operandSize=2;
+				break;
+		case OPC_TEMPLATE_ARG_REG:
+				operandSize=arg.value.reg->size;
+				break;
+		case OPC_TEMPLATE_ARG_M8:
+		case OPC_TEMPLATE_ARG_RM8:
+		case OPC_TEMPLATE_ARG_R8:
+		case OPC_TEMPLATE_ARG_MOFFS8:
+				operandSize=1;
+				break;
+		case OPC_TEMPLATE_ARG_M16:
+		case OPC_TEMPLATE_ARG_RM16:
+		case OPC_TEMPLATE_ARG_R16:
+		case OPC_TEMPLATE_ARG_MOFFS16:
+				operandSize=2;
+				break;
+		case OPC_TEMPLATE_ARG_M32:
+		case OPC_TEMPLATE_ARG_RM32:
+		case OPC_TEMPLATE_ARG_R32:
+		case OPC_TEMPLATE_ARG_MOFFS32:
+				operandSize=4;
+				break;
+		case OPC_TEMPLATE_ARG_M64:
+		case OPC_TEMPLATE_ARG_RM64:
+		case OPC_TEMPLATE_ARG_R64:
+				operandSize=8;
+				break;
+		case OPC_TEMPLATE_ARG_STI:
+				operandSize=10;
+				break;
+				//These values arn't mutually exlcusive,so give them a value of -1
+		case OPC_TEMPLATE_ARG_REL16:
+		case OPC_TEMPLATE_ARG_REL8:
+		case OPC_TEMPLATE_ARG_REL32:
+		case OPC_TEMPLATE_ARG_SINT8:
+		case OPC_TEMPLATE_ARG_SINT16:
+		case OPC_TEMPLATE_ARG_SINT32:
+		case OPC_TEMPLATE_ARG_SINT64:
+		case OPC_TEMPLATE_ARG_UINT8:
+		case OPC_TEMPLATE_ARG_UINT16:
+		case OPC_TEMPLATE_ARG_UINT32:
+		case OPC_TEMPLATE_ARG_UINT64:;
+				operandSize=-1;
+				break;
+		}
+		return operandSize;
+}
+static strOpcodeTemplate assumeTypes(strOpcodeTemplate templates,strX86AddrMode args) {
+		strLong ambigArgs CLEANUP(strLongDestroy)=NULL;
+		long operandSize=-1;
+		for(long i=0;i!=strX86AddrModeSize(args);i++) {
+				//Only assume type if the templates can't agree on a size for args[o]
+				long firstSize=templateOperandSize(templates[0]->args[i]);
+				for(long t=1;t<strOpcodeTemplateSize(templates);t++) {
+						if(firstSize!=templateOperandSize(templates[t]->args[i]))
+								goto ambiguous;
+				}
+				continue;
+		ambiguous:
+				if(args[i].type==X86ADDRMODE_MEM) {
+						if(args[i].valueType==NULL) {
+								ambigArgs=strLongAppendItem(ambigArgs, i);
+						} else {
+								__auto_type newSize=objectSize(args[i].valueType, NULL);
+								if(operandSize!=-1)
+										goto fail;
+								else if(operandSize!=newSize)
+										goto fail;
+								operandSize=newSize;;
+						}
+				} else if(args[i].type==X86ADDRMODE_REG&&args[i].value.reg->type==REG_TYPE_GP) {
+						__auto_type newSize=args[i].value.reg->size;
+						if(operandSize!=-1)
+										goto fail;
+						else if(operandSize!=newSize)
+								goto fail;
+						operandSize=newSize;
+				}
+		}
+		{
+				struct object *type=NULL;
+				switch(operandSize) {
+				case 1: type=&typeI8i; break;
+				case 2: type=&typeI16i; break;
+				case 4: type=&typeI32i; break;
+				case 8: type=&typeI64i; break;
+				}
+				strX86AddrMode clone CLEANUP(strX86AddrModeDestroy) = strX86AddrModeClone(args);
+				for(long i=0;strLongSize(ambigArgs);i++) {
+						if(args[i].type==X86ADDRMODE_MEM&&args[i].valueType==NULL)
+								if(!args[i].valueType)
+										args[i].valueType=type;
+				}
+				return __X86OpcodesByArgs(templates[0]->name, clone);
+		}
+		fail:;
+		return NULL;
+}
+strOpcodeTemplate X86OpcodesByArgs(const char *name,strX86AddrMode args,int *ambiguous) {
+		if(ambiguous)
+				*ambiguous=0;
+		strOpcodeTemplate  templates CLEANUP(strOpcodeTemplateDestroy)=__X86OpcodesByArgs(name, args);
+		if(strOpcodeTemplateSize(templates)==0)
+				return NULL;
+		strOpcodeTemplate  unambigTemplates CLEANUP(strOpcodeTemplateDestroy)=assumeTypes(templates,args);		
+		if(!unambigTemplates) {
+				if(ambiguous) *ambiguous=1;
+				return NULL;
+		}
+		//Check if remaining templates are ambigious
+		strLong argSizes CLEANUP(strLongDestroy)=strLongResize(NULL,strX86AddrModeSize(args));
+		for(long t=0;t!=strOpcodeTemplateSize(unambigTemplates);t++) {
+				for(long a=0;a!=strOpcodeTemplateArgSize(unambigTemplates[t]->args);a++) {
+						long operandSize=templateOperandSize(unambigTemplates[t]->args[a]);
+						if(t==0)
+								argSizes[a]=operandSize;
+						else
+								if(argSizes[a]!=operandSize)
+										goto fail;
+				}
+		}
+		return strOpcodeTemplateClone(unambigTemplates);
+	fail:
+		if(ambiguous)
+				*ambiguous=1;
+		return NULL;
 }

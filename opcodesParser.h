@@ -87,5 +87,5 @@ void parseOpcodeFile();
 struct opcodeTemplate;
 STR_TYPE_DEF(struct opcodeTemplate*,OpcodeTemplate);
 STR_TYPE_FUNCS(struct opcodeTemplate*,OpcodeTemplate);
-strOpcodeTemplate X86OpcodesByArgs(const char *name,strX86AddrMode args);
+strOpcodeTemplate X86OpcodesByArgs(const char *name,strX86AddrMode args,int *ambiguous);
 const char * opcodeTemplateName(struct opcodeTemplate *template);
