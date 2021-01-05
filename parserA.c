@@ -2642,9 +2642,6 @@ void parserNodeDestroy(struct parserNode **node) {
 struct parserNode *parseAsmInstructionX86(llLexerItem start,llLexerItem *end) {
 		if(llLexerItemValuePtr(start)->template==&intTemplate) {
 				const char *name=lexerItemValuePtr(llLexerItemValuePtr(start));
-				if(ASMX86IsOpcode(name)) {
-						
-				}
 		}
 		return NULL;
 }

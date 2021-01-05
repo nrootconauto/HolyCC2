@@ -8,7 +8,6 @@
 #include <signal.h>
 #include <stdio.h>
 #include <parse2IR.h>
-//#include <asm86.h>
 #include <opcodesParser.h>
 static void printBT(int sig) {
 	void *array[50];
@@ -21,7 +20,6 @@ static void printBT(int sig) {
 	abort();
 }
 void init() {
-		ASMX86Init();
 	initAssignOps();
 	initDebugPrint();
 	initTemplates();

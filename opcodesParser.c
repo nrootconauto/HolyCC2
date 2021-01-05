@@ -1,4 +1,3 @@
-#include <stdint.h>
 #include <str.h>
 #include <hashTable.h>
 #include <registers.h>
@@ -7,48 +6,10 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <cleanup.h>
+#include <opcodesParser.h>
 STR_TYPE_DEF(uint8_t,OpcodeBytes);
 STR_TYPE_FUNCS(uint8_t,OpcodeBytes);
-struct opcodeTemplateArg {
-		enum {
-				OPC_TEMPLATE_ARG_REG,
-				OPC_TEMPLATE_ARG_SREG, //Segment register
-				OPC_TEMPLATE_ARG_SINT8,
-				OPC_TEMPLATE_ARG_UINT8,
-				OPC_TEMPLATE_ARG_SINT16,
-				OPC_TEMPLATE_ARG_UINT16,
-				OPC_TEMPLATE_ARG_SINT32,
-				OPC_TEMPLATE_ARG_UINT32,
-				OPC_TEMPLATE_ARG_SINT64,
-				OPC_TEMPLATE_ARG_UINT64,
-				OPC_TEMPLATE_ARG_RM8,
-				OPC_TEMPLATE_ARG_RM16,
-				OPC_TEMPLATE_ARG_RM32,
-				OPC_TEMPLATE_ARG_RM64,
-				OPC_TEMPLATE_ARG_R8,
-				OPC_TEMPLATE_ARG_R16,
-				OPC_TEMPLATE_ARG_R32,
-				OPC_TEMPLATE_ARG_R64,
-				OPC_TEMPLATE_ARG_MOFFS8,
-				OPC_TEMPLATE_ARG_MOFFS16,
-				OPC_TEMPLATE_ARG_MOFFS32,
-				OPC_TEMPLATE_ARG_REL8,
-				OPC_TEMPLATE_ARG_REL16,
-				OPC_TEMPLATE_ARG_REL32,
-				OPC_TEMPLATE_ARG_M8,
-				OPC_TEMPLATE_ARG_M16,
-				OPC_TEMPLATE_ARG_M32,
-				OPC_TEMPLATE_ARG_M64,
-				OPC_TEMPLATE_ARG_STI,
-		} type;
-		union {
-				uint64_t uint;
-				int64_t sint;
-				struct reg *reg;
-		} value;
-};
-STR_TYPE_DEF(struct opcodeTemplateArg,OpcodeTemplateArg);
-STR_TYPE_FUNCS(struct opcodeTemplateArg,OpcodeTemplateArg);
+#define ALLOCATE(item) ({typeof(item)* ptr=malloc(sizeof(item));*ptr=item;ptr;})
 struct opcodeTemplate {
 		strOpcodeBytes bytes;
 		strOpcodeTemplateArg args;
@@ -60,8 +21,9 @@ struct opcodeTemplate {
 		unsigned int modRMReg:1;
 		unsigned int modRMExt:3;
 };
-STR_TYPE_DEF(struct opcodeTemplate,OpcodeTemplate);
-STR_TYPE_FUNCS(struct opcodeTemplate,OpcodeTemplate);
+const char * opcodeTemplateName(struct opcodeTemplate *template) {
+		return template->name;
+};
 MAP_TYPE_DEF(strOpcodeTemplate,OpcodeTemplates);
 MAP_TYPE_FUNCS(strOpcodeTemplate,OpcodeTemplates);
 #define OPCODES_FILE "/home/tc/projects/holycc2/OpCodes.txt"
@@ -200,7 +162,7 @@ static struct opcodeTemplate opcodeTemplateClone(struct opcodeTemplate from) {
 static strOpcodeTemplate strOpcodeTemplateClone2(strOpcodeTemplate from) {
 		__auto_type retVal=strOpcodeTemplateClone(from);
 		for(long i=0;i!=strOpcodeTemplateSize(from);i++)
-				retVal[i]=opcodeTemplateClone(from[i]);
+				retVal[i]=ALLOCATE(opcodeTemplateClone(*from[i]));
 		return retVal;
 }
 static void opcodeTemplateDestroy(struct opcodeTemplate *template) {
@@ -209,8 +171,10 @@ static void opcodeTemplateDestroy(struct opcodeTemplate *template) {
 		strOpcodeTemplateArgDestroy(&template->args);
 }
 static void strOpcodeTemplateDestroy2(strOpcodeTemplate *str) {
-		for(long i=0;i!=strOpcodeTemplateSize(*str);i++)
-				opcodeTemplateDestroy(&str[0][i]);
+		for(long i=0;i!=strOpcodeTemplateSize(*str);i++){
+				opcodeTemplateDestroy(str[0][i]);
+				free(str[0]);
+		}
 }
 void parseOpcodeFile() {
 		const char *keywords[]={
@@ -324,7 +288,7 @@ void parseOpcodeFile() {
 																template.bytes=strOpcodeBytesAppendItem(template.bytes, item->value.Int);
 														else if(item->type==LEXER_KW) {
 																if(0==strcmp(item->value.kw, ";")) {
-																		templates=strOpcodeTemplateAppendItem(templates, template);
+																		templates=strOpcodeTemplateAppendItem(templates, ALLOCATE(template));
 																		goto registerTemplates;
 																} else if(0==strcmp(item->value.kw,",")) {
 																		goto commaPassed;
@@ -348,6 +312,7 @@ void parseOpcodeFile() {
 																goto opcodeFinish;
 														} else if(item->type==LEXER_KW) {
 																if(0==strcmp(item->value.kw, ";")) {
+																		templates=strOpcodeTemplateAppendItem(templates, ALLOCATE(template));
 																		goto registerTemplates;
 																} else if(0==strcmp(item->value.kw, "+R")) {
 																		assert(!template.addRegNum);
@@ -416,6 +381,7 @@ void parseOpcodeFile() {
 																} else if(0==strcmp(item->value.kw, "$")) {
 																} else 	if(0==strcmp(item->value.kw,":")) {
 																		//Aliases
+																		templates=strOpcodeTemplateAppendItem(templates, ALLOCATE(template));
 																		for(;;) {
 																				struct lexerItem *next CLEANUP(lexerItemDestroy)=lexItem(text, &pos, keywords, kwCount);
 																				if(next->type==LEXER_KW)
@@ -439,43 +405,16 @@ void parseOpcodeFile() {
 														}
 												}
 										opcodeFinish:;
-												templates=strOpcodeTemplateAppendItem(templates, template);
+												templates=strOpcodeTemplateAppendItem(templates, ALLOCATE(template));
 										}
 								}
 						registerTemplates:
-										mapOpcodeTemplatesInsert(opcodes, item->value.name, templates);
+										mapOpcodeTemplatesInsert(opcodes, templates[0]->name, templates);
 						}
 				}
 		}
 		mapRegDestroy(regsByName, NULL);
 }
-struct X86MemoryLoc {
-		enum {
-				x86ADDR_MEM,
-				x86ADDR_INDIR_REG, //Indirect register aka [REG]
-				x86ADDR_INDIR_SIB, //Indirect scale-index-base aka [SCALE*REG+off/REG]
-		} type;
-		union {
-				uint64_t mem;
-				struct reg *indirReg;
-		} value;
-};
-struct X86AddressingMode {
-		enum {
-				X86ADDRMODE_REG,
-				X86ADDRMODE_SINT,
-				X86ADDRMODE_UINT,
-				X86ADDRMODE_MEM,
-				X86ADDRMODE_LABEL,
-		} type;
-		union {
-				uint64_t uint;
-				int64_t sint;
-				struct reg *reg;
-				struct X86MemoryLoc m;
-		} value;
-		struct object *valueType;
-};
 static int sizeMatchUnsigned(const struct X86AddressingMode *mode,long size) {
 		uint64_t upperBound;
 		switch(size) {
@@ -664,4 +603,67 @@ static int templateAcceptsAddrMode(const struct opcodeTemplateArg *arg,const str
 		}
 	fail:
 		return 0;
+}
+static int imcompatWithArgs(const strX86AddrMode args,struct opcodeTemplate **template) {
+		if(strOpcodeTemplateArgSize(template[0]->args)!=strX86AddrModeSize(args))
+				return 1;
+		for(long i=0;i!=strX86AddrModeSize(args);i++)
+				if(!templateAcceptsAddrMode(&template[0]->args[i], &args[i]))
+						return 1;
+		return 0;
+}
+strOpcodeTemplate X86OpcodesByArgs(const char *name,strX86AddrMode args) {
+		__auto_type list=mapOpcodeTemplatesGet(opcodes, name);
+		if(!list)
+				return NULL;
+		__auto_type retVal=strOpcodeTemplateClone(*list);
+		return strOpcodeTemplateRemoveIf(retVal, args,  (int(*)(const void *,const struct opcodeTemplate**))imcompatWithArgs);
+}
+struct X86AddressingMode X86AddrModeUint(uint64_t imm) {
+		struct X86AddressingMode retVal;
+		retVal.type=X86ADDRMODE_UINT;
+		retVal.value.uint=imm;
+		return retVal;
+}
+struct X86AddressingMode X86AddrModeSint(int64_t imm) {
+		struct X86AddressingMode retVal;
+		retVal.type=X86ADDRMODE_UINT;
+		retVal.value.sint=imm;
+		return retVal;
+}
+struct X86AddressingMode X86AddrModeReg(struct reg *reg) {
+		struct X86AddressingMode retVal;
+		retVal.type=X86ADDRMODE_REG;
+		retVal.value.reg=reg;
+		return retVal;
+}
+struct X86AddressingMode X86AddrModeIndirMem(uint64_t where) {
+		struct X86AddressingMode retVal;
+		retVal.type=X86ADDRMODE_MEM;
+		retVal.value.m.type=x86ADDR_INDIR_SIB;
+		retVal.value.m.value.sib.base=NULL;
+		retVal.value.m.value.sib.index=NULL;
+		retVal.value.m.value.sib.scale=1;
+		retVal.value.m.value.sib.offset=where;
+		return retVal;
+}
+struct X86AddressingMode X86AddrModeIndirReg(struct reg *where) {
+		struct X86AddressingMode retVal;
+		retVal.type=X86ADDRMODE_MEM;
+		retVal.value.m.type=x86ADDR_INDIR_SIB;
+		retVal.value.m.value.sib.base=where;
+		retVal.value.m.value.sib.index=NULL;
+		retVal.value.m.value.sib.scale=1;
+		retVal.value.m.value.sib.offset=0;
+		return retVal;
+}
+struct X86AddressingMode X86AddrModeIndirSIB(long scale,struct reg *index,struct reg *base,long offset) {
+		struct X86AddressingMode retVal;
+		retVal.type=X86ADDRMODE_MEM;
+		retVal.value.m.type=x86ADDR_INDIR_SIB;
+		retVal.value.m.value.sib.base=base;
+		retVal.value.m.value.sib.index=index;
+		retVal.value.m.value.sib.scale=scale;
+		retVal.value.m.value.sib.offset=offset;
+		return retVal;
 }

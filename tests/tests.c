@@ -25,8 +25,10 @@ void parse2IRTests();
 void IRTypeInferenceTests();
 void constantPropigationTests();
 void frameLayoutTests();
+void X86OpcodesTests();
 int main() {
 		init();
+		X86OpcodesTests();
 		/*
 		strTests();
 		preprocessorTests();
