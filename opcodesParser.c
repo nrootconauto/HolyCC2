@@ -340,7 +340,7 @@ void parseOpcodeFile() {
 																								||0==strcmp(item->value.kw, "CW")
 																								||0==strcmp(item->value.kw, "CD")) {
 																}
-																ARG_BY_NAME(OPC_TEMPLATE_ARG_RM16, "RM8")
+																ARG_BY_NAME(OPC_TEMPLATE_ARG_RM8, "RM8")
 																		ARG_BY_NAME(OPC_TEMPLATE_ARG_RM16, "RM16")
 																		ARG_BY_NAME(OPC_TEMPLATE_ARG_RM32, "RM32")
 																		ARG_BY_NAME(OPC_TEMPLATE_ARG_RM64, "RM64")
@@ -486,33 +486,33 @@ static int sizeMatchSigned(const struct X86AddressingMode *mode,long size) {
 static int templateAcceptsAddrMode(const struct opcodeTemplateArg *arg,const struct X86AddressingMode *mode) {
 		switch (arg->type) {
 		case OPC_TEMPLATE_ARG_M16:
-				if(mode->type==X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_MEM) {
+				if(mode->type==X86ADDRMODE_MEM) {
 						return sizeMatchUnsigned(mode, 2);
 				}  else goto fail;
 		case OPC_TEMPLATE_ARG_M32:
-				if(mode->type==X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_MEM) {
+				if(mode->type==X86ADDRMODE_MEM) {
 						return sizeMatchUnsigned(mode, 4);
 				}  else goto fail;
 		case OPC_TEMPLATE_ARG_M64:
-				if(mode->type==X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_MEM) {
+				if(mode->type==X86ADDRMODE_MEM) {
 						return sizeMatchUnsigned(mode, 8);
 				}  else goto fail;
 		case  OPC_TEMPLATE_ARG_M8:
-				if(mode->type==X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_MEM) {
+				if(mode->type==X86ADDRMODE_MEM) {
 						return sizeMatchUnsigned(mode, 1);
 				}  else goto fail;
 		case OPC_TEMPLATE_ARG_MOFFS16:
-				if(mode->type==X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_MEM) {
+				if(mode->type==X86ADDRMODE_MEM) {
 						int64_t value=mode->value.m.value.mem;
 						return INT16_MIN<=value&&INT16_MAX>=value;
 				}  else goto fail;
 		case OPC_TEMPLATE_ARG_MOFFS32:
-				if(mode->type==X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_MEM) {
+				if(mode->type==X86ADDRMODE_MEM) {
 						int64_t value=mode->value.m.value.mem;
 						return INT32_MIN<=value&&INT32_MAX>=value;
 				}  else goto fail;
 		case OPC_TEMPLATE_ARG_MOFFS8:
-				if(mode->type==X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_MEM) {
+				if(mode->type==X86ADDRMODE_MEM) {
 						int64_t value=mode->value.m.value.mem;
 						return INT8_MIN<=value&&INT8_MAX>=value;
 				}  else goto fail;
@@ -623,21 +623,24 @@ struct X86AddressingMode X86AddrModeUint(uint64_t imm) {
 		struct X86AddressingMode retVal;
 		retVal.type=X86ADDRMODE_UINT;
 		retVal.value.uint=imm;
+		retVal.valueType=NULL;
 		return retVal;
 }
 struct X86AddressingMode X86AddrModeSint(int64_t imm) {
 		struct X86AddressingMode retVal;
 		retVal.type=X86ADDRMODE_UINT;
 		retVal.value.sint=imm;
+		retVal.valueType=NULL;
 		return retVal;
 }
 struct X86AddressingMode X86AddrModeReg(struct reg *reg) {
 		struct X86AddressingMode retVal;
 		retVal.type=X86ADDRMODE_REG;
 		retVal.value.reg=reg;
+		retVal.valueType=NULL;
 		return retVal;
 }
-struct X86AddressingMode X86AddrModeIndirMem(uint64_t where) {
+struct X86AddressingMode X86AddrModeIndirMem(uint64_t where,struct object *type) {
 		struct X86AddressingMode retVal;
 		retVal.type=X86ADDRMODE_MEM;
 		retVal.value.m.type=x86ADDR_INDIR_SIB;
@@ -645,9 +648,10 @@ struct X86AddressingMode X86AddrModeIndirMem(uint64_t where) {
 		retVal.value.m.value.sib.index=NULL;
 		retVal.value.m.value.sib.scale=1;
 		retVal.value.m.value.sib.offset=where;
+		retVal.valueType=type;
 		return retVal;
 }
-struct X86AddressingMode X86AddrModeIndirReg(struct reg *where) {
+struct X86AddressingMode X86AddrModeIndirReg(struct reg *where,struct object *type) {
 		struct X86AddressingMode retVal;
 		retVal.type=X86ADDRMODE_MEM;
 		retVal.value.m.type=x86ADDR_INDIR_SIB;
@@ -655,9 +659,10 @@ struct X86AddressingMode X86AddrModeIndirReg(struct reg *where) {
 		retVal.value.m.value.sib.index=NULL;
 		retVal.value.m.value.sib.scale=1;
 		retVal.value.m.value.sib.offset=0;
+		retVal.valueType=type;
 		return retVal;
 }
-struct X86AddressingMode X86AddrModeIndirSIB(long scale,struct reg *index,struct reg *base,long offset) {
+struct X86AddressingMode X86AddrModeIndirSIB(long scale,struct reg *index,struct reg *base,long offset,struct object *type) {
 		struct X86AddressingMode retVal;
 		retVal.type=X86ADDRMODE_MEM;
 		retVal.value.m.type=x86ADDR_INDIR_SIB;
@@ -665,5 +670,6 @@ struct X86AddressingMode X86AddrModeIndirSIB(long scale,struct reg *index,struct
 		retVal.value.m.value.sib.index=index;
 		retVal.value.m.value.sib.scale=scale;
 		retVal.value.m.value.sib.offset=offset;
+		retVal.valueType=type;
 		return retVal;
 }
