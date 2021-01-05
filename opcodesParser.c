@@ -772,10 +772,10 @@ static strOpcodeTemplate assumeTypes(strOpcodeTemplate templates,strX86AddrMode 
 				case 8: type=&typeI64i; break;
 				}
 				strX86AddrMode clone CLEANUP(strX86AddrModeDestroy) = strX86AddrModeClone(args);
-				for(long i=0;strLongSize(ambigArgs);i++) {
-						if(args[i].type==X86ADDRMODE_MEM&&args[i].valueType==NULL)
-								if(!args[i].valueType)
-										args[i].valueType=type;
+				for(long i=0;i!=strLongSize(ambigArgs);i++) {
+						if(clone[i].type==X86ADDRMODE_MEM&&clone[i].valueType==NULL)
+								if(!clone[i].valueType)
+										clone[i].valueType=type;
 				}
 				return __X86OpcodesByArgs(templates[0]->name, clone);
 		}

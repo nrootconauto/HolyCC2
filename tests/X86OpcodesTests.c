@@ -137,4 +137,15 @@ void X86OpcodesTests() {
 				strOpcodeTemplate  find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("XOR",  args,NULL);
 				assert(strOpcodeTemplateSize(find)!=0);
 		}
+		//
+		// Ambiguous-ness tests
+		//
+		{
+				//FLD M32/64
+				__auto_type mem=X86AddrModeIndirMem(0, NULL);
+				int ambig;
+				strX86AddrMode args CLEANUP(strX86AddrModeDestroy)=strX86AddrModeAppendItem(NULL, mem);
+				strOpcodeTemplate find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("FLD",  args,&ambig);
+				assert(ambig);
+		}
 }
