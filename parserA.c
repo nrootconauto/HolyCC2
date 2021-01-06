@@ -11,7 +11,7 @@
 #include <parserB.h>
 #include <cleanup.h>
 #include <registers.h>
-#include <asm86.h>
+#include <opcodesParser.h>
 static __thread struct parserNode *currentScope=NULL;
 static __thread struct parserNode *currentLoop=NULL;
 static strParserNode switchStack = NULL;
@@ -146,7 +146,18 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end,
 		*result = start;
 
 	__auto_type item = llLexerItemValuePtr(start);
-	if (item->template == &intTemplate) {
+	if (item->template == &floatTemplate) {
+		if (result != NULL)
+			*result = llLexerItemNext(start);
+
+		struct parserNodeLitFlt lit;
+		lit.base.type = NODE_LIT_FLT;
+		lit.value = ((struct lexerFloating *)lexerItemValuePtr(item))->value;
+		lit.base.pos.start = item->start;
+		lit.base.pos.end = item->end;
+
+		return ALLOCATE(lit);
+	}  else if (item->template == &intTemplate) {
 		if (result != NULL)
 			*result = llLexerItemNext(start);
 
@@ -1488,7 +1499,15 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 		end = &endDummy;
 
 	__auto_type originalStart = start;
-	__auto_type semi = expectKeyword(start, ";");
+
+	__auto_type opcode=parseAsmInstructionX86(start, &start);
+	if(opcode) {
+			if (end != NULL)
+			*end = start;
+			return opcode;
+	}
+	
+	__auto_type semi = expectKeyword(originalStart, ";");
 	if (semi) {
 		if (end != NULL)
 			*end = llLexerItemNext(start);
@@ -2604,6 +2623,11 @@ struct parserNode *parseAsmAddrModeSIB(llLexerItem start,llLexerItem *end) {
 				if(!offset)
 						whineExpectedExpr(start);
 		}
+		__auto_type disp=literalRecur(start, llLexerItemNext(start), NULL);
+		if(disp) {
+				offset=disp;
+				start=llLexerItemNext(start);
+		}
 		lB=expectOp(start, "[");
 		if(lB==NULL) {
 				//If we were onto something(had a colon ) fail
@@ -2639,9 +2663,232 @@ struct parserNode *parseAsmAddrModeSIB(llLexerItem start,llLexerItem *end) {
 }
 void parserNodeDestroy(struct parserNode **node) {
 }
+static int isExpectedBinop(struct parserNode *node,const char *op) {
+		if(node->type!=NODE_BINOP)
+				return 0;
+		struct parserNodeBinop *binop=(void*)node;
+		struct parserNodeOpTerm *opTerm=(void*)binop->op;
+		return 0==strcmp(opTerm->text, op);
+}
+static uint64_t uintLitValue(struct parserNode *lit) {
+		if(lit->type==NODE_LIT_INT) {
+				__auto_type node=(struct parserNodeLitInt*)lit;
+				uint64_t retVal;
+				if(node->value.type==INT_SINT)
+						retVal=node->value.value.sInt;
+				else if(node->value.type==INT_UINT)
+						retVal=node->value.value.uInt;
+				else if(node->value.type==INT_SLONG)
+						retVal=node->value.value.sLong;
+				else if(node->value.type==INT_ULONG)
+						retVal=node->value.value.uLong;
+				return retVal;
+		} else if(lit->type==NODE_LIT_STR) {
+				struct parserNodeLitStr *str=(void*)lit;
+				uint64_t retVal=0;
+				for(long i=0;i!=strlen(str->text);i++) {
+						uint64_t c=((unsigned char*)str->text)[i];
+						retVal|=c<<8*i;
+				};
+				return retVal;
+		}
+		return -1;
+}
+static int64_t intLitValue(struct parserNode *lit) {
+		__auto_type node=(struct parserNodeLitInt*)lit;
+		int64_t retVal;
+		if(node->value.type==INT_SINT)
+				retVal=node->value.value.sInt;
+		else if(node->value.type==INT_UINT)
+				retVal=node->value.value.uInt;
+		else if(node->value.type==INT_SLONG)
+				retVal=node->value.value.sLong;
+		else if(node->value.type==INT_ULONG)
+				retVal=node->value.value.uLong;
+		return retVal; 
+}
+static struct X86AddressingMode addrModeFromParseTree(struct parserNode *node,int64_t *providedOffset,int *success) {
+		int64_t scale=0,offset=0;
+		int64_t  scaleDefined=0,offsetDefined=providedOffset!=NULL;
+		if(providedOffset)
+				offset=*providedOffset;
+		struct reg *index=NULL, *base=NULL;
+		strParserNode toProcess CLEANUP(strParserNodeDestroy)=NULL;
+		strParserNode stack CLEANUP(strParserNodeDestroy)=strParserNodeAppendItem(NULL, node);
+		//Points to operand of current binop/unop on stack
+		strInt stackArg CLEANUP(strIntDestroy)=strIntAppendItem(NULL, 0);
+	
+		while(1) {
+				pop:;
+				int argi;
+				stackArg=strIntPop(stackArg, &argi);
+				struct parserNode *top;
+				stack=strParserNodePop(stack, &top);
+				//If binop,re-insert on stack if passed first argument,but inc argi 
+				if(top->type==NODE_BINOP&&argi==0) {
+						stack=strParserNodeAppendItem(stack, top);
+						stackArg=strIntAppendItem(stackArg,  argi+1);
+				}
+				if(!strParserNodeSize(stack))
+						break;
+				if(top->type==NODE_BINOP) {
+						struct parserNodeBinop *binop=(void*)top;
+						struct parserNodeOpTerm *op=(void*)binop->op;
+						struct parserNode *arg=(argi)?binop->b:binop->a;
+						stack=strParserNodeAppendItem(stack, arg);
+						stackArg=strIntAppendItem(stackArg,  0);
+						//Should expect "+" or "*"
+						if(!isExpectedBinop(top, "+")&&!isExpectedBinop(top, "*"))
+								goto fail;
+				} else if(top->type==NODE_UNOP) {
+						//Should expect "+" or "*"
+						goto fail;
+				} else if(top->type==NODE_LIT_INT) {
+						//Can be index or scale						
+						//Is only scale if "*" is on top
+						if(strParserNodeSize(stack)) {
+								if(isExpectedBinop(stack[strParserNodeSize(stack)-1],"*")) {
+										if(scaleDefined)
+												goto fail;
+										scaleDefined=1;
+										scale=uintLitValue(top);
+										continue;
+								}
+						}
+						//Is an offset
+						if(offsetDefined)
+								goto fail;
+						offsetDefined=1;
+						offset=uintLitValue(top);
+				} else if(top->type==NODE_ASM_REG) {
+						//Is only scale if "*" is on top
+						if(strParserNodeSize(stack)) {
+								if(isExpectedBinop(stack[strParserNodeSize(stack)-1],"*")) {
+										if(index)
+												goto fail;
+										index=((struct parserNodeAsmReg*)stack[strParserNodeSize(stack)-1])->reg;
+										continue;
+								}
+						}
+						//Is a base
+						if(base)
+								goto  fail;
+						base=((struct parserNodeAsmReg*)stack[strParserNodeSize(stack)-1])->reg;
+				}
+		}
+	fail:
+		if(success)
+				*success=0;
+		struct X86AddressingMode dummy;
+		return dummy;
+}
 struct parserNode *parseAsmInstructionX86(llLexerItem start,llLexerItem *end) {
 		if(llLexerItemValuePtr(start)->template==&intTemplate) {
-				const char *name=lexerItemValuePtr(llLexerItemValuePtr(start));
+				__auto_type originalStart=start;
+				struct parserNode *name CLEANUP(parserNodeDestroy)=nameParse(start, NULL, &start);
+				__auto_type nameText=((struct parserNodeName*)name)->text;
+				strOpcodeTemplate dummy CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByName(nameText);
+				if(strOpcodeTemplateSize(dummy)) {
+						long argc=X86OpcodesArgCount(nameText);
+						start=llLexerItemNext(start);
+						strX86AddrMode args CLEANUP(strX86AddrModeDestroy)=NULL;
+						for(long a=0;a!=argc;a++) {
+								//Try parsing memory address first,then register,then number
+								struct parserNode *addrMode CLEANUP(parserNodeDestroy)=parseAsmAddrModeSIB(start, &start);
+								if(addrMode) {
+										int success;
+										struct X86AddressingMode dummy=X86AddrModeIndirMem(0, NULL);
+										__auto_type offsetNode=((struct parserNodeAsmSIB*)addrMode)->offset;
+										struct X86AddressingMode addrMode2;
+										if(offsetNode) {
+												int64_t offset=intLitValue(offsetNode);
+												addrMode2=addrModeFromParseTree(addrMode,&offset, &success);
+										} else 
+												addrMode2=addrModeFromParseTree(addrMode,NULL, &success);
+										if(!success) {
+												addrMode2=dummy;
+												diagErrorStart(addrMode->pos.start, addrMode->pos.end);
+												diagPushText("Invalid addressing mode ");
+												diagPushQoutedText(addrMode->pos.start, addrMode->pos.end);
+												diagPushText(".");
+												diagEndMsg();
+										}
+										args=strX86AddrModeAppendItem(args, addrMode2);
+										continue;
+								}
+								struct parserNode *reg CLEANUP(parserNodeDestroy)=parseAsmRegister(start, &start);
+								if(reg) {
+										__auto_type mode=X86AddrModeReg(((struct parserNodeAsmReg*)reg)->reg);
+										args=strX86AddrModeAppendItem(args, mode);
+										continue;
+								}
+								struct parserNode *literal CLEANUP(parserNodeDestroy)=literalRecur(start,NULL, &start);
+								if(literal) {
+										if(literal->type==NODE_LIT_INT) {
+												if(INT64_MAX<uintLitValue(literal)) {
+														args=strX86AddrModeAppendItem(args, X86AddrModeUint(uintLitValue(literal)));
+												} else {
+														args=strX86AddrModeAppendItem(args, X86AddrModeSint(uintLitValue(literal)));
+												}
+										} else if(literal->type==NODE_LIT_FLT) {
+												args=strX86AddrModeAppendItem(args,X86AddrModeFlt(((struct parserNodeLitFlt*)literal)->value));
+										} else if(literal->type==NODE_LIT_STR) {
+												struct parserNodeLitStr *str=(void*)literal;
+												if(str->isChar) {
+														args=strX86AddrModeAppendItem(args, X86AddrModeUint(uintLitValue(literal)));
+												} else {
+														//Is a string so add to memory addess
+														args=strX86AddrModeAppendItem(args, X86AddrModeUint(uintLitValue(literal)));
+												}
+										} else {
+												diagErrorStart(literal->pos.start, literal->pos.end);
+												diagPushText("Invalid opcode literal.");
+												diagEndMsg();
+												args=strX86AddrModeAppendItem(args, X86AddrModeSint(-1));
+										}
+										continue;
+								}
+								// Check for address of symbol
+								struct parserNode *addrOf CLEANUP(parserNodeDestroy)=expectOp(start, "&");
+								if(addrOf) {
+										__auto_type addrOfExpr=parseExpression(start, NULL, &start);
+										if(addrOfExpr)
+												args=strX86AddrModeAppendItem(args,X86AddrModeItemAddrOf(addrOfExpr, assignTypeToOp(addrOfExpr)));
+										continue;
+								}
+								//Couldn't find argument so quit
+								diagErrorStart(llLexerItemValuePtr(start)->start, llLexerItemValuePtr(start)->end);
+								diagPushText("Invalid argument for opcode.");
+								diagEndMsg();
+								break;
+						}
+						int ambiguous;
+						strOpcodeTemplate valids CLEANUP(strOpcodeTemplateDestroy)= X86OpcodesByArgs(NULL, args, &ambiguous);
+						if(end)
+								*end=start;
+						if(ambiguous) {
+								diagErrorStart(name->pos.start, name->pos.end);
+								diagPushText("Ambiuous operands for opcode ");
+								diagPushQoutedText(name->pos.start, name->pos.end );
+								diagPushText(".");
+								diagEndMsg();
+						} else if(!strOpcodeTemplateSize(valids)) {
+								diagErrorStart(name->pos.start, name->pos.end);
+								diagPushText("Invalid arguments for opcode ");
+								diagPushQoutedText(name->pos.start, name->pos.end );
+								diagPushText(".");
+								diagEndMsg();
+						} else {
+								struct parserNodeAsmInstX86 inst;
+								inst.args=strX86AddrModeClone(args);
+								inst.name=nameParse(originalStart, NULL, NULL);
+								inst.base.type=NODE_ASM_INST;
+								getStartEndPos(originalStart, start, &inst.base.pos.start, &inst.base.pos.end);
+								return ALLOCATE(inst);
+						}
+				}
 		}
+		if(end)
+				*end=start;
 		return NULL;
 }

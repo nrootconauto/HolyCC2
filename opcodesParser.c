@@ -782,6 +782,18 @@ static strOpcodeTemplate assumeTypes(strOpcodeTemplate templates,strX86AddrMode 
 		fail:;
 		return NULL;
 }
+strOpcodeTemplate X86OpcodesByName(const char *name) {
+		__auto_type find=mapOpcodeTemplatesGet(opcodes, name);
+		if(!find)
+				return NULL;
+		return strOpcodeTemplateClone(*find);
+}
+long X86OpcodesArgCount(const char *name) {
+		__auto_type find=mapOpcodeTemplatesGet(opcodes, name);
+		if(!find)
+				return 0;
+		return strOpcodeTemplateArgSize(find[0][0]->args);
+}
 strOpcodeTemplate X86OpcodesByArgs(const char *name,strX86AddrMode args,int *ambiguous) {
 		if(ambiguous)
 				*ambiguous=0;
@@ -810,4 +822,18 @@ strOpcodeTemplate X86OpcodesByArgs(const char *name,strX86AddrMode args,int *amb
 		if(ambiguous)
 				*ambiguous=1;
 		return NULL;
+}
+struct X86AddressingMode X86AddrModeFlt(double value) {
+		struct X86AddressingMode flt;
+		flt.type=X86ADDRMODE_FLT;
+		flt.valueType=NULL;
+		flt.value.flt=value;
+		return flt;
+}
+struct X86AddressingMode X86AddrModeItemAddrOf(struct parserNode *item,struct object *type) {
+		struct X86AddressingMode mode;
+		mode.type=X86ADDRMODE_ITEM_ADDR;
+		mode.value.itemAddr=item;
+		mode.valueType=type;
+		return mode;
 }

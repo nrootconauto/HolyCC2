@@ -141,11 +141,21 @@ void X86OpcodesTests() {
 		// Ambiguous-ness tests
 		//
 		{
-				//FLD M32/64
+				//FLD M32 or M64?
 				__auto_type mem=X86AddrModeIndirMem(0, NULL);
 				int ambig;
 				strX86AddrMode args CLEANUP(strX86AddrModeDestroy)=strX86AddrModeAppendItem(NULL, mem);
 				strOpcodeTemplate find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("FLD",  args,&ambig);
 				assert(ambig);
+		}
+		{
+				//MOV with unspecified address size into AX(assume type)
+				__auto_type reg=X86AddrModeReg(&regX86DX);
+				__auto_type mem=X86AddrModeIndirMem(0, NULL);
+				int ambig;
+				strX86AddrMode args CLEANUP(strX86AddrModeDestroy)=strX86AddrModeAppendItem(NULL, reg);
+				args=strX86AddrModeAppendItem(args, mem);
+				strOpcodeTemplate find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("MOV",  args,&ambig);
+				assert(!ambig);
 		}
 }

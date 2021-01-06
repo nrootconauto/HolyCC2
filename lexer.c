@@ -255,13 +255,9 @@ static struct __vec *floatingLex(const struct __vec *vec, long pos, long *end,
 	if (err != NULL)
 		*err = 0;
 
-	__auto_type endPtr = strlen(vec) + (char *)vec;
+	__auto_type originalPos=(char *)vec + pos;
+	__auto_type endPtr = strlen((char*)vec) + (char *)vec;
 	__auto_type currPtr = (char *)vec + pos;
-	struct lexerFloating f;
-	f.base = 0;
-	f.frac = 0;
-	f.zerosBeforeBase = 0;
-	f.exponet = 0;
 
 	__auto_type alnumCount = countAlnum(vec, pos);
 	if (alnumCount == 0)
@@ -280,11 +276,6 @@ static struct __vec *floatingLex(const struct __vec *vec, long pos, long *end,
 	}
 
 	if (alnumCount != 0) {
-		__auto_type slice = __vecAppendItem(
-		    NULL, currPtr,
-		    ((exponetIndex != -1) ? exponetIndex - pos : alnumCount));
-		sscanf((char *)slice, "%lu", &f.base);
-
 		currPtr += (exponetIndex == -1) ? alnumCount : exponetIndex + 1 - pos;
 	}
 
@@ -297,7 +288,7 @@ static struct __vec *floatingLex(const struct __vec *vec, long pos, long *end,
 dot : {
 	currPtr++;
 	while (*currPtr == '0')
-		currPtr++, f.zerosBeforeBase++;
+		currPtr++;
 
 	long digitCount = 0;
 	for (; isdigit(currPtr[digitCount]); digitCount++)
@@ -305,7 +296,6 @@ dot : {
 
 	__auto_type slice = __vecAppendItem(NULL, currPtr, digitCount);
 	slice = __vecAppendItem(slice, "\0", 1);
-	sscanf((char *)slice, "%lu", &f.frac);
 
 	currPtr += digitCount;
 
@@ -327,11 +317,6 @@ exponet : {
 		if (!isdigit(currPtr[i]))
 			goto malformed;
 
-	__auto_type slice = __vecAppendItem(NULL, currPtr, alnumCount);
-	slice = __vecAppendItem(slice, "\0", 1);
-	sscanf((char *)slice, "%d", &f.exponet);
-	f.exponet *= mult;
-
 	currPtr += alnumCount;
 	goto returnLabel;
 }
@@ -339,6 +324,11 @@ returnLabel : {
 	if (end != NULL)
 		*end = currPtr - (char *)vec;
 
+	struct lexerFloating f;
+	char buffer[currPtr-originalPos+1];
+	strncpy(buffer, originalPos, currPtr-originalPos);
+	buffer[currPtr-originalPos]='\0';
+	sscanf(buffer, "%lf", &f.value);
 	return __vecAppendItem(NULL, &f, sizeof(f));
 }
 

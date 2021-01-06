@@ -21,10 +21,7 @@ struct lexerInt {
 	} value;
 };
 struct lexerFloating {
-	unsigned long base;
-	unsigned long zerosBeforeBase;
-	unsigned long frac;
-	int exponet;
+		double value;
 };
 struct lexerItem;
 struct lexerItemTemplate {
