@@ -2606,14 +2606,22 @@ struct parserNode *parseAsmRegister(llLexerItem start,llLexerItem *end) {
 }
 struct parserNode *parseAsmAddrModeSIB(llLexerItem start,llLexerItem *end) {
 		__auto_type originalStart=start;
+		struct object *valueType=NULL;
 		struct parserNode *colon=NULL,*segment=NULL,* rB=NULL,*lB=NULL,*offset=NULL;
-		struct parserNode *toDestroy[]={
-				colon,segment,lB,rB,offset,
+		struct parserNode **toDestroy[]={
+				&colon,&segment,&lB,&rB,&offset,
 		};
-		long startPos;
+		struct parserNode *typename CLEANUP(parserNodeDestroy)=nameParse(start, NULL, NULL);
+		if(typename) {
+				struct parserNodeName *name=(void*)typename;
+				if(objectByName(name->text)) {
+						valueType=objectByName(name->text);
+						valueType=parseVarDeclTail(start, &start, valueType, NULL, NULL, NULL);
+						start=llLexerItemNext(start);
+				}
+		}
 		segment=parseAsmRegister(start, &start);
 		if(segment) {
-				startPos=segment->pos.start;
 				colon=expectKeyword(start, ":");
 				if(colon)
 						start=llLexerItemNext(start);
@@ -2651,6 +2659,7 @@ struct parserNode *parseAsmAddrModeSIB(llLexerItem start,llLexerItem *end) {
 		indir.segment=segment;
 		indir.offset=offset;
 		indir.expression=indirExp;
+		indir.type=valueType;
 		if(lB) parserNodeDestroy(&lB);
 		if(rB) parserNodeDestroy(&rB);
 		if(colon) parserNodeDestroy(&colon);
@@ -2658,7 +2667,7 @@ struct parserNode *parseAsmAddrModeSIB(llLexerItem start,llLexerItem *end) {
 	fail:;
 		long count=sizeof(toDestroy)/sizeof(*toDestroy);
 		for(long i=0;i!=count;i++)
-				parserNodeDestroy(&toDestroy[i]);
+				parserNodeDestroy(toDestroy[i]);
 		return NULL;
 }
 void parserNodeDestroy(struct parserNode **node) {
@@ -2707,7 +2716,7 @@ static int64_t intLitValue(struct parserNode *lit) {
 				retVal=node->value.value.uLong;
 		return retVal; 
 }
-static struct X86AddressingMode addrModeFromParseTree(struct parserNode *node,int64_t *providedOffset,int *success) {
+static struct X86AddressingMode addrModeFromParseTree(struct parserNode *node,struct object *valueType,int64_t *providedOffset,int *success) {
 		int64_t scale=0,offset=0;
 		int64_t  scaleDefined=0,offsetDefined=providedOffset!=NULL;
 		if(providedOffset)
@@ -2785,6 +2794,7 @@ static struct X86AddressingMode addrModeFromParseTree(struct parserNode *node,in
 		retVal.value.m.value.sib.index=index;
 		retVal.value.m.value.sib.offset=offset;
 		retVal.value.m.value.sib.scale=scale;
+		retVal.valueType=valueType;
 		return retVal;
 	fail:
 		if(success)
@@ -2818,10 +2828,10 @@ struct parserNode *parseAsmInstructionX86(llLexerItem start,llLexerItem *end) {
 										if(offsetNode) {
 												int64_t offset=intLitValue(offsetNode);
 												struct parserNodeAsmSIB *sib=(void*)addrMode;
-												addrMode2=addrModeFromParseTree(sib->expression,&offset, &success);
+												addrMode2=addrModeFromParseTree(sib->expression,sib->type,&offset, &success );
 										} else { 
 												struct parserNodeAsmSIB *sib=(void*)addrMode;
-												addrMode2=addrModeFromParseTree(sib->expression,NULL, &success);
+												addrMode2=addrModeFromParseTree(sib->expression,sib->type,NULL, &success);
 										}
 										if(!success) {
 												addrMode2=dummy;
