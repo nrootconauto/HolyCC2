@@ -949,6 +949,27 @@ static void asmTests() {
 				assert(inst->args[1].value.m.value.sib.index==&regX86EAX);
 				assert(inst->args[1].value.m.value.sib.base==&regX86EAX);
 		}
+		text="MOV EAX,I32i ES:10[2*EAX+EAX]";
+		createFile(text);
+		textStr = strCharAppendData(NULL, text, strlen(text)+1);
+		lexItems = lexText((struct __vec *)textStr, &err);
+		assert(!err);
+		assert(lexItems);
+		{
+				__auto_type mov = parseStatement(lexItems, NULL);
+				assert(mov);
+				assert(mov->type==NODE_ASM_INST);
+				struct parserNodeAsmInstX86 *inst=(void*)mov;
+				assert(strX86AddrModeSize(inst->args)==2);
+				assert(inst->args[0].type==X86ADDRMODE_REG);
+				assert(inst->args[0].value.reg==&regX86EAX);
+				assert(inst->args[1].type==X86ADDRMODE_MEM);
+				assert(inst->args[1].value.m.type==x86ADDR_INDIR_SIB);
+				assert(inst->args[1].value.m.value.sib.offset==10);
+				assert(inst->args[1].value.m.value.sib.scale==2);
+				assert(inst->args[1].value.m.value.sib.index==&regX86EAX);
+				assert(inst->args[1].value.m.value.sib.base==&regX86EAX);
+		}
 }
 void parserTests() {
 		asmTests();
