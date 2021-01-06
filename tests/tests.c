@@ -29,6 +29,7 @@ void X86OpcodesTests();
 int main() {
 		init();
 		X86OpcodesTests();
+		parserTests();
 		/*
 		strTests();
 		preprocessorTests();
@@ -40,7 +41,6 @@ int main() {
 	  strTests();
 			subGraphTests();
 		lexerTests();
-	parserTests();
 	parserDiagTests();
 		topoSortTests();
 		LivenessTests();

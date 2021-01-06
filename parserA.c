@@ -182,7 +182,7 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end,
 
 		return ALLOCATE(lit);
 	} else if (item->template == &nameTemplate) {
-			__auto_type reg=parseAsmRegister(start,&start);
+			__auto_type reg=parseAsmRegister(start,result);
 			if(reg)
 					return reg;
 			
@@ -1524,7 +1524,7 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 		return func;
 	}
 
-	__auto_type varDecls = parseVarDecls(start, end);
+	__auto_type varDecls = parseVarDecls(originalStart, end);
 	if (varDecls) {
 		addDeclsToScope(varDecls);
 
@@ -1538,7 +1538,7 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 		goto end;
 	}
 
-	__auto_type gotoStmt = parseGoto(start, end);
+	__auto_type gotoStmt = parseGoto(originalStart, end);
 	if (gotoStmt) {
 		retVal = gotoStmt;
 		goto end;
@@ -2614,14 +2614,11 @@ struct parserNode *parseAsmAddrModeSIB(llLexerItem start,llLexerItem *end) {
 		segment=parseAsmRegister(start, &start);
 		if(segment) {
 				startPos=segment->pos.start;
-				colon=expectOp(start, ":");
+				colon=expectKeyword(start, ":");
 				if(colon)
 						start=llLexerItemNext(start);
 				if(!start)
 						goto fail;
-				offset=literalRecur(start, NULL, &start);
-				if(!offset)
-						whineExpectedExpr(start);
 		}
 		__auto_type disp=literalRecur(start, llLexerItemNext(start), NULL);
 		if(disp) {
@@ -2634,12 +2631,15 @@ struct parserNode *parseAsmAddrModeSIB(llLexerItem start,llLexerItem *end) {
 				if(colon)
 						whineExpected(start, "[");
 		}
+		if(!colon&&!lB)
+				goto fail;
 		start=llLexerItemNext(start);
 		__auto_type indirExp=parseExpression(start, NULL, &start);
 		rB=expectOp(start, "]");
 		if(rB) {
 				start=llLexerItemNext(start);
 		} else {
+				if(lB)
 				whineExpected(start, "]");
 		}
 		if(end)
@@ -2719,19 +2719,19 @@ static struct X86AddressingMode addrModeFromParseTree(struct parserNode *node,in
 		strInt stackArg CLEANUP(strIntDestroy)=strIntAppendItem(NULL, 0);
 	
 		while(1) {
-				pop:;
+				if(!strParserNodeSize(stack))
+						break;
+		pop:;
 				int argi;
 				stackArg=strIntPop(stackArg, &argi);
 				struct parserNode *top;
 				stack=strParserNodePop(stack, &top);
 				//If binop,re-insert on stack if passed first argument,but inc argi 
-				if(top->type==NODE_BINOP&&argi==0) {
+				if(top->type==NODE_BINOP&&argi<2) {
 						stack=strParserNodeAppendItem(stack, top);
 						stackArg=strIntAppendItem(stackArg,  argi+1);
 				}
-				if(!strParserNodeSize(stack))
-						break;
-				if(top->type==NODE_BINOP) {
+				if(top->type==NODE_BINOP&&argi<2) {
 						struct parserNodeBinop *binop=(void*)top;
 						struct parserNodeOpTerm *op=(void*)binop->op;
 						struct parserNode *arg=(argi)?binop->b:binop->a;
@@ -2766,16 +2766,26 @@ static struct X86AddressingMode addrModeFromParseTree(struct parserNode *node,in
 								if(isExpectedBinop(stack[strParserNodeSize(stack)-1],"*")) {
 										if(index)
 												goto fail;
-										index=((struct parserNodeAsmReg*)stack[strParserNodeSize(stack)-1])->reg;
+										index=((struct parserNodeAsmReg*)top)->reg;
 										continue;
 								}
 						}
 						//Is a base
 						if(base)
 								goto  fail;
-						base=((struct parserNodeAsmReg*)stack[strParserNodeSize(stack)-1])->reg;
+						base=((struct parserNodeAsmReg*)top)->reg;
 				}
 		}
+		if(success)
+				*success=1;
+		struct X86AddressingMode retVal;
+		retVal.type=X86ADDRMODE_MEM;
+		retVal.value.m.type=x86ADDR_INDIR_SIB;
+		retVal.value.m.value.sib.base=base;
+		retVal.value.m.value.sib.index=index;
+		retVal.value.m.value.sib.offset=offset;
+		retVal.value.m.value.sib.scale=scale;
+		return retVal;
 	fail:
 		if(success)
 				*success=0;
@@ -2783,16 +2793,21 @@ static struct X86AddressingMode addrModeFromParseTree(struct parserNode *node,in
 		return dummy;
 }
 struct parserNode *parseAsmInstructionX86(llLexerItem start,llLexerItem *end) {
-		if(llLexerItemValuePtr(start)->template==&intTemplate) {
+		if(llLexerItemValuePtr(start)->template==&nameTemplate) {
 				__auto_type originalStart=start;
 				struct parserNode *name CLEANUP(parserNodeDestroy)=nameParse(start, NULL, &start);
 				__auto_type nameText=((struct parserNodeName*)name)->text;
 				strOpcodeTemplate dummy CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByName(nameText);
 				if(strOpcodeTemplateSize(dummy)) {
 						long argc=X86OpcodesArgCount(nameText);
-						start=llLexerItemNext(start);
 						strX86AddrMode args CLEANUP(strX86AddrModeDestroy)=NULL;
 						for(long a=0;a!=argc;a++) {
+								if(a!=0) {
+										struct parserNode *comma CLEANUP(parserNodeDestroy)=expectOp(start, ",");
+										if(!comma) {
+												whineExpected(start, ",");
+										} else start=llLexerItemNext(start);
+								}
 								//Try parsing memory address first,then register,then number
 								struct parserNode *addrMode CLEANUP(parserNodeDestroy)=parseAsmAddrModeSIB(start, &start);
 								if(addrMode) {
@@ -2802,9 +2817,12 @@ struct parserNode *parseAsmInstructionX86(llLexerItem start,llLexerItem *end) {
 										struct X86AddressingMode addrMode2;
 										if(offsetNode) {
 												int64_t offset=intLitValue(offsetNode);
-												addrMode2=addrModeFromParseTree(addrMode,&offset, &success);
-										} else 
-												addrMode2=addrModeFromParseTree(addrMode,NULL, &success);
+												struct parserNodeAsmSIB *sib=(void*)addrMode;
+												addrMode2=addrModeFromParseTree(sib->expression,&offset, &success);
+										} else { 
+												struct parserNodeAsmSIB *sib=(void*)addrMode;
+												addrMode2=addrModeFromParseTree(sib->expression,NULL, &success);
+										}
 										if(!success) {
 												addrMode2=dummy;
 												diagErrorStart(addrMode->pos.start, addrMode->pos.end);
@@ -2863,7 +2881,7 @@ struct parserNode *parseAsmInstructionX86(llLexerItem start,llLexerItem *end) {
 								break;
 						}
 						int ambiguous;
-						strOpcodeTemplate valids CLEANUP(strOpcodeTemplateDestroy)= X86OpcodesByArgs(NULL, args, &ambiguous);
+						strOpcodeTemplate valids CLEANUP(strOpcodeTemplateDestroy)= X86OpcodesByArgs(nameText, args, &ambiguous);
 						if(end)
 								*end=start;
 						if(ambiguous) {
