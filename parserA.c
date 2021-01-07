@@ -2078,6 +2078,11 @@ static long searchForNode(const strParserNode nodes,
 
 	return -1;
 }
+static void addLabel(struct parserNode *node,const char *name) {
+		__auto_type find=mapParserNodeGet(labels, name);
+		assert(!find);
+		mapParserNodeInsert(labels, name, node);
+}
 struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 		struct parserNode *colon1 = NULL, *retVal = NULL;
 	__auto_type originalStart = start;
@@ -2112,6 +2117,7 @@ struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 					local.name=name;
 					__auto_type node=ALLOCATE(local);
 					mapParserNodeInsert(localLabels, nameNode->text,node);
+					addLabel(node,nameNode->text);
 					return node;
 			}
 	}
@@ -2146,6 +2152,7 @@ struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 							glbl.base.pos.start=name->pos.start, glbl.base.pos.end=colon2->pos.end;
 							__auto_type glblNode=ALLOCATE(glbl);
 							addGlobalSymbol(glblNode);
+							addLabel(glblNode,nameNode->text);
 							return glblNode;
 					}
 			}
@@ -2206,6 +2213,8 @@ struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 		
 		getSubswitchStartCode((struct parserNodeSubSwitch*)retVal);
 		switchStack=strParserNodePop(switchStack, NULL);
+	} else {
+			addLabel(retVal,((struct parserNodeName*)name)->text);
 	};
 end:
 	// Check if success

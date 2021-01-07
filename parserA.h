@@ -311,3 +311,4 @@ void parserNodeDestroy(struct parserNode** node);
 struct parserNode *parseAsmInstructionX86(llLexerItem start,llLexerItem *end);
 void __initParserA();
 struct X86AddressingMode parserNode2X86AddrMode(struct parserNode *node);
+void parserMapGotosToLabels();

@@ -977,6 +977,27 @@ static void asmTests() {
 				assert(b.value.m.value.sib.base==&regX86EAX);
 		}
 }
+void parserGotoTests() {
+		initParserData();
+		const char *text =
+				"label:"
+				"goto label;";
+		int err;
+		createFile(text);
+		strChar textStr = strCharAppendData(NULL, text, strlen(text)+1);
+		__auto_type lexItems = lexText((struct __vec *)textStr, &err);
+		assert(!err);
+		assert(lexItems);
+		{
+				__auto_type label=parseStatement(lexItems, &lexItems);
+				assert(label->type==NODE_LABEL);
+				__auto_type gt=parseStatement(lexItems, &lexItems);
+				assert(gt->type==NODE_GOTO);
+				parserMapGotosToLabels();
+				struct parserNodeGoto *gt2=(void*)gt;
+				assert(gt2->pointsTo==label);
+		}
+}
 void parserTests() {
 		asmTests();
 		precParserTests();
@@ -985,4 +1006,5 @@ void parserTests() {
 	keywordTests();
 	funcTests();
 	typeTests();
+	parserGotoTests();	
 }
