@@ -997,14 +997,46 @@ void parserGotoTests() {
 				struct parserNodeGoto *gt2=(void*)gt;
 				assert(gt2->pointsTo==label);
 		}
+		initParserData();
+		text =
+				"GLOB::\n"
+				"@@a:\n"
+				"goto a;\n"
+				"GLOB2::\n"
+				"@@a:\n"
+				"goto a;\n";
+		createFile(text);
+		textStr = strCharAppendData(NULL, text, strlen(text)+1);
+		lexItems = lexText((struct __vec *)textStr, &err);
+		assert(!err);
+		assert(lexItems);
+		{
+				__auto_type glob1=parseStatement(lexItems, &lexItems);
+				assert(glob1->type==NODE_ASM_LABEL_GLBL);
+				__auto_type a1=parseStatement(lexItems, &lexItems);
+				assert(a1->type==NODE_ASM_LABEL_LOCAL);
+				__auto_type gtA1=parseStatement(lexItems, &lexItems);
+				assert(gtA1->type==NODE_GOTO);
+				__auto_type glob2=parseStatement(lexItems, &lexItems);
+				assert(glob2->type==NODE_ASM_LABEL_GLBL);
+				__auto_type a2=parseStatement(lexItems, &lexItems);
+				assert(a2->type==NODE_ASM_LABEL_LOCAL);
+				__auto_type gtA2=parseStatement(lexItems, &lexItems);
+				assert(gtA2->type==NODE_GOTO);
+				parserMapGotosToLabels();
+				struct parserNodeGoto *gt1=(void*)gtA1;
+				struct parserNodeGoto *gt2=(void*)gtA2;
+				assert(gt1->pointsTo==a1);
+				assert(gt2->pointsTo==a2);
+		}
 }
 void parserTests() {
 		asmTests();
 		precParserTests();
-	varDeclTests();
-	classParserTests();
-	keywordTests();
-	funcTests();
-	typeTests();
-	parserGotoTests();	
+		varDeclTests();
+		classParserTests();
+		keywordTests();
+		funcTests();
+		typeTests();
+		parserGotoTests();	
 }

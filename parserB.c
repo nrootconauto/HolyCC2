@@ -8,8 +8,7 @@ MAP_TYPE_FUNCS(struct parserNode *,ParserNode);
 static __thread mapParserNode symbolTable=NULL;
 static llScope currentScope = NULL;
 struct parserNode *getGlobalSymbol(const char *name) {
-		struct parserNodeName *name2=(void*)name;
-		__auto_type find=mapParserNodeGet(symbolTable, name2->text);
+		__auto_type find=mapParserNodeGet(symbolTable, name);
 		if(!find)
 				return NULL;
 		return *find;

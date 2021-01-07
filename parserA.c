@@ -2083,6 +2083,42 @@ static void addLabel(struct parserNode *node,const char *name) {
 		assert(!find);
 		mapParserNodeInsert(labels, name, node);
 }
+static void __parserMapLabels2Refs(int failOnNotFound) {
+		long count;
+		mapParserNodesKeys(labelReferences, NULL, &count);
+		const char *keys[count];
+		mapParserNodesKeys(labelReferences, keys, NULL);
+		for(long i=0;i!=count;i++) {
+				__auto_type refs=*mapParserNodesGet(labelReferences, keys[i]);
+				__auto_type lab=mapParserNodeGet(labels, keys[i]);
+				for(long g=0;g!=strParserNodeSize(refs);g++) {
+						long start=refs[g]->pos.start,end=refs[g]->pos.end;
+						switch(refs[g]->type) {
+						case NODE_GOTO: {
+								if(!lab)
+										goto undefinedRef;
+								struct parserNodeGoto *gt=(void*)refs[g];
+								gt->pointsTo=*lab;
+								break;
+						}
+						default:;
+						}
+						continue;
+				undefinedRef:
+						if(!failOnNotFound)
+								continue;
+						diagErrorStart(start, end);
+						diagPushText("Undefined reference to label ");
+						diagPushQoutedText(start, end);
+						diagPushText(".");
+						diagEndMsg();
+				}
+				if(lab) {
+						strParserNodeDestroy(&refs);
+						mapParserNodesRemove(labelReferences, keys[i], NULL);
+				}
+		}
+}
 struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 		struct parserNode *colon1 = NULL, *retVal = NULL;
 	__auto_type originalStart = start;
@@ -2092,16 +2128,16 @@ struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 			struct parserNode *name=nameParse(start, NULL, &start);
 			if(!name) {
 					if(end) *end=start;
-					whineExpected(start, "name");
+					whineExpected(start, "name"); 
 					return NULL;
 			}
-			start=llLexerItemNext(start);
-			struct parserNode *colon CLEANUP(parserNodeDestroy)=NULL;
+			struct parserNode *colon CLEANUP(parserNodeDestroy)=expectKeyword(start, ":");
 			if(!colon) {
 					if(end) *end=start;
 					whineExpected(start, ":");
 			}	 else start=llLexerItemNext(start);
 			struct parserNodeName *nameNode=(void*)name;
+			if(end) *end=start;
 			if(mapParserNodeGet(localLabels, nameNode->text)) {
 					diagErrorStart(atAt->pos.start, atAt->pos.end);
 					diagPushText("Redefinition of local symbol ");
@@ -2118,6 +2154,7 @@ struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 					__auto_type node=ALLOCATE(local);
 					mapParserNodeInsert(localLabels, nameNode->text,node);
 					addLabel(node,nameNode->text);
+					
 					return node;
 			}
 	}
@@ -2132,6 +2169,20 @@ struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 	{
 			struct parserNode *colon2 CLEANUP(parserNodeDestroy)=expectKeyword(start, ":");
 			if(colon2) {
+					//Clear all local labels (remove their pointer from locals,dont actually free them)
+						__parserMapLabels2Refs(0);
+					//Remove them from the current scope
+					long count;
+					mapParserNodeKeys(localLabels, NULL, &count);
+					const char *keys[count];
+					mapParserNodeKeys(localLabels, keys, NULL);
+					for(long l=0;l!=count;l++) {
+							mapParserNodeRemove(labels, keys[l], NULL);	
+					}
+					//Clear the local labels
+					mapParserNodeDestroy(localLabels, NULL);
+					localLabels=mapParserNodeCreate();
+					
 					start=llLexerItemNext(start);
 					//Ensure doesn't already exist
 					struct parserNodeName *nameNode=(void*)name;
@@ -2150,6 +2201,7 @@ struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 							struct parserNodeLabelGlbl glbl;
 							glbl.base.type=NODE_ASM_LABEL_GLBL;
 							glbl.base.pos.start=name->pos.start, glbl.base.pos.end=colon2->pos.end;
+							glbl.name=name;
 							__auto_type glblNode=ALLOCATE(glbl);
 							addGlobalSymbol(glblNode);
 							addLabel(glblNode,nameNode->text);
@@ -3056,33 +3108,7 @@ struct parserNode *parseAsmInstructionX86(llLexerItem start,llLexerItem *end) {
 				*end=start;
 		return NULL;
 }
+
 void parserMapGotosToLabels() {
-		long count;
-		mapParserNodesKeys(labelReferences, NULL, &count);
-		const char *keys[count];
-		mapParserNodesKeys(labelReferences, keys, NULL);
-		for(long i=0;i!=count;i++) {
-				__auto_type refs=*mapParserNodesGet(labelReferences, keys[i]);
-				__auto_type lab=mapParserNodeGet(labels, keys[i]);
-				for(long g=0;g!=strParserNodeSize(refs);g++) {
-						long start=refs[g]->pos.start,end=refs[g]->pos.end;
-						switch(refs[g]->type) {
-						case NODE_GOTO: {
-								if(!lab)
-										goto undefinedRef;
-								struct parserNodeGoto *gt=(void*)refs[g];
-								gt->pointsTo=*lab;
-								break;
-						}
-						default:;
-						}
-						continue;
-				undefinedRef:
-						diagErrorStart(start, end);
-						diagPushText("Undefined reference to label ");
-						diagPushQoutedText(start, end);
-						diagPushText(".");
-						diagEndMsg();
-				} 
-		}
+		__parserMapLabels2Refs(1);
 }
