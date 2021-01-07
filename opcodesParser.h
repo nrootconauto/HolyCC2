@@ -35,6 +35,7 @@ struct X86AddressingMode {
 				struct reg *reg;
 				struct X86MemoryLoc m;
 				struct parserNode *itemAddr;
+				char *label;
 		} value;
 		struct object *valueType;
 };
@@ -43,6 +44,7 @@ struct X86AddressingMode X86AddrModeUint(uint64_t imm) ;
 struct X86AddressingMode X86AddrModeSint(int64_t imm);
 struct X86AddressingMode X86AddrModeReg(struct reg *reg) ;
 struct X86AddressingMode X86AddrModeIndirMem(uint64_t where,struct object *type) ;
+struct X86AddressingMode X86AddrModeLabel(const char *name);
 struct X86AddressingMode X86AddrModeIndirReg(struct reg *where,struct object *type);
 struct X86AddressingMode X86AddrModeItemAddr(struct parserNode *item,struct object *type);
 struct X86AddressingMode X86AddrModeIndirSIB(long scale,struct reg *index,struct reg *base,long offset,struct object *type);

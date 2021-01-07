@@ -15,7 +15,6 @@ struct scope {
 	llScope parent;
 };
 LL_TYPE_FUNCS(struct scope, Scope);
-
 void variableDestroy(struct variable *var);
 void enterScope();
 void leaveScope();
@@ -27,3 +26,5 @@ void addFunc(const struct parserNode *name, const struct object *type,
 
 void initParserData();
 void killParserData();
+struct parserNode *getGlobalSymbol(const char *name) ;
+void addGlobalSymbol(struct parserNode *node);

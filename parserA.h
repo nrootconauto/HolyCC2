@@ -7,8 +7,8 @@ enum parserNodeType {
 		NODE_ASM_REG,
 		NODE_ASM_ADDRMODE_SIB,
 		NODE_ASM_LABEL,
-		NODE_ASM_GBL_LABEL,
-		NODE_ASM_LOCAL_LABEL,
+		NODE_ASM_LABEL_GLBL,
+		NODE_ASM_LABEL_LOCAL,
 		NODE_ASM_IMPORT,
 		NODE_ASM_DU8,
 		NODE_ASM_DU16,
@@ -81,8 +81,9 @@ struct parserNode {
 	struct sourcePos pos;
 };
 struct parserNodeGoto {
-	struct parserNode base;
-	struct parserNode *labelName;
+		struct parserNode base;
+		struct parserNode *labelName;
+		struct parserNode *pointsTo;
 };
 struct parserNodeReturn {
 	struct parserNode base;
@@ -209,9 +210,14 @@ struct parserNodeCase {
 	long valueLower;
 	long valueUpper;
 };
-/**
- * start:/end:
- */
+struct parserNodeLabelGlbl {
+		struct parserNode base;
+		struct parserNode *name;
+};
+struct parserNodeLabelLocal {
+		struct parserNode base;
+		struct parserNode *name;
+};
 struct parserNodeLabel {
 	struct parserNode base;
 		struct parserNode *scope;
@@ -282,7 +288,7 @@ struct parserNodeAsmSIB {
 struct parserNodeAsmInstX86 {
 		struct parserNode base;
 		struct parserNode *name;
-		strX86AddrMode args;
+		strParserNode args;
 };
 struct parserNode *parseExpression(llLexerItem start, llLexerItem end,
                                    llLexerItem *result);
@@ -303,3 +309,5 @@ struct parserNode *parseBreak(llLexerItem item,llLexerItem *end);
 struct parserNode *parseAsmRegister(llLexerItem start,llLexerItem *end);
 void parserNodeDestroy(struct parserNode** node);
 struct parserNode *parseAsmInstructionX86(llLexerItem start,llLexerItem *end);
+void __initParserA();
+struct X86AddressingMode parserNode2X86AddrMode(struct parserNode *node);

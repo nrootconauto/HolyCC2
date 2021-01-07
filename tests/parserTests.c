@@ -922,11 +922,13 @@ static void asmTests() {
 				assert(mov);
 				assert(mov->type==NODE_ASM_INST);
 				struct parserNodeAsmInstX86 *inst=(void*)mov;
-				assert(strX86AddrModeSize(inst->args)==2);
-				assert(inst->args[0].type==X86ADDRMODE_REG);
-				assert(inst->args[0].value.reg==&regX86EAX);
-				assert(inst->args[1].type==X86ADDRMODE_SINT||inst->args[1].type==X86ADDRMODE_UINT);
-				assert(inst->args[1].value.sint==10);
+				assert(strParserNodeSize(inst->args)==2);
+				__auto_type a=parserNode2X86AddrMode(inst->args[0]);
+				__auto_type b=parserNode2X86AddrMode(inst->args[1]);
+				assert(a.type==X86ADDRMODE_REG);
+				assert(a.value.reg==&regX86EAX);
+				assert(b.type==X86ADDRMODE_SINT||b.type==X86ADDRMODE_UINT);
+				assert(b.value.sint==10);
 		}
 		text="MOV EAX,ES:10[2*EAX+EAX]";
 		createFile(text);
@@ -939,15 +941,17 @@ static void asmTests() {
 				assert(mov);
 				assert(mov->type==NODE_ASM_INST);
 				struct parserNodeAsmInstX86 *inst=(void*)mov;
-				assert(strX86AddrModeSize(inst->args)==2);
-				assert(inst->args[0].type==X86ADDRMODE_REG);
-				assert(inst->args[0].value.reg==&regX86EAX);
-				assert(inst->args[1].type==X86ADDRMODE_MEM);
-				assert(inst->args[1].value.m.type==x86ADDR_INDIR_SIB);
-				assert(inst->args[1].value.m.value.sib.offset==10);
-				assert(inst->args[1].value.m.value.sib.scale==2);
-				assert(inst->args[1].value.m.value.sib.index==&regX86EAX);
-				assert(inst->args[1].value.m.value.sib.base==&regX86EAX);
+				assert(strParserNodeSize(inst->args)==2);
+				__auto_type a=parserNode2X86AddrMode(inst->args[0]);
+				assert(a.type==X86ADDRMODE_REG);
+				assert(a.value.reg==&regX86EAX);
+				__auto_type b=parserNode2X86AddrMode(inst->args[1]);
+				assert(b.type==X86ADDRMODE_MEM);
+				assert(b.value.m.type==x86ADDR_INDIR_SIB);
+				assert(b.value.m.value.sib.offset==10);
+				assert(b.value.m.value.sib.scale==2);
+				assert(b.value.m.value.sib.index==&regX86EAX);
+				assert(b.value.m.value.sib.base==&regX86EAX);
 		}
 		text="MOV EAX,I32i ES:10[2*EAX+EAX]";
 		createFile(text);
@@ -960,15 +964,17 @@ static void asmTests() {
 				assert(mov);
 				assert(mov->type==NODE_ASM_INST);
 				struct parserNodeAsmInstX86 *inst=(void*)mov;
-				assert(strX86AddrModeSize(inst->args)==2);
-				assert(inst->args[0].type==X86ADDRMODE_REG);
-				assert(inst->args[0].value.reg==&regX86EAX);
-				assert(inst->args[1].type==X86ADDRMODE_MEM);
-				assert(inst->args[1].value.m.type==x86ADDR_INDIR_SIB);
-				assert(inst->args[1].value.m.value.sib.offset==10);
-				assert(inst->args[1].value.m.value.sib.scale==2);
-				assert(inst->args[1].value.m.value.sib.index==&regX86EAX);
-				assert(inst->args[1].value.m.value.sib.base==&regX86EAX);
+				__auto_type a=parserNode2X86AddrMode(inst->args[0]);
+				__auto_type b=parserNode2X86AddrMode(inst->args[1]);
+				assert(strParserNodeSize(inst->args)==2);
+				assert(a.type==X86ADDRMODE_REG);
+				assert(a.value.reg==&regX86EAX);
+				assert(b.type==X86ADDRMODE_MEM);
+				assert(b.value.m.type==x86ADDR_INDIR_SIB);
+				assert(b.value.m.value.sib.offset==10);
+				assert(b.value.m.value.sib.scale==2);
+				assert(b.value.m.value.sib.index==&regX86EAX);
+				assert(b.value.m.value.sib.base==&regX86EAX);
 		}
 }
 void parserTests() {

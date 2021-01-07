@@ -837,3 +837,11 @@ struct X86AddressingMode X86AddrModeItemAddrOf(struct parserNode *item,struct ob
 		mode.valueType=type;
 		return mode;
 }
+struct X86AddressingMode X86AddrModeLabel(const char *name) {
+		struct X86AddressingMode mode;
+		mode.type=X86ADDRMODE_LABEL;
+		mode.valueType=NULL;
+		mode.value.label=malloc(strlen(name)+1);
+		strcpy(mode.value.label,name);
+		return mode;
+}

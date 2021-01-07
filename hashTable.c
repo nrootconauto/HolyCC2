@@ -171,7 +171,10 @@ static void __mapRehash(struct __map *map, int scaleUp) {
 	}
 }
 void __mapDestroy(struct __map *map, void (*kill)(void *)) {
-	for (int i = 0; i != strLLPSize(map->buckets); i++) {
+		if(!map)
+				return;
+
+		for (int i = 0; i != strLLPSize(map->buckets); i++) {
 		if (kill != NULL)
 			for (__auto_type node2 = __llGetFirst(map->buckets[i]); node2 != NULL;
 			     node2 = __llNext(node2))

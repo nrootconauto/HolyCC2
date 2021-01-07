@@ -3,7 +3,53 @@
 #include <hashTable.h>
 #include <parserB.h>
 #include <string.h>
+MAP_TYPE_DEF(struct parserNode *,ParserNode);
+MAP_TYPE_FUNCS(struct parserNode *,ParserNode);
+static __thread mapParserNode symbolTable=NULL;
 static llScope currentScope = NULL;
+struct parserNode *getGlobalSymbol(const char *name) {
+		struct parserNodeName *name2=(void*)name;
+		__auto_type find=mapParserNodeGet(symbolTable, name2->text);
+		if(!find)
+				return NULL;
+		return *find;
+}
+void addGlobalSymbol(struct parserNode *node) {
+		switch(node->type) {
+		case NODE_ASM_LABEL_GLBL: {
+				struct parserNodeLabelGlbl *lab=(void*)node;
+				struct parserNodeName *name=(void*)lab->name;
+				mapParserNodeInsert(symbolTable, name->text,node);
+				break;
+		}
+		case NODE_VAR: {
+				struct parserNodeVar *var=(void*)node;
+				mapParserNodeInsert(symbolTable, var->var->name,node);
+				break;
+		}
+		case NODE_FUNC_DEF: {
+				struct parserNodeFuncDef *def=(void*)node;
+				struct parserNodeName *name=(void*)def->name;
+				mapParserNodeInsert(symbolTable, name->text,node);
+				break;
+		}
+		case NODE_CLASS_DEF: {
+				struct parserNodeClassDef *class=(void*)node;
+				struct parserNodeName *name=(void*)class->name;
+				mapParserNodeInsert(symbolTable, name->text,node);
+				break;
+		}
+		case NODE_UNION_DEF: {
+				struct parserNodeUnionDef *class=(void*)node;
+				struct parserNodeName *name=(void*)class->name;
+				mapParserNodeInsert(symbolTable, name->text,node);
+				break;
+		}
+		default:
+				assert(0);
+				break;
+		}
+}
 void enterScope() {
 	struct scope new;
 	new.parent = currentScope;
@@ -73,7 +119,12 @@ void killParserData() {
 	currentScope = NULL;
 }
 void initParserData();
-void initParserData() { enterScope(); }
+void initParserData() {
+		mapParserNodeDestroy(symbolTable, NULL);
+		__initParserA();
+		enterScope();
+		symbolTable=mapParserNodeCreate();
+}
 
 struct function *getFunc(const struct parserNode *name) {
 	struct parserNodeName *name2 = (void *)name;

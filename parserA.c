@@ -14,6 +14,32 @@
 #include <opcodesParser.h>
 static __thread struct parserNode *currentScope=NULL;
 static __thread struct parserNode *currentLoop=NULL;
+MAP_TYPE_DEF(struct parserNode *,ParserNode);
+MAP_TYPE_FUNCS(struct parserNode *,ParserNode);
+MAP_TYPE_DEF(strParserNode,ParserNodes);
+MAP_TYPE_FUNCS(strParserNode,ParserNodes);
+static __thread mapParserNode localLabels=NULL;
+static __thread mapParserNode labels=NULL;
+static __thread mapParserNodes labelReferences=NULL;
+static void addLabelRef(struct parserNode *node,const char *name) {
+	loop:;
+		__auto_type find=mapParserNodesGet(labelReferences, name);
+		if(!find) {
+				mapParserNodesInsert(labelReferences, name,  NULL);
+				goto loop;
+		}
+		*find=strParserNodeAppendItem(*find, node);
+}
+void __initParserA() {
+		currentScope=NULL;
+		currentLoop=NULL;
+		mapParserNodeDestroy(labels, NULL);
+		mapParserNodeDestroy(localLabels, NULL);
+		mapParserNodesDestroy(labelReferences, NULL);//
+		labels=mapParserNodeCreate();
+		localLabels=mapParserNodeCreate();
+		labelReferences=mapParserNodesCreate();
+}
 static strParserNode switchStack = NULL;
 static char *strCopy(const char *text) {
 		char *retVal = malloc(strlen(text) + 1);
@@ -2053,9 +2079,42 @@ static long searchForNode(const strParserNode nodes,
 	return -1;
 }
 struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
-	struct parserNode *colon1 = NULL, *retVal = NULL;
+		struct parserNode *colon1 = NULL, *retVal = NULL;
 	__auto_type originalStart = start;
-
+	struct parserNode *atAt CLEANUP(parserNodeDestroy)=expectKeyword(start, "@@");
+	if(atAt) {
+			start=llLexerItemNext(start);
+			struct parserNode *name=nameParse(start, NULL, &start);
+			if(!name) {
+					if(end) *end=start;
+					whineExpected(start, "name");
+					return NULL;
+			}
+			start=llLexerItemNext(start);
+			struct parserNode *colon CLEANUP(parserNodeDestroy)=NULL;
+			if(!colon) {
+					if(end) *end=start;
+					whineExpected(start, ":");
+			}	 else start=llLexerItemNext(start);
+			struct parserNodeName *nameNode=(void*)name;
+			if(mapParserNodeGet(localLabels, nameNode->text)) {
+					diagErrorStart(atAt->pos.start, atAt->pos.end);
+					diagPushText("Redefinition of local symbol ");
+					diagPushQoutedText(name->pos.start, name->pos.end);
+					diagPushText(".");
+					diagEndMsg();
+					parserNodeDestroy(&name);
+					return NULL;
+			} else {
+					struct parserNodeLabelLocal local;
+					getStartEndPos(originalStart, start, &local.base.pos.start, &local.base.pos.end);
+					local.base.type=NODE_ASM_LABEL_LOCAL;
+					local.name=name;
+					__auto_type node=ALLOCATE(local);
+					mapParserNodeInsert(localLabels, nameNode->text,node);
+					return node;
+			}
+	}
 	__auto_type name = nameParse(start, NULL, &start);
 	if (name == NULL)
 		return NULL;
@@ -2064,7 +2123,34 @@ struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 	if (!colon1)
 		goto end;
 	start = llLexerItemNext(start);
-
+	{
+			struct parserNode *colon2 CLEANUP(parserNodeDestroy)=expectKeyword(start, ":");
+			if(colon2) {
+					start=llLexerItemNext(start);
+					//Ensure doesn't already exist
+					struct parserNodeName *nameNode=(void*)name;
+					if(getGlobalSymbol(nameNode->text)) {
+							diagErrorStart(name->pos.start, name->pos.end);
+							diagPushText("Redefinition of global exported label ");
+							diagPushQoutedText(name->pos.start, name->pos.end);
+							diagPushText(".");
+							diagEndMsg();
+							if(end)
+									*end=start;
+							return NULL;
+					} else {
+							if(end)
+									*end=start;
+							struct parserNodeLabelGlbl glbl;
+							glbl.base.type=NODE_ASM_LABEL_GLBL;
+							glbl.base.pos.start=name->pos.start, glbl.base.pos.end=colon2->pos.end;
+							__auto_type glblNode=ALLOCATE(glbl);
+							addGlobalSymbol(glblNode);
+							return glblNode;
+					}
+			}
+	}
+	
 	struct parserNodeLabel lab;
 	lab.base.type = NODE_LABEL;
 	lab.name = name;
@@ -2353,6 +2439,7 @@ struct parserNode *parseGoto(llLexerItem start, llLexerItem *end) {
 		node.labelName = nm;
 
 		retVal = ALLOCATE(node);
+		addLabelRef(retVal, ((struct parserNodeName*)nm)->text);
 	}
 
 end:
@@ -2524,13 +2611,19 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 	struct object *funcType;
 	funcType = objectFuncCreate(retType, fargs);
 
+	//
 	// Enter the function
+	//
 	struct currentFunctionInfo info;
 	info.retTypeBegin = nm->base.pos.start;
 	info.retTypeEnd = name->pos.start;
 	info.retType = retType;
 	currentFuncsStack = strFuncInfoStackAppendItem(currentFuncsStack, info);
-
+	//!!! each function's regular labels are unique to that function
+	__auto_type oldLabels=labels;
+	__auto_type oldLabelRefs=labelReferences;
+	//
+	
 	struct parserNode *retVal = NULL;
 	__auto_type scope = parseScope(start, &start, args);
 	if (!scope) {
@@ -2558,9 +2651,15 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 		retVal = ALLOCATE(func);
 	}
 
+	//
 	// Leave the function
+	//
 	currentFuncsStack = strFuncInfoStackPop(currentFuncsStack, NULL);
-
+	//!!! restore the old labels too
+	labels=oldLabels;
+	labelReferences=oldLabelRefs;
+	//
+ 
 	if (end)
 		*end = start;
 
@@ -2802,6 +2901,57 @@ static struct X86AddressingMode addrModeFromParseTree(struct parserNode *node,st
 		struct X86AddressingMode dummy;
 		return dummy;
 }
+struct X86AddressingMode parserNode2X86AddrMode(struct parserNode *node) {
+		int success;
+		if(node->type==NODE_ASM_ADDRMODE_SIB) {
+				struct parserNode *addrMode=node;
+				struct X86AddressingMode dummy=X86AddrModeIndirMem(0, NULL);
+				__auto_type offsetNode=((struct parserNodeAsmSIB*)addrMode)->offset;
+				struct X86AddressingMode addrMode2;
+				if(offsetNode) {
+						int64_t offset=intLitValue(offsetNode);
+						struct parserNodeAsmSIB *sib=(void*)addrMode;
+						addrMode2=addrModeFromParseTree(sib->expression,sib->type,&offset, &success );
+				} else { 
+						struct parserNodeAsmSIB *sib=(void*)addrMode;
+						addrMode2=addrModeFromParseTree(sib->expression,sib->type,NULL, &success);
+				}
+				if(!success) {
+						addrMode2=dummy;
+						diagErrorStart(addrMode->pos.start, addrMode->pos.end);
+						diagPushText("Invalid addressing mode ");
+						diagPushQoutedText(addrMode->pos.start, addrMode->pos.end);
+						diagPushText(".");
+						diagEndMsg();
+				}
+				return addrMode2;
+		} else if(node->type==NODE_ASM_REG) {
+				struct parserNode *reg=node;
+				return X86AddrModeReg(((struct parserNodeAsmReg*)reg)->reg);
+		} if(node->type==NODE_LIT_INT) {
+				if(INT64_MAX<uintLitValue(node)) {
+						return X86AddrModeUint(uintLitValue(node));
+				} else {
+						return  X86AddrModeSint(uintLitValue(node));
+				}
+		} else if(node->type==NODE_LIT_FLT) {
+				return X86AddrModeFlt(((struct parserNodeLitFlt*)node)->value);
+		} else if(node->type==NODE_LIT_STR) {
+				struct parserNodeLitStr *str=(void*)node;
+				if(str->isChar) {
+						X86AddrModeUint(uintLitValue(node));
+				} else {
+						//Is a string so add to memory addess
+						return  X86AddrModeUint(uintLitValue(node));
+				}
+		} else {
+				diagErrorStart(node->pos.start, node->pos.end);
+				diagPushText("Invalid opcode literal.");
+				diagEndMsg();
+				return X86AddrModeSint(-1);
+		}
+		return X86AddrModeSint(-1);
+}
 struct parserNode *parseAsmInstructionX86(llLexerItem start,llLexerItem *end) {
 		if(llLexerItemValuePtr(start)->template==&nameTemplate) {
 				__auto_type originalStart=start;
@@ -2810,6 +2960,7 @@ struct parserNode *parseAsmInstructionX86(llLexerItem start,llLexerItem *end) {
 				strOpcodeTemplate dummy CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByName(nameText);
 				if(strOpcodeTemplateSize(dummy)) {
 						long argc=X86OpcodesArgCount(nameText);
+						strParserNode parserArgs=NULL; 
 						strX86AddrMode args CLEANUP(strX86AddrModeDestroy)=NULL;
 						for(long a=0;a!=argc;a++) {
 								if(a!=0) {
@@ -2819,69 +2970,45 @@ struct parserNode *parseAsmInstructionX86(llLexerItem start,llLexerItem *end) {
 										} else start=llLexerItemNext(start);
 								}
 								//Try parsing memory address first,then register,then number
-								struct parserNode *addrMode CLEANUP(parserNodeDestroy)=parseAsmAddrModeSIB(start, &start);
+								struct parserNode *addrMode =parseAsmAddrModeSIB(start, &start);
 								if(addrMode) {
-										int success;
-										struct X86AddressingMode dummy=X86AddrModeIndirMem(0, NULL);
-										__auto_type offsetNode=((struct parserNodeAsmSIB*)addrMode)->offset;
-										struct X86AddressingMode addrMode2;
-										if(offsetNode) {
-												int64_t offset=intLitValue(offsetNode);
-												struct parserNodeAsmSIB *sib=(void*)addrMode;
-												addrMode2=addrModeFromParseTree(sib->expression,sib->type,&offset, &success );
-										} else { 
-												struct parserNodeAsmSIB *sib=(void*)addrMode;
-												addrMode2=addrModeFromParseTree(sib->expression,sib->type,NULL, &success);
-										}
-										if(!success) {
-												addrMode2=dummy;
-												diagErrorStart(addrMode->pos.start, addrMode->pos.end);
-												diagPushText("Invalid addressing mode ");
-												diagPushQoutedText(addrMode->pos.start, addrMode->pos.end);
-												diagPushText(".");
-												diagEndMsg();
-										}
-										args=strX86AddrModeAppendItem(args, addrMode2);
+										parserArgs=strParserNodeAppendItem(parserArgs, addrMode);
+										args=strX86AddrModeAppendItem(args, parserNode2X86AddrMode(addrMode));
 										continue;
 								}
-								struct parserNode *reg CLEANUP(parserNodeDestroy)=parseAsmRegister(start, &start);
+								struct parserNode *reg =parseAsmRegister(start, &start);
 								if(reg) {
-										__auto_type mode=X86AddrModeReg(((struct parserNodeAsmReg*)reg)->reg);
-										args=strX86AddrModeAppendItem(args, mode);
+										parserArgs=strParserNodeAppendItem(parserArgs, reg); 
+										args=strX86AddrModeAppendItem(args, parserNode2X86AddrMode(reg));
 										continue;
 								}
-								struct parserNode *literal CLEANUP(parserNodeDestroy)=literalRecur(start,NULL, &start);
+								struct parserNode *label =nameParse(start, NULL, NULL);
+								if(label) {
+										struct parserNodeName *name=(void*)label;
+										args=strX86AddrModeAppendItem(args,X86AddrModeLabel(name->text));
+										addLabelRef(label, name->text);
+										parserArgs=strParserNodeAppendItem(parserArgs, label);
+										start=llLexerItemNext(start);
+										continue;
+								}
+								struct parserNode *literal =literalRecur(start,NULL, &start);
 								if(literal) {
-										if(literal->type==NODE_LIT_INT) {
-												if(INT64_MAX<uintLitValue(literal)) {
-														args=strX86AddrModeAppendItem(args, X86AddrModeUint(uintLitValue(literal)));
-												} else {
-														args=strX86AddrModeAppendItem(args, X86AddrModeSint(uintLitValue(literal)));
-												}
-										} else if(literal->type==NODE_LIT_FLT) {
-												args=strX86AddrModeAppendItem(args,X86AddrModeFlt(((struct parserNodeLitFlt*)literal)->value));
-										} else if(literal->type==NODE_LIT_STR) {
-												struct parserNodeLitStr *str=(void*)literal;
-												if(str->isChar) {
-														args=strX86AddrModeAppendItem(args, X86AddrModeUint(uintLitValue(literal)));
-												} else {
-														//Is a string so add to memory addess
-														args=strX86AddrModeAppendItem(args, X86AddrModeUint(uintLitValue(literal)));
-												}
-										} else {
-												diagErrorStart(literal->pos.start, literal->pos.end);
-												diagPushText("Invalid opcode literal.");
-												diagEndMsg();
-												args=strX86AddrModeAppendItem(args, X86AddrModeSint(-1));
-										}
+										parserArgs=strParserNodeAppendItem(parserArgs, literal);
+										args=strX86AddrModeAppendItem(args, parserNode2X86AddrMode(literal));
 										continue;
 								}
 								// Check for address of symbol
 								struct parserNode *addrOf CLEANUP(parserNodeDestroy)=expectOp(start, "&");
 								if(addrOf) {
+										parserArgs=strParserNodeAppendItem(parserArgs, literal);
+										start=llLexerItemNext(start);
 										__auto_type addrOfExpr=parseExpression(start, NULL, &start);
 										if(addrOfExpr)
 												args=strX86AddrModeAppendItem(args,X86AddrModeItemAddrOf(addrOfExpr, assignTypeToOp(addrOfExpr)));
+										else {
+												//TODO whine
+												args=strX86AddrModeAppendItem(args, X86AddrModeSint(-1));
+										}
 										continue;
 								}
 								//Couldn't find argument so quit
@@ -2908,7 +3035,7 @@ struct parserNode *parseAsmInstructionX86(llLexerItem start,llLexerItem *end) {
 								diagEndMsg();
 						} else {
 								struct parserNodeAsmInstX86 inst;
-								inst.args=strX86AddrModeClone(args);
+								inst.args=parserArgs;
 								inst.name=nameParse(originalStart, NULL, NULL);
 								inst.base.type=NODE_ASM_INST;
 								getStartEndPos(originalStart, start, &inst.base.pos.start, &inst.base.pos.end);
@@ -2919,4 +3046,34 @@ struct parserNode *parseAsmInstructionX86(llLexerItem start,llLexerItem *end) {
 		if(end)
 				*end=start;
 		return NULL;
+}
+void parserMapGotosToLabels() {
+		long count;
+		mapParserNodesKeys(labelReferences, NULL, &count);
+		const char *keys[count];
+		mapParserNodesKeys(labelReferences, keys, NULL);
+		for(long i=0;i!=count;i++) {
+				__auto_type refs=*mapParserNodesGet(labelReferences, keys[i]);
+				__auto_type lab=mapParserNodeGet(labels, keys[i]);
+				for(long g=0;g!=strParserNodeSize(refs);g++) {
+						long start=refs[g]->pos.start,end=refs[g]->pos.end;
+						switch(refs[g]->type) {
+						case NODE_GOTO: {
+								if(!lab)
+										goto undefinedRef;
+								struct parserNodeGoto *gt=(void*)refs[g];
+								gt->pointsTo=*lab;
+								break;
+						}
+						default:;
+						}
+						continue;
+				undefinedRef:
+						diagErrorStart(start, end);
+						diagPushText("Undefined reference to label ");
+						diagPushQoutedText(start, end);
+						diagPushText(".");
+						diagEndMsg();
+				} 
+		}
 }
