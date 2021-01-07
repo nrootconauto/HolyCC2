@@ -38,6 +38,7 @@ strParserNode parseText(const char *text) {
 		return retVal;
 }
 void parse2IRTests() {
+		initIR();
 		{
 				initParserData();
 				__auto_type nodes=parseText("1+2;");
@@ -127,6 +128,14 @@ void parse2IRTests() {
 			{
 				initParserData();
 				__auto_type nodes=parseText("U8i foo(U64i a) {return a+4;}");
+				IRGenInit();
+				__auto_type res=parserNodes2IR(nodes);
+				//				debugShowGraph(res.enter);
+				
+		}
+			{
+				initParserData();
+				__auto_type nodes=parseText("U8i foo(U64i a) {goto a;a:;}");
 				IRGenInit();
 				__auto_type res=parserNodes2IR(nodes);
 				//				debugShowGraph(res.enter);

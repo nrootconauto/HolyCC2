@@ -51,10 +51,10 @@ int main() {
 		registerAllocatorTests();;
 		SSATests();
 		//IRFilterTests();
-		parse2IRTests();
- IRTypeInferenceTests();
+		IRTypeInferenceTests();
 	constantPropigationTests();
 	frameLayoutTests();
 		*/
+		parse2IRTests();
 	return 0;
 }

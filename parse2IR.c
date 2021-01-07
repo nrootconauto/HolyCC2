@@ -74,33 +74,28 @@ struct gotoPair {
 MAP_TYPE_DEF(struct gotoPair, GotoPair);
 MAP_TYPE_FUNCS(struct gotoPair, GotoPair);
 struct IRGenInst {
-		ptrMapGraphNode labelsByParserNode;
-		mapGotoPair gotoLabelPairByName;
 		strScopeStack scopes;
 };
 struct IRGenInst *IRGenInstCreate() {
 		struct IRGenInst retVal;
-		retVal.labelsByParserNode=ptrMapGraphNodeCreate();
-		retVal.gotoLabelPairByName= mapGotoPairCreate();
 		retVal.scopes=NULL;
 
 		return ALLOCATE(retVal);
 }
 void IRGenInstDestroy(struct IRGenInst *inst) {
-		ptrMapGraphNodeDestroy(inst->labelsByParserNode, NULL);
-		mapGotoPairDestroy(inst->gotoLabelPairByName, NULL);
 		strScopeStackDestroy(&inst->scopes);
-
 		free(inst);
 }
 
 static __thread struct IRGenInst *currentGen = NULL;
 static __thread strGraphNodeIRP currentStatement = NULL;
+static __thread ptrMapGNIRByParserNode labelsByPN=NULL;
 void IRGenInit() {
 		if(currentGen!=NULL)
 				IRGenInstDestroy(currentGen);
+		ptrMapGNIRByParserNodeDestroy(labelsByPN, NULL);
 		strGraphNodeIRPDestroy(&currentStatement);
-
+		labelsByPN=ptrMapGNIRByParserNodeCreate();
 		currentStatement=NULL;
 		currentGen=IRGenInstCreate();
 }
@@ -879,18 +874,14 @@ static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 			__auto_type label=IRCreateLabel();
 			struct parserNodeGoto *gt=(void*)node;
 			//Parser nodes point to label name,so get the name out of the label
-			struct parserNodeName *name=(void*)gt->labelName;
-			assert(gt->base.type==NODE_NAME);
-			__auto_type find=mapGotoPairGet(currentGen->gotoLabelPairByName, name->text);
+			assert(gt->pointsTo);
+			__auto_type find=ptrMapGNIRByParserNodeGet(labelsByPN, gt->pointsTo);
 			if(find) {
-					// Add to pair's dummyLabels if already exists(which will be connected to labels latter).
-					find->dummyLabels=strGraphNodeIRPSortedInsert(find->dummyLabels, label, (gnIRCmpType)ptrPtrCmp);
+					graphNodeIRConnect(label, *find, IR_CONN_FLOW);
 			} else {
-					// Make a new pair if doesnt exist
-					struct gotoPair pair;
-					pair.dummyLabels=strGraphNodeIRPAppendItem(NULL, label);
-					//label hasn't been found yet
-					pair.jumpToLabel=NULL;
+					__auto_type pointsToLabel=IRCreateLabel();
+					ptrMapGNIRByParserNodeAdd(labelsByPN, gt->pointsTo,pointsToLabel);
+					graphNodeIRConnect(label, pointsToLabel, IR_CONN_FLOW);
 			}
 
 			return (struct enterExit){label,label};
@@ -1048,12 +1039,12 @@ static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 		
 		graphNodeIR lab=IRCreateLabel();
 		//Insert into pairs
-		__auto_type find=mapGotoPairGet(currentGen->gotoLabelPairByName,  name->text);
-		if(find) {
-				//Assign label to pair
-				find->jumpToLabel=lab;
-		}
-		
+		__auto_type find=ptrMapGNIRByParserNodeGet(labelsByPN, (struct parserNode*)node);
+		if(find)
+				lab=*find;
+		else
+				ptrMapGNIRByParserNodeAdd(labelsByPN, (struct parserNode*)node, lab);
+
 		return (struct enterExit){lab,lab};
 	}
 	case NODE_SCOPE: {
@@ -1158,6 +1149,7 @@ static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 	return (struct enterExit){NULL,NULL};
 }
 struct enterExit parserNodes2IR(strParserNode nodes) {
+		parserMapGotosToLabels();
 		struct enterExit retVal={NULL,NULL};
 		
 		for(long i=0;i!=strParserNodeSize(nodes);i++) {
@@ -1173,30 +1165,3 @@ struct enterExit parserNodes2IR(strParserNode nodes) {
 
 		return retVal;
 }
-/*
-graphNodeIR parserNode2IR(struct parserNode *node) {
-		__auto_type retVal= __parserNode2IRStmt(node);
-		//Link labels marked as goto labels  to labels
-		__auto_type labels=currentGen->gotoLabelPairByName;
-
-		long count;
-		mapGotoPairKeys(labels, NULL, &count);
-		const char *keys[count];
-		mapGotoPairKeys(labels, keys, NULL);
-
-		for(long i=0;i!=count;i++) {
-				__auto_type tmp=mapGotoPairGet(labels, keys[i]);
-				if(tmp->jumpToLabel) {
-						//If label is defines,connect all "dummy" nodes marked as goto to label
-						for(long i2=0;i2!=strGraphNodeIRPSize(tmp->dummyLabels);i2++) {
-								graphNodeIRConnect(tmp->dummyLabels[i], tmp->jumpToLabel, IR_CONN_FLOW);
-						}
-
-						//Free dummyLabels and remove key from map
-						mapGotoPairRemove(labels, keys[i], NULL);
-				}
-		}
-		
-		return retVal;
-}
-*/

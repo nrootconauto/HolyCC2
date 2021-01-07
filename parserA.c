@@ -2683,6 +2683,8 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 	//!!! each function's regular labels are unique to that function
 	__auto_type oldLabels=labels;
 	__auto_type oldLabelRefs=labelReferences;
+	labels=mapParserNodeCreate();
+	labelReferences=mapParserNodesCreate();
 	//
 	
 	struct parserNode *retVal = NULL;
@@ -2717,6 +2719,9 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 	//
 	currentFuncsStack = strFuncInfoStackPop(currentFuncsStack, NULL);
 	//!!! restore the old labels too
+	parserMapGotosToLabels();
+	mapParserNodeDestroy(labels,NULL);
+	mapParserNodesDestroy(labelReferences,NULL); //TODO
 	labels=oldLabels;
 	labelReferences=oldLabelRefs;
 	//
