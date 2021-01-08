@@ -21,6 +21,7 @@ MAP_TYPE_FUNCS(strParserNode,ParserNodes);
 static __thread mapParserNode localLabels=NULL;
 static __thread mapParserNode labels=NULL;
 static __thread mapParserNodes labelReferences=NULL;
+static __thread int isAsmMode=0;
 static void addLabelRef(struct parserNode *node,const char *name) {
 	loop:;
 		__auto_type find=mapParserNodesGet(labelReferences, name);
@@ -31,6 +32,7 @@ static void addLabelRef(struct parserNode *node,const char *name) {
 		*find=strParserNodeAppendItem(*find, node);
 }
 void __initParserA() {
+		isAsmMode=0;
 		currentScope=NULL;
 		currentLoop=NULL;
 		mapParserNodeDestroy(labels, NULL);
@@ -2138,6 +2140,11 @@ struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 			}	 else start=llLexerItemNext(start);
 			struct parserNodeName *nameNode=(void*)name;
 			if(end) *end=start;
+			if(!isAsmMode) {
+					diagErrorStart(atAt->pos.start, atAt->pos.end);
+					diagPushText("Local labels must appear in asm statement.");
+					diagEndMsg();
+			}
 			if(mapParserNodeGet(localLabels, nameNode->text)) {
 					diagErrorStart(atAt->pos.start, atAt->pos.end);
 					diagPushText("Redefinition of local symbol ");
@@ -2205,6 +2212,11 @@ struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 							__auto_type glblNode=ALLOCATE(glbl);
 							addGlobalSymbol(glblNode);
 							addLabel(glblNode,nameNode->text);
+							if(!isAsmMode) {
+									diagErrorStart(atAt->pos.start, atAt->pos.end);
+									diagPushText("Local labels must appear in asm statement.");
+									diagEndMsg();
+							}
 							return glblNode;
 					}
 			}
@@ -3116,4 +3128,248 @@ struct parserNode *parseAsmInstructionX86(llLexerItem start,llLexerItem *end) {
 
 void parserMapGotosToLabels() {
 		__parserMapLabels2Refs(1);
+}
+struct parserNode *parseAsm(llLexerItem start,llLexerItem *end) {
+		__auto_type originalStart=start;
+		struct parserNode * asmKw CLEANUP(parserNodeDestroy)=expectKeyword(start, "asm");
+		if(!asmKw)
+				return NULL;
+		start=llLexerItemNext(start);
+		struct parserNode *lB CLEANUP(parserNodeDestroy)=expectKeyword(start, "{");
+		if(lB) whineExpected(start, "{");
+		else start=llLexerItemNext(start);
+		isAsmMode=1;
+		strParserNode body=NULL;
+		for(;start;) {
+				struct parserNode *rB CLEANUP(parserNodeDestroy)=expectKeyword(start, "}");
+				if(rB) break;
+				struct parserNode *lab=parseLabel(start, &start);
+				if(lab) {
+						body=strParserNodeAppendItem(body, lab);
+						continue;
+				}
+				struct parserNode *inst=parseAsmInstructionX86(start, &start);
+				if(inst) {
+						body=strParserNodeAppendItem(body, inst);
+						continue;
+				}
+				//define
+				long duSize=-1;
+				struct parserNode *du8 CLEANUP(parserNodeDestroy)=expectKeyword(start, "DU8");
+				if(du8) duSize=1;
+				struct parserNode *du16 CLEANUP(parserNodeDestroy)=expectKeyword(start, "DU16");
+				if(du16) duSize=2;
+				struct parserNode *du32 CLEANUP(parserNodeDestroy)=expectKeyword(start, "DU32");
+				if(du32) duSize=4;
+				struct parserNode *du64 CLEANUP(parserNodeDestroy)=expectKeyword(start, "DU64");
+				if(du64) duSize=8;
+				if(duSize!=-1) {
+						__auto_type originalStart=start;
+						struct parserNodeDUX define;
+						define.bytes=NULL;
+						start=llLexerItemNext(start);
+						for(int firstRun=1;;firstRun=0) {
+								struct parserNode *semi CLEANUP(parserNodeDestroy)=expectKeyword(start, ";");		
+								if(semi)
+										break;
+								if(!firstRun) {
+										struct parserNode *comma CLEANUP(parserNodeDestroy)=expectOp(start, ",");
+										if(comma) start=llLexerItemNext(start);
+										else whineExpected(start, ",");
+								}
+								__auto_type originalStart=start;
+								struct parserNode *number CLEANUP(parserNodeDestroy)=literalRecur(start, NULL, &start);
+								if(number) {
+										//Ensure is an int
+										if(number->type!=NODE_LIT_INT) {
+												whineExpected(originalStart, "integer");
+												continue;
+										}
+										uint64_t mask=0;
+										for(long i=0;i!=duSize;i++) {
+												mask<<=8;
+												mask|=0xff;
+										}
+										struct parserNodeLitInt *lit=(void*)number;
+										uint64_t value=mask&lit->value.value.uLong;
+										if(archEndian()==ENDIAN_LITTLE) {
+										} else if(archEndian()==ENDIAN_BIG) {
+												value=__builtin_bswap64(value);
+										}
+										for(long b=0;b!=duSize;b++) {
+														uint8_t byte=value&0xff;
+														value>>=8;
+														define.bytes=__vecAppendItem(define.bytes, &byte , 1);
+												}
+								} else {
+										whineExpected(start, ";");
+										break;
+								}
+						}
+						getStartEndPos(originalStart, start, &define.base.pos.start, &define.base.pos.end);
+						switch(duSize) {
+						case 1:define.base.type=NODE_ASM_DU8; break;
+						case 2:define.base.type=NODE_ASM_DU16; break;
+						case 4:define.base.type=NODE_ASM_DU32; break;
+						case 8:define.base.type=NODE_ASM_DU64; break;
+						}
+						__auto_type alloced=ALLOCATE(define);
+						body=strParserNodeAppendItem(body, alloced);
+						continue;
+				}
+				struct parserNode *use16 CLEANUP(parserNodeDestroy)=expectKeyword(start, "USE16");
+				struct parserNode *use32 CLEANUP(parserNodeDestroy)=expectKeyword(start, "USE32");
+				struct parserNode *use64 CLEANUP(parserNodeDestroy)=expectKeyword(start, "USE64");
+				if(use16||use32||use64) {
+						__auto_type originalStart=start;
+						struct parserNodeAsmUseXX use;
+						getStartEndPos(originalStart, start, &use.base.pos.start, &use.base.pos.end);
+						start=llLexerItemNext(start);
+						if(use16) use.base.type=NODE_ASM_USE16;
+						else if(use32) use.base.type=NODE_ASM_USE32;
+						else if(use64) use.base.type=NODE_ASM_USE64;
+						body=strParserNodeAppendItem(body,ALLOCATE(use));
+						continue;
+				}
+				struct parserNode *org CLEANUP(parserNodeDestroy)=expectKeyword(start, "ORG");
+				if(org) {
+						__auto_type originalStart=start;
+						start=llLexerItemNext(start);
+						struct parserNode *where CLEANUP(parserNodeDestroy)=literalRecur(start, NULL, &start);
+						if(!where) {
+								whineExpected(start, "int");
+								continue;
+						}
+						if(where->type!=NODE_LIT_INT) {
+								whineExpected(start, "int");
+								continue;
+						}
+						struct parserNodeAsmOrg org;
+						org.base.type=NODE_ASM_ORG;
+						getStartEndPos(originalStart, start, &org.base.pos.start, &org.base.pos.end);
+						start=llLexerItemNext(start);
+						org.org=uintLitValue(where);
+						body=strParserNodeAppendItem(body,ALLOCATE(org));
+						continue;
+				}
+				struct parserNode *binfile CLEANUP(parserNodeDestroy)=expectKeyword(start, "BINFILE");
+				if(binfile) {
+						__auto_type originalStart=start;
+						start=llLexerItemNext(start);
+						struct parserNode *fn =literalRecur(start, NULL, &start);
+						if(!fn) {
+								whineExpected(start, "filename");
+								continue;
+						}
+						if(fn->type!=NODE_LIT_STR) {
+								parserNodeDestroy(&fn);
+								whineExpected(start, "filename");
+								continue;
+						}
+						struct parserNodeAsmBinfile binfile;
+						binfile.base.type=NODE_ASM_BINFILE;
+						binfile.fn=fn;
+						getStartEndPos(originalStart, start, &binfile.base.pos.start, &binfile.base.pos.end);
+						start=llLexerItemNext(start);
+						body=strParserNodeAppendItem(body, ALLOCATE(binfile));
+						//Ensure file exists
+						struct parserNodeLitStr *str=(void*)fn;
+						FILE *file=fopen(str->text, "rb");
+						fclose(file);
+						if(!file) {
+								diagErrorStart(fn->pos.start, fn->pos.end);
+								diagPushText("File ");
+								diagPushQoutedText(fn->pos.start, fn->pos.end);
+								diagPushText(" not found.");
+								diagEndMsg();
+						}
+						continue;
+				}
+				struct parserNode *list CLEANUP(parserNodeDestroy)=expectKeyword(start, "LIST");
+				struct parserNode *nolist CLEANUP(parserNodeDestroy)=expectKeyword(start, "NOLIST");
+				if(list||nolist)
+						continue;
+				struct parserNode *import CLEANUP(parserNodeDestroy)=expectKeyword(start, "IMPORT");
+				if(import) {
+						__auto_type originalStart=start;
+						start=llLexerItemNext(start);
+						strParserNode symbols=NULL;
+						for(int firstRun=1;start;firstRun=0) {
+								struct parserNode *semi CLEANUP(parserNodeDestroy)=expectKeyword(start, ";");
+								if(semi)
+										break;
+								if(!firstRun) {
+										struct parserNode *comma CLEANUP(parserNodeDestroy)=expectOp(start, ",");
+										if(!comma) whineExpected(start, ",");
+										else start=llLexerItemNext(start);
+								}
+								struct parserNode *name CLEANUP(parserNodeDestroy)=nameParse(start, NULL, &start);
+								if(!name) {
+										start=llLexerItemNext(start);
+										whineExpected(start, "symbol");
+										continue;
+								}
+								struct parserNodeName *name2=(void*)name;
+								__auto_type find=getGlobalSymbol(name2->text);
+								if(!find) {
+										diagErrorStart(name->pos.start, name->pos.end);
+										diagPushText("Global symbol ");
+										diagPushQoutedText(name->pos.start, name->pos.end);
+										diagPushText(" wasn't found.");
+										diagEndMsg();
+								}
+								symbols=strParserNodeAppendItem(symbols, find);
+						}
+						struct parserNodeAsmImport import;
+						import.base.type=NODE_ASM_IMPORT;
+						import.symbols=symbols;
+						getStartEndPos(originalStart, start, &import.base.pos.start, &import.base.pos.end);
+						start=llLexerItemNext(start);
+						body=strParserNodeAppendItem(body, ALLOCATE(import));
+						continue;
+				}
+				struct parserNode *align CLEANUP(parserNodeDestroy)=expectKeyword(start, "ALIGN");
+				if(align) {
+						__auto_type originalStart=start;
+						start=llLexerItemNext(start);
+						__auto_type numPos=start;
+						struct parserNode *num CLEANUP(parserNodeDestroy)=literalRecur(start, NULL, &start);
+						if(!num) {
+								whineExpected(start, "int");
+								continue;
+						}
+						start=llLexerItemNext(start);
+						__auto_type fillPos=start;
+						struct parserNode *fill CLEANUP(parserNodeDestroy)=literalRecur(start, NULL, &start);
+						if(!fill) {
+								whineExpected(fillPos, "int");
+								continue;
+						}
+						if(num->type!=NODE_LIT_INT) {
+								whineExpected(numPos, "int");
+								continue;
+						}
+						if(fill->type==NODE_LIT_INT) {
+								whineExpected(fillPos, "int");
+								continue;
+						}
+						struct  parserNodeAsmAlign align;
+						align.base.type=NODE_ASM_ALIGN;
+						align.count=uintLitValue(num);
+						align.fill=intLitValue(fill);
+						getStartEndPos(originalStart, start, &align.base.pos.start, &align.base.pos.end);
+						start=llLexerItemNext(start);
+						body=strParserNodeAppendItem(body, ALLOCATE(align));
+						continue;
+				}
+				whineExpectedExpr(start);
+				start=llLexerItemNext(start);
+		}
+		isAsmMode=0;
+		struct parserNodeAsm asmBlock;
+		asmBlock.body=body;
+		getStartEndPos(originalStart, start, &asmBlock.base.pos.start, &asmBlock.base.pos.end);
+		//Move past "}"
+		start=llLexerItemNext(start);
+		return ALLOCATE(asmBlock);
 }

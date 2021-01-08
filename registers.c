@@ -517,3 +517,11 @@ int regSliceCompare(const struct regSlice *a, const struct regSlice *b) {
 
 	return 0;
 }
+enum archEndian archEndian() {
+		switch(currentArch) {
+		case ARCH_X86_SYSV:
+		case ARCH_X64_SYSV:
+		case ARCH_TEST_SYSV:
+				return ENDIAN_LITTLE;
+		}
+}

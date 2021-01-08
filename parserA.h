@@ -14,6 +14,9 @@ enum parserNodeType {
 		NODE_ASM_DU16,
 		NODE_ASM_DU32,
 		NODE_ASM_DU64,
+		NODE_ASM_USE16,
+		NODE_ASM_USE32,
+		NODE_ASM_USE64,
 		NODE_ASM_ORG,
 		NODE_ASM_ALIGN,
 		NODE_ASM_BINFILE,
@@ -284,6 +287,44 @@ struct parserNodeAsmSIB {
 		struct parserNode *offset;
 		struct parserNode *segment;
 		struct object *type;
+};
+struct parserNodeUse16 {
+		struct parserNode base;
+};
+struct parserNodeUse32 {
+		struct parserNode base;
+};
+struct parserNodeAsmBinfile {
+		struct parserNode base;
+		struct parserNode *fn;
+};
+struct parserNodeAsmOrg {
+		struct parserNode base;
+		uint64_t org;
+};
+struct parserNodeAsmImport {
+		struct parserNode base;
+		strParserNode symbols;
+};
+/* USE16/32/64
+	*/
+struct parserNodeAsmAlign {
+		struct parserNode base;
+		uint64_t count;
+		int fill;
+};
+struct parserNodeAsmUseXX {
+		struct parserNode base;
+};
+/* DU8/16/32/64
+	*/
+struct parserNodeDUX {
+		struct parserNode base;
+		struct __vec *bytes;
+};
+struct parserNodeAsm {
+		struct parserNode base;
+		strParserNode body;
 };
 struct parserNodeAsmInstX86 {
 		struct parserNode base;
