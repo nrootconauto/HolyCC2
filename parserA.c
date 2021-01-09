@@ -1415,7 +1415,7 @@ end:
 	if (end != NULL)
 		*end = start;
 
-	if(isGlobalScope())
+	if(isGlobalScope()&&retVal)
 			addGlobalSymbol(retVal);
 	
 	if (retVal) {

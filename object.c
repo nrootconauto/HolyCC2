@@ -150,9 +150,9 @@ hashObject(struct object *obj, int *alreadyExists) {
 		}
 
 		argStr = strCharAppendItem(argStr, '\0');
-		long len = snprintf(NULL, 0, "%s(*)(%s)", retVal, argStr);
+		long len = snprintf(NULL, 0, "%s(*)(%s)", retType, argStr);
 		char buffer[len + 1];
-		sprintf(buffer, "%s(*)(%s)", retVal, argStr);
+		sprintf(buffer, "%s(*)(%s)", retType, argStr);
 
 		retVal = strClone(buffer);
 		goto end;
