@@ -3174,8 +3174,10 @@ struct parserNode *parseAsm(llLexerItem start,llLexerItem *end) {
 						start=llLexerItemNext(start);
 						for(int firstRun=1;;firstRun=0) {
 								struct parserNode *semi CLEANUP(parserNodeDestroy)=expectKeyword(start, ";");		
-								if(semi)
+								if(semi) {
+										start=llLexerItemNext(start);
 										break;
+								}
 								if(!firstRun) {
 										struct parserNode *comma CLEANUP(parserNodeDestroy)=expectOp(start, ",");
 										if(comma) start=llLexerItemNext(start);

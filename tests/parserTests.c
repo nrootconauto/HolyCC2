@@ -982,7 +982,7 @@ static void asmTests() {
 				"asm {\n"
 				"    GLOB::\n"
 				"    CALL GLOB\n"
-				"    DU8 1,2,3\n;"
+				"    DU8 1,2,3;\n"
 				"    DU16 0xFFFF;\n"
 				"    DU32 0xFFFFFFFF;\n"
 				"    DU64 0,1;\n"
@@ -1007,18 +1007,18 @@ static void asmTests() {
 
 				assert(asmBlock2->body[3]->type==NODE_ASM_DU16);
 				struct parserNodeDUX *du16=(void*)asmBlock2->body[3];
-				assert(__vecSize(du8->bytes)==2);
-				assert(0==strncmp((char*)du8->bytes,"\377\377",2));
+				assert(__vecSize(du16->bytes)==2);
+				assert(0==strncmp((char*)du16->bytes,"\377\377",2));
 
 				assert(asmBlock2->body[4]->type==NODE_ASM_DU32);
 				struct parserNodeDUX *du32=(void*)asmBlock2->body[4];
-				assert(__vecSize(du8->bytes)==4);
-				assert(0==strncmp((char*)du8->bytes,"\377\377\377\377",4));
+				assert(__vecSize(du32->bytes)==4);
+				assert(0==strncmp((char*)du32->bytes,"\377\377\377\377",4));
 
-				assert(asmBlock2->body[5]->type==NODE_ASM_DU32);
+				assert(asmBlock2->body[5]->type==NODE_ASM_DU64);
 				struct parserNodeDUX *du64=(void*)asmBlock2->body[5];
-				assert(__vecSize(du8->bytes)==16);
-				assert(0==strncmp((char*)du8->bytes,
+				assert(__vecSize(du64->bytes)==16);
+				assert(0==strncmp((char*)du64->bytes,
 																						"\00\00\00\00"
 																						"\00\00\00\00"
 																						"\01\00\00\00"
