@@ -978,6 +978,11 @@ static void asmTests() {
 		}
 		initParserData();
 		setArch(ARCH_X64_SYSV);
+		char binfileName[1024];
+		tmpnam(binfileName);
+		FILE *binfile=fopen(binfileName, "w");
+		fwrite("abc", 1, 3, binfile);
+		fclose(binfile);
 		text=
 				"asm {\n"
 				"    GLOB::\n"
@@ -986,9 +991,14 @@ static void asmTests() {
 				"    DU16 0xFFFF;\n"
 				"    DU32 0xFFFFFFFF;\n"
 				"    DU64 0,1;\n"
+				"    BINFILE \"%s\""
 				"}";
-		createFile(text);
-		textStr = strCharAppendData(NULL, text, strlen(text)+1);
+		long count=snprintf(NULL, 0, text, binfileName);
+		char buffer[count+1];
+		sprintf(buffer, text, binfileName);
+		text=buffer;
+		createFile(buffer);
+		textStr = strCharAppendData(NULL, buffer, strlen(buffer)+1);
 		lexItems = lexText((struct __vec *)textStr, &err);
 		assert(!err);
 		assert(lexItems);
@@ -1024,6 +1034,11 @@ static void asmTests() {
 																						"\01\00\00\00"
 																						"\00\00\00\00"
 																						,16));
+				assert(asmBlock2->body[6]->type==NODE_ASM_BINFILE);
+				struct parserNodeAsmBinfile *binfile=(void*)asmBlock2->body[6];
+				assert(binfile->fn->type==NODE_LIT_STR);
+				struct parserNodeLitStr *fn=(void*)binfile->fn;
+				assert(0==strcmp(fn->text,binfileName));
 		}
 }
 void parserGotoTests() {
