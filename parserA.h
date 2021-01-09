@@ -20,6 +20,7 @@ enum parserNodeType {
 		NODE_ASM_ORG,
 		NODE_ASM_ALIGN,
 		NODE_ASM_BINFILE,
+		NODE_ASM,
 		NODE_BINOP,
 		NODE_LIT_FLT,
 		NODE_ASM_INST,
@@ -353,3 +354,4 @@ struct parserNode *parseAsmInstructionX86(llLexerItem start,llLexerItem *end);
 void __initParserA();
 struct X86AddressingMode parserNode2X86AddrMode(struct parserNode *node);
 void parserMapGotosToLabels();
+struct parserNode *parseAsm(llLexerItem start,llLexerItem *end);

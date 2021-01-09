@@ -976,6 +976,55 @@ static void asmTests() {
 				assert(b.value.m.value.sib.index==&regX86EAX);
 				assert(b.value.m.value.sib.base==&regX86EAX);
 		}
+		initParserData();
+		setArch(ARCH_X64_SYSV);
+		text=
+				"asm {\n"
+				"    GLOB::\n"
+				"    CALL GLOB\n"
+				"    DU8 1,2,3\n;"
+				"    DU16 0xFFFF;\n"
+				"    DU32 0xFFFFFFFF;\n"
+				"    DU64 0,1;\n"
+				"}";
+		createFile(text);
+		textStr = strCharAppendData(NULL, text, strlen(text)+1);
+		lexItems = lexText((struct __vec *)textStr, &err);
+		assert(!err);
+		assert(lexItems);
+		{
+				__auto_type asmBlock=parseStatement(lexItems, &lexItems);
+				assert(asmBlock);
+				assert(asmBlock->type==NODE_ASM);
+				struct parserNodeAsm *asmBlock2=(void*)asmBlock;
+				assert(asmBlock2->body[0]->type==NODE_ASM_LABEL_GLBL);
+				assert(asmBlock2->body[1]->type==NODE_ASM_INST);
+
+				assert(asmBlock2->body[2]->type==NODE_ASM_DU8);
+				struct parserNodeDUX *du8=(void*)asmBlock2->body[2];
+				assert(__vecSize(du8->bytes)==3);
+				assert(0==strncmp((char*)du8->bytes,"\01\02\03",3));
+
+				assert(asmBlock2->body[3]->type==NODE_ASM_DU16);
+				struct parserNodeDUX *du16=(void*)asmBlock2->body[3];
+				assert(__vecSize(du8->bytes)==2);
+				assert(0==strncmp((char*)du8->bytes,"\377\377",2));
+
+				assert(asmBlock2->body[4]->type==NODE_ASM_DU32);
+				struct parserNodeDUX *du32=(void*)asmBlock2->body[4];
+				assert(__vecSize(du8->bytes)==4);
+				assert(0==strncmp((char*)du8->bytes,"\377\377\377\377",4));
+
+				assert(asmBlock2->body[5]->type==NODE_ASM_DU32);
+				struct parserNodeDUX *du64=(void*)asmBlock2->body[5];
+				assert(__vecSize(du8->bytes)==16);
+				assert(0==strncmp((char*)du8->bytes,
+																						"\00\00\00\00"
+																						"\00\00\00\00"
+																						"\01\00\00\00"
+																						"\00\00\00\00"
+																						,16));
+		}
 }
 void parserGotoTests() {
 		initParserData();
@@ -996,38 +1045,6 @@ void parserGotoTests() {
 				parserMapGotosToLabels();
 				struct parserNodeGoto *gt2=(void*)gt;
 				assert(gt2->pointsTo==label);
-		}
-		initParserData();
-		text =
-				"GLOB::\n"
-				"@@a:\n"
-				"goto a;\n"
-				"GLOB2::\n"
-				"@@a:\n"
-				"goto a;\n";
-		createFile(text);
-		textStr = strCharAppendData(NULL, text, strlen(text)+1);
-		lexItems = lexText((struct __vec *)textStr, &err);
-		assert(!err);
-		assert(lexItems);
-		{
-				__auto_type glob1=parseStatement(lexItems, &lexItems);
-				assert(glob1->type==NODE_ASM_LABEL_GLBL);
-				__auto_type a1=parseStatement(lexItems, &lexItems);
-				assert(a1->type==NODE_ASM_LABEL_LOCAL);
-				__auto_type gtA1=parseStatement(lexItems, &lexItems);
-				assert(gtA1->type==NODE_GOTO);
-				__auto_type glob2=parseStatement(lexItems, &lexItems);
-				assert(glob2->type==NODE_ASM_LABEL_GLBL);
-				__auto_type a2=parseStatement(lexItems, &lexItems);
-				assert(a2->type==NODE_ASM_LABEL_LOCAL);
-				__auto_type gtA2=parseStatement(lexItems, &lexItems);
-				assert(gtA2->type==NODE_GOTO);
-				parserMapGotosToLabels();
-				struct parserNodeGoto *gt1=(void*)gtA1;
-				struct parserNodeGoto *gt2=(void*)gtA2;
-				assert(gt1->pointsTo==a1);
-				assert(gt2->pointsTo==a2);
 		}
 }
 void parserTests() {

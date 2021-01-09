@@ -209,9 +209,8 @@ static void getLineCol(struct diagInst *inst, long where, long *line,
                        long *col) {
 	long line2 = 0;
 	for (long i = 1; i != strLongSize(inst->lineStarts); i++) {
-		if (inst->lineStarts[i] < where) {
+		if (inst->lineStarts[i] <= where) {
 			line2 = i;
-			goto found;
 		} else
 			break;
 	}

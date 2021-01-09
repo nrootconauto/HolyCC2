@@ -1546,6 +1546,10 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 	__auto_type brk=parseBreak(originalStart, end);
 	if(brk)
 			return brk;
+
+	__auto_type asmBlock=parseAsm(originalStart, end);
+	if(asmBlock)
+			return asmBlock;
 	
 	__auto_type func = parseFunction(originalStart, end);
 	if (func) {
@@ -3136,7 +3140,7 @@ struct parserNode *parseAsm(llLexerItem start,llLexerItem *end) {
 				return NULL;
 		start=llLexerItemNext(start);
 		struct parserNode *lB CLEANUP(parserNodeDestroy)=expectKeyword(start, "{");
-		if(lB) whineExpected(start, "{");
+		if(!lB) whineExpected(start, "{");
 		else start=llLexerItemNext(start);
 		isAsmMode=1;
 		strParserNode body=NULL;
@@ -3368,6 +3372,7 @@ struct parserNode *parseAsm(llLexerItem start,llLexerItem *end) {
 		isAsmMode=0;
 		struct parserNodeAsm asmBlock;
 		asmBlock.body=body;
+		asmBlock.base.type=NODE_ASM;
 		getStartEndPos(originalStart, start, &asmBlock.base.pos.start, &asmBlock.base.pos.end);
 		//Move past "}"
 		start=llLexerItemNext(start);

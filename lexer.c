@@ -474,8 +474,8 @@ llLexerItem lexText(const struct __vec *text, int *err) {
 		for (long i = 0; i != tCount; i++) {
 			long end;
 			__auto_type find = templates[i]->lexItem(text, pos, &end, &err2);
-			if (err2)
-				goto fail;
+			//if (err2)
+			//goto fail;
 
 			if (find != NULL) {
 				if (maximumEnd > end) {
