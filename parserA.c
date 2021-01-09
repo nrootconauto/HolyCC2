@@ -22,6 +22,10 @@ static __thread mapParserNode localLabels=NULL;
 static __thread mapParserNode labels=NULL;
 static __thread mapParserNodes labelReferences=NULL;
 static __thread int isAsmMode=0;
+static __thread mapParserNode asmImports=NULL;
+static int isGlobalScope() {
+		return currentScope==NULL;
+}
 static void addLabelRef(struct parserNode *node,const char *name) {
 	loop:;
 		__auto_type find=mapParserNodesGet(labelReferences, name);
@@ -35,12 +39,14 @@ void __initParserA() {
 		isAsmMode=0;
 		currentScope=NULL;
 		currentLoop=NULL;
+		mapParserNodeDestroy(asmImports, NULL);
 		mapParserNodeDestroy(labels, NULL);
 		mapParserNodeDestroy(localLabels, NULL);
 		mapParserNodesDestroy(labelReferences, NULL);//
 		labels=mapParserNodeCreate();
 		localLabels=mapParserNodeCreate();
 		labelReferences=mapParserNodesCreate();
+		asmImports=mapParserNodeCreate();
 }
 static strParserNode switchStack = NULL;
 static char *strCopy(const char *text) {
@@ -1390,14 +1396,16 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end) {
 	}
 	if (cls) {
 		struct parserNodeClassDef def;
-		def.base.type = NODE_CLASS_DEF;
+		//retValObj is NULL if forward decl
+		def.base.type = (retValObj)?NODE_CLASS_DEF:NODE_CLASS_FORWARD_DECL;
 		def.name = name2;
-		def.type = retValObj;
-
+		def.type = retValObj;;
+		
 		retVal = ALLOCATE(def);
 	} else if (un) {
 		struct parserNodeUnionDef def;
-		def.base.type = NODE_UNION_DEF;
+		//retValObj is NULL if forward decl
+		def.base.type = (retValObj)?NODE_UNION_DEF:NODE_UNION_FORWARD_DECL;
 		def.name = name2;
 		def.type = retValObj;
 
@@ -1407,6 +1415,9 @@ end:
 	if (end != NULL)
 		*end = start;
 
+	if(isGlobalScope())
+			addGlobalSymbol(retVal);
+	
 	if (retVal) {
 		if (end)
 			assignPosByLexerItems(retVal, originalStart, *end);
@@ -1420,12 +1431,18 @@ static void addDeclsToScope(struct parserNode *varDecls) {
 		struct parserNodeVarDecl *decl = (void *)varDecls;
 		addVar(decl->name, decl->type);
 		decl->var=getVar(decl->name);
+
+		if(isGlobalScope())
+				addGlobalSymbol(varDecls);
 	} else if (varDecls->type == NODE_VAR_DECLS) {
 		struct parserNodeVarDecls *decls = (void *)varDecls;
 		for (long i = 0; i != strParserNodeSize(decls->decls); i++) {
 			struct parserNodeVarDecl *decl = (void *)decls->decls[i];
 			addVar(decl->name, decl->type);
 			decl->var=getVar(decl->name);
+
+			if(isGlobalScope())
+					addGlobalSymbol((struct parserNode *)decl);
 		}
 	}
 }
@@ -2751,6 +2768,10 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 		assignPosByLexerItems(retVal, originalStart, NULL);
 
 	addFunc(name, funcType, retVal);
+
+	if(isGlobalScope())
+			addGlobalSymbol(retVal);
+	
 	if(retVal->type==NODE_FUNC_DEF)
 			((struct parserNodeFuncDef*)retVal)->func=getFunc(name);
 	else if(retVal->type==NODE_FUNC_FORWARD_DECL)
@@ -3067,10 +3088,16 @@ struct parserNode *parseAsmInstructionX86(llLexerItem start,llLexerItem *end) {
 								struct parserNode *label =nameParse(start, NULL, NULL);
 								if(label) {
 										struct parserNodeName *name=(void*)label;
-										args=strX86AddrModeAppendItem(args,X86AddrModeLabel(name->text));
-										addLabelRef(label, name->text);
-										parserArgs=strParserNodeAppendItem(parserArgs, label);
-										start=llLexerItemNext(start);
+										//Items imported in a "asm" block dont need "&",check if is imported
+										if(mapParserNodeGet(asmImports, name->text)) {
+												__auto_type addrOfExpr=parseExpression(start, findEndOfExpression(start, 1), &start);
+												args=strX86AddrModeAppendItem(args,X86AddrModeItemAddrOf(addrOfExpr, assignTypeToOp(addrOfExpr)));
+										} else {
+												args=strX86AddrModeAppendItem(args,X86AddrModeLabel(name->text));
+												addLabelRef(label, name->text);
+												parserArgs=strParserNodeAppendItem(parserArgs, label);
+												start=llLexerItemNext(start);
+										}
 										continue;
 								}
 								struct parserNode *literal =literalRecur(start,NULL, &start);
@@ -3084,7 +3111,7 @@ struct parserNode *parseAsmInstructionX86(llLexerItem start,llLexerItem *end) {
 								if(addrOf) {
 										parserArgs=strParserNodeAppendItem(parserArgs, literal);
 										start=llLexerItemNext(start);
-										__auto_type addrOfExpr=parseExpression(start, NULL, &start);
+										__auto_type addrOfExpr=parseExpression(start, findEndOfExpression(start, 1), &start);
 										if(addrOfExpr)
 												args=strX86AddrModeAppendItem(args,X86AddrModeItemAddrOf(addrOfExpr, assignTypeToOp(addrOfExpr)));
 										else {
@@ -3144,6 +3171,8 @@ struct parserNode *parseAsm(llLexerItem start,llLexerItem *end) {
 		else start=llLexerItemNext(start);
 		isAsmMode=1;
 		strParserNode body=NULL;
+		mapParserNodeDestroy(asmImports, NULL);
+		asmImports=mapParserNodeCreate();
 		for(;start;) {
 				struct parserNode *rB CLEANUP(parserNodeDestroy)=expectKeyword(start, "}");
 				if(rB) break;
@@ -3276,7 +3305,6 @@ struct parserNode *parseAsm(llLexerItem start,llLexerItem *end) {
 						binfile.base.type=NODE_ASM_BINFILE;
 						binfile.fn=fn;
 						getStartEndPos(originalStart, start, &binfile.base.pos.start, &binfile.base.pos.end);
-						start=llLexerItemNext(start);
 						body=strParserNodeAppendItem(body, ALLOCATE(binfile));
 						//Ensure file exists
 						struct parserNodeLitStr *str=(void*)fn;
@@ -3323,7 +3351,8 @@ struct parserNode *parseAsm(llLexerItem start,llLexerItem *end) {
 										diagPushQoutedText(name->pos.start, name->pos.end);
 										diagPushText(" wasn't found.");
 										diagEndMsg();
-								}
+								} else
+										mapParserNodeInsert(asmImports,name2->text,find);
 								symbols=strParserNodeAppendItem(symbols, find);
 						}
 						struct parserNodeAsmImport import;
@@ -3344,7 +3373,9 @@ struct parserNode *parseAsm(llLexerItem start,llLexerItem *end) {
 								whineExpected(start, "int");
 								continue;
 						}
-						start=llLexerItemNext(start);
+						struct parserNode *comma CLEANUP(parserNodeDestroy)=expectOp(start, ",");
+						if(!comma) whineExpected(start, ",");
+						else start=llLexerItemNext(start);
 						__auto_type fillPos=start;
 						struct parserNode *fill CLEANUP(parserNodeDestroy)=literalRecur(start, NULL, &start);
 						if(!fill) {
@@ -3355,7 +3386,7 @@ struct parserNode *parseAsm(llLexerItem start,llLexerItem *end) {
 								whineExpected(numPos, "int");
 								continue;
 						}
-						if(fill->type==NODE_LIT_INT) {
+						if(fill->type!=NODE_LIT_INT) {
 								whineExpected(fillPos, "int");
 								continue;
 						}
@@ -3364,7 +3395,6 @@ struct parserNode *parseAsm(llLexerItem start,llLexerItem *end) {
 						align.count=uintLitValue(num);
 						align.fill=intLitValue(fill);
 						getStartEndPos(originalStart, start, &align.base.pos.start, &align.base.pos.end);
-						start=llLexerItemNext(start);
 						body=strParserNodeAppendItem(body, ALLOCATE(align));
 						continue;
 				}

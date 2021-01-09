@@ -984,6 +984,7 @@ static void asmTests() {
 		fwrite("abc", 1, 3, binfile);
 		fclose(binfile);
 		text=
+				"U0 foo() {}"
 				"asm {\n"
 				"    GLOB::\n"
 				"    CALL GLOB\n"
@@ -991,7 +992,10 @@ static void asmTests() {
 				"    DU16 0xFFFF;\n"
 				"    DU32 0xFFFFFFFF;\n"
 				"    DU64 0,1;\n"
-				"    BINFILE \"%s\""
+				"    BINFILE \"%s\"\n"
+				"    USE16 USE32 USE64\n"
+				"    ALIGN 8,0\n"
+				"    IMPORT foo;"
 				"}";
 		long count=snprintf(NULL, 0, text, binfileName);
 		char buffer[count+1];
@@ -1003,6 +1007,7 @@ static void asmTests() {
 		assert(!err);
 		assert(lexItems);
 		{
+				__auto_type foo=parseStatement(lexItems, &lexItems);
 				__auto_type asmBlock=parseStatement(lexItems, &lexItems);
 				assert(asmBlock);
 				assert(asmBlock->type==NODE_ASM);
@@ -1039,6 +1044,18 @@ static void asmTests() {
 				assert(binfile->fn->type==NODE_LIT_STR);
 				struct parserNodeLitStr *fn=(void*)binfile->fn;
 				assert(0==strcmp(fn->text,binfileName));
+
+				assert(asmBlock2->body[7]->type==NODE_ASM_USE16);
+				assert(asmBlock2->body[8]->type==NODE_ASM_USE32);
+				assert(asmBlock2->body[9]->type==NODE_ASM_USE64);
+				assert(asmBlock2->body[10]->type==NODE_ASM_ALIGN);
+				struct parserNodeAsmAlign *align=(void*)asmBlock2->body[10];
+				assert(align->count==8);
+				assert(align->fill==0);
+				assert(asmBlock2->body[11]->type==NODE_ASM_IMPORT);
+				struct parserNodeAsmImport *import=(void*)asmBlock2->body[11];
+				assert(strParserNodeSize(import->symbols)==1);
+				assert(import->symbols[0]==foo);
 		}
 }
 void parserGotoTests() {
@@ -1060,6 +1077,7 @@ void parserGotoTests() {
 				parserMapGotosToLabels();
 				struct parserNodeGoto *gt2=(void*)gt;
 				assert(gt2->pointsTo==label);
+				
 		}
 }
 void parserTests() {

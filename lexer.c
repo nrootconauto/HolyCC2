@@ -26,7 +26,7 @@ static const char *keywords[] = {"if", "else",
                                  //
                                  ";", "{", "}", ":", "...",
 																																	//
-																																	"asm","@@","DU8","DU16","DU32","DU64","IMPORT","ALIGN","ORG","BINFILE"
+																																	"asm","@@","DU8","DU16","DU32","DU64","IMPORT","ALIGN","ORG","BINFILE","USE16","USE32","USE64",
 };
 const char *operators[] = {
     "++",

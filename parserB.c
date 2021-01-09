@@ -21,26 +21,51 @@ void addGlobalSymbol(struct parserNode *node) {
 				mapParserNodeInsert(symbolTable, name->text,node);
 				break;
 		}
-		case NODE_VAR: {
-				struct parserNodeVar *var=(void*)node;
+		case NODE_VAR_DECL: {
+				struct parserNodeVarDecl *var=(void*)node;
 				mapParserNodeInsert(symbolTable, var->var->name,node);
 				break;
 		}
 		case NODE_FUNC_DEF: {
 				struct parserNodeFuncDef *def=(void*)node;
 				struct parserNodeName *name=(void*)def->name;
+				struct parserNode **find=mapParserNodeGet(symbolTable, name->text);
+				if(find) {
+						assert(find[0]->type==NODE_FUNC_FORWARD_DECL);
+						mapParserNodeRemove(symbolTable, name->text, NULL);
+				}
+				mapParserNodeInsert(symbolTable, name->text,node);
+				break;
+		}
+		case NODE_FUNC_FORWARD_DECL: {
+				struct parserNodeFuncForwardDec *forward=(void*)node;
+				struct parserNodeName *name=(void*)forward->name;
 				mapParserNodeInsert(symbolTable, name->text,node);
 				break;
 		}
 		case NODE_CLASS_DEF: {
 				struct parserNodeClassDef *class=(void*)node;
 				struct parserNodeName *name=(void*)class->name;
+				
+				struct parserNode **find=mapParserNodeGet(symbolTable, name->text);
+				if(find) {
+						assert(find[0]->type==NODE_CLASS_FORWARD_DECL);
+						mapParserNodeRemove(symbolTable, name->text, NULL);
+				}
+				
 				mapParserNodeInsert(symbolTable, name->text,node);
 				break;
 		}
 		case NODE_UNION_DEF: {
 				struct parserNodeUnionDef *class=(void*)node;
 				struct parserNodeName *name=(void*)class->name;
+
+				struct parserNode **find=mapParserNodeGet(symbolTable, name->text);
+				if(find) {
+						assert(find[0]->type==NODE_UNION_FORWARD_DECL);
+						mapParserNodeRemove(symbolTable, name->text, NULL);
+				}
+
 				mapParserNodeInsert(symbolTable, name->text,node);
 				break;
 		}
