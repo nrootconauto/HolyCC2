@@ -292,7 +292,6 @@ static strIRVar  __IRConstPropigation(graphNodeIR start,strIRVar consts) {
 				ptrMapMapping2IRAdd(mappingPtr2IR,allMappedNodes[i],*graphNodeMappingValuePtr(allMappedNodes[i]));
 		}
 		//Find basic blocks
-		ptrMapBlockMetaNode metaNodes=ptrMapBlockMetaNodeCreate();
 		strBasicBlock blocks=NULL;
 		strVar2Node useAssoc CLEANUP(strVar2NodeDestroy)=NULL;
 		for(;strGraphNodeMappingPSize(allMappedNodes);) {
@@ -305,7 +304,7 @@ static strIRVar  __IRConstPropigation(graphNodeIR start,strIRVar consts) {
 						continue;
 				}
 				
-				__auto_type newBlocks=IRGetBasicBlocksFromExpr(start, metaNodes, allMappedNodes[0], NULL,NULL);
+				__auto_type newBlocks=IRGetBasicBlocksFromExpr(start, NULL, allMappedNodes[0], NULL,NULL);
 				strGraphNodeMappingP dummy CLEANUP(strGraphNodeMappingPDestroy)=strGraphNodeMappingPAppendItem(NULL, allMappedNodes[0]);
 				blocks=strBasicBlockConcat(blocks, newBlocks);
 				for(long i=0;i!=strBasicBlockSize(newBlocks);i++) {

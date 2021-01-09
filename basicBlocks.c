@@ -349,13 +349,14 @@ IRGetBasicBlocksFromExpr(graphNodeIR dontDestroy, ptrMapBlockMetaNode metaNodes,
 		}
 #endif
 
-		// Create meta node entry
 		__auto_type metaNode = graphNodeMappingCreate(NULL, 0);
-		struct blockMetaNode pair;
-		pair.block = retVal[i];
-		pair.node = metaNode;
-		ptrMapBlockMetaNodeAdd(metaNodes, metaNode, pair);
-
+		if(metaNodes) {
+				// Create meta node entry
+				struct blockMetaNode pair;
+				pair.block = retVal[i];
+				pair.node = metaNode;
+				ptrMapBlockMetaNodeAdd(metaNodes, metaNode, pair);
+		}
 #if DEBUG_PRINT_ENABLE
 		char buffer[128];
 		sprintf(buffer, "Block %s  metanode",

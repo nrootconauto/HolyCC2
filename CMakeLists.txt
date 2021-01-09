@@ -49,6 +49,7 @@ list(APPEND sources "frameLayout.c")
 list(APPEND sources "opcodesParser.c")
 
 set(tests "")
+list(APPEND tests "tests/basicBlockTests.c")
 list(APPEND tests "tests/X86OpcodesTests.c")
 list(APPEND tests "tests/tests.c")
 list(APPEND tests "tests/lexerTests.c")

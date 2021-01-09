@@ -26,10 +26,12 @@ void IRTypeInferenceTests();
 void constantPropigationTests();
 void frameLayoutTests();
 void X86OpcodesTests();
+void basicBlockTests();
 int main() {
 		init();
 		X86OpcodesTests();
 		parserTests();
+		basicBlockTests();
 		/*
 		strTests();
 		preprocessorTests();
