@@ -27,12 +27,14 @@ void constantPropigationTests();
 void frameLayoutTests();
 void X86OpcodesTests();
 void basicBlockTests();
+void IEEE754Tests();
 int main() {
 		init();
 		X86OpcodesTests();
 		parserTests();
 		basicBlockTests();
-		/*
+		IEEE754Tests();
+				/*
 		strTests();
 		preprocessorTests();
 		base64Tests();
