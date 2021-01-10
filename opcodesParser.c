@@ -67,6 +67,7 @@ static int lexStr(strChar text,long *Pos,strChar *retVal) {
 		char *end=strchr(text+pos+1, text[pos]);
 		*retVal=strCharAppendData(*retVal, text+pos+1, end-&text[pos+1]);
 		*retVal=strCharAppendItem(*retVal, '\0');
+		*Pos=end-text+1;
 		return 1;
 }
 static int lexName(strChar text,long *Pos,strChar *retVal) {
@@ -140,6 +141,8 @@ struct lexerItem {
 		} value;
 };
 static void lexerItemDestroy(struct lexerItem **item) {
+		if(!*item)
+				return;
 		if(item[0]->type==LEXER_WORD)
 				strCharDestroy(&item[0]->value.name);
 		if(item[0]->type==LEXER_STR)
@@ -302,6 +305,7 @@ void parseOpcodeFile() {
 								struct lexerItem *hashTag CLEANUP(lexerItemDestroy)=lexItem(text, &pos, keywords, kwCount);
 								if(hashTag) {
 										if(hashTag->type==LEXER_KW) {
+												pos=skipWhitespace(text, pos);
 												if(0==strcmp(hashTag->value.kw,"#")) {
 														intelAlias=lexItem(text, &pos, keywords, kwCount);
 														goto lookForEncodings;
