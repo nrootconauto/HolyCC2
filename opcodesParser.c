@@ -14,6 +14,7 @@ struct opcodeTemplate {
 		strOpcodeBytes bytes;
 		strOpcodeTemplateArg args;
 		char *name;
+		char *intelAlias;
 		unsigned int needsREX:1;
 		unsigned int usesSTI:1;
 		unsigned int notIn64mode:1;
@@ -57,6 +58,16 @@ static int lexInt(strChar text,long *Pos,long *retVal) {
 				return 1;
 		}
 		return 0;
+}
+static int lexStr(strChar text,long *Pos,strChar *retVal) {
+		long pos=*Pos;
+		if(text[pos]!='\''&&text[pos]!='\"')
+				return 0;
+		*retVal=NULL;
+		char *end=strchr(text+pos+1, text[pos]);
+		*retVal=strCharAppendData(*retVal, text+pos+1, end-&text[pos+1]);
+		*retVal=strCharAppendItem(*retVal, '\0');
+		return 1;
 }
 static int lexName(strChar text,long *Pos,strChar *retVal) {
 		long pos=*Pos;
@@ -118,23 +129,30 @@ struct lexerItem {
 		enum {
 				LEXER_INT,
 				LEXER_KW,
-				LEXER_WORD
+				LEXER_WORD,
+				LEXER_STR,
 		} type;
 		union {
 				long Int;
 				strChar name;
+				strChar str;
 				const char *kw;
 		} value;
 };
 static void lexerItemDestroy(struct lexerItem **item) {
 		if(item[0]->type==LEXER_WORD)
 				strCharDestroy(&item[0]->value.name);
+		if(item[0]->type==LEXER_STR)
+				strCharDestroy(&item[0]->value.str);
 		free(item[0]);
 }
 static struct lexerItem *lexItem(strChar text,long *pos,const char **keywords,long kwCount) {
 		*pos=skipWhitespace(text, *pos);
 		struct lexerItem *item=malloc(sizeof(struct lexerItem));
-		if(lexKeyword(text, pos, keywords, kwCount, &item->value.kw)) {
+		if(lexStr(text,pos,&item->value.str)) {
+				item->type=LEXER_STR;
+				return item;
+		} else if(lexKeyword(text, pos, keywords, kwCount, &item->value.kw)) {
 				item->type=LEXER_KW;
 				return item;
 		} else if(lexName(text, pos, &item->value.name)) {
@@ -157,6 +175,10 @@ static struct opcodeTemplate opcodeTemplateClone(struct opcodeTemplate from) {
 		retVal.args=strOpcodeTemplateArgClone(from.args);
 		retVal.name=malloc(strlen(from.name)+1);
 		strcpy(retVal.name, from.name);
+		if(from.intelAlias) {
+				retVal.intelAlias=malloc(strlen(from.intelAlias)+1);
+				strcpy(retVal.intelAlias, from.intelAlias);
+		} else retVal.intelAlias=NULL;
 		return retVal;
 }
 static strOpcodeTemplate strOpcodeTemplateClone2(strOpcodeTemplate from) {
@@ -186,6 +208,8 @@ void parseOpcodeFile() {
 				"^", //?
 				"*", //ST(i) like
 				"$", //?
+				"#", //Modification I made,specifies intel name
+				"##", //Modification I made,specifies alias(followed by string)
 				",",
 				"+R",
 				"+I",
@@ -268,10 +292,28 @@ void parseOpcodeFile() {
 				if(item->type==LEXER_KW) {
 						if(0==strcmp(item->value.kw,"OPCODE")) {
 								struct lexerItem *name CLEANUP(lexerItemDestroy)=malloc(sizeof(struct lexerItem));
+								struct lexerItem *intelAlias CLEANUP(lexerItemDestroy)=NULL;
 								name->type=LEXER_WORD;
 								pos=skipWhitespace(text, pos);
 								lexName(text, &pos, &name->value.name);
-
+								//OPCODE TOSname #intelName or
+								//OPCODE TOSname ##"alias"
+								long oldPos=pos;
+								struct lexerItem *hashTag CLEANUP(lexerItemDestroy)=lexItem(text, &pos, keywords, kwCount);
+								if(hashTag) {
+										if(hashTag->type==LEXER_KW) {
+												if(0==strcmp(hashTag->value.kw,"#")) {
+														intelAlias=lexItem(text, &pos, keywords, kwCount);
+														goto lookForEncodings;
+												} else if(0==strcmp(hashTag->value.kw,"##")) {
+														 intelAlias=lexItem(text, &pos, keywords, kwCount);
+														goto lookForEncodings;
+												}
+										}
+								}
+								//Failed to find intel name
+								oldPos=pos;
+						lookForEncodings:;		
 								strOpcodeTemplate templates=NULL;
 								for(;;) {
 										if(item->type==LEXER_KW) {
@@ -279,6 +321,23 @@ void parseOpcodeFile() {
 												memset(&template, 0,sizeof(template));
 												template.name=malloc(strlen(name->value.name)+1);
 												strcpy(template.name,name->value.name);
+												template.intelAlias=NULL;
+												if(intelAlias) {
+														//intelName can be string or name
+														if(intelAlias->type==LEXER_WORD) {
+																template.intelAlias=malloc(strlen(intelAlias->value.name)+1);
+																strcpy(template.intelAlias,intelAlias->value.name);
+														} else if(intelAlias->type==LEXER_STR) {
+																template.intelAlias=malloc(strlen(intelAlias->value.str)+1);
+																strcpy(template.intelAlias,intelAlias->value.str);
+														} else {
+																assert(intelAlias->type==LEXER_STR||intelAlias->type==LEXER_WORD);
+														}
+												} else {
+														//Use defualt TOS name
+														template.intelAlias=malloc(strlen(name->value.name)+1);
+														strcpy(template.intelAlias,name->value.name);
+												}
 												template.bytes=NULL;
 												template.args=NULL;
 												for(;;) {
