@@ -9,11 +9,13 @@
 STR_TYPE_DEF(char,Char);
 STR_TYPE_FUNCS(char,Char);
 PTR_MAP_FUNCS(struct parserNode *, strChar, LabelNames);
+PTR_MAP_FUNCS(struct reg *, strChar, RegName);
 static __thread long labelCount=0;
 static __thread ptrMapLabelNames labelsByParserNode=NULL;
 static __thread FILE *constsTmpFile=NULL;
 static __thread FILE *symbolsTmpFile=NULL;
 static __thread FILE *codeTmpFile=NULL;
+static ptrMapRegName regNames;
 static void strCharDestroy2(strChar *str) {
 		strCharDestroy(str);
 }
@@ -22,7 +24,80 @@ static strChar strClone(const char *text) {
 		strcpy(retVal, text);
 		return retVal;
 }
-void X86EmitASmInit() {
+__attribute__((destructor)) static void  deinit() {
+		ptrMapRegNameDestroy(regNames, (void(*)(void*))strCharDestroy2);
+}
+__attribute__((constructor)) static void init() {
+		ptrMapRegName regNames=ptrMapRegNameCreate();
+		ptrMapRegNameAdd(regNames, &regX86AL, strClone("AL"));
+		ptrMapRegNameAdd(regNames, &regX86AH, strClone("AH"));
+		ptrMapRegNameAdd(regNames, &regX86BL, strClone("BL"));
+		ptrMapRegNameAdd(regNames, &regX86BH, strClone("BH"));
+		ptrMapRegNameAdd(regNames, &regX86CL, strClone("CL"));
+		ptrMapRegNameAdd(regNames, &regX86CH, strClone("CH"));
+		ptrMapRegNameAdd(regNames, &regX86DL, strClone("DL"));
+		ptrMapRegNameAdd(regNames, &regX86DH, strClone("DH"));
+		ptrMapRegNameAdd(regNames, &regAMD64R8u8, strClone("R8L"));
+		ptrMapRegNameAdd(regNames, &regAMD64R9u8, strClone("R9L"));
+		ptrMapRegNameAdd(regNames, &regAMD64R10u8, strClone("R10L"));
+		ptrMapRegNameAdd(regNames, &regAMD64R11u8, strClone("R11L"));
+		ptrMapRegNameAdd(regNames, &regAMD64R12u8, strClone("R12L"));
+		ptrMapRegNameAdd(regNames, &regAMD64R13u8, strClone("R13L"));
+		ptrMapRegNameAdd(regNames, &regAMD64R14u8, strClone("R14L"));
+		ptrMapRegNameAdd(regNames, &regAMD64R15u8, strClone("R15L"));
+
+		ptrMapRegNameAdd(regNames, &regX86AX, strClone("AX"));
+		ptrMapRegNameAdd(regNames, &regX86BX, strClone("BX"));
+		ptrMapRegNameAdd(regNames, &regX86CX, strClone("CX"));
+		ptrMapRegNameAdd(regNames, &regX86DX, strClone("DX"));
+		ptrMapRegNameAdd(regNames, &regX86SI, strClone("SI"));
+		ptrMapRegNameAdd(regNames, &regX86DI, strClone("DI"));
+		ptrMapRegNameAdd(regNames, &regX86SP, strClone("SP"));
+		ptrMapRegNameAdd(regNames, &regX86BP, strClone("BP"));
+		ptrMapRegNameAdd(regNames, &regAMD64R8u16, strClone("R8W"));
+		ptrMapRegNameAdd(regNames, &regAMD64R9u16, strClone("R9W"));
+		ptrMapRegNameAdd(regNames, &regAMD64R10u16, strClone("R10W"));
+		ptrMapRegNameAdd(regNames, &regAMD64R11u16, strClone("R11W"));
+		ptrMapRegNameAdd(regNames, &regAMD64R12u16, strClone("R12W"));
+		ptrMapRegNameAdd(regNames, &regAMD64R13u16, strClone("R13W"));
+		ptrMapRegNameAdd(regNames, &regAMD64R14u16, strClone("R14W"));
+		ptrMapRegNameAdd(regNames, &regAMD64R15u16, strClone("R15W"));
+
+		ptrMapRegNameAdd(regNames, &regX86EAX, strClone("EAX"));
+		ptrMapRegNameAdd(regNames, &regX86EBX, strClone("EBX"));
+		ptrMapRegNameAdd(regNames, &regX86ECX, strClone("ECX"));
+		ptrMapRegNameAdd(regNames, &regX86EDX, strClone("EDX"));
+		ptrMapRegNameAdd(regNames, &regX86ESI, strClone("ESI"));
+		ptrMapRegNameAdd(regNames, &regX86EDI, strClone("EDI"));
+		ptrMapRegNameAdd(regNames, &regX86ESP, strClone("ESP"));
+		ptrMapRegNameAdd(regNames, &regX86EBP, strClone("EBP"));
+		ptrMapRegNameAdd(regNames, &regAMD64R8u32, strClone("R8D"));
+		ptrMapRegNameAdd(regNames, &regAMD64R9u32, strClone("R9D"));
+		ptrMapRegNameAdd(regNames, &regAMD64R10u32, strClone("R10D"));
+		ptrMapRegNameAdd(regNames, &regAMD64R11u32, strClone("R11D"));
+		ptrMapRegNameAdd(regNames, &regAMD64R12u32, strClone("R12D"));
+		ptrMapRegNameAdd(regNames, &regAMD64R13u32, strClone("R13D"));
+		ptrMapRegNameAdd(regNames, &regAMD64R14u32, strClone("R14D"));
+		ptrMapRegNameAdd(regNames, &regAMD64R15u32, strClone("R15D"));
+
+		ptrMapRegNameAdd(regNames, &regAMD64RAX, strClone("RAX"));
+		ptrMapRegNameAdd(regNames, &regAMD64RBX, strClone("RBX"));
+		ptrMapRegNameAdd(regNames, &regAMD64RCX, strClone("RCX"));
+		ptrMapRegNameAdd(regNames, &regAMD64RDX, strClone("RDX"));
+		ptrMapRegNameAdd(regNames, &regAMD64RSI, strClone("RSI"));
+		ptrMapRegNameAdd(regNames, &regAMD64RDI, strClone("RDI"));
+		ptrMapRegNameAdd(regNames, &regAMD64RSP, strClone("RSP"));
+		ptrMapRegNameAdd(regNames, &regAMD64RBP, strClone("RBP"));
+		ptrMapRegNameAdd(regNames, &regAMD64R8u64, strClone("R8"));
+		ptrMapRegNameAdd(regNames, &regAMD64R9u64, strClone("R9"));
+		ptrMapRegNameAdd(regNames, &regAMD64R10u64, strClone("R10"));
+		ptrMapRegNameAdd(regNames, &regAMD64R11u64, strClone("R11"));
+		ptrMapRegNameAdd(regNames, &regAMD64R12u64, strClone("R12"));
+		ptrMapRegNameAdd(regNames, &regAMD64R13u64, strClone("R13"));
+		ptrMapRegNameAdd(regNames, &regAMD64R14u64, strClone("R14"));
+		ptrMapRegNameAdd(regNames, &regAMD64R15u64, strClone("R15"));
+}
+void X86EmitAsmInit() {
 		labelCount=0;
 		ptrMapLabelNamesDestroy(labelsByParserNode, (void(*)(void*))strCharDestroy2);
 		labelsByParserNode=ptrMapLabelNamesCreate();
@@ -82,7 +157,28 @@ static strChar parserNodeSymbolName(const struct parserNode *node) {
 				return NULL;
 		}
 }
-void X86EmitAsmInst(struct opcodeTemplate *template,strX86AddrMode args,int *success) {
+static strChar int64ToStr(int64_t value) {
+		strChar retVal=NULL;
+		const char *digits="0123456789";
+		if(value<0) {
+				value*=-1;
+		}
+		do {
+				retVal=strCharAppendItem(retVal, digits[value%10]);
+				value/=10;
+		} while(value!=0);
+		return retVal;
+}
+static strChar uint64ToStr(uint64_t value) {
+		strChar retVal=NULL;
+		const char *digits="0123456789";
+		do {
+				retVal=strCharAppendItem(retVal, digits[value%10]);
+				value/=10;
+		} while(value!=0);
+		return retVal;
+}
+void X86EmitAsmInst(struct opcodeTemplate *template,strX86AddrMode args,int *err) {
 		//TODO map TempleOS opcode name to gas opcode name
 		fprintf(codeTmpFile, "%s ", opcodeTemplateName(template));
 		for(long i=0;i!=strX86AddrModeSize(args);i++) {
@@ -92,15 +188,24 @@ void X86EmitAsmInst(struct opcodeTemplate *template,strX86AddrMode args,int *suc
 						break;
 				}
 				case X86ADDRMODE_ITEM_ADDR: {
-						 args[i].value.itemAddr;
+						strChar name CLEANUP(strCharDestroy)=parserNodeSymbolName(args[i].value.itemAddr);
+						if(!name)
+								goto fail;
+						fprintf(codeTmpFile, "%s ", name);
 						break;
 				}
 				case X86ADDRMODE_LABEL: {
+						fprintf(codeTmpFile, "%s ", args[i].value.label);
+						break;
 				}
 				case X86ADDRMODE_REG: {
-						
+						__auto_type find=ptrMapRegNameGet(regNames, args[i].value.reg);
+						assert(find);
+						fprintf(codeTmpFile, "%s ", *find);
+						break;
 				}
 				case X86ADDRMODE_SINT: {
+						args[i].value.sint;
 				}
 				case X86ADDRMODE_UINT: {
 				}
@@ -108,6 +213,9 @@ void X86EmitAsmInst(struct opcodeTemplate *template,strX86AddrMode args,int *suc
 				}
 				}
 		}
+	fail:
+		if(success)
+				*success=0;
 }
 void X86EmitAsmParserInst(struct parserNodeAsmInstX86 *inst,FILE *dumpTo) {
 		struct parserNodeName *name=(void*)inst->name;

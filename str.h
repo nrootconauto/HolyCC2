@@ -132,8 +132,17 @@ struct __vec;
 	    __attribute__((always_inline));                                          \
 	inline str##suffix str##suffix##Clone(const str##suffix str) {               \
 		return str##suffix##AppendData(NULL, (void *)str, str##suffix##Size(str)); \
-	} \
-	__attribute__((always_inline)) inline str##suffix str##suffix##RemoveItem(str##suffix str,type item,int(*pred)(const type *,const type *)) {return (str##suffix)__vecRemoveItem((struct __vec*)str,sizeof(item),&item,(int(*)(const void*,const void*))pred);}
+	}                                                                            \
+	__attribute__((always_inline)) inline str##suffix str##suffix##RemoveItem(   \
+	    str##suffix str, type item, int (*pred)(const type *, const type *)) {   \
+		return (str##suffix)__vecRemoveItem(                                       \
+		    (struct __vec *)str, sizeof(item), &item,                              \
+		    (int (*)(const void *, const void *))pred);                            \
+	}                                                                            \
+	__attribute__((always_inline)) inline str##suffix str##suffix##Reverse(      \
+	    str##suffix str) {                                                       \
+			return (str##suffix)__vecReverse((struct __vec*)str, sizeof(type));																				\
+	}
 struct __vec *__vecAppendItem(struct __vec *a, const void *item, long itemSize);
 struct __vec *__vecReserve(struct __vec *a, long capacity);
 struct __vec *__vecConcat(struct __vec *a, const struct __vec *b);
@@ -161,4 +170,7 @@ struct __vec *__vecSetIntersection(struct __vec *a, const struct __vec *b,
 struct __vec *__vecSetUnion(struct __vec *a, struct __vec *b, long itemSize,
                             int (*pred)(const void *, const void *));
 void __vecDestroy(struct __vec **vec);
-struct __vec *__vecRemoveItem(struct __vec *str,long itemSize,const void *item,int(*pred)(const void*,const void*));
+struct __vec *__vecRemoveItem(struct __vec *str, long itemSize,
+                              const void *item,
+                              int (*pred)(const void *, const void *));
+struct __vec *__vecReverse(struct __vec *str, long itemSize);

@@ -47,4 +47,8 @@ void strTests() {
 	str2=strCharRemoveItem(str2, 'b', chrFind);
 	str2=strCharRemoveItem(str2, 'e', chrFind);
 	assert(0 == strncmp(str2, "acd", 3));
+	//Reverse
+	str2=strCharAppendData(NULL, "abc", 3);
+	str2=strCharReverse(str2);
+	assert(0==strncmp(str2, "cba",3));
 }

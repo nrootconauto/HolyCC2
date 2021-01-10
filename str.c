@@ -312,3 +312,16 @@ struct __vec *__vecRemoveItem(struct __vec *str,long itemSize,const void *item,i
 		*__vecSizePtr(str)-=itemSize;
 		return str;
 }
+//https://www.cplusplus.com/reference/algorithm/reverse/
+struct __vec *__vecReverse(struct __vec *str,long itemSize) {
+		void * first=(void*)str;
+		void * last=first+__vecSize(str);
+		while((first!=last)&&(first!=(last-=itemSize))) {
+				char buffer[itemSize];
+				memmove(buffer, first, itemSize);
+				memmove(first, last, itemSize);
+				memmove(last, buffer, itemSize);
+				first+=itemSize;
+		}
+		return str;
+}
