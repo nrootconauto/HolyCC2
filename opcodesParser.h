@@ -14,7 +14,7 @@ struct X86MemoryLoc {
 						struct reg *index;
 						struct reg *base;
 						long scale;
-						long offset;
+						int64_t offset;
 				} sib;
 		} value;
 };

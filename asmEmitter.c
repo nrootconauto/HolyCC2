@@ -162,12 +162,13 @@ static strChar int64ToStr(int64_t value) {
 		const char *digits="0123456789";
 		if(value<0) {
 				value*=-1;
+				retVal=strCharAppendItem(retVal,'-');
 		}
 		do {
 				retVal=strCharAppendItem(retVal, digits[value%10]);
 				value/=10;
 		} while(value!=0);
-		return retVal;
+		return strCharAppendItem(strCharReverse(retVal),'\0');
 }
 static strChar uint64ToStr(uint64_t value) {
 		strChar retVal=NULL;
@@ -176,7 +177,22 @@ static strChar uint64ToStr(uint64_t value) {
 				retVal=strCharAppendItem(retVal, digits[value%10]);
 				value/=10;
 		} while(value!=0);
-		return retVal;
+		return strCharAppendItem(strCharReverse(retVal),'\0');;
+}
+static strChar getSizeStr(struct object *obj) {
+	__auto_type base=objectBaseType(obj);
+	switch(objectSize(base,  NULL)) {
+		case 1:
+		return strClone("BYTE");
+		case 2:
+		return strClone("WORD");
+		case 4:
+		return strClone("DWORD");
+		case 8:
+		return strClone("QWORD");
+		default:
+		return NULL;
+	}
 }
 void X86EmitAsmInst(struct opcodeTemplate *template,strX86AddrMode args,int *err) {
 		//TODO map TempleOS opcode name to gas opcode name
@@ -205,11 +221,78 @@ void X86EmitAsmInst(struct opcodeTemplate *template,strX86AddrMode args,int *err
 						break;
 				}
 				case X86ADDRMODE_SINT: {
-						args[i].value.sint;
+						strChar text CLEANUP(strCharDestroy)=int64ToStr(args[i].value.sint);
+						fprintf(codeTmpFile, "%s ", text);
+						break;
 				}
 				case X86ADDRMODE_UINT: {
+					fprintf(codeTmpFile, "%s ", text);
+					strChar text CLEANUP(strCharDestroy)=uint64ToStr(args[i].value.uint);
+					break;
 				}
 				case X86ADDRMODE_MEM: {
+					switch(args[i].value.m.type) {
+						case x86ADDR_INDIR_REG: {
+							__auto_type reg=ptrMapRegNameGet(regNames, args[i].value.m.value.indirReg);
+							if(args[i].valueType) {
+								strChar sizeStr CLEANUP(strCharDestroy)=getSizeStr(args[i].valueType);
+								if(!sizeStr) goto fail;
+								fprintf(codeTmpFile, " %s PTR [%s] ",sizeStr, reg);
+							} else {
+								fprintf(codeTmpFile, "[%s] ", reg);
+							}
+							break;
+						}
+						case x86ADDR_INDIR_SIB: {
+							__auto_type indexStr=ptrMapRegNameGet(regNames,args[i].value.m.value.sib.index);
+							strChar scaleStr CLEANUP(strCharDestroy) =int64ToStr(args[i].value.m.value.sib.scale);
+							__auto_type baseStr=ptrMapRegNameGet(regNames,args[i].value.m.value.sib.base);
+							strChar offsetStr CLEANUP(strCharDestroy)=int64ToStr(args[i].value.m.value.sib.offset);
+							strChar buffer CLEANUP(strCharDestroy)=NULL;
+							int insertAdd=0;
+							if(indexStr&&args[i].value.m.value.sib.scale) {
+								retVal=strCharAppendData(retVal,i*ndexStr,strlen(*indexStr));
+								retVal=strCharAppendItem(retVal,'*');
+								retVal=strCharAppendData(retVal,scaleStr,strlen(scaleStr));
+								insertAdd=1;
+							} else if(indexStr) {
+								retVal=strCharAppendData(retVal,*indexStr,strlen(*indexStr));
+								insertAdd=1;
+							}
+							if(insertAdd)
+								retVal=strCharAppendItem(retVal,'+');
+							if(baseStr) {
+								retVal=strCharAppendData(retVal,*baseStr,strlen(*baseStr));
+							}
+							if(args[i].value.m.value.sib.offset) {
+								if(offsetStr[0]!='-')
+									retVal=strCharAppendItem(retVal, '+');
+								retVal=strCharConcat(retVal, offsetStr);
+								offsetStr=NULL; //Will be free'd,but has been free'd by concat
+							}
+							if(args[i].valueType) {
+								strChar typeStr CLEANUP(strCharDestroy)= getSizeStr(args[i].valueType);
+								fprintf(codeTmpFile, "%s PTR [%s] ",retVal);
+							} else {
+								fprintf(codeTmpFile, "[%s] ",retVal);
+							}
+							break;
+						}
+						case x86ADDR_MEM: {
+							if(args[i].valueType) {
+								strChar addrStr CLEANUP(strCharDestroy)=uint64ToStr(args[i].value.m.value.mem);
+								strChar sizeStr CLEANUP(strCharDestroy)=getSizeStr(args[i].valueType);
+								if(!sizeStr) goto fail;
+								fprintf(sizeStr, "%s PTR [%s] ", sizeStr,addrStr);
+							} else {
+								strChar addrStr CLEANUP(strCharDestroy)=uint64ToStr(args[i].value.m.value.mem);
+								fprintf(sizeStr, "[%s] ", addrStr);
+							}
+							break;
+						}
+						default:
+						assert(0);
+					}
 				}
 				}
 		}
@@ -224,5 +307,4 @@ void X86EmitAsmParserInst(struct parserNodeAsmInstX86 *inst,FILE *dumpTo) {
 				args=strX86AddrModeAppendItem(args,parserNode2X86AddrMode(inst->args[i]));
 		strOpcodeTemplate templates CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs(name->text, args, NULL);
 		assert(strOpcodeTemplateSize(templates)!=0);
-		
 }
