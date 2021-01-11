@@ -71,6 +71,8 @@ static void assignPosByLexerItems(struct parserNode *node, llLexerItem start,
 		node->pos.start = llLexerItemValuePtr(llLexerItemLast(start))->end;
 }
 static char *strClone(const char *str) {
+		if(!str)
+				return NULL;
 	__auto_type len = strlen(str);
 	char *retVal = malloc(len + 1);
 	strcpy(retVal, str);
@@ -899,6 +901,7 @@ static struct linkage getLinkage(llLexerItem start, llLexerItem *result) {
 
 	for (long i = 0; i != count; i++) {
 		if (expectKeyword(start, pairs[i].text)) {
+				start=llLexerItemNext(start);
 				struct linkage retVal;
 				retVal.type= pairs[i].link;
 				retVal.fromSymbol=NULL;
@@ -1427,11 +1430,9 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end) {
 end:
 	if (end != NULL)
 		*end = start;
-	if(isGlobalScope()&&retVal) {
+	if(retVal&&(link.type!=LINKAGE_LOCAL||isGlobalScope())) {
 					addGlobalSymbol(retVal,link);
 	}
-	if(_fromSymbol&&retVal)
-					addSymbolByDiffName( retVal, ((struct parserNodeName*)_fromSymbol)->text, link);
 	
 	if (retVal) {
 		if (end)
@@ -1442,12 +1443,12 @@ end:
 	return retVal;
 }
 static void addDeclsToScope(struct parserNode *varDecls,struct  linkage link) {
-	if (varDecls->type == NODE_VAR_DECL) {
+		if (varDecls->type == NODE_VAR_DECL) {
 		struct parserNodeVarDecl *decl = (void *)varDecls;
 		addVar(decl->name, decl->type);
 		decl->var=getVar(decl->name);
 
-		if(isGlobalScope())
+		if(link.type!=LINKAGE_LOCAL||isGlobalScope())
 				addGlobalSymbol(varDecls,link);
 	} else if (varDecls->type == NODE_VAR_DECLS) {
 		struct parserNodeVarDecls *decls = (void *)varDecls;
@@ -1456,7 +1457,7 @@ static void addDeclsToScope(struct parserNode *varDecls,struct  linkage link) {
 			addVar(decl->name, decl->type);
 			decl->var=getVar(decl->name);
 
-			if(isGlobalScope())
+			if(link.type!=LINKAGE_LOCAL||isGlobalScope())
 					addGlobalSymbol((struct parserNode *)decl,link);
 		}
 	}
@@ -2095,18 +2096,18 @@ struct parserNode *parseSwitch(llLexerItem start, llLexerItem *end) {
 			diagHighlight(kw2->base.pos.start, kw2->base.pos.end);
 			diagEndMsg();
 		}
-
+		
 		switchStack = strParserNodeResize(switchStack, oldStackSize);
+		((struct parserNodeSwitch*)retVal)->body=body;
+		if (retVal) {
+				if (end)
+						assignPosByLexerItems(retVal, originalStart, *end);
+				else
+						assignPosByLexerItems(retVal, originalStart, NULL);
+		}
+		if(end)
+				*end=start;
 	}
-	((struct parserNodeSwitch*)retVal)->body=body;
-	if (retVal) {
-		if (end)
-			assignPosByLexerItems(retVal, originalStart, *end);
-		else
-			assignPosByLexerItems(retVal, originalStart, NULL);
-	}
-	if(end)
-			*end=start;
 	return retVal;
 }
 static long searchForNode(const strParserNode nodes,
@@ -2790,7 +2791,7 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 
 	addFunc(name, funcType, retVal);
 
-	if(isGlobalScope())
+	if(retVal&&(link.type!=LINKAGE_LOCAL||isGlobalScope()))
 			addGlobalSymbol(retVal,link);
 	
 	if(retVal->type==NODE_FUNC_DEF)

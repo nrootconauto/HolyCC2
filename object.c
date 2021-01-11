@@ -296,7 +296,6 @@ objectClassCreate(const struct parserNode *name,
 	struct objectClass *newClass = malloc(sizeof(struct objectClass));
 	newClass->name = (struct parserNode *)name;
 	newClass->base.type = TYPE_CLASS;
-	newClass->base.link = 0;
 	newClass->methods = NULL;
 	newClass->members = NULL;
 
@@ -352,7 +351,6 @@ objectUnionCreate(
 	struct objectUnion *newUnion = malloc(sizeof(struct objectUnion));
 	newUnion->name = (struct parserNode *)name;
 	newUnion->base.type = TYPE_CLASS;
-	newUnion->base.link = 0;
 	newUnion->members = NULL;
 
 	long largestMemberAlign = 0;
@@ -402,7 +400,6 @@ objectPtrCreate(struct object *baseType) {
 	// Check if item is in registry prior to making a new one
 
 	struct objectPtr *ptr = malloc(sizeof(struct objectPtr));
-	ptr->base.link = 0;
 	ptr->base.type = TYPE_PTR;
 	ptr->type = baseType;
 	ptr->base.name = NULL;
@@ -419,7 +416,6 @@ struct object * /*Array type.*/
 objectArrayCreate(struct object *baseType, struct parserNode *dim) {
 	struct objectArray *array = malloc(sizeof(struct objectArray));
 	array->base.type = TYPE_ARRAY;
-	array->base.link = 0;
 	array->base.name = NULL;
 	array->dim = dim;
 	array->type = baseType;
@@ -439,7 +435,6 @@ objectForwardDeclarationCreate(
 	struct objectForwardDeclaration *retVal =
 	    malloc(sizeof(struct objectForwardDeclaration));
 	retVal->base.type = TYPE_FORWARD;
-	retVal->base.link = 0;
 	retVal->name = (struct parserNode *)name;
 	retVal->type = type;
 
@@ -526,7 +521,6 @@ objectByName(const char *name) {
 struct object * /* The created function type.*/
 objectFuncCreate(struct object *retType, strFuncArg args) {
 	struct objectFunction func;
-	func.base.link = 0;
 	func.base.name = NULL;
 	func.base.type = TYPE_FUNCTION;
 	func.args = strFuncArgAppendData(NULL, args, strFuncArgSize(args));

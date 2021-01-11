@@ -470,16 +470,16 @@ static void varDeclTests() {
 	}
 	{
 			initParserData();
-			text = "extern I64 ext;";
+			text = "extern I64i ext;";
 			createFile(text);
 			textStr = strCharAppendData(NULL, text, strlen(text)+1);
 			err = 0;
 			lexItems = lexText((struct __vec *)textStr, &err);
 			assert(!err);
-			parseVarDecls(lexItems, NULL);
+			parseStatement(lexItems, NULL);
 			__auto_type find=getGlobalSymbolLink("ext");
 			assert(find);
-			assert(*find==LINKAGE_EXTERN);
+			assert(find->type==LINKAGE_EXTERN);
 	}
 }
 void classParserTests() {
@@ -556,7 +556,7 @@ void classParserTests() {
 			parseStatement(lexItems, NULL);
 			__auto_type find=getGlobalSymbolLink("toads");
 			assert(find);
-			assert(*find==LINKAGE_IMPORT);
+			assert(find->type==LINKAGE_IMPORT);
 	}
 }
 void keywordTests() {
@@ -759,7 +759,7 @@ static void funcTests() {
 	}
 	{
 			initParserData();
-			text = "static I64 foo();;";
+			text = "static I64i foo();;";
 			createFile(text);
 			textStr = strCharAppendData(NULL, text, strlen(text)+1);
 			err = 0;
@@ -768,7 +768,21 @@ static void funcTests() {
 			parseStatement(lexItems, NULL);
 			__auto_type find=getGlobalSymbolLink("foo");
 			assert(find);
-			assert(*find==LINKAGE_STATIC);
+			assert(find->type==LINKAGE_STATIC);
+	}
+	{
+			initParserData();
+			text = "_extern TOADS I64i foo();;";
+			createFile(text);
+			textStr = strCharAppendData(NULL, text, strlen(text)+1);
+			err = 0;
+			lexItems = lexText((struct __vec *)textStr, &err);
+			assert(!err);
+			parseStatement(lexItems, NULL);
+			__auto_type find=getGlobalSymbolLink("foo");
+			assert(find);
+			assert(find->type==LINKAGE__EXTERN);
+			assert(0==strcmp(find->fromSymbol,"TOADS"));
 	}
 }
 static void typeTests() {
