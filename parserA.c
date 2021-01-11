@@ -1330,13 +1330,10 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end,int allowForwa
 
 				struct parserNodeName *name = (void *)name2;
 				__auto_type type = objectByName(name->text);
-				struct parserNodeClassFwd  fwd;
-				fwd.base.type=(cls)?NODE_CLASS_FORWARD_DECL:NODE_UNION_FORWARD_DECL;
-				getStartEndPos(originalStart, start, &fwd.base.pos.start, &fwd.base.pos.end);
+				struct object *forwardType=NULL;
 				if (NULL == type) {
-						fwd.type=objectForwardDeclarationCreate(name2, (cls != NULL) ? TYPE_CLASS
+						forwardType=objectForwardDeclarationCreate(name2, (cls != NULL) ? TYPE_CLASS
 																																														: TYPE_UNION);
-					retVal=ALLOCATE(fwd);
 				} else if (cls) {
 					if (type->type != TYPE_CLASS)
 						goto incompat;
@@ -1347,8 +1344,7 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end,int allowForwa
 					struct objectForwardDeclaration *f = (void *)type;
 					if (f->type != (cls != NULL) ? TYPE_CLASS : TYPE_UNION)
 						goto incompat;
-					fwd.type=type;
-					retVal=ALLOCATE(fwd);
+					forwardType=type;
 				} else {
 					// Whine about forward declaration of incompatible existing type
 
@@ -1361,6 +1357,19 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end,int allowForwa
 					diagEndMsg();
 
 					referenceType(type);
+				}
+				if(cls) {
+						struct parserNodeClassFwd  fwd;
+						fwd.base.type=NODE_CLASS_FORWARD_DECL;
+						fwd.name=name2;
+						fwd.type=forwardType;
+						retVal=ALLOCATE(fwd);
+			} else if(un) {
+						struct parserNodeUnionFwd  fwd;
+						fwd.base.type=NODE_UNION_FORWARD_DECL;
+						fwd.name=name2;
+						fwd.type=forwardType;
+						retVal=ALLOCATE(fwd);
 				}
 			}
 			goto end;

@@ -110,10 +110,12 @@ struct parserNodeGoto {
 };
 struct parserNodeUnionFwd {
 		struct parserNode base;
+		struct parserNode *name;
 		struct object *type;
 };
 struct parserNodeClassFwd {
 		struct parserNode base;
+		struct parserNode *name;
 		struct object *type;
 };
 struct parserNodeReturn {
