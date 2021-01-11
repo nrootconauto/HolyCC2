@@ -878,17 +878,17 @@ static struct parserNode *expectKeyword(llLexerItem __item, const char *text) {
 	return NULL;
 }
 struct linkagePair {
-	enum linkage link;
-	const char *text;
+		typeof(((struct linkage*)NULL)->type) link;
+		const char *text;
 };
-static enum linkage getLinkage(llLexerItem start, llLexerItem *result) {
+static struct linkage getLinkage(llLexerItem start, llLexerItem *result) {
 	if (result != NULL)
 		*result = start;
 	if (start == NULL)
-		return 0;
+			return (struct linkage){LINKAGE_LOCAL,NULL};
 
 	if (llLexerItemValuePtr(start)->template != &kwTemplate)
-		return 0;
+		return (struct linkage){LINKAGE_LOCAL,NULL};;
 
 	struct linkagePair pairs[] = {
 	    {LINKAGE_PUBLIC, "public"}, {LINKAGE_STATIC, "static"},
@@ -899,14 +899,24 @@ static enum linkage getLinkage(llLexerItem start, llLexerItem *result) {
 
 	for (long i = 0; i != count; i++) {
 		if (expectKeyword(start, pairs[i].text)) {
-			if (result != NULL)
-				*result = llLexerItemNext(start);
-
-			return pairs[i].link;
+				struct linkage retVal;
+				retVal.type= pairs[i].link;
+				retVal.fromSymbol=NULL;
+				if(retVal.type==LINKAGE__EXTERN||retVal.type==LINKAGE__IMPORT) {
+					struct parserNode *nm CLEANUP(parserNodeDestroy)=nameParse(start, NULL, &start);
+					if(!nm) {
+							whineExpected(start, "name");
+							
+					} else
+					retVal.fromSymbol=strClone(((struct parserNodeName*)nm)->text);
+			}
+			if(result)
+					*result=start;
+			return retVal;
 		}
 	}
 
-	return 0;
+	return (struct linkage){LINKAGE_LOCAL,NULL};;
 }
 static void getPtrsAndDims(llLexerItem start, llLexerItem *end,
                            struct parserNode **name, long *ptrLevel,
@@ -1280,6 +1290,9 @@ static void referenceType(struct object *type) {
 }
 struct parserNode *parseClass(llLexerItem start, llLexerItem *end) {
 	__auto_type originalStart = start;
+	//Name for use with _extern/_impot
+	struct parserNode *_fromSymbol;
+	struct linkage link=getLinkage(start, &start);
 	__auto_type baseName = nameParse(start, NULL, &start);
 	struct parserNode *cls = NULL, *un = NULL;
 	struct object *retValObj = NULL;
@@ -1414,9 +1427,11 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end) {
 end:
 	if (end != NULL)
 		*end = start;
-
-	if(isGlobalScope()&&retVal)
-			addGlobalSymbol(retVal);
+	if(isGlobalScope()&&retVal) {
+					addGlobalSymbol(retVal,link);
+	}
+	if(_fromSymbol&&retVal)
+					addSymbolByDiffName( retVal, ((struct parserNodeName*)_fromSymbol)->text, link);
 	
 	if (retVal) {
 		if (end)
@@ -1426,14 +1441,14 @@ end:
 	}
 	return retVal;
 }
-static void addDeclsToScope(struct parserNode *varDecls) {
+static void addDeclsToScope(struct parserNode *varDecls,struct  linkage link) {
 	if (varDecls->type == NODE_VAR_DECL) {
 		struct parserNodeVarDecl *decl = (void *)varDecls;
 		addVar(decl->name, decl->type);
 		decl->var=getVar(decl->name);
 
 		if(isGlobalScope())
-				addGlobalSymbol(varDecls);
+				addGlobalSymbol(varDecls,link);
 	} else if (varDecls->type == NODE_VAR_DECLS) {
 		struct parserNodeVarDecls *decls = (void *)varDecls;
 		for (long i = 0; i != strParserNodeSize(decls->decls); i++) {
@@ -1442,7 +1457,7 @@ static void addDeclsToScope(struct parserNode *varDecls) {
 			decl->var=getVar(decl->name);
 
 			if(isGlobalScope())
-					addGlobalSymbol((struct parserNode *)decl);
+					addGlobalSymbol((struct parserNode *)decl,link);
 		}
 	}
 }
@@ -1468,7 +1483,7 @@ struct parserNode *parseScope(llLexerItem start, llLexerItem *end,
 
 		// Add vars to scope
 		for (long i = 0; i != strParserNodeSize(vars); i++)
-			addDeclsToScope(vars[i]);
+				addDeclsToScope(vars[i],(struct linkage){LINKAGE_LOCAL,NULL});
 
 		start = llLexerItemNext(start);
 
@@ -1573,9 +1588,11 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 		return func;
 	}
 
-	__auto_type varDecls = parseVarDecls(originalStart, end);
+	__auto_type start2=originalStart;
+	struct linkage link=getLinkage(start2, &start2);
+	__auto_type varDecls = parseVarDecls(start2, end);
 	if (varDecls) {
-		addDeclsToScope(varDecls);
+			addDeclsToScope(varDecls,link);
 
 		if (end) {
 			__auto_type semi = expectKeyword(*end, ";");
@@ -1788,7 +1805,7 @@ struct parserNode *parseFor(llLexerItem start, llLexerItem *end) {
 		if (!init)
 			init = parseExpression(originalStart, NULL, &start);
 		else
-			addDeclsToScope(init);
+				addDeclsToScope(init,(struct linkage){LINKAGE_LOCAL,NULL});
 
 		semi1 = expectKeyword(start, ";");
 		start = llLexerItemNext(start);
@@ -2231,7 +2248,7 @@ struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 							glbl.base.pos.start=name->pos.start, glbl.base.pos.end=colon2->pos.end;
 							glbl.name=name;
 							__auto_type glblNode=ALLOCATE(glbl);
-							addGlobalSymbol(glblNode);
+							addGlobalSymbol(glblNode,(struct linkage){LINKAGE_LOCAL,NULL});
 							addLabel(glblNode,nameNode->text);
 							if(!isAsmMode) {
 									diagErrorStart(atAt->pos.start, atAt->pos.end);
@@ -2627,8 +2644,12 @@ end:
 		*end = start;
 	return NULL;
 }
+struct linkage linkageClone(struct linkage from) {
+		return (struct linkage){from.type,strClone(from.fromSymbol)};
+}
 struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 	__auto_type originalStart = start;
+	struct  linkage link=getLinkage(start, &start);
 	struct parserNode *name = nameParse(start, NULL, &start);
 	if (!name)
 		return NULL;
@@ -2770,7 +2791,7 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 	addFunc(name, funcType, retVal);
 
 	if(isGlobalScope())
-			addGlobalSymbol(retVal);
+			addGlobalSymbol(retVal,link);
 	
 	if(retVal->type==NODE_FUNC_DEF)
 			((struct parserNodeFuncDef*)retVal)->func=getFunc(name);

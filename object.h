@@ -20,14 +20,6 @@ enum holyCTypeKind {
 	TYPE_FORWARD,
 	TYPE_FUNCTION,
 };
-enum linkage {
-	LINKAGE_STATIC = 1,
-	LINKAGE_PUBLIC,
-	LINKAGE_EXTERN,
-	LINKAGE__EXTERN,
-	LINKAGE_IMPORT,
-	LINKAGE__IMPORT,
-};
 struct objectMemberAttr {
 	char *name;
 	struct parserNode *value;
@@ -46,7 +38,6 @@ STR_TYPE_DEF(struct objectMember, ObjectMember);
 STR_TYPE_FUNCS(struct objectMember, ObjectMember);
 struct object {
 	enum holyCTypeKind type;
-	enum linkage link;
 	char *name;
 };
 struct objectMethod {

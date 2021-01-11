@@ -59,16 +59,33 @@ enum parserNodeType {
 	NODE_MEMBER_ACCESS,
 	NODE_RETURN,
 	NODE_GOTO,
+	/**
+		* extern,import,_extern,_import,public
+		*/
+	NODE_LINKAGE,
 };
+struct linkage{
+		enum {
+				LINKAGE_LOCAL=0,
+				LINKAGE_STATIC = 1,
+				LINKAGE_PUBLIC = 2,
+				LINKAGE_EXTERN =4,
+				LINKAGE__EXTERN =8,
+				LINKAGE_IMPORT =16,
+				LINKAGE__IMPORT =32,
+		} type;
+		char *fromSymbol;
+};
+struct linkage linkageClone(struct linkage from);
 STR_TYPE_DEF(struct parserNode *, ParserNode);
 STR_TYPE_FUNCS(struct parserNode *, ParserNode);
 struct parserNode;
 struct variable *variableClone(struct variable *var);
 struct variable {
-	char *name;
-	struct object *type;
-	strParserNode refs;
-	int isGlobal;
+		char *name;
+		struct object *type;
+		strParserNode refs;
+		int isGlobal;
 };
 struct function {
 	char *name;
@@ -124,6 +141,10 @@ struct parserNodeLitInt {
 struct parserNodeLitFlt {
 		struct parserNode base;
 		double value;
+};
+struct parserNodeLinkage {
+		struct parserNode base;
+		struct  linkage link;
 };
 struct parserNodeLitStr {
 	struct parserNode base;

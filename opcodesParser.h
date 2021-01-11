@@ -99,3 +99,4 @@ strOpcodeTemplate X86OpcodesByArgs(const char *name,strX86AddrMode args,int *amb
 const char * opcodeTemplateName(struct opcodeTemplate *template);
 strOpcodeTemplate X86OpcodesByName(const char *name);
 long X86OpcodesArgCount(const char *name);
+const char *opcodeTemplateIntelAlias(const struct opcodeTemplate *template);

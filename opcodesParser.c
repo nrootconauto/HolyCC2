@@ -201,6 +201,9 @@ static void strOpcodeTemplateDestroy2(strOpcodeTemplate *str) {
 				free(str[0]);
 		}
 }
+const char *opcodeTemplateIntelAlias(const struct opcodeTemplate *template) {
+		return template->intelAlias;
+} 
 void parseOpcodeFile() {
 		const char *keywords[]={
 				"!", //?

@@ -26,5 +26,8 @@ void addFunc(const struct parserNode *name, const struct object *type,
 
 void initParserData();
 void killParserData();
-struct parserNode *getGlobalSymbol(const char *name) ;
-void addGlobalSymbol(struct parserNode *node);
+struct parserNode *getGlobalSymbol(const char *name);
+void addGlobalSymbol(struct parserNode *node,struct  linkage link);
+strParserNode parserSymbolTableSyms();
+const struct linkage *getGlobalSymbolLink(const char *name);
+void addSymbolByDiffName(struct parserNode *sym,const char *useName,struct  linkage link);

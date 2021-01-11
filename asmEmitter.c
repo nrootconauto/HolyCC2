@@ -160,14 +160,17 @@ static strChar parserNodeSymbolName(const struct parserNode *node) {
 static strChar int64ToStr(int64_t value) {
 		strChar retVal=NULL;
 		const char *digits="0123456789";
+		int wasNegative=0;
 		if(value<0) {
 				value*=-1;
-				retVal=strCharAppendItem(retVal,'-');
+				wasNegative=1;
 		}
 		do {
 				retVal=strCharAppendItem(retVal, digits[value%10]);
 				value/=10;
 		} while(value!=0);
+		if(wasNegative)
+				retVal=strCharConcat(retVal, strCharAppendItem(NULL, '-'));
 		return strCharAppendItem(strCharReverse(retVal),'\0');
 }
 static strChar uint64ToStr(uint64_t value) {
@@ -194,9 +197,14 @@ static strChar getSizeStr(struct object *obj) {
 		return NULL;
 	}
 }
+static void X86EmitSymbolTable() {
+		
+};
 void X86EmitAsmInst(struct opcodeTemplate *template,strX86AddrMode args,int *err) {
-		//TODO map TempleOS opcode name to gas opcode name
-		fprintf(codeTmpFile, "%s ", opcodeTemplateName(template));
+		//
+		// Use intelAlias to use intel name/instruction
+		//
+		fprintf(codeTmpFile, "%s ", opcodeTemplateIntelAlias(template));
 		for(long i=0;i!=strX86AddrModeSize(args);i++) {
 				switch(args[i].type) {
 				case X86ADDRMODE_FLT: {
@@ -226,9 +234,9 @@ void X86EmitAsmInst(struct opcodeTemplate *template,strX86AddrMode args,int *err
 						break;
 				}
 				case X86ADDRMODE_UINT: {
-					fprintf(codeTmpFile, "%s ", text);
-					strChar text CLEANUP(strCharDestroy)=uint64ToStr(args[i].value.uint);
-					break;
+						strChar text CLEANUP(strCharDestroy)=uint64ToStr(args[i].value.uint);
+						fprintf(codeTmpFile, "%s ", text);
+						break;
 				}
 				case X86ADDRMODE_MEM: {
 					switch(args[i].value.m.type) {
@@ -237,13 +245,14 @@ void X86EmitAsmInst(struct opcodeTemplate *template,strX86AddrMode args,int *err
 							if(args[i].valueType) {
 								strChar sizeStr CLEANUP(strCharDestroy)=getSizeStr(args[i].valueType);
 								if(!sizeStr) goto fail;
-								fprintf(codeTmpFile, " %s PTR [%s] ",sizeStr, reg);
+								fprintf(codeTmpFile, " %s PTR [%s] ",sizeStr, *reg);
 							} else {
-								fprintf(codeTmpFile, "[%s] ", reg);
+								fprintf(codeTmpFile, "[%s] ", *reg);
 							}
 							break;
 						}
 						case x86ADDR_INDIR_SIB: {
+								strChar retVal CLEANUP(strCharDestroy)=NULL;
 							__auto_type indexStr=ptrMapRegNameGet(regNames,args[i].value.m.value.sib.index);
 							strChar scaleStr CLEANUP(strCharDestroy) =int64ToStr(args[i].value.m.value.sib.scale);
 							__auto_type baseStr=ptrMapRegNameGet(regNames,args[i].value.m.value.sib.base);
@@ -251,7 +260,7 @@ void X86EmitAsmInst(struct opcodeTemplate *template,strX86AddrMode args,int *err
 							strChar buffer CLEANUP(strCharDestroy)=NULL;
 							int insertAdd=0;
 							if(indexStr&&args[i].value.m.value.sib.scale) {
-								retVal=strCharAppendData(retVal,i*ndexStr,strlen(*indexStr));
+								retVal=strCharAppendData(retVal,*indexStr,strlen(*indexStr));
 								retVal=strCharAppendItem(retVal,'*');
 								retVal=strCharAppendData(retVal,scaleStr,strlen(scaleStr));
 								insertAdd=1;
@@ -259,7 +268,7 @@ void X86EmitAsmInst(struct opcodeTemplate *template,strX86AddrMode args,int *err
 								retVal=strCharAppendData(retVal,*indexStr,strlen(*indexStr));
 								insertAdd=1;
 							}
-							if(insertAdd)
+							if(insertAdd&&baseStr)
 								retVal=strCharAppendItem(retVal,'+');
 							if(baseStr) {
 								retVal=strCharAppendData(retVal,*baseStr,strlen(*baseStr));
@@ -272,7 +281,7 @@ void X86EmitAsmInst(struct opcodeTemplate *template,strX86AddrMode args,int *err
 							}
 							if(args[i].valueType) {
 								strChar typeStr CLEANUP(strCharDestroy)= getSizeStr(args[i].valueType);
-								fprintf(codeTmpFile, "%s PTR [%s] ",retVal);
+								fprintf(codeTmpFile, "%s PTR [%s] ",typeStr,retVal);
 							} else {
 								fprintf(codeTmpFile, "[%s] ",retVal);
 							}
@@ -283,22 +292,25 @@ void X86EmitAsmInst(struct opcodeTemplate *template,strX86AddrMode args,int *err
 								strChar addrStr CLEANUP(strCharDestroy)=uint64ToStr(args[i].value.m.value.mem);
 								strChar sizeStr CLEANUP(strCharDestroy)=getSizeStr(args[i].valueType);
 								if(!sizeStr) goto fail;
-								fprintf(sizeStr, "%s PTR [%s] ", sizeStr,addrStr);
+								fprintf(codeTmpFile, "%s PTR [%s] ", sizeStr,addrStr);
 							} else {
 								strChar addrStr CLEANUP(strCharDestroy)=uint64ToStr(args[i].value.m.value.mem);
-								fprintf(sizeStr, "[%s] ", addrStr);
+								fprintf(codeTmpFile, "[%s] ", addrStr);
 							}
 							break;
 						}
 						default:
-						assert(0);
+								assert(0);
 					}
 				}
 				}
 		}
+		if(err)
+				*err=0;
+		return;
 	fail:
-		if(success)
-				*success=0;
+		if(err)
+				*err=1;
 }
 void X86EmitAsmParserInst(struct parserNodeAsmInstX86 *inst,FILE *dumpTo) {
 		struct parserNodeName *name=(void*)inst->name;

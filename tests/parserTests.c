@@ -468,6 +468,19 @@ static void varDeclTests() {
 		assert(0 == strcmp(name2->text, "format"));
 		assert(m2->value->type == NODE_LIT_STR);
 	}
+	{
+			initParserData();
+			text = "extern I64 ext;";
+			createFile(text);
+			textStr = strCharAppendData(NULL, text, strlen(text)+1);
+			err = 0;
+			lexItems = lexText((struct __vec *)textStr, &err);
+			assert(!err);
+			parseVarDecls(lexItems, NULL);
+			__auto_type find=getGlobalSymbolLink("ext");
+			assert(find);
+			assert(*find==LINKAGE_EXTERN);
+	}
 }
 void classParserTests() {
 	const char *text = "class class_x {\n"
@@ -531,6 +544,19 @@ void classParserTests() {
 			assert(name->base.type == NODE_NAME);
 			assert(0 == strcmp(name->text, names[i]));
 		}
+	}
+	{
+			initParserData();
+			text = "import class toads;";
+			createFile(text);
+			textStr = strCharAppendData(NULL, text, strlen(text)+1);
+			err = 0;
+			lexItems = lexText((struct __vec *)textStr, &err);
+			assert(!err);
+			parseStatement(lexItems, NULL);
+			__auto_type find=getGlobalSymbolLink("toads");
+			assert(find);
+			assert(*find==LINKAGE_IMPORT);
 	}
 }
 void keywordTests() {
@@ -730,6 +756,19 @@ static void funcTests() {
 		struct parserNodeScope *scope = (void *)def2->bodyScope;
 		assert(1 == strParserNodeSize(scope->stmts));
 		assert(scope->stmts[0]->type == NODE_LIT_STR);
+	}
+	{
+			initParserData();
+			text = "static I64 foo();;";
+			createFile(text);
+			textStr = strCharAppendData(NULL, text, strlen(text)+1);
+			err = 0;
+			lexItems = lexText((struct __vec *)textStr, &err);
+			assert(!err);
+			parseStatement(lexItems, NULL);
+			__auto_type find=getGlobalSymbolLink("foo");
+			assert(find);
+			assert(*find==LINKAGE_STATIC);
 	}
 }
 static void typeTests() {

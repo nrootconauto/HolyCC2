@@ -158,4 +158,7 @@ void X86OpcodesTests() {
 				strOpcodeTemplate find CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs("MOV",  args,&ambig);
 				assert(!ambig);
 		}
+		{
+				//Test X
+		}
 }
