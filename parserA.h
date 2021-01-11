@@ -108,6 +108,14 @@ struct parserNodeGoto {
 		struct parserNode *labelName;
 		struct parserNode *pointsTo;
 };
+struct parserNodeUnionFwd {
+		struct parserNode base;
+		struct object *type;
+};
+struct parserNodeClassFwd {
+		struct parserNode base;
+		struct object *type;
+};
 struct parserNodeReturn {
 	struct parserNode base;
 	struct parserNode *value;
@@ -358,7 +366,7 @@ struct parserNodeAsmInstX86 {
 struct parserNode *parseExpression(llLexerItem start, llLexerItem end,
                                    llLexerItem *result);
 struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end);
-struct parserNode *parseClass(llLexerItem start, llLexerItem *end);
+struct parserNode *parseClass(llLexerItem start, llLexerItem *end,int allowForwardDecl);
 struct parserNode *parseIf(llLexerItem start, llLexerItem *end);
 struct parserNode *parseStatement(llLexerItem start, llLexerItem *end);
 struct parserNode *parseFor(llLexerItem start, llLexerItem *end);

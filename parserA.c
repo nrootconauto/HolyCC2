@@ -999,7 +999,7 @@ struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end) {
 		baseType = objectByName(baseName->text);
 		foundType = baseType != NULL;
 	} else {
-		__auto_type cls = parseClass(start, &start);
+			__auto_type cls = parseClass(start, &start,0);
 		if (cls != NULL) {
 			foundType = 1;
 
@@ -1291,7 +1291,7 @@ static void referenceType(struct object *type) {
 		diagEndMsg();
 	}
 }
-struct parserNode *parseClass(llLexerItem start, llLexerItem *end) {
+struct parserNode *parseClass(llLexerItem start, llLexerItem *end,int allowForwardDecl) {
 	__auto_type originalStart = start;
 	//Name for use with _extern/_impot
 	struct parserNode *_fromSymbol;
@@ -1318,8 +1318,11 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end) {
 		name2 = nameParse(start, NULL, &start);
 
 		struct parserNode *l = expectKeyword(start, "{");
-		start = llLexerItemNext(start);
+		if(l)
+				start = llLexerItemNext(start);
 		if (l == NULL) {
+				if(!allowForwardDecl)
+						goto end;
 			// Is a forward declaration(!?!)
 			__auto_type semi = expectKeyword(start, ";");
 			if (semi) {
@@ -1327,9 +1330,13 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end) {
 
 				struct parserNodeName *name = (void *)name2;
 				__auto_type type = objectByName(name->text);
+				struct parserNodeClassFwd  fwd;
+				fwd.base.type=(cls)?NODE_CLASS_FORWARD_DECL:NODE_UNION_FORWARD_DECL;
+				getStartEndPos(originalStart, start, &fwd.base.pos.start, &fwd.base.pos.end);
 				if (NULL == type) {
-					objectForwardDeclarationCreate(name2, (cls != NULL) ? TYPE_CLASS
-					                                                    : TYPE_UNION);
+						fwd.type=objectForwardDeclarationCreate(name2, (cls != NULL) ? TYPE_CLASS
+																																														: TYPE_UNION);
+					retVal=ALLOCATE(fwd);
 				} else if (cls) {
 					if (type->type != TYPE_CLASS)
 						goto incompat;
@@ -1340,6 +1347,8 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end) {
 					struct objectForwardDeclaration *f = (void *)type;
 					if (f->type != (cls != NULL) ? TYPE_CLASS : TYPE_UNION)
 						goto incompat;
+					fwd.type=type;
+					retVal=ALLOCATE(fwd);
 				} else {
 					// Whine about forward declaration of incompatible existing type
 
@@ -1686,6 +1695,12 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 		goto end;
 	}
 
+	__auto_type cls=parseClass(originalStart, end,1);
+	if(cls) {
+			retVal=cls;
+			goto end;
+	}
+	
 	return NULL;
 end : {
 	if (end) {

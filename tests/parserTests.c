@@ -491,7 +491,7 @@ void classParserTests() {
 	__auto_type textStr = strCharAppendData(NULL, text, strlen(text)+1);
 
 	__auto_type lexItems = lexText((struct __vec *)textStr, NULL);
-	__auto_type cls = parseClass(lexItems, NULL);
+	__auto_type cls = parseClass(lexItems, NULL,1);
 	assert(cls);
 	{
 		assert(cls->type == NODE_CLASS_DEF);

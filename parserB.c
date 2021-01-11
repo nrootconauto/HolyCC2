@@ -36,6 +36,14 @@ strParserNode parserSymbolTableSyms() {
 }
 static const char *getSymbolName(struct parserNode *node) {
 		switch(node->type) {
+		case NODE_CLASS_FORWARD_DECL: {
+				struct parserNodeClassFwd *fwd=(void*)node;
+				return fwd->type->name;
+		}
+		case NODE_UNION_FORWARD_DECL: {
+				struct parserNodeUnionFwd *fwd=(void*)node;
+				return fwd->type->name;
+		}
 		case NODE_ASM_LABEL_GLBL: {
 				struct parserNodeLabelGlbl *lab=(void*)node;
 				struct parserNodeName *name=(void*)lab->name;

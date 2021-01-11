@@ -435,6 +435,7 @@ objectForwardDeclarationCreate(
 	struct objectForwardDeclaration *retVal =
 	    malloc(sizeof(struct objectForwardDeclaration));
 	retVal->base.type = TYPE_FORWARD;
+	retVal->base.name=NULL;
 	retVal->name = (struct parserNode *)name;
 	retVal->type = type;
 
