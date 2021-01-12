@@ -463,7 +463,7 @@ static struct enterExit  __createSwitchCodeAfterBody(
 	// }
 	// ```
 	//
-	struct variable *enteredSubCondition=NULL;
+	struct parserVar *enteredSubCondition=NULL;
 	if(strGraphNodeIRPSize(subs)!=0)
 			enteredSubCondition=IRCreateVirtVar(&typeBool);
 	
@@ -550,7 +550,7 @@ static struct enterExit  __createSwitchCodeAfterBody(
 			//	label:
 			// jumpTable(backup) 
 			//```
-			struct variable *cond2Var=IRCreateVirtVar(&typeI64i);
+			struct parserVar *cond2Var=IRCreateVirtVar(&typeI64i);
 			__auto_type cond2Store=IRCreateVarRef(cond2Var);
 			graphNodeIRConnect(cond.exit, cond2Store, IR_CONN_DEST);
 

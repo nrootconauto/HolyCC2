@@ -146,7 +146,7 @@ struct IRValMemFrame {
 	struct object *type;
 };
 struct IRValMemGlobal {
-	struct variable *symbol;
+	struct parserVar *symbol;
 };
 enum IRVarType {
 	IR_VAR_VAR,
@@ -156,7 +156,7 @@ struct IRVar {
 		unsigned int addressedByPtr:1;
 		enum IRVarType type;
 		union {
-				struct variable *var;
+				struct parserVar *var;
 				struct {
 						graphNodeIR base;
 						struct objectMember *mem;
@@ -174,7 +174,7 @@ struct IRValue {
 		graphNodeIR __label;
 		struct IRValIndirect indir;
 		struct IRValOpResult opRes;
-		struct function *func;
+		struct parserFunction *func;
 		struct lexerInt intLit;
 			double fltLit;
 		const char *strLit;
@@ -276,7 +276,7 @@ struct IRNodeStatementEnd {
 struct IRNodeFuncStart {
 		struct IRNode base;
 		graphNodeIR end;
-		struct function *func;
+		struct parserFunction *func;
 };
 struct IRNodeFuncArg {
 		struct IRNode base;
@@ -299,13 +299,13 @@ char *IR2Str();
 graphNodeIR IRCreateIntLit(int64_t lit);
 graphNodeIR IRCreateBinop(graphNodeIR a, graphNodeIR b, enum IRNodeType type);
 graphNodeIR IRCreateLabel();
-graphNodeIR IRCreateVarRef(struct variable *var);
+graphNodeIR IRCreateVarRef(struct parserVar *var);
 graphNodeIR IRCreateValueFromLabel(graphNodeIR lab);
-struct variable *IRCreateVirtVar(struct object *type);
+struct parserVar *IRCreateVirtVar(struct object *type);
 struct IRVarRefs {
 		strGraphNodeIRP refs;
 };
-PTR_MAP_FUNCS(struct variable *, struct IRVarRefs, IRVarRefs);
+PTR_MAP_FUNCS(struct parserVar *, struct IRVarRefs, IRVarRefs);
 strGraphNodeP IRStatementNodes(graphNodeIR stmtStart, graphNodeIR stmtEnd);
 graphNodeIR IRCreateStmtEnd(graphNodeIR start);
 graphNodeIR IRCreateStmtStart();
@@ -365,7 +365,7 @@ void IRInsertNodesBetweenExprs(graphNodeIR expr);
 void IRPrintMappedGraph(graphNodeMapping map);
 graphNodeIR IRCreatePtrRef(graphNodeIR ptr);
 void IRMarkPtrVars(graphNodeIR start);
-strGraphNodeIRP IRVarRefs(struct variable *var,long *SSANum);
+strGraphNodeIRP IRVarRefs(struct parserVar *var,long *SSANum);
 graphNodeIR IRCreateFloat(double value);
 void IRAttrReplace(graphNodeIR node,llIRAttr attribute);
 graphNodeIR IRCreateJumpTable();

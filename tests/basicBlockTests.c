@@ -1,7 +1,7 @@
 #include <basicBlocks.h>
 #include <assert.h>
 #include <IR.h>
-static int varFilter(graphNodeIR node,const struct variable *exclude) {
+static int varFilter(graphNodeIR node,const struct parserVar *exclude) {
 		__auto_type value =graphNodeIRValuePtr(node);
 		if(value->type==IR_VALUE) {
 				__auto_type value2=(struct IRNodeValue*)value;
@@ -14,7 +14,7 @@ static int varFilter(graphNodeIR node,const struct variable *exclude) {
 void basicBlockTests() {
 		{
 				initIR();
-				struct variable *aVar,*bVar,*cVar,*dVar;
+				struct parserVar *aVar,*bVar,*cVar,*dVar;
 				__auto_type a=IRCreateVarRef(aVar=IRCreateVirtVar(&typeI64i));
 				__auto_type b=IRCreateVarRef(bVar=IRCreateVirtVar(&typeI64i));
 				__auto_type c=IRCreateVarRef(cVar=IRCreateVirtVar(&typeI64i));

@@ -126,7 +126,7 @@ void leaveScope() {
 	currentScope = par;
 }
 void parserAddVar(const struct parserNode *name, struct object *type) {
-	struct variable var;
+	struct parserVar var;
 	var.type = type;
 	var.refs = strParserNodeAppendItem(NULL, (struct parserNode *)name);
 	var.isGlobal = llScopeValuePtr(currentScope)->parent == NULL;
@@ -144,13 +144,13 @@ void parserAddVar(const struct parserNode *name, struct object *type) {
 		mapVarInsert(scope->vars, var.name, var);
 	}
 }
-struct variable *parserGetVar(const struct parserNode *name) {
+struct parserVar *parserGetVar(const struct parserNode *name) {
 	assert(name->type == NODE_NAME);
 	const struct parserNodeName *name2 = (void *)name;
 
 	for (__auto_type scope = currentScope; scope != NULL;
 	     scope = llScopeValuePtr(scope)->parent) {
-		struct variable *find =
+		struct parserVar *find =
 		    mapVarGet(llScopeValuePtr(scope)->vars, name2->text);
 		if (find) {
 			find->refs =
@@ -182,7 +182,7 @@ void initParserData() {
 		symbolTable=mapSymbolCreate();
 }
 
-struct function *parserGetFunc(const struct parserNode *name) {
+struct parserFunction *parserGetFunc(const struct parserNode *name) {
 	struct parserNodeName *name2 = (void *)name;
 	assert(name2->base.type == NODE_NAME);
 
@@ -239,7 +239,7 @@ void parserAddFunc(const struct parserNode *name, const struct object *type,
 loop:;
 	__auto_type find = mapFuncGet(currentScopeFuncs, name2->text);
 	if (!find) {
-		struct function dummy;
+		struct parserFunction dummy;
 		dummy.isForwardDecl = func->type == NODE_FUNC_FORWARD_DECL;
 		dummy.refs = NULL;
 		dummy.type = (struct object *)type;

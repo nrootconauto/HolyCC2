@@ -107,7 +107,7 @@ static struct parserNode *promoteIfNeeded(struct parserNode *node,
 static void noteItem(struct parserNode *node) {
 	if (node->type == NODE_FUNC_REF) {
 		struct parserNodeFuncRef *ref = (void *)node;
-		const struct function *func = ref->func;
+		const struct parserFunction *func = ref->func;
 
 		__auto_type from = func->refs[0];
 		diagNoteStart(from->pos.start, from->pos.end);

@@ -3,7 +3,7 @@
 #include <lexer.h>
 #include <parserA.h>
 #include <subExprElim.h>
-struct variable *a;
+struct parserVar *a;
 static void debugShowGraphIR(graphNodeIR enter) {
 		const char *name=tmpnam(NULL);
 		__auto_type map=graphNodeCreateMapping(enter, 1);

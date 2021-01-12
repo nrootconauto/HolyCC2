@@ -153,8 +153,8 @@ graphNodeIR IRCreateStmtEnd(graphNodeIR start) {
 	((struct IRNodeStatementStart *)graphNodeIRValuePtr(start))->end = retVal;
 	return retVal;
 }
-struct variable *IRCreateVirtVar(struct object *type) {
-	struct variable var;
+struct parserVar *IRCreateVirtVar(struct object *type) {
+	struct parserVar var;
 	var.name = NULL;
 	var.refs = NULL;
 	var.type = type;
@@ -180,7 +180,7 @@ static int isNotOfSSANum(const long *ssa,const graphNodeIR *node) {
 		struct IRNodeValue *val=(void*)graphNodeIRValuePtr((graphNodeIR)*node);
 		return val->val.value.var.SSANum!=*ssa;
 }
-strGraphNodeIRP IRVarRefs(struct variable *var,long *SSANum) {
+strGraphNodeIRP IRVarRefs(struct parserVar *var,long *SSANum) {
 		__auto_type find = ptrMapIRVarRefsGet(IRVars, var);
 		if(!find)
 				return NULL;
@@ -189,7 +189,7 @@ strGraphNodeIRP IRVarRefs(struct variable *var,long *SSANum) {
 				return clone;
 		return strGraphNodeIRPRemoveIf(clone, SSANum,  (int(*)(const void *,const graphNodeIR*))isNotOfSSANum);
 }
-graphNodeIR IRCreateVarRef(struct variable *var) {
+graphNodeIR IRCreateVarRef(struct parserVar *var) {
 	loop:;
 	__auto_type find = ptrMapIRVarRefsGet(IRVars, var);
 	if(!find) {
@@ -285,7 +285,7 @@ strGraphNodeP IRStatementNodes(const graphNodeIR stmtStart,
 	return allNodes;
 }
 void initIR() { IRVars = ptrMapIRVarRefsCreate(); }
-graphNodeIR createFuncStart(const struct function *func) {
+graphNodeIR createFuncStart(const struct parserFunction *func) {
 	struct IRNodeFuncStart start;
 	start.base.attrs = NULL;
 	start.base.type = IR_FUNC_START;

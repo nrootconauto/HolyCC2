@@ -4,7 +4,7 @@
 #include <string.h>
 struct nameVarPair {
 		const char *name;
-		struct variable *var;
+		struct parserVar *var;
 		graphNodeIRLive node;
 };
 MAP_TYPE_DEF(struct __graphNode *, GraphNode);

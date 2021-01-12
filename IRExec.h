@@ -27,7 +27,7 @@ struct IREvalVal {
 MAP_TYPE_FUNCS(struct IREvalVal,IREvalMembers);
 STR_TYPE_FUNCS(struct IREvalVal,IREvalVal);
 struct IREvalVal IREvalNode(graphNodeIR node, int *success);
-void IREvalSetVarVal(const struct variable *var, struct IREvalVal value);
+void IREvalSetVarVal(const struct parserVar *var, struct IREvalVal value);
 struct IREvalVal IREvalValFltCreate(double f);
 struct IREvalVal IREValValIntCreate(long i);
 void IREvalInit();

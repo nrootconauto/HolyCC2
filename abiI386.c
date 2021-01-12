@@ -17,7 +17,7 @@ static int ptrPtrCmp(const void *a, const void *b) {
 	return 0;
 }
 typedef int(*regCmpType)(const struct reg **,const struct reg **);
-typedef int(*varCmpType)(const struct variable **,const struct variable **);
+typedef int(*varCmpType)(const struct parserVar **,const struct parserVar **);
 static strRegP usedRegisters(strGraphNodeIRP nodes) {
 		strRegP retVal=NULL;
 		for(long i=0;i!=strGraphNodeIRPSize(nodes);i++) {
@@ -31,8 +31,8 @@ static strRegP usedRegisters(strGraphNodeIRP nodes) {
 		}
 		return retVal;
 }
-STR_TYPE_DEF(struct variable *,Variable);
-STR_TYPE_FUNCS(struct variable *,Variable);
+STR_TYPE_DEF(struct parserVar *,Variable);
+STR_TYPE_FUNCS(struct parserVar *,Variable);
 static int isSelectVariable(graphNodeIR node,const void *data) {
 		const strVariable *select=data;
 		struct IRNodeValue *val=(void*)graphNodeIRValuePtr(node);
@@ -43,7 +43,7 @@ static int isSelectVariable(graphNodeIR node,const void *data) {
 		return 0;
 }
 #define ARRAY_SIZE(array) (sizeof(array)/sizeof(*array))
-PTR_MAP_FUNCS(struct variable *, struct reg *, Var2Reg);
+PTR_MAP_FUNCS(struct parserVar *, struct reg *, Var2Reg);
 void IR2ABI_i386(graphNodeIR start) {
 		strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);
 		//Replace Registers with variables and do liveness analysis on the variables

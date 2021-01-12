@@ -20,7 +20,7 @@ static int isNoFlow(const void *data,const graphEdgeIR *edge) {
 static strGraphEdgeIRP filterNoFlows(strGraphEdgeIRP edges) {
 		return strGraphEdgeIRPRemoveIf(edges, NULL, isNoFlow);
 }
-PTR_MAP_FUNCS(struct function *, graphNodeIR, Func);
+PTR_MAP_FUNCS(struct parserFunction *, graphNodeIR, Func);
 static __thread ptrMapFunc funcs = NULL;
 static __thread struct IREvalVal returnValue;
 MAP_TYPE_DEF(struct IREvalVal, VarVal);
@@ -793,7 +793,7 @@ fail:
 	*success = 0;
 	return IREValValIntCreate(0);
 }
-void IREvalSetVarVal(const struct variable *var, struct IREvalVal value) {
+void IREvalSetVarVal(const struct parserVar *var, struct IREvalVal value) {
 	struct IRValue ref;
 	ref.type = IR_VAL_VAR_REF;
 	ref.value.var.type = IR_VAR_VAR;

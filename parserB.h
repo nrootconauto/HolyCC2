@@ -4,9 +4,9 @@
 #include <parserA.h>
 struct scope;
 MAP_TYPE_DEF(struct variable, Var);
-MAP_TYPE_FUNCS(struct variable, Var);
+MAP_TYPE_FUNCS(struct parserVar, Var);
 MAP_TYPE_DEF(struct function, Func);
-MAP_TYPE_FUNCS(struct function, Func);
+MAP_TYPE_FUNCS(struct parserFunction, Func);
 LL_TYPE_DEF(struct scope, Scope);
 struct scope {
 	mapVar vars;
@@ -15,12 +15,12 @@ struct scope {
 	llScope parent;
 };
 LL_TYPE_FUNCS(struct scope, Scope);
-void variableDestroy(struct variable *var);
+void variableDestroy(struct parserVar *var);
 void enterScope();
 void leaveScope();
 void parserAddVar(const struct parserNode *name, struct object *type);
-struct variable *parserGetVar(const struct parserNode *name);
-struct function *parserGetFunc(const struct parserNode *name);
+struct parserVar *parserGetVar(const struct parserNode *name);
+struct parserFunction *parserGetFunc(const struct parserNode *name);
 void parserAddFunc(const struct parserNode *name, const struct object *type,
              struct parserNode *func);
 

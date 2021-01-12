@@ -80,28 +80,28 @@ struct linkage linkageClone(struct linkage from);
 STR_TYPE_DEF(struct parserNode *, ParserNode);
 STR_TYPE_FUNCS(struct parserNode *, ParserNode);
 struct parserNode;
-struct variable *variableClone(struct variable *var);
-struct variable {
+struct parserVar *parserVariableClone(struct parserVar *var);
+struct parserVar {
 		char *name;
 		struct object *type;
 		strParserNode refs;
 		int isGlobal;
 };
-struct function {
+struct parserFunction {
 	char *name;
 	struct object *type;
 	strParserNode refs;
 	int isForwardDecl;
 	struct parserNode *node;
 };
-void variableDestroy(struct variable *var);
-struct sourcePos {
+void variableDestroy(struct parserVar *var);
+struct parserSourcePos {
 	long start;
 	long end;
 };
 struct parserNode {
 	enum parserNodeType type;
-	struct sourcePos pos;
+	struct parserSourcePos pos;
 };
 struct parserNodeGoto {
 		struct parserNode base;
@@ -186,7 +186,7 @@ struct parserNodeVarDecl {
 		struct parserNode *name;
 		struct object *type;
 		struct parserNode *dftVal;
-		struct variable *var;
+		struct parserVar *var;
 		strParserNode metaData;
 };
 struct parserNodeVarDecls {
@@ -231,7 +231,7 @@ struct parserNodeWhile {
 };
 struct parserNodeVar {
 	struct parserNode base;
-	struct variable *var;
+	struct parserVar *var;
 };
 struct parserNodeSwitch {
 	struct parserNode base;
@@ -289,12 +289,12 @@ struct parserNodeFuncDef {
 	struct parserNode base;
 	struct object *funcType;
 	struct parserNode *name;
-		struct function *func;
+		struct parserFunction *func;
 	struct parserNode *bodyScope;
 };
 struct parserNodeFuncRef {
 	struct parserNode base;
-	struct function *func;
+	struct parserFunction *func;
 	struct parserNode *name;
 };
 struct parserNodeMemberAccess {
@@ -306,7 +306,7 @@ struct parserNodeFuncForwardDec {
 	struct parserNode base;
 	struct parserNode *name;
 	struct object *funcType;
-		struct function *func;
+		struct parserFunction *func;
 };
 struct parserNodeBreak {
 		struct parserNode base;
