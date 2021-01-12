@@ -119,7 +119,7 @@ static strChar parserNodeSymbolName(const struct parserNode *node) {
 						return strClone(buffer);
 				} else {
 						//Check if function is global(one in global symbols table)
-						__auto_type find=getGlobalSymbol(name->text);
+						__auto_type find=parserGetGlobalSym(name->text);
 						if(find) {
 								if(find!=node)
 										goto localFunc;

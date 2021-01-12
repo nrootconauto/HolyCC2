@@ -224,7 +224,7 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end,
 			
 		__auto_type name = nameParse(start, end, result);
 		// Look for var
-		__auto_type findVar = getVar(name);
+		__auto_type findVar = parserGetVar(name);
 		if (findVar) {
 			struct parserNodeVar var;
 			var.base.type = NODE_VAR;
@@ -236,7 +236,7 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end,
 		}
 
 		// Look for func
-		__auto_type findFunc = getFunc(name);
+		__auto_type findFunc = parserGetFunc(name);
 		if (findFunc) {
 			struct parserNodeFuncRef ref;
 			ref.base.pos.start = name->pos.start;
@@ -1449,7 +1449,7 @@ end:
 	if (end != NULL)
 		*end = start;
 	if(retVal&&(link.type!=LINKAGE_LOCAL||isGlobalScope())) {
-					addGlobalSymbol(retVal,link);
+					   parserAddGlobalSym(retVal,link);
 	}
 	
 	if (retVal) {
@@ -1463,20 +1463,20 @@ end:
 static void addDeclsToScope(struct parserNode *varDecls,struct  linkage link) {
 		if (varDecls->type == NODE_VAR_DECL) {
 		struct parserNodeVarDecl *decl = (void *)varDecls;
-		addVar(decl->name, decl->type);
-		decl->var=getVar(decl->name);
+		      parserAddVar(decl->name, decl->type);
+		decl->var=parserGetVar(decl->name);
 
 		if(link.type!=LINKAGE_LOCAL||isGlobalScope())
-				addGlobalSymbol(varDecls,link);
+				        parserAddGlobalSym(varDecls,link);
 	} else if (varDecls->type == NODE_VAR_DECLS) {
 		struct parserNodeVarDecls *decls = (void *)varDecls;
 		for (long i = 0; i != strParserNodeSize(decls->decls); i++) {
 			struct parserNodeVarDecl *decl = (void *)decls->decls[i];
-			addVar(decl->name, decl->type);
-			decl->var=getVar(decl->name);
+			         parserAddVar(decl->name, decl->type);
+			decl->var=parserGetVar(decl->name);
 
 			if(link.type!=LINKAGE_LOCAL||isGlobalScope())
-					addGlobalSymbol((struct parserNode *)decl,link);
+					           parserAddGlobalSym((struct parserNode *)decl,link);
 		}
 	}
 }
@@ -2256,7 +2256,7 @@ struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 					start=llLexerItemNext(start);
 					//Ensure doesn't already exist
 					struct parserNodeName *nameNode=(void*)name;
-					if(getGlobalSymbol(nameNode->text)) {
+					if(parserGetGlobalSym(nameNode->text)) {
 							diagErrorStart(name->pos.start, name->pos.end);
 							diagPushText("Redefinition of global exported label ");
 							diagPushQoutedText(name->pos.start, name->pos.end);
@@ -2273,7 +2273,7 @@ struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 							glbl.base.pos.start=name->pos.start, glbl.base.pos.end=colon2->pos.end;
 							glbl.name=name;
 							__auto_type glblNode=ALLOCATE(glbl);
-							addGlobalSymbol(glblNode,(struct linkage){LINKAGE_LOCAL,NULL});
+							         parserAddGlobalSym(glblNode,(struct linkage){LINKAGE_LOCAL,NULL});
 							addLabel(glblNode,nameNode->text);
 							if(!isAsmMode) {
 									diagErrorStart(atAt->pos.start, atAt->pos.end);
@@ -2813,15 +2813,15 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 	else
 		assignPosByLexerItems(retVal, originalStart, NULL);
 
-	addFunc(name, funcType, retVal);
+	   parserAddFunc(name, funcType, retVal);
 
 	if(retVal&&(link.type!=LINKAGE_LOCAL||isGlobalScope()))
-			addGlobalSymbol(retVal,link);
+			     parserAddGlobalSym(retVal,link);
 	
 	if(retVal->type==NODE_FUNC_DEF)
-			((struct parserNodeFuncDef*)retVal)->func=getFunc(name);
+			((struct parserNodeFuncDef*)retVal)->func=parserGetFunc(name);
 	else if(retVal->type==NODE_FUNC_FORWARD_DECL)
-			((struct parserNodeFuncForwardDec*)retVal)->func=getFunc(name);
+			((struct parserNodeFuncForwardDec*)retVal)->func=parserGetFunc(name);
 	return retVal;
 fail:
 	return NULL;
@@ -3390,7 +3390,7 @@ struct parserNode *parseAsm(llLexerItem start,llLexerItem *end) {
 										continue;
 								}
 								struct parserNodeName *name2=(void*)name;
-								__auto_type find=getGlobalSymbol(name2->text);
+								__auto_type find=parserGetGlobalSym(name2->text);
 								if(!find) {
 										diagErrorStart(name->pos.start, name->pos.end);
 										diagPushText("Global symbol ");

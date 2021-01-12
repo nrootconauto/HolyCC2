@@ -12,13 +12,13 @@ MAP_TYPE_DEF(struct symbol,Symbol);
 MAP_TYPE_FUNCS(struct symbol,Symbol);
 static __thread mapSymbol symbolTable=NULL;
 static llScope currentScope = NULL;
-const struct  linkage *getGlobalSymbolLink(const char *name) {
+const struct  linkage *parserGlobalSymLinkage(const char *name) {
 		__auto_type find=mapSymbolGet(symbolTable, name);
 		if(!find)
 				return NULL;
 		return &find->link;
 }
-struct parserNode *getGlobalSymbol(const char *name) {
+struct parserNode *parserGetGlobalSym(const char *name) {
 		__auto_type find=mapSymbolGet(symbolTable, name);
 		if(!find)
 				return NULL;
@@ -99,7 +99,7 @@ static void __addGlobalSymbol(struct parserNode *node,const char *name,struct li
 				mapSymbolInsert(symbolTable, name, toInsert);
 		}
 }
-void addGlobalSymbol(struct parserNode *node,struct  linkage link) {
+void parserAddGlobalSym(struct parserNode *node,struct  linkage link) {
 		__auto_type name=getSymbolName(node);
 		__addGlobalSymbol(node, name, linkageClone(link));
 }
@@ -125,7 +125,7 @@ void leaveScope() {
 	assert(par);
 	currentScope = par;
 }
-void addVar(const struct parserNode *name, struct object *type) {
+void parserAddVar(const struct parserNode *name, struct object *type) {
 	struct variable var;
 	var.type = type;
 	var.refs = strParserNodeAppendItem(NULL, (struct parserNode *)name);
@@ -144,7 +144,7 @@ void addVar(const struct parserNode *name, struct object *type) {
 		mapVarInsert(scope->vars, var.name, var);
 	}
 }
-struct variable *getVar(const struct parserNode *name) {
+struct variable *parserGetVar(const struct parserNode *name) {
 	assert(name->type == NODE_NAME);
 	const struct parserNodeName *name2 = (void *)name;
 
@@ -182,7 +182,7 @@ void initParserData() {
 		symbolTable=mapSymbolCreate();
 }
 
-struct function *getFunc(const struct parserNode *name) {
+struct function *parserGetFunc(const struct parserNode *name) {
 	struct parserNodeName *name2 = (void *)name;
 	assert(name2->base.type == NODE_NAME);
 
@@ -197,7 +197,7 @@ struct function *getFunc(const struct parserNode *name) {
 	}
 	return NULL;
 }
-void addFunc(const struct parserNode *name, const struct object *type,
+void parserAddFunc(const struct parserNode *name, const struct object *type,
              struct parserNode *func) {
 	struct parserNodeName *name2 = (void *)name;
 	__auto_type currentScopeFuncs = llScopeValuePtr(currentScope)->funcs;

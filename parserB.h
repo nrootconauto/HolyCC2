@@ -18,15 +18,15 @@ LL_TYPE_FUNCS(struct scope, Scope);
 void variableDestroy(struct variable *var);
 void enterScope();
 void leaveScope();
-void addVar(const struct parserNode *name, struct object *type);
-struct variable *getVar(const struct parserNode *name);
-struct function *getFunc(const struct parserNode *name);
-void addFunc(const struct parserNode *name, const struct object *type,
+void parserAddVar(const struct parserNode *name, struct object *type);
+struct variable *parserGetVar(const struct parserNode *name);
+struct function *parserGetFunc(const struct parserNode *name);
+void parserAddFunc(const struct parserNode *name, const struct object *type,
              struct parserNode *func);
 
 void initParserData();
 void killParserData();
-struct parserNode *getGlobalSymbol(const char *name);
-void addGlobalSymbol(struct parserNode *node,struct  linkage link);
+struct parserNode *parserGetGlobalSym(const char *name);
+void parserAddGlobalSym(struct parserNode *node,struct  linkage link);
 strParserNode parserSymbolTableSyms();
-const struct linkage *getGlobalSymbolLink(const char *name);
+const struct linkage *parserGlobalSymLinkage(const char *name);

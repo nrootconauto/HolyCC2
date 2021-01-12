@@ -477,7 +477,7 @@ static void varDeclTests() {
 			lexItems = lexText((struct __vec *)textStr, &err);
 			assert(!err);
 			parseStatement(lexItems, NULL);
-			__auto_type find=getGlobalSymbolLink("ext");
+			__auto_type find=parserGlobalSymLinkage("ext");
 			assert(find);
 			assert(find->type==LINKAGE_EXTERN);
 	}
@@ -554,7 +554,7 @@ void classParserTests() {
 			lexItems = lexText((struct __vec *)textStr, &err);
 			assert(!err);
 			parseStatement(lexItems, NULL);
-			__auto_type find=getGlobalSymbolLink("toads");
+			__auto_type find=parserGlobalSymLinkage("toads");
 			assert(find);
 			assert(find->type==LINKAGE_IMPORT);
 	}
@@ -601,7 +601,7 @@ void keywordTests() {
 	{
 		assert(x1->type == NODE_VAR_DECL);
 		struct parserNodeVarDecl *var = (void *)x1;
-		__auto_type x1V = getVar(var->name);
+		__auto_type x1V = parserGetVar(var->name);
 
 		assert(forStmt->type == NODE_FOR);
 		struct parserNodeFor *forStmt2 = (void *)forStmt;
@@ -766,7 +766,7 @@ static void funcTests() {
 			lexItems = lexText((struct __vec *)textStr, &err);
 			assert(!err);
 			parseStatement(lexItems, NULL);
-			__auto_type find=getGlobalSymbolLink("foo");
+			__auto_type find=parserGlobalSymLinkage("foo");
 			assert(find);
 			assert(find->type==LINKAGE_STATIC);
 	}
@@ -779,7 +779,7 @@ static void funcTests() {
 			lexItems = lexText((struct __vec *)textStr, &err);
 			assert(!err);
 			parseStatement(lexItems, NULL);
-			__auto_type find=getGlobalSymbolLink("foo");
+			__auto_type find=parserGlobalSymLinkage("foo");
 			assert(find);
 			assert(find->type==LINKAGE__EXTERN);
 			assert(0==strcmp(find->fromSymbol,"TOADS"));
