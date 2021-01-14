@@ -2546,11 +2546,12 @@ end:
 struct currentFunctionInfo {
 	struct object *retType;
 	long retTypeBegin, retTypeEnd;
+		strParserNode insideFunctions;
 };
 STR_TYPE_DEF(struct currentFunctionInfo, FuncInfoStack);
 STR_TYPE_FUNCS(struct currentFunctionInfo, FuncInfoStack);
 
-static strFuncInfoStack currentFuncsStack = NULL;
+static __thread strFuncInfoStack currentFuncsStack = NULL;
 
 struct parserNode *parseGoto(llLexerItem start, llLexerItem *end) {
 	struct parserNode *gt = expectKeyword(start, "goto");
@@ -2758,6 +2759,7 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 	info.retTypeBegin = nm->base.pos.start;
 	info.retTypeEnd = name->pos.start;
 	info.retType = retType;
+	info.insideFunctions=NULL;
 	currentFuncsStack = strFuncInfoStackAppendItem(currentFuncsStack, info);
 	//!!! each function's regular labels are unique to that function
 	__auto_type oldLabels=labels;
@@ -2793,6 +2795,13 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 		retVal = ALLOCATE(func);
 	}
 
+	//Assign parent function to functions within function
+	info=currentFuncsStack[strFuncInfoStackSize(currentFuncsStack)-1];
+	for(long i=0;i!=strParserNodeSize(info.insideFunctions);i++) {
+			assert(info.insideFunctions[i]->type==NODE_FUNC_DEF);
+			((struct parserNodeFuncDef*)info.insideFunctions[i])-> func->parentFunction=retVal;
+	}
+	strParserNodeDestroy(&info.insideFunctions);
 	//
 	// Leave the function
 	//
@@ -2804,7 +2813,13 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 	labels=oldLabels;
 	labelReferences=oldLabelRefs;
 	//
- 
+
+	//Assign parent to functions inside function (if in a function)
+	if(strFuncInfoStackSize(currentFuncsStack)) {
+			__auto_type appendTo=&currentFuncsStack[strFuncInfoStackSize(currentFuncsStack)-1].insideFunctions;
+			*appendTo=strParserNodeAppendItem(*appendTo, retVal);
+	}
+	
 	if (end)
 		*end = start;
 
@@ -2816,7 +2831,7 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 	   parserAddFunc(name, funcType, retVal);
 
 	if(retVal&&(link.type!=LINKAGE_LOCAL||isGlobalScope()))
-			     parserAddGlobalSym(retVal,link);
+			parserAddGlobalSym(retVal,link);
 	
 	if(retVal->type==NODE_FUNC_DEF)
 			((struct parserNodeFuncDef*)retVal)->func=parserGetFunc(name);
@@ -3065,6 +3080,9 @@ struct X86AddressingMode parserNode2X86AddrMode(struct parserNode *node) {
 						struct parserNodeAsmSIB *sib=(void*)addrMode;
 						addrMode2=addrModeFromParseTree(sib->expression,sib->type,NULL, &success);
 				}
+				struct parserNodeAsmReg *reg=(void*)((struct parserNodeAsmSIB*)addrMode)->segment;
+				if(reg)
+						addrMode2.value.m.segment=reg->reg;
 				if(!success) {
 						addrMode2=dummy;
 						diagErrorStart(addrMode->pos.start, addrMode->pos.end);

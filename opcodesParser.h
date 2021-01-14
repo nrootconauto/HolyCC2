@@ -17,6 +17,7 @@ struct X86MemoryLoc {
 						int64_t offset;
 				} sib;
 		} value;
+		struct reg *segment; 
 };
 struct X86AddressingMode {
 		enum {

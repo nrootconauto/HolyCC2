@@ -12,6 +12,9 @@ MAP_TYPE_DEF(struct symbol,Symbol);
 MAP_TYPE_FUNCS(struct symbol,Symbol);
 static __thread mapSymbol symbolTable=NULL;
 static llScope currentScope = NULL;
+void parserSymTableNames(const char **keys,long *count ) {
+		mapSymbolKeys(symbolTable, keys, count);
+}
 const struct  linkage *parserGlobalSymLinkage(const char *name) {
 		__auto_type find=mapSymbolGet(symbolTable, name);
 		if(!find)
@@ -129,8 +132,9 @@ void parserAddVar(const struct parserNode *name, struct object *type) {
 	struct parserVar var;
 	var.type = type;
 	var.refs = strParserNodeAppendItem(NULL, (struct parserNode *)name);
-	var.isGlobal = llScopeValuePtr(currentScope)->parent == NULL;
-
+	var.isGlobal = (llScopeValuePtr(currentScope)->parent == NULL)?1:0;
+	var.isNoreg=0;
+	
 	assert(name->type == NODE_NAME);
 	struct parserNodeName *name2 = (void *)name;
 	var.name = malloc(strlen(name2->text) + 1);
@@ -245,6 +249,7 @@ loop:;
 		dummy.type = (struct object *)type;
 		dummy.node = func;
 		dummy.name = malloc(strlen(name2->text) + 1);
+		dummy.parentFunction=NULL;
 		strcpy(dummy.name, name2->text);
 
 		mapFuncInsert(currentScopeFuncs, name2->text, dummy);

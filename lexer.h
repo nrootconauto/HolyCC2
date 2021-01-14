@@ -5,8 +5,6 @@
 #include <stringParser.h>
 struct lexer;
 enum intType {
-	INT_UINT,
-	INT_SINT,
 	INT_ULONG,
 	INT_SLONG,
 };

@@ -525,3 +525,6 @@ enum archEndian archEndian() {
 				return ENDIAN_LITTLE;
 		}
 }
+enum archConfig getCurrentArch() {
+		return currentArch;
+}

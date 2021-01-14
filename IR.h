@@ -38,77 +38,77 @@ enum IRConnType {
 	IR_CONN_FUNC,
 };
 enum IRNodeType {
-	IR_TYPECAST,
-	//
-	IR_STATEMENT_START,
-	IR_STATEMENT_END,
-	//
-	IR_INC,
-	IR_DEC,
-	//
-	IR_ADD,
-	IR_SUB,
-	//
-	IR_POS,
-	IR_NEG,
-	//
-	IR_MULT,
-	IR_MOD,
-	IR_DIV,
-	IR_POW,
-	//
-	IR_LAND,
-	IR_LXOR,
-	IR_LOR,
-	IR_LNOT,
-	//
-	IR_BNOT,
-	IR_BAND,
-	IR_BXOR,
-	IR_BOR,
-	IR_LSHIFT,
-	IR_RSHIFT,
-	//
-	IR_ARRAY_ACCESS,
-	IR_ASSIGN,
-	//
-	IR_SIMD,
-	//
-	IR_GT,
-	IR_LT,
-	IR_GE,
-	IR_LE,
-	IR_EQ,
-	IR_NE,
-	//
-	IR_CHOOSE,
-	//
-	IR_COND_JUMP,
-	IR_JUMP_TAB,
-	//
-	IR_VALUE,
-	IR_LABEL,
-	//
-	IR_FUNC_ARG,
-	IR_FUNC_CALL,
-	IR_FUNC_RETURN,
-	IR_FUNC_START,
-	IR_FUNC_END,
-	//
-	IR_SUB_SWITCH_START_LABEL,
-	//
-	IR_ADDR_OF,
-	IR_DERREF,
-	//
-	IR_SPILL_LOAD,
-	//
-	IR_MEMBERS,
-	//
-	IR_ARRAY,
+		IR_TYPECAST,
+		//
+		IR_STATEMENT_START,
+		IR_STATEMENT_END,
+		//
+		IR_INC,
+		IR_DEC,
+		//
+		IR_ADD,
+		IR_SUB,
+		//
+		IR_POS,
+		IR_NEG,
+		//
+		IR_MULT,
+		IR_MOD,
+		IR_DIV,
+		IR_POW,
+		//
+		IR_LAND,
+		IR_LXOR,
+		IR_LOR,
+		IR_LNOT,
+		//
+		IR_BNOT,
+		IR_BAND,
+		IR_BXOR,
+		IR_BOR,
+		IR_LSHIFT,
+		IR_RSHIFT,
+		//
+		IR_ARRAY_ACCESS,
+		IR_ASSIGN,
+		//
+		IR_SIMD,
+		//
+		IR_GT,
+		IR_LT,
+		IR_GE,
+		IR_LE,
+		IR_EQ,
+		IR_NE,
+		//
+		IR_CHOOSE,
+		//
+		IR_COND_JUMP,
+		IR_JUMP_TAB,
+		//
+		IR_VALUE,
+		IR_LABEL,
+		//
+		IR_FUNC_ARG,
+		IR_FUNC_CALL,
+		IR_FUNC_RETURN,
+		IR_FUNC_START,
+		IR_FUNC_END,
+		//
+		IR_SUB_SWITCH_START_LABEL,
+		//
+		IR_ADDR_OF,
+		IR_DERREF,
+		//
+		IR_SPILL_LOAD,
+		//
+		IR_MEMBERS,
+		//
+		IR_ARRAY,
 };
 struct IRNode;
 struct IRAttr {
-	void *name;
+		void *name;
 		void(*destroy)(struct IRAttr*);
 };
 LL_TYPE_DEF(struct IRAttr, IRAttr);
@@ -116,41 +116,41 @@ LL_TYPE_FUNCS(struct IRAttr, IRAttr);
 int IRAttrInsertPred(const struct IRAttr *a, const struct IRAttr *b);
 int IRAttrGetPred(const void *key, const struct IRAttr *b);
 struct IRNode {
-	enum IRNodeType type;
-	llIRAttr attrs; // NULL by defualt
+		enum IRNodeType type;
+		llIRAttr attrs; // NULL by defualt
 };
 GRAPH_TYPE_DEF(struct IRNode, enum IRConnType, IR);
 GRAPH_TYPE_FUNCS(struct IRNode, enum IRConnType, IR);
 enum IRValueType {
-	__IR_VAL_MEM_FRAME,
-	__IR_VAL_MEM_GLOBAL,
-	__IR_VAL_LABEL,
-	IR_VAL_REG,
-	IR_VAL_VAR_REF,
-	IR_VAL_FUNC,
-	IR_VAL_INT_LIT,
-	IR_VAL_STR_LIT,
-	IR_VAL_FLT_LIT,
+		__IR_VAL_MEM_FRAME,
+		__IR_VAL_MEM_GLOBAL,
+		__IR_VAL_LABEL,
+		IR_VAL_REG,
+		IR_VAL_VAR_REF,
+		IR_VAL_FUNC,
+		IR_VAL_INT_LIT,
+		IR_VAL_STR_LIT,
+		IR_VAL_FLT_LIT,
 };
 struct IRValue;
 struct IRValOpResult {
-	graphNodeIR node;
+		graphNodeIR node;
 };
 struct IRValIndirect {
-	graphNodeIR base;
-	graphNodeIR index;
-	long scale;
+		graphNodeIR base;
+		graphNodeIR index;
+		long scale;
 };
 struct IRValMemFrame {
-	long offset;
-	struct object *type;
+		long offset;
+		struct object *type;
 };
 struct IRValMemGlobal {
-	struct parserVar *symbol;
+		struct parserVar *symbol;
 };
 enum IRVarType {
-	IR_VAR_VAR,
-	IR_VAR_MEMBER,
+		IR_VAR_VAR,
+		IR_VAR_MEMBER,
 };
 struct IRVar {
 		unsigned int addressedByPtr:1;
@@ -165,68 +165,68 @@ struct IRVar {
 		long SSANum;
 };
 struct IRValue {
-	enum IRValueType type;
-	union {
-		struct regSlice reg;
-		struct IRVar var;
-		struct IRValMemFrame __frame;
-		struct IRValMemGlobal __global;
-		graphNodeIR __label;
-		struct IRValIndirect indir;
-		struct IRValOpResult opRes;
-		struct parserFunction *func;
-		struct lexerInt intLit;
-			double fltLit;
-		const char *strLit;
-		graphNodeIR memLabel;
-	} value;
+		enum IRValueType type;
+		union {
+				struct regSlice reg;
+				struct IRVar var;
+				struct IRValMemFrame __frame;
+				struct IRValMemGlobal __global;
+				graphNodeIR __label;
+				struct IRValIndirect indir;
+				struct IRValOpResult opRes;
+				struct parserFunction *func;
+				struct lexerInt intLit;
+				double fltLit;
+				const char *strLit;
+				graphNodeIR memLabel;
+		} value;
 };
 struct IRNodeAssign {
-	struct IRNode base;
+		struct IRNode base;
 };
 struct IRNodeBinop {
-	struct IRNode base;
+		struct IRNode base;
 };
 struct IRNodeUnop {
-	struct IRNode base;
+		struct IRNode base;
 };
 // Out-going connection is to where
 struct IRNodeJump {
-	struct IRNode base;
-	int forward;
+		struct IRNode base;
+		int forward;
 };
 // Out-going connection is to where
 struct IRNodeCondJump {
-	struct IRNode base;
-	enum IRFlag cond;
+		struct IRNode base;
+		enum IRFlag cond;
 };
 struct IRNodeSpill {
-	struct IRNode base;
-	struct IRValue item;
+		struct IRNode base;
+		struct IRValue item;
 };
 struct IRNodeLoad {
-	struct IRNode base;
-	struct IRValue item;
+		struct IRNode base;
+		struct IRValue item;
 };
 struct IRNodeSIMD {
-	struct IRNode base;
-	enum IRNodeType opType;
+		struct IRNode base;
+		enum IRNodeType opType;
 };
 struct IRNodeValue {
-	struct IRNode base;
-	struct IRValue val;
+		struct IRNode base;
+		struct IRValue val;
 };
 struct IRNodeInc {
-	struct IRNode base;
-	long isSuffix;
+		struct IRNode base;
+		long isSuffix;
 };
 struct IRNodeMembers {
 		struct IRNode base;
-		strObjectMember members;
+		struct objectMember *members;
 };
 struct IRNodeDec {
-	struct IRNode base;
-	long isSuffix;
+		struct IRNode base;
+		long isSuffix;
 };
 //"a"
 //"b"

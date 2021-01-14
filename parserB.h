@@ -30,3 +30,4 @@ struct parserNode *parserGetGlobalSym(const char *name);
 void parserAddGlobalSym(struct parserNode *node,struct  linkage link);
 strParserNode parserSymbolTableSyms();
 const struct linkage *parserGlobalSymLinkage(const char *name);
+void parserSymTableNames(const char **keys,long *count );

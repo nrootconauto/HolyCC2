@@ -24,45 +24,45 @@ enum parserNodeType {
 		NODE_BINOP,
 		NODE_LIT_FLT,
 		NODE_ASM_INST,
-	NODE_UNOP,
-	NODE_NAME,
-	NODE_OP,
-	NODE_FUNC_CALL,
-	NODE_COMMA_SEQ,
-	NODE_LIT_INT,
-	NODE_LIT_STR,
-	NODE_KW,
-	NODE_VAR_DECL,
-	NODE_VAR_DECLS,
-	NODE_META_DATA,
-	NODE_CLASS_DEF,
-	NODE_CLASS_FORWARD_DECL,
-	NODE_UNION_DEF,
-	NODE_UNION_FORWARD_DECL,
-	NODE_IF,
-	NODE_SCOPE,
-	NODE_BREAK,
-	NODE_DO,
-	NODE_WHILE,
-	NODE_FOR,
-	NODE_VAR,
-	NODE_CASE,
-	NODE_DEFAULT,
-	NODE_SWITCH,
-	NODE_SUBSWITCH,
-	NODE_LABEL,
-	NODE_TYPE_CAST,
-	NODE_ARRAY_ACCESS,
-	NODE_FUNC_DEF,
-	NODE_FUNC_FORWARD_DECL,
-	NODE_FUNC_REF,
-	NODE_MEMBER_ACCESS,
-	NODE_RETURN,
-	NODE_GOTO,
-	/**
-		* extern,import,_extern,_import,public
-		*/
-	NODE_LINKAGE,
+		NODE_UNOP,
+		NODE_NAME,
+		NODE_OP,
+		NODE_FUNC_CALL,
+		NODE_COMMA_SEQ,
+		NODE_LIT_INT,
+		NODE_LIT_STR,
+		NODE_KW,
+		NODE_VAR_DECL,
+		NODE_VAR_DECLS,
+		NODE_META_DATA,
+		NODE_CLASS_DEF,
+		NODE_CLASS_FORWARD_DECL,
+		NODE_UNION_DEF,
+		NODE_UNION_FORWARD_DECL,
+		NODE_IF,
+		NODE_SCOPE,
+		NODE_BREAK,
+		NODE_DO,
+		NODE_WHILE,
+		NODE_FOR,
+		NODE_VAR,
+		NODE_CASE,
+		NODE_DEFAULT,
+		NODE_SWITCH,
+		NODE_SUBSWITCH,
+		NODE_LABEL,
+		NODE_TYPE_CAST,
+		NODE_ARRAY_ACCESS,
+		NODE_FUNC_DEF,
+		NODE_FUNC_FORWARD_DECL,
+		NODE_FUNC_REF,
+		NODE_MEMBER_ACCESS,
+		NODE_RETURN,
+		NODE_GOTO,
+		/**
+			* extern,import,_extern,_import,public
+			*/
+		NODE_LINKAGE,
 };
 struct linkage{
 		enum {
@@ -85,14 +85,16 @@ struct parserVar {
 		char *name;
 		struct object *type;
 		strParserNode refs;
-		int isGlobal;
+		unsigned int isGlobal:1;
+		unsigned int isNoreg:1;
 };
 struct parserFunction {
-	char *name;
-	struct object *type;
-	strParserNode refs;
-	int isForwardDecl;
-	struct parserNode *node;
+		char *name;
+		struct object *type;
+		strParserNode refs;
+		int isForwardDecl;
+		struct parserNode *node;
+		struct parserNode *parentFunction;
 };
 void variableDestroy(struct parserVar *var);
 struct parserSourcePos {

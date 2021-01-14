@@ -1,3 +1,4 @@
+#include <asmEmitter.h>
 #include <registers.h>
 #include <parserA.h>
 #include <opcodesParser.h>
@@ -6,10 +7,14 @@
 #include <assert.h>
 #include <ptrMap.h>
 #include <parserB.h>
+#include <ctype.h>
 STR_TYPE_DEF(char,Char);
 STR_TYPE_FUNCS(char,Char);
 PTR_MAP_FUNCS(struct parserNode *, strChar, LabelNames);
 PTR_MAP_FUNCS(struct reg *, strChar, RegName);
+MAP_TYPE_DEF( char *, SymAsmName);
+MAP_TYPE_FUNCS(char *, SymAsmName);
+static __thread mapSymAsmName asmNames;
 static __thread long labelCount=0;
 static __thread ptrMapLabelNames labelsByParserNode=NULL;
 static __thread FILE *constsTmpFile=NULL;
@@ -96,66 +101,41 @@ __attribute__((constructor)) static void init() {
 		ptrMapRegNameAdd(regNames, &regAMD64R13u64, strClone("R13"));
 		ptrMapRegNameAdd(regNames, &regAMD64R14u64, strClone("R14"));
 		ptrMapRegNameAdd(regNames, &regAMD64R15u64, strClone("R15"));
+
+		ptrMapRegNameAdd(regNames, &regX86MM0, strClone("MM0"));
+		ptrMapRegNameAdd(regNames, &regX86MM1, strClone("MM1"));
+		ptrMapRegNameAdd(regNames, &regX86MM2, strClone("MM2"));
+		ptrMapRegNameAdd(regNames, &regX86MM3, strClone("MM3"));
+		ptrMapRegNameAdd(regNames, &regX86MM4, strClone("MM4"));
+		ptrMapRegNameAdd(regNames, &regX86MM5, strClone("MM5"));
+		ptrMapRegNameAdd(regNames, &regX86MM6, strClone("MM6"));
+		ptrMapRegNameAdd(regNames, &regX86MM7, strClone("MM7"));
+
+		ptrMapRegNameAdd(regNames, &regX86XMM0, strClone("XMM0"));
+		ptrMapRegNameAdd(regNames, &regX86XMM1, strClone("XMM1"));
+		ptrMapRegNameAdd(regNames, &regX86XMM2, strClone("XMM2"));
+		ptrMapRegNameAdd(regNames, &regX86XMM3, strClone("XMM3"));
+		ptrMapRegNameAdd(regNames, &regX86XMM4, strClone("XMM4"));
+		ptrMapRegNameAdd(regNames, &regX86XMM5, strClone("XMM5"));
+		ptrMapRegNameAdd(regNames, &regX86XMM6, strClone("XMM6"));
+		ptrMapRegNameAdd(regNames, &regX86XMM7, strClone("XMM7"));
+
+		ptrMapRegNameAdd(regNames, &regX86ES, strClone("ES"));
+		ptrMapRegNameAdd(regNames, &regX86CS, strClone("CS"));
+		ptrMapRegNameAdd(regNames, &regX86SS, strClone("SS"));
+		ptrMapRegNameAdd(regNames, &regX86DS, strClone("DS"));
+		ptrMapRegNameAdd(regNames, &regX86FS, strClone("FS"));
+		ptrMapRegNameAdd(regNames, &regX86GS, strClone("GS"));
 }
 void X86EmitAsmInit() {
 		labelCount=0;
 		ptrMapLabelNamesDestroy(labelsByParserNode, (void(*)(void*))strCharDestroy2);
+		mapSymAsmNameDestroy(asmNames, (void(*)(void*))strCharDestroy2);
+		asmNames=mapSymAsmNameCreate();
 		labelsByParserNode=ptrMapLabelNamesCreate();
 		constsTmpFile=tmpfile();
 		symbolsTmpFile=tmpfile();
 		codeTmpFile=tmpfile();
-}
-static strChar parserNodeSymbolName(const struct parserNode *node) {
-		if(node->type==NODE_VAR) {
-				struct parserNodeVar *var=(void*)node;
-				return strClone(var->var->name);
-		} else if(node->type==NODE_FUNC_REF) {
-				struct parserNodeFuncRef *ref=(void*)node;
-				struct parserNodeName *name=(void*)ref->name;
-				if(!name) {
-						long size=snprintf(NULL, 0, "UNAMED_FUNC_%li", ++labelCount);
-						char buffer[size+1];
-						sprintf(buffer, "UNAMED_FUNC_%li", labelCount);
-						return strClone(buffer);
-				} else {
-						//Check if function is global(one in global symbols table)
-						__auto_type find=parserGetGlobalSym(name->text);
-						if(find) {
-								if(find!=node)
-										goto localFunc;
-								return strClone(name->text);
-						}
-				localFunc:;
-						long size=snprintf(NULL, 0, "LOC_FUNC_%li", ++labelCount);
-						char buffer[size+1];
-						sprintf(buffer, "LOC_FUNC_%li", labelCount);
-						return strClone(buffer);
-				}
-		} else if(node->type==NODE_LABEL) {
-				struct parserNodeLabel *lab=(void*)node;
-				struct parserNodeName *name=(void*)lab->name;
-				long size=snprintf(NULL, 0, "lbl_%s", name->text);
-				char buffer[size+1];
-				sprintf(buffer, "L_%s", name->text);
-				return strClone(buffer);
-		} else if(node->type==NODE_ASM_LABEL_GLBL) {
-				struct parserNodeLabelGlbl *lab=(void*)node;
-				struct parserNodeName *name=(void*)lab->name;
-				long size=snprintf(NULL, 0, "%s", name->text);
-				char buffer[size+1];
-				sprintf(buffer, "%s", name->text);
-				return strClone(buffer);
-		} else if(node->type==NODE_ASM_LABEL_LOCAL) {
-				struct parserNodeLabelLocal *lab=(void*)node;
-				struct parserNodeName *name=(void*)lab->name;
-				long size=snprintf(NULL, 0, "_lbl_%s", name->text);
-				char buffer[size+1];
-				sprintf(buffer, "_lbl_%s", name->text);
-				return strClone(buffer);
-		} else {
-				//Why are you here,you should have throw an error in the parser if you couldn't resolve a (valid) symbol
-				return NULL;
-		}
 }
 static strChar int64ToStr(int64_t value) {
 		strChar retVal=NULL;
@@ -198,14 +178,34 @@ static strChar getSizeStr(struct object *obj) {
 	}
 }
 static void X86EmitSymbolTable() {
-		
-};
+		long count;
+		parserSymTableNames(NULL,&count);
+		const char *keys[count];
+		parserSymTableNames(keys,NULL);
+		for(long i=0;i!=count;i++) {
+				strChar name CLEANUP(strCharDestroy2)=parserNodeSymbolName(parserGetGlobalSym(keys[i]));
+				__auto_type link= parserGlobalSymLinkage(keys[i]);
+				if((link->type&LINKAGE__EXTERN)||(link->type&LINKAGE__IMPORT)) {
+						fprintf(symbolsTmpFile, "EXTERN %s ; Appears as %s in src.\n", name,keys[i]);
+						mapSymAsmNameInsert(asmNames,keys[i],strClone(link->fromSymbol));
+				} else if((link->type&LINKAGE_STATIC)) {
+						//Do nothing
+				} else if((link->type&LINKAGE_EXTERN)
+														||(link->type&LINKAGE_IMPORT)) {
+						fprintf(symbolsTmpFile, "EXTERN %s\n", name);
+				} else if((link->type&LINKAGE_LOCAL)) {
+						fprintf(symbolsTmpFile, "GLOBAL %s\n", name);
+				}
+		}
+}
 void X86EmitAsmInst(struct opcodeTemplate *template,strX86AddrMode args,int *err) {
 		//
 		// Use intelAlias to use intel name/instruction
 		//
 		fprintf(codeTmpFile, "%s ", opcodeTemplateIntelAlias(template));
 		for(long i=0;i!=strX86AddrModeSize(args);i++) {
+				if(i!=0)
+						fputc(',', codeTmpFile);
 				switch(args[i].type) {
 				case X86ADDRMODE_FLT: {
 						assert(0);
@@ -312,11 +312,130 @@ void X86EmitAsmInst(struct opcodeTemplate *template,strX86AddrMode args,int *err
 		if(err)
 				*err=1;
 }
-void X86EmitAsmParserInst(struct parserNodeAsmInstX86 *inst,FILE *dumpTo) {
+void X86EmitAsmParserInst(struct parserNodeAsmInstX86 *inst) {
 		struct parserNodeName *name=(void*)inst->name;
 		strX86AddrMode args CLEANUP(strX86AddrModeDestroy);
 		for(long i=0;i!=strParserNodeSize(inst->args);i++)
 				args=strX86AddrModeAppendItem(args,parserNode2X86AddrMode(inst->args[i]));
 		strOpcodeTemplate templates CLEANUP(strOpcodeTemplateDestroy)=X86OpcodesByArgs(name->text, args, NULL);
 		assert(strOpcodeTemplateSize(templates)!=0);
+		int err;
+		X86EmitAsmInst(templates[0],args,&err);
+		assert(!err);
 }
+char *X86EmitAsmLabel() {
+		long count=snprintf(NULL, 0, "$LBL_%li", ++labelCount);
+		char buffer[count+1];
+		sprintf(buffer,  "$LBL_%li", labelCount);
+		fprintf(codeTmpFile, "%s:\n", buffer);
+		char *retVal=malloc(count+1);
+		strcpy(retVal, buffer);
+		return retVal;
+}
+static strChar  unescapeString(const char *str) {
+		char *otherValids="[]{}\\|;:\"\'<>?,./`~!@#$%^&*()-_+=";
+		long len=strlen(str);
+		strChar retVal=strCharAppendItem(NULL, '"');
+		for(long i=0;i!=len;i++) {
+				if(isalnum(str[i])) {
+						retVal=strCharAppendItem(retVal, str[i]);
+				} else if(str[i]=='\"') {
+						retVal=strCharAppendItem(retVal, '\\');
+						retVal=strCharAppendItem(retVal, '\"');
+				} else {
+						if(strchr(otherValids, str[i])) {
+								retVal=strCharAppendItem(retVal, str[i]);
+						} else {
+								long count=snprintf(NULL, 0, "\\%02x",((uint8_t*)str)[i]);
+								char buffer[count+1];
+								sprintf(buffer,  "\\%02x",((uint8_t*)str)[i]);
+								retVal=strCharAppendData(retVal, buffer, strlen(buffer));
+						}
+				}
+		}
+		retVal=strCharAppendItem(NULL, '"');
+		return retVal;
+}
+struct X86AddressingMode X86EmitAsmDU64(uint64_t *data,long len) {
+		long count=snprintf(NULL, 0, "$DU64_%li", ++labelCount);
+		char buffer[count+1];
+		sprintf(buffer,  "$DU64_%li", labelCount);
+		fprintf(constsTmpFile, "%s: DQ ", buffer);
+		for(long i=0;i!=len;i++) {
+				if(i!=0)
+						fputc(',',constsTmpFile);
+				strChar text CLEANUP(strCharDestroy)=uint64ToStr(data[i]);
+				fprintf(constsTmpFile, "%s", text);
+		}
+		struct X86AddressingMode mode;
+		mode.valueType=NULL;
+		mode.type=X86ADDRMODE_LABEL;
+		mode.value.label=strcpy(malloc(count+1),buffer);
+		return mode;
+}
+struct X86AddressingMode X86EmitAsmDU32(uint32_t *data,long len) {
+		long count=snprintf(NULL, 0, "$DU32_%li", ++labelCount);
+		char buffer[count+1];
+		sprintf(buffer,  "$DU32_%li", labelCount);
+		fprintf(constsTmpFile, "%s: DD ", buffer);
+		for(long i=0;i!=len;i++) {
+				if(i!=0)
+						fputc(',',constsTmpFile);
+				strChar text CLEANUP(strCharDestroy)=int64ToStr(data[i]);
+				fprintf(constsTmpFile, "%s", text);
+		}
+		struct X86AddressingMode mode;
+		mode.valueType=NULL;
+		mode.type=X86ADDRMODE_LABEL;
+		mode.value.label=strcpy(malloc(count+1),buffer);
+		return mode;
+}
+struct X86AddressingMode X86EmitAsmDU16(uint16_t *data,long len) {
+		long count=snprintf(NULL, 0, "$DU16_%li", ++labelCount);
+		char buffer[count+1];
+		sprintf(buffer,  "$DU16_%li", labelCount);
+		fprintf(constsTmpFile, "%s: DW ", buffer);
+		for(long i=0;i!=len;i++) {
+				if(i!=0)
+						fputc(',',constsTmpFile);
+				strChar text CLEANUP(strCharDestroy)=int64ToStr(data[i]);
+				fprintf(constsTmpFile, "%s", text);
+		}
+		struct X86AddressingMode mode;
+		mode.valueType=NULL;
+		mode.type=X86ADDRMODE_LABEL;
+		mode.value.label=strcpy(malloc(count+1),buffer);
+		return mode;
+}
+struct X86AddressingMode X86EmitAsmDU8(uint8_t *data,long len) {
+		long count=snprintf(NULL, 0, "$DU8_%li", ++labelCount);
+		char buffer[count+1];
+		sprintf(buffer,  "$DU8_%li", labelCount);
+		fprintf(constsTmpFile, "%s: DB ", buffer);
+		for(long i=0;i!=len;i++) {
+				if(i!=0)
+						fputc(',',constsTmpFile);
+				strChar text CLEANUP(strCharDestroy)=int64ToStr(data[i]);
+				fprintf(constsTmpFile, "%s", text);
+		}
+		struct X86AddressingMode mode;
+		mode.valueType=NULL;
+		mode.type=X86ADDRMODE_LABEL;
+		mode.value.label=strcpy(malloc(count+1),buffer);
+		return mode;
+}
+struct X86AddressingMode X86EmitAsmStrLit(const char *text) {
+		strChar unes CLEANUP(strCharDestroy)=unescapeString(text);
+		long count=snprintf(NULL, 0, "$STR_%li", ++labelCount);
+		char buffer[count+1];
+		sprintf(buffer,  "$STR_%li", labelCount);
+		fprintf(constsTmpFile, "%s: DB %s\n", buffer,unes);
+		struct X86AddressingMode mode;
+		mode.valueType=NULL;
+		mode.type=X86ADDRMODE_LABEL;
+		mode.value.label=strcpy(malloc(count+1),buffer);
+		return mode;
+}
+void X86AddrMoreDestroy(struct X86AddressingMode *mode) {
+
+} 

@@ -34,7 +34,6 @@ int main() {
 		parserTests();
 		basicBlockTests();
 		IEEE754Tests();
-				/*
 		strTests();
 		preprocessorTests();
 		base64Tests();
@@ -58,7 +57,6 @@ int main() {
 		IRTypeInferenceTests();
 	constantPropigationTests();
 	frameLayoutTests();
-		*/
 		parse2IRTests();
 	return 0;
 }
