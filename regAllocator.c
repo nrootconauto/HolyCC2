@@ -8,6 +8,8 @@
 #define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 #include <graphDominance.h>
+static __thread const void *__varFilterData=NULL;
+static __thread int(*__varFiltPred)(const struct parserVar *,const void *);
 static char *ptr2Str(const void *a) { return base64Enc((void *)&a, sizeof(a)); }
 static int IRVarCmp2(const struct IRVar **a, const struct IRVar **b) {
 	return IRVarCmp(*a, *b);
@@ -578,6 +580,9 @@ static int filterIntVars(graphNodeIR node, const void *data) {
 			return 0;
 	if(value->val.value.var.addressedByPtr)
 			return 0;
+	if(__varFiltPred)
+			if(!__varFiltPred(value->val.value.var.value.var,__varFilterData))
+					return 0;
 	return 1;
 }
 static int filterFloatVars(graphNodeIR node, const void *data) {
@@ -590,6 +595,9 @@ static int filterFloatVars(graphNodeIR node, const void *data) {
 			return 0;
 	if(value->val.value.var.addressedByPtr)
 			return 0;
+	if(__varFiltPred)
+			if(!__varFiltPred(value->val.value.var.value.var,__varFilterData))
+					return 0;
 	return 1;
 }
 static int isVarNode(const struct IRNode *irNode) {
@@ -1053,7 +1061,9 @@ static void mapRegSliceDestroy2(ptrMapregSlice *toDestroy) {
 	ptrMapregSliceDestroy(*toDestroy, NULL);
 }
 void IRRegisterAllocate(graphNodeIR start, color2RegPredicate colorFunc,
-                        void *colorData) {
+                        void *colorData,int(*varFiltPred)(const struct parserVar *,const void *),const void *varFiltData) {
+		__varFilterData=varFiltData;
+		__varFiltPred=varFiltPred;
 		IRInsertNodesBetweenExprs(start);
 	// SSA
 	__auto_type allNodes = graphNodeIRAllNodes(start);
