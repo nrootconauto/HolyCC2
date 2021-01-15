@@ -323,13 +323,18 @@ void X86EmitAsmParserInst(struct parserNodeAsmInstX86 *inst) {
 		X86EmitAsmInst(templates[0],args,&err);
 		assert(!err);
 }
-char *X86EmitAsmLabel() {
-		long count=snprintf(NULL, 0, "$LBL_%li", ++labelCount);
-		char buffer[count+1];
-		sprintf(buffer,  "$LBL_%li", labelCount);
-		fprintf(codeTmpFile, "%s:\n", buffer);
-		char *retVal=malloc(count+1);
-		strcpy(retVal, buffer);
+char *X86EmitAsmLabel(const char *name) {
+		if(!name) {
+				long count=snprintf(NULL, 0, "$LBL_%li", ++labelCount);
+				char buffer[count+1];
+				sprintf(buffer,  "$LBL_%li", labelCount);
+				fprintf(codeTmpFile, "%s:\n", buffer);
+				char *retVal=malloc(count+1);
+				strcpy(retVal, buffer);
+				return retVal;
+		}
+		char *retVal=malloc(strlen(name)+1);
+		strcpy(retVal, retVal);
 		return retVal;
 }
 static strChar  unescapeString(const char *str) {
