@@ -911,3 +911,19 @@ struct X86AddressingMode X86AddrModeLabel(const char *name) {
 		strcpy(mode.value.label,name);
 		return mode;
 }
+struct X86AddressingMode X86AddrModeClone(struct X86AddressingMode *mode) {
+		switch(mode->type) {
+		case X86ADDRMODE_FLT:
+		case X86ADDRMODE_MEM:
+		case X86ADDRMODE_REG:
+		case X86ADDRMODE_SINT:
+		case X86ADDRMODE_UINT:
+		case X86ADDRMODE_ITEM_ADDR:
+				return *mode;
+		case X86ADDRMODE_LABEL:;
+				__auto_type retVal=*mode;
+				retVal.value.label=malloc(strlen(mode->value.label)+1);
+				strcpy(retVal.value.label, mode->value.label);
+				return retVal;
+		}
+}

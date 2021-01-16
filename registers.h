@@ -142,3 +142,4 @@ int regSliceCompare(const struct regSlice *a, const struct regSlice *b);
 strRegP regsForArch();
 enum archEndian archEndian();
 enum archConfig getCurrentArch();
+int regConflict(struct reg *a,struct reg *b);

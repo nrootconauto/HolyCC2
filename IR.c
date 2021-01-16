@@ -1475,16 +1475,20 @@ static int isNotExprEdge(const void *data,const graphEdgeIR *edge) {
 		return !IRIsExprEdge(*graphEdgeIRValuePtr(*edge));
 }
 PTR_MAP_FUNCS(graphNodeIR, graphNodeIR, AffectedNodes);
-static void __IRInsertNodesBetweenExprs(graphNodeIR expr,ptrMapAffectedNodes affected) {
+static void __IRInsertNodesBetweenExprs(graphNodeIR expr,ptrMapAffectedNodes affected,int(*pred)(graphNodeIR,const void*),const void *predData) {
 		if(ptrMapAffectedNodesGet(affected,expr))
 				return;
+
+		if(pred)
+				if(!pred(expr,predData))
+						return;
 		
 		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy) =graphNodeIRIncoming(expr);
 		in=strGraphEdgeIRPRemoveIf(in, NULL, isNotExprEdge);
 		for(long i=0;i!=strGraphEdgeIRPSize(in);i++) {
 				__auto_type node=graphEdgeIRIncoming(in[i]);
 				//Recursivly do the same for incoming expression
-				__IRInsertNodesBetweenExprs(node,affected);
+				__IRInsertNodesBetweenExprs(node,affected,pred,predData);
 				//Ignore existing assigns
 				if(*graphEdgeIRValuePtr(in[i])==IR_CONN_DEST)
 						continue;
@@ -1511,7 +1515,7 @@ static int IsEndOfExprNode(graphNodeIR node,const void *data) {
 		
 		return 0;
 }
-void IRInsertNodesBetweenExprs(graphNodeIR expr) {
+void IRInsertNodesBetweenExprs(graphNodeIR expr,int(*pred)(graphNodeIR,const void*),const void *predData) {
 		__auto_type filtered=IRFilter(expr,  IsEndOfExprNode,  NULL);
 		//IRPrintMappedGraph(filtered);
 		strGraphNodeMappingP all CLEANUP(strGraphNodeMappingPDestroy)= graphNodeMappingAllNodes(filtered);
@@ -1519,7 +1523,7 @@ void IRInsertNodesBetweenExprs(graphNodeIR expr) {
 		for(long i=0;i!=strGraphNodeMappingPSize(all);i++) {
 				//Assign types to  nodes of expression
 				IRNodeType(*graphNodeMappingValuePtr(all[i]));
-				__IRInsertNodesBetweenExprs(*graphNodeMappingValuePtr(all[i]),affected);
+				__IRInsertNodesBetweenExprs(*graphNodeMappingValuePtr(all[i]),affected,pred,predData);
 		}
 		ptrMapAffectedNodesDestroy(affected, NULL);
 		graphNodeMappingKillGraph(&filtered, NULL, NULL);

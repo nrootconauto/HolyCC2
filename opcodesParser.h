@@ -101,3 +101,4 @@ const char * opcodeTemplateName(struct opcodeTemplate *template);
 strOpcodeTemplate X86OpcodesByName(const char *name);
 long X86OpcodesArgCount(const char *name);
 const char *opcodeTemplateIntelAlias(const struct opcodeTemplate *template);
+struct X86AddressingMode X86AddrModeClone(struct X86AddressingMode *mode);

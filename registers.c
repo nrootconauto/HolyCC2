@@ -436,6 +436,13 @@ int regSliceConflict(const struct regSlice *a, const struct regSlice *b) {
 
 		return 0;
 }
+int regConflict(struct reg *a,struct reg *b) {
+		struct regSlice A;
+		A.offset=0,A.reg=a,A.widthInBits=a->size*8;
+		struct regSlice B;
+		B.offset=0,B.reg=a,B.widthInBits=b->size*8;
+		return regSliceConflict(&A, &B);
+}
 strRegP regsForArch() {
 		switch(currentArch) {
 		case ARCH_TEST_SYSV:

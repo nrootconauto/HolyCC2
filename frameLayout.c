@@ -73,7 +73,7 @@ static void mapLiveNodesByColorDestroy2(mapLiveNodesByColor *map) {
 struct colorPair {
 		int a,b;
 };
-strFrameEntry IRComputeFrameLayout(graphNodeIR start) {
+strFrameEntry IRComputeFrameLayout(graphNodeIR start,long *frameSize) {
 		strFrameEntry retVal=NULL;
 		//These return "first" nodes of graphs
 		strGraphNodeIRLiveP graphs CLEANUP(strGraphNodeIRLivePDestroy2)=IRInterferenceGraphFilter(start, NULL, isGlobal);
@@ -119,6 +119,8 @@ strFrameEntry IRComputeFrameLayout(graphNodeIR start) {
 						}
 						currentOffset+=largestItemSize;
 				}
+				if(frameSize)
+						*frameSize=currentOffset;
 		}
 		return retVal;
 }

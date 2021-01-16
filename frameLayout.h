@@ -6,4 +6,4 @@ struct frameEntry {
 };
 STR_TYPE_DEF(struct frameEntry, FrameEntry);
 STR_TYPE_FUNCS(struct frameEntry, FrameEntry);
-strFrameEntry IRComputeFrameLayout(graphNodeIR start);
+strFrameEntry IRComputeFrameLayout(graphNodeIR start,long *frameSize);

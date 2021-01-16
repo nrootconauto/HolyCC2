@@ -1064,7 +1064,6 @@ void IRRegisterAllocate(graphNodeIR start, color2RegPredicate colorFunc,
                         void *colorData,int(*varFiltPred)(const struct parserVar *,const void *),const void *varFiltData) {
 		__varFilterData=varFiltData;
 		__varFiltPred=varFiltPred;
-		IRInsertNodesBetweenExprs(start);
 	// SSA
 	__auto_type allNodes = graphNodeIRAllNodes(start);
 	removeChooseNodes(allNodes, start);
