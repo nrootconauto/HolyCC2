@@ -1073,7 +1073,36 @@ static struct reg *addrModeReg(struct X86AddressingMode *mode) {
 				return NULL;
 		return mode->value.reg;
 }
-void IR2Asm(graphNodeIR start,FILE *dumpTo) {
+static void compileUntilBranch(graphNodeIR start) {
+		for(;;) {
+				__auto_type exprEnd=IREndOfExpr(start);
+				if(start!=exprEnd) {
+						IR2Asm(exprEnd);
+						start=exprEnd;
+						continue;
+				}
+				//Check if multiple incoming,if so,multiple branches come into it
+				strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
+				strGraphEdgeIRP inFlow CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_FLOW);
+				if(strGraphEdgeIRPSize(inFlow)>1) {
+						return;
+				}
+
+				if(graphNodeIRValuePtr(start)->type!=IR_LABEL) {
+						IR2Asm(start);
+						return ;
+				}
+				
+				strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(start);
+				strGraphEdgeIRP outFlow CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(out, IR_CONN_FLOW);
+				if(strGraphEdgeIRPSize(outFlow)==1) {
+						start=graphEdgeIROutgoing(outFlow[0]);
+						continue;
+				} else //?
+						assert(0);
+		}
+}
+void IR2Asm(graphNodeIR start) {
 		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(start);
 		if(isFltNode(start)) {
 		switch(getCurrentArch()) {
@@ -1135,7 +1164,7 @@ void IR2Asm(graphNodeIR start,FILE *dumpTo) {
 						strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeClone(&iMode));
 						addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeUint(objectSize(ptr->type, NULL)));
 						assembleInst("ADD", addArgs);
-
+						
 						return;
 				}
 				if(strGraphEdgeIRPSize(out))
@@ -1568,6 +1597,17 @@ void IR2Asm(graphNodeIR start,FILE *dumpTo) {
 				struct X86AddressingMode aMode CLEANUP(X86AddrModeDestroy)=node2AddrMode(a);
 				struct X86AddressingMode bMode CLEANUP(X86AddrModeDestroy)=node2AddrMode(b);
 				struct X86AddressingMode oMode CLEANUP(X86AddrModeDestroy)=node2AddrMode(nodeDest(start));
+
+				strGraphEdgeIRP incomingAssign CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_DEST);
+				struct X86AddressingMode inMode CLEANUP(X86AddrModeDestroy)=X86AddrModeSint(-1);
+				int hasIncomingAssign=0;
+				if(strGraphEdgeIRPSize(incomingAssign)) {
+						X86AddrModeDestroy(&inMode);
+						inMode=node2AddrMode(graphEdgeIRIncoming(incomingAssign[0]));
+						hasIncomingAssign=1;
+				}
+				AUTO_LOCK_MODE_REGS(inMode);
+				
 				switch(itemSize) {
 				case 1:
 				case 2:
@@ -1609,6 +1649,8 @@ void IR2Asm(graphNodeIR start,FILE *dumpTo) {
 						} else assign(indexMode,bMode, ptrSize());
 
 						struct X86AddressingMode indirMode CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(itemSize, index, base, 0, (struct object*)getTypeForSize(itemSize));
+						if(hasIncomingAssign)
+								assign(indirMode,inMode,objectSize(IRNodeType(nodeDest(start)), NULL));
 						assign(oMode, indirMode, objectSize(IRNodeType(nodeDest(start)), NULL));
 						
 						uncomsumeRegister(base);
@@ -1667,6 +1709,8 @@ void IR2Asm(graphNodeIR start,FILE *dumpTo) {
 
 
 						struct X86AddressingMode indirMode CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirReg(base,  (struct object*)getTypeForSize(ptrSize()));
+						if(hasIncomingAssign)
+								assign(indirMode,inMode,objectSize(IRNodeType(nodeDest(start)), NULL));
 						assign(oMode, indirMode, objectSize(IRNodeType(nodeDest(start)), NULL));
 						
 						uncomsumeRegister(base);
@@ -1676,20 +1720,130 @@ void IR2Asm(graphNodeIR start,FILE *dumpTo) {
 						if(baseNeedsPop)
 								popReg(base);
 				}
+						break;
 				}
+				return;
 		}
 		case IR_SIMD: {
 				assert(0);
 		}
-		case IR_GT:
-		case IR_LT:
-		case IR_GE:
-		case IR_LE:
-		case IR_EQ:
-		case IR_NE:
-		case IR_CHOOSE:
-		case IR_COND_JUMP:
-		case IR_JUMP_TAB:
+		case IR_GT: {
+				assembleOpInt(start, "CMP");
+				strX86AddrMode setGArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+				struct X86AddressingMode oMode CLEANUP(X86AddrModeDestroy)=node2AddrMode(nodeDest(start));
+				setGArgs=strX86AddrModeAppendItem(setGArgs, demoteAddrMode(oMode,&typeI8i));
+				assembleInst("SETG", setGArgs);
+				return ;
+		}
+		case IR_LT: {
+				assembleOpInt(start, "CMP");
+				strX86AddrMode setGArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+				struct X86AddressingMode oMode CLEANUP(X86AddrModeDestroy)=node2AddrMode(nodeDest(start));
+				setGArgs=strX86AddrModeAppendItem(setGArgs, demoteAddrMode(oMode,&typeI8i));
+				assembleInst("SETL", setGArgs);
+				return ;
+		}
+		case IR_GE: {
+				assembleOpInt(start, "CMP");
+				strX86AddrMode setGArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+				struct X86AddressingMode oMode CLEANUP(X86AddrModeDestroy)=node2AddrMode(nodeDest(start));
+				setGArgs=strX86AddrModeAppendItem(setGArgs, demoteAddrMode(oMode,&typeI8i));
+				assembleInst("SETGE", setGArgs);
+				return ;
+		}
+		case IR_LE: {
+				assembleOpInt(start, "CMP");
+				strX86AddrMode setGArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+				struct X86AddressingMode oMode CLEANUP(X86AddrModeDestroy)=node2AddrMode(nodeDest(start));
+				setGArgs=strX86AddrModeAppendItem(setGArgs, demoteAddrMode(oMode,&typeI8i));
+				assembleInst("SETLE", setGArgs);
+				return ;
+		}
+		case IR_EQ: {
+				assembleOpInt(start, "CMP");
+				strX86AddrMode setGArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+				struct X86AddressingMode oMode CLEANUP(X86AddrModeDestroy)=node2AddrMode(nodeDest(start));
+				setGArgs=strX86AddrModeAppendItem(setGArgs, demoteAddrMode(oMode,&typeI8i));
+				assembleInst("SETE", setGArgs);
+				return ;
+		}
+		case IR_NE: {
+				assembleOpInt(start, "CMP");
+				strX86AddrMode setGArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+				struct X86AddressingMode oMode CLEANUP(X86AddrModeDestroy)=node2AddrMode(nodeDest(start));
+				setGArgs=strX86AddrModeAppendItem(setGArgs, demoteAddrMode(oMode,&typeI8i));
+				assembleInst("SETNE", setGArgs);
+				return ;
+		}
+		case IR_CHOOSE: {
+				fprintf(stderr, "Remove choose nodes with IRSSAReplaceChooseWithAssigns before calling me!\n");
+				assert(0);
+		}
+		case IR_COND_JUMP: {
+				strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
+				strGraphEdgeIRP inSource CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_SOURCE_A);
+				__auto_type inNode=graphEdgeIRIncoming(inSource[0]);
+				struct X86AddressingMode  inMode CLEANUP(X86AddrModeDestroy)=node2AddrMode(inNode);
+
+				strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
+				strGraphEdgeIRP outT CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_COND_TRUE);
+				strGraphEdgeIRP outF CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_COND_FALSE);
+
+				__auto_type trueNode=graphEdgeIROutgoing(outT[0]);
+				__auto_type falseNode=graphEdgeIROutgoing(outF[0]);
+				struct X86AddressingMode trueLab CLEANUP(X86AddrModeDestroy)=node2AddrMode(trueNode);
+				struct X86AddressingMode falseLab CLEANUP(X86AddrModeDestroy)=node2AddrMode(falseNode);
+
+				AUTO_LOCK_MODE_REGS(inMode);
+				strX86AddrMode cmpArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+				cmpArgs=strX86AddrModeAppendItem(cmpArgs, X86AddrModeClone(&inMode));
+				cmpArgs=strX86AddrModeAppendItem(cmpArgs, X86AddrModeSint(0));
+				assembleInst("CMP", cmpArgs);
+
+				strX86AddrMode jmpTArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+				jmpTArgs=strX86AddrModeAppendItem(jmpTArgs, X86AddrModeClone(&trueLab));
+				assembleInst("JNE", jmpTArgs);
+				
+				strX86AddrMode jmpFArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+				jmpFArgs=strX86AddrModeAppendItem(jmpFArgs, X86AddrModeClone(&falseLab));
+				assembleInst("JE", jmpFArgs);
+
+				compileUntilBranch(trueNode);
+				compileUntilBranch(falseNode);
+				return;
+		}
+		case IR_JUMP_TAB: {
+				strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
+				strGraphEdgeIRP inSource CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_SOURCE_A);
+				__auto_type inNode=graphEdgeIRIncoming(inSource[0]);
+				struct X86AddressingMode  inMode CLEANUP(X86AddrModeDestroy)=node2AddrMode(inNode);
+
+				struct IRNodeJumpTable *table=(void*)graphNodeIRValuePtr(start);
+				strIRTableRange ranges CLEANUP(strIRTableRangeDestroy)=strIRTableRangeClone(table->labels);
+				int64_t smallest=INT64_MAX;
+				int64_t largest=INT64_MIN;
+				for(long i=0;i!=strIRTableRangeSize(ranges);i++) {
+						if(ranges[i].start<smallest)
+								smallest=ranges[i].start;
+						if(ranges[i].end>largest)
+								largest=ranges[i].end;
+				}
+				int64_t diff=largest-smallest;
+				switch(ptrSize()) {
+				case 2:
+						fprintf(stderr, "HolyC on a commodore 64 isn't possible yet,bro.\n");
+						assert(0);
+				case 4: {
+						break;
+				}
+				case 8: {
+						break;
+				}
+				default:
+						fprintf(stderr, "Are you in the future where 64bit address space is obselete?\n");
+						assert(0);
+				}
+		}
 		case IR_VALUE:
 		case IR_LABEL:
 		case IR_FUNC_ARG:
