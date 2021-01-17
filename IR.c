@@ -1489,9 +1489,13 @@ static void __IRInsertNodesBetweenExprs(graphNodeIR expr,ptrMapAffectedNodes aff
 				__auto_type node=graphEdgeIRIncoming(in[i]);
 				//Recursivly do the same for incoming expression
 				__IRInsertNodesBetweenExprs(node,affected,pred,predData);
-				//Ignore existing assigns
-				if(*graphEdgeIRValuePtr(in[i])==IR_CONN_DEST)
-						continue;
+				//Ignore existing assigns(unless assigning into an array or ptr)
+				if(*graphEdgeIRValuePtr(in[i])==IR_CONN_DEST) {
+						__auto_type type=graphNodeIRValuePtr(expr)->type;
+						if(type==IR_DERREF||type==IR_ARRAY_ACCESS);
+						else
+								continue;
+				}
 				
 				struct IRNodeValue *nodeValue=(void*)graphNodeIRValuePtr(node);
 				if(nodeValue->base.type==IR_VALUE)
