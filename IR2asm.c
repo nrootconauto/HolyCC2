@@ -1102,6 +1102,14 @@ static void compileUntilBranch(graphNodeIR start) {
 						assert(0);
 		}
 }
+static int IRTableRangeCmp(const struct IRJumpTableRange *a,const struct IRJumpTableRange *b) {
+		if(a->start>b->start)
+				return 1;
+		else if(a->start<b->start)
+				return -1;
+		else
+				return 0;
+}
 void IR2Asm(graphNodeIR start) {
 		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(start);
 		if(isFltNode(start)) {
@@ -1820,29 +1828,75 @@ void IR2Asm(graphNodeIR start) {
 
 				struct IRNodeJumpTable *table=(void*)graphNodeIRValuePtr(start);
 				strIRTableRange ranges CLEANUP(strIRTableRangeDestroy)=strIRTableRangeClone(table->labels);
-				int64_t smallest=INT64_MAX;
-				int64_t largest=INT64_MIN;
-				for(long i=0;i!=strIRTableRangeSize(ranges);i++) {
-						if(ranges[i].start<smallest)
-								smallest=ranges[i].start;
-						if(ranges[i].end>largest)
-								largest=ranges[i].end;
-				}
+				qsort(ranges, strIRTableRangeSize(ranges), sizeof(*ranges), (int(*)(const void *,const void *))IRTableRangeCmp);
+				int64_t smallest=ranges[0].start;
+				int64_t largest=ranges[strIRTableRangeSize(ranges)-1].start;
 				int64_t diff=largest-smallest;
+
+				strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(start);
+				strGraphEdgeIRP outDft CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_DFT);
+				assert(strGraphEdgeIRPSize(outDft)==1);
+				__auto_type dftNode=graphEdgeIROutgoing(outDft[0]);
+										
+				strX86AddrMode jmpTable CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeResize(NULL, diff);
+				for(long i=0;i!=strIRTableRangeSize(ranges);i++) {
+						jmpTable[i]=node2AddrMode(dftNode);
+				}
+				for(long i=0;i!=strIRTableRangeSize(ranges);i++) {
+						for(long j=ranges[i].start+smallest;j!=ranges[i].end+smallest;j++) {
+								X86AddrModeDestroy(&jmpTable[i]);
+								jmpTable[i]=node2AddrMode(ranges[i].to);
+						}
+				}
+				
+				strChar jmpTabLabel CLEANUP(strCharDestroy)=uniqueLabel("JmpTab");
+				//Returns copy of label
+				free(X86EmitAsmLabel(jmpTabLabel));
 				switch(ptrSize()) {
 				case 2:
 						fprintf(stderr, "HolyC on a commodore 64 isn't possible yet,bro.\n");
 						assert(0);
 				case 4: {
+						X86EmitAsmDU32(jmpTable, strX86AddrModeSize(jmpTable));
 						break;
 				}
 				case 8: {
+						X86EmitAsmDU64(jmpTable, strX86AddrModeSize(jmpTable));
 						break;
 				}
 				default:
 						fprintf(stderr, "Are you in the future where 64bit address space is obselete?\n");
 						assert(0);
 				}
+				strX86AddrMode cmpArgs1 CLEANUP(strX86AddrModeDestroy2)=NULL;
+				cmpArgs1=strX86AddrModeAppendItem(cmpArgs1, X86AddrModeClone(&inMode));
+				cmpArgs1=strX86AddrModeAppendItem(cmpArgs1, X86AddrModeSint(smallest));
+				assembleInst("CMP", cmpArgs1);
+
+				strX86AddrMode jmpDftArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+				jmpDftArgs=strX86AddrModeAppendItem(jmpDftArgs, node2AddrMode(dftNode));
+				assembleInst("JL", jmpDftArgs);
+
+				strX86AddrMode cmpArgs2 CLEANUP(strX86AddrModeDestroy2)=NULL;
+				cmpArgs2=strX86AddrModeAppendItem(cmpArgs2, X86AddrModeClone(&inMode));
+				cmpArgs2=strX86AddrModeAppendItem(cmpArgs2, X86AddrModeSint(largest));
+				assembleInst("CMP", cmpArgs2);
+
+				assembleInst("JGE", jmpDftArgs);
+
+				struct reg *b=regForTypeExcludingConsumed((struct object*)getTypeForSize(ptrSize()));
+				struct X86AddressingMode regMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(b);
+				AUTO_LOCK_MODE_REGS(regMode);
+				pushReg(b);
+
+				struct X86AddressingMode jmpTabLabMode CLEANUP(X86AddrModeDestroy)=X86AddrModeLabel(jmpTabLabel);
+				assign(regMode, jmpTabLabMode, ptrSize());
+				strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+				leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeIndirSIB(ptrSize(), NULL, b, 0, (struct object *)getTypeForSize(ptrSize())));
+				
+						
+				popReg(b);
+				return;
 		}
 		case IR_VALUE:
 		case IR_LABEL:
