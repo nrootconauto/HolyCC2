@@ -2971,11 +2971,26 @@ static int64_t intLitValue(struct parserNode *lit) {
 				retVal=node->value.value.uLong;
 		return retVal; 
 }
-static struct X86AddressingMode *addrModeFromParseTree(struct parserNode *node,struct object *valueType,int64_t *providedOffset,int *success) {
-		int64_t scale=0,offset=0;
+static struct X86AddressingMode *sibOffset2Addrmode(struct parserNode *node) {
+		if(node->type==NODE_NAME) {
+				struct parserNodeName *name=(void*)node;
+				__auto_type find=mapParserNodeGet(asmImports , name->text);
+				if(find) {
+						return X86AddrModeItemAddr(*find, NULL);
+				}
+				addLabelRef((struct parserNode *)node, name->text);
+				return X86AddrModeLabel(name->text);
+		} else if(node->type==NODE_LIT_INT) {
+				return X86AddrModeSint(intLitValue(node));
+		}
+		return NULL;
+}
+static struct X86AddressingMode *addrModeFromParseTree(struct parserNode *node,struct object *valueType,struct X86AddressingMode *providedOffset,int *success) {
+		int64_t scale=0;
 		int64_t  scaleDefined=0,offsetDefined=providedOffset!=NULL;
+		struct X86AddressingMode *offset=NULL;
 		if(providedOffset)
-				offset=*providedOffset;
+				offset=providedOffset;
 		struct reg *index=NULL, *base=NULL;
 		strParserNode toProcess CLEANUP(strParserNodeDestroy)=NULL;
 		strParserNode stack CLEANUP(strParserNodeDestroy)=strParserNodeAppendItem(NULL, node);
@@ -3023,7 +3038,7 @@ static struct X86AddressingMode *addrModeFromParseTree(struct parserNode *node,s
 						if(offsetDefined)
 								goto fail;
 						offsetDefined=1;
-						offset=uintLitValue(top);
+						offset=X86AddrModeSint(intLitValue(top));
 				} else if(top->type==NODE_ASM_REG) {
 						//Is only scale if "*" is on top
 						if(strParserNodeSize(stack)) {
@@ -3038,6 +3053,12 @@ static struct X86AddressingMode *addrModeFromParseTree(struct parserNode *node,s
 						if(base)
 								goto  fail;
 						base=((struct parserNodeAsmReg*)top)->reg;
+				} else if(top->type==NODE_NAME) {
+						//Offset can be a name,
+						if(strParserNodeSize(stack))
+								if(isExpectedBinop(stack[strParserNodeSize(stack)-1],"*"))
+										goto fail;
+						offset=sibOffset2Addrmode(top);
 				}
 		}
 		if(success)
@@ -3056,7 +3077,7 @@ static struct X86AddressingMode *addrModeFromParseTree(struct parserNode *node,s
 				*success=0;
 		return X86AddrModeSint(-1);
 }
-struct X86AddressingMode parserNode2X86AddrMode(struct parserNode *node) {
+struct X86AddressingMode *parserNode2X86AddrMode(struct parserNode *node) {
 		int success;
 		if(node->type==NODE_ASM_ADDRMODE_SIB) {
 				struct parserNode *addrMode=node;
@@ -3064,9 +3085,9 @@ struct X86AddressingMode parserNode2X86AddrMode(struct parserNode *node) {
 				__auto_type offsetNode=((struct parserNodeAsmSIB*)addrMode)->offset;
 				struct X86AddressingMode *addrMode2=NULL;
 				if(offsetNode) {
-						int64_t offset=intLitValue(offsetNode);
+						struct X86AddressingMode *offsetMode=NULL;
 						struct parserNodeAsmSIB *sib=(void*)addrMode;
-						addrMode2=addrModeFromParseTree(sib->expression,sib->type,&offset, &success );
+						addrMode2=addrModeFromParseTree(sib->expression,sib->type,sibOffset2Addrmode(sib->offset), &success );
 				} else { 
 						struct parserNodeAsmSIB *sib=(void*)addrMode;
 						addrMode2=addrModeFromParseTree(sib->expression,sib->type,NULL, &success);
