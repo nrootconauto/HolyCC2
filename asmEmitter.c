@@ -391,7 +391,7 @@ static strChar  unescapeString(const char *str) {
 		retVal=strCharAppendItem(NULL, '"');
 		return retVal;
 }
-struct X86AddressingMode X86EmitAsmDU64(strX86AddrMode data,long len) {
+struct X86AddressingMode *X86EmitAsmDU64(strX86AddrMode data,long len) {
 		long count=snprintf(NULL, 0, "$DU64_%li", ++labelCount);
 		char buffer[count+1];
 		sprintf(buffer,  "$DU64_%li", labelCount);
@@ -399,15 +399,12 @@ struct X86AddressingMode X86EmitAsmDU64(strX86AddrMode data,long len) {
 		for(long i=0;i!=len;i++) {
 				if(i!=0)
 						fputc(',',constsTmpFile);
-				emitMode(data, i);
+				strChar text CLEANUP(strCharDestroy) =emitMode(data, i);
+				fprintf(constsTmpFile, "%s", text);
 		}
-		struct X86AddressingMode mode;
-		mode.valueType=NULL;
-		mode.type=X86ADDRMODE_LABEL;
-		mode.value.label=strcpy(malloc(count+1),buffer);
-		return mode;
+		return X86AddrModeLabel(buffer);
 }
-struct X86AddressingMode X86EmitAsmDU32(strX86AddrMode data,long len) {
+struct X86AddressingMode *X86EmitAsmDU32(strX86AddrMode data,long len) {
 		long count=snprintf(NULL, 0, "$DU32_%li", ++labelCount);
 		char buffer[count+1];
 		sprintf(buffer,  "$DU32_%li", labelCount);
@@ -415,15 +412,12 @@ struct X86AddressingMode X86EmitAsmDU32(strX86AddrMode data,long len) {
 		for(long i=0;i!=len;i++) {
 				if(i!=0)
 						fputc(',',constsTmpFile);
-				emitMode(data, i);
+				strChar text CLEANUP(strCharDestroy) =emitMode(data, i);
+				fprintf(constsTmpFile, "%s", text);
 		}
-		struct X86AddressingMode mode;
-		mode.valueType=NULL;
-		mode.type=X86ADDRMODE_LABEL;
-		mode.value.label=strcpy(malloc(count+1),buffer);
-		return mode;
+		return X86AddrModeLabel(buffer);
 }
-struct X86AddressingMode X86EmitAsmDU16(strX86AddrMode data,long len) {
+struct X86AddressingMode *X86EmitAsmDU16(strX86AddrMode data,long len) {
 		long count=snprintf(NULL, 0, "$DU16_%li", ++labelCount);
 		char buffer[count+1];
 		sprintf(buffer,  "$DU16_%li", labelCount);
@@ -431,15 +425,12 @@ struct X86AddressingMode X86EmitAsmDU16(strX86AddrMode data,long len) {
 		for(long i=0;i!=len;i++) {
 				if(i!=0)
 						fputc(',',constsTmpFile);
-				emitMode(data, i);
+				strChar text CLEANUP(strCharDestroy) =emitMode(data, i);
+				fprintf(constsTmpFile, "%s", text);
 		}
-		struct X86AddressingMode mode;
-		mode.valueType=NULL;
-		mode.type=X86ADDRMODE_LABEL;
-		mode.value.label=strcpy(malloc(count+1),buffer);
-		return mode;
+		return X86AddrModeLabel(buffer);
 }
-struct X86AddressingMode X86EmitAsmDU8(strX86AddrMode data,long len) {
+struct X86AddressingMode *X86EmitAsmDU8(strX86AddrMode data,long len) {
 		long count=snprintf(NULL, 0, "$DU8_%li", ++labelCount);
 		char buffer[count+1];
 		sprintf(buffer,  "$DU8_%li", labelCount);
@@ -447,23 +438,16 @@ struct X86AddressingMode X86EmitAsmDU8(strX86AddrMode data,long len) {
 		for(long i=0;i!=len;i++) {
 				if(i!=0)
 						fputc(',',constsTmpFile);
-				emitMode(data, i);
+				strChar text CLEANUP(strCharDestroy) =emitMode(data, i);
+				fprintf(constsTmpFile, "%s", text);
 		}
-		struct X86AddressingMode mode;
-		mode.valueType=NULL;
-		mode.type=X86ADDRMODE_LABEL;
-		mode.value.label=strcpy(malloc(count+1),buffer);
-		return mode;
+		return X86AddrModeLabel(buffer);
 }
-struct X86AddressingMode X86EmitAsmStrLit(const char *text) {
+struct X86AddressingMode *X86EmitAsmStrLit(const char *text) {
 		strChar unes CLEANUP(strCharDestroy)=unescapeString(text);
 		long count=snprintf(NULL, 0, "$STR_%li", ++labelCount);
 		char buffer[count+1];
 		sprintf(buffer,  "$STR_%li", labelCount);
 		fprintf(constsTmpFile, "%s: DB %s\n", buffer,unes);
-		struct X86AddressingMode mode;
-		mode.valueType=NULL;
-		mode.type=X86ADDRMODE_LABEL;
-		mode.value.label=strcpy(malloc(count+1),buffer);
-		return mode;
+		return X86AddrModeLabel(buffer);
 }
