@@ -1,6 +1,7 @@
 #pragma once
 #include <str.h>
 #include <stdint.h>
+struct X86AddressingMode;
 struct X86MemoryLoc {
 		enum {
 				x86ADDR_MEM,
@@ -13,8 +14,8 @@ struct X86MemoryLoc {
 				struct {
 						struct reg *index;
 						struct reg *base;
-						long scale;
-						int64_t offset;
+						int scale;
+						struct X86AddressingMode *offset;
 				} sib;
 		} value;
 		struct reg *segment; 
@@ -40,16 +41,16 @@ struct X86AddressingMode {
 		} value;
 		struct object *valueType;
 };
-struct X86AddressingMode X86AddrModeFlt(double value);
-struct X86AddressingMode X86AddrModeUint(uint64_t imm) ;
-struct X86AddressingMode X86AddrModeSint(int64_t imm);
-struct X86AddressingMode X86AddrModeReg(struct reg *reg) ;
-struct X86AddressingMode X86AddrModeIndirMem(uint64_t where,struct object *type) ;
-struct X86AddressingMode X86AddrModeLabel(const char *name);
-struct X86AddressingMode X86AddrModeIndirReg(struct reg *where,struct object *type);
-struct X86AddressingMode X86AddrModeItemAddr(struct parserNode *item,struct object *type);
-struct X86AddressingMode X86AddrModeIndirSIB(long scale,struct reg *index,struct reg *base,long offset,struct object *type);
-struct X86AddressingMode X86AddrModeItemAddrOf(struct parserNode *addrOf,struct object *type);
+struct X86AddressingMode *X86AddrModeFlt(double value);
+struct X86AddressingMode *X86AddrModeUint(uint64_t imm) ;
+struct X86AddressingMode *X86AddrModeSint(int64_t imm);
+struct X86AddressingMode *X86AddrModeReg(struct reg *reg) ;
+struct X86AddressingMode *X86AddrModeIndirMem(uint64_t where,struct object *type) ;
+struct X86AddressingMode *X86AddrModeLabel(const char *name);
+struct X86AddressingMode *X86AddrModeIndirReg(struct reg *where,struct object *type);
+struct X86AddressingMode *X86AddrModeItemAddr(struct parserNode *item,struct object *type);
+struct X86AddressingMode *X86AddrModeIndirSIB(long scale,struct reg *index,struct reg *base,struct X86AddressingMode *offset,struct object *type);
+struct X86AddressingMode *X86AddrModeItemAddrOf(struct parserNode *addrOf,struct object *type);
 struct opcodeTemplateArg {
 		enum {
 				OPC_TEMPLATE_ARG_REG,
@@ -90,8 +91,8 @@ struct opcodeTemplateArg {
 };
 STR_TYPE_DEF(struct opcodeTemplateArg,OpcodeTemplateArg);
 STR_TYPE_FUNCS(struct opcodeTemplateArg,OpcodeTemplateArg);
-STR_TYPE_DEF(struct X86AddressingMode,X86AddrMode);
-STR_TYPE_FUNCS(struct X86AddressingMode,X86AddrMode);
+STR_TYPE_DEF(struct X86AddressingMode *,X86AddrMode);
+STR_TYPE_FUNCS(struct X86AddressingMode *,X86AddrMode);
 void parseOpcodeFile();
 struct opcodeTemplate;
 STR_TYPE_DEF(struct opcodeTemplate*,OpcodeTemplate);
@@ -101,4 +102,5 @@ const char * opcodeTemplateName(struct opcodeTemplate *template);
 strOpcodeTemplate X86OpcodesByName(const char *name);
 long X86OpcodesArgCount(const char *name);
 const char *opcodeTemplateIntelAlias(const struct opcodeTemplate *template);
-struct X86AddressingMode X86AddrModeClone(struct X86AddressingMode *mode);
+struct X86AddressingMode *X86AddrModeClone(struct X86AddressingMode *mode);
+void X86AddrModeDestroy(struct X86AddressingMode **mode);

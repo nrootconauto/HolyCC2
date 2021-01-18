@@ -2946,11 +2946,7 @@ static uint64_t uintLitValue(struct parserNode *lit) {
 		if(lit->type==NODE_LIT_INT) {
 				__auto_type node=(struct parserNodeLitInt*)lit;
 				uint64_t retVal;
-				if(node->value.type==INT_SINT)
-						retVal=node->value.value.sInt;
-				else if(node->value.type==INT_UINT)
-						retVal=node->value.value.uInt;
-				else if(node->value.type==INT_SLONG)
+				if(node->value.type==INT_SLONG)
 						retVal=node->value.value.sLong;
 				else if(node->value.type==INT_ULONG)
 						retVal=node->value.value.uLong;
@@ -2969,17 +2965,13 @@ static uint64_t uintLitValue(struct parserNode *lit) {
 static int64_t intLitValue(struct parserNode *lit) {
 		__auto_type node=(struct parserNodeLitInt*)lit;
 		int64_t retVal;
-		if(node->value.type==INT_SINT)
-				retVal=node->value.value.sInt;
-		else if(node->value.type==INT_UINT)
-				retVal=node->value.value.uInt;
-		else if(node->value.type==INT_SLONG)
+		if(node->value.type==INT_SLONG)
 				retVal=node->value.value.sLong;
 		else if(node->value.type==INT_ULONG)
 				retVal=node->value.value.uLong;
 		return retVal; 
 }
-static struct X86AddressingMode addrModeFromParseTree(struct parserNode *node,struct object *valueType,int64_t *providedOffset,int *success) {
+static struct X86AddressingMode *addrModeFromParseTree(struct parserNode *node,struct object *valueType,int64_t *providedOffset,int *success) {
 		int64_t scale=0,offset=0;
 		int64_t  scaleDefined=0,offsetDefined=providedOffset!=NULL;
 		if(providedOffset)
@@ -3058,20 +3050,19 @@ static struct X86AddressingMode addrModeFromParseTree(struct parserNode *node,st
 		retVal.value.m.value.sib.offset=offset;
 		retVal.value.m.value.sib.scale=scale;
 		retVal.valueType=valueType;
-		return retVal;
+		return ALLOCATE(retVal);
 	fail:
 		if(success)
 				*success=0;
-		struct X86AddressingMode dummy;
-		return dummy;
+		return X86AddrModeSint(-1);
 }
 struct X86AddressingMode parserNode2X86AddrMode(struct parserNode *node) {
 		int success;
 		if(node->type==NODE_ASM_ADDRMODE_SIB) {
 				struct parserNode *addrMode=node;
-				struct X86AddressingMode dummy=X86AddrModeIndirMem(0, NULL);
+				struct X86AddressingMode *dummy=X86AddrModeIndirMem(0, NULL);
 				__auto_type offsetNode=((struct parserNodeAsmSIB*)addrMode)->offset;
-				struct X86AddressingMode addrMode2;
+				struct X86AddressingMode *addrMode2=NULL;
 				if(offsetNode) {
 						int64_t offset=intLitValue(offsetNode);
 						struct parserNodeAsmSIB *sib=(void*)addrMode;
@@ -3082,7 +3073,7 @@ struct X86AddressingMode parserNode2X86AddrMode(struct parserNode *node) {
 				}
 				struct parserNodeAsmReg *reg=(void*)((struct parserNodeAsmSIB*)addrMode)->segment;
 				if(reg)
-						addrMode2.value.m.segment=reg->reg;
+						addrMode2->value.m.segment=reg->reg;
 				if(!success) {
 						addrMode2=dummy;
 						diagErrorStart(addrMode->pos.start, addrMode->pos.end);

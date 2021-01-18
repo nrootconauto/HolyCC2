@@ -198,66 +198,75 @@ static void X86EmitSymbolTable() {
 				}
 		}
 }
-static void emitMode(strX86AddrMode args,long i) {
-		switch(args[i].type) {
+static strChar emitMode(strX86AddrMode args,long i) {
+		switch(args[i]->type) {
 		case X86ADDRMODE_FLT: {
 				assert(0);
 				break;
 		}
 		case X86ADDRMODE_ITEM_ADDR: {
-				strChar name CLEANUP(strCharDestroy)=parserNodeSymbolName(args[i].value.itemAddr);
+				strChar name CLEANUP(strCharDestroy)=parserNodeSymbolName(args[i]->value.itemAddr);
 				if(!name) {
 						fprintf(stderr, "Cant find name for symbol\n");
 						assert(0);
 				}
-				fprintf(codeTmpFile, "%s ", name);
-				break;
+				long len=snprintf(NULL, 0, "%s ", name);
+				strChar retVal=strCharResize(NULL, len+1);
+				sprintf(retVal, "%s ", name);
+				return retVal;
 		}
 		case X86ADDRMODE_LABEL: {
-				fprintf(codeTmpFile, "%s ", args[i].value.label);
-				break;
+				long len=snprintf(NULL, 0, "%s ", args[i]->value.label);
+				strChar retVal=strCharResize(NULL, len+1);
+				sprintf(retVal, "%s ", args[i]->value.label);
+				return retVal;
 		}
 		case X86ADDRMODE_REG: {
-				__auto_type find=ptrMapRegNameGet(regNames, args[i].value.reg);
+				__auto_type find=ptrMapRegNameGet(regNames, args[i]->value.reg);
 				assert(find);
-				fprintf(codeTmpFile, "%s ", *find);
-				break;
+				long len=snprintf(NULL, 0, "%s ", *find);
+				strChar retVal=strCharResize(NULL, len+1);
+				sprintf(retVal, "%s ", *find);
+				return retVal;
 		}
 		case X86ADDRMODE_SINT: {
-				strChar text CLEANUP(strCharDestroy)=int64ToStr(args[i].value.sint);
-				fprintf(codeTmpFile, "%s ", text);
-				break;
+				return int64ToStr(args[i]->value.sint);
 		}
 		case X86ADDRMODE_UINT: {
-				strChar text CLEANUP(strCharDestroy)=uint64ToStr(args[i].value.uint);
-				fprintf(codeTmpFile, "%s ", text);
-				break;
+				return uint64ToStr(args[i]->value.uint);
 		}
 		case X86ADDRMODE_MEM: {
-				switch(args[i].value.m.type) {
+				switch(args[i]->value.m.type) {
 				case x86ADDR_INDIR_REG: {
-						__auto_type reg=ptrMapRegNameGet(regNames, args[i].value.m.value.indirReg);
-						if(args[i].valueType) {
-								strChar sizeStr CLEANUP(strCharDestroy)=getSizeStr(args[i].valueType);
+						__auto_type reg=ptrMapRegNameGet(regNames, args[i]->value.m.value.indirReg);
+						if(args[i]->valueType) {
+								strChar sizeStr CLEANUP(strCharDestroy)=getSizeStr(args[i]->valueType);
 								if(!sizeStr)  {
 										fprintf(stderr, "That's one gaint register(%s)\n",*reg);
 										assert(0);
 								}
-								fprintf(codeTmpFile, " %s PTR [%s] ",sizeStr, *reg);
+								long len=snprintf(NULL, 0, " %s PTR [%s] ", sizeStr, *reg);
+								strChar retVal=strCharResize(NULL, len+1);
+								sprintf(retVal, " %s PTR [%s] ", sizeStr, *reg);
+								return retVal;
 						} else {
-								fprintf(codeTmpFile, "[%s] ", *reg);
+								long len=snprintf(NULL, 0, "[%s] ",  *reg);
+								strChar retVal=strCharResize(NULL, len+1);
+								sprintf(retVal,  "[%s] ", *reg);
+								return retVal;
 						}
 						break;
 				}
 				case x86ADDR_INDIR_SIB: {
 						strChar retVal CLEANUP(strCharDestroy)=NULL;
-						__auto_type indexStr=ptrMapRegNameGet(regNames,args[i].value.m.value.sib.index);
-						strChar scaleStr CLEANUP(strCharDestroy) =int64ToStr(args[i].value.m.value.sib.scale);
-						__auto_type baseStr=ptrMapRegNameGet(regNames,args[i].value.m.value.sib.base);
-						strChar offsetStr CLEANUP(strCharDestroy)=int64ToStr(args[i].value.m.value.sib.offset);
+						__auto_type indexStr=ptrMapRegNameGet(regNames,args[i]->value.m.value.sib.index);
+						strChar scaleStr CLEANUP(strCharDestroy) =int64ToStr(args[i]->value.m.value.sib.scale);
+						__auto_type baseStr=ptrMapRegNameGet(regNames,args[i]->value.m.value.sib.base);
+						//Emit mode takes an array,so pass the pointer
+						strChar offsetStr CLEANUP(strCharDestroy)=emitMode(&args[i]->value.m.value.sib.offset,0);
 						strChar buffer CLEANUP(strCharDestroy)=NULL;
 						int insertAdd=0;
-						if(indexStr&&args[i].value.m.value.sib.scale) {
+						if(indexStr&&args[i]->value.m.value.sib.scale) {
 								retVal=strCharAppendData(retVal,*indexStr,strlen(*indexStr));
 								retVal=strCharAppendItem(retVal,'*');
 								retVal=strCharAppendData(retVal,scaleStr,strlen(scaleStr));
@@ -271,32 +280,41 @@ static void emitMode(strX86AddrMode args,long i) {
 						if(baseStr) {
 								retVal=strCharAppendData(retVal,*baseStr,strlen(*baseStr));
 						}
-						if(args[i].value.m.value.sib.offset) {
+						if(args[i]->value.m.value.sib.offset) {
 								if(offsetStr[0]!='-')
 										retVal=strCharAppendItem(retVal, '+');
 								retVal=strCharConcat(retVal, offsetStr);
 								offsetStr=NULL; //Will be free'd,but has been free'd by concat
 						}
-						if(args[i].valueType) {
-								strChar typeStr CLEANUP(strCharDestroy)= getSizeStr(args[i].valueType);
-								fprintf(codeTmpFile, "%s PTR [%s] ",typeStr,retVal);
+						if(args[i]->valueType) {
+								strChar typeStr CLEANUP(strCharDestroy)= getSizeStr(args[i]->valueType);
+								long len=snprintf(NULL, 0, "%s PTR [%s] ", typeStr,retVal);
+								strChar retVal2=strCharResize(NULL, len+1);
+								sprintf(retVal2, "%s PTR [%s] ", typeStr,retVal);
+								return retVal2;
 						} else {
-								fprintf(codeTmpFile, "[%s] ",retVal);
+								return retVal;
 						}
 						break;
 				}
 				case x86ADDR_MEM: {
-						if(args[i].valueType) {
-								strChar addrStr CLEANUP(strCharDestroy)=uint64ToStr(args[i].value.m.value.mem);
-								strChar sizeStr CLEANUP(strCharDestroy)=getSizeStr(args[i].valueType);
+						if(args[i]->valueType) {
+								strChar addrStr CLEANUP(strCharDestroy)=uint64ToStr(args[i]->value.m.value.mem);
+								strChar sizeStr CLEANUP(strCharDestroy)=getSizeStr(args[i]->valueType);
 								if(!sizeStr) {
 										fprintf(stderr, "The size being addressed is weirder than a black rain frog.\n");
 										assert(0);
 								}
-								fprintf(codeTmpFile, "%s PTR [%s] ", sizeStr,addrStr);
+								long len =snprintf(NULL,0, "%s PTR [%s] ", sizeStr,addrStr);
+								strChar retVal2=strCharResize(NULL, len+1);
+								sprintf(retVal2, "%s PTR [%s] ", sizeStr,addrStr);
+								return retVal2;
 						} else {
-								strChar addrStr CLEANUP(strCharDestroy)=uint64ToStr(args[i].value.m.value.mem);
-								fprintf(codeTmpFile, "[%s] ", addrStr);
+								strChar addrStr CLEANUP(strCharDestroy)=uint64ToStr(args[i]->value.m.value.mem);
+								long len =snprintf(NULL,0, "[%s] ", addrStr);
+								strChar retVal2=strCharResize(NULL, len+1);
+								sprintf(retVal2, "[%s] ", addrStr);
+								return retVal2;
 						}
 						break;
 				}
@@ -449,6 +467,3 @@ struct X86AddressingMode X86EmitAsmStrLit(const char *text) {
 		mode.value.label=strcpy(malloc(count+1),buffer);
 		return mode;
 }
-void X86AddrMoreDestroy(struct X86AddressingMode *mode) {
-
-} 

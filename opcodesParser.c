@@ -674,7 +674,7 @@ static int imcompatWithArgs(const strX86AddrMode args,struct opcodeTemplate **te
 		if(strOpcodeTemplateArgSize(template[0]->args)!=strX86AddrModeSize(args))
 				return 1;
 		for(long i=0;i!=strX86AddrModeSize(args);i++)
-				if(!templateAcceptsAddrMode(&template[0]->args[i], &args[i]))
+				if(!templateAcceptsAddrMode(&template[0]->args[i], args[i]))
 						return 1;
 		return 0;
 }
@@ -685,50 +685,50 @@ static strOpcodeTemplate __X86OpcodesByArgs(const char *name,strX86AddrMode args
 		__auto_type retVal=strOpcodeTemplateClone(*list);
 		return strOpcodeTemplateRemoveIf(retVal, args,  (int(*)(const void *,const struct opcodeTemplate**))imcompatWithArgs);
 }
-struct X86AddressingMode X86AddrModeUint(uint64_t imm) {
+struct X86AddressingMode *X86AddrModeUint(uint64_t imm) {
 		struct X86AddressingMode retVal;
 		retVal.type=X86ADDRMODE_UINT;
 		retVal.value.uint=imm;
 		retVal.valueType=NULL;
-		return retVal;
+		return ALLOCATE(retVal);
 }
-struct X86AddressingMode X86AddrModeSint(int64_t imm) {
+struct X86AddressingMode *X86AddrModeSint(int64_t imm) {
 		struct X86AddressingMode retVal;
 		retVal.type=X86ADDRMODE_UINT;
 		retVal.value.sint=imm;
 		retVal.valueType=NULL;
-		return retVal;
+		return ALLOCATE(retVal);
 }
-struct X86AddressingMode X86AddrModeReg(struct reg *reg) {
+struct X86AddressingMode *X86AddrModeReg(struct reg *reg) {
 		struct X86AddressingMode retVal;
 		retVal.type=X86ADDRMODE_REG;
 		retVal.value.reg=reg;
 		retVal.valueType=NULL;
-		return retVal;
+		return ALLOCATE(retVal);
 }
-struct X86AddressingMode X86AddrModeIndirMem(uint64_t where,struct object *type) {
+struct X86AddressingMode *X86AddrModeIndirMem(uint64_t where,struct object *type) {
 		struct X86AddressingMode retVal;
 		retVal.type=X86ADDRMODE_MEM;
 		retVal.value.m.type=x86ADDR_INDIR_SIB;
 		retVal.value.m.value.sib.base=NULL;
 		retVal.value.m.value.sib.index=NULL;
-		retVal.value.m.value.sib.scale=1;
-		retVal.value.m.value.sib.offset=where;
+		retVal.value.m.value.sib.scale=0;
+		retVal.value.m.value.sib.offset=NULL;
 		retVal.valueType=type;
-		return retVal;
+		return ALLOCATE(retVal);
 }
-struct X86AddressingMode X86AddrModeIndirReg(struct reg *where,struct object *type) {
+struct X86AddressingMode *X86AddrModeIndirReg(struct reg *where,struct object *type) {
 		struct X86AddressingMode retVal;
 		retVal.type=X86ADDRMODE_MEM;
 		retVal.value.m.type=x86ADDR_INDIR_SIB;
 		retVal.value.m.value.sib.base=where;
 		retVal.value.m.value.sib.index=NULL;
 		retVal.value.m.value.sib.scale=1;
-		retVal.value.m.value.sib.offset=0;
+		retVal.value.m.value.sib.offset=NULL;
 		retVal.valueType=type;
-		return retVal;
+		return ALLOCATE(retVal);
 }
-struct X86AddressingMode X86AddrModeIndirSIB(long scale,struct reg *index,struct reg *base,long offset,struct object *type) {
+struct X86AddressingMode *X86AddrModeIndirSIB(long scale,struct reg *index,struct reg *base,struct X86AddressingMode *offset,struct object *type) {
 		struct X86AddressingMode retVal;
 		retVal.type=X86ADDRMODE_MEM;
 		retVal.value.m.type=x86ADDR_INDIR_SIB;
@@ -737,7 +737,7 @@ struct X86AddressingMode X86AddrModeIndirSIB(long scale,struct reg *index,struct
 		retVal.value.m.value.sib.scale=scale;
 		retVal.value.m.value.sib.offset=offset;
 		retVal.valueType=type;
-		return retVal;
+		return ALLOCATE(retVal);
 }
 STR_TYPE_DEF(long,Long);
 STR_TYPE_FUNCS(long,Long);
@@ -809,19 +809,19 @@ static strOpcodeTemplate assumeTypes(strOpcodeTemplate templates,strX86AddrMode 
 				}
 				continue;
 		ambiguous:
-				if(args[i].type==X86ADDRMODE_MEM) {
-						if(args[i].valueType==NULL) {
+				if(args[i]->type==X86ADDRMODE_MEM) {
+						if(args[i]->valueType==NULL) {
 								ambigArgs=strLongAppendItem(ambigArgs, i);
 						} else {
-								__auto_type newSize=objectSize(args[i].valueType, NULL);
+								__auto_type newSize=objectSize(args[i]->valueType, NULL);
 								if(operandSize!=-1)
 										goto fail;
 								else if(operandSize!=newSize)
 										goto fail;
 								operandSize=newSize;;
 						}
-				} else if(args[i].type==X86ADDRMODE_REG&&args[i].value.reg->type==REG_TYPE_GP) {
-						__auto_type newSize=args[i].value.reg->size;
+				} else if(args[i]->type==X86ADDRMODE_REG&&args[i]->value.reg->type==REG_TYPE_GP) {
+						__auto_type newSize=args[i]->value.reg->size;
 						if(operandSize!=-1)
 										goto fail;
 						else if(operandSize!=newSize)
@@ -839,9 +839,9 @@ static strOpcodeTemplate assumeTypes(strOpcodeTemplate templates,strX86AddrMode 
 				}
 				strX86AddrMode clone CLEANUP(strX86AddrModeDestroy) = strX86AddrModeClone(args);
 				for(long i=0;i!=strLongSize(ambigArgs);i++) {
-						if(clone[i].type==X86ADDRMODE_MEM&&clone[i].valueType==NULL)
-								if(!clone[i].valueType)
-										clone[i].valueType=type;
+						if(clone[i]->type==X86ADDRMODE_MEM&&clone[i]->valueType==NULL)
+								if(!clone[i]->valueType)
+										clone[i]->valueType=type;
 				}
 				return __X86OpcodesByArgs(templates[0]->name, clone);
 		}
@@ -889,29 +889,29 @@ strOpcodeTemplate X86OpcodesByArgs(const char *name,strX86AddrMode args,int *amb
 				*ambiguous=1;
 		return NULL;
 }
-struct X86AddressingMode X86AddrModeFlt(double value) {
+struct X86AddressingMode *X86AddrModeFlt(double value) {
 		struct X86AddressingMode flt;
 		flt.type=X86ADDRMODE_FLT;
 		flt.valueType=NULL;
 		flt.value.flt=value;
-		return flt;
+		return ALLOCATE(flt);
 }
-struct X86AddressingMode X86AddrModeItemAddrOf(struct parserNode *item,struct object *type) {
+struct X86AddressingMode *X86AddrModeItemAddrOf(struct parserNode *item,struct object *type) {
 		struct X86AddressingMode mode;
 		mode.type=X86ADDRMODE_ITEM_ADDR;
 		mode.value.itemAddr=item;
 		mode.valueType=type;
-		return mode;
+		return ALLOCATE(mode);
 }
-struct X86AddressingMode X86AddrModeLabel(const char *name) {
+struct X86AddressingMode *X86AddrModeLabel(const char *name) {
 		struct X86AddressingMode mode;
 		mode.type=X86ADDRMODE_LABEL;
 		mode.valueType=NULL;
 		mode.value.label=malloc(strlen(name)+1);
 		strcpy(mode.value.label,name);
-		return mode;
+		return ALLOCATE(mode);
 }
-struct X86AddressingMode X86AddrModeClone(struct X86AddressingMode *mode) {
+struct X86AddressingMode *X86AddrModeClone(struct X86AddressingMode *mode) {
 		switch(mode->type) {
 		case X86ADDRMODE_FLT:
 		case X86ADDRMODE_MEM:
@@ -919,11 +919,29 @@ struct X86AddressingMode X86AddrModeClone(struct X86AddressingMode *mode) {
 		case X86ADDRMODE_SINT:
 		case X86ADDRMODE_UINT:
 		case X86ADDRMODE_ITEM_ADDR:
-				return *mode;
+				return ALLOCATE((*mode));
 		case X86ADDRMODE_LABEL:;
 				__auto_type retVal=*mode;
 				retVal.value.label=malloc(strlen(mode->value.label)+1);
 				strcpy(retVal.value.label, mode->value.label);
-				return retVal;
+				return ALLOCATE(retVal);
 		}
+}
+void X86AddrModeDestroy(struct X86AddressingMode **mode) {
+		switch(mode[0]->type) {
+		case X86ADDRMODE_UINT:
+		case X86ADDRMODE_SINT:
+		case X86ADDRMODE_REG:
+		case X86ADDRMODE_FLT:
+		case X86ADDRMODE_ITEM_ADDR:
+				break;
+		case X86ADDRMODE_LABEL:
+				free(mode[0]->value.label);
+				break;
+		case X86ADDRMODE_MEM:
+				if(mode[0]->value.m.type==x86ADDR_INDIR_SIB)
+						X86AddrModeDestroy(&mode[0]->value.m.value.sib.offset);
+				break;
+		}
+		free(*mode);
 }
