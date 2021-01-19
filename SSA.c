@@ -397,9 +397,9 @@ static void transparentKillMapping(graphNodeMapping node) {
 			__auto_type incoming = graphNodeMappingIncoming(node);
 	__auto_type outgoing = graphNodeMappingOutgoing(node);
 	for (long i1 = 0; i1 != strGraphEdgeMappingPSize(incoming); i1++)
-		for (long i2 = 0; i2 != strGraphEdgeMappingPSize(outgoing); i2++)
-			graphNodeMappingConnect(graphEdgeMappingIncoming(incoming[i1]),
-			                   graphEdgeMappingOutgoing(outgoing[i2]), NULL);
+			for (long i2 = 0; i2 != strGraphEdgeMappingPSize(outgoing); i2++)
+					graphNodeMappingConnect(graphEdgeMappingIncoming(incoming[i1]),
+																													graphEdgeMappingOutgoing(outgoing[i2]), NULL);
 
 	graphNodeMappingKill(&node, NULL, NULL);
 }
@@ -427,10 +427,15 @@ static ptrMapVarBlobByExprEnd map2VarBlobs(graphNodeIR input,graphNodeMapping *r
 				__auto_type node=*graphNodeMappingValuePtr(allNodes[i]);
 				__auto_type end=IREndOfExpr(node);
 				//Not moves means not in expression of last node of expr
-				if(end==node||end==NULL)
+				if(end==NULL)
 						continue;
+				if(end==node) {
+						if(graphNodeIRValuePtr(node)->type!=IR_VALUE)
+								continue;
+				}
 				
 				strGraphNodeIRP nodes CLEANUP(strGraphNodeIRPDestroy)=IRStmtNodes(end);
+				DEBUG_PRINT("BLOB AT %p\n", end);
 				struct varBlob blob;
 				blob.read=NULL;
 				blob.write=NULL;
@@ -444,9 +449,11 @@ static ptrMapVarBlobByExprEnd map2VarBlobs(graphNodeIR input,graphNodeMapping *r
 						strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(nodes[n]);
 						strGraphEdgeIRP inAssign CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_DEST);
 						if(strGraphEdgeIRPSize(inAssign)) {
+								DEBUG_PRINT("WRITE:%p\n", nodes[n]);
 								if(!strIRVarSortedFind(blob.write, val->val.value.var, IRVarCmp))
 										blob.write=strIRVarSortedInsert(blob.write, val->val.value.var, IRVarCmp);
 						} else {
+								DEBUG_PRINT("READ:%p\n", nodes[n]);
 								if(!strIRVarSortedFind(blob.read, val->val.value.var, IRVarCmp))
 										blob.read=strIRVarSortedInsert(blob.read, val->val.value.var, IRVarCmp);
 						}
@@ -502,13 +509,13 @@ void IRToSSA(graphNodeIR enter) {
 	strIRVar allVars CLEANUP(strIRVarDestroy)= NULL;
 	graphNodeMapping filtered;
 	ptrMapVarBlobByExprEnd blobs=map2VarBlobs(enter,  &filtered, &allVars);
-	/*{
-	char *fn=tmpnam(NULL);
-	IRGraphMap2GraphViz(filteredVars, "filter", fn, NULL,NULL,NULL,NULL);
-	char buffer[1024];
-	sprintf(buffer, "dot -Tsvg %s >/tmp/dot.svg && firefox /tmp/dot.svg &", fn);
-	system(buffer);
-	}*/
+	{
+			char *fn=tmpnam(NULL);
+			IRGraphMap2GraphViz(filtered, "filter", fn, NULL,NULL,NULL,NULL);
+			char buffer[1024];
+			sprintf(buffer, "dot -Tsvg %s >/tmp/dot.svg && firefox /tmp/dot.svg &", fn);
+			system(buffer);
+	}
 
 	//
 	// Find SSA choose nodes for all vars
@@ -517,6 +524,13 @@ void IRToSSA(graphNodeIR enter) {
 	for (long i = 0; i != strIRVarSize(allVars); i++) {
 			__auto_type clone=graphNodeMappingClone(filtered);
 			filterVBlobMap4Var(clone, &allVars[i], blobs);
+			{
+					char *fn=tmpnam(NULL);
+					IRGraphMap2GraphViz(clone, "filter", fn, NULL,NULL,NULL,NULL);
+					char buffer[1024];
+					sprintf(buffer, "dot -Tsvg %s >/tmp/dot.svg && firefox /tmp/dot.svg &", fn);
+					system(buffer);
+			}
 			// Compute choose nodes
 		strGraphNodeIRP chooses = IRSSACompute(clone, &allVars[i]);
 		// Number the versions

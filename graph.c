@@ -448,6 +448,7 @@ graphNodeMapping graphNodeMappingClone(graphNodeMapping mapping) {
 				} else {
 						clone=graphNodeMappingCreate(NULL,allNodes[i]->version);
 				}
+				ptrMapGNMappingAdd(mappings, allNodes[i], clone);
 		}
 		
 		for(long i=0;i!=strGraphNodeMappingPSize(allNodes);i++) {

@@ -34,8 +34,15 @@ static int llPtrGetPred(const void *a,const void *b) {
 void __ptrMapDestroy(struct __ptrMap *map,void(*destroy)(void*)) {
 		if(!map)
 				return ;
+		if(destroy) {
+				void *dumpTo[__ptrMapSize(map)];
+				__ptrMapKeys(map, dumpTo);
+				for(long i=0;i!=__ptrMapSize(map);i++)
+						destroy(__ptrMapGet(map, dumpTo[i]));
+		}
+		
 		for(long i=0;i!=strLLSize(map->buckets);i++)
-				__llDestroy(map->buckets[i], destroy);
+				__llDestroy(map->buckets[i], NULL);
 		
 		strLLDestroy(&map->buckets);
 		strLongDestroy(&map->bucketSizes);
