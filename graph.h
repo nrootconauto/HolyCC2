@@ -251,3 +251,4 @@ void graph2GraphVizUndir(FILE *dumpTo, graphNodeMapping graph,
 strGraphEdgeP graphAllEdgesBetween(const struct __graphNode *node,const void *data,
                               int (*predicate)(const struct __graphNode *node,
                                                const void *data));
+graphNodeMapping graphNodeMappingClone(graphNodeMapping mapping);

@@ -438,6 +438,33 @@ graphNodeMapping graphNodeCreateMapping(const struct __graphNode *node,
 	__auto_type allNodes = __graphNodeVisitAll(node);
 	return __createGraphMap(node, allNodes, preserveConnections);
 }
+graphNodeMapping graphNodeMappingClone(graphNodeMapping mapping) {
+		ptrMapGNMapping mappings=ptrMapGNMappingCreate();
+		strGraphNodeMappingP allNodes CLEANUP(strGraphNodeMappingPDestroy)=graphNodeMappingAllNodes(mapping);
+		for(long i=0;i!=strGraphNodeMappingPSize(allNodes);i++) {
+				graphNodeMapping clone;
+				if(graphNodeMappingValuePtr(allNodes[i])) {
+						clone=graphNodeMappingCreate(*graphNodeMappingValuePtr(allNodes[i]),allNodes[i]->version);
+				} else {
+						clone=graphNodeMappingCreate(NULL,allNodes[i]->version);
+				}
+		}
+		
+		for(long i=0;i!=strGraphNodeMappingPSize(allNodes);i++) {
+				strGraphEdgeMappingP out CLEANUP(strGraphEdgeMappingPDestroy)=graphNodeMappingOutgoing(allNodes[i]);
+				__auto_type in=*ptrMapGNMappingGet(mappings, allNodes[i]);
+				for(long i=0;i!=strGraphEdgeMappingPSize(out);i++) {
+						__auto_type out2=*ptrMapGNMappingGet(mappings, graphEdgeMappingOutgoing(out[i]));
+						if(!graphEdgeMappingValuePtr(out[i]))
+								graphNodeMappingConnect(in, out2, NULL);
+						else
+								graphNodeMappingConnect(in, out2, *graphEdgeMappingValuePtr(out[i]));
+				}
+		}
+		__auto_type retVal=*ptrMapGNMappingGet(mappings, mapping);
+		ptrMapGNMappingDestroy(mappings, NULL);
+		return retVal;
+}
 //
 // Does not preserve edges,see filterGraph
 //

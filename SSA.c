@@ -8,6 +8,8 @@
 #include <hashTable.h>
 #include <stdio.h>
 #include <topoSort.h>
+#define DEBUG_PRINT_ENABLE 1
+#include <debugPrint.h>
 #define GRAPHN_ALLOCATE(x) ({ __graphNodeCreate(&x, sizeof(x), 0); })
 typedef int (*strGN_IRCmpType)(const strGraphNodeIRP *,
                                const strGraphNodeIRP *);
@@ -15,9 +17,6 @@ typedef int (*geCmpType)(const graphEdgeIR *, const graphEdgeIR *);
 typedef int (*gnCmpType)(const graphNodeIR *, const graphNodeIR *);
 
 static char *ptr2Str(const void *a) { return base64Enc((void *)&a, sizeof(a)); }
-MAP_TYPE_DEF(struct IRVar *, VarRef);
-MAP_TYPE_FUNCS(struct IRVar *, VarRef);
-static mapVarRef varRefs = NULL;
 static graphNodeIR createChoose(graphNodeIR insertBefore,
                                 strGraphNodeIRP pathPairs) {
 	// Make the choose node
@@ -385,6 +384,114 @@ static int ptrCmp(const void *a, const void *b) {
 	else
 		return 0;
 }
+struct varBlob {
+		strIRVar read;
+		strIRVar write;
+};
+PTR_MAP_FUNCS(graphNodeIR, struct varBlob, VarBlobByExprEnd);
+static void varBlobDestroy(struct varBlob *blob) {
+		strIRVarDestroy(&blob->read);
+		strIRVarDestroy(&blob->write);
+}
+static void transparentKillMapping(graphNodeMapping node) {
+			__auto_type incoming = graphNodeMappingIncoming(node);
+	__auto_type outgoing = graphNodeMappingOutgoing(node);
+	for (long i1 = 0; i1 != strGraphEdgeMappingPSize(incoming); i1++)
+		for (long i2 = 0; i2 != strGraphEdgeMappingPSize(outgoing); i2++)
+			graphNodeMappingConnect(graphEdgeMappingIncoming(incoming[i1]),
+			                   graphEdgeMappingOutgoing(outgoing[i2]), NULL);
+
+	graphNodeMappingKill(&node, NULL, NULL);
+}
+PTR_MAP_FUNCS(graphNodeIR, graphNodeMapping, IR2Mapping);
+static ptrMapVarBlobByExprEnd map2VarBlobs(graphNodeIR input,graphNodeMapping *retVal,strIRVar *allVars) {
+		if(allVars)
+				*allVars=NULL;
+		ptrMapVarBlobByExprEnd m2VBlob=ptrMapVarBlobByExprEndCreate();
+
+		__auto_type mapping=graphNodeCreateMapping(input, 0);
+		strGraphNodeMappingP allNodes CLEANUP(strGraphNodeMappingPDestroy)=graphNodeMappingAllNodes(mapping);
+		ptrMapIR2Mapping ir2m=ptrMapIR2MappingCreate();
+		for(long i=0;i!=strGraphNodeMappingPSize(allNodes);i++)
+				ptrMapIR2MappingAdd(ir2m, *graphNodeMappingValuePtr(allNodes[i]), allNodes[i]);
+
+		//Replace expressions with variable blobs
+		strGraphNodeMappingP consumed CLEANUP(strGraphNodeMappingPDestroy)=NULL;
+		for(long i=0;i!=strGraphNodeMappingPSize(allNodes);i++) {
+				//Preserve input node
+				if(*graphNodeMappingValuePtr(allNodes[i])==input)
+						continue;
+				if(strGraphNodeMappingPSortedFind(consumed, allNodes[i], (gnCmpType)ptrPtrCmp))
+						continue;
+				
+				__auto_type node=*graphNodeMappingValuePtr(allNodes[i]);
+				__auto_type end=IREndOfExpr(node);
+				//Not moves means not in expression of last node of expr
+				if(end==node||end==NULL)
+						continue;
+				
+				strGraphNodeIRP nodes CLEANUP(strGraphNodeIRPDestroy)=IRStmtNodes(end);
+				struct varBlob blob;
+				blob.read=NULL;
+				blob.write=NULL;
+				for(long n=0;n!=strGraphNodeIRPSize(nodes);n++) {
+						struct IRNodeValue *val=(void*)graphNodeIRValuePtr(nodes[n]);
+						if(val->base.type!=IR_VALUE)
+								continue;
+						if(val->val.type!=IR_VAL_VAR_REF)
+								continue;
+
+						strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(nodes[n]);
+						strGraphEdgeIRP inAssign CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_DEST);
+						if(strGraphEdgeIRPSize(inAssign)) {
+								if(!strIRVarSortedFind(blob.write, val->val.value.var, IRVarCmp))
+										blob.write=strIRVarSortedInsert(blob.write, val->val.value.var, IRVarCmp);
+						} else {
+								if(!strIRVarSortedFind(blob.read, val->val.value.var, IRVarCmp))
+										blob.read=strIRVarSortedInsert(blob.read, val->val.value.var, IRVarCmp);
+						}
+						if(allVars) {
+								strIRVar dummy CLEANUP(strIRVarDestroy)=strIRVarAppendItem(NULL, val->val.value.var);
+								*allVars=strIRVarSetUnion(*allVars, dummy, IRVarCmp);
+						}
+				}
+
+				strGraphNodeMappingP toReplace CLEANUP(strGraphNodeMappingPDestroy)=NULL;
+				for(long i=0;i!=strGraphNodeIRPSize(nodes);i++)
+						toReplace=strGraphNodeMappingPSortedInsert(toReplace, *ptrMapIR2MappingGet(ir2m, nodes[i]), (gnCmpType)ptrPtrCmp);
+				graphReplaceWithNode(toReplace, graphNodeMappingCreate(end, 0), NULL, NULL, sizeof(*graphNodeMappingValuePtr(NULL)));
+
+				consumed=strGraphNodeMappingPSetUnion(consumed, toReplace, (gnCmpType)ptrPtrCmp);
+
+				ptrMapVarBlobByExprEndAdd(m2VBlob, end, blob);
+		}
+
+		//Transparently remove all non-expression and non-start nodes
+		__auto_type firstNodeM=*ptrMapIR2MappingGet(ir2m, input);
+		consumed=strGraphNodeMappingPSortedInsert(consumed, firstNodeM, (gnCmpType)ptrPtrCmp);
+		allNodes=strGraphNodeMappingPSetDifference(allNodes, consumed, (gnCmpType)ptrPtrCmp);
+		for(long i=0;i!=strGraphNodeMappingPSize(allNodes);i++)
+				transparentKillMapping(allNodes[i]);
+		
+		if(retVal)
+				*retVal=firstNodeM;
+
+		ptrMapIR2MappingDestroy(ir2m, NULL);
+		return m2VBlob;
+}
+void filterVBlobMap4Var(graphNodeMapping start,struct IRVar *var,ptrMapVarBlobByExprEnd blobs) {
+		strGraphNodeMappingP allNodes=graphNodeMappingAllNodes(start);
+		for(long i=0;i!=strGraphNodeMappingPSize(allNodes);i++) {
+				if(allNodes[i]==start)
+						continue;
+				__auto_type find=ptrMapVarBlobByExprEndGet(blobs, *graphNodeMappingValuePtr(allNodes[i]));
+				if(strIRVarSortedFind(find->read, *var, IRVarCmp))
+						continue;
+				if(strIRVarSortedFind(find->write, *var, IRVarCmp))
+						continue;
+				transparentKillMapping(allNodes[i]);
+		}
+}
 void IRToSSA(graphNodeIR enter) {
 	__auto_type nodes = graphNodeIRAllNodes(enter);
 	if (strGraphNodeIRPSize(nodes) == 0)
@@ -392,21 +499,9 @@ void IRToSSA(graphNodeIR enter) {
 	//
 	// Find all the vars
 	//
-	__auto_type filteredVars = IRFilter(enter, filterVars, NULL);
-	__auto_type filteredVarsNodes = graphNodeMappingAllNodes(filteredVars);
-	strIRVar allVars = NULL;
-	for (long i = 0; i != strGraphNodeMappingPSize(filteredVarsNodes); i++) {
-		__auto_type irNode = *graphNodeMappingValuePtr(filteredVarsNodes[i]);
-		struct IRNodeValue *val = (void *)graphNodeIRValuePtr(irNode);
-		// Could be enter node
-		if (val->base.type != IR_VALUE)
-			continue;
-
-		// Insert if doesnt exist
-		if (NULL == strIRVarSortedFind(allVars, val->val.value.var, IRVarCmp)) {
-			allVars = strIRVarSortedInsert(allVars, val->val.value.var, IRVarCmp);
-		}
-	}
+	strIRVar allVars CLEANUP(strIRVarDestroy)= NULL;
+	graphNodeMapping filtered;
+	ptrMapVarBlobByExprEnd blobs=map2VarBlobs(enter,  &filtered, &allVars);
 	/*{
 	char *fn=tmpnam(NULL);
 	IRGraphMap2GraphViz(filteredVars, "filter", fn, NULL,NULL,NULL,NULL);
@@ -420,13 +515,10 @@ void IRToSSA(graphNodeIR enter) {
 	//
 	strGraphNodeIRP newNodes = NULL;
 	for (long i = 0; i != strIRVarSize(allVars); i++) {
-		nodes = graphNodeIRAllNodes(enter);
-
-		// Find enter node in mapa
-		__auto_type filtered2 = filterVarRefs(enter, nodes, &allVars[i]);
-		__auto_type allNodes = graphNodeMappingAllNodes(filtered2);
-		// Compute choose nodes
-		strGraphNodeIRP chooses = IRSSACompute(filtered2, &allVars[i]);
+			__auto_type clone=graphNodeMappingClone(filtered);
+			filterVBlobMap4Var(clone, &allVars[i], blobs);
+			// Compute choose nodes
+		strGraphNodeIRP chooses = IRSSACompute(clone, &allVars[i]);
 		// Number the versions
 		SSAVersionVar(enter, &allVars[i]);
 
@@ -434,7 +526,8 @@ void IRToSSA(graphNodeIR enter) {
 	}
 
 end:
-	graphNodeMappingKillGraph(&filteredVars, NULL, NULL);
+	graphNodeMappingKillGraph(&filtered, NULL, NULL);
+	ptrMapVarBlobByExprEndDestroy(blobs, (void(*)(void*))varBlobDestroy);
 }
 struct __pathToChoosePredPair {
 	graphNodeIR start;
