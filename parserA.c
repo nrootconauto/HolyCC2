@@ -2976,7 +2976,7 @@ static struct X86AddressingMode *sibOffset2Addrmode(struct parserNode *node) {
 				struct parserNodeName *name=(void*)node;
 				__auto_type find=mapParserNodeGet(asmImports , name->text);
 				if(find) {
-						return X86AddrModeItemAddr(*find, NULL);
+						return X86AddrModeItemAddrOf(*find, NULL);
 				}
 				addLabelRef((struct parserNode *)node, name->text);
 				return X86AddrModeLabel(name->text);

@@ -148,7 +148,7 @@ void frameLayoutTests() {
 				IRCreateReturn(binop, NULL);
 		}
 		__auto_type live=IRInterferenceGraph(start);
-		__auto_type layout=IRComputeFrameLayout(start);
+		__auto_type layout=IRComputeFrameLayout(start,NULL);
 		mapFrameEntry byVar=mapFrameEntryCreate();
 		assert(strFrameEntrySize(layout)==6); //1 for each variable
 		for(long i=0;i!=6;i++)

@@ -237,7 +237,7 @@ dumpU : {
 	struct lexerInt retVal;
 
 	retVal.base = base;
-	retVal.type = (UINT64_MAX <= valueU) ? INT_SLONG : INT_SINT;
+	retVal.type = INT_SLONG ;
 	if (INT64_MAX < valueU)
 		retVal.value.sLong = valueU;
 	else

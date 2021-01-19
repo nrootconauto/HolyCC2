@@ -285,7 +285,6 @@ static struct object *U0Ptr;
 	// Assigment operators
 	//
 	assign2IRType = mapIRNodeTypeCreate();
-	mapIRNodeTypeInsert(assign2IRType, "=", IR_ASSIGN);
 	//
 	mapIRNodeTypeInsert(assign2IRType, "+=", IR_ADD);
 	mapIRNodeTypeInsert(assign2IRType, "-=", IR_SUB);
@@ -708,8 +707,10 @@ static graphNodeIR parserNode2Expr(const struct parserNode *node) {
 
 				__auto_type assign = mapIRNodeTypeGet(assign2IRType, op->text);
 				if (assign) {
-						retVal = IRCreateAssign(bVal,aVal);
+						retVal = IRCreateAssign(IRCreateBinop(aVal, bVal, *assign),parserNode2Expr(binop->a));
 						return retVal;
+				} else if(0==strcmp(op->text,"=")) {
+						return IRCreateAssign(bVal,aVal);
 				}
 
 				assert(0);

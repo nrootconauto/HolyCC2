@@ -48,7 +48,6 @@ struct X86AddressingMode *X86AddrModeReg(struct reg *reg) ;
 struct X86AddressingMode *X86AddrModeIndirMem(uint64_t where,struct object *type) ;
 struct X86AddressingMode *X86AddrModeLabel(const char *name);
 struct X86AddressingMode *X86AddrModeIndirReg(struct reg *where,struct object *type);
-struct X86AddressingMode *X86AddrModeItemAddr(struct parserNode *item,struct object *type);
 struct X86AddressingMode *X86AddrModeIndirSIB(long scale,struct reg *index,struct reg *base,struct X86AddressingMode *offset,struct object *type);
 struct X86AddressingMode *X86AddrModeItemAddrOf(struct parserNode *addrOf,struct object *type);
 struct opcodeTemplateArg {

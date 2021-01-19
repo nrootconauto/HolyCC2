@@ -700,10 +700,8 @@ static strChar opToText(enum IRNodeType type) {
 		return strClone("ADDR-OF");
 	case IR_ARRAY_ACCESS:
 		return strClone("[]");
-	case IR_ASSIGN:
-		return strClone("=");
 	case IR_BAND:
-		return strClone("=");
+		return strClone("&");
 	case IR_BNOT:
 		return strClone("~");
 	case IR_BOR:
@@ -1252,7 +1250,6 @@ static graphNodeIR __cloneNode(ptrMapGraphNode mappings, graphNodeIR node,
 	case IR_VALUE:
 	case IR_ADDR_OF:
 	case IR_ARRAY_ACCESS:
-	case IR_ASSIGN:
 	case IR_BAND:
 	case IR_BNOT:
 	case IR_BOR:
@@ -1404,7 +1401,6 @@ int IRIsOperator(graphNodeIR node) {
 		case IR_ADD:
 		case IR_ADDR_OF:
 		case IR_ARRAY_ACCESS:
-		case IR_ASSIGN:
 		case IR_BAND:
 		case IR_BNOT:
 		case IR_BOR:
