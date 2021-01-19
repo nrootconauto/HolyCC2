@@ -8,7 +8,7 @@
 #include <hashTable.h>
 #include <stdio.h>
 #include <topoSort.h>
-#define DEBUG_PRINT_ENABLE 1
+//#define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 #define GRAPHN_ALLOCATE(x) ({ __graphNodeCreate(&x, sizeof(x), 0); })
 typedef int (*strGN_IRCmpType)(const strGraphNodeIRP *,
@@ -418,10 +418,11 @@ static ptrMapVarBlobByExprEnd map2VarBlobs(graphNodeIR input,graphNodeMapping *r
 		//Replace expressions with variable blobs
 		strGraphNodeMappingP consumed CLEANUP(strGraphNodeMappingPDestroy)=NULL;
 		for(long i=0;i!=strGraphNodeMappingPSize(allNodes);i++) {
-				//Preserve input node
-				if(*graphNodeMappingValuePtr(allNodes[i])==input)
-						continue;
 				if(strGraphNodeMappingPSortedFind(consumed, allNodes[i], (gnCmpType)ptrPtrCmp))
+						continue;
+				//Preserve input node
+				__auto_type enter=*graphNodeMappingValuePtr(allNodes[i]);
+				if(*graphNodeMappingValuePtr(allNodes[i])==input)
 						continue;
 				
 				__auto_type node=*graphNodeMappingValuePtr(allNodes[i]);
@@ -464,8 +465,17 @@ static ptrMapVarBlobByExprEnd map2VarBlobs(graphNodeIR input,graphNodeMapping *r
 				}
 
 				strGraphNodeMappingP toReplace CLEANUP(strGraphNodeMappingPDestroy)=NULL;
-				for(long i=0;i!=strGraphNodeIRPSize(nodes);i++)
+				for(long i=0;i!=strGraphNodeIRPSize(nodes);i++) {
 						toReplace=strGraphNodeMappingPSortedInsert(toReplace, *ptrMapIR2MappingGet(ir2m, nodes[i]), (gnCmpType)ptrPtrCmp);
+						if(strGraphNodeMappingPSortedFind(consumed, *ptrMapIR2MappingGet(ir2m, nodes[i]), (gnCmpType)ptrPtrCmp))
+								printf("fuffie\n");
+				}
+
+				//Dont replace start node
+				__auto_type firstNodeM=*ptrMapIR2MappingGet(ir2m, input);
+				strGraphNodeMappingP dummy CLEANUP(strGraphNodeMappingPDestroy)=strGraphNodeIRPAppendItem(NULL, firstNodeM);
+				toReplace=strGraphNodeMappingPSetDifference(toReplace, dummy, (gnCmpType)ptrPtrCmp);
+				qsort(toReplace, strGraphNodeMappingPSize(toReplace), sizeof(*toReplace), ptrPtrCmp);
 				graphReplaceWithNode(toReplace, graphNodeMappingCreate(end, 0), NULL, NULL, sizeof(*graphNodeMappingValuePtr(NULL)));
 
 				consumed=strGraphNodeMappingPSetUnion(consumed, toReplace, (gnCmpType)ptrPtrCmp);
@@ -509,13 +519,13 @@ void IRToSSA(graphNodeIR enter) {
 	strIRVar allVars CLEANUP(strIRVarDestroy)= NULL;
 	graphNodeMapping filtered;
 	ptrMapVarBlobByExprEnd blobs=map2VarBlobs(enter,  &filtered, &allVars);
-	{
+	/*	{
 			char *fn=tmpnam(NULL);
 			IRGraphMap2GraphViz(filtered, "filter", fn, NULL,NULL,NULL,NULL);
 			char buffer[1024];
 			sprintf(buffer, "dot -Tsvg %s >/tmp/dot.svg && firefox /tmp/dot.svg &", fn);
 			system(buffer);
-	}
+			}*/
 
 	//
 	// Find SSA choose nodes for all vars
@@ -524,13 +534,13 @@ void IRToSSA(graphNodeIR enter) {
 	for (long i = 0; i != strIRVarSize(allVars); i++) {
 			__auto_type clone=graphNodeMappingClone(filtered);
 			filterVBlobMap4Var(clone, &allVars[i], blobs);
-			{
+			/*{
 					char *fn=tmpnam(NULL);
 					IRGraphMap2GraphViz(clone, "filter", fn, NULL,NULL,NULL,NULL);
 					char buffer[1024];
 					sprintf(buffer, "dot -Tsvg %s >/tmp/dot.svg && firefox /tmp/dot.svg &", fn);
 					system(buffer);
-			}
+			}*/
 			// Compute choose nodes
 		strGraphNodeIRP chooses = IRSSACompute(clone, &allVars[i]);
 		// Number the versions

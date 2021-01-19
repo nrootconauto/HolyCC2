@@ -435,8 +435,10 @@ static int untilAssign(const struct __graphNode *node,
 }
 strGraphNodeIRP IRStmtNodes(graphNodeIR end) {
 	strGraphNodeIRP starts = strGraphNodeIRPAppendItem(NULL, end);
+	__auto_type start=IRStmtStart(end);
 	graphNodeIRVisitBackward(end, &starts, exprEdgePred, addNode2List);
-
+	if(!strGraphNodeIRPSortedFind(starts, start, (gnIRCmpType)ptrPtrCmp))
+			starts=strGraphNodeIRPSortedInsert(starts, start, (gnIRCmpType)ptrPtrCmp);
 	return starts;
 }
 static void transparentKill(graphNodeIR node) {

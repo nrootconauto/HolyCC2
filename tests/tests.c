@@ -31,6 +31,7 @@ void IEEE754Tests();
 int main() {
 		init();
 		SSATests();
+		registerAllocatorTests();
 		/*
 				X86OpcodesTests();
 				parserTests();
@@ -53,7 +54,6 @@ int main() {
 				//graphVizTests();
 				graphColoringTests();
 				ptrMapTests();
-				registerAllocatorTests();;
 				SSATests();
 				//IRFilterTests();
 				IRTypeInferenceTests();
