@@ -33,7 +33,7 @@ __attribute__((destructor)) static void  deinit() {
 		ptrMapRegNameDestroy(regNames, (void(*)(void*))strCharDestroy2);
 }
 __attribute__((constructor)) static void init() {
-		ptrMapRegName regNames=ptrMapRegNameCreate();
+		regNames=ptrMapRegNameCreate();
 		ptrMapRegNameAdd(regNames, &regX86AL, strClone("AL"));
 		ptrMapRegNameAdd(regNames, &regX86AH, strClone("AH"));
 		ptrMapRegNameAdd(regNames, &regX86BL, strClone("BL"));
@@ -133,8 +133,16 @@ void X86EmitAsmInit() {
 		mapSymAsmNameDestroy(asmNames, (void(*)(void*))strCharDestroy2);
 		asmNames=mapSymAsmNameCreate();
 		labelsByParserNode=ptrMapLabelNamesCreate();
+		if(constsTmpFile!=NULL)
+				fclose(constsTmpFile);
 		constsTmpFile=tmpfile();
+
+		if(symbolsTmpFile!=NULL)
+				fclose(symbolsTmpFile);
 		symbolsTmpFile=tmpfile();
+
+		if(codeTmpFile!=NULL)
+				fclose(codeTmpFile);
 		codeTmpFile=tmpfile();
 }
 static strChar int64ToStr(int64_t value) {
@@ -176,6 +184,19 @@ static strChar getSizeStr(struct object *obj) {
 		default:
 		return NULL;
 	}
+}
+static strChar parserNodeSymbolName(struct parserNode *node) {
+		switch(node->type) {
+		case NODE_VAR:;
+				struct parserNodeVar *var=(void*)node;
+				return strClone(var->var->name);
+		case NODE_FUNC_REF:;
+				struct parserNodeFuncRef *ref=(void*)node;
+				return strClone(ref->func->name);
+		default:
+				assert(0);
+		}
+		return NULL;
 }
 static void X86EmitSymbolTable() {
 		long count;
@@ -333,7 +354,8 @@ void X86EmitAsmInst(struct opcodeTemplate *template,strX86AddrMode args,int *err
 		for(long i=0;i!=strX86AddrModeSize(args);i++) {
 				if(i!=0)
 						fputc(',', codeTmpFile);
-				emitMode(args, i);
+				strChar mode CLEANUP(strCharDestroy)=emitMode(args, i);
+				fputs(mode, codeTmpFile);
 		}
 		if(err)
 				*err=0;
@@ -388,7 +410,8 @@ static strChar  unescapeString(const char *str) {
 						}
 				}
 		}
-		retVal=strCharAppendItem(NULL, '"');
+		retVal=strCharAppendItem(retVal, '"');
+		retVal=strCharAppendItem(retVal, '\0');
 		return retVal;
 }
 struct X86AddressingMode *X86EmitAsmDU64(strX86AddrMode data,long len) {
@@ -450,4 +473,22 @@ struct X86AddressingMode *X86EmitAsmStrLit(const char *text) {
 		sprintf(buffer,  "$STR_%li", labelCount);
 		fprintf(constsTmpFile, "%s: DB %s\n", buffer,unes);
 		return X86AddrModeLabel(buffer);
+}
+static strChar file2Str(FILE *f) {
+		fseek(f, 0, SEEK_END);
+		long end=ftell(f);
+		fseek(f, 0, SEEK_SET);
+		long start=ftell(f);
+		strChar retVal=strCharResize(NULL, end-start);
+		fread(retVal, end-start, 1, f);
+		return retVal;
+} 
+void X86EmitAsm2File(const char *name) {
+		FILE *fn=fopen(name, "w");
+		strChar symbols CLEANUP(strCharDestroy)=file2Str(symbolsTmpFile);
+		strChar code CLEANUP(strCharDestroy)=file2Str(codeTmpFile);
+		strChar consts CLEANUP(strCharDestroy)=file2Str(constsTmpFile);
+		fwrite(symbols, strCharSize(symbols), 1, fn);
+		fwrite(code, strCharSize(symbols), 1, fn);
+		fwrite(consts, strCharSize(symbols), 1, fn);
 }

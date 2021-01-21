@@ -28,10 +28,12 @@ void frameLayoutTests();
 void X86OpcodesTests();
 void basicBlockTests();
 void IEEE754Tests();
+void asmEmitterTests();
 int main() {
 		init();
 		SSATests();
 		registerAllocatorTests();
+		asmEmitterTests();
 		/*
 				X86OpcodesTests();
 				parserTests();

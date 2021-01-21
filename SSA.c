@@ -646,14 +646,14 @@ static int edgeEqual(void * a,void *b) {
 }
 void IRSSAReplaceChooseWithAssigns(graphNodeIR node,
                                    strGraphNodeIRP *replaced) {
-		{
+		/*{
 			char *fn=tmpnam(NULL);
 			__auto_type map=graphNodeCreateMapping(node, 1);
 			IRGraphMap2GraphViz(map, "filter", fn, NULL,NULL,NULL,NULL);
 			char buffer[1024];
 			sprintf(buffer, "dot -Tsvg %s >/tmp/dot.svg && firefox /tmp/dot.svg &", fn);
 			system(buffer);
-	}
+	}*/
 
 		assert(graphNodeIRValuePtr(node)->type == IR_CHOOSE);
 	struct IRNodeChoose *choose = (void *)graphNodeIRValuePtr(node);
@@ -740,14 +740,14 @@ void IRSSAReplaceChooseWithAssigns(graphNodeIR node,
 
 			graphNodeIRConnect(edgeIn, IRStmtStart(assign), edgeValue);
 			graphNodeIRConnect(IREndOfExpr(assign),edgeOut, IR_CONN_FLOW);
-			{
+			/*{
 					char *fn=tmpnam(NULL);
 					__auto_type map=graphNodeCreateMapping(edgeOut, 1);
 					IRGraphMap2GraphViz(map, "filter", fn, NULL,NULL,NULL,NULL);
 					char buffer[1024];
 					sprintf(buffer, "dot -Tsvg %s >/tmp/dot.svg && firefox /tmp/dot.svg &", fn);
 					system(buffer);
-			}
+					}*/
 	}
 	
 	__auto_type endOfExpression = IREndOfExpr(node);
@@ -756,16 +756,7 @@ void IRSSAReplaceChooseWithAssigns(graphNodeIR node,
 	       IRStatementNodes(IRStmtStart(node), endOfExpression);
 	__auto_type dummy = IRCreateLabel();
 	graphReplaceWithNode(exprNodes, dummy, NULL, NULL, sizeof(graphEdgeIR));
-	//transparentKill(dummy);
-
-	{
-			char *fn=tmpnam(NULL);
-			__auto_type map=graphNodeCreateMapping(dummy, 1);
-			IRGraphMap2GraphViz(map, "filter", fn, NULL,NULL,NULL,NULL);
-			char buffer[1024];
-			sprintf(buffer, "dot -Tsvg %s >/tmp/dot.svg && firefox /tmp/dot.svg &", fn);
-			system(buffer);
-	}
+	transparentKill(dummy);
 	
 	if (replaced)
 		*replaced = exprNodes;

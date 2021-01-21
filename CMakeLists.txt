@@ -48,8 +48,8 @@ list(APPEND sources "frameLayout.c")
 list(APPEND sources "ieee754.c")
 ##list(APPEND sources "asm86.c")1
 list(APPEND sources "opcodesParser.c")
-#list(APPEND sources "asmEmitter.c")
-#list(APPEND sources "IR2asm.c")
+list(APPEND sources "asmEmitter.c")
+list(APPEND sources "IR2asm.c")
 
 set(tests "")
 list(APPEND tests "tests/ieee754Tests.c")
@@ -79,6 +79,7 @@ list(APPEND sources "tests/ptrMapTests.c")
 list(APPEND sources "tests/IRTypeInferenceTests.c")
 list(APPEND sources "tests/constantPropigation.c")
 list(APPEND sources "tests/frameLayoutTests.c")
+list(APPEND sources "tests/asmEmitterTests.c")
 add_executable(holycc2 ${sources} ${tests})
 
 
