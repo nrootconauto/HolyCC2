@@ -549,6 +549,13 @@ static int sizeMatchSigned(const struct X86AddressingMode *mode,long size) {
 		}
 		return 0;
 }
+static long ptrSize() {
+		switch(getCurrentArch()) {
+		case ARCH_X64_SYSV: return 8;
+		case ARCH_TEST_SYSV:
+		case ARCH_X86_SYSV: return 4;
+		}
+}
 static int templateAcceptsAddrMode(const struct opcodeTemplateArg *arg,const struct X86AddressingMode *mode) {
 		switch (arg->type) {
 		case OPC_TEMPLATE_ARG_M16:
@@ -630,11 +637,15 @@ static int templateAcceptsAddrMode(const struct opcodeTemplateArg *arg,const str
 		case OPC_TEMPLATE_ARG_UINT32:
 				if(mode->type==X86ADDRMODE_SINT||mode->type==X86ADDRMODE_UINT) {
 						return sizeMatchUnsigned(mode, 4);
+				} if(ptrSize()==4) {
+						return mode->type==X86ADDRMODE_LABEL||mode->type==X86ADDRMODE_ITEM_ADDR;
 				} else goto fail;
 		case OPC_TEMPLATE_ARG_SINT64:
 		case OPC_TEMPLATE_ARG_UINT64:
 				if(mode->type==X86ADDRMODE_SINT||mode->type==X86ADDRMODE_UINT) {
 						return sizeMatchUnsigned(mode, 8);
+				} if(ptrSize()==8) {
+						return mode->type==X86ADDRMODE_LABEL||mode->type==X86ADDRMODE_ITEM_ADDR;
 				} else goto fail;
 		case OPC_TEMPLATE_ARG_RM8:
 				if(mode->type==X86ADDRMODE_REG||mode->type==X86ADDRMODE_MEM) {
@@ -655,7 +666,7 @@ static int templateAcceptsAddrMode(const struct opcodeTemplateArg *arg,const str
 		case OPC_TEMPLATE_ARG_REL8:
 				return mode->type==X86ADDRMODE_LABEL;
 		case OPC_TEMPLATE_ARG_REL32:
-				return mode->type==X86ADDRMODE_LABEL;
+				return mode->type==X86ADDRMODE_LABEL||mode->type==X86ADDRMODE_LABEL||mode->type==X86ADDRMODE_ITEM_ADDR;;
 		case OPC_TEMPLATE_ARG_STI:
 				if(mode->type==X86ADDRMODE_REG) {
 						const struct reg *fpuRegs[]={

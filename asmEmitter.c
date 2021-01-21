@@ -357,6 +357,7 @@ void X86EmitAsmInst(struct opcodeTemplate *template,strX86AddrMode args,int *err
 				strChar mode CLEANUP(strCharDestroy)=emitMode(args, i);
 				fputs(mode, codeTmpFile);
 		}
+		fputc('\n', codeTmpFile);
 		if(err)
 				*err=0;
 		return;
@@ -386,31 +387,34 @@ char *X86EmitAsmLabel(const char *name) {
 				return retVal;
 		}
 		char *retVal=malloc(strlen(name)+1);
-		strcpy(retVal, retVal);
+		fprintf(codeTmpFile, "%s:\n", name);
+		strcpy(retVal, name);
 		return retVal;
 }
-static strChar  unescapeString(const char *str) {
-		char *otherValids="[]{}\\|;:\"\'<>?,./`~!@#$%^&*()-_+=";
+static strChar  dumpStrLit(const char *str) {
+		char *otherValids=" []{}\\|;:\"\'<>?,./`~!@#$%^&*()-_+=";
 		long len=strlen(str);
-		strChar retVal=strCharAppendItem(NULL, '"');
+		strChar retVal=NULL;
 		for(long i=0;i!=len;i++) {
+				if(i!=0)
+						retVal=strCharAppendItem(retVal,',');
 				if(isalnum(str[i])) {
+						retVal=strCharAppendItem(retVal,'\'');
 						retVal=strCharAppendItem(retVal, str[i]);
-				} else if(str[i]=='\"') {
-						retVal=strCharAppendItem(retVal, '\\');
-						retVal=strCharAppendItem(retVal, '\"');
+						retVal=strCharAppendItem(retVal,'\'');
 				} else {
 						if(strchr(otherValids, str[i])) {
+								retVal=strCharAppendItem(retVal,'\'');
 								retVal=strCharAppendItem(retVal, str[i]);
+								retVal=strCharAppendItem(retVal,'\'');
 						} else {
-								long count=snprintf(NULL, 0, "\\%02x",((uint8_t*)str)[i]);
+								long count=snprintf(NULL, 0, "0x%02x",((uint8_t*)str)[i]);
 								char buffer[count+1];
-								sprintf(buffer,  "\\%02x",((uint8_t*)str)[i]);
+								sprintf(buffer,  "0x%02x",((uint8_t*)str)[i]);
 								retVal=strCharAppendData(retVal, buffer, strlen(buffer));
 						}
 				}
 		}
-		retVal=strCharAppendItem(retVal, '"');
 		retVal=strCharAppendItem(retVal, '\0');
 		return retVal;
 }
@@ -467,7 +471,7 @@ struct X86AddressingMode *X86EmitAsmDU8(strX86AddrMode data,long len) {
 		return X86AddrModeLabel(buffer);
 }
 struct X86AddressingMode *X86EmitAsmStrLit(const char *text) {
-		strChar unes CLEANUP(strCharDestroy)=unescapeString(text);
+		strChar unes CLEANUP(strCharDestroy)=dumpStrLit(text);
 		long count=snprintf(NULL, 0, "$STR_%li", ++labelCount);
 		char buffer[count+1];
 		sprintf(buffer,  "$STR_%li", labelCount);
@@ -485,10 +489,12 @@ static strChar file2Str(FILE *f) {
 } 
 void X86EmitAsm2File(const char *name) {
 		FILE *fn=fopen(name, "w");
+		fputs("global _start\n", symbolsTmpFile);
 		strChar symbols CLEANUP(strCharDestroy)=file2Str(symbolsTmpFile);
 		strChar code CLEANUP(strCharDestroy)=file2Str(codeTmpFile);
 		strChar consts CLEANUP(strCharDestroy)=file2Str(constsTmpFile);
 		fwrite(symbols, strCharSize(symbols), 1, fn);
-		fwrite(code, strCharSize(symbols), 1, fn);
-		fwrite(consts, strCharSize(symbols), 1, fn);
+		fwrite(code, strCharSize(code), 1, fn);
+		fwrite(consts, strCharSize(consts), 1, fn);
+		fclose(fn);
 }
