@@ -485,20 +485,11 @@ static void assign(struct X86AddressingMode *a,struct X86AddressingMode *b,long 
 		strX86AddrMode args CLEANUP(strX86AddrModeDestroy)=NULL;
 		strOpcodeTemplate ops CLEANUP(strOpcodeTemplateDestroy)=NULL;
 		if(size==1||size==2||size==4||size==8) {
-				args=strX86AddrModeAppendItem(NULL, a);
-				args=strX86AddrModeAppendItem(NULL, b);
+				args=strX86AddrModeAppendItem(args, a);
+				args=strX86AddrModeAppendItem(args, b);
 		}
-		if(size==1) {
-				ops=X86OpcodesByArgs("MOV", args, NULL);
-				return;
-		} else if(size==2) {
-				ops=X86OpcodesByArgs("MOV", args, NULL);
-				return;
-		} else if(size==4) {
-				ops=X86OpcodesByArgs("MOV", args, NULL);
-				return;
-		} else if(size==8) {
-				ops=X86OpcodesByArgs("MOV", args, NULL);
+		if(size==1||size==2||size==4||size==8) {
+				assembleInst("MOV", args);
 				return;
 		} else {
 				long repCount,width;

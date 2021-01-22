@@ -7,6 +7,7 @@ struct X86MemoryLoc {
 				x86ADDR_MEM,
 				x86ADDR_INDIR_REG, //Indirect register aka [REG]
 				x86ADDR_INDIR_SIB, //Indirect scale-index-base aka [SCALE*REG+off/REG]
+				x86ADDR_INDIR_LABEL,
 		} type;
 		union {
 				uint64_t mem;
@@ -17,6 +18,7 @@ struct X86MemoryLoc {
 						int scale;
 						struct X86AddressingMode *offset;
 				} sib;
+				struct X86AddressingMode *label;
 		} value;
 		struct reg *segment; 
 };
@@ -103,3 +105,4 @@ long X86OpcodesArgCount(const char *name);
 const char *opcodeTemplateIntelAlias(const struct opcodeTemplate *template);
 struct X86AddressingMode *X86AddrModeClone(struct X86AddressingMode *mode);
 void X86AddrModeDestroy(struct X86AddressingMode **mode);
+struct X86AddressingMode *X86AddrModeIndirLabel(const char *text,struct object *type);

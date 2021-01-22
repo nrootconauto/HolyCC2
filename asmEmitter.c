@@ -258,6 +258,18 @@ static strChar emitMode(strX86AddrMode args,long i) {
 		}
 		case X86ADDRMODE_MEM: {
 				switch(args[i]->value.m.type) {
+				case x86ADDR_INDIR_LABEL: {
+						strChar sizeStr CLEANUP(strCharDestroy)=getSizeStr(args[i]->valueType);
+								if(!sizeStr)  {
+										fprintf(stderr, "Invalid size");
+										assert(0);
+								}
+								strChar labelStr CLEANUP(strCharDestroy)=emitMode(&args[i]->value.m.value.label, 0);
+								long len=snprintf(NULL, 0, " %s [%s] ", sizeStr, labelStr);
+								strChar retVal=strCharResize(NULL, len+1);
+								sprintf(retVal, " %s [%s] ", sizeStr, labelStr);
+								return retVal;
+				}
 				case x86ADDR_INDIR_REG: {
 						__auto_type reg=ptrMapRegNameGet(regNames, args[i]->value.m.value.indirReg);
 						if(args[i]->valueType) {
@@ -266,9 +278,9 @@ static strChar emitMode(strX86AddrMode args,long i) {
 										fprintf(stderr, "That's one gaint register(%s)\n",*reg);
 										assert(0);
 								}
-								long len=snprintf(NULL, 0, " %s PTR [%s] ", sizeStr, *reg);
+								long len=snprintf(NULL, 0, " %s [%s] ", sizeStr, *reg);
 								strChar retVal=strCharResize(NULL, len+1);
-								sprintf(retVal, " %s PTR [%s] ", sizeStr, *reg);
+								sprintf(retVal, " %s [%s] ", sizeStr, *reg);
 								return retVal;
 						} else {
 								long len=snprintf(NULL, 0, "[%s] ",  *reg);
@@ -284,7 +296,9 @@ static strChar emitMode(strX86AddrMode args,long i) {
 						strChar scaleStr CLEANUP(strCharDestroy) =int64ToStr(args[i]->value.m.value.sib.scale);
 						__auto_type baseStr=ptrMapRegNameGet(regNames,args[i]->value.m.value.sib.base);
 						//Emit mode takes an array,so pass the pointer
-						strChar offsetStr CLEANUP(strCharDestroy)=emitMode(&args[i]->value.m.value.sib.offset,0);
+						strChar offsetStr CLEANUP(strCharDestroy)=NULL;
+						if(args[i]->value.m.value.sib.offset)
+								offsetStr=emitMode(&args[i]->value.m.value.sib.offset,0);
 						strChar buffer CLEANUP(strCharDestroy)=NULL;
 						int insertAdd=0;
 						if(indexStr&&args[i]->value.m.value.sib.scale) {
@@ -307,11 +321,12 @@ static strChar emitMode(strX86AddrMode args,long i) {
 								retVal=strCharConcat(retVal, offsetStr);
 								offsetStr=NULL; //Will be free'd,but has been free'd by concat
 						}
+						retVal=strCharAppendItem(retVal, '\0');
 						if(args[i]->valueType) {
 								strChar typeStr CLEANUP(strCharDestroy)= getSizeStr(args[i]->valueType);
-								long len=snprintf(NULL, 0, "%s PTR [%s] ", typeStr,retVal);
+								long len=snprintf(NULL, 0, "%s [%s] ", typeStr,retVal);
 								strChar retVal2=strCharResize(NULL, len+1);
-								sprintf(retVal2, "%s PTR [%s] ", typeStr,retVal);
+								sprintf(retVal2, "%s [%s] ", typeStr,retVal);
 								return retVal2;
 						} else {
 								return retVal;
@@ -326,9 +341,9 @@ static strChar emitMode(strX86AddrMode args,long i) {
 										fprintf(stderr, "The size being addressed is weirder than a black rain frog.\n");
 										assert(0);
 								}
-								long len =snprintf(NULL,0, "%s PTR [%s] ", sizeStr,addrStr);
+								long len =snprintf(NULL,0, "%s [%s] ", sizeStr,addrStr);
 								strChar retVal2=strCharResize(NULL, len+1);
-								sprintf(retVal2, "%s PTR [%s] ", sizeStr,addrStr);
+								sprintf(retVal2, "%s [%s] ", sizeStr,addrStr);
 								return retVal2;
 						} else {
 								strChar addrStr CLEANUP(strCharDestroy)=uint64ToStr(args[i]->value.m.value.mem);
@@ -429,6 +444,7 @@ struct X86AddressingMode *X86EmitAsmDU64(strX86AddrMode data,long len) {
 				strChar text CLEANUP(strCharDestroy) =emitMode(data, i);
 				fprintf(constsTmpFile, "%s", text);
 		}
+		fprintf(constsTmpFile,"\n");
 		return X86AddrModeLabel(buffer);
 }
 struct X86AddressingMode *X86EmitAsmDU32(strX86AddrMode data,long len) {
@@ -442,6 +458,7 @@ struct X86AddressingMode *X86EmitAsmDU32(strX86AddrMode data,long len) {
 				strChar text CLEANUP(strCharDestroy) =emitMode(data, i);
 				fprintf(constsTmpFile, "%s", text);
 		}
+		fprintf(constsTmpFile,"\n");
 		return X86AddrModeLabel(buffer);
 }
 struct X86AddressingMode *X86EmitAsmDU16(strX86AddrMode data,long len) {
@@ -455,6 +472,7 @@ struct X86AddressingMode *X86EmitAsmDU16(strX86AddrMode data,long len) {
 				strChar text CLEANUP(strCharDestroy) =emitMode(data, i);
 				fprintf(constsTmpFile, "%s", text);
 		}
+		fprintf(constsTmpFile,"\n");
 		return X86AddrModeLabel(buffer);
 }
 struct X86AddressingMode *X86EmitAsmDU8(strX86AddrMode data,long len) {
@@ -468,6 +486,7 @@ struct X86AddressingMode *X86EmitAsmDU8(strX86AddrMode data,long len) {
 				strChar text CLEANUP(strCharDestroy) =emitMode(data, i);
 				fprintf(constsTmpFile, "%s", text);
 		}
+		fprintf(constsTmpFile,"\n");
 		return X86AddrModeLabel(buffer);
 }
 struct X86AddressingMode *X86EmitAsmStrLit(const char *text) {
@@ -495,6 +514,7 @@ void X86EmitAsm2File(const char *name) {
 		strChar consts CLEANUP(strCharDestroy)=file2Str(constsTmpFile);
 		fwrite(symbols, strCharSize(symbols), 1, fn);
 		fwrite(code, strCharSize(code), 1, fn);
+		fprintf(fn, "SECTION .data\n");
 		fwrite(consts, strCharSize(consts), 1, fn);
 		fclose(fn);
 }

@@ -928,6 +928,8 @@ struct X86AddressingMode *X86AddrModeClone(struct X86AddressingMode *mode) {
 				__auto_type clone=*mode;
 				if(clone.value.m.type==x86ADDR_INDIR_SIB)
 						clone.value.m.value.sib.offset=X86AddrModeClone(clone.value.m.value.sib.offset);
+				if(clone.value.m.type==x86ADDR_INDIR_LABEL)
+						clone.value.m.value.label=X86AddrModeClone(clone.value.m.value.label);
 				return ALLOCATE(clone);
 		}
 		case X86ADDRMODE_FLT:
@@ -956,8 +958,20 @@ void X86AddrModeDestroy(struct X86AddressingMode **mode) {
 				break;
 		case X86ADDRMODE_MEM:
 				if(mode[0]->value.m.type==x86ADDR_INDIR_SIB)
-						X86AddrModeDestroy(&mode[0]->value.m.value.sib.offset);
+						if(mode[0]->value.m.value.sib.offset)
+								X86AddrModeDestroy(&mode[0]->value.m.value.sib.offset);
+				if(mode[0]->value.m.type==x86ADDR_INDIR_LABEL)
+						X86AddrModeDestroy(&mode[0]->value.m.value.label);
 				break;
 		}
 		free(*mode);
+}
+struct X86AddressingMode *X86AddrModeIndirLabel(const char *text,struct object *type) {
+		struct X86AddressingMode mode;
+		mode.type=X86ADDRMODE_MEM;
+		mode.valueType=type;
+		mode.value.m.segment=NULL;
+		mode.value.m.type=x86ADDR_INDIR_LABEL;
+		mode.value.m.value.label=X86AddrModeLabel(text);
+		return ALLOCATE(mode);
 }
