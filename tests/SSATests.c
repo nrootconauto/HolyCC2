@@ -165,4 +165,23 @@ void SSATests() {
 				__auto_type cSSAVer=((struct IRNodeValue *)graphNodeIRValuePtr(c))->val.value.var.SSANum;
 				int x=1+2;
 		}
+		{
+				//Test inserting assign(when removing choose) when expression ends at a condtion
+				initIR();
+				__auto_type var =IRCreateVirtVar(&typeI32i);
+				__auto_type assn=IRCreateAssign(IRCreateIntLit(1), IRCreateVarRef(var));
+				__auto_type endLab=IRCreateLabel();
+				__auto_type assnT=IRCreateAssign(IRCreateIntLit(2), IRCreateVarRef(var));
+				graphNodeIRConnect(assnT, endLab, IR_CONN_FLOW);
+				__auto_type If=IRCreateCondJmp(assn,IRStmtStart(assnT),endLab);
+				graphNodeIRConnect(endLab, IRCreateVarRef(var), IR_CONN_FLOW);
+				IRToSSA(IRStmtStart(assn));
+				__auto_type allNodes=graphNodeIRAllNodes(assn);
+				for(long i=0;i!=strGraphNodeIRPSize(allNodes);i++) {
+						if(graphNodeIRValuePtr(allNodes[i])->type==IR_CHOOSE) {
+								IRSSAReplaceChooseWithAssigns(allNodes[i],NULL);
+								break;
+						}
+				}
+		}
 }

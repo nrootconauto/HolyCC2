@@ -621,11 +621,18 @@ static void strIRPathsDestroy2(strIRPaths *paths) {
 }
 static void __paths2Choose(graphNodeIR node,graphNodeIR choose,strIRPath *currentPath,strIRPaths *paths) {
 		__auto_type end=IREndOfExpr(node);
-		end=(!end)?node:node;
-		if(IRStmtStart(end)==choose) {
+		node=(!end)?node:end;
+		if(IRStmtStart(node)==choose) {
+				for(long p=0;p!=strIRPathsSize(*paths);p++) {
+						if(strIRPathSize(*currentPath)!=strIRPathSize(paths[0][p]))
+								continue;
+						//Dont repeat path
+						if(0==memcmp(paths[0][p], *currentPath, strIRPathSize(*currentPath)*sizeof(*currentPath)))
+								return;
+				}
 				*paths=strIRPathsAppendItem(*paths, strIRPathClone(*currentPath));
 				return;
-		}
+		};
 		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(node);
 		for(long i=0;i!=strGraphEdgeIRPSize(out);i++) {
 				__auto_type outNode=graphEdgeIROutgoing(out[i]);
@@ -635,25 +642,23 @@ static void __paths2Choose(graphNodeIR node,graphNodeIR choose,strIRPath *curren
 				*currentPath=strIRPathPop(*currentPath, NULL);
 		}
 }
-static strIRPaths paths2Choose(graphNodeIR node,graphNodeIR choose) {
+static void paths2Choose(strIRPaths *paths,graphNodeIR node,graphNodeIR choose) {
 		strIRPath path CLEANUP(strIRPathDestroy)=NULL;
-		strIRPaths paths=NULL;
-		__paths2Choose(node,choose,&path,&paths);
-		return paths;
+		__paths2Choose(node,choose,&path,paths);
 }
 static int edgeEqual(void * a,void *b) {
 		return *(const enum IRConnType*)a==*(const enum IRConnType*)b;
 }
 void IRSSAReplaceChooseWithAssigns(graphNodeIR node,
                                    strGraphNodeIRP *replaced) {
-		/*{
-			char *fn=tmpnam(NULL);
-			__auto_type map=graphNodeCreateMapping(node, 1);
-			IRGraphMap2GraphViz(map, "filter", fn, NULL,NULL,NULL,NULL);
-			char buffer[1024];
-			sprintf(buffer, "dot -Tsvg %s >/tmp/dot.svg && firefox /tmp/dot.svg &", fn);
-			system(buffer);
-	}*/
+		{
+				char *fn=tmpnam(NULL);
+				__auto_type map=graphNodeCreateMapping(node, 1);
+				IRGraphMap2GraphViz(map, "filter", fn, NULL,NULL,NULL,NULL);
+				char buffer[1024];
+				sprintf(buffer, "dot -Tsvg %s >/tmp/dot.svg && firefox /tmp/dot.svg &", fn);
+				system(buffer);
+		}
 
 		assert(graphNodeIRValuePtr(node)->type == IR_CHOOSE);
 	struct IRNodeChoose *choose = (void *)graphNodeIRValuePtr(node);
@@ -669,8 +674,7 @@ void IRSSAReplaceChooseWithAssigns(graphNodeIR node,
 
 	strIRPaths paths CLEANUP(strIRPathsDestroy2)=NULL;
 	for(long i=0;i!=strGraphNodeIRPSize(choose->canidates);i++) {
-			strIRPaths paths2 =paths2Choose(choose->canidates[i], node);
-			paths=strIRPathsConcat(paths, paths2);
+			paths2Choose(&paths,choose->canidates[i], node);
 	}
 	
 	strIRPaths order CLEANUP(strIRPathsDestroy)=NULL;
@@ -687,9 +691,9 @@ void IRSSAReplaceChooseWithAssigns(graphNodeIR node,
 									(int(*)(const void *,const void *))IRPathCmp);
 			for(long i=1;i<strIRPathsSize(paths);i++) {
 					strIRPath clone CLEANUP(strIRPathDestroy)=strIRPathClone(paths[i]);
-					qsort(shared, strIRPathSize(shared), sizeof(*shared),
+					qsort(clone, strIRPathSize(clone), sizeof(*clone),
 											(int(*)(const void *,const void *))IRPathCmp);
-					shared=strIRPathSetUnion(shared, clone, IRPathCmp);
+					shared=strIRPathSetIntersection(shared, clone, IRPathCmp,NULL);
 			}
 
 			//Remove common end path
@@ -700,7 +704,8 @@ void IRSSAReplaceChooseWithAssigns(graphNodeIR node,
 							if(strIRPathSortedFind(shared, paths[i][e], IRPathCmp)) {
 									if(strIRPathSize(paths[i])==1)
 											break;
-									paths[i]=strIRPathPop(paths[i], NULL);
+									struct IRPath popped;
+									paths[i]=strIRPathPop(paths[i], &popped);
 									removed++;
 							} else break;
 					}
@@ -732,6 +737,7 @@ void IRSSAReplaceChooseWithAssigns(graphNodeIR node,
 			__auto_type endEdge=order[o][strIRPathSize(order[o])-1].edge;
 			if(strGraphEdgeIRPSortedFind(consumedEdges, endEdge, (geCmpType)ptrPtrCmp))
 					continue;
+			consumedEdges=strGraphEdgeIRPSortedInsert(consumedEdges, endEdge, (geCmpType)ptrPtrCmp);
 			__auto_type edgeOut=graphEdgeIROutgoing(endEdge);
 			__auto_type edgeIn=graphEdgeIRIncoming(endEdge);
 			/**
@@ -776,7 +782,7 @@ void IRSSAReplaceChooseWithAssigns(graphNodeIR node,
 							IRInsertAfter(inNode , varNode1, varNode1, IR_CONN_DEST);
 
 							//Find new edge corresponding to old edge as old edge is destroyed
-							strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(inNode);
+							strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(varNode1);
 							strGraphEdgeIRP inOfType CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, edgeValue);
 							assert(strGraphEdgeIRPSize(inOfType)==1);
 							endEdge=inOfType[0];
@@ -784,7 +790,7 @@ void IRSSAReplaceChooseWithAssigns(graphNodeIR node,
 					}
 					__auto_type clone=IRCloneNode(inNode, IR_CLONE_NODE, NULL);
 					graphEdgeIRKill(graphEdgeIRIncoming(endEdge), edgeOut, &edgeValue, edgeEqual, NULL);
-					graphNodeIRConnect(edgeIn, IRStmtStart(assign), edgeValue);
+					graphNodeIRConnect(edgeIn, IRStmtStart(assign), IR_CONN_FLOW);
 					graphNodeIRConnect(IREndOfExpr(assign),clone, IR_CONN_FLOW);
 					graphNodeIRConnect(clone,edgeOut,edgeValue);
 					break;
@@ -798,14 +804,14 @@ void IRSSAReplaceChooseWithAssigns(graphNodeIR node,
 			}
 			}
 			
-			/*{
+			{
 					char *fn=tmpnam(NULL);
 					__auto_type map=graphNodeCreateMapping(edgeOut, 1);
 					IRGraphMap2GraphViz(map, "filter", fn, NULL,NULL,NULL,NULL);
 					char buffer[1024];
 					sprintf(buffer, "dot -Tsvg %s >/tmp/dot.svg && firefox /tmp/dot.svg &", fn);
 					system(buffer);
-					}*/
+					}
 	}
 	
 	__auto_type endOfExpression = IREndOfExpr(node);
