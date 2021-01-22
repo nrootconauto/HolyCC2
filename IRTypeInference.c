@@ -67,6 +67,8 @@ struct object *__IRNodeType(graphNodeIR node) {
 				} else if(nodeVal->val.type==IR_VAL_VAR_REF) {
 						if(nodeVal->val.value.var.type==IR_VAR_VAR)
 								return nodeVal->val.value.var.value.var->type;
+				} else if(nodeVal->val.type==__IR_VAL_MEM_FRAME) {
+						return nodeVal->val.value.__frame.type;
 				}
 				return NULL;
 		}

@@ -1639,3 +1639,12 @@ graphNodeIR IRCreateJumpTable() {
 		__auto_type tableNode=GRAPHN_ALLOCATE(table);
 		return tableNode;
 }
+graphNodeIR IRCreateFrameAddress(long offset,struct object *obj) {
+		struct IRNodeValue val;
+		val.base.attrs=NULL;
+		val.base.type=IR_VALUE;
+		val.val.type=__IR_VAL_MEM_FRAME;
+		val.val.value.__frame.offset=offset;
+		val.val.value.__frame.type=obj;
+		return GRAPHN_ALLOCATE(val);
+}
