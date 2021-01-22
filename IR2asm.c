@@ -38,6 +38,13 @@ strChar uniqueLabel(const char *head) {
 		sprintf(buffer, 0, "$%s_%li", head,labelsCount);
 		return strCharAppendData(NULL, buffer, count+1);
 }
+static long ptrSize() {
+		switch(getCurrentArch()) {
+		case ARCH_X64_SYSV: return 8;
+		case ARCH_TEST_SYSV:
+		case ARCH_X86_SYSV: return 4;
+		}
+}
 static struct reg *regForTypeExcludingConsumed(struct object *type) {
 		strRegP regs CLEANUP(strRegPDestroy)=regGetForType(type);
 		for(long i=0;i!=strRegPSize(regs);i++) {
@@ -102,8 +109,8 @@ static struct X86AddressingMode *node2AddrMode(graphNodeIR start) {
 				struct IRNodeValue *value=(void*)graphNodeIRValuePtr(start);
 				switch(value->val.type) {
 				case __IR_VAL_MEM_FRAME: {
-						if(getCurrentArch()==ARCH_X86_SYSV||getCurrentArch()==ARCH_X64_SYSV) {
-								return X86AddrModeIndirSIB(0, NULL, (getCurrentArch()==ARCH_X86_SYSV)?&regX86ESP:&regAMD64RSP,
+						if(getCurrentArch()==ARCH_TEST_SYSV||getCurrentArch()==ARCH_X86_SYSV||getCurrentArch()==ARCH_X64_SYSV) {
+								return X86AddrModeIndirSIB(0, NULL, (ptrSize()==4)?&regX86EBP:&regAMD64RBP,
 																																			X86AddrModeSint(value->val.value.__frame.offset), IRNodeType(start));
 						} else {
 								assert(0); //TODO  implement
@@ -223,13 +230,6 @@ static struct reg* destReg() {
 		case ARCH_X86_SYSV: return &regX86EDI;
 		}
 }
-static long ptrSize() {
-		switch(getCurrentArch()) {
-		case ARCH_X64_SYSV: return 8;
-		case ARCH_TEST_SYSV:
-		case ARCH_X86_SYSV: return 4;
-		}
-}
 static struct reg* sourceReg() {
 		switch(getCurrentArch()) {
 		case ARCH_X64_SYSV: return &regAMD64RSI;
@@ -302,7 +302,6 @@ static int ptrPtrCmp(const void *a, const void *b) {
 typedef int(*regCmpType)(const struct reg**,const struct reg**);
 typedef int(*gnCmpType)(const graphNodeIR *,const graphNodeIR *);
 static void consumeRegister(struct reg *reg) {
-		assert(!strRegPSortedFind(consumedRegisters, reg, (regCmpType)ptrPtrCmp));
 		consumedRegisters=strRegPSortedInsert(consumedRegisters, reg, (regCmpType)ptrPtrCmp);
 }
 static void consumeRegFromMode(struct X86AddressingMode *mode) {
@@ -1123,7 +1122,7 @@ static int IRTableRangeCmp(const struct IRJumpTableRange *a,const struct IRJumpT
 		else
 				return 0;
 }
-void IR2Asm(graphNodeIR start) {
+static void __IR2Asm(graphNodeIR start) {
 		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(start);
 		if(isFltNode(start)) {
 		switch(getCurrentArch()) {
@@ -1910,7 +1909,16 @@ void IR2Asm(graphNodeIR start) {
 				popReg(b);
 				return;
 		}
-		case IR_VALUE:
+		case IR_VALUE: {
+				strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
+				strGraphEdgeIRP assigns CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(incoming, IR_CONN_DEST);
+				if(strGraphEdgeIRPSize(assigns)==1) {
+						//Operator automatically assign into thier destination,so ensure isn't an operator.
+						if(graphNodeIRValuePtr(graphEdgeIRIncoming(assigns[0]))->type==IR_VALUE)
+								assign(node2AddrMode(start), node2AddrMode(graphEdgeIRIncoming(assigns[0])), objectSize(IRNodeType(start), NULL));
+				}
+				return;
+		}
 		case IR_LABEL:
 		case IR_FUNC_ARG:
 		case IR_FUNC_CALL:
@@ -1953,4 +1961,59 @@ static void insertLabelsForAsm(strGraphNodeIRP nodes) {
 						}
 				}
 		}
+}
+static int isNotArgEdge(const void *data,const graphEdgeIR *edge) {
+		__auto_type type=*graphEdgeIRValuePtr(*edge);
+		switch(type) {
+		case IR_CONN_SOURCE_A:
+		case IR_CONN_SOURCE_B:
+		case IR_CONN_COND:
+		case IR_CONN_FUNC_ARG:
+		case IR_CONN_FUNC:
+		case IR_CONN_DEST:
+				return 0;
+		default:
+				return 1;		
+		}
+}
+static __thread graphNodeIR argEdgeSortNode=NULL;
+static int argEdgeSortPrec(graphEdgeIR edge) {
+		__auto_type type=*graphEdgeIRValuePtr(edge);
+		switch(type) {
+		case IR_CONN_SOURCE_A:
+				return 0;
+		case IR_CONN_SOURCE_B:
+				return 1;
+		case IR_CONN_DEST:
+				return 2;
+		case IR_CONN_COND:
+				return 0;
+		case IR_CONN_FUNC_ARG: {
+				struct IRNodeFuncCall *call=(void*)graphNodeIRValuePtr(argEdgeSortNode);
+				return 1+strGraphNodeIRPSortedFind(call->incomingArgs,graphEdgeIRIncoming(edge),(gnCmpType)ptrPtrCmp)
+						-call->incomingArgs;
+		}
+		case IR_CONN_FUNC:
+				return 0;
+		default:
+				assert(0);
+				return 0;		
+		}
+}
+static int argEdgeSort(const void *a,const void *b) {
+		const graphEdgeIR *A=a,*B=b;
+		return argEdgeSortPrec(*A)-argEdgeSortPrec(*B);
+}
+void IR2Asm(graphNodeIR start) {
+	computeArgs:;
+		strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
+		incoming=strGraphEdgeIRPRemoveIf(incoming, NULL, isNotArgEdge);
+		//Is a global used to sort the arguments (orders function args in order)
+		argEdgeSortNode=start;
+		qsort(incoming, strGraphEdgeIRPSize(incoming), sizeof(*incoming), argEdgeSort);
+		
+		for(long a=0;a!=strGraphEdgeIRPSize(incoming);a++) {
+				IR2Asm(graphEdgeIRIncoming(incoming[a]));
+		}
+		__IR2Asm(start);
 }

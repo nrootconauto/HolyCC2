@@ -425,6 +425,9 @@ int regSliceConflict(const struct regSlice *a, const struct regSlice *b) {
 		int bEnd = b->offset + b->widthInBits+bRegOffsetInSuper;
 		int aOffset=a->offset+aRegOffsetInSuper;
 		int bOffset=b->offset+bRegOffsetInSuper;
+
+		if(aSuper!=bSuper)
+				return 0;
 		
 		if (aOffset >= bOffset)
 				if (bEnd > aOffset)
@@ -440,7 +443,7 @@ int regConflict(struct reg *a,struct reg *b) {
 		struct regSlice A;
 		A.offset=0,A.reg=a,A.widthInBits=a->size*8;
 		struct regSlice B;
-		B.offset=0,B.reg=a,B.widthInBits=b->size*8;
+		B.offset=0,B.reg=b,B.widthInBits=b->size*8;
 		return regSliceConflict(&A, &B);
 }
 strRegP regsForArch() {

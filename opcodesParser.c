@@ -924,8 +924,13 @@ struct X86AddressingMode *X86AddrModeLabel(const char *name) {
 }
 struct X86AddressingMode *X86AddrModeClone(struct X86AddressingMode *mode) {
 		switch(mode->type) {
+		case X86ADDRMODE_MEM:{
+				__auto_type clone=*mode;
+				if(clone.value.m.type==x86ADDR_INDIR_SIB)
+						clone.value.m.value.sib.offset=X86AddrModeClone(clone.value.m.value.sib.offset);
+				return ALLOCATE(clone);
+		}
 		case X86ADDRMODE_FLT:
-		case X86ADDRMODE_MEM:
 		case X86ADDRMODE_REG:
 		case X86ADDRMODE_SINT:
 		case X86ADDRMODE_UINT:
