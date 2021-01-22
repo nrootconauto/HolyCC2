@@ -734,12 +734,70 @@ void IRSSAReplaceChooseWithAssigns(graphNodeIR node,
 					continue;
 			__auto_type edgeOut=graphEdgeIROutgoing(endEdge);
 			__auto_type edgeIn=graphEdgeIRIncoming(endEdge);
+			/**
+				* If edge is a flow edge,just insert "inbetween" the edge,
+				* otherwise if is a source edge,we need to bring the end value
+				* to the end of the connection(expression edge may end at if or switch),so 
+				* make a copy of the the end value and paste it at the end.( To
+				* simulate a direct connection)
+				*
+				* For example,if we need to insert an assign at a=10 at here
+				*   if(a=10) a;
+				* The graph will need to look like this
+				*     10
+				*     ||
+				*     \/
+				*  a(ver 1)
+				* // Inserted //
+				*     ||
+				*     \/
+				*  a(ver 1)
+				*     ||
+				*     \/
+				*  a(ver2)
+				*     ||
+				*     \/
+				*  a(ver 1) //Copy of a(ver 1)
+				* // End of Inserted //
+				*    ||
+				*    \/
+				*    if 
+				*/
 			//Insert assign in the edge
 			__auto_type edgeValue=*graphEdgeIRValuePtr(endEdge);
-			graphEdgeIRKill(graphEdgeIRIncoming(endEdge), edgeOut, &edgeValue, edgeEqual, NULL);
+			switch(edgeValue) {
+			case IR_CONN_COND: {
+					//See long comment above
+					__auto_type inNode=graphEdgeIRIncoming(endEdge);
+					//If edge doesn't start with a value,make once
+					if(graphNodeIRValuePtr(inNode)->type!=IR_VALUE) {
+							__auto_type var=IRCreateVirtVar(IRNodeType(inNode));
+							__auto_type varNode1=IRCreateVarRef(var);
+							IRInsertAfter(inNode , varNode1, varNode1, IR_CONN_DEST);
 
-			graphNodeIRConnect(edgeIn, IRStmtStart(assign), edgeValue);
-			graphNodeIRConnect(IREndOfExpr(assign),edgeOut, IR_CONN_FLOW);
+							//Find new edge corresponding to old edge as old edge is destroyed
+							strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(inNode);
+							strGraphEdgeIRP inOfType CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, edgeValue);
+							assert(strGraphEdgeIRPSize(inOfType)==1);
+							endEdge=inOfType[0];
+							inNode=graphEdgeIRIncoming(endEdge);
+					}
+					__auto_type clone=IRCloneNode(inNode, IR_CLONE_NODE, NULL);
+					graphEdgeIRKill(graphEdgeIRIncoming(endEdge), edgeOut, &edgeValue, edgeEqual, NULL);
+					graphNodeIRConnect(edgeIn, IRStmtStart(assign), edgeValue);
+					graphNodeIRConnect(IREndOfExpr(assign),clone, IR_CONN_FLOW);
+					graphNodeIRConnect(clone,edgeOut,edgeValue);
+					break;
+			}
+			default: {
+					//Insert inbetween
+					graphEdgeIRKill(graphEdgeIRIncoming(endEdge), edgeOut, &edgeValue, edgeEqual, NULL);
+					graphNodeIRConnect(edgeIn, IRStmtStart(assign), edgeValue);
+					graphNodeIRConnect(IREndOfExpr(assign),edgeOut, IR_CONN_FLOW);
+					break;
+			}
+			}
+			
 			/*{
 					char *fn=tmpnam(NULL);
 					__auto_type map=graphNodeCreateMapping(edgeOut, 1);
