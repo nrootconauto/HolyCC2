@@ -651,6 +651,8 @@ static int edgeEqual(void * a,void *b) {
 }
 static strIRPath sharedEndPath(strIRPaths paths) {
 		strIRPath retVal=NULL;
+		if(strIRPathsSize(paths)==1)
+				return NULL;
 		for(long off=1;;off++) {
 				if(strIRPathSize(paths[0])-off<=0)
 						goto end;
@@ -667,14 +669,14 @@ static strIRPath sharedEndPath(strIRPaths paths) {
 	end:
 		return retVal;
 }
-PTR_MAP_FUNCS(graphNodeIR, strIRPaths, IRPathsByGN);
+PTR_MAP_FUNCS(graphEdgeIR, strIRPaths, IRPathsByGN);
 static ptrMapIRPathsByGN groupPathsByEnd(ptrMapIRPathsByGN *retVal,strIRPaths paths) {
 		for(long p=0;p!=strIRPathsSize(paths);p++) {
 				__auto_type last=paths[p][strIRPathSize(paths[p])-1];
 		loop:;
-				__auto_type find=ptrMapIRPathsByGNGet(*retVal, last.end);
+				__auto_type find=ptrMapIRPathsByGNGet(*retVal, last.edge);
 				if(!find) {
-						ptrMapIRPathsByGNAdd(*retVal, last.end, NULL);
+						ptrMapIRPathsByGNAdd(*retVal, last.edge, NULL);
 						goto loop;
 				}
 				*find=strIRPathsAppendItem(*find, paths[p]);
@@ -714,27 +716,24 @@ void IRSSAReplaceChooseWithAssigns(graphNodeIR node,
 	groupPathsByEnd(&pathsByEnd,paths);
 	for(;ptrMapIRPathsByGNSize(pathsByEnd);) {
 			long keyCount=ptrMapIRPathsByGNSize(pathsByEnd);
-			strGraphNodeIRP dumpTo CLEANUP(strGraphNodeIRPDestroy)=strGraphNodeIRPResize(NULL, keyCount);
+			strGraphEdgeIRP dumpTo CLEANUP(strGraphEdgeIRPDestroy)=strGraphEdgeIRPResize(NULL, keyCount);
 			ptrMapIRPathsByGNKeys(pathsByEnd, dumpTo);
 
 			//This stores the new ends for the next loop
 			ptrMapIRPathsByGN pathsByEnd2=ptrMapIRPathsByGNCreate();
 			for(long k=0;k!=keyCount;k++) {
 					strIRPaths paths CLEANUP(strIRPathsDestroy)=*ptrMapIRPathsByGNGet(pathsByEnd, dumpTo[k]);
-					for(;strIRPathsSize(paths);) {
-							if(strIRPathsSize(paths)==1) {
-									order=strIRPathsAppendItem(order, paths[0]);
-									paths=strIRPathsResize(paths, 0);
-									break;
-							}
 			
 							//Do set union of paths
 							strIRPath shared CLEANUP(strIRPathDestroy)=sharedEndPath(paths);
-
+							qsort(shared, strIRPathSize(shared), (sizeof *shared), (int(*)(const void*,const void*))IRPathCmp);
+							
 							//Remove common end path
-					loop:
 							for(long i=0;i!=strIRPathsSize(paths);i++) {
 									long removed=0;
+									loop:
+									if(i>=strIRPathsSize(paths))
+											break;
 									for(long e=strIRPathSize(paths[i])-1;e>=0;e--) {
 											if(strIRPathSortedFind(shared, paths[i][e], IRPathCmp)) {
 													if(strIRPathSize(paths[i])==1)
@@ -754,7 +753,6 @@ void IRSSAReplaceChooseWithAssigns(graphNodeIR node,
 							}
 							groupPathsByEnd(&pathsByEnd2,paths);
 					}
-			}
 			ptrMapIRPathsByGNDestroy(pathsByEnd, NULL);
 			pathsByEnd=pathsByEnd2;
 	}
@@ -763,13 +761,7 @@ void IRSSAReplaceChooseWithAssigns(graphNodeIR node,
 	// Filter out paths that appear  in the path of another path
 	//
 	strGraphEdgeIRP consumedEdges CLEANUP(strGraphEdgeIRPDestroy)=NULL;
-	for(long p=0;p!=strIRPathsSize(order);p++) {
-			//Including end edge would exclude self
-			strGraphEdgeIRP edgesExcldEnd CLEANUP(strGraphEdgeIRPDestroy)=NULL;
-			for(long e=0;e<strIRPathSize(order[p])-1;e++)
-					edgesExcldEnd=strGraphEdgeIRPSortedInsert(edgesExcldEnd, order[p][e].edge, (geCmpType)ptrPtrCmp);
-			consumedEdges=strGraphEdgeIRPSetUnion(consumedEdges, edgesExcldEnd, (geCmpType)ptrPtrCmp);
-	}
+	
 	
 	for(long o=0;o!=strIRPathsSize(order);o++) {
 			//First item in path is always node targeted by choose

@@ -63,7 +63,7 @@ static void assertSSANodes(graphNodeIR node,...) {
 #define INSERT_NAME(item ) ({char buffer[128]; sprintf(buffer, "%p", item); mapStrInsert(nodeNames,  buffer,#item); })
 void SSATests() {
 		// http://pages.cs.wisc.edu/~fischer/cs701.f05/lectures/Lecture22.pdf
-		{
+				{
 				initIR();
 				__auto_type var=IRCreateVirtVar(&typeI64i);
 
@@ -172,8 +172,14 @@ void SSATests() {
 				__auto_type assn=IRCreateAssign(IRCreateIntLit(1), IRCreateVarRef(var));
 				__auto_type endLab=IRCreateLabel();
 				__auto_type assnT=IRCreateAssign(IRCreateIntLit(2), IRCreateVarRef(var));
+				__auto_type assnF=IRCreateAssign(IRCreateIntLit(3), IRCreateVarRef(var));
 				graphNodeIRConnect(assnT, endLab, IR_CONN_FLOW);
-				__auto_type If=IRCreateCondJmp(assn,IRStmtStart(assnT),endLab);
+				__auto_type cond2=IRCreateIntLit(2);
+				__auto_type if2End=IRCreateLabel();
+				__auto_type If2=IRCreateCondJmp(cond2,IRStmtStart(assnF),if2End);
+				graphNodeIRConnect(assnF, if2End, IR_CONN_FLOW);
+				graphNodeIRConnect(if2End, endLab, IR_CONN_FLOW);
+				__auto_type If1=IRCreateCondJmp(assn,IRStmtStart(assnT),cond2);
 				graphNodeIRConnect(endLab, IRCreateVarRef(var), IR_CONN_FLOW);
 				IRToSSA(IRStmtStart(assn));
 				__auto_type allNodes=graphNodeIRAllNodes(assn);
