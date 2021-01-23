@@ -850,11 +850,38 @@ static struct enterExit __parserNode2IRStmt(const struct parserNode *node) {
 
 	return retVal;
 }
+const void *IR_ATTR_LABEL_NAME="LABEL_NAME";
+static void IRAttrLabelNameDestroy(struct IRAttr *attr) {
+		struct IRAttrLabelName *nm=(void*)attr;
+		free(nm);
+}
 static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 	switch (node->type) {
+	case NODE_LINKAGE:
+	case NODE_CLASS_FORWARD_DECL:
+	case NODE_UNION_FORWARD_DECL:
 	case NODE_ASM_REG:
 	case NODE_ASM_ADDRMODE_SIB:
 			assert(0);
+	case NODE_LIT_FLT: {
+			struct parserNodeLitFlt *flt=(void*)node;
+			__auto_type gn=IRCreateFloat(flt->value);
+			return (struct enterExit){gn,gn};
+	}
+	case NODE_ASM: {
+			//These are used to samwich local nodes between them
+			__auto_type enterLab=IRCreateLabel();
+			graphNodeIR current=enterLab;
+			struct parserNodeAsm *Asm=(void*)node;
+			for(long i=0;i!=strParserNodeSize(Asm->body);i++) {
+					__auto_type pair= __parserNode2IRNoStmt(Asm->body[i]);
+					graphNodeIRConnect(current,pair.enter,IR_CONN_FLOW); 
+					current=pair.exit;
+			}
+			__auto_type exitLab=IRCreateLabel();
+			graphNodeIRConnect(current, exitLab, IR_CONN_FLOW);
+			return (struct enterExit){enterLab,exitLab};
+	}
 	case NODE_ASM_BINFILE: {
 			struct parserNodeAsmBinfile *bf=(void*)node;
 			struct IRNodeAsmImport import;
@@ -1132,6 +1159,13 @@ static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 		else
 				ptrMapGNIRByParserNodeAdd(labelsByPN, (struct parserNode*)node, lab);
 
+		struct IRAttrLabelName attr;
+		attr.base.name=(void*)IR_ATTR_LABEL_NAME;
+		attr.base.destroy=IRAttrLabelNameDestroy;
+		IRAttrReplace(lab, __llCreate(&attr, sizeof(attr)));
+		attr.name=malloc(strlen(name->text)+1);
+		strcpy(attr.name, name->text);
+		
 		return (struct enterExit){lab,lab};
 	}
 	case NODE_ASM_LABEL_LOCAL: {
@@ -1162,6 +1196,13 @@ static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 					lab=*find;
 			else
 					ptrMapGNIRByParserNodeAdd(labelsByPN, (struct parserNode*)node, lab);
+
+			struct IRAttrLabelName attr;
+			attr.base.name=(void*)IR_ATTR_LABEL_NAME;
+			attr.base.destroy=IRAttrLabelNameDestroy;
+			attr.name=malloc(strlen(name->text)+1);
+			strcpy(attr.name, name->text);
+			IRAttrReplace(lab, __llCreate(&attr, sizeof(attr)));
 			
 			return (struct enterExit){lab,lab};
 	}

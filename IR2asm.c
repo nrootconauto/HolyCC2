@@ -15,6 +15,7 @@
 #include <regAllocator.h>
 #include <IR2asm.h>
 #include <stdarg.h>
+#include <parse2IR.h>
 STR_TYPE_DEF(char,Char);
 STR_TYPE_FUNCS(char,Char);
 PTR_MAP_FUNCS(graphNodeIR , strChar, LabelNames);
@@ -470,8 +471,6 @@ static void compileFunction(graphNodeIR start) {
 		for(long i=0;i!=strFrameEntrySize(layout);i++)
 				ptrMapFrameOffsetAdd(varFrameOffsets, layout[i].var.value.var, layout[i].offset);
 		ptrMapFrameOffsetDestroy(varFrameOffsets,NULL);
-
-		
 		
 		//"Pop" the old frame layout
 		varFrameOffsets=oldOffsets;
@@ -1112,6 +1111,22 @@ static int IRTableRangeCmp(const struct IRJumpTableRange *a,const struct IRJumpT
 				return -1;
 		else
 				return 0;
+}
+static const char *getLabelName(graphNodeIR node) {
+	loop:;
+		__auto_type existing=ptrMapLabelNamesGet(asmLabelNames, node);
+		if(existing)
+				return *existing;
+		
+		__auto_type nv=graphNodeIRValuePtr(node);
+		__auto_type find=llIRAttrFind(nv->attrs, IR_ATTR_LABEL_NAME, IRAttrGetPred);
+		if(find) {
+				struct IRAttrLabelName *name=(void*)llIRAttrValuePtr(find);
+				ptrMapLabelNamesAdd(asmLabelNames, node, strClone(name->name));
+		} else {
+				ptrMapLabelNamesAdd(asmLabelNames, node,uniqueLabel(""));
+		}
+		goto loop;
 }
 static void __IR2Asm(graphNodeIR start) {
 		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(start);
@@ -1910,7 +1925,18 @@ static void __IR2Asm(graphNodeIR start) {
 				}
 				return;
 		}
-		case IR_LABEL:
+		case IR_LABEL_LOCAL:
+		case IR_LABEL: {
+				X86EmitAsmLabel(getLabelName(start));
+				return;
+		}
+		case IR_X86_INST: {
+				struct IRNodeX86Inst *inst=(void*)graphNodeIRValuePtr(start);
+  		assembleInst(inst->name, inst->args);
+				return;
+		}
+		case IR_ASM_DU8: {
+		}
 		case IR_FUNC_ARG:
 		case IR_FUNC_CALL:
 		case IR_FUNC_RETURN:
@@ -1922,14 +1948,6 @@ static void __IR2Asm(graphNodeIR start) {
 		case IR_MEMBERS:
 				;
 		}
-}
-static strChar getLabelText(graphNodeIR node) {
-	loop:;
-		__auto_type find=ptrMapLabelNamesGet(asmLabelNames, node);
-		if(find)
-				return strClone(*find);
-		ptrMapLabelNamesAdd(asmLabelNames, node,uniqueLabel(""));
-		goto loop;
 }
 static void insertLabelsForAsm(strGraphNodeIRP nodes) {
 		insertLabelsForAsmCalled=1;
