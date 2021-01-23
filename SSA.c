@@ -649,6 +649,38 @@ static void paths2Choose(strIRPaths *paths,graphNodeIR node,graphNodeIR choose) 
 static int edgeEqual(void * a,void *b) {
 		return *(const enum IRConnType*)a==*(const enum IRConnType*)b;
 }
+static strIRPath sharedEndPath(strIRPaths paths) {
+		strIRPath retVal=NULL;
+		for(long off=1;;off++) {
+				if(strIRPathSize(paths[0])-off<=0)
+						goto end;
+				struct IRPath firstPath=paths[0][strIRPathSize(paths[0])-off];
+				for(long p=1;p<strIRPathsSize(paths);p++) {
+						if(strIRPathSize(paths[p])-off<=0)
+						goto end;
+						if(0!=IRPathCmp(&firstPath, &paths[p][strIRPathSize(paths[p])-off]))
+								goto end;
+				}
+
+				retVal=strIRPathAppendItem(retVal, firstPath);
+		}
+	end:
+		return retVal;
+}
+PTR_MAP_FUNCS(graphNodeIR, strIRPaths, IRPathsByGN);
+static ptrMapIRPathsByGN groupPathsByEnd(ptrMapIRPathsByGN *retVal,strIRPaths paths) {
+		for(long p=0;p!=strIRPathsSize(paths);p++) {
+				__auto_type last=paths[p][strIRPathSize(paths[p])-1];
+		loop:;
+				__auto_type find=ptrMapIRPathsByGNGet(*retVal, last.end);
+				if(!find) {
+						ptrMapIRPathsByGNAdd(*retVal, last.end, NULL);
+						goto loop;
+				}
+				*find=strIRPathsAppendItem(*find, paths[p]);
+		}
+		return *retVal;
+}
 void IRSSAReplaceChooseWithAssigns(graphNodeIR node,
                                    strGraphNodeIRP *replaced) {
 		{
@@ -678,45 +710,53 @@ void IRSSAReplaceChooseWithAssigns(graphNodeIR node,
 	}
 	
 	strIRPaths order CLEANUP(strIRPathsDestroy)=NULL;
-	for(;strIRPathsSize(paths);) {
-			if(strIRPathsSize(paths)==1) {
-							order=strIRPathsAppendItem(order, paths[0]);
-							paths=strIRPathsResize(paths, 0);
-							break;
-			}
-			
-			//Do set union of paths
-			strIRPath shared CLEANUP(strIRPathDestroy)=strIRPathClone(paths[0]);
-			qsort(shared, strIRPathSize(shared), sizeof(*shared),
-									(int(*)(const void *,const void *))IRPathCmp);
-			for(long i=1;i<strIRPathsSize(paths);i++) {
-					strIRPath clone CLEANUP(strIRPathDestroy)=strIRPathClone(paths[i]);
-					qsort(clone, strIRPathSize(clone), sizeof(*clone),
-											(int(*)(const void *,const void *))IRPathCmp);
-					shared=strIRPathSetIntersection(shared, clone, IRPathCmp,NULL);
-			}
+	ptrMapIRPathsByGN pathsByEnd=ptrMapIRPathsByGNCreate();
+	groupPathsByEnd(&pathsByEnd,paths);
+	for(;ptrMapIRPathsByGNSize(pathsByEnd);) {
+			long keyCount=ptrMapIRPathsByGNSize(pathsByEnd);
+			strGraphNodeIRP dumpTo CLEANUP(strGraphNodeIRPDestroy)=strGraphNodeIRPResize(NULL, keyCount);
+			ptrMapIRPathsByGNKeys(pathsByEnd, dumpTo);
 
-			//Remove common end path
-	loop:
-			for(long i=0;i!=strIRPathsSize(paths);i++) {
-					long removed=0;
-					for(long e=strIRPathSize(paths[i])-1;e>=0;e--) {
-							if(strIRPathSortedFind(shared, paths[i][e], IRPathCmp)) {
-									if(strIRPathSize(paths[i])==1)
-											break;
-									struct IRPath popped;
-									paths[i]=strIRPathPop(paths[i], &popped);
-									removed++;
-							} else break;
-					}
-					if(!removed) {
-							long len=strIRPathsSize(paths);
-							order=strIRPathsAppendItem(order, paths[i]);
-							memmove(&paths[i], &paths[i+1], (len-1-i)*(sizeof paths[i]));
-							paths=strIRPathsResize(paths, len-1);
-							goto loop;
+			//This stores the new ends for the next loop
+			ptrMapIRPathsByGN pathsByEnd2=ptrMapIRPathsByGNCreate();
+			for(long k=0;k!=keyCount;k++) {
+					strIRPaths paths CLEANUP(strIRPathsDestroy)=*ptrMapIRPathsByGNGet(pathsByEnd, dumpTo[k]);
+					for(;strIRPathsSize(paths);) {
+							if(strIRPathsSize(paths)==1) {
+									order=strIRPathsAppendItem(order, paths[0]);
+									paths=strIRPathsResize(paths, 0);
+									break;
+							}
+			
+							//Do set union of paths
+							strIRPath shared CLEANUP(strIRPathDestroy)=sharedEndPath(paths);
+
+							//Remove common end path
+					loop:
+							for(long i=0;i!=strIRPathsSize(paths);i++) {
+									long removed=0;
+									for(long e=strIRPathSize(paths[i])-1;e>=0;e--) {
+											if(strIRPathSortedFind(shared, paths[i][e], IRPathCmp)) {
+													if(strIRPathSize(paths[i])==1)
+															break;
+													struct IRPath popped;
+													paths[i]=strIRPathPop(paths[i], &popped);
+													removed++;
+											} else break;
+									}
+									if(!removed) {
+											long len=strIRPathsSize(paths);
+											order=strIRPathsAppendItem(order, paths[i]);
+											memmove(&paths[i], &paths[i+1], (len-1-i)*(sizeof paths[i]));
+											paths=strIRPathsResize(paths, len-1);
+											goto loop;
+									}
+							}
+							groupPathsByEnd(&pathsByEnd2,paths);
 					}
 			}
+			ptrMapIRPathsByGNDestroy(pathsByEnd, NULL);
+			pathsByEnd=pathsByEnd2;
 	}
 
 	//
