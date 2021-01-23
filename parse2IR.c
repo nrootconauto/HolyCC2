@@ -852,6 +852,90 @@ static struct enterExit __parserNode2IRStmt(const struct parserNode *node) {
 }
 static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 	switch (node->type) {
+	case NODE_ASM_REG:
+	case NODE_ASM_ADDRMODE_SIB:
+			assert(0);
+	case NODE_ASM_BINFILE: {
+			struct parserNodeAsmBinfile *bf=(void*)node;
+			struct IRNodeAsmImport import;
+			import.base.attrs=NULL;
+			import.base.type=IR_ASM_IMPORT;
+			struct parserNodeLitStr *lit=(void*)bf->fn;
+			assert(lit->base.type==NODE_LIT_STR);
+			import.fileName=malloc(strlen(lit->text)+1);
+			strcpy(import.fileName,lit->text);
+			__auto_type gn=GRAPHN_ALLOCATE(import);
+			return (struct enterExit){gn,gn};
+	}
+	case NODE_ASM_DU8:
+	case NODE_ASM_DU16:
+	case NODE_ASM_DU32:
+	case NODE_ASM_DU64: {
+			long itemSize=0;
+			if(node->type==NODE_ASM_DU8)
+					itemSize=1;
+			else if(node->type==NODE_ASM_DU16)
+					itemSize=2;
+			else if(node->type==NODE_ASM_DU32)
+					itemSize=4;
+			else if(node->type==NODE_ASM_DU64)
+					itemSize=8;
+			else
+					assert(0);
+			struct parserNodeDUX *du=(void*)node;
+			__auto_type count=__vecSize(du->bytes)/itemSize;
+			void *clone=malloc(count*itemSize);
+			memcpy(clone, du->bytes, count*itemSize);
+			graphNodeIR gn;
+			if(node->type==NODE_ASM_DU8) {
+					struct IRNodeAsmDU8 du8;
+					du8.base.attrs=NULL,du8.base.type=IR_ASM_DU8;
+					du8.count=count,du8.data=clone;
+					gn=GRAPHN_ALLOCATE(du8);
+			} else if(node->type==NODE_ASM_DU16) {
+					struct IRNodeAsmDU16 du16;
+					du16.base.attrs=NULL,du16.base.type=IR_ASM_DU16;
+					du16.count=count,du16.data=clone;
+					gn=GRAPHN_ALLOCATE(du16);
+			} else if(node->type==NODE_ASM_DU32) {
+					struct IRNodeAsmDU32 du32;
+					du32.base.attrs=NULL,du32.base.type=IR_ASM_DU32;
+					du32.count=count,du32.data=clone;
+					gn=GRAPHN_ALLOCATE(du32);
+			} else if(node->type==NODE_ASM_DU64) {
+					struct IRNodeAsmDU64 du64;
+					du64.base.attrs=NULL,du64.base.type=IR_ASM_DU64;
+					du64.count=count,du64.data=clone;
+					gn=GRAPHN_ALLOCATE(du64);
+			}
+			return (struct enterExit){gn,gn};
+	}
+	case NODE_ASM_USE16:
+	case NODE_ASM_USE32:
+	case NODE_ASM_USE64:
+	case NODE_ASM_ORG:
+	case NODE_ASM_ALIGN:
+	case NODE_ASM_IMPORT: {
+			//Do nothing,this is for the assenbler and doesn't appear in the final result
+			//Use a dummy label
+			__auto_type lab= IRCreateLabel();
+			return (struct enterExit){lab,lab};
+	}
+	case NODE_ASM_INST: {
+			struct parserNodeAsmInstX86 *inst=(void*)node;
+			strX86AddrMode addrModes=strX86AddrModeResize(NULL,strParserNodeSize(inst->args));
+			for(long a=0;a!=strParserNodeSize(inst->args);a++)
+					addrModes[a]=parserNode2X86AddrMode(inst->args[a]);
+			struct parserNodeName *nm=(void*)inst->name;
+			struct IRNodeX86Inst inst2;
+			inst2.base.attrs=NULL;
+			inst2.base.type=IR_X86_INST;
+			inst2.args=addrModes;
+			inst2.name=malloc(strlen(nm->text)+1);
+			strcpy(inst2.name,nm->text);
+			__auto_type node=GRAPHN_ALLOCATE(inst2);
+			return (struct enterExit){node,node};
+	}
 	case NODE_BREAK: {
 			__auto_type lab=IRCreateLabel();
 			__auto_type dummy=IRCreateLabel();
@@ -1034,6 +1118,8 @@ static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 		retVal.exit=endBranch;
 		return retVal;
 	}
+			//Share same type as NODE_LABEL
+	case NODE_ASM_LABEL:
 	case NODE_LABEL: {
 		struct parserNodeLabel *labNode = (void *)node;
 		struct parserNodeName *name=(void*)labNode->name;
@@ -1047,6 +1133,37 @@ static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 				ptrMapGNIRByParserNodeAdd(labelsByPN, (struct parserNode*)node, lab);
 
 		return (struct enterExit){lab,lab};
+	}
+	case NODE_ASM_LABEL_LOCAL: {
+			struct parserNodeLabelLocal *local=(void*)node;	
+			struct parserNodeName *name=(void*)local->name;
+			struct IRNodeLabelLocal nv;
+			nv.base.attrs=NULL;
+			nv.base.type=IR_LABEL_LOCAL;
+			__auto_type lab=GRAPHN_ALLOCATE(nv);
+
+			//Insert into pairs
+			__auto_type find=ptrMapGNIRByParserNodeGet(labelsByPN, (struct parserNode*)node);
+			if(find)
+					lab=*find;
+			else
+					ptrMapGNIRByParserNodeAdd(labelsByPN, (struct parserNode*)node, lab);
+			
+			return (struct enterExit){lab,lab};
+	}
+	case NODE_ASM_LABEL_GLBL: {
+			struct parserNodeLabelGlbl *glbl=(void*)node;	
+			struct parserNodeName *name=(void*)glbl->name;
+			graphNodeIR lab=IRCreateLabel();
+
+			//Insert into pairs
+			__auto_type find=ptrMapGNIRByParserNodeGet(labelsByPN, (struct parserNode*)node);
+			if(find)
+					lab=*find;
+			else
+					ptrMapGNIRByParserNodeAdd(labelsByPN, (struct parserNode*)node, lab);
+			
+			return (struct enterExit){lab,lab};
 	}
 	case NODE_SCOPE: {
 		struct parserNodeScope *scope = (void *)node;

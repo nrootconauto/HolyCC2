@@ -7,6 +7,7 @@
 #include <registers.h>
 #include <str.h>
 #include <ptrMap.h>
+#include <opcodesParser.h>
 enum IRFlag {
 	IR_FLAG_EQZ,
 	IR_FLAG_NEQZ,
@@ -87,6 +88,7 @@ enum IRNodeType {
 		//
 		IR_VALUE,
 		IR_LABEL,
+		IR_LABEL_LOCAL,
 		//
 		IR_FUNC_ARG,
 		IR_FUNC_CALL,
@@ -104,6 +106,13 @@ enum IRNodeType {
 		IR_MEMBERS,
 		//
 		IR_ARRAY,
+		//
+		IR_X86_INST,
+		IR_ASM_DU8,
+		IR_ASM_DU16,
+		IR_ASM_DU32,
+		IR_ASM_DU64,
+		IR_ASM_IMPORT,
 };
 struct IRNode;
 struct IRAttr {
@@ -236,6 +245,9 @@ struct IRNodeArrayAccess {
 struct IRNodeLabel {
 	struct IRNode base;
 };
+struct IRNodeLabelLocal {
+	struct IRNode base;
+};
 struct IRNodePtrRef {
 		struct IRNode base;
 };
@@ -293,7 +305,35 @@ struct IRNodeChoose {
 	struct IRNode base;
 	strGraphNodeIRP canidates;
 };
-
+struct IRNodeX86Inst {
+		struct IRNode base;
+		char *name;
+		strX86AddrMode args;
+};
+struct IRNodeAsmImport {
+		struct IRNode base;
+		char *fileName;
+};
+struct IRNodeAsmDU8 {
+		struct IRNode base;
+		uint8_t *data;
+		long count;
+};
+struct IRNodeAsmDU16 {
+		struct IRNode base;
+		uint16_t *data;
+		long count;
+};
+struct IRNodeAsmDU32 {
+		struct IRNode base;
+		uint32_t *data;
+		long count;
+};
+struct IRNodeAsmDU64 {
+		struct IRNode base;
+		uint64_t *data;
+		long count;
+};
 char *IR2Str();
 graphNodeIR IRCreateIntLit(int64_t lit);
 graphNodeIR IRCreateBinop(graphNodeIR a, graphNodeIR b, enum IRNodeType type);
