@@ -391,6 +391,19 @@ void X86EmitAsmParserInst(struct parserNodeAsmInstX86 *inst) {
 		X86EmitAsmInst(templates[0],args,&err);
 		assert(!err);
 }
+void X86EmitAsmIncludeBinfile(const char *fileName) {
+		char *otherValids=" []{}\\|;:\"\'<>?,./`~!@#$%^&*()-_+=";
+		fprintf(codeTmpFile, "incbin \"");
+		long len=strlen(fileName);
+		for(long c=0;c!=len;c++) { //C++,not a fan
+				if(fileName[c]!='\"') {
+						fputc(fileName[c], codeTmpFile);
+				} else {
+						fputs("\"", codeTmpFile);
+				}
+		}
+		fprintf(codeTmpFile, "\"\n");
+}
 char *X86EmitAsmLabel(const char *name) {
 		if(!name) {
 				long count=snprintf(NULL, 0, "$LBL_%li", ++labelCount);
@@ -437,56 +450,56 @@ struct X86AddressingMode *X86EmitAsmDU64(strX86AddrMode data,long len) {
 		long count=snprintf(NULL, 0, "$DU64_%li", ++labelCount);
 		char buffer[count+1];
 		sprintf(buffer,  "$DU64_%li", labelCount);
-		fprintf(constsTmpFile, "%s: DQ ", buffer);
+		fprintf(codeTmpFile, "%s: DQ ", buffer);
 		for(long i=0;i!=len;i++) {
 				if(i!=0)
-						fputc(',',constsTmpFile);
+						fputc(',',codeTmpFile);
 				strChar text CLEANUP(strCharDestroy) =emitMode(data, i);
-				fprintf(constsTmpFile, "%s", text);
+				fprintf(codeTmpFile, "%s", text);
 		}
-		fprintf(constsTmpFile,"\n");
+		fprintf(codeTmpFile,"\n");
 		return X86AddrModeLabel(buffer);
 }
 struct X86AddressingMode *X86EmitAsmDU32(strX86AddrMode data,long len) {
 		long count=snprintf(NULL, 0, "$DU32_%li", ++labelCount);
 		char buffer[count+1];
 		sprintf(buffer,  "$DU32_%li", labelCount);
-		fprintf(constsTmpFile, "%s: DD ", buffer);
+		fprintf(codeTmpFile, "%s: DD ", buffer);
 		for(long i=0;i!=len;i++) {
 				if(i!=0)
-						fputc(',',constsTmpFile);
+						fputc(',',codeTmpFile);
 				strChar text CLEANUP(strCharDestroy) =emitMode(data, i);
-				fprintf(constsTmpFile, "%s", text);
+				fprintf(codeTmpFile, "%s", text);
 		}
-		fprintf(constsTmpFile,"\n");
+		fprintf(codeTmpFile,"\n");
 		return X86AddrModeLabel(buffer);
 }
 struct X86AddressingMode *X86EmitAsmDU16(strX86AddrMode data,long len) {
 		long count=snprintf(NULL, 0, "$DU16_%li", ++labelCount);
 		char buffer[count+1];
 		sprintf(buffer,  "$DU16_%li", labelCount);
-		fprintf(constsTmpFile, "%s: DW ", buffer);
+		fprintf(codeTmpFile, "%s: DW ", buffer);
 		for(long i=0;i!=len;i++) {
 				if(i!=0)
-						fputc(',',constsTmpFile);
+						fputc(',',codeTmpFile);
 				strChar text CLEANUP(strCharDestroy) =emitMode(data, i);
-				fprintf(constsTmpFile, "%s", text);
+				fprintf(codeTmpFile, "%s", text);
 		}
-		fprintf(constsTmpFile,"\n");
+		fprintf(codeTmpFile,"\n");
 		return X86AddrModeLabel(buffer);
 }
 struct X86AddressingMode *X86EmitAsmDU8(strX86AddrMode data,long len) {
 		long count=snprintf(NULL, 0, "$DU8_%li", ++labelCount);
 		char buffer[count+1];
 		sprintf(buffer,  "$DU8_%li", labelCount);
-		fprintf(constsTmpFile, "%s: DB ", buffer);
+		fprintf(codeTmpFile, "%s: DB ", buffer);
 		for(long i=0;i!=len;i++) {
 				if(i!=0)
-						fputc(',',constsTmpFile);
+						fputc(',',codeTmpFile);
 				strChar text CLEANUP(strCharDestroy) =emitMode(data, i);
-				fprintf(constsTmpFile, "%s", text);
+				fprintf(codeTmpFile, "%s", text);
 		}
-		fprintf(constsTmpFile,"\n");
+		fprintf(codeTmpFile,"\n");
 		return X86AddrModeLabel(buffer);
 }
 struct X86AddressingMode *X86EmitAsmStrLit(const char *text) {
