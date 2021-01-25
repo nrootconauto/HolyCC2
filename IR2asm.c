@@ -28,6 +28,14 @@ static __thread ptrMapLabelNames asmLabelNames;
 static __thread ptrMapFrameOffset varFrameOffsets;
 static __thread ptrMapCompiledNodes compiledNodes;
 static __thread int insertLabelsForAsmCalled=0;
+void IR2AsmInit() {
+		labelsCount=0;
+		funcNames = ptrMapFuncNamesCreate();
+		asmLabelNames=ptrMapLabelNamesCreate();
+		varFrameOffsets=NULL;
+		compiledNodes=ptrMapCompiledNodesCreate();
+		insertLabelsForAsmCalled=1;
+}
 /**
 	* These are the consumed registers for the current operation,doesn't
 	* include registers for variables
@@ -391,7 +399,7 @@ static int frameEntryCmp(const void *a,const  void *b) {
 		return IRVarCmp(&A->var, &B->var);
 }
 void IRCompile(graphNodeIR start) {
-		strGraphNodeIRP nodes CLEANUP(strGraphNodeIRPDestroy)=getFuncNodes(start);
+		strGraphNodeIRP nodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);
 		// Get list of variables that will always be stored in memory
 		// - variables that are referenced by ptr
 		// - Classes/unions with primitive base that have members references(I64.u8[1] etc)
@@ -872,6 +880,31 @@ static void compileX87Expr(graphNodeIR start) {
 				}
 		}
 }
+static strGraphNodeIRP nextNodesToCompile(graphNodeIR node) {
+		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(node);
+		strGraphEdgeIRP flow CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(out, IR_CONN_FLOW);
+		strGraphNodeIRP retVal=strGraphNodeIRPResize(NULL, strGraphEdgeIRPSize(flow));
+		for(long e=0;e!=strGraphEdgeIRPSize(flow);e++)
+				retVal[e]=graphEdgeIROutgoing(flow[e]);
+		qsort(retVal, strGraphEdgeIRPSize(flow), (sizeof *retVal), ptrPtrCmp);
+		return retVal;
+}
+
+static strGraphNodeIRP compileX87IfNeded(graphNodeIR start,int *compiled) {
+		if(compiled) *compiled=0;
+		if(isFltNode(start)) {
+				switch(getCurrentArch()) {
+				case ARCH_TEST_SYSV:
+				case ARCH_X86_SYSV: {
+						if(compiled) *compiled=1;
+						compileX87Expr(start);
+						return nextNodesToCompile(start);
+				}
+				case ARCH_X64_SYSV:;
+				}
+		}
+		return NULL;
+}
 static int typeIsSigned(struct object *obj) {
 		const struct object *signedTypes[]={
 				&typeI8i,
@@ -1136,34 +1169,17 @@ static const char *getLabelName(graphNodeIR node) {
 		}
 		goto loop;
 }
-static strGraphNodeIRP nextNodesToCompile(graphNodeIR node) {
-		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(node);
-		strGraphEdgeIRP flow CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(out, IR_CONN_FLOW);
-		strGraphNodeIRP retVal=strGraphNodeIRPResize(NULL, strGraphEdgeIRPSize(flow));
-		for(long e=0;e!=strGraphEdgeIRPSize(flow);e++)
-				retVal[e]=graphEdgeIROutgoing(flow[e]);
-		qsort(retVal, strGraphEdgeIRPSize(flow), (sizeof *retVal), ptrPtrCmp);
-		return retVal;
-}
 static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(start);
-		if(isFltNode(start)) {
-		switch(getCurrentArch()) {
-						case ARCH_TEST_SYSV: 
-						case ARCH_X86_SYSV: {
-								compileX87Expr(start);
-								return nextNodesToCompile(start);
-						}
-						case ARCH_X64_SYSV:;
-						}
-		}
 		switch(graphNodeIRValuePtr(start)->type) {
 		case IR_ADD: {
+#define COMPILE_87_IFN ({int compiled;__auto_type tmp=compileX87IfNeded(start, &compiled);if(compiled) return tmp;})
+				COMPILE_87_IFN;
 				graphNodeIR a,b;
 				binopArgs(start, &a, &b);
 				if(isIntNode(a)||isPtrNode(a))
 						return nextNodesToCompile(assembleOpInt(start, "ADD"));
-				else
+				 else
 						assert(0);
 		}
 		case IR_ADDR_OF: {
@@ -1196,17 +1212,13 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				return nextNodesToCompile(nodes[0]);
 		}
 		case IR_INC: {
+				COMPILE_87_IFN;
+				
 				strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
 				__auto_type inNode=graphEdgeIRIncoming( in[0]);
 				if(isIntNode(inNode)){
 						strX86AddrMode args CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, node2AddrMode(inNode));
 						assembleInst("INC", args);
-				} else if(isFltNode(inNode)) {
-						switch(getCurrentArch()) {
-						case ARCH_TEST_SYSV:
-						case ARCH_X86_SYSV:
-						case ARCH_X64_SYSV:;
-						}
 				} else if(isPtrNode(inNode)) {
 						struct objectPtr *ptr=(void*)IRNodeType(inNode);
 						//ADD ptr,ptrSize
@@ -1225,18 +1237,13 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				return NULL;
 		}
 		case IR_DEC:  {
+				COMPILE_87_IFN;
+				
 				strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
 				__auto_type inNode=graphEdgeIRIncoming( in[0]);
 				if(isIntNode(inNode)){
 						strX86AddrMode args CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, node2AddrMode(inNode));
 						assembleInst("DEC", args);
-				} else if(isFltNode(inNode)) {
-						switch(getCurrentArch()) {
-						case ARCH_TEST_SYSV:
-						case ARCH_X86_SYSV:
-								;
-						case ARCH_X64_SYSV:;
-						}
 				} else if(isPtrNode(inNode)) {
 						struct objectPtr *ptr=(void*)IRNodeType(inNode);
 						//ADD ptr,ptrSize
@@ -1254,6 +1261,8 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 		}
 		case IR_SUB: {
+				int compiled;
+				__auto_type tmp=compileX87IfNeded(start, &compiled);if(compiled) return tmp;
 				graphNodeIR a,b;
 				binopArgs(start, &a, &b);
 				//Are assumed to be same type if valid IR graph
@@ -1263,12 +1272,16 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				return NULL;
 		}
 		case IR_POS: {
+				COMPILE_87_IFN;
+				
 				strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
 				__auto_type inNode=graphEdgeIRIncoming(in[0]);
 				assign(node2AddrMode(graphEdgeIROutgoing(out[0])), node2AddrMode(inNode),objectSize(IRNodeType(start),NULL));
 				return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 		}
 		case IR_NEG: {
+				COMPILE_87_IFN;
+				
 				strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
 				__auto_type inNode=graphEdgeIRIncoming(in[0]);
 				if(isIntNode(inNode)||isPtrNode(inNode)) {
@@ -1285,10 +1298,12 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 						assembleInst("NEG", nArgs);
 
 						return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
-				}
+				} 
 				assert(0);
 		}
 		case IR_MULT: {
+				COMPILE_87_IFN;
+				
 				graphNodeIR a,b;
 				binopArgs(start, &a, &b);
 				//Are assumed to be same type if valid IR graph
@@ -1297,11 +1312,13 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 								assembleOpInt(start, "IMUL");
 						else
 								assembleOpInt(start, "MUL");
-				}
+				} 
 				return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 		}
 		case IR_MOD:
 		case IR_DIV: {
+				COMPILE_87_IFN;
+				
 				graphNodeIR a,b;
 				binopArgs(start, &a, &b);
 				struct X86AddressingMode *outMode CLEANUP(X86AddrModeDestroy)=node2AddrMode(graphEdgeIROutgoing(out[0]));
@@ -1426,6 +1443,8 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				assert(0);
 		}
 		case IR_LOR: {
+				COMPILE_87_IFN;
+				
 				struct X86AddressingMode *outMode CLEANUP(X86AddrModeDestroy)=node2AddrMode(graphEdgeIROutgoing(out[0]));
 				graphNodeIR a,b;
 				binopArgs(start, &a, &b);
@@ -1469,6 +1488,17 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 		}
 		case IR_LXOR: {
+				if(isFltNode(start)) {
+						switch(getCurrentArch()) {
+						case ARCH_TEST_SYSV: 
+						case ARCH_X86_SYSV: {
+								compileX87Expr(start);
+								return nextNodesToCompile(start);
+						}
+						case ARCH_X64_SYSV:;
+						}
+				}
+				
 				struct X86AddressingMode *outMode CLEANUP(X86AddrModeDestroy)=node2AddrMode(graphEdgeIROutgoing(out[0]));
 				graphNodeIR a,b;
 				binopArgs(start, &a, &b);
@@ -1509,6 +1539,8 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 		}
 		case IR_LAND: {
+				COMPILE_87_IFN;
+				
 				__auto_type outNode=graphEdgeIROutgoing(out[0]);
 				struct X86AddressingMode *outMode CLEANUP(X86AddrModeDestroy)=node2AddrMode(outNode);
 				graphNodeIR a,b;
@@ -1546,6 +1578,8 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 		}
 		case IR_LNOT: {
+				COMPILE_87_IFN;
+				
 				strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
 				__auto_type inNode=graphEdgeIRIncoming(in[0]);
 				__auto_type outNode=graphEdgeIROutgoing(out[0]);
@@ -1570,6 +1604,8 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 		}
 		case IR_BNOT: {
+				COMPILE_87_IFN;
+				
 				strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
 				__auto_type inNode=graphEdgeIRIncoming(in[0]);
 				__auto_type outNode=graphEdgeIROutgoing(out[0]);
@@ -1585,24 +1621,32 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 		} 
 		case IR_BAND: {
+				COMPILE_87_IFN;
+				
 				if(isIntNode(start)||isPtrNode(start)) {
 						assembleOpInt(start, "AND");
 				} else assert(0);
 				return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 		}
 		case IR_BXOR: {
+				COMPILE_87_IFN;
+
 				if(isIntNode(start)||isPtrNode(start)) {
 						assembleOpInt(start, "XOR");
 				} else assert(0);
 				return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 		}
 		case IR_BOR:  {
+				COMPILE_87_IFN;
+
 				if(isIntNode(start)||isPtrNode(start)) {
 						assembleOpInt(start, "OR");
 				} else assert(0);
 				return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 		}
 		case IR_LSHIFT: {
+				COMPILE_87_IFN;
+				
 				if(isIntNode(start)||isPtrNode(start)) {
 						graphNodeIR a,b;
 						binopArgs(start, &a, &b);
@@ -1614,6 +1658,8 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 		}
 		case IR_RSHIFT: {
+				COMPILE_87_IFN;
+				
 				if(isIntNode(start)||isPtrNode(start)) {
 						graphNodeIR a,b;
 						binopArgs(start, &a, &b);
@@ -1775,38 +1821,72 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				assert(0);
 		}
 		case IR_GT: {
+				COMPILE_87_IFN;
+
 				assembleOpInt(start, "CMP");
 				strX86AddrMode setGArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 				struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy)=node2AddrMode(nodeDest(start));
 				setGArgs=strX86AddrModeAppendItem(setGArgs, demoteAddrMode(oMode,&typeI8i));
-				assembleInst("SETG", setGArgs);
+				graphNodeIR a,b;
+				binopArgs(start, &a, &b);
+				if(typeIsSigned(IRNodeType(a))||typeIsSigned(IRNodeType(b))) {
+						assembleInst("SETG", setGArgs);
+				} else {
+						assembleInst("SETA", setGArgs);
+				}
 				return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 		}
 		case IR_LT: {
+				COMPILE_87_IFN;
+				
 				assembleOpInt(start, "CMP");
 				strX86AddrMode setGArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 				struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy)=node2AddrMode(nodeDest(start));
 				setGArgs=strX86AddrModeAppendItem(setGArgs, demoteAddrMode(oMode,&typeI8i));
-				assembleInst("SETL", setGArgs);
+				graphNodeIR a,b;
+				binopArgs(start, &a, &b);
+				if(typeIsSigned(IRNodeType(a))||typeIsSigned(IRNodeType(b))) {
+						assembleInst("SETL", setGArgs);
+				} else {
+						assembleInst("SETB", setGArgs);
+				}
 				return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 		}
 		case IR_GE: {
+				COMPILE_87_IFN;
+				
 				assembleOpInt(start, "CMP");
 				strX86AddrMode setGArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 				struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy)=node2AddrMode(nodeDest(start));
 				setGArgs=strX86AddrModeAppendItem(setGArgs, demoteAddrMode(oMode,&typeI8i));
-				assembleInst("SETGE", setGArgs);
+				graphNodeIR a,b;
+				binopArgs(start, &a, &b);
+				if(typeIsSigned(IRNodeType(a))||typeIsSigned(IRNodeType(b))) {
+						assembleInst("SETGE", setGArgs);
+				} else {
+						assembleInst("SETAE", setGArgs);
+				}
 				return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 		}
 		case IR_LE: {
+				COMPILE_87_IFN;
+
 				assembleOpInt(start, "CMP");
 				strX86AddrMode setGArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 				struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy)=node2AddrMode(nodeDest(start));
 				setGArgs=strX86AddrModeAppendItem(setGArgs, demoteAddrMode(oMode,&typeI8i));
-				assembleInst("SETLE", setGArgs);
+				graphNodeIR a,b;
+				binopArgs(start, &a, &b);
+				if(typeIsSigned(IRNodeType(a))||typeIsSigned(IRNodeType(b))) {
+						assembleInst("SETLE", setGArgs);
+				} else {
+						assembleInst("SETBE", setGArgs);
+				}
 				return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 		}
 		case IR_EQ: {
+				COMPILE_87_IFN;
+				
 				assembleOpInt(start, "CMP");
 				strX86AddrMode setGArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 				struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy)=node2AddrMode(nodeDest(start));
@@ -1815,6 +1895,8 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 		}
 		case IR_NE: {
+				COMPILE_87_IFN;
+				
 				assembleOpInt(start, "CMP");
 				strX86AddrMode setGArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 				struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy)=node2AddrMode(nodeDest(start));

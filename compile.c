@@ -44,8 +44,9 @@ void compileFile(const char *fn,const char *dumpTo) {
 				IRGenInit();
 				X86EmitAsmInit();
 				struct enterExit ee=parserNodes2IR(stmts);
-				IRCompile(ee.enter);
 
+				IR2AsmInit();
+				IRCompile(ee.enter);
 				X86EmitAsm2File(dumpTo);
 				return;
 		}

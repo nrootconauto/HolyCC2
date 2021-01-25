@@ -3484,5 +3484,7 @@ struct parserNode *parseAsm(llLexerItem start,llLexerItem *end) {
 		getStartEndPos(originalStart, start, &asmBlock.base.pos.start, &asmBlock.base.pos.end);
 		//Move past "}"
 		start=llLexerItemNext(start);
+		if(end)
+				*end=start;
 		return ALLOCATE(asmBlock);
 }
