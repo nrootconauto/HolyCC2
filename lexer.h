@@ -12,8 +12,6 @@ struct lexerInt {
 	enum intType type;
 	int base;
 	union {
-		int32_t sInt;
-		uint32_t uInt;
 		int64_t sLong;
 		uint64_t uLong;
 	} value;
@@ -45,3 +43,4 @@ extern struct lexerItemTemplate kwTemplate;
 llLexerItem lexText(const struct __vec *text, int *err);
 void *lexerItemValuePtr(struct lexerItem *item);
 void initTemplates();
+void llLexerItemDestroy2(llLexerItem *item);

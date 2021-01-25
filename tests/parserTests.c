@@ -61,20 +61,20 @@ static void precParserTests() {
 
 		assert(binop->b->type == NODE_LIT_INT);
 		struct parserNodeLitInt *intLit = (void *)binop->b;
-		assert(intLit->value.value.sInt == 3);
+		assert(intLit->value.value.sLong == 3);
 
 		assert(binop->a->type == NODE_BINOP);
 		binop = (void *)binop->a;
 
 		intLit = (void *)binop->b;
-		assert(intLit->value.value.sInt == 2);
+		assert(intLit->value.value.sLong == 2);
 
 		binop = (void *)binop->a;
 
 		intLit = (void *)binop->a;
-		assert(intLit->value.value.sInt == 0);
+		assert(intLit->value.value.sLong == 0);
 		intLit = (void *)binop->b;
-		assert(intLit->value.value.sInt == 1);
+		assert(intLit->value.value.sLong == 1);
 	}
 	for (int i = 0; i != 2; i++) {
 		if (i == 0)
@@ -250,10 +250,10 @@ static void precParserTests() {
 		struct parserNodeBinop *times = (void *)plus2->b;
 		struct parserNodeLitInt *intLit = (void *)times->a;
 		assert(intLit->base.type == NODE_LIT_INT);
-		assert(intLit->value.value.sInt == 1);
+		assert(intLit->value.value.sLong == 1);
 		intLit = (void *)times->b;
 		assert(intLit->base.type == NODE_LIT_INT);
-		assert(intLit->value.value.sInt == 3);
+		assert(intLit->value.value.sLong == 3);
 	}
 	text = "a(b(),,c)";
 	createFile(text);
@@ -302,7 +302,7 @@ static void varDeclTests() {
 
 		struct parserNodeLitInt *dftVal = (void *)declNode->dftVal;
 		assert(dftVal->base.type == NODE_LIT_INT);
-		assert(dftVal->value.value.sInt == 10);
+		assert(dftVal->value.value.sLong == 10);
 
 		assert(objectByName("I64i") == declNode->type);
 	}
@@ -329,7 +329,7 @@ static void varDeclTests() {
 			assert(array->base.type == TYPE_ARRAY);
 			assert(array->dim->type == NODE_LIT_INT);
 			struct parserNodeLitInt *lit = (void *)array->dim;
-			assert(lit->value.value.sInt == i + 1);
+			assert(lit->value.value.sLong == i + 1);
 
 			type = (void *)array->type;
 		}
@@ -368,7 +368,7 @@ static void varDeclTests() {
 
 			struct parserNodeLitInt *lit = (void *)decl->dftVal;
 			assert(lit->base.type == NODE_LIT_INT);
-			assert(lit->value.value.sInt == i + 1);
+			assert(lit->value.value.sLong == i + 1);
 
 			struct object *type = decl->type;
 			if (i == 1) {

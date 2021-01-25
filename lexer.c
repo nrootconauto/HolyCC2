@@ -241,7 +241,7 @@ dumpU : {
 	if (INT64_MAX < valueU)
 		retVal.value.sLong = valueU;
 	else
-		retVal.value.sInt = valueU;
+		retVal.value.uLong = valueU;
 
 	return __vecAppendItem(NULL, &retVal, sizeof(retVal));
 }
@@ -433,7 +433,7 @@ void initTemplates() {
 
 	strTemplate.lexItem = stringLex;
 	strTemplate.killItemData = NULL;
-
+ 
 	floatTemplate.killItemData = NULL;
 	floatTemplate.lexItem = floatingLex;
 

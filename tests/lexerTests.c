@@ -29,7 +29,7 @@ static llLexerItem expectInt(llLexerItem node, int value) {
 	__auto_type item = llLexerItemValuePtr(node);
 	assert(item->template == &intTemplate);
 	__auto_type value2 = (struct lexerInt *)lexerItemValuePtr(item);
-	assert(value2->value.sInt == value);
+	assert(value2->value.sLong == value);
 
 	return llLexerItemNext(node);
 }

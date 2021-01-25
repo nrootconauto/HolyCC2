@@ -579,7 +579,7 @@ int /*Returns 0 if not equal.*/ objectEqual(const struct object *a,
 			if (bArr->dim->type == NODE_LIT_INT) {
 				struct parserNodeLitInt *aInt = (void *)aArr->dim;
 				struct parserNodeLitInt *bInt = (void *)bArr->dim;
-				if (aInt->value.value.sInt == bInt->value.value.sInt)
+				if (aInt->value.value.sLong == bInt->value.value.sLong)
 					return 1;
 			}
 		}

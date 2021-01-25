@@ -391,6 +391,9 @@ void X86EmitAsmParserInst(struct parserNodeAsmInstX86 *inst) {
 		X86EmitAsmInst(templates[0],args,&err);
 		assert(!err);
 }
+void X86EmitAsmGlobalVar(struct parserVar *var) {
+		fprintf(constsTmpFile, "%s: resb %li\n", var->name,objectSize(var->type, NULL));
+}
 void X86EmitAsmIncludeBinfile(const char *fileName) {
 		char *otherValids=" []{}\\|;:\"\'<>?,./`~!@#$%^&*()-_+=";
 		fprintf(codeTmpFile, "incbin \"");

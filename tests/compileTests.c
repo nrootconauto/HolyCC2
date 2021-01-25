@@ -1,0 +1,62 @@
+#include <compile.h>
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+static char *strDup(const char *text) {
+		char *retVal=malloc(strlen(text)+1);
+		return strcpy(retVal, text);
+}
+static char *text2File(const char *text) {
+		char *name=strDup(tmpnam(NULL));
+		FILE *f=fopen(name, "w");
+		fwrite(text, strlen(text), 1, f);
+		fclose(f);
+		return name;
+}
+static void runTest(const char *asmFile,const char *expected) {
+		const char *commandText=
+				"yasm -g dwarf2 -f elf -o /tmp/hccTest.o %s "
+				"&& ld -o /tmp/hccTest /tmp/hccTest.o "
+				"&& /tmp/hccTest > /tmp/hccResult";
+		long count=snprintf(NULL, 0, commandText,  asmFile);
+		char buffer[count+1];
+		sprintf(buffer, commandText, asmFile);
+		system(buffer);
+
+		FILE *f=fopen("/tmp/hccResult", "r");
+
+		fseek(f, 0, SEEK_END);
+		long end=ftell(f);
+		fseek(f, 0, SEEK_SET);
+		long start=ftell(f);
+		char buffer2[end-start+1];
+		fread(buffer2, end-start, 1, f);
+		buffer2[end-start]='\0';
+
+		assert(0==strcmp(expected, buffer2));
+		fclose(f);
+}
+#define exitStr																																	\
+		"MOV EAX,1\n"																																	\
+				"MOV EBX,0\n"																															\
+				"INT 0x80\n"
+void compileTests() {		
+		{
+		const char * text=
+				"asm {\n"
+				"    MOV EAX,4\n"
+				"    MOV EBX,1\n"
+				"    MOV ECX,\"123\"\n"
+				"    MOV EDX,3\n"
+				"    INT 0x80\n"
+				exitStr
+				"}\n";
+		char *source=text2File(text);
+		char *asmF=strDup(tmpnam(NULL));
+		compileFile(source, asmF);
+		runTest(source,asmF);
+		free(asmF);	
+		free(source);
+}
+}

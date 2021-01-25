@@ -390,7 +390,7 @@ static int frameEntryCmp(const void *a,const  void *b) {
 		const struct frameEntry *B=b;
 		return IRVarCmp(&A->var, &B->var);
 }
-static void compileFunction(graphNodeIR start) {
+void IRCompile(graphNodeIR start) {
 		strGraphNodeIRP nodes CLEANUP(strGraphNodeIRPDestroy)=getFuncNodes(start);
 		// Get list of variables that will always be stored in memory
 		// - variables that are referenced by ptr
@@ -464,7 +464,8 @@ static void compileFunction(graphNodeIR start) {
 		//"Push" the old frame layout
 		__auto_type oldOffsets=varFrameOffsets;
 		
-		strFrameEntry layout CLEANUP(strFrameEntryDestroy)=IRComputeFrameLayout(start,NULL);
+		long frameSize;
+		strFrameEntry layout CLEANUP(strFrameEntryDestroy)=IRComputeFrameLayout(start,&frameSize);
 		varFrameOffsets=ptrMapFrameOffsetCreate();
 		for(long i=0;i!=strFrameEntrySize(layout);i++)
 				ptrMapFrameOffsetAdd(varFrameOffsets, layout[i].var.value.var, layout[i].offset);
@@ -473,8 +474,14 @@ static void compileFunction(graphNodeIR start) {
 		//"Pop" the old frame layout
 		varFrameOffsets=oldOffsets;
 
-		//
-		
+		//For all non-reg globals,dump them to global scope
+		for(long p=0;p!=strPVarSize(noregs);p++) {
+				if(!noregs[p]->isGlobal)
+						continue;
+				X86EmitAsmGlobalVar(noregs[p]);
+		}
+
+		IR2Asm(start);
 }
 static void assign(struct X86AddressingMode *a,struct X86AddressingMode *b,long size) {
 		if(a->type==X86ADDRMODE_REG) {
@@ -2068,10 +2075,11 @@ static int argEdgeSort(const void *a,const void *b) {
 		const graphEdgeIR *A=a,*B=b;
 		return argEdgeSortPrec(*A)-argEdgeSortPrec(*B);
 }
-void IR2Asm(graphNodeIR start) {
-		if(ptrMapCompiledNodesGet(compiledNodes, start))
-				return;
-	computeArgs:;
+static int removeIfVisited(const void *data,const graphNodeIR *node) {
+		return NULL==ptrMapCompiledNodesGet(compiledNodes, *node);
+}
+void __IR2AsmExpr(graphNodeIR start) {
+		computeArgs:;
 		strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
 		incoming=strGraphEdgeIRPRemoveIf(incoming, NULL, isNotArgEdge);
 		//Is a global used to sort the arguments (orders function args in order)
@@ -2079,9 +2087,30 @@ void IR2Asm(graphNodeIR start) {
 		qsort(incoming, strGraphEdgeIRPSize(incoming), sizeof(*incoming), argEdgeSort);
 		
 		for(long a=0;a!=strGraphEdgeIRPSize(incoming);a++) {
-				IR2Asm(graphEdgeIRIncoming(incoming[a]));
+				__IR2AsmExpr(graphEdgeIRIncoming(incoming[a]));
 		}
 		__IR2Asm(start);
+}
+void IR2Asm(graphNodeIR start) {
+		if(ptrMapCompiledNodesGet(compiledNodes, start))
+				return;
 
+		strGraphNodeIRP next CLEANUP(strGraphNodeIRPDestroy)=NULL;
+		if(IREndOfExpr(start)!=start) {
+				__IR2AsmExpr(start);
+				next=graphNodeIROutgoingNodes(IREndOfExpr(start));
+		} else {
+				next=__IR2Asm(start);
+		}
 		ptrMapCompiledNodesAdd(compiledNodes, start,1);
+
+		for(;strGraphNodeIRPSize(next);) {
+				strGraphNodeIRP next2=NULL;
+				for(long n=0;n!=strGraphNodeIRPSize(next);n++)
+						next2=strGraphNodeIRPConcat(next2,__IR2Asm(next[n]));
+				next2=strGraphNodeIRPRemoveIf(next2, NULL, removeIfVisited);
+				
+				strGraphNodeIRPDestroy(&next);
+				next=next2;
+		}
 }

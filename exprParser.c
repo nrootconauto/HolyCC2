@@ -73,14 +73,14 @@ static struct object *promotionType(const struct object *a,
 	    &typeI32i, &typeU32i, &typeI64i, &typeU64i, &typeF64,
 	};
 	long count = sizeof(ranks) / sizeof(*ranks);
-	long I64Rank = objIndex(ranks, count, &typeI64i);
+	long I32Rank = objIndex(ranks, count, &typeI32i);
 
 	long aRank = objIndex(ranks, count, a);
 	long bRank = objIndex(ranks, count, b);
-	if (aRank < I64Rank)
-		aRank = I64Rank;
-	if (bRank < I64Rank)
-		bRank = I64Rank;
+	if (aRank < I32Rank)
+		aRank = I32Rank;
+	if (bRank < I32Rank)
+		bRank = I32Rank;
 
 	if (aRank == bRank)
 		return (struct object *)ranks[aRank];

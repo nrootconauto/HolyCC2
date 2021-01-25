@@ -71,10 +71,10 @@ MAP_TYPE_DEF(struct diagInst, Inst);
 MAP_TYPE_FUNCS(struct diagInst, Inst);
 static mapInst insts = NULL;
 // TODO implement file mappings
-static strFileMappings fileMappings;
-static strTextModify mappings;
-static struct diagInst *currentInst = NULL;
-static int errCount = 0;
+__thread static strFileMappings fileMappings;
+__thread static strTextModify mappings;
+__thread static struct diagInst *currentInst = NULL;
+__thread static int errCount = 0;
 static struct diagInst *diagInstByPos(long where) {
 	if (where == diagInputSize()) {
 		if (where - 1 >= 0) {
@@ -501,11 +501,15 @@ void diagNoteStart(long start, long end) {
 void diagWarnStart(long start, long end) {
 	diagStateStart(start, end, DIAG_WARN, "warning", FG_COLOR_YELLOW);
 }
+int diagErrorCount() {
+		return errCount;
+}
 static void destroyDiags() __attribute__((destructor));
 void diagInstCreate(enum outputType type, const strFileMappings __fileMappings,
                     const strTextModify __mappings, const char *fileName,
                     FILE *dumpToFile) {
-	destroyDiags();
+		errCount=0;
+		destroyDiags();
 	mappings = __mappings;
 	fileMappings = __fileMappings;
 

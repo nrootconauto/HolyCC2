@@ -29,11 +29,13 @@ void X86OpcodesTests();
 void basicBlockTests();
 void IEEE754Tests();
 void asmEmitterTests();
+void compileTests();
 int main() {
 		init();
-		SSATests();
-		registerAllocatorTests();
-		asmEmitterTests();
+		//SSATests();
+		//registerAllocatorTests();
+		compileTests();
+		//		asmEmitterTests();
 		/*
 				X86OpcodesTests();
 				parserTests();
