@@ -781,16 +781,18 @@ static graphNodeIR parserNode2Expr(const struct parserNode *node) {
 				return NULL;
 		}
 		case NODE_TYPE_CAST: {
-		struct parserNodeTypeCast *pnCast = (void *)node;
+				struct parserNodeTypeCast *pnCast = (void *)node;
 
-		struct IRNodeTypeCast cast;
-		cast.base.attrs = NULL;
-		cast.base.type = IR_TYPECAST;
-		cast.in = assignTypeToOp(pnCast->exp);
-		cast.out = pnCast->type;
+				struct IRNodeTypeCast cast;
+				cast.base.attrs = NULL;
+				cast.base.type = IR_TYPECAST;
+				cast.in = assignTypeToOp(pnCast->exp);
+				cast.out = pnCast->type;
 
-		return GRAPHN_ALLOCATE(cast);
-	}
+				__auto_type tcNode=GRAPHN_ALLOCATE(cast);
+				graphNodeIRConnect(parserNode2Expr(pnCast->exp), tcNode, IR_CONN_SOURCE_A);
+				return tcNode;
+		}
 		case NODE_MEMBER_ACCESS:  {
 			struct parserNodeMemberAccess *access=(void*)node;
 			assert(access->name->type==NODE_NAME);
