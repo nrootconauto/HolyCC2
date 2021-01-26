@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <registers.h>
 static char *strDup(const char *text) {
 		char *retVal=malloc(strlen(text)+1);
 		return strcpy(retVal, text);
@@ -55,7 +56,7 @@ void compileTests() {
 		char *source=text2File(text);
 		char *asmF=strDup(tmpnam(NULL));
 		compileFile(source, asmF);
-		runTest(source,asmF);
+		runTest(asmF,"123");
 		free(asmF);	
 		free(source);
 }

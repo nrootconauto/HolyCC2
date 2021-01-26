@@ -31,6 +31,7 @@ struct X86AddressingMode {
 				X86ADDRMODE_MEM,
 				X86ADDRMODE_LABEL,
 				X86ADDRMODE_ITEM_ADDR,
+				X86ADDRMODE_STR,
 		} type;
 		union {
 				uint64_t uint;
@@ -40,6 +41,7 @@ struct X86AddressingMode {
 				struct X86MemoryLoc m;
 				struct parserNode *itemAddr;
 				char *label;
+				char *text;
 		} value;
 		struct object *valueType;
 };
@@ -106,3 +108,4 @@ const char *opcodeTemplateIntelAlias(const struct opcodeTemplate *template);
 struct X86AddressingMode *X86AddrModeClone(struct X86AddressingMode *mode);
 void X86AddrModeDestroy(struct X86AddressingMode **mode);
 struct X86AddressingMode *X86AddrModeIndirLabel(const char *text,struct object *type);
+struct X86AddressingMode *X86AddrModeStr(const char *text);

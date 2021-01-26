@@ -219,8 +219,13 @@ static void X86EmitSymbolTable() {
 				}
 		}
 }
-static strChar emitMode(strX86AddrMode args,long i) {
+static strChar emitMode(struct X86AddressingMode **args,long i) {
 		switch(args[i]->type) {
+		case X86ADDRMODE_STR: {
+				struct X86AddressingMode *stred CLEANUP(X86AddrModeDestroy)=X86EmitAsmStrLit(args[i]->value.text);
+				return emitMode(&stred,0);
+				break;
+		}
 		case X86ADDRMODE_FLT: {
 				assert(0);
 				break;

@@ -638,14 +638,14 @@ static int templateAcceptsAddrMode(const struct opcodeTemplateArg *arg,const str
 				if(mode->type==X86ADDRMODE_SINT||mode->type==X86ADDRMODE_UINT) {
 						return sizeMatchUnsigned(mode, 4);
 				} if(ptrSize()==4) {
-						return mode->type==X86ADDRMODE_LABEL||mode->type==X86ADDRMODE_ITEM_ADDR;
+						return mode->type==X86ADDRMODE_LABEL||mode->type==X86ADDRMODE_ITEM_ADDR||mode->type==X86ADDRMODE_STR;
 				} else goto fail;
 		case OPC_TEMPLATE_ARG_SINT64:
 		case OPC_TEMPLATE_ARG_UINT64:
 				if(mode->type==X86ADDRMODE_SINT||mode->type==X86ADDRMODE_UINT) {
 						return sizeMatchUnsigned(mode, 8);
 				} if(ptrSize()==8) {
-						return mode->type==X86ADDRMODE_LABEL||mode->type==X86ADDRMODE_ITEM_ADDR;
+						return mode->type==X86ADDRMODE_LABEL||mode->type==X86ADDRMODE_ITEM_ADDR||mode->type==X86ADDRMODE_STR;
 				} else goto fail;
 		case OPC_TEMPLATE_ARG_RM8:
 				if(mode->type==X86ADDRMODE_REG||mode->type==X86ADDRMODE_MEM) {
@@ -924,6 +924,12 @@ struct X86AddressingMode *X86AddrModeLabel(const char *name) {
 }
 struct X86AddressingMode *X86AddrModeClone(struct X86AddressingMode *mode) {
 		switch(mode->type) {
+		case X86ADDRMODE_STR: {
+				__auto_type clone=*mode;
+				clone.value.text=malloc(strlen(mode->value.text)+1);
+				strcpy(clone.value.text, mode->value.text);
+				return ALLOCATE(clone); 
+		}
 		case X86ADDRMODE_MEM:{
 				__auto_type clone=*mode;
 				if(clone.value.m.type==x86ADDR_INDIR_SIB)
@@ -947,6 +953,9 @@ struct X86AddressingMode *X86AddrModeClone(struct X86AddressingMode *mode) {
 }
 void X86AddrModeDestroy(struct X86AddressingMode **mode) {
 		switch(mode[0]->type) {
+		case X86ADDRMODE_STR:
+				free(mode[0]->value.text);
+				break;
 		case X86ADDRMODE_UINT:
 		case X86ADDRMODE_SINT:
 		case X86ADDRMODE_REG:
@@ -965,6 +974,14 @@ void X86AddrModeDestroy(struct X86AddressingMode **mode) {
 				break;
 		}
 		free(*mode);
+}
+struct X86AddressingMode *X86AddrModeStr(const char *text) {
+		struct X86AddressingMode mode;
+		mode.valueType=objectPtrCreate(&typeU8i);
+		mode.value.text=malloc(strlen(text)+1);
+		strcpy(mode.value.text, text);
+		mode.type=X86ADDRMODE_STR;
+		return ALLOCATE(mode);
 }
 struct X86AddressingMode *X86AddrModeIndirLabel(const char *text,struct object *type) {
 		struct X86AddressingMode mode;

@@ -13,6 +13,8 @@ STR_TYPE_DEF(char,Char);
 STR_TYPE_FUNCS(char,Char);
 void compileFile(const char *fn,const char *dumpTo) {
 		{
+				setArch(ARCH_X86_SYSV);
+								
 				int err;
 				strFileMappings fMappings CLEANUP(strFileMappingsDestroy)=NULL;
 				strTextModify tMods CLEANUP(strTextModifyDestroy)=NULL;
@@ -44,8 +46,9 @@ void compileFile(const char *fn,const char *dumpTo) {
 				IRGenInit();
 				X86EmitAsmInit();
 				struct enterExit ee=parserNodes2IR(stmts);
-
+				
 				IR2AsmInit();
+				X86EmitAsmLabel("_start");
 				IRCompile(ee.enter);
 				X86EmitAsm2File(dumpTo);
 				return;

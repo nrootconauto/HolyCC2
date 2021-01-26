@@ -3118,10 +3118,10 @@ struct X86AddressingMode *parserNode2X86AddrMode(struct parserNode *node) {
 		} else if(node->type==NODE_LIT_STR) {
 				struct parserNodeLitStr *str=(void*)node;
 				if(str->isChar) {
-						X86AddrModeUint(uintLitValue(node));
+						return X86AddrModeUint(uintLitValue(node));
 				} else {
 						//Is a string so add to memory addess
-						return  X86AddrModeUint(uintLitValue(node));
+						return X86AddrModeStr(str->text);
 				}
 		} else {
 				diagErrorStart(node->pos.start, node->pos.end);

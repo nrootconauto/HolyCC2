@@ -44,7 +44,7 @@ static __thread strRegP consumedRegisters=NULL;
 strChar uniqueLabel(const char *head) {
 		long count=snprintf(NULL, 0, "$%s_%li", head,++labelsCount);
 		char buffer[count+1];
-		sprintf(buffer, 0, "$%s_%li", head,labelsCount);
+		sprintf(buffer, "$%s_%li", head,labelsCount);
 		return strCharAppendData(NULL, buffer, count+1);
 }
 static long ptrSize() {
@@ -2157,8 +2157,8 @@ static int argEdgeSort(const void *a,const void *b) {
 		const graphEdgeIR *A=a,*B=b;
 		return argEdgeSortPrec(*A)-argEdgeSortPrec(*B);
 }
-static int removeIfVisited(const void *data,const graphNodeIR *node) {
-		return NULL==ptrMapCompiledNodesGet(compiledNodes, *node);
+static int isUnvisited(const void *data,const graphNodeIR *node) {
+		return NULL!=ptrMapCompiledNodesGet(compiledNodes, *node);
 }
 void __IR2AsmExpr(graphNodeIR start) {
 		computeArgs:;
@@ -2190,7 +2190,7 @@ void IR2Asm(graphNodeIR start) {
 				strGraphNodeIRP next2=NULL;
 				for(long n=0;n!=strGraphNodeIRPSize(next);n++)
 						next2=strGraphNodeIRPConcat(next2,__IR2Asm(next[n]));
-				next2=strGraphNodeIRPRemoveIf(next2, NULL, removeIfVisited);
+				next2=strGraphNodeIRPRemoveIf(next2, NULL, isUnvisited);
 				
 				strGraphNodeIRPDestroy(&next);
 				next=next2;
