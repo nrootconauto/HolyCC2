@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <base64.h>
 #include <cleanup.h>
-//#define DEBUG_PRINT_ENABLE 1
+#define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 #include <stdio.h>
 #include <basicBlocks.h>
@@ -12,7 +12,7 @@ typedef int (*gnCmpType)(const graphNodeMapping *, const graphNodeMapping *);
 typedef int (*varRefCmpType)(const struct IRVar **, const struct IRVar **);
 #define ALLOCATE(x)                                                            \
 	({                                                                           \
-		typeof(x) *ptr = malloc(sizeof(x));                                        \
+			typeof(x) *ptr = malloc(sizeof(x));																																		\
 		*ptr = x;                                                                  \
 		ptr;                                                                       \
 	})
@@ -84,7 +84,12 @@ static int IRVarRefCmp(const struct IRVar **a, const struct IRVar **b) {
 }
 static void printVars(strVar vars) {
 	for (long i = 0; i != strVarSize(vars); i++) {
-		DEBUG_PRINT("    - %s,%li\n", vars[i]->value.var->name, vars[i]->SSANum);
+			__auto_type name=vars[i].value.var->name;
+			if(name) {
+					DEBUG_PRINT("    - %s,%li\n", name, vars[i].SSANum);
+			} else {
+					DEBUG_PRINT("    - %p,%li\n", vars[i].value.var, vars[i].SSANum);
+			}
 	}
 }
 static int isExprEdge(graphEdgeIR edge) {
@@ -206,14 +211,14 @@ static void killNode(void *ptr) {
 	__graphNodeKill(*(struct __graphNode **)ptr, NULL, NULL);
 }
 struct varRefNodePair {
-	struct IRVar *ref;
+	struct IRVar ref;
 	graphNodeIRLive node;
 };
 STR_TYPE_DEF(struct varRefNodePair, VarRefNodePair);
 STR_TYPE_FUNCS(struct varRefNodePair, VarRefNodePair);
 static int varRefNodePairCmp(const struct varRefNodePair *a,
                              const struct varRefNodePair *b) {
-	return IRVarRefCmp((void *)&a->ref, (void *)&b->ref);
+	return IRVarCmp(&a->ref, &b->ref);
 }
 static char *node2GraphViz(const struct __graphNode *node,
                            mapGraphVizAttr *unused, const void *data) {
@@ -225,11 +230,6 @@ static char *node2GraphViz(const struct __graphNode *node,
 }
 graphNodeIRLive IRInterferenceGraph(graphNodeIR start) {
 	return IRInterferenceGraphFilter(start, NULL, NULL)[0];
-}
-static void validateStrVarSet(strVar vars) {
-	for (long i = 0; i < strVarSize(vars) - 1; i++) {
-		assert(0 >= IRVarCmp(vars[i], vars[i + 1]));
-	}
 }
 strGraphNodeIRLiveP __IRInterferenceGraphFilter(
     graphNodeMapping start, const void *data,
@@ -243,16 +243,6 @@ strGraphNodeIRLiveP __IRInterferenceGraphFilter(
 	strGraphNodeMappingP visited = NULL;
 	__auto_type allMappedNodes = graphNodeMappingAllNodes(start);
 	__auto_type mappedClone = start;
-
-	/*
-char *name=tmpnam(NULL);
-	    FILE *f=fopen(name, "w");
-	    graph2GraphViz(f, mappedClone, "Tmp", node2GraphViz, NULL, NULL, NULL);
-	    fclose(f);
-	    char buffer[1024];
-	    sprintf(buffer,"dot -Tsvg %s>/tmp/dot.svg && firefox /tmp/dot.svg",name)
-	    system(buffer);
-	*/
 	for (;;) {
 	loop:;
 		int found = 0;
@@ -331,8 +321,7 @@ char *name=tmpnam(NULL);
 	}
 
 	for (;;) {
-		int changed = 0;
-
+			int changed = 0;
 		for (long i = strGraphNodeMappingPSize(forwards) - 1; i >= 0; i--) {
 			__auto_type find = ptrMapBlockMetaNodeGet(metaNodes, forwards[i]);
 
@@ -354,12 +343,9 @@ char *name=tmpnam(NULL);
 			__auto_type newIns = strVarClone(find->block->read);
 			__auto_type diff =
 			    strVarSetDifference(strVarClone(find->block->out),
-			                        find->block->define, (varRefCmpType)IRVarRefCmp);
-			validateStrVarSet(diff);
-			newIns = strVarSetUnion(newIns, diff, (varRefCmpType)IRVarRefCmp);
-			validateStrVarSet(diff);
-			newIns = strVarUnique(newIns, IRVarRefCmp, NULL);
-			validateStrVarSet(newIns);
+			                        find->block->define, IRVarCmp);
+			newIns = strVarSetUnion(newIns, diff, IRVarCmp);
+			newIns = strVarUnique(newIns, IRVarCmp, NULL);
 
 			// Union of successors insert
 			strVar newOuts = NULL;
@@ -373,9 +359,9 @@ char *name=tmpnam(NULL);
 
 				// Union
 				newOuts = strVarSetUnion(newOuts, find2->block->in,
-				                         (varRefCmpType)IRVarRefCmp);
+				                         IRVarCmp);
 			}
-			newOuts = strVarUnique(newOuts, IRVarRefCmp, NULL);
+			newOuts = strVarUnique(newOuts, IRVarCmp, NULL);
 #if DEBUG_PRINT_ENABLE
 			DEBUG_PRINT("New ins of %s:\n", var2Str(find->node));
 			printVars(newIns);
@@ -434,7 +420,7 @@ char *name=tmpnam(NULL);
 			if (NULL == find2) {
 				// Create a node
 				struct IRVarLiveness live;
-				live.ref = *find->block->in[i2];
+				live.ref = find->block->in[i2];
 
 				// Set the ndoe and insert
 				pair.node = graphNodeIRLiveCreate(live, 0);

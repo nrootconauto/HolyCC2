@@ -2,6 +2,22 @@
 #include <IRLiveness.h>
 #include <assert.h>
 #include <cleanup.h>
+#define DEBUG_PRINT_ENABLE 1
+#include <debugPrint.h>
+static char *var2Str(graphNodeIR node) {
+		char buffer[1024];
+		struct IRNodeValue *val=(void*)graphNodeIRValuePtr(node);
+		if(val->base.type!=IR_VALUE)
+				return NULL;
+		if(val->val.type!=IR_VAL_VAR_REF)
+				return NULL;
+		if(val->val.value.var.value.var->name)
+				sprintf(buffer, "%s-%li", val->val.value.var.value.var->name,val->val.value.var.SSANum);
+		else
+				sprintf(buffer, "%p-%li", val->val.value.var.value.var,val->val.value.var.SSANum);
+
+		return strcpy(malloc(strlen(buffer)+1),buffer);
+}
 typedef int (*gnCmpType)(const graphNodeMapping *, const graphNodeMapping *);
 typedef int (*varRefCmpType)(const struct IRVar **, const struct IRVar **);
 #define ALLOCATE(x)                                                            \
@@ -236,7 +252,7 @@ IRGetBasicBlocksFromExpr(graphNodeIR dontDestroy, ptrMapBlockMetaNode metaNodes,
 				struct IRNode *irNode = (void *)graphNodeIRValuePtr(node);
 				assert(isVarNode(irNode));
 				block.define = strVarAppendItem(
-																																				NULL, &((struct IRNodeValue *)irNode)->val.value.var);
+																																				NULL, ((struct IRNodeValue *)irNode)->val.value.var);
 		}
 
 		//
@@ -244,7 +260,7 @@ IRGetBasicBlocksFromExpr(graphNodeIR dontDestroy, ptrMapBlockMetaNode metaNodes,
 		//
 		if (NULL == strGraphNodeMappingPSortedFind(oldSinks, startFroms[i],
 		                                           (gnCmpType)ptrPtrCmp)) {
-			__auto_type defineRef = &((struct IRNodeValue *)graphNodeIRValuePtr(
+			__auto_type defineRef = ((struct IRNodeValue *)graphNodeIRValuePtr(
 			                              *graphNodeMappingValuePtr(startFroms[i])))
 			                             ->val.value.var;
 			block.define = strVarAppendItem(NULL, defineRef);
@@ -273,7 +289,7 @@ IRGetBasicBlocksFromExpr(graphNodeIR dontDestroy, ptrMapBlockMetaNode metaNodes,
 				struct IRNodeValue *var = (void *)irNode;
 
 				block.read =
-				    strVarSortedInsert(block.read, &var->val.value.var, IRVarRefCmp);
+				    strVarSortedInsert(block.read, var->val.value.var, IRVarCmp);
 #if DEBUG_PRINT_ENABLE
 				DEBUG_PRINT("Reading from %s\n",
 				            var2Str(*graphNodeMappingValuePtr(exprNodes[i2])));

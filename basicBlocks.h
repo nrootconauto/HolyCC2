@@ -4,8 +4,8 @@ struct blockMetaNode {
 	graphNodeMapping node;
 	struct basicBlock *block;
 };
-STR_TYPE_DEF(struct IRVar *, Var);
-STR_TYPE_FUNCS(struct IRVar *, Var);
+STR_TYPE_DEF(struct IRVar, Var);
+STR_TYPE_FUNCS(struct IRVar, Var);
 struct basicBlock {
 	long refCount;
 	strGraphNodeMappingP nodes;

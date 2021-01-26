@@ -974,7 +974,7 @@ if (graphNodeIRValuePtr(start)->type == IR_SPILL_LOAD) {
 		struct IRNodeSpill *spill = (void *)graphNodeIRValuePtr(start);
 		strVar liveVars = (void *)live;
 		return NULL !=
-		       strVarSortedFind(liveVars, &spill->item.value.var, IRVarCmp2);
+		       strVarSortedFind(liveVars, spill->item.value.var, IRVarCmp);
 	}
 
 	// Is attributed to a live varible
@@ -985,7 +985,7 @@ if (graphNodeIRValuePtr(start)->type == IR_SPILL_LOAD) {
 
 		struct IRNodeValue *val = (void *)graphNodeIRValuePtr(start);
 		strVar liveVars = (void *)live;
-		return NULL != strVarSortedFind(liveVars, &var->var, IRVarCmp2);
+		return NULL != strVarSortedFind(liveVars, var->var, IRVarCmp);
 	}
 
 	return 0;
@@ -1067,9 +1067,9 @@ void IRRegisterAllocate(graphNodeIR start, color2RegPredicate colorFunc,
 	// SSA
 	__auto_type allNodes = graphNodeIRAllNodes(start);
 	removeChooseNodes(allNodes, start);
-	//debugShowGraphIR(start);
+	debugShowGraphIR(start);
 	IRToSSA(start);
-	//debugShowGraphIR(start);
+	debugShowGraphIR(start);
 
  	strGraphNodeIRP allNodes2 CLEANUP(strGraphNodeIRPDestroy) =
 	    graphNodeIRAllNodes(start);
@@ -1095,17 +1095,17 @@ loop:
 
 	// Merge variables that can be merges
 	allNodes = graphNodeIRAllNodes(start);
-	// debugShowGraphIR(start);
+	 debugShowGraphIR(start);
 	IRCoalesce(allNodes, start);
-	debugShowGraphIR(start);
 	IRRemoveRepeatAssigns(start);
-
+	debugShowGraphIR(start);
+	
 	__auto_type intInterfere =
 	    IRInterferenceGraphFilter(start, filterIntVars, NULL);
 
 	__auto_type floatInterfere =
 	    IRInterferenceGraphFilter(start, filterFloatVars, NULL);
-
+ 
 	// Compute int and flaoting interfernce seperatly
 	strGraphNodeIRLiveP spillNodes = NULL;
 
@@ -1162,7 +1162,7 @@ loop:
 
 		}
 
-		//debugPrintInterferenceGraph(interfere, regsByLivenessNode);
+		debugPrintInterferenceGraph(interferes[i], regsByLivenessNode);
 		
 		// Get conflicts and spill nodes
 		strGraphNodeIRLiveP spillNodes = NULL;
@@ -1264,6 +1264,7 @@ loop:
 		replaceVarsWithSpillOrLoad(spillNodes, start);
 	}
 
-	removeDeadExpresions(start, liveVars);
+	debugShowGraphIR(start);
+	//removeDeadExpresions(start, liveVars);
 	//	debugShowGraphIR(start);
 }

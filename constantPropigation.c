@@ -322,7 +322,7 @@ static strIRVar  __IRConstPropigation(graphNodeIR start,strIRVar consts) {
 										if(ir->type==IR_VALUE) {
 												struct IRNodeValue *value=(void*)ir;
 												if(value->val.type==IR_VAL_VAR_REF) {
-														if(0==IRVarCmp(newBlocks[i]->define[assign], &value->val.value.var)) {
+														if(0==IRVarCmp(&newBlocks[i]->define[assign], &value->val.value.var)) {
 																assignNode=node;
 
 														assignLoop:;
@@ -349,7 +349,7 @@ static strIRVar  __IRConstPropigation(graphNodeIR start,strIRVar consts) {
 												struct IRNodeValue *value=(void*)ir;
 												if(value->val.type==IR_VAL_VAR_REF) {
 														//Ignore assign node
-														if(0==IRVarCmp(newBlocks[i]->define[assign], &value->val.value.var)) {
+														if(0==IRVarCmp(&newBlocks[i]->define[assign], &value->val.value.var)) {
 																continue;
 														}
 												useLoop:;
@@ -363,9 +363,9 @@ static strIRVar  __IRConstPropigation(graphNodeIR start,strIRVar consts) {
 																goto useLoop;
 														}
 														struct IRNodeValue *assignVar=(void*)graphNodeIRValuePtr(assignNode);
-														if(strVarSortedFind(find->users,&assignVar->val.value.var,IRVarCmp2))
+														if(strVarSortedFind(find->users,assignVar->val.value.var,IRVarCmp))
 																continue;
-														find->users=strVarSortedInsert(find->users,&assignVar->val.value.var,IRVarCmp2);
+														find->users=strVarSortedInsert(find->users,assignVar->val.value.var,IRVarCmp);
 												}
 										}
 								}
@@ -467,8 +467,8 @@ static strIRVar  __IRConstPropigation(graphNodeIR start,strIRVar consts) {
 						replaceOrder=strGraphNodeIRPAppendItem(replaceOrder, find->assign);
 						consts=strIRVarSortedInsert(consts, find->var, IRVarCmp);
 						for(long u=0;u!=strVarSize(find->users);u++) {
-								if(NULL==strIRVarSortedFind(worklist2, *find->users[u], IRVarCmp))
-										worklist2=strIRVarSortedInsert(worklist2, *find->users[u], IRVarCmp);
+								if(NULL==strIRVarSortedFind(worklist2, find->users[u], IRVarCmp))
+										worklist2=strIRVarSortedInsert(worklist2, find->users[u], IRVarCmp);
 						}
 
 						//Replace all occurances of assigned var with value

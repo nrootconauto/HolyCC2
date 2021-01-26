@@ -234,9 +234,8 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 	// items between each edge's node(is a mapped graph) of the assign graph.
 	//
 	strGraphEdgeMappingP un = NULL;
-	strGraphNodeMappingP allMappingNodes CLEANUP(strGraphNodeMappingPDestroy)=NULL;
-	for (long i = 0; i != strGraphNodeMappingPSize(allMappingNodes); i++) {
-			strGraphEdgeMappingP allEdges CLEANUP(strGraphEdgeMappingPDestroy)=graphNodeMappingOutgoing(allMappingNodes[i]);
+	for (long i = 0; i != strGraphNodeMappingPSize(allVarAssigns); i++) {
+			strGraphEdgeMappingP allEdges CLEANUP(strGraphEdgeMappingPDestroy)=graphNodeMappingOutgoing(allVarAssigns[i]);
 		un = strGraphEdgePSetUnion(un, allEdges,
 		                           (int (*)(const struct __graphEdge **,
 		                                    const struct __graphEdge **))ptrPtrCmp);
@@ -262,12 +261,23 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 		__auto_type mappedStart = *ptrMapGraphNodeGet(IR2MappingNode, start);
 		__auto_type mappedEnd = *ptrMapGraphNodeGet(IR2MappingNode, end);
 
+		{
+			char *fn=tmpnam(NULL);
+			IRGraphMap2GraphViz(mappedEnd, "filter", fn, NULL,NULL,NULL,NULL);
+			char buffer[1024];
+			sprintf(buffer, "dot -Tsvg %s >/tmp/dot.svg && firefox /tmp/dot.svg &", fn);
+			system(buffer);
+			}
+		
 		// Find all paths from start->end
 		__auto_type allPaths = graphAllPathsTo(mappedStart, mappedEnd);
 		for (long pathI = 0; pathI != strGraphPathSize(allPaths); pathI++) {
 			// Insert versions between assigns
 
 			//!!! Last edge points to next assign and we dont want to overwrite assign
+				//Dont pop a self-reference
+				if(strGraphEdgePSize(allPaths[pathI])==0)
+						continue;
 			allPaths[pathI] = strGraphEdgePPop(allPaths[pathI], NULL);
 
 			versionAllVarsBetween(allPaths[pathI], versionStarts);

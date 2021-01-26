@@ -43,7 +43,7 @@ static void runTest(const char *asmFile,const char *expected) {
 				"MOV EBX,0\n"																															\
 				"INT 0x80\n"
 void compileTests() {		
-		{
+		/*{
 		const char * text=
 				"asm {\n"
 				"    MOV EAX,4\n"
@@ -59,7 +59,7 @@ void compileTests() {
 		runTest(asmF,"123");
 		free(asmF);	
 		free(source);
-}
+}*/
 		{
 				const char * text=
 						"{\n"
