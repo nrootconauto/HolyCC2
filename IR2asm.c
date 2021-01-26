@@ -442,6 +442,7 @@ void IRCompile(graphNodeIR start) {
 		for(long i=0;i!=strPVarSize(noregs);i++)
 				noregs[i]->isNoreg=1;
 
+		IRInsertNodesBetweenExprs(start, NULL, NULL);
 		IRRegisterAllocate(start, NULL, NULL, isNotNoreg, noregs);
 		
 		strGraphNodeIRP regAllocedNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);

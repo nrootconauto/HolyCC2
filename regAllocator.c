@@ -1097,7 +1097,7 @@ loop:
 	allNodes = graphNodeIRAllNodes(start);
 	// debugShowGraphIR(start);
 	IRCoalesce(allNodes, start);
-	// debugShowGraphIR(start);
+	debugShowGraphIR(start);
 	IRRemoveRepeatAssigns(start);
 
 	__auto_type intInterfere =

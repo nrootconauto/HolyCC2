@@ -60,4 +60,25 @@ void compileTests() {
 		free(asmF);	
 		free(source);
 }
+		{
+				const char * text=
+						"{\n"
+						"    for(I32i x=0;x!=3;x=x+1) {\n"
+						"    asm {"
+						"        MOV EAX,4\n"
+						"        MOV EBX,1\n"
+						"        MOV ECX,\"x\"\n"
+						"        MOV EDX,1\n"
+						"        INT 0x80\n"
+						"    }\n"
+						"    }\n"
+						"}\n"
+						exitStr;
+				char *source=text2File(text);
+				char *asmF=strDup(tmpnam(NULL));
+				compileFile(source, asmF);
+				runTest(asmF,"xxx");
+				free(asmF);	
+				free(source);
+		}
 }

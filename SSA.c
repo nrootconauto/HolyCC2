@@ -18,7 +18,7 @@ typedef int (*gnCmpType)(const graphNodeIR *, const graphNodeIR *);
 
 static char *ptr2Str(const void *a) { return base64Enc((void *)&a, sizeof(a)); }
 static graphNodeIR createChoose(graphNodeIR insertBefore,
-                                strGraphNodeIRP pathPairs) {
+                                strGraphNodeIRP pathPairs,struct parserVar *var) {
 	// Make the choose node
 	struct IRNodeChoose choose;
 	choose.base.attrs = NULL;
@@ -30,7 +30,7 @@ static graphNodeIR createChoose(graphNodeIR insertBefore,
 
 	// Create a variable ref
 	struct IRNodeValue *firstNode = (void *)graphNodeIRValuePtr(insertBefore);
-	__auto_type valueNode=IRCreateVarRef(firstNode->val.value.var.value.var);
+	__auto_type valueNode=IRCreateVarRef(var);
 
 	graphNodeIRConnect(chooseNode, valueNode, IR_CONN_DEST);
 
@@ -291,11 +291,18 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 		}
 	}
 }
+STR_TYPE_DEF(struct IRVar, IRVar);
+STR_TYPE_FUNCS(struct IRVar, IRVar);
+struct varBlob {
+		strIRVar read;
+		strIRVar write;
+};
+PTR_MAP_FUNCS(graphNodeIR, graphNodeMapping, IR2Mapping);
+PTR_MAP_FUNCS(graphNodeIR, struct varBlob, VarBlobByExprEnd);
 /**
  * Returns list of new varaible references
  */
-static strGraphNodeIRP IRSSACompute(graphNodeMapping start, struct IRVar *var) {
-	// graphPrint(start, node2Str);
+static strGraphNodeIRP IRSSACompute(graphNodeMapping start, struct IRVar *var,ptrMapVarBlobByExprEnd blobs) {
 	//
 	__auto_type frontiersToMaster = ptrMapChooseIncomingsCreate();
 	__auto_type nodeKey2Ptr = ptrMapGraphNodeCreate();
@@ -356,8 +363,24 @@ static strGraphNodeIRP IRSSACompute(graphNodeMapping start, struct IRVar *var) {
 	for (long i = 0; i != kCount; i++) {
 		__auto_type masters = *ptrMapChooseIncomingsGet(frontiersToMaster, keys[i]);
 		__auto_type masterNode =
-		    *ptrMapGraphNodeGet(nodeKey2Ptr, keys[i]); // TODO change to frontier
-		createChoose(masterNode, masters);
+		    *ptrMapGraphNodeGet(nodeKey2Ptr, keys[i]);
+		//Filter variables that correspond to var
+		strGraphNodeIRP chooseFrom CLEANUP(strGraphNodeIRPDestroy)=NULL;
+		for(long m=0;m!=strGraphNodeIRPSize(masters);m++) {
+				strGraphNodeIRP exprNodes CLEANUP(strGraphNodeIRPDestroy)=IRStmtNodes(IREndOfExpr(masters[m]));
+				for(long i=0;i!=strGraphNodeIRPSize(exprNodes);i++) {
+						if(graphNodeIRValuePtr(exprNodes[i])->type!=IR_VALUE)
+								continue;
+
+						struct IRNodeValue *val=(void*)graphNodeIRValuePtr(exprNodes[i]);
+						if(val->val.type!=IR_VAL_VAR_REF)
+								continue;
+
+						if(val->val.value.var.value.var==var->value.var)
+								chooseFrom=strGraphNodeIRPSortedInsert(chooseFrom, exprNodes[i], (gnCmpType)ptrPtrCmp);
+				}
+		}
+		createChoose(masterNode, chooseFrom,var->value.var);
 	}
 
 	ptrMapChooseIncomingsDestroy(frontiersToMaster, NULL);
@@ -374,8 +397,6 @@ static int filterVars(graphNodeIR node, const void *data) {
 
 	return 0;
 }
-STR_TYPE_DEF(struct IRVar, IRVar);
-STR_TYPE_FUNCS(struct IRVar, IRVar);
 static int ptrCmp(const void *a, const void *b) {
 	if (a > b)
 		return 1;
@@ -384,11 +405,6 @@ static int ptrCmp(const void *a, const void *b) {
 	else
 		return 0;
 }
-struct varBlob {
-		strIRVar read;
-		strIRVar write;
-};
-PTR_MAP_FUNCS(graphNodeIR, struct varBlob, VarBlobByExprEnd);
 static void varBlobDestroy(struct varBlob *blob) {
 		strIRVarDestroy(&blob->read);
 		strIRVarDestroy(&blob->write);
@@ -403,7 +419,6 @@ static void transparentKillMapping(graphNodeMapping node) {
 
 	graphNodeMappingKill(&node, NULL, NULL);
 }
-PTR_MAP_FUNCS(graphNodeIR, graphNodeMapping, IR2Mapping);
 static ptrMapVarBlobByExprEnd map2VarBlobs(graphNodeIR input,graphNodeMapping *retVal,strIRVar *allVars) {
 		if(allVars)
 				*allVars=NULL;
@@ -534,8 +549,16 @@ void IRToSSA(graphNodeIR enter) {
 	for (long i = 0; i != strIRVarSize(allVars); i++) {
 			__auto_type clone=graphNodeMappingClone(filtered);
 			filterVBlobMap4Var(clone, &allVars[i], blobs);
+			{
+				char *fn=tmpnam(NULL);
+				__auto_type map=clone;
+				IRGraphMap2GraphViz(map, "filter", fn, NULL,NULL,NULL,NULL);
+				char buffer[1024];
+				sprintf(buffer, "dot -Tsvg %s >/tmp/dot.svg && firefox /tmp/dot.svg &", fn);
+				system(buffer);
+		}
 			// Compute choose nodes
-		strGraphNodeIRP chooses = IRSSACompute(clone, &allVars[i]);
+			strGraphNodeIRP chooses = IRSSACompute(clone, &allVars[i],blobs);
 		// Number the versions
 		SSAVersionVar(enter, &allVars[i]);
 
