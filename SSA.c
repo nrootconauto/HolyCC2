@@ -10,6 +10,13 @@
 #include <topoSort.h>
 //#define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
+static void debugPrintGraph(graphNodeMapping map) {
+		char *fn=tmpnam(NULL);
+		IRGraphMap2GraphViz(map, "filter", fn, NULL,NULL,NULL,NULL);
+		char buffer[1024];
+		sprintf(buffer, "dot -Tsvg %s >/tmp/dot.svg && firefox /tmp/dot.svg &", fn);
+		system(buffer);
+}
 #define GRAPHN_ALLOCATE(x) ({ __graphNodeCreate(&x, sizeof(x), 0); })
 typedef int (*strGN_IRCmpType)(const strGraphNodeIRP *,
                                const strGraphNodeIRP *);
@@ -45,15 +52,6 @@ static int ptrPtrCmp(const void *a, const void *b) {
 		return -1;
 	return 0;
 }
-
-static void getAllVisit(struct __graphNode *node, void *all) {
-	strGraphNodeP *ptr = all;
-	*ptr = strGraphNodePAppendItem(*ptr, node);
-}
-static int alwaysTrue(const struct __graphNode *n, const struct __graphEdge *e,
-                      const void *data) {
-	return 1;
-}
 struct SSANode {
 	graphNodeIR assignNode;
 	struct IRValue *var;
@@ -87,7 +85,7 @@ static int __isAssignedVar(struct varAndEnterPair *data,
 	struct IRVar *expectedVar = data->var;
 
 	if (ignoreChoose) {
-		strGraphNodeIRP incoming = graphNodeIRIncomingNodes(node);
+			strGraphNodeIRP incoming CLEANUP(strGraphNodeIRPDestroy)= graphNodeIRIncomingNodes(node);
 		if (1 == strGraphNodeIRPSize(incoming)) {
 			if (graphNodeIRValuePtr(incoming[0])->type == IR_CHOOSE)
 				return 0;
@@ -118,8 +116,8 @@ checkForAssign:;
 	//
 	// Check if assigned to choose node
 	//
-	strGraphEdgeIRP in = graphNodeIRIncoming((graphNodeIR)node);
-	strGraphEdgeIRP dstConns = IRGetConnsOfType(in, IR_CONN_DEST);
+	strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming((graphNodeIR)node);
+	strGraphEdgeIRP dstConns CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(in, IR_CONN_DEST);
 	return 0 != strGraphEdgeIRPSize(dstConns);
 }
 static int isAssignedVar(graphNodeIR node, const void *data) {
@@ -186,6 +184,14 @@ static void versionAllVarsBetween(strGraphEdgeMappingP path,
 		val->val.value.var.SSANum = version;
 	}
 }
+static void strGraphPathDestroy2(strGraphPath *paths) {
+		for(long p=0;p!=strGraphPathSize(*paths);p++)
+				strGraphEdgePDestroy(&paths[0][p]);
+		strGraphPathDestroy(paths);
+}
+static void graphNodeMappingDestroy2(graphNodeMapping *map) {
+		graphNodeMappingKill(map, NULL, NULL);
+}
 static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 	//
 	struct varAndEnterPair pair;
@@ -193,8 +199,8 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 	pair.var = var;
 
 	// Get references to all vars
-	__auto_type varRefsG = IRFilter(start, occurOfVar, &pair);
-	__auto_type allVarRefs = graphNodeMappingAllNodes(varRefsG);
+	graphNodeMapping varRefsG CLEANUP(graphNodeMappingDestroy2) = IRFilter(start, occurOfVar, &pair);
+	strGraphNodeMappingP allVarRefs CLEANUP(strGraphNodeMappingPDestroy) = graphNodeMappingAllNodes(varRefsG);
 	// graphPrint(varRefsG, node2Str);
 	// Hash the vars
 	ptrMapGraphNode IR2MappingNode = ptrMapGraphNodeCreate();
@@ -204,14 +210,14 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 		ptrMapGraphNodeAdd(IR2MappingNode, sourceNode, allVarRefs[i]);
 	}
 
-	__auto_type varAssignG = IRFilter(start, isAssignedVar, &pair);
+	graphNodeMapping varAssignG CLEANUP(graphNodeMappingDestroy2) = IRFilter(start, isAssignedVar, &pair);
 
 	if (!varAssignG) {
 		ptrMapGraphNodeDestroy(IR2MappingNode, NULL);
 		return;
 	}
 
-	__auto_type allVarAssigns = graphNodeMappingAllNodes(varAssignG);
+	strGraphNodeMappingP allVarAssigns CLEANUP(strGraphNodeMappingPDestroy)= graphNodeMappingAllNodes(varAssignG);
 
 	// graphPrint(varAssignG, node2Str);
 	// Number the assigns
@@ -233,7 +239,7 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 	// First do a set union of all paths though the assigned vars. Then number the
 	// items between each edge's node(is a mapped graph) of the assign graph.
 	//
-	strGraphEdgeMappingP un = NULL;
+	strGraphEdgeMappingP un CLEANUP(strGraphEdgeMappingPDestroy) = NULL;
 	for (long i = 0; i != strGraphNodeMappingPSize(allVarAssigns); i++) {
 			strGraphEdgeMappingP allEdges CLEANUP(strGraphEdgeMappingPDestroy)=graphNodeMappingOutgoing(allVarAssigns[i]);
 		un = strGraphEdgePSetUnion(un, allEdges,
@@ -245,7 +251,7 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 	// Get list of start nodes,we want to not stop at other versions starts while
 	// going from one versions start to
 	//
-	strGraphNodeIRP versionStarts = NULL;
+	strGraphNodeIRP versionStarts CLEANUP(strGraphNodeIRPDestroy) = NULL;
 	for (long i = 0; i != strGraphNodeMappingPSize(allVarAssigns); i++) {
 		__auto_type node = *graphNodeMappingValuePtr(allVarAssigns[i]);
 		versionStarts =
@@ -260,17 +266,9 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 
 		__auto_type mappedStart = *ptrMapGraphNodeGet(IR2MappingNode, start);
 		__auto_type mappedEnd = *ptrMapGraphNodeGet(IR2MappingNode, end);
-
-		{
-			char *fn=tmpnam(NULL);
-			IRGraphMap2GraphViz(mappedEnd, "filter", fn, NULL,NULL,NULL,NULL);
-			char buffer[1024];
-			sprintf(buffer, "dot -Tsvg %s >/tmp/dot.svg && firefox /tmp/dot.svg &", fn);
-			system(buffer);
-			}
 		
 		// Find all paths from start->end
-		__auto_type allPaths = graphAllPathsTo(mappedStart, mappedEnd);
+		strGraphPath allPaths CLEANUP(strGraphPathDestroy2) = graphAllPathsTo(mappedStart, mappedEnd);
 		for (long pathI = 0; pathI != strGraphPathSize(allPaths); pathI++) {
 			// Insert versions between assigns
 
@@ -293,7 +291,7 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 		__auto_type mappedNode = *ptrMapGraphNodeGet(IR2MappingNode, versionStarts[i]);
 
 		// Find all null paths from assign
-		__auto_type nullPaths = graphAllPathsTo(mappedNode, NULL);
+		strGraphPath nullPaths CLEANUP(strGraphPathDestroy2) = graphAllPathsTo(mappedNode, NULL);
 
 		// Version vars from assign to exit
 		for (long i2 = 0; i2 != strGraphPathSize(nullPaths); i2++) {
@@ -317,8 +315,8 @@ static strGraphNodeIRP IRSSACompute(graphNodeMapping start, struct IRVar *var,pt
 	__auto_type frontiersToMaster = ptrMapChooseIncomingsCreate();
 	__auto_type nodeKey2Ptr = ptrMapGraphNodeCreate();
 
-	__auto_type mappedNodes = graphNodeMappingAllNodes(start);
-	__auto_type doms = graphComputeDominatorsPerNode(start);
+	strGraphNodeMappingP mappedNodes CLEANUP(strGraphNodeMappingPDestroy) = graphNodeMappingAllNodes(start);
+	__auto_type doms = graphComputeDominatorsPerNode(start); //TODO free
 	__auto_type first =
 	    llDominatorsValuePtr(llDominatorsFind(doms, start, llDominatorCmp));
 	__auto_type fronts = graphDominanceFrontiers(start, doms);
@@ -420,8 +418,8 @@ static void varBlobDestroy(struct varBlob *blob) {
 		strIRVarDestroy(&blob->write);
 }
 static void transparentKillMapping(graphNodeMapping node) {
-			__auto_type incoming = graphNodeMappingIncoming(node);
-	__auto_type outgoing = graphNodeMappingOutgoing(node);
+		strGraphEdgeMappingP incoming CLEANUP(strGraphEdgeMappingPDestroy) = graphNodeMappingIncoming(node);
+		strGraphEdgeMappingP outgoing CLEANUP(strGraphEdgeMappingPDestroy) = graphNodeMappingOutgoing(node);
 	for (long i1 = 0; i1 != strGraphEdgeMappingPSize(incoming); i1++)
 			for (long i2 = 0; i2 != strGraphEdgeMappingPSize(outgoing); i2++)
 					graphNodeMappingConnect(graphEdgeMappingIncoming(incoming[i1]),
@@ -434,7 +432,7 @@ static ptrMapVarBlobByExprEnd map2VarBlobs(graphNodeIR input,graphNodeMapping *r
 				*allVars=NULL;
 		ptrMapVarBlobByExprEnd m2VBlob=ptrMapVarBlobByExprEndCreate();
 
-		__auto_type mapping=graphNodeCreateMapping(input, 0);
+		graphNodeMapping mapping CLEANUP(graphNodeMappingDestroy2)=graphNodeCreateMapping(input, 0);
 		strGraphNodeMappingP allNodes CLEANUP(strGraphNodeMappingPDestroy)=graphNodeMappingAllNodes(mapping);
 		ptrMapIR2Mapping ir2m=ptrMapIR2MappingCreate();
 		for(long i=0;i!=strGraphNodeMappingPSize(allNodes);i++)
@@ -544,13 +542,6 @@ void IRToSSA(graphNodeIR enter) {
 	strIRVar allVars CLEANUP(strIRVarDestroy)= NULL;
 	graphNodeMapping filtered;
 	ptrMapVarBlobByExprEnd blobs=map2VarBlobs(enter,  &filtered, &allVars);
-	/*	{
-			char *fn=tmpnam(NULL);
-			IRGraphMap2GraphViz(filtered, "filter", fn, NULL,NULL,NULL,NULL);
-			char buffer[1024];
-			sprintf(buffer, "dot -Tsvg %s >/tmp/dot.svg && firefox /tmp/dot.svg &", fn);
-			system(buffer);
-			}*/
 
 	//
 	// Find SSA choose nodes for all vars
@@ -559,14 +550,9 @@ void IRToSSA(graphNodeIR enter) {
 	for (long i = 0; i != strIRVarSize(allVars); i++) {
 			__auto_type clone=graphNodeMappingClone(filtered);
 			filterVBlobMap4Var(clone, &allVars[i], blobs);
-			{
-				char *fn=tmpnam(NULL);
-				__auto_type map=clone;
-				IRGraphMap2GraphViz(map, "filter", fn, NULL,NULL,NULL,NULL);
-				char buffer[1024];
-				sprintf(buffer, "dot -Tsvg %s >/tmp/dot.svg && firefox /tmp/dot.svg &", fn);
-				system(buffer);
-		}
+			#if DEBUG_PRINT_ENABLE
+			debugPrintGraph(map);
+			#endif
 			// Compute choose nodes
 			strGraphNodeIRP chooses = IRSSACompute(clone, &allVars[i],blobs);
 		// Number the versions
@@ -718,15 +704,11 @@ static ptrMapIRPathsByGN groupPathsByEnd(ptrMapIRPathsByGN *retVal,strIRPaths pa
 }
 void IRSSAReplaceChooseWithAssigns(graphNodeIR node,
                                    strGraphNodeIRP *replaced) {
-		{
-				char *fn=tmpnam(NULL);
-				__auto_type map=graphNodeCreateMapping(node, 1);
-				IRGraphMap2GraphViz(map, "filter", fn, NULL,NULL,NULL,NULL);
-				char buffer[1024];
-				sprintf(buffer, "dot -Tsvg %s >/tmp/dot.svg && firefox /tmp/dot.svg &", fn);
-				system(buffer);
-		}
-
+#if DEBUG_PRINT_ENABLE
+		__auto_type map=graphNodeCreateMapping(node, 1);
+		debugPrintGraph(map);
+#endif
+		
 		assert(graphNodeIRValuePtr(node)->type == IR_CHOOSE);
 	struct IRNodeChoose *choose = (void *)graphNodeIRValuePtr(node);
 
@@ -868,15 +850,11 @@ void IRSSAReplaceChooseWithAssigns(graphNodeIR node,
 					break;
 			}
 			}
-			
-			{
-					char *fn=tmpnam(NULL);
-					__auto_type map=graphNodeCreateMapping(edgeOut, 1);
-					IRGraphMap2GraphViz(map, "filter", fn, NULL,NULL,NULL,NULL);
-					char buffer[1024];
-					sprintf(buffer, "dot -Tsvg %s >/tmp/dot.svg && firefox /tmp/dot.svg &", fn);
-					system(buffer);
-					}
+
+#if DEBUG_PRINT_ENABLE
+			__auto_type map=graphNodeCreateMapping(edgeOut, 1);
+			debugPrintGraph(map);
+#endif
 	}
 	
 	__auto_type endOfExpression = IREndOfExpr(node);
