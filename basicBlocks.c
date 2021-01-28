@@ -250,9 +250,9 @@ IRGetBasicBlocksFromExpr(graphNodeIR dontDestroy, ptrMapBlockMetaNode metaNodes,
 		if (strGraphEdgeIRPSize(incomingAssigns)) {
 				// is Connected to dest node
 				struct IRNode *irNode = (void *)graphNodeIRValuePtr(node);
-				assert(isVarNode(irNode));
-				block.define = strVarAppendItem(
-																																				NULL, ((struct IRNodeValue *)irNode)->val.value.var);
+				if(isVarNode(irNode))
+						block.define = strVarAppendItem(
+																																						NULL, ((struct IRNodeValue *)irNode)->val.value.var);
 		}
 
 		//
