@@ -432,7 +432,7 @@ static ptrMapVarBlobByExprEnd map2VarBlobs(graphNodeIR input,graphNodeMapping *r
 				*allVars=NULL;
 		ptrMapVarBlobByExprEnd m2VBlob=ptrMapVarBlobByExprEndCreate();
 
-		graphNodeMapping mapping CLEANUP(graphNodeMappingDestroy2)=graphNodeCreateMapping(input, 0);
+		graphNodeMapping mapping =graphNodeCreateMapping(input, 0);
 		strGraphNodeMappingP allNodes CLEANUP(strGraphNodeMappingPDestroy)=graphNodeMappingAllNodes(mapping);
 		ptrMapIR2Mapping ir2m=ptrMapIR2MappingCreate();
 		for(long i=0;i!=strGraphNodeMappingPSize(allNodes);i++)
@@ -513,8 +513,11 @@ static ptrMapVarBlobByExprEnd map2VarBlobs(graphNodeIR input,graphNodeMapping *r
 		for(long i=0;i!=strGraphNodeMappingPSize(allNodes);i++)
 				transparentKillMapping(allNodes[i]);
 		
-		if(retVal)
+		if(retVal) {
 				*retVal=firstNodeM;
+		} else {
+				graphNodeMappingDestroy2(&mapping);
+		}
 
 		ptrMapIR2MappingDestroy(ir2m, NULL);
 		return m2VBlob;
