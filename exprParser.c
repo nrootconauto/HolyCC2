@@ -5,6 +5,17 @@
 #include <parserB.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <registers.h>
+static struct object *dftValType() {
+		switch(getCurrentArch()) {
+		case ARCH_TEST_SYSV:
+		case ARCH_X86_SYSV:
+				return &typeI32i;
+		case ARCH_X64_SYSV:
+				return &typeI64i;
+		}
+		assert(0);
+}
 struct object *assignTypeToOp(const struct parserNode *node);
 static int isArith(const struct object *type) {
 	if (type == &typeU8i || type == &typeU16i || type == &typeU32i ||
@@ -66,6 +77,25 @@ static int objIndex(const struct object **objs, long count,
 	assert(0);
 	return -1;
 }
+#define inRange(exp,min,max) ((exp)>=min&&(exp)<=max)
+static struct object *intLitType(struct parserNodeLitInt *i) {
+		if(i->value.type==INT_SLONG) {
+				__auto_type val=i->value.value.sLong;
+				if(inRange(val,INT8_MIN,INT8_MAX)) return &typeI8i;
+				if(inRange(val,INT16_MIN,INT16_MAX)) return &typeI16i;
+				if(inRange(val,INT32_MIN,INT32_MAX)) return &typeI32i;
+				if(inRange(val,INT64_MIN,INT64_MAX)) return &typeI64i;
+		}
+		if(i->value.type==INT_ULONG) {
+				__auto_type val=i->value.value.uLong;
+				if(inRange(val,0,UINT8_MAX)) return &typeU8i;
+				if(inRange(val,0,UINT16_MAX)) return &typeU16i;
+				if(inRange(val,0,UINT32_MAX)) return &typeU32i;
+				if(inRange(val,0,UINT64_MAX)) return &typeU64i;
+		}
+		assert(0);
+		return &typeI64i;
+}
 static struct object *promotionType(const struct object *a,
                                     const struct object *b) {
 	const struct object *ranks[] = {
@@ -73,7 +103,7 @@ static struct object *promotionType(const struct object *a,
 	    &typeI32i, &typeU32i, &typeI64i, &typeU64i, &typeF64,
 	};
 	long count = sizeof(ranks) / sizeof(*ranks);
-	long I32Rank = objIndex(ranks, count, &typeI32i);
+	long I32Rank = objIndex(ranks, count, dftValType());
 
 	long aRank = objIndex(ranks, count, a);
 	long bRank = objIndex(ranks, count, b);
@@ -380,6 +410,21 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 
 	castEnd:
 		return cast->type;
+	} else if(node->type==NODE_LIT_INT) {
+			__auto_type lit=(struct parserNodeLitInt*)node;
+			switch(objectSize(dftValType(), NULL)) {
+			case 2:
+					return promotionType(intLitType(lit), &typeI16i);
+			case 4:
+					return promotionType(intLitType(lit), &typeI32i);
+			case 8:
+					return promotionType(intLitType(lit), &typeI64i);
+			default:
+					fprintf(stderr, "That's an odd defualt value size.");
+					abort();
+			}
+	} else if(node->type==NODE_LIT_FLT) {
+			return &typeF64;
 	}
 
 	// Couldn't detirmine type

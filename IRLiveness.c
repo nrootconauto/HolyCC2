@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <base64.h>
 #include <cleanup.h>
-#define DEBUG_PRINT_ENABLE 1
+//#define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 #include <stdio.h>
 #include <basicBlocks.h>
@@ -198,7 +198,9 @@ static char *printMappedEdge(struct __graphEdge *edge) { return NULL; }
 static char *printMappedNodesValue(struct __graphNode *node) {
 	return var2Str(*graphNodeMappingValuePtr(node));
 }
-static char *printMappedNode(struct __graphNode *node) { return var2Str(node); }
+static char *printMappedNode(struct __graphNode *node) {
+		return ptr2Str(node);
+}
 static strGraphNodeMappingP sortNodes(graphNodeMapping node) {
 	strGraphNodeMappingP order = NULL;
 	strGraphNodeMappingP visited = NULL;
@@ -230,6 +232,16 @@ static char *node2GraphViz(const struct __graphNode *node,
 }
 graphNodeIRLive IRInterferenceGraph(graphNodeIR start) {
 	return IRInterferenceGraphFilter(start, NULL, NULL)[0];
+}
+static void debugShowGraphIR(graphNodeMapping enter) {
+	const char *name = tmpnam(NULL);
+	IRGraphMap2GraphViz(enter, "viz", name, NULL, NULL, NULL, NULL);
+	char buffer[1024];
+	sprintf(buffer,
+	        "sleep 0.1 &&dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg & ",
+	        name);
+
+	system(buffer);
 }
 strGraphNodeIRLiveP __IRInterferenceGraphFilter(
     graphNodeMapping start, const void *data,
@@ -291,7 +303,7 @@ strGraphNodeIRLiveP __IRInterferenceGraphFilter(
 		if (NULL == ptrMapBlockMetaNodeGet(metaNodes, allMappedNodes2[i]))
 			__filterTransparentKill(allMappedNodes2[i]);
 	}
-
+	//debugShowGraphIR(mappedClone);
 	//
 // https://lambda.uta.edu/cse5317/spring01/notes/node37.html
 //
@@ -309,7 +321,7 @@ strGraphNodeIRLiveP __IRInterferenceGraphFilter(
 		__auto_type find = ptrMapBlockMetaNodeGet(metaNodes, forwards[i]);
 
 #if DEBUG_PRINT_ENABLE
-		DEBUG_PRINT("Reseting in/outs of %s to empty.\n", var2Str(find->node));
+		DEBUG_PRINT("Reseting in/outs of %s to empty.\n", ptr2Str(find->node));
 #endif
 
 		// Could be start node
@@ -333,9 +345,9 @@ strGraphNodeIRLiveP __IRInterferenceGraphFilter(
 			__auto_type oldOuts = strVarClone(find->block->out);
 
 #if DEBUG_PRINT_ENABLE
-			DEBUG_PRINT("Old ins of %s:\n", var2Str(find->node));
+			DEBUG_PRINT("Old ins of %s:\n", ptr2Str(find->node));
 			printVars(oldIns);
-			DEBUG_PRINT("Old outs of %s:\n", var2Str(find->node));
+			DEBUG_PRINT("Old outs of %s:\n", ptr2Str(find->node));
 			printVars(oldOuts);
 #endif
 

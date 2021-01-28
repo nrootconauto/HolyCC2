@@ -113,7 +113,23 @@ static strChar  unescapeString(const char *str) {
 		}
 		return retVal;
 }
-static struct X86AddressingMode *node2AddrMode(graphNodeIR start) {
+static const char *getLabelName(graphNodeIR node) {
+	loop:;
+		__auto_type existing=ptrMapLabelNamesGet(asmLabelNames, node);
+		if(existing)
+				return *existing;
+		
+		__auto_type nv=graphNodeIRValuePtr(node);
+		__auto_type find=llIRAttrFind(nv->attrs, IR_ATTR_LABEL_NAME, IRAttrGetPred);
+		if(find) {
+				struct IRAttrLabelName *name=(void*)llIRAttrValuePtr(find);
+				ptrMapLabelNamesAdd(asmLabelNames, node, strClone(name->name));
+		} else {
+				ptrMapLabelNamesAdd(asmLabelNames, node,uniqueLabel(""));
+		}
+		goto loop;
+}
+static struct X86AddressingMode *__node2AddrMode(graphNodeIR start) {
 		if(graphNodeIRValuePtr(start)->type==IR_VALUE) {
 				struct IRNodeValue *value=(void*)graphNodeIRValuePtr(start);
 				switch(value->val.type) {
@@ -216,9 +232,17 @@ static struct X86AddressingMode *node2AddrMode(graphNodeIR start) {
 						return lab;
 				}
 				}
+		} else if(graphNodeIRValuePtr(start)->type==IR_LABEL) {
+				return X86AddrModeLabel(getLabelName(start));
 		}
 		assert(0);
 		return X86AddrModeSint(-1);
+}
+
+static struct X86AddressingMode *node2AddrMode(graphNodeIR start) {
+		__auto_type retVal=__node2AddrMode(start);
+		retVal->valueType=IRNodeType(start);
+		return retVal;
 }
 static void strX86AddrModeDestroy2(strX86AddrMode *str) {
 		for(long i=0;i!=strX86AddrModeSize(*str);i++)
@@ -398,6 +422,17 @@ static int frameEntryCmp(const void *a,const  void *b) {
 		const struct frameEntry *B=b;
 		return IRVarCmp(&A->var, &B->var);
 }
+static void debugShowGraphIR(graphNodeIR enter) {
+	const char *name = tmpnam(NULL);
+	__auto_type map = graphNodeCreateMapping(enter, 1);
+	IRGraphMap2GraphViz(map, "viz", name, NULL, NULL, NULL, NULL);
+	char buffer[1024];
+	sprintf(buffer,
+	        "sleep 0.1 &&dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg & ",
+	        name);
+
+	system(buffer);
+}
 void IRCompile(graphNodeIR start) {
 		strGraphNodeIRP nodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);
 		// Get list of variables that will always be stored in memory
@@ -489,7 +524,8 @@ void IRCompile(graphNodeIR start) {
 						continue;
 				X86EmitAsmGlobalVar(noregs[p]);
 		}
-
+		
+		debugShowGraphIR(start);
 		IR2Asm(start);
 }
 static void assign(struct X86AddressingMode *a,struct X86AddressingMode *b,long size) {
@@ -1154,23 +1190,11 @@ static int IRTableRangeCmp(const struct IRJumpTableRange *a,const struct IRJumpT
 		else
 				return 0;
 }
-static const char *getLabelName(graphNodeIR node) {
-	loop:;
-		__auto_type existing=ptrMapLabelNamesGet(asmLabelNames, node);
-		if(existing)
-				return *existing;
-		
-		__auto_type nv=graphNodeIRValuePtr(node);
-		__auto_type find=llIRAttrFind(nv->attrs, IR_ATTR_LABEL_NAME, IRAttrGetPred);
-		if(find) {
-				struct IRAttrLabelName *name=(void*)llIRAttrValuePtr(find);
-				ptrMapLabelNamesAdd(asmLabelNames, node, strClone(name->name));
-		} else {
-				ptrMapLabelNamesAdd(asmLabelNames, node,uniqueLabel(""));
-		}
-		goto loop;
-}
 static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
+		if(ptrMapCompiledNodesGet(compiledNodes, start))
+				return NULL;
+		ptrMapCompiledNodesAdd(compiledNodes, start,1);
+		
 		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(start);
 		switch(graphNodeIRValuePtr(start)->type) {
 		case IR_ADD: {
@@ -1915,9 +1939,9 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				__auto_type inNode=graphEdgeIRIncoming(inSource[0]);
 				struct X86AddressingMode  *inMode CLEANUP(X86AddrModeDestroy)=node2AddrMode(inNode);
 
-				strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
-				strGraphEdgeIRP outT CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_COND_TRUE);
-				strGraphEdgeIRP outF CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_COND_FALSE);
+				strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(start);
+				strGraphEdgeIRP outT CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(out, IR_CONN_COND_TRUE);
+				strGraphEdgeIRP outF CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(out, IR_CONN_COND_FALSE);
 
 				__auto_type trueNode=graphEdgeIROutgoing(outT[0]);
 				__auto_type falseNode=graphEdgeIROutgoing(outF[0]);
@@ -1938,8 +1962,8 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				jmpFArgs=strX86AddrModeAppendItem(jmpFArgs, X86AddrModeClone(falseLab));
 				assembleInst("JE", jmpFArgs);
 
-				__auto_type retVal=strGraphNodeIRPAppendItem(NULL, nodeDest(trueNode));
-				retVal=strGraphNodeIRPAppendItem(retVal, nodeDest(falseNode));
+				__auto_type retVal=strGraphNodeIRPAppendItem(NULL, trueNode);
+				retVal=strGraphNodeIRPAppendItem(retVal, falseNode);
 				return retVal;
 		}
 		case IR_JUMP_TAB: {
@@ -2030,8 +2054,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				if(strGraphEdgeIRPSize(assigns)==1) {
 						//Operator automatically assign into thier destination,so ensure isn't an operator.
 						if(graphNodeIRValuePtr(graphEdgeIRIncoming(assigns[0]))->type==IR_VALUE)
-								assign(node2AddrMode(start), node2AddrMode(graphEdgeIROutgoing(assigns[0])), objectSize(IRNodeType(start), NULL));
-						return strGraphNodeIRPAppendItem(NULL, graphEdgeIROutgoing(assigns[0]));
+								assign(node2AddrMode(start), node2AddrMode(graphEdgeIRIncoming(assigns[0])), objectSize(IRNodeType(start), NULL));
 				}
 				return nextNodesToCompile(start);
 		}
@@ -2162,7 +2185,10 @@ static int isUnvisited(const void *data,const graphNodeIR *node) {
 		return NULL!=ptrMapCompiledNodesGet(compiledNodes, *node);
 }
 void __IR2AsmExpr(graphNodeIR start) {
-		computeArgs:;
+		//Start of statement can be label,so compile label first(__IR2Asm only compiles node once)
+		if(graphNodeIRValuePtr(IRStmtStart(start))->type==IR_LABEL)
+				__IR2Asm(IRStmtStart(start));
+	computeArgs:;
 		strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
 		incoming=strGraphEdgeIRPRemoveIf(incoming, NULL, isNotArgEdge);
 		//Is a global used to sort the arguments (orders function args in order)
@@ -2174,26 +2200,16 @@ void __IR2AsmExpr(graphNodeIR start) {
 		}
 		__IR2Asm(start);
 }
-void IR2Asm(graphNodeIR start) {
-		if(ptrMapCompiledNodesGet(compiledNodes, start))
-				return;
 
+
+void IR2Asm(graphNodeIR start) {
 		strGraphNodeIRP next CLEANUP(strGraphNodeIRPDestroy)=NULL;
 		if(IREndOfExpr(start)!=start) {
-				__IR2AsmExpr(start);
+				__IR2AsmExpr(IREndOfExpr(start));
 				next=graphNodeIROutgoingNodes(IREndOfExpr(start));
 		} else {
 				next=__IR2Asm(start);
 		}
-		ptrMapCompiledNodesAdd(compiledNodes, start,1);
-
-		for(;strGraphNodeIRPSize(next);) {
-				strGraphNodeIRP next2=NULL;
-				for(long n=0;n!=strGraphNodeIRPSize(next);n++)
-						next2=strGraphNodeIRPConcat(next2,__IR2Asm(next[n]));
-				next2=strGraphNodeIRPRemoveIf(next2, NULL, isUnvisited);
-				
-				strGraphNodeIRPDestroy(&next);
-				next=next2;
-		}
+		for(long n=0;n!=strGraphNodeIRPSize(next);n++)
+				IR2Asm(next[n]);
 }
