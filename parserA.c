@@ -2933,7 +2933,278 @@ struct parserNode *parseAsmAddrModeSIB(llLexerItem start,llLexerItem *end) {
 				parserNodeDestroy(toDestroy[i]);
 		return NULL;
 }
+static void strParserNodeDestroy2(strParserNode *str) {
+		for(long s=0;s!=strParserNodeSize(*str);s++)
+				parserNodeDestroy(&str[0][s]);
+		strParserNodeDestroy(str);
+}
 void parserNodeDestroy(struct parserNode **node) {
+		if(!node[0])
+				return;
+		switch(node[0]->type) {
+		case NODE_ASM_REG:
+				break;
+		case NODE_ASM_ADDRMODE_SIB: {
+				struct parserNodeAsmSIB *sib=(void*)node[0];
+				parserNodeDestroy(&sib->expression);
+				parserNodeDestroy(&sib->offset);
+				parserNodeDestroy(&sib->segment);
+				break;
+		}
+		case NODE_ASM_LABEL:
+		case NODE_ASM_LABEL_GLBL:
+		case NODE_ASM_LABEL_LOCAL: {
+				struct parserNodeLabel *lab=(void*)node[0];
+				parserNodeDestroy(&lab->name);
+				break;
+		}
+		case NODE_ASM_IMPORT: {
+				struct parserNodeAsmImport *imp=(void*)node[0];
+				strParserNodeDestroy2(&imp->symbols);
+				break;
+		}
+		case NODE_ASM_DU8:
+		case NODE_ASM_DU16:
+		case NODE_ASM_DU32:
+		case NODE_ASM_DU64: {
+				struct parserNodeDUX *du=(void*)node[0];
+				__vecDestroy(&du->bytes);
+				break;
+		}
+		case NODE_ASM_USE16:
+		case NODE_ASM_USE32:
+		case NODE_ASM_USE64: {
+				struct parserNodeUse16 *use=(void*)node[0];
+				break;
+		}
+		case NODE_ASM_ORG: {
+				struct parserNodeAsmOrg *org=(void*)node[0];
+				break;
+		}
+		case NODE_ASM_ALIGN: {
+				struct parserNodeAsmAlign *align=(void*)node[0];
+				break;
+		}
+		case NODE_ASM_BINFILE: {
+				struct parserNodeAsmBinfile *binfile=(void*)node[0];
+				parserNodeDestroy(&binfile->fn);
+				break;
+		}
+		case NODE_ASM: {
+				struct parserNodeAsm *ASM=(void*)node[0];
+				strParserNodeDestroy2(&ASM->body);
+				break;
+		}
+		case NODE_BINOP: {
+				struct parserNodeBinop *binop=(void*)node[0];
+				parserNodeDestroy(&binop->a);
+				parserNodeDestroy(&binop->b);
+				parserNodeDestroy(&binop->op);
+				break;
+		}
+		case NODE_LIT_FLT: {
+				break;
+		}
+		case NODE_ASM_INST: {
+				struct parserNodeAsmInstX86 *inst=(void*)node[0];
+				strParserNodeDestroy2(&inst->args);
+				parserNodeDestroy(&inst->name);
+				break;
+		}
+		case NODE_UNOP: {
+				struct parserNodeUnop *unop=(void*)node[0];
+				parserNodeDestroy(&unop->op);
+				parserNodeDestroy(&unop->a);
+				break;
+		}
+		case NODE_NAME: {
+				struct parserNodeName *name=(void*)node[0];
+				free(name->text);
+				break;
+		}
+		case NODE_OP: {
+				struct parserNodeOpTerm *op=(void*)node[0];
+				break;
+		}
+		case NODE_FUNC_CALL: {
+				struct parserNodeFuncCall *call=(void*)node[0];
+				strParserNodeDestroy2(&call->args);
+				parserNodeDestroy(&call->func);
+				break;
+		}
+		case NODE_COMMA_SEQ: {
+				struct parserNodeCommaSeq *seq=(void*)node[0];
+				strParserNodeDestroy2(&seq->items);
+				break;
+		}
+		case NODE_LIT_INT: {
+				struct parserNodeLitInt *i=(void*)node[0];
+				break;
+		}
+		case NODE_LIT_STR: {
+				struct parserNodeLitStr *str=(void*)node[0];
+				free(str->text);
+				break;	
+		}
+		case NODE_KW: {
+				struct parserNodeKeyword *kw=(void*)node[0];
+				break;
+		}
+		case NODE_VAR_DECL: {
+				struct parserNodeVarDecl *decl=(void*)node[0];
+				parserNodeDestroy(&decl->dftVal);
+				strParserNodeDestroy2(&decl->metaData);
+				parserNodeDestroy(&decl->name);
+				break;
+		}
+		case NODE_VAR_DECLS: {
+				struct parserNodeVarDecls *decls=(void*)node[0];
+				strParserNodeDestroy2(&decls->decls);
+				break;
+		}
+		case NODE_META_DATA: {
+				struct parserNodeMetaData *meta=(void*)node[0];
+				parserNodeDestroy(&meta->name);
+				parserNodeDestroy(&meta->value);
+				break;
+		}
+		case NODE_CLASS_DEF: {
+				struct parserNodeClassDef *def=(void*)node[0];
+				parserNodeDestroy(&def->name);
+				break;
+		}
+		case NODE_CLASS_FORWARD_DECL: {
+				struct parserNodeClassFwd *fwd=(void*)node[0];
+				parserNodeDestroy(&fwd->name);
+				break;
+		}
+		case NODE_UNION_DEF: {
+				struct parserNodeUnionDef *def=(void*)node[0];
+				parserNodeDestroy(&def->name);
+				break;
+		}
+		case NODE_UNION_FORWARD_DECL: {
+				struct parserNodeUnionFwd *fwd=(void*)node[0];
+				parserNodeDestroy(&fwd->name);
+				break;
+		}
+		case NODE_IF: {
+				struct parserNodeIf *If=(void*)node[0];
+				parserNodeDestroy(&If->cond);
+				parserNodeDestroy(&If->body);
+				parserNodeDestroy(&If->el);
+				break;
+		}
+		case NODE_SCOPE: {
+				struct parserNodeScope *scope=(void*)node[0];
+				strParserNodeDestroy2(&scope->stmts);
+				break;
+		}
+		case NODE_BREAK: {
+				struct parserNodeBreak *brk=(void*)node[0];
+				break;
+		}
+		case NODE_WHILE: {
+				struct parserNodeWhile *whl=(void*)node[0];
+				parserNodeDestroy(&whl->cond);
+				parserNodeDestroy(&whl->body);
+				break;
+		}
+		case NODE_DO: {
+				struct parserNodeDo *Do=(void*)node[0];
+				parserNodeDestroy(&Do->cond);
+				parserNodeDestroy(&Do->body);
+				break;
+		}
+		case NODE_FOR: {
+				struct parserNodeFor *For=(void*)node[0];
+				parserNodeDestroy(&For->body);
+				parserNodeDestroy(&For->cond);
+				parserNodeDestroy(&For->inc);
+				parserNodeDestroy(&For->init);
+				break;
+		}
+		case NODE_VAR: {
+				struct parserNodeVar *var=(void*)node[0];
+				break;
+		}
+		case NODE_CASE: {
+				struct parserNodeCase *cs=(void*)node[0];
+				parserNodeDestroy(&cs->label);
+				break;
+		}
+		case NODE_DEFAULT: {
+				struct parserNodeDefault *dft=(void*)node[0];
+				break;
+		}
+		case NODE_SWITCH: {
+				struct parserNodeSwitch *swit=(void*)node[0];
+				parserNodeDestroy(&swit->body);
+				parserNodeDestroy(&swit->exp);
+				strParserNodeDestroy(&swit->caseSubcases);
+				break;
+		}
+		case NODE_SUBSWITCH: {
+				struct parserNodeSubSwitch *sub=(void*)node[0];
+				strParserNodeDestroy(&sub->caseSubcases);
+				strParserNodeDestroy2(&sub->body);
+				parserNodeDestroy(&sub->start);
+				break;
+		}
+		case NODE_LABEL: {
+				struct parserNodeLabel *lab=(void*)node[0];
+				parserNodeDestroy(&lab->name);
+				break;
+		}
+		case NODE_TYPE_CAST: {
+				struct parserNodeTypeCast *cast=(void*)node[0];
+				parserNodeDestroy(&cast->exp);
+				break;
+		}
+		case NODE_ARRAY_ACCESS: {
+				struct parserNodeArrayAccess *arrAcc=(void*)node[0];
+				parserNodeDestroy(&arrAcc->index);
+				parserNodeDestroy(&arrAcc->exp);
+				break;
+		}
+		case NODE_FUNC_DEF: {
+				struct parserNodeFuncDef *def=(void*)node[0];
+				parserNodeDestroy(&def->name);
+				parserNodeDestroy(&def->bodyScope);
+				break;
+		}
+		case NODE_FUNC_FORWARD_DECL: {
+				struct parserNodeFuncForwardDec *fwd=(void*)node[0];
+				parserNodeDestroy(&fwd->name);
+				break;
+		}
+		case NODE_FUNC_REF: {
+				struct parserNodeFuncRef *ref=(void*)node[0];
+				parserNodeDestroy(&ref->name);
+				break;
+		}
+		case NODE_MEMBER_ACCESS: {
+				struct parserNodeMemberAccess *mem=(void*)node[0];
+				parserNodeDestroy(&mem->exp);
+				parserNodeDestroy(&mem->name);
+				break;
+		}
+		case NODE_RETURN: {
+				struct parserNodeReturn *ret=(void*)node[0];
+				parserNodeDestroy(&ret->value);
+				break;
+		}
+		case NODE_GOTO: {
+				struct parserNodeGoto *gt=(void*)node[0];
+				parserNodeDestroy(&gt->labelName);
+				break;
+		}
+		case NODE_LINKAGE: {
+				struct parserNodeLinkage *link=(void*)node[0];
+				break;
+		}
+		}
+		free(node[0]);
 }
 static int isExpectedBinop(struct parserNode *node,const char *op) {
 		if(node->type!=NODE_BINOP)
