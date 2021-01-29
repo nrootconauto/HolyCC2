@@ -952,6 +952,9 @@ struct X86AddressingMode *X86AddrModeClone(struct X86AddressingMode *mode) {
 		}
 }
 void X86AddrModeDestroy(struct X86AddressingMode **mode) {
+		if(!mode[0])
+				return;
+		
 		switch(mode[0]->type) {
 		case X86ADDRMODE_STR:
 				free(mode[0]->value.text);

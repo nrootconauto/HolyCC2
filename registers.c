@@ -549,3 +549,36 @@ enum archEndian archEndian() {
 enum archConfig getCurrentArch() {
 		return currentArch;
 }
+struct reg *subRegOfType(struct reg *r,struct object *type) {
+		long iSize=objectSize(type, NULL);
+		//Use the lower size part of register
+		strRegSlice *affects=&r->affects;
+		struct regSlice *subRegister=NULL;
+		for(long i=0;i!=strRegSliceSize(*affects);i++) {
+				if(affects[0][i].offset==0&&iSize*8==affects[0][i].widthInBits) {
+						subRegister=&affects[0][i];
+						break;
+				}
+		}
+		if(!subRegister)
+				return NULL;
+		//Certian sub registers aren't permissible in some archs
+		strRegP exclude4Arch CLEANUP(strRegPDestroy)=NULL;
+		switch(getCurrentArch()) {
+		case ARCH_X64_SYSV:
+				break;
+		case ARCH_X86_SYSV:
+		case ARCH_TEST_SYSV: {
+				const struct reg *exclude[]={
+						&regX86DIL, 	&regX86SIL, 	&regX86SPL,	&regX86BPL,
+				};
+				long len=sizeof(exclude)/	sizeof(*exclude);
+				qsort(exclude, len, sizeof(*exclude), ptrPtrCmp);
+				exclude4Arch=strRegPAppendData(exclude4Arch, exclude, len);
+				break;
+		}
+		}
+		if(strRegPSortedFind(exclude4Arch, subRegister->reg, (regPCmpType)ptrPtrCmp))
+				return NULL;
+		return subRegister->reg;
+}
