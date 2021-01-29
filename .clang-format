@@ -2,4 +2,5 @@
 BasedOnStyle: LLVM
 TabWidth: '2'
 UseTab: ForIndentation
+ColumnLimit: 1024
 ...
