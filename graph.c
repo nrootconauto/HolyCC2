@@ -582,14 +582,17 @@ static void __graphAllPathsTo(strGraphEdgeP *currentPath, strGraphPath *paths,
 		*currentPath = strGraphEdgePPop(*currentPath, NULL);
 	}
 }
-static int nodeEqual(const struct __graphNode *node,const void *data) {
-		return node==data;
+static int allPaths2Pred(const struct __graphNode *node,const void *data) {
+		if(data)
+				return node==data;
+		//If looking for NULL,it means we are looking for the end of a path
+		return strGraphEdgePSize(node->outgoing)==0;
 }
 strGraphPath graphAllPathsTo(struct __graphNode *from, struct __graphNode *to) {
 	strGraphPath paths = NULL;
 	strGraphEdgeP currentPath = NULL;
 
-	__graphAllPathsTo(&currentPath, &paths, from, to, nodeEqual);
+	__graphAllPathsTo(&currentPath, &paths, from, to, allPaths2Pred);
 
 	return paths;
 }

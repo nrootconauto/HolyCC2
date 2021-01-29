@@ -497,7 +497,6 @@ static strGraphNodeIRP insertLabelsForAsm(strGraphNodeIRP nodes) {
 void IRCompile(graphNodeIR start) {
 		strGraphNodeIRP nodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);
 		{
-				debugShowGraphIR(start);
 				strGraphNodeIRP removed CLEANUP(strGraphNodeIRPDestroy)=removeNeedlessLabels(start);
 				nodes=strGraphNodeIRPSetDifference(nodes, removed, (gnCmpType)ptrPtrCmp);
 				strGraphNodeIRP inserted CLEANUP(strGraphNodeIRPDestroy)=insertLabelsForAsm(nodes);
@@ -785,7 +784,7 @@ static void setCond(const char *cond,struct X86AddressingMode *oMode) {
 				assign(oMode, one, objectSize(oMode->valueType, NULL));
 				X86EmitAsmLabel(end);
 		} else {
-				strX86AddrMode setccArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeClone(oMode));
+				strX86AddrMode setccArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeClone(oMode2));
 				char buffer[32];
 				sprintf(buffer,"SET%s", cond);
 
