@@ -1277,8 +1277,14 @@ static int IRTableRangeCmp(const struct IRJumpTableRange *a,const struct IRJumpT
 				return 0;
 }
 static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
-		if(ptrMapCompiledNodesGet(compiledNodes, start))
+		if(ptrMapCompiledNodesGet(compiledNodes, start)) {
+				//If encountering already "compiled" label node,jump to it
+				if(graphNodeIRValuePtr(start)->type==IR_LABEL) { 
+						strX86AddrMode jmpArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL,X86AddrModeLabel(getLabelName(start)));
+						assembleInst("JMP", jmpArgs);
+				}
 				return NULL;
+		}
 		ptrMapCompiledNodesAdd(compiledNodes, start,1);
 		
 		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(start);
@@ -2231,9 +2237,6 @@ static int isUnvisited(const void *data,const graphNodeIR *node) {
 		return NULL!=ptrMapCompiledNodesGet(compiledNodes, *node);
 }
 void __IR2AsmExpr(graphNodeIR start) {
-		//Start of statement can be label,so compile label first(__IR2Asm only compiles node once)
-		if(graphNodeIRValuePtr(IRStmtStart(start))->type==IR_LABEL)
-				__IR2Asm(IRStmtStart(start));
 	computeArgs:;
 		strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
 		incoming=strGraphEdgeIRPRemoveIf(incoming, NULL, isNotArgEdge);
@@ -2251,6 +2254,11 @@ void __IR2AsmExpr(graphNodeIR start) {
 void IR2Asm(graphNodeIR start) {
 		strGraphNodeIRP next CLEANUP(strGraphNodeIRPDestroy)=NULL;
 		if(IREndOfExpr(start)!=start) {
+				//Start of statement can be label,so compile label first(__IR2Asm only compiles node once)
+				__auto_type exprStart=IRStmtStart(start);
+				if(graphNodeIRValuePtr(exprStart)->type==IR_LABEL)
+				__IR2Asm(exprStart);
+		
 				__IR2AsmExpr(IREndOfExpr(start));
 				next=graphNodeIROutgoingNodes(IREndOfExpr(start));
 		} else {
