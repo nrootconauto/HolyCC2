@@ -42,6 +42,12 @@ __attribute__((constructor)) static void init() {
 		ptrMapRegNameAdd(regNames, &regX86CH, strClone("CH"));
 		ptrMapRegNameAdd(regNames, &regX86DL, strClone("DL"));
 		ptrMapRegNameAdd(regNames, &regX86DH, strClone("DH"));
+		
+		ptrMapRegNameAdd(regNames, &regX86DIL, strClone("DIL"));
+		ptrMapRegNameAdd(regNames, &regX86SIL, strClone("SIL"));
+		ptrMapRegNameAdd(regNames, &regX86DIL, strClone("BPL"));
+		ptrMapRegNameAdd(regNames, &regX86SPL, strClone("SPL"));
+		
 		ptrMapRegNameAdd(regNames, &regAMD64R8u8, strClone("R8L"));
 		ptrMapRegNameAdd(regNames, &regAMD64R9u8, strClone("R9L"));
 		ptrMapRegNameAdd(regNames, &regAMD64R10u8, strClone("R10L"));

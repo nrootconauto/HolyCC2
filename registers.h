@@ -30,6 +30,10 @@ extern struct reg regX86AL;
 extern struct reg regX86BL;
 extern struct reg regX86CL;
 extern struct reg regX86DL;
+extern struct reg regX86SPL;
+extern struct reg regX86BPL;
+extern struct reg regX86SIL;
+extern struct reg regX86DIL;
 
 extern struct reg regX86AH;
 extern struct reg regX86BH;

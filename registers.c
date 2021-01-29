@@ -8,6 +8,10 @@ struct reg regX86AL;
 struct reg regX86BL;
 struct reg regX86CL;
 struct reg regX86DL;
+struct reg regX86SPL;
+struct reg regX86BPL;
+struct reg regX86SIL;
+struct reg regX86DIL;
 
 struct reg regX86AH;
 struct reg regX86BH;
@@ -91,7 +95,7 @@ static struct reg createRegister(const char *name,struct reg *masterReg, int siz
 
 		retVal.affects = strRegSliceSortedInsert(
 		    retVal.affects, affects,
-		    (int (*)(const struct regSlice *, const struct regSlice *))ptrPtrCmp);
+		    regSliceCompare);
 		//Clone the affects->reg move move by offset
 		strRegSlice clone CLEANUP(strRegSliceDestroy)=strRegSliceClone(affects.reg->affects);
 		for(long i=0;i!=strRegSliceSize(clone);i++)
@@ -217,7 +221,11 @@ void initRegisters() {
 	regX86BL = createRegister("BL",&regAMD64RBX, 1, REG_TYPE_GP, 0);
 	regX86CL = createRegister("CL",&regAMD64RCX, 1, REG_TYPE_GP, 0);
 	regX86DL = createRegister("DL",&regAMD64RDX, 1, REG_TYPE_GP, 0);
-
+ regX86SPL=createRegister("SPL",&regAMD64RSP, 1, REG_TYPE_GP, 0);
+ regX86BPL=createRegister("BPL",&regAMD64RBP, 1, REG_TYPE_GP, 0);
+ regX86SIL=createRegister("SIL",&regAMD64RSI, 1, REG_TYPE_GP, 0);
+ regX86DIL=createRegister("DIL",&regAMD64RDI, 1, REG_TYPE_GP, 0);
+	
 	regX86AH = createRegister("AH",&regAMD64RAX, 1, REG_TYPE_GP, 0);
 	regX86BH = createRegister("BH",&regAMD64RBX, 1, REG_TYPE_GP, 0);
 	regX86CH = createRegister("CH",&regAMD64RCX, 1, REG_TYPE_GP, 0);
@@ -235,10 +243,10 @@ void initRegisters() {
 	regX86DX =
 	    createRegister("DX",&regAMD64RDX, 2, REG_TYPE_GP, 2, createRegSlice(&regX86DL, 0, 8),
 	                   createRegSlice(&regX86DH, 8, 8));
-	regX86SI = createRegister("SI",&regAMD64RSI, 2, REG_TYPE_GP, 0);
-	regX86DI = createRegister("DI",&regAMD64RDI, 2, REG_TYPE_GP, 0);
-	regX86BP = createRegister("BP",&regAMD64RBP, 2, REG_TYPE_GP, 0);
-	regX86SP = createRegister("SP",&regAMD64RSP, 2, REG_TYPE_GP, 0);
+	regX86SI = createRegister("SI",&regAMD64RSI, 2, REG_TYPE_GP, 1,createRegSlice(&regX86SIL, 0, 8));
+	regX86DI = createRegister("DI",&regAMD64RDI, 2, REG_TYPE_GP, 1,createRegSlice(&regX86DIL, 0, 8));
+	regX86BP = createRegister("BP",&regAMD64RBP, 2, REG_TYPE_GP, 1,createRegSlice(&regX86BPL, 0, 8));
+	regX86SP = createRegister("SP",&regAMD64RSP, 2, REG_TYPE_GP, 1,createRegSlice(&regX86SPL, 0, 8));
 
 	regX86EAX = createRegister(
 	    "EAX",&regAMD64RAX, 4, REG_TYPE_GP, 1, createRegSlice(&regX86AX, 0, 16));
@@ -469,23 +477,26 @@ strRegP regGetForType(struct object *type) {
 	__auto_type size = objectSize(base, &success);
 	if (!success)
 		return NULL;
-
+	
 	strRegP retVal = NULL;
-	strRegP avail;
+	strRegP avail CLEANUP(strRegPDestroy)=NULL;
 	switch (currentArch) {
 	case ARCH_X64_SYSV:
-			avail=regsAMD64;
-			break;
-	case ARCH_TEST_SYSV: {
-		avail = regsTest;
-		break;
-	}
+	case ARCH_TEST_SYSV:
 	case ARCH_X86_SYSV: {
-		avail = regsX86;
+			avail = regsForArch();
+			//Reserved registers
+			const struct reg *res[]={
+				&regX86ESP,&regX86EBP,&regX86SP,&regX86BP,&regX86SPL,&regX86BPL,
+		};
+		long len=sizeof(res)/sizeof(*res);
+		qsort(res,len , sizeof(*res),ptrPtrCmp);
+		strRegP reserved CLEANUP(strRegPDestroy)=strRegPAppendData(NULL, res,len);
+		avail=strRegPSetDifference(avail, reserved, (regPCmpType)ptrPtrCmp);
 	}
 	}
-
-search:
+	
+	search:
 	if (objectEqual(base, &typeF64)) {
 		for (long i = 0; i != strRegPSize(avail); i++) {
 				if (avail[i]->type & REG_TYPE_FLOATING) {
