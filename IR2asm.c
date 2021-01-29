@@ -16,6 +16,16 @@
 #include <IR2asm.h>
 #include <stdarg.h>
 #include <parse2IR.h>
+typedef int(*regCmpType)(const struct reg**,const struct reg**);
+typedef int(*gnCmpType)(const graphNodeIR *,const graphNodeIR *);
+static int ptrPtrCmp(const void *a, const void *b) {
+	if (*(void **)a > *(void **)b)
+		return 1;
+	else if (*(void **)a < *(void **)b)
+		return -1;
+	else
+		return 0;
+}
 STR_TYPE_DEF(char,Char);
 STR_TYPE_FUNCS(char,Char);
 PTR_MAP_FUNCS(graphNodeIR , strChar, LabelNames);
@@ -28,6 +38,37 @@ static __thread ptrMapLabelNames asmLabelNames;
 static __thread ptrMapFrameOffset varFrameOffsets;
 static __thread ptrMapCompiledNodes compiledNodes;
 static __thread int insertLabelsForAsmCalled=0;
+static strGraphNodeIRP removeNeedlessLabels(graphNodeIR start) {
+		strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);
+		strGraphNodeIRP removed=NULL;
+		for(long i=0;i!=strGraphNodeIRPSize(allNodes);i++) {
+				if(allNodes[i]==start)
+						continue;
+				
+				__auto_type val=graphNodeIRValuePtr(allNodes[i]);
+				if(val->type!=IR_LABEL)
+						continue;
+				//Dont remove if named
+				if(llIRAttrFind(val->attrs, IR_ATTR_LABEL_NAME, IRAttrGetPred))
+						continue;
+
+				strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(allNodes[i]);
+				strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(allNodes[i]);
+				if(strGraphEdgeIRPSize(in)!=1)
+						continue;
+				if(strGraphEdgeIRPSize(out)>1)
+						continue;
+				//"Transparently" remove
+				for(long i=0;i!=strGraphEdgeIRPSize(in);i++)
+						for(long o=0;o!=strGraphEdgeIRPSize(out);o++)
+								graphNodeIRConnect(graphEdgeIRIncoming(in[i]), graphEdgeIROutgoing(out[o]), *graphEdgeIRValuePtr(in[i]));
+				graphNodeIRKill(&allNodes[i], (void(*)(void*))IRNodeDestroy, NULL);
+
+				removed=strGraphNodeIRPSortedInsert(removed, allNodes[i], (gnCmpType)ptrPtrCmp);
+		}
+
+		return removed;
+}
 void IR2AsmInit() {
 		labelsCount=0;
 		funcNames = ptrMapFuncNamesCreate();
@@ -42,6 +83,8 @@ void IR2AsmInit() {
 	*/
 static __thread strRegP consumedRegisters=NULL;
 strChar uniqueLabel(const char *head) {
+		if(!head)
+				head="";
 		long count=snprintf(NULL, 0, "$%s_%li", head,++labelsCount);
 		char buffer[count+1];
 		sprintf(buffer, "$%s_%li", head,labelsCount);
@@ -324,16 +367,6 @@ static int isGPReg(const struct reg *r) {
 static int isFuncEnd(const struct __graphNode *node,graphNodeIR end) {
 		return node==end;
 }
-static int ptrPtrCmp(const void *a, const void *b) {
-	if (*(void **)a > *(void **)b)
-		return 1;
-	else if (*(void **)a < *(void **)b)
-		return -1;
-	else
-		return 0;
-}
-typedef int(*regCmpType)(const struct reg**,const struct reg**);
-typedef int(*gnCmpType)(const graphNodeIR *,const graphNodeIR *);
 static void consumeRegister(struct reg *reg) {
 		consumedRegisters=strRegPSortedInsert(consumedRegisters, reg, (regCmpType)ptrPtrCmp);
 }
@@ -433,8 +466,42 @@ static void debugShowGraphIR(graphNodeIR enter) {
 
 	system(buffer);
 }
+static strGraphNodeIRP insertLabelsForAsm(strGraphNodeIRP nodes) {
+		strGraphNodeIRP inserted=NULL;
+		insertLabelsForAsmCalled=1;
+		for(long i=0;i!=strGraphNodeIRPSize(nodes);i++) {
+				__auto_type node =nodes[i];
+				strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(node);
+				strGraphEdgeIRP inFlow CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_FLOW);
+				if(strGraphEdgeIRPSize(inFlow)>1) {
+				insertLabel:
+						if(graphNodeIRValuePtr(node)->type==IR_LABEL)
+								continue;
+						__auto_type new=IRCreateLabel();
+						IRInsertBefore(node,new ,new, IR_CONN_FLOW);
+						inserted=strGraphNodeIRPSortedInsert(inserted, new, (gnCmpType)ptrPtrCmp);
+						continue;
+				}
+				for(long i=0;i!=strGraphEdgeIRPSize(in);i++) {
+						switch(*graphEdgeIRValuePtr(in[0])) {
+						case IR_CONN_CASE:
+						case IR_CONN_COND_TRUE:
+						case IR_CONN_COND_FALSE:
+								goto insertLabel;
+						default:;
+						}
+				}
+		}
+		return inserted;
+}
 void IRCompile(graphNodeIR start) {
 		strGraphNodeIRP nodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);
+		{
+				strGraphNodeIRP removed CLEANUP(strGraphNodeIRPDestroy)=removeNeedlessLabels(start);
+				nodes=strGraphNodeIRPSetDifference(nodes, removed, (gnCmpType)ptrPtrCmp);
+				strGraphNodeIRP inserted CLEANUP(strGraphNodeIRPDestroy)=insertLabelsForAsm(nodes);
+				inserted=strGraphNodeIRPSetUnion(nodes, inserted, (gnCmpType)ptrPtrCmp);
+		}
 		// Get list of variables that will always be stored in memory
 		// - variables that are referenced by ptr
 		// - Classes/unions with primitive base that have members references(I64.u8[1] etc)
@@ -671,6 +738,27 @@ static void popReg(struct reg *r) {
 }
 STR_TYPE_DEF(long,Long);
 STR_TYPE_FUNCS(long,Long);
+static struct X86AddressingMode *demoteAddrMode(struct X86AddressingMode *addr,struct object *type) {
+		__auto_type mode=X86AddrModeClone(addr);
+		switch(mode->type) {
+		case X86ADDRMODE_REG: {
+				__auto_type subReg=subRegOfType(mode->value.reg,type);
+				if(!subReg)
+						return NULL;
+				mode->value.reg=subReg;
+				break;
+		}
+		case X86ADDRMODE_FLT:
+		case X86ADDRMODE_ITEM_ADDR:
+		case X86ADDRMODE_LABEL:
+		case X86ADDRMODE_MEM:
+		case X86ADDRMODE_SINT:
+		case X86ADDRMODE_UINT:
+				mode->valueType=type;
+				break;
+		}
+		return mode;
+}
 static void setCond(const char *cond,struct X86AddressingMode *oMode) {
 		struct X86AddressingMode *zero CLEANUP(X86AddrModeDestroy)=X86AddrModeSint(0);
 		struct X86AddressingMode *oMode2 CLEANUP(X86AddrModeDestroy)=demoteAddrMode(oMode,&typeI8i);
@@ -1033,27 +1121,6 @@ static void __typecastSignExt(struct X86AddressingMode *outMode,struct X86Addres
 		if(outMode->type!=X86ADDRMODE_REG) {
 				assembleInst("POP", ppArgs);
 		}
-}
-static struct X86AddressingMode *demoteAddrMode(struct X86AddressingMode *addr,struct object *type) {
-		__auto_type mode=X86AddrModeClone(addr);
-		switch(mode->type) {
-		case X86ADDRMODE_REG: {
-				__auto_type subReg=subRegOfType(mode->value.reg,type);
-				if(!subReg)
-						return NULL;
-				mode->value.reg=subReg;
-				break;
-		}
-		case X86ADDRMODE_FLT:
-		case X86ADDRMODE_ITEM_ADDR:
-		case X86ADDRMODE_LABEL:
-		case X86ADDRMODE_MEM:
-		case X86ADDRMODE_SINT:
-		case X86ADDRMODE_UINT:
-				mode->valueType=type;
-				break;
-		}
-		return mode;
 }
 static graphNodeIR assembleOpInt(graphNodeIR start,const char *opName) {
 		graphNodeIR a,b,out=nodeDest(start);
@@ -2116,28 +2183,6 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		case IR_SPILL_LOAD:
 		case IR_MEMBERS:
 				assert(0);
-		}
-}
-static void insertLabelsForAsm(strGraphNodeIRP nodes) {
-		insertLabelsForAsmCalled=1;
-		for(long i=0;i!=strGraphNodeIRPSize(nodes);i++) {
-				__auto_type node =IRStmtStart(nodes[i]);
-				strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(node);
-				strGraphEdgeIRP inFlow CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_FLOW);
-				if(strGraphEdgeIRPSize(inFlow)>1) {
-				insertLabel:
-						IRInsertBefore(IRCreateLabel(), node,node, IR_CONN_FLOW);
-						continue;
-				}
-				for(long i=0;i!=strGraphEdgeIRPSize(in);i++) {
-						switch(*graphEdgeIRValuePtr(in[0])) {
-						case IR_CONN_CASE:
-						case IR_CONN_COND_TRUE:
-						case IR_CONN_COND_FALSE:
-								goto insertLabel;
-						default:;
-						}
-				}
 		}
 }
 static int isNotArgEdge(const void *data,const graphEdgeIR *edge) {
