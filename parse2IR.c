@@ -775,19 +775,6 @@ static graphNodeIR parserNode2Expr(const struct parserNode *node) {
 		graphNodeIRConnect(index, retVal, IR_CONN_SOURCE_B);
 		return retVal;
 	}
-		case NODE_COMMA_SEQ: {
-		struct parserNodeCommaSeq *seq = (void *)node;
-
-		graphNodeIR lastNode = NULL,firstNode=NULL;
-		for (long i = 0; i != strParserNodeSize(seq->items); i++) {
-			__auto_type node = parserNode2Expr(seq->items[i]);
-			if(i==0)
-					firstNode=IRStmtStart(node);
-			
-		}
-
-		return lastNode;
-	}
 		case NODE_UNOP: {
 				struct parserNodeUnop *unop = (void *)node;
 				struct parserNodeOpTerm *op = (void *)unop->op;
@@ -1324,6 +1311,21 @@ static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 		graphNodeIRConnect(body.exit, cond.enter, IR_CONN_FLOW);
 		return (struct enterExit){cond.enter,endLab};
 	}
+	case NODE_COMMA_SEQ: {
+			struct parserNodeCommaSeq *seq = (void *)node;
+
+			graphNodeIR lastNode = NULL,firstNode=NULL;
+			for (long i = 0; i != strParserNodeSize(seq->items); i++) {
+					__auto_type node = parserNode2Expr(seq->items[i]);
+					if(i==0)
+							firstNode=IRStmtStart(node);
+					else
+							graphNodeIRConnect(lastNode, IRStmtStart(node), IR_CONN_FLOW);
+					lastNode=node;
+			}
+
+			return (struct enterExit){firstNode,lastNode};
+	}
 	case NODE_CLASS_DEF:
 	case NODE_FUNC_FORWARD_DECL:
 	case NODE_KW:
@@ -1335,7 +1337,6 @@ static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 	case NODE_BINOP:
 	case NODE_FUNC_CALL:
 	case NODE_FUNC_REF:
-	case NODE_COMMA_SEQ:
 	case NODE_LIT_INT:
 	case NODE_LIT_STR:
 	case NODE_TYPE_CAST:

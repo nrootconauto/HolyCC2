@@ -108,8 +108,12 @@ void compileTests() {
 						"{\n"
 						"    I32i a=2,b=3;\n"
 						"    if(a+b==5) {\n"
-						putY
+						putY // 1
 						"    }\n"
+						"    if(a*b==6) {\n"
+						putY //2
+						"    }\n"
+						"   a=20,b=5;"
 						"}\n"
 						"asm {\n"
 						exitStr
@@ -117,7 +121,7 @@ void compileTests() {
 				char *source=text2File(text);
 				char *asmF=strDup(tmpnam(NULL));
 				compileFile(source, asmF);
-				runTest(asmF,"y");
+				runTest(asmF,"yy");
 				free(asmF);	
 				free(source);
 		}

@@ -1426,7 +1426,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				//Are assumed to be same type if valid IR graph
 				if(isIntNode(a)||isPtrNode(a)) {
 						if(typeIsSigned(IRNodeType(a)))
-								assembleOpInt(start, "IMUL");
+								assembleOpInt(start, "IMUL2");
 						else
 								assembleOpInt(start, "MUL");
 				} 
