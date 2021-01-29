@@ -42,6 +42,26 @@ static void runTest(const char *asmFile,const char *expected) {
 		"MOV EAX,1\n"																																	\
 				"MOV EBX,0\n"																															\
 				"INT 0x80\n"
+#define putY																																				\
+		"    asm {\n"																																	\
+		"        PUSHAD\n"																												\
+		"        MOV EAX,4\n"																									\
+		"        MOV EBX,1\n"																									\
+		"        MOV ECX,\"y\"\n"																					\
+		"        MOV EDX,1\n"																									\
+		"        INT 0x80\n"																										\
+		"        POPAD\n"																													\
+		"    }\n"
+#define putN																																				\
+		"    asm {\n"																																	\
+		"        PUSHAD\n"																												\
+		"        MOV EAX,4\n"																									\
+		"        MOV EBX,1\n"																									\
+		"        MOV ECX,\"n\"\n"																					\
+		"        MOV EDX,1\n"																									\
+		"        INT 0x80\n"																										\
+		"        POPAD\n"																													\
+		"    }\n"
 void compileTests() {		
 		/*{
 		const char * text=
@@ -60,7 +80,7 @@ void compileTests() {
 		free(asmF);	
 		free(source);
 }*/
-		{
+		/*{
 				const char * text=
 						"{\n"
 						"    for(I32i x=0;x!=3;x=x+1) {\n"
@@ -80,6 +100,24 @@ void compileTests() {
 				char *asmF=strDup(tmpnam(NULL));
 				compileFile(source, asmF);
 				runTest(asmF,"xxx");
+				free(asmF);	
+				free(source);
+		}*/
+		{
+				const char * text=
+						"{\n"
+						"    I32i a=2,b=3;\n"
+						"    if(a+b==5) {\n"
+						putY
+						"    }\n"
+						"}\n"
+						"asm {\n"
+						exitStr
+						"}\n";
+				char *source=text2File(text);
+				char *asmF=strDup(tmpnam(NULL));
+				compileFile(source, asmF);
+				runTest(asmF,"y");
 				free(asmF);	
 				free(source);
 		}

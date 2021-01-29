@@ -1199,7 +1199,7 @@ static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 				graphNodeIRConnect(fBranch, elseBody.enter, IR_CONN_FLOW);
 				graphNodeIRConnect(elseBody.exit,endBranch, IR_CONN_FLOW);
 		} else {
-				graphNodeIRConnect(fBranch, endBranch, IR_CONN_FLOW);
+				//If el is NULL,endBranch is already the else branch
 		}
 
 		retVal.exit=endBranch;
@@ -1358,7 +1358,7 @@ static struct enterExit  __parserNode2IRNoStmt(const struct parserNode *node) {
 					if(!retVal.enter)
 							retVal.enter=tmp.enter;
 					if(currentNode)
-							graphNodeIRConnect(currentNode, tmp.exit, IR_CONN_FLOW);
+							graphNodeIRConnect(currentNode, tmp.enter, IR_CONN_FLOW);
 					currentNode=tmp.exit;
 					retVal.exit=tmp.exit;
 			}

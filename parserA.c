@@ -1981,7 +1981,8 @@ struct parserNode *parseIf(llLexerItem start, llLexerItem *end) {
 		__auto_type body = parseStatement(start, &start);
 
 		elKw = expectKeyword(start, "else");
-		start = llLexerItemNext(start);
+		if(elKw)
+				start = llLexerItemNext(start);
 		if (elKw) {
 			elBody = parseStatement(start, &start);
 			failed |= elBody == NULL;

@@ -497,6 +497,7 @@ static strGraphNodeIRP insertLabelsForAsm(strGraphNodeIRP nodes) {
 void IRCompile(graphNodeIR start) {
 		strGraphNodeIRP nodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);
 		{
+				debugShowGraphIR(start);
 				strGraphNodeIRP removed CLEANUP(strGraphNodeIRPDestroy)=removeNeedlessLabels(start);
 				nodes=strGraphNodeIRPSetDifference(nodes, removed, (gnCmpType)ptrPtrCmp);
 				strGraphNodeIRP inserted CLEANUP(strGraphNodeIRPDestroy)=insertLabelsForAsm(nodes);
