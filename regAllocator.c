@@ -721,8 +721,8 @@ static int varToLiveNodeCompare(const struct varToLiveNode *a,
 STR_TYPE_DEF(struct varToLiveNode, VarToLiveNode);
 STR_TYPE_FUNCS(struct varToLiveNode, VarToLiveNode);
 static void removeDeadExpresions(graphNodeIR startAt, strIRVar liveVars) {
-	__auto_type allNodes = graphNodeIRAllNodes(startAt);
-	__auto_type toRemove =
+		strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRAllNodes(startAt);
+		strGraphNodeIRP toRemove CLEANUP(strGraphNodeIRPDestroy) =
 	    strGraphNodeIRPReserve(NULL, strGraphNodeIRPSize(allNodes));
 
 loop:
@@ -1265,6 +1265,6 @@ loop:
 	}
 
 	debugShowGraphIR(start);
-	//removeDeadExpresions(start, liveVars);
+	removeDeadExpresions(start, liveVars);
 	//	debugShowGraphIR(start);
 }
