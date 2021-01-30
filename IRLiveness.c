@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <base64.h>
 #include <cleanup.h>
-//#define DEBUG_PRINT_ENABLE 1
+#define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 #include <stdio.h>
 #include <basicBlocks.h>
@@ -16,26 +16,36 @@ typedef int (*varRefCmpType)(const struct IRVar **, const struct IRVar **);
 		*ptr = x;                                                                  \
 		ptr;                                                                       \
 	})
+static char *__var2Str(struct IRVar var) {
+		if(var.value.var->name) {
+			char buffer[1024];
+			sprintf(buffer, "%s-%li", var.value.var->name,
+											var.SSANum);
+			char *retVal = malloc(strlen(buffer) + 1);
+			strcpy(retVal, buffer);
+			return retVal;
+	} else {
+			char buffer[1024];
+			sprintf(buffer, "%p-%li", var.value.var,
+											var.SSANum);
+			char *retVal = malloc(strlen(buffer) + 1);
+			strcpy(retVal, buffer);
+			return retVal;
+	}
+}
 static char *var2Str(graphNodeIR var) {
-	if (var == NULL)
-		return NULL;
-	
 	if (debugGetPtrNameConst(var))
 		return debugGetPtrName(var);
-	
+
 	__auto_type value = (struct IRNodeValue *)graphNodeIRValuePtr(var);
-	if (value->base.type != IR_VALUE)
-		return NULL;
-	if(value->val.type!=IR_VAL_VAR_REF)
+	if(!var)
 			return NULL;
-
-	char buffer[1024];
-	sprintf(buffer, "%s-%li", value->val.value.var.value.var->name,
-	        value->val.value.var.SSANum);
-	char *retVal = malloc(strlen(buffer) + 1);
-	strcpy(retVal, buffer);
-
-	return retVal;
+	if(value->base.type!=IR_VALUE)
+			return NULL;
+	if(value->val.type!=IR_VAL_VAR_REF)
+			return NULL;	
+	
+	return __var2Str(value->val.value.var);
 }
 static int filterVars(void *data, struct __graphNode *node) {
 	graphNodeIR enterNode = data;
@@ -233,9 +243,43 @@ static char *node2GraphViz(const struct __graphNode *node,
 graphNodeIRLive IRInterferenceGraph(graphNodeIR start) {
 	return IRInterferenceGraphFilter(start, NULL, NULL)[0];
 }
-static void debugShowGraphIR(graphNodeMapping enter) {
+static char *strDup(const char *text) {
+		return strcpy(malloc(strlen(text)+1), text);
+}
+STR_TYPE_DEF(char,Char);
+STR_TYPE_FUNCS(char,Char);
+static char *nodeToLabel(const struct __graphNode *node,mapGraphVizAttr *attrs,const void *data) {
+		mapGraphVizAttrInsert(*attrs, "shape", strDup("record"));
+		ptrMapBlockMetaNode *Data=(void*)data;
+		__auto_type block=ptrMapBlockMetaNodeGet(*Data, (struct __graphNode*)node);
+		if(!block)
+				return NULL;
+		strChar text CLEANUP(strCharDestroy)=strCharAppendItem(NULL, '{');
+		char *name=ptr2Str(node);
+		text=strCharAppendData(text, name, strlen(name));
+		text=strCharAppendItem(text, '|');
+		for(long i=0;i!=strVarSize(block->block->in);i++) {
+				char *varStr=__var2Str(block->block->in[i]);
+				text=strCharAppendData(text, varStr, strlen(varStr));
+				text=strCharAppendItem(text, ',');
+				free(varStr);
+		}
+		text=strCharAppendItem(text, '|');
+		for(long i=0;i!=strVarSize(block->block->out);i++) {
+				char *varStr=__var2Str(block->block->out[i]);
+				text=strCharAppendData(text, varStr, strlen(varStr));
+				text=strCharAppendItem(text, ',');
+				free(varStr);
+		}
+		text=strCharAppendItem(text, '}');
+		text=strCharAppendItem(text, '\0');
+		return strDup(text);
+}
+static void debugShowGraphIR(graphNodeMapping enter,ptrMapBlockMetaNode *nodeData) {
 	const char *name = tmpnam(NULL);
-	IRGraphMap2GraphViz(enter, "viz", name, NULL, NULL, NULL, NULL);
+	FILE *f=fopen(name, "w");
+	graph2GraphViz(f, enter, "basicblocks", nodeToLabel, NULL, nodeData, NULL);
+	fclose(f);
 	char buffer[1024];
 	sprintf(buffer,
 	        "sleep 0.1 &&dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg & ",
@@ -311,7 +355,6 @@ strGraphNodeIRLiveP __IRInterferenceGraphFilter(
 // Sort if "backwards" order
 #if DEBUG_PRINT_ENABLE
 	printf("Final:\n");
-	graphPrint(mappedClone, printMappedNode, printMappedEdge);
 #endif
 	__auto_type forwards = sortNodes(mappedClone);
 
@@ -334,6 +377,8 @@ strGraphNodeIRLiveP __IRInterferenceGraphFilter(
 
 	for (;;) {
 			int changed = 0;
+			DEBUG_PRINT("START,%i\n\n",10);
+			debugShowGraphIR(mappedClone,&metaNodes);
 		for (long i = strGraphNodeMappingPSize(forwards) - 1; i >= 0; i--) {
 			__auto_type find = ptrMapBlockMetaNodeGet(metaNodes, forwards[i]);
 
@@ -345,6 +390,7 @@ strGraphNodeIRLiveP __IRInterferenceGraphFilter(
 			__auto_type oldOuts = strVarClone(find->block->out);
 
 #if DEBUG_PRINT_ENABLE
+			DEBUG_PRINT("=======(%s)=======",ptr2Str(find->node));
 			DEBUG_PRINT("Old ins of %s:\n", ptr2Str(find->node));
 			printVars(oldIns);
 			DEBUG_PRINT("Old outs of %s:\n", ptr2Str(find->node));
@@ -375,16 +421,15 @@ strGraphNodeIRLiveP __IRInterferenceGraphFilter(
 			}
 			newOuts = strVarUnique(newOuts, IRVarCmp, NULL);
 #if DEBUG_PRINT_ENABLE
-			DEBUG_PRINT("New ins of %s:\n", var2Str(find->node));
+			DEBUG_PRINT("New ins of %s:\n", ptr2Str(find->node));
 			printVars(newIns);
-			DEBUG_PRINT("New outs of %s:\n", var2Str(find->node));
+			DEBUG_PRINT("New outs of %s:\n", ptr2Str(find->node));
 			printVars(newOuts);
 #endif
-
 			// Destroy old ins/outs then re-assign with new ones
 			find->block->in = newIns;
 			find->block->out = newOuts;
-
+			
 			// Check if changed
 			if (strVarSize(oldIns) == strVarSize(newIns))
 				changed |=

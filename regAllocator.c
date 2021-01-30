@@ -19,13 +19,22 @@ static char *var2Str(graphNodeIR var) {
 		return debugGetPtrName(var);
 
 	__auto_type value = (struct IRNodeValue *)graphNodeIRValuePtr(var);
-	char buffer[1024];
-	sprintf(buffer, "%s-%li", value->val.value.var.value.var->name,
-	        value->val.value.var.SSANum);
-	char *retVal = malloc(strlen(buffer) + 1);
-	strcpy(retVal, buffer);
-
-	return retVal;
+	if(value->val.value.var.value.var->name) {
+			char buffer[1024];
+			sprintf(buffer, "%s-%li", value->val.value.var.value.var->name,
+											value->val.value.var.SSANum);
+			char *retVal = malloc(strlen(buffer) + 1);
+			strcpy(retVal, buffer);
+			return retVal;
+	} else {
+			char buffer[1024];
+			sprintf(buffer, "%p-%li", value->val.value.var.value.var,
+											value->val.value.var.SSANum);
+			char *retVal = malloc(strlen(buffer) + 1);
+			strcpy(retVal, buffer);
+			return retVal;
+	}
+	return NULL;
 }
 static char *strClone(const char *text) {
 	char *retVal = malloc(strlen(text) + 1);
@@ -1098,7 +1107,7 @@ loop:
 	//	 debugShowGraphIR(start);
 	IRCoalesce(allNodes, start);
 	IRRemoveRepeatAssigns(start);
-	//debugShowGraphIR(start);
+	debugShowGraphIR(start);
 	
 	__auto_type intInterfere =
 	    IRInterferenceGraphFilter(start, filterIntVars, NULL);
@@ -1264,7 +1273,7 @@ loop:
 		replaceVarsWithSpillOrLoad(spillNodes, start);
 	}
 
-	debugShowGraphIR(start);
 	removeDeadExpresions(start, liveVars);
+	debugShowGraphIR(start);
 	//	debugShowGraphIR(start);
 }

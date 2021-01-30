@@ -1428,11 +1428,70 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				graphNodeIR a,b;
 				binopArgs(start, &a, &b);
 				//Are assumed to be same type if valid IR graph
+
 				if(isIntNode(a)||isPtrNode(a)) {
-						if(typeIsSigned(IRNodeType(a)))
+						if(typeIsSigned(IRNodeType(a))) {
 								assembleOpInt(start, "IMUL2");
-						else
-								assembleOpInt(start, "MUL");
+						} else {
+								struct X86AddressingMode *aMode CLEANUP(X86AddrModeDestroy)=node2AddrMode(a);
+								struct X86AddressingMode *bMode CLEANUP(X86AddrModeDestroy)=node2AddrMode(b);
+								//
+								// RAX is assigned into by the first operand,so if the second operand if RAX,swap the order of a and b
+								//
+								if(bMode->type==X86ADDRMODE_REG) {
+										if(regConflict(&regAMD64RAX, bMode->value.reg)) {
+												__auto_type tmp=aMode;
+												aMode=bMode;
+												bMode=tmp;
+										}
+								}
+								
+								strX86AddrMode mulArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+								strX86AddrMode ppArgsA CLEANUP(strX86AddrModeDestroy2)=NULL;
+								strX86AddrMode ppArgsD CLEANUP(strX86AddrModeDestroy2)=NULL;
+								switch(objectSize(IRNodeType(a), NULL)) {
+								case 1: {
+										struct X86AddressingMode *alMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86AL);
+										assign(alMode, aMode, 1);
+										mulArgs=strX86AddrModeAppendItem(mulArgs, X86AddrModeClone(bMode));
+										ppArgsA=strX86AddrModeAppendItem(ppArgsA, X86AddrModeReg(&regX86AX)); //Result is stored in ax
+										break;
+								}
+								case 2: {
+										struct X86AddressingMode *axMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86AX);
+										assign(axMode, aMode, 2);
+										mulArgs=strX86AddrModeAppendItem(mulArgs, X86AddrModeClone(bMode));
+										ppArgsA=strX86AddrModeAppendItem(ppArgsA, X86AddrModeClone(axMode));
+										ppArgsD=strX86AddrModeAppendItem(ppArgsD, X86AddrModeReg(&regX86DX));
+										break;
+								}
+								case 4: {
+										struct X86AddressingMode *eaxMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86EAX);
+										assign(eaxMode, aMode, 4);
+										mulArgs=strX86AddrModeAppendItem(mulArgs, X86AddrModeClone(bMode));
+										ppArgsA=strX86AddrModeAppendItem(ppArgsA, X86AddrModeClone(eaxMode));
+										ppArgsD=strX86AddrModeAppendItem(ppArgsD, X86AddrModeReg(&regX86EDX));
+											break;
+								}
+								case 8: {
+										struct X86AddressingMode *raxMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regAMD64RAX);
+										assign(raxMode, aMode, 8);
+										mulArgs=strX86AddrModeAppendItem(mulArgs, X86AddrModeClone(bMode));
+										ppArgsA=strX86AddrModeAppendItem(ppArgsA, X86AddrModeClone(raxMode));
+										ppArgsD=strX86AddrModeAppendItem(ppArgsD, X86AddrModeReg(&regAMD64RDX));
+										break;
+								}
+										assert(0);
+								}
+								
+								if(ppArgsD)
+										assembleInst("PUSH", ppArgsD);
+								assembleInst("PUSH", ppArgsA);
+								assembleInst("MUL", mulArgs);
+								assembleInst("POP", ppArgsA);
+								if(ppArgsD)
+										assembleInst("POP", ppArgsD);
+						}
 				} 
 				return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 		}
