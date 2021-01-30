@@ -550,6 +550,7 @@ void IRCompile(graphNodeIR start) {
 
 		IRInsertNodesBetweenExprs(start, NULL, NULL);
 		IRRegisterAllocate(start, NULL, NULL, isNotNoreg, noregs);
+		debugShowGraphIR(start);
 		
 		strGraphNodeIRP regAllocedNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);
 		{

@@ -72,17 +72,27 @@ static strGraphNodeP adj(struct __graphNode *node) {
 
 	strGraphNodeP retVal = NULL;
 
-	for (long i = 0; i != strGraphEdgePSize(out); i++)
-		if (NULL == strGraphNodePSortedFind(retVal, __graphEdgeOutgoing(out[i]),
+	for (long i = 0; i != strGraphEdgePSize(out); i++) {
+		if (strGraphNodePSortedFind(retVal, __graphEdgeOutgoing(out[i]),
 		                                    (gnCmpType)ptrPtrCmp))
-			retVal = strGraphNodePSortedInsert(retVal, __graphEdgeOutgoing(out[i]),
+				continue;
+		if(__graphEdgeOutgoing(out[i])==node)
+				continue;
+		
+				retVal = strGraphNodePSortedInsert(retVal, __graphEdgeOutgoing(out[i]),
 			                                   (gnCmpType)ptrPtrCmp);
+	}
 
-	for (long i = 0; i != strGraphEdgePSize(in); i++)
-		if (NULL == strGraphNodePSortedFind(retVal, __graphEdgeIncoming(in[i]),
+	for (long i = 0; i != strGraphEdgePSize(in); i++) {
+		if ( strGraphNodePSortedFind(retVal, __graphEdgeIncoming(in[i]),
 		                                    (gnCmpType)ptrPtrCmp))
+				continue;
+		if(__graphEdgeIncoming(in[i])==node)
+				continue;
+		
 			retVal = strGraphNodePSortedInsert(retVal, __graphEdgeIncoming(in[i]),
 			                                   (gnCmpType)ptrPtrCmp);
+	}
 
 	return retVal;
 }

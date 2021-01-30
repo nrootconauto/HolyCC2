@@ -1123,7 +1123,10 @@ loop:
 	interferes=strGraphNodeIRLivePConcat(interferes,strGraphNodeIRLivePClone(floatInterfere));
 	for (long i = 0; i != strGraphNodeIRLivePSize(interferes); i++) {
 			__auto_type interfere = interferes[i];
-		
+
+			ptrMapregSlice regsByLivenessNode = ptrMapregSliceCreate(); // TODO rename
+		debugPrintInterferenceGraph(interferes[i], regsByLivenessNode);
+			
 		__auto_type vertexColors = graphColor(interfere);
 
 		__auto_type allNodes = graphNodeIRAllNodes(start);
@@ -1131,16 +1134,19 @@ loop:
 		__auto_type colors = getColorList(vertexColors);
 		
 		// Choose registers
-		ptrMapregSlice regsByLivenessNode = ptrMapregSliceCreate(); // TODO rename
+		
 		__auto_type allColorNodes = graphNodeIRLiveAllNodes(interfere);
 		for (long i = 0; i != strGraphNodeIRLivePSize(allColorNodes); i++) {
 			// Get adjacent items
 			__auto_type outgoing = graphNodeIRLiveOutgoingNodes(allColorNodes[i]);
 			strRegSlice adj = NULL;
-			for (long i = 0; i != strGraphNodeIRLivePSize(outgoing); i++) {
-				// search for adjacent
-				__auto_type find = ptrMapregSliceGet(regsByLivenessNode, allColorNodes[i]);
+			for (long i2 = 0; i2 != strGraphNodeIRLivePSize(outgoing); i2++) {
+					if(outgoing[i2]==allColorNodes[i])
+							continue;
+					// search for adjacent
+				__auto_type find = ptrMapregSliceGet(regsByLivenessNode, outgoing[i2]);
 
+				
 				// Insert if exists
 				if (find)
 					adj = strRegSliceAppendItem(adj, *find);
