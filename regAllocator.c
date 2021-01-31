@@ -1193,7 +1193,6 @@ loop:
 		replaceVarsWithSpillOrLoad(spillNodes, start);
 	}
 
-	removeDeadExpresions(start, liveVars);
-	debugShowGraphIR(start);
-	//	debugShowGraphIR(start);
+	//	removeDeadExpresions(start, liveVars);
+	//debugShowGraphIR(start);
 }

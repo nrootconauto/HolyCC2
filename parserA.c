@@ -2802,13 +2802,11 @@ struct parserNode *parseAsmAddrModeSIB(llLexerItem start, llLexerItem *end) {
 	struct parserNode **toDestroy[] = {
 	    &colon, &segment, &lB, &rB, &offset,
 	};
-	struct parserNode *typename CLEANUP(parserNodeDestroy) = nameParse(start, NULL, NULL);
+	struct parserNode *typename CLEANUP(parserNodeDestroy) = nameParse(start, NULL, &start);
 	if (typename) {
 		struct parserNodeName *name = (void *)typename;
 		if (objectByName(name->text)) {
 			valueType = objectByName(name->text);
-			valueType = parseVarDeclTail(start, &start, valueType, NULL, NULL, NULL);
-			start = llLexerItemNext(start);
 		}
 	}
 	segment = parseAsmRegister(start, &start);
@@ -3653,12 +3651,24 @@ struct parserNode *parseAsm(llLexerItem start, llLexerItem *end) {
 				}
 				struct parserNodeName *name2 = (void *)name;
 				__auto_type find = parserGetGlobalSym(name2->text);
+			importFindLoop:
 				if (!find) {
-					diagErrorStart(name->pos.start, name->pos.end);
-					diagPushText("Global symbol ");
-					diagPushQoutedText(name->pos.start, name->pos.end);
-					diagPushText(" wasn't found.");
-					diagEndMsg();
+						__auto_type findVar=parserGetVar((const struct parserNode*)name2);
+						if(!findVar) {
+								diagErrorStart(name->pos.start, name->pos.end);
+								diagPushText("Global symbol ");
+								diagPushQoutedText(name->pos.start, name->pos.end);
+								diagPushText(" wasn't found.");
+								diagEndMsg();
+						} else {
+								struct parserNodeVar var;
+								getStartEndPos(start, start, &var.base.pos.start, &var.base.pos.end);
+								var.base.type=NODE_VAR;
+								var.var=findVar;
+								find=ALLOCATE(var);
+								var.var->isNoreg=1;
+								goto importFindLoop;
+						}
 				} else
 					mapParserNodeInsert(asmImports, name2->text, find);
 				// Mark as noreg if imported

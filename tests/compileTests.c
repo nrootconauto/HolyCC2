@@ -103,7 +103,7 @@ void compileTests() {
 				free(asmF);	
 				free(source);
 		}*/
-		{
+		/*		{
 				const char * text=
 						"{\n"
 						"    I32i a=2,b=3;\n"
@@ -123,5 +123,27 @@ void compileTests() {
 				runTest(asmF,"yy");
 				free(asmF);	
 				free(source);
-		}
+				}*/
+		{
+				const char * text=
+						"{\n"
+						"    I32i a=0;\n"
+						"    asm {\n"
+						"         IMPORT a;\n"
+						"         MOV U32i [a],10\n"
+						"    }\n"
+						"    if(a==10) {\n"
+						putY // 1
+						"    }\n"
+						"}\n"
+						"asm {\n"
+						exitStr
+						"}\n";
+				char *source=text2File(text);
+				char *asmF=strDup(tmpnam(NULL));
+				compileFile(source, asmF);
+				runTest(asmF,"y");
+				free(asmF);	
+				free(source);
+				}
 }
