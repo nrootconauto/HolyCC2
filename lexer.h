@@ -17,12 +17,11 @@ struct lexerInt {
 	} value;
 };
 struct lexerFloating {
-		double value;
+	double value;
 };
 struct lexerItem;
 struct lexerItemTemplate {
-	struct __vec *(*lexItem)(const struct __vec *str, long pos, long *end,
-	                         int *err);
+	struct __vec *(*lexItem)(const struct __vec *str, long pos, long *end, int *err);
 	void (*killItemData)(void *item);
 };
 struct lexerItem {

@@ -1,7 +1,6 @@
 #include <assert.h>
 #include <subGraph.h>
-typedef int (*geCmpType)(const struct __graphEdge **,
-                         const struct __graphEdge **b);
+typedef int (*geCmpType)(const struct __graphEdge **, const struct __graphEdge **b);
 // https://github.com/sdiemert/subgraph-isomorphism/blob/master/index.js
 #define INT_BITS (sizeof(int) * 8)
 STR_TYPE_DEF(unsigned int, Bits);
@@ -62,11 +61,7 @@ static int degree(strBits row) {
 	}
 	return retVal;
 }
-static struct __mat initMorphism(struct __mat *graph, struct __mat *sub,
-                                 strGraphNodeP graphNodes,
-                                 strGraphNodeP subNodes,
-                                 int (*nodePred)(const struct __graphNode *,
-                                                 const struct __graphNode *)) {
+static struct __mat initMorphism(struct __mat *graph, struct __mat *sub, strGraphNodeP graphNodes, strGraphNodeP subNodes, int (*nodePred)(const struct __graphNode *, const struct __graphNode *)) {
 	strBits2D data = strBits2DResize(NULL, sub->h);
 	for (int i = 0; i != sub->h; i++) {
 		__auto_type ints = graph->h / INT_BITS + (graph->h % INT_BITS != 0 ? 1 : 0);
@@ -99,8 +94,7 @@ static int morph(struct __mat *m, int p) {
 static int isIso(struct __mat *m, struct __mat *graph, struct __mat *sub) {
 	__auto_type rows = sub->h;
 	for (int r1 = 0; r1 != rows; r1++) {
-		for (int r2 = bitSearch(sub->data[r1], 0); r2 != -1;
-		     r2 = bitSearch(sub->data[r1], r2 + 1)) {
+		for (int r2 = bitSearch(sub->data[r1], 0); r2 != -1; r2 = bitSearch(sub->data[r1], r2 + 1)) {
 			int c1 = morph(m, r1);
 			int c2 = morph(m, r2);
 			if (!(graph->data[c1][c2 / INT_BITS] & (1u << (c2 % INT_BITS)))) {
@@ -123,10 +117,8 @@ static struct __mat matClone(struct __mat *toClone) {
 static void prune(struct __mat *mat, struct __mat *sub, struct __mat *graph) {
 	assert(mat->w == graph->w);
 	for (int i = 0; i != mat->h; i++) {
-		for (int j = bitSearch(mat->data[i], 0); j != -1;
-		     j = bitSearch(mat->data[i], j + 1)) {
-			for (int x = bitSearch(sub->data[i], 0); x != -1;
-			     x = bitSearch(sub->data[i], x + 1)) {
+		for (int j = bitSearch(mat->data[i], 0); j != -1; j = bitSearch(mat->data[i], j + 1)) {
+			for (int x = bitSearch(sub->data[i], 0); x != -1; x = bitSearch(sub->data[i], x + 1)) {
 
 				int hasYNeighbor = 0;
 				__auto_type n = bitSearch(graph->data[j], 0);
@@ -141,8 +133,7 @@ static void prune(struct __mat *mat, struct __mat *sub, struct __mat *graph) {
 		}
 	}
 }
-static void recurse(strInt usedCols, int curRow, struct __mat *graph,
-                    struct __mat *sub, struct __mat *m, strMat *result) {
+static void recurse(strInt usedCols, int curRow, struct __mat *graph, struct __mat *sub, struct __mat *m, strMat *result) {
 	if (m->h == curRow) {
 		if (isIso(m, graph, sub)) {
 			*result = strMatAppendItem(*result, matClone(m));
@@ -152,8 +143,7 @@ static void recurse(strInt usedCols, int curRow, struct __mat *graph,
 
 		prune(&mp, sub, graph);
 
-		for (int c = bitSearch(m->data[curRow], 0); c != -1;
-		     c = bitSearch(m->data[curRow], c + 1)) {
+		for (int c = bitSearch(m->data[curRow], 0); c != -1; c = bitSearch(m->data[curRow], c + 1)) {
 			if (usedCols[c] == 0) {
 				for (int i = 0; i != m->w; i++) {
 					if (i == c) {
@@ -170,25 +160,22 @@ static void recurse(strInt usedCols, int curRow, struct __mat *graph,
 		}
 	}
 }
-int edgeComp(const void *a, const void *b) { return *(void **)a - *(void **)b; }
-static strGraphEdgeP edgesConnectedToNode(struct __graphNode *from,
-                                          struct __graphNode *to) {
+int edgeComp(const void *a, const void *b) {
+	return *(void **)a - *(void **)b;
+}
+static strGraphEdgeP edgesConnectedToNode(struct __graphNode *from, struct __graphNode *to) {
 	__auto_type outgoing = graphNodeSubOutgoing(from);
 	__auto_type size = strGraphEdgePSize(outgoing);
 	strGraphEdgeP toRemove = strGraphEdgePReserve(NULL, size);
 
 	for (int i = 0; i != size; i++)
 		if (to != __graphEdgeOutgoing(outgoing[i]))
-			toRemove =
-			    strGraphEdgePSortedInsert(toRemove, outgoing[i], (geCmpType)edgeComp);
+			toRemove = strGraphEdgePSortedInsert(toRemove, outgoing[i], (geCmpType)edgeComp);
 
-	outgoing =
-	    strGraphEdgePSetDifference(outgoing, toRemove, (geCmpType)edgeComp);
+	outgoing = strGraphEdgePSetDifference(outgoing, toRemove, (geCmpType)edgeComp);
 	return outgoing;
 }
-static strGraphNodeSubP reconstructFromAdj(
-    struct __mat *mat, strGraphNodeP graphNodes, strGraphNodeP subGraph,
-    int (*edgePred)(const struct __graphEdge *, const struct __graphEdge *)) {
+static strGraphNodeSubP reconstructFromAdj(struct __mat *mat, strGraphNodeP graphNodes, strGraphNodeP subGraph, int (*edgePred)(const struct __graphEdge *, const struct __graphEdge *)) {
 	__auto_type subGraphSize = strGraphNodePSize(subGraph);
 	strGraphNodeSubP nodes = strGraphNodeSubPResize(NULL, subGraphSize);
 	assert(subGraphSize == mat->h);
@@ -244,11 +231,7 @@ fail:;
 
 	return NULL;
 }
-strSub isolateSubGraph(strGraphNodeP graph, strGraphNodeP sub,
-                       int (*nodePred)(const struct __graphNode *,
-                                       const struct __graphNode *),
-                       int (*edgePred)(const struct __graphEdge *,
-                                       const struct __graphEdge *)) {
+strSub isolateSubGraph(strGraphNodeP graph, strGraphNodeP sub, int (*nodePred)(const struct __graphNode *, const struct __graphNode *), int (*edgePred)(const struct __graphEdge *, const struct __graphEdge *)) {
 	struct __mat graphAdjMat;
 	struct __mat subAdjMat;
 	graphAdjMat = __adjMatrixCreate(graph);

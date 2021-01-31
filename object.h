@@ -90,21 +90,15 @@ struct objectFunction {
 	strFuncArg args;
 };
 struct object;
-struct object *objectArrayCreate(struct object *baseType,
-                                 struct parserNode *dim);
+struct object *objectArrayCreate(struct object *baseType, struct parserNode *dim);
 struct object *objectPtrCreate(struct object *baseType);
-struct object *objectUnionCreate(const struct parserNode *name,
-                                 const struct objectMember *members,
-                                 long count);
-struct object *objectClassCreate(const struct parserNode *name,
-                                 const struct objectMember *members,
-                                 long count);
+struct object *objectUnionCreate(const struct parserNode *name, const struct objectMember *members, long count);
+struct object *objectClassCreate(const struct parserNode *name, const struct objectMember *members, long count);
 long objectSize(const struct object *type, int *success);
 void objectMemberDestroy(struct objectMember *member);
 void objectMemberAttrDestroy(struct objectMemberAttr *attr);
 long objectAlign(const struct object *type, int *success);
-struct object *objectForwardDeclarationCreate(const struct parserNode *name,
-                                              enum holyCTypeKind type);
+struct object *objectForwardDeclarationCreate(const struct parserNode *name, enum holyCTypeKind type);
 struct object *objectByName(const char *name);
 struct object *objectFuncCreate(struct object *retType, strFuncArg args);
 

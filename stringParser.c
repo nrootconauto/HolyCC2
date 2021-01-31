@@ -2,8 +2,7 @@
 #include <str.h>
 #include <stringParser.h>
 #include <utf8Encode.h>
-int stringParse(const struct __vec *new, long pos, long *end,
-                struct parsedString *retVal, int *err) {
+int stringParse(const struct __vec *new, long pos, long *end, struct parsedString *retVal, int *err) {
 	if (err != NULL)
 		*err = 0;
 

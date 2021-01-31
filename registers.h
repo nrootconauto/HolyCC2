@@ -14,16 +14,16 @@ enum regType {
 	REG_TYPE_FRAME_SIMD = 32,
 };
 struct reg {
-		const char *name;
-		struct reg *masterReg;
-		strRegSlice affects;
-		int size;
-		enum regType type;
+	const char *name;
+	struct reg *masterReg;
+	strRegSlice affects;
+	int size;
+	enum regType type;
 };
 struct regSlice {
-		struct reg *reg;
-		int offset, widthInBits;
-		struct object *type;
+	struct reg *reg;
+	int offset, widthInBits;
+	struct object *type;
 };
 STR_TYPE_FUNCS(struct regSlice, RegSlice);
 extern struct reg regX86AL;
@@ -128,15 +128,15 @@ extern struct reg regX86MM5;
 extern struct reg regX86MM6;
 extern struct reg regX86MM7;
 
-extern struct reg regX86ES, regX86CS,regX86SS,regX86DS,regX86FS,regX86GS;
+extern struct reg regX86ES, regX86CS, regX86SS, regX86DS, regX86FS, regX86GS;
 enum archConfig {
 	ARCH_TEST_SYSV,
 	ARCH_X86_SYSV,
 	ARCH_X64_SYSV,
 };
 enum archEndian {
-		ENDIAN_LITTLE,
-		ENDIAN_BIG,
+	ENDIAN_LITTLE,
+	ENDIAN_BIG,
 };
 void setArch(enum archConfig Arch);
 int regSliceConflict(const struct regSlice *a, const struct regSlice *b);
@@ -146,5 +146,5 @@ int regSliceCompare(const struct regSlice *a, const struct regSlice *b);
 strRegP regsForArch();
 enum archEndian archEndian();
 enum archConfig getCurrentArch();
-int regConflict(struct reg *a,struct reg *b);
-struct reg *subRegOfType(struct reg *r,struct object *type);
+int regConflict(struct reg *a, struct reg *b);
+struct reg *subRegOfType(struct reg *r, struct object *type);

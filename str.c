@@ -78,8 +78,7 @@ struct __vec *__vecReserve(struct __vec *a, long capacity) {
 	*__vecCapacityPtr(a) = capacity;
 	return a;
 }
-struct __vec *__vecAppendItem(struct __vec *a, const void *item,
-                              long itemSize) {
+struct __vec *__vecAppendItem(struct __vec *a, const void *item, long itemSize) {
 	__auto_type capacity = __vecCapacity(a);
 	__auto_type size = __vecSize(a);
 	if (capacity < size + itemSize) {
@@ -93,9 +92,7 @@ struct __vec *__vecAppendItem(struct __vec *a, const void *item,
 	*__vecSizePtr(a) += itemSize;
 	return a;
 }
-struct __vec *__vecSortedInsert(struct __vec *a, const void *item,
-                                long itemSize,
-                                int predicate(const void *, const void *)) {
+struct __vec *__vecSortedInsert(struct __vec *a, const void *item, long itemSize, int predicate(const void *, const void *)) {
 	__auto_type oldSize = __vecSize(a);
 	a = __vecAppendItem(a, item, itemSize); // increase size by one
 	for (int i = 0; i != oldSize; i += itemSize) {
@@ -110,9 +107,7 @@ struct __vec *__vecSortedInsert(struct __vec *a, const void *item,
 	return a;
 }
 // https://cplusplus.com/reference/algorithm/set_difference/
-struct __vec *__vecSetDifference(struct __vec *a, const struct __vec *b,
-                                 long itemSize,
-                                 int (*pred)(const void *, const void *)) {
+struct __vec *__vecSetDifference(struct __vec *a, const struct __vec *b, long itemSize, int (*pred)(const void *, const void *)) {
 	__auto_type aEnd = (void *)a + __vecSize(a);
 	void *aStart = a;
 	__auto_type bEnd = (void *)b + __vecSize(b);
@@ -135,8 +130,7 @@ struct __vec *__vecSetDifference(struct __vec *a, const struct __vec *b,
 	a = __vecResize(a, result - (void *)a);
 	return a;
 }
-void *__vecSortedFind(const struct __vec *a, const void *item, long itemSize,
-                      int predicate(const void *, const void *)) {
+void *__vecSortedFind(const struct __vec *a, const void *item, long itemSize, int predicate(const void *, const void *)) {
 	__auto_type oldSize = __vecSize(a);
 	for (int i = 0; i != oldSize; i += itemSize) {
 		__auto_type where = (void *)a + i;
@@ -150,9 +144,7 @@ void *__vecSortedFind(const struct __vec *a, const void *item, long itemSize,
 	return NULL;
 }
 // https://www.cplusplus.com/reference/algorithm/remove_if/
-struct __vec *__vecRemoveIf(struct __vec *a, long itemSize,
-                            int predicate(const void *, const void *),
-                            const void *data) {
+struct __vec *__vecRemoveIf(struct __vec *a, long itemSize, int predicate(const void *, const void *), const void *data) {
 	if (a == NULL)
 		return NULL;
 
@@ -178,9 +170,7 @@ static int longCmp(const void *a, const void *b) {
 	return 0;
 }
 // https://www.cplusplus.com/reference/algorithm/unique/
-struct __vec *__vecUnique(struct __vec *vec, long itemSize,
-                          int (*pred)(const void *, const void *),
-                          void (*kill)(void *)) {
+struct __vec *__vecUnique(struct __vec *vec, long itemSize, int (*pred)(const void *, const void *), void (*kill)(void *)) {
 	long end = __vecSize(vec) / itemSize;
 	long moveBuffer[__vecSize(vec) / itemSize];
 	for (long i = 0; i != end; i++)
@@ -194,8 +184,7 @@ struct __vec *__vecUnique(struct __vec *vec, long itemSize,
 		if (++first == end)
 			break;
 
-		if (0 != pred((void *)vec + moveBuffer[res] * itemSize,
-		              (void *)vec + moveBuffer[first] * itemSize)) {
+		if (0 != pred((void *)vec + moveBuffer[res] * itemSize, (void *)vec + moveBuffer[first] * itemSize)) {
 			moveBuffer[++res] = moveBuffer[first];
 		}
 	}
@@ -212,16 +201,12 @@ struct __vec *__vecUnique(struct __vec *vec, long itemSize,
 
 	res++;
 	for (long i = 0; i != res; i++)
-		memmove((void *)vec + itemSize * i, (void *)vec + itemSize * moveBuffer[i],
-		        itemSize);
+		memmove((void *)vec + itemSize * i, (void *)vec + itemSize * moveBuffer[i], itemSize);
 
 	return __vecResize(vec, res * itemSize);
 }
 // https://www.cplusplus.com/reference/algorithm/set_intersection/
-struct __vec *__vecSetIntersection(struct __vec *a, const struct __vec *b,
-                                   long itemSize,
-                                   int (*pred)(const void *, const void *),
-                                   void (*kill)(void *)) {
+struct __vec *__vecSetIntersection(struct __vec *a, const struct __vec *b, long itemSize, int (*pred)(const void *, const void *), void (*kill)(void *)) {
 	long count = __vecSize(a) / itemSize;
 	long moveBuffer[count];
 	for (long i = 0; i != count; i++)
@@ -247,23 +232,20 @@ struct __vec *__vecSetIntersection(struct __vec *a, const struct __vec *b,
 		// Kill items not appearing in result
 		qsort(moveBuffer, result / itemSize, sizeof(long), longCmp);
 		for (long i = 0; i != __vecSize(a) / itemSize; i++) {
-			if (NULL ==
-			    bsearch(&i, moveBuffer, result / itemSize, sizeof(long), longCmp)) {
+			if (NULL == bsearch(&i, moveBuffer, result / itemSize, sizeof(long), longCmp)) {
 				kill((void *)a + itemSize * i);
 			}
 		}
 	}
 
 	for (long i = 0; i != result / itemSize; i++) {
-		memmove((void *)a + i * itemSize, (void *)a + moveBuffer[i] * itemSize,
-		        itemSize);
+		memmove((void *)a + i * itemSize, (void *)a + moveBuffer[i] * itemSize, itemSize);
 	}
 
 	return __vecResize(a, result);
 }
 // https://www.cplusplus.com/reference/algorithm/set_union/
-struct __vec *__vecSetUnion(struct __vec *a, struct __vec *b, long itemSize,
-                            int (*pred)(const void *, const void *)) {
+struct __vec *__vecSetUnion(struct __vec *a, struct __vec *b, long itemSize, int (*pred)(const void *, const void *)) {
 	void *s1 = a;
 	void *s2 = b;
 	void *e1 = s1 + __vecSize(a);
@@ -304,24 +286,24 @@ void __vecDestroy(struct __vec **vec) {
 
 	free((void *)*vec - 2 * sizeof(long));
 }
-struct __vec *__vecRemoveItem(struct __vec *str,long itemSize,const void *item,int(*pred)(const void*,const void*)) {
-		void *find=bsearch(item, str, __vecSize(str)/itemSize, itemSize, pred);
-		if(!find)
-				return str;
-		memmove(find, find+itemSize, __vecSize(str)-(find-(void*)str)-itemSize);
-		*__vecSizePtr(str)-=itemSize;
+struct __vec *__vecRemoveItem(struct __vec *str, long itemSize, const void *item, int (*pred)(const void *, const void *)) {
+	void *find = bsearch(item, str, __vecSize(str) / itemSize, itemSize, pred);
+	if (!find)
 		return str;
+	memmove(find, find + itemSize, __vecSize(str) - (find - (void *)str) - itemSize);
+	*__vecSizePtr(str) -= itemSize;
+	return str;
 }
-//https://www.cplusplus.com/reference/algorithm/reverse/
-struct __vec *__vecReverse(struct __vec *str,long itemSize) {
-		void * first=(void*)str;
-		void * last=first+__vecSize(str);
-		while((first!=last)&&(first!=(last-=itemSize))) {
-				char buffer[itemSize];
-				memmove(buffer, first, itemSize);
-				memmove(first, last, itemSize);
-				memmove(last, buffer, itemSize);
-				first+=itemSize;
-		}
-		return str;
+// https://www.cplusplus.com/reference/algorithm/reverse/
+struct __vec *__vecReverse(struct __vec *str, long itemSize) {
+	void *first = (void *)str;
+	void *last = first + __vecSize(str);
+	while ((first != last) && (first != (last -= itemSize))) {
+		char buffer[itemSize];
+		memmove(buffer, first, itemSize);
+		memmove(first, last, itemSize);
+		memmove(last, buffer, itemSize);
+		first += itemSize;
+	}
+	return str;
 }

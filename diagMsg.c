@@ -205,8 +205,7 @@ static strLong fileLinesIndexes(FILE *file) {
 
 	return retVal;
 }
-static void getLineCol(struct diagInst *inst, long where, long *line,
-                       long *col) {
+static void getLineCol(struct diagInst *inst, long where, long *line, long *col) {
 	long line2 = 0;
 	for (long i = 1; i != strLongSize(inst->lineStarts); i++) {
 		if (inst->lineStarts[i] <= where) {
@@ -248,7 +247,9 @@ static int qouteSort(const void *a, const void *b) {
 	res = longCmp(A->end, B->end);
 	return res;
 }
-static int longPtrCmp(const long *a, const long *b) { return longCmp(*a, *b); }
+static int longPtrCmp(const long *a, const long *b) {
+	return longCmp(*a, *b);
+}
 static int textAttrCmp(const enum textAttr *a, const enum textAttr *b) {
 	return *a - *b;
 }
@@ -277,8 +278,7 @@ static long goBeforeNewLine(FILE *fp, long where) {
 
 	return retVal - fileStart;
 }
-static void qouteLine(struct diagInst *inst, long start, long end,
-                      strDiagQoute qoutes) {
+static void qouteLine(struct diagInst *inst, long start, long end, strDiagQoute qoutes) {
 	// Line end of line
 	long line, col;
 	getLineCol(inst, end, &line, &col);
@@ -293,8 +293,7 @@ static void qouteLine(struct diagInst *inst, long start, long end,
 	long lineStart = inst->lineStarts[line];
 
 	// Sort qoutes
-	__auto_type clone =
-	    strDiagQouteAppendData(NULL, qoutes, strDiagQouteSize(qoutes));
+	__auto_type clone = strDiagQouteAppendData(NULL, qoutes, strDiagQouteSize(qoutes));
 	qsort(clone, strDiagQouteSize(clone), sizeof(*clone), qouteSort);
 
 	char buffer[lineEnd - lineStart + 1];
@@ -364,8 +363,7 @@ static void qouteLine(struct diagInst *inst, long start, long end,
 		for (long i = 0; i != strLongSize(hitEnds); i++) {
 			strTextAttr tmp = NULL;
 			for (long i2 = 0; i2 != strTextAttrSize(qoutes[hitEnds[i]].attrs); i2++)
-				tmp = strTextAttrSortedInsert(tmp, qoutes[hitEnds[i]].attrs[i2],
-				                              textAttrCmp);
+				tmp = strTextAttrSortedInsert(tmp, qoutes[hitEnds[i]].attrs[i2], textAttrCmp);
 
 			attrs = strTextAttrSetDifference(attrs, tmp, textAttrCmp);
 		}
@@ -374,8 +372,7 @@ static void qouteLine(struct diagInst *inst, long start, long end,
 		for (long i = 0; i != strLongSize(hitStarts); i++) {
 			strTextAttr tmp = NULL;
 			for (long i2 = 0; i2 != strTextAttrSize(qoutes[hitStarts[i]].attrs); i2++)
-				tmp = strTextAttrSortedInsert(tmp, qoutes[hitStarts[i]].attrs[i2],
-				                              textAttrCmp);
+				tmp = strTextAttrSortedInsert(tmp, qoutes[hitStarts[i]].attrs[i2], textAttrCmp);
 
 			attrs = strTextAttrSetUnion(attrs, tmp, textAttrCmp);
 		}
@@ -444,8 +441,7 @@ void diagHighlight(long start, long end) {
 		qoute.start = start;
 		qoute.end = end;
 
-		currentInst->stateQoutes =
-		    strDiagQouteAppendItem(currentInst->stateQoutes, qoute);
+		currentInst->stateQoutes = strDiagQouteAppendItem(currentInst->stateQoutes, qoute);
 	}
 }
 // TODO implement included files
@@ -465,8 +461,7 @@ void diagEndMsg() {
 
 	currentInst = NULL;
 }
-static void diagStateStart(long start, long end, enum diagState state,
-                           const char *text, enum textAttr color) {
+static void diagStateStart(long start, long end, enum diagState state, const char *text, enum textAttr color) {
 	currentInst = diagInstByPos(start);
 	assert(currentInst != NULL);
 
@@ -479,8 +474,7 @@ static void diagStateStart(long start, long end, enum diagState state,
 	setAttrs(currentInst, color, ATTR_BOLD, 0);
 	long ln, col;
 	getLineCol(currentInst, start, &ln, &col);
-	fprintf(currentInst->dumpTo, "%s:%li,%li: ", currentInst->fileName, ln + 1,
-	        col + 1);
+	fprintf(currentInst->dumpTo, "%s:%li,%li: ", currentInst->fileName, ln + 1, col + 1);
 	endAttrs(currentInst);
 
 	setAttrs(currentInst, currentInst->dumpTo, color, ATTR_BOLD, 0);
@@ -502,14 +496,12 @@ void diagWarnStart(long start, long end) {
 	diagStateStart(start, end, DIAG_WARN, "warning", FG_COLOR_YELLOW);
 }
 int diagErrorCount() {
-		return errCount;
+	return errCount;
 }
 static void destroyDiags() __attribute__((destructor));
-void diagInstCreate(enum outputType type, const strFileMappings __fileMappings,
-                    const strTextModify __mappings, const char *fileName,
-                    FILE *dumpToFile) {
-		errCount=0;
-		destroyDiags();
+void diagInstCreate(enum outputType type, const strFileMappings __fileMappings, const strTextModify __mappings, const char *fileName, FILE *dumpToFile) {
+	errCount = 0;
+	destroyDiags();
 	mappings = __mappings;
 	fileMappings = __fileMappings;
 
@@ -529,7 +521,9 @@ void diagInstCreate(enum outputType type, const strFileMappings __fileMappings,
 		mapInstInsert(insts, fileName, retVal);
 	}
 }
-static void diagInstDestroy(struct diagInst *inst) { fclose(inst->sourceFile); }
+static void diagInstDestroy(struct diagInst *inst) {
+	fclose(inst->sourceFile);
+}
 static void destroyDiags() {
 	if (insts != NULL)
 		mapInstDestroy(insts, (void (*)(void *))diagInstDestroy);

@@ -4,107 +4,107 @@
 #include <parserB.h>
 #include <string.h>
 struct symbol {
-		struct parserNode *node;
-		struct linkage link;
-		long version;
+	struct parserNode *node;
+	struct linkage link;
+	long version;
 };
-MAP_TYPE_DEF(struct symbol,Symbol);
-MAP_TYPE_FUNCS(struct symbol,Symbol);
-static __thread mapSymbol symbolTable=NULL;
+MAP_TYPE_DEF(struct symbol, Symbol);
+MAP_TYPE_FUNCS(struct symbol, Symbol);
+static __thread mapSymbol symbolTable = NULL;
 static llScope currentScope = NULL;
-void parserSymTableNames(const char **keys,long *count ) {
-		mapSymbolKeys(symbolTable, keys, count);
+void parserSymTableNames(const char **keys, long *count) {
+	mapSymbolKeys(symbolTable, keys, count);
 }
-const struct  linkage *parserGlobalSymLinkage(const char *name) {
-		__auto_type find=mapSymbolGet(symbolTable, name);
-		if(!find)
-				return NULL;
-		return &find->link;
+const struct linkage *parserGlobalSymLinkage(const char *name) {
+	__auto_type find = mapSymbolGet(symbolTable, name);
+	if (!find)
+		return NULL;
+	return &find->link;
 }
 struct parserNode *parserGetGlobalSym(const char *name) {
-		__auto_type find=mapSymbolGet(symbolTable, name);
-		if(!find)
-				return NULL;
-		return find->node;
+	__auto_type find = mapSymbolGet(symbolTable, name);
+	if (!find)
+		return NULL;
+	return find->node;
 }
 strParserNode parserSymbolTableSyms() {
-		long count;
-		mapSymbolKeys(symbolTable, NULL, &count);
-		const char *keys[count];
-		mapSymbolKeys(symbolTable, keys, NULL);
-		strParserNode retVal=strParserNodeResize(NULL, count);
-		for(long i=0;i!=count;i++)
-				retVal[i]=mapSymbolGet(symbolTable, keys[i])->node;
-		return retVal;
+	long count;
+	mapSymbolKeys(symbolTable, NULL, &count);
+	const char *keys[count];
+	mapSymbolKeys(symbolTable, keys, NULL);
+	strParserNode retVal = strParserNodeResize(NULL, count);
+	for (long i = 0; i != count; i++)
+		retVal[i] = mapSymbolGet(symbolTable, keys[i])->node;
+	return retVal;
 }
 static const char *getSymbolName(struct parserNode *node) {
-		switch(node->type) {
-		case NODE_CLASS_FORWARD_DECL: {
-				struct parserNodeClassFwd *fwd=(void*)node;
-				struct parserNodeName *nm=(void*)fwd->name;
-				return nm->text;
-		}
-		case NODE_UNION_FORWARD_DECL: {
-				struct parserNodeUnionFwd *fwd=(void*)node;
-				struct parserNodeName *nm=(void*)fwd->name;
-				return nm->text;
-		}
-		case NODE_ASM_LABEL_GLBL: {
-				struct parserNodeLabelGlbl *lab=(void*)node;
-				struct parserNodeName *name=(void*)lab->name;
-				return name->text;
-		}
-		case NODE_VAR_DECL: {
-				struct parserNodeVarDecl *var=(void*)node;
-				return var->var->name;
-		}
-		case NODE_FUNC_DEF: {
-				struct parserNodeFuncDef *def=(void*)node;
-				struct parserNodeName *name=(void*)def->name;
-				return name->text;
-		}
-		case NODE_FUNC_FORWARD_DECL: {
-				struct parserNodeFuncForwardDec *forward=(void*)node;
-				struct parserNodeName *name=(void*)forward->name;
-				return name->text;
-		}
-		case NODE_CLASS_DEF: {
-				struct parserNodeClassDef *class=(void*)node;
-				struct parserNodeName *name=(void*)class->name;
-				return name->text;
-		}
-		case NODE_UNION_DEF: {
-				struct parserNodeUnionDef *class=(void*)node;
-				struct parserNodeName *name=(void*)class->name;
-				return name->text;
-		}
-		default:
-				assert(0);
-				break;
-		}
-		return NULL;
+	switch (node->type) {
+	case NODE_CLASS_FORWARD_DECL: {
+		struct parserNodeClassFwd *fwd = (void *)node;
+		struct parserNodeName *nm = (void *)fwd->name;
+		return nm->text;
+	}
+	case NODE_UNION_FORWARD_DECL: {
+		struct parserNodeUnionFwd *fwd = (void *)node;
+		struct parserNodeName *nm = (void *)fwd->name;
+		return nm->text;
+	}
+	case NODE_ASM_LABEL_GLBL: {
+		struct parserNodeLabelGlbl *lab = (void *)node;
+		struct parserNodeName *name = (void *)lab->name;
+		return name->text;
+	}
+	case NODE_VAR_DECL: {
+		struct parserNodeVarDecl *var = (void *)node;
+		return var->var->name;
+	}
+	case NODE_FUNC_DEF: {
+		struct parserNodeFuncDef *def = (void *)node;
+		struct parserNodeName *name = (void *)def->name;
+		return name->text;
+	}
+	case NODE_FUNC_FORWARD_DECL: {
+		struct parserNodeFuncForwardDec *forward = (void *)node;
+		struct parserNodeName *name = (void *)forward->name;
+		return name->text;
+	}
+	case NODE_CLASS_DEF: {
+		struct parserNodeClassDef *class = (void *)node;
+		struct parserNodeName *name = (void *)class->name;
+		return name->text;
+	}
+	case NODE_UNION_DEF: {
+		struct parserNodeUnionDef *class = (void *)node;
+		struct parserNodeName *name = (void *)class->name;
+		return name->text;
+	}
+	default:
+		assert(0);
+		break;
+	}
+	return NULL;
 }
-static void __addGlobalSymbol(struct parserNode *node,const char *name,struct linkage link) {
-		struct symbol toInsert;
-		toInsert.link=link,toInsert.node=node,toInsert.version=0;
-		if(name) {
-				__auto_type find=mapSymbolGet(symbolTable, name);
-				if(find) {
-						// If we find a conflicting symbol,"version" the older symbol(give it a unique name).
-						long count=snprintf(NULL, 0, "%s_$%li", name, ++find->version);
-						char buffer[count+1];
-						sprintf(buffer, "%s_$%li", name,find->version);
-						mapSymbolInsert(symbolTable, buffer, *find);
-						toInsert.version=find->version;
-						//Remove the current symbol(We backed it up as "name:VER")
-						mapSymbolRemove(symbolTable, name, NULL);
-				}
-				mapSymbolInsert(symbolTable, name, toInsert);
+static void __addGlobalSymbol(struct parserNode *node, const char *name, struct linkage link) {
+	struct symbol toInsert;
+	toInsert.link = link, toInsert.node = node, toInsert.version = 0;
+	if (name) {
+		__auto_type find = mapSymbolGet(symbolTable, name);
+		if (find) {
+			// If we find a conflicting symbol,"version" the older symbol(give it a unique name).
+			long count = snprintf(NULL, 0, "%s_$%li", name, ++find->version);
+			char buffer[count + 1];
+			sprintf(buffer, "%s_$%li", name, find->version);
+			mapSymbolInsert(symbolTable, buffer, *find);
+			toInsert.version = find->version;
+			// Remove the current symbol(We backed it up as "name:VER")
+			mapSymbolRemove(symbolTable, name, NULL);
 		}
+		mapSymbolInsert(symbolTable, name, toInsert);
+	}
 }
-void parserAddGlobalSym(struct parserNode *node,struct  linkage link) {
-		__auto_type name=getSymbolName(node);
-		__addGlobalSymbol(node, name, linkageClone(link));
+void parserAddGlobalSym(struct parserNode *node, struct linkage link) {
+	__auto_type name = getSymbolName(node);
+	__addGlobalSymbol(node, name, linkageClone(link));
 }
 void enterScope() {
 	struct scope new;
@@ -132,9 +132,9 @@ void parserAddVar(const struct parserNode *name, struct object *type) {
 	struct parserVar var;
 	var.type = type;
 	var.refs = strParserNodeAppendItem(NULL, (struct parserNode *)name);
-	var.isGlobal = (llScopeValuePtr(currentScope)->parent == NULL)?1:0;
-	var.isNoreg=0;
-	
+	var.isGlobal = (llScopeValuePtr(currentScope)->parent == NULL) ? 1 : 0;
+	var.isNoreg = 0;
+
 	assert(name->type == NODE_NAME);
 	struct parserNodeName *name2 = (void *)name;
 	var.name = malloc(strlen(name2->text) + 1);
@@ -152,13 +152,10 @@ struct parserVar *parserGetVar(const struct parserNode *name) {
 	assert(name->type == NODE_NAME);
 	const struct parserNodeName *name2 = (void *)name;
 
-	for (__auto_type scope = currentScope; scope != NULL;
-	     scope = llScopeValuePtr(scope)->parent) {
-		struct parserVar *find =
-		    mapVarGet(llScopeValuePtr(scope)->vars, name2->text);
+	for (__auto_type scope = currentScope; scope != NULL; scope = llScopeValuePtr(scope)->parent) {
+		struct parserVar *find = mapVarGet(llScopeValuePtr(scope)->vars, name2->text);
 		if (find) {
-			find->refs =
-			    strParserNodeAppendItem(find->refs, (struct parserNode *)name);
+			find->refs = strParserNodeAppendItem(find->refs, (struct parserNode *)name);
 			return find;
 		}
 	}
@@ -169,29 +166,27 @@ struct parserVar *parserGetVar(const struct parserNode *name) {
 void killParserData() __attribute__((destructor));
 void killParserData() {
 	llScope top = currentScope;
-	for (; currentScope != NULL;
-	     currentScope = llScopeValuePtr(currentScope)->parent)
+	for (; currentScope != NULL; currentScope = llScopeValuePtr(currentScope)->parent)
 		top = currentScope;
 
 	currentScope = NULL;
 }
 static void strFree(void *ptrPtr) {
-		free(*(char**)ptrPtr);
+	free(*(char **)ptrPtr);
 }
 void initParserData();
 void initParserData() {
-		mapSymbolDestroy(symbolTable, NULL);
-		__initParserA();
-		enterScope();
-		symbolTable=mapSymbolCreate();
+	mapSymbolDestroy(symbolTable, NULL);
+	__initParserA();
+	enterScope();
+	symbolTable = mapSymbolCreate();
 }
 
 struct parserFunction *parserGetFunc(const struct parserNode *name) {
 	struct parserNodeName *name2 = (void *)name;
 	assert(name2->base.type == NODE_NAME);
 
-	for (llScope scope = currentScope; scope != NULL;
-	     scope = llScopeValuePtr(scope)->parent) {
+	for (llScope scope = currentScope; scope != NULL; scope = llScopeValuePtr(scope)->parent) {
 		__auto_type find = mapFuncGet(llScopeValuePtr(scope)->funcs, name2->text);
 		if (!find)
 			continue;
@@ -201,8 +196,7 @@ struct parserFunction *parserGetFunc(const struct parserNode *name) {
 	}
 	return NULL;
 }
-void parserAddFunc(const struct parserNode *name, const struct object *type,
-             struct parserNode *func) {
+void parserAddFunc(const struct parserNode *name, const struct object *type, struct parserNode *func) {
 	struct parserNodeName *name2 = (void *)name;
 	__auto_type currentScopeFuncs = llScopeValuePtr(currentScope)->funcs;
 
@@ -249,7 +243,7 @@ loop:;
 		dummy.type = (struct object *)type;
 		dummy.node = func;
 		dummy.name = malloc(strlen(name2->text) + 1);
-		dummy.parentFunction=NULL;
+		dummy.parentFunction = NULL;
 		strcpy(dummy.name, name2->text);
 
 		mapFuncInsert(currentScopeFuncs, name2->text, dummy);

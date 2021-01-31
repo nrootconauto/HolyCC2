@@ -21,13 +21,12 @@ void leaveScope();
 void parserAddVar(const struct parserNode *name, struct object *type);
 struct parserVar *parserGetVar(const struct parserNode *name);
 struct parserFunction *parserGetFunc(const struct parserNode *name);
-void parserAddFunc(const struct parserNode *name, const struct object *type,
-             struct parserNode *func);
+void parserAddFunc(const struct parserNode *name, const struct object *type, struct parserNode *func);
 
 void initParserData();
 void killParserData();
 struct parserNode *parserGetGlobalSym(const char *name);
-void parserAddGlobalSym(struct parserNode *node,struct  linkage link);
+void parserAddGlobalSym(struct parserNode *node, struct linkage link);
 strParserNode parserSymbolTableSyms();
 const struct linkage *parserGlobalSymLinkage(const char *name);
-void parserSymTableNames(const char **keys,long *count );
+void parserSymTableNames(const char **keys, long *count);

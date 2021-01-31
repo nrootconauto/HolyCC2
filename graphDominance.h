@@ -15,10 +15,8 @@ struct graphDomFrontier {
 };
 LL_TYPE_DEF(struct graphDominatorFrontier, DomFrontier);
 LL_TYPE_FUNCS(struct graphDomFrontier, DomFrontier);
-llDomFrontier graphDominanceFrontiers(struct __graphNode *start,
-                                      const llDominators doms);
-struct __graphNode *graphDominatorIdom(const llDominators doms,
-                                       struct __graphNode *node);
+llDomFrontier graphDominanceFrontiers(struct __graphNode *start, const llDominators doms);
+struct __graphNode *graphDominatorIdom(const llDominators doms, struct __graphNode *node);
 int llDominatorCmp(const void *a, const struct graphDominators *b);
 int llDomFrontierCmp(const void *a, const struct graphDomFrontier *B);
 graphNodeMapping dominatorsTreeCreate(llDominators doms);

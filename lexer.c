@@ -9,24 +9,53 @@ struct lexer {
 void *lexerItemValuePtr(struct lexerItem *item) {
 	return (void *)item + sizeof(struct lexerItem);
 }
-static const char *keywords[] = {"if", "else",
-                                 //
-                                 "for", "while", "do", "break",
-                                 //
-                                 "goto",
-                                 //
-                                 "return",
-                                 //
-                                 "switch", "default", "case",
-                                 //
-                                 "class", "union",
-                                 //
-                                 "static", "public", "extern", "_extern",
-                                 "import", "_import", "public",
-                                 //
-                                 ";", "{", "}", ":", "...",
-																																	//
-																																	"asm","@@","DU8","DU16","DU32","DU64","IMPORT","ALIGN","ORG","BINFILE","USE16","USE32","USE64",
+static const char *keywords[] = {
+    "if",
+    "else",
+    //
+    "for",
+    "while",
+    "do",
+    "break",
+    //
+    "goto",
+    //
+    "return",
+    //
+    "switch",
+    "default",
+    "case",
+    //
+    "class",
+    "union",
+    //
+    "static",
+    "public",
+    "extern",
+    "_extern",
+    "import",
+    "_import",
+    "public",
+    //
+    ";",
+    "{",
+    "}",
+    ":",
+    "...",
+    //
+    "asm",
+    "@@",
+    "DU8",
+    "DU16",
+    "DU32",
+    "DU64",
+    "IMPORT",
+    "ALIGN",
+    "ORG",
+    "BINFILE",
+    "USE16",
+    "USE32",
+    "USE64",
 };
 const char *operators[] = {
     "++",
@@ -95,8 +124,7 @@ static void sortKeywords() {
 }
 static long countAlnum(const struct __vec *data, long pos) {
 	long alNumCount = 0;
-	for (void *ptr = (void *)data + pos; ptr < __vecSize(data) + (void *)data;
-	     ptr++, alNumCount++)
+	for (void *ptr = (void *)data + pos; ptr < __vecSize(data) + (void *)data; ptr++, alNumCount++)
 		if (!(isalnum(*(char *)ptr) || *(char *)ptr == '_'))
 			break;
 
@@ -107,8 +135,7 @@ static int isKeyword(const struct __vec *new, long pos) {
 	__auto_type count = sizeof(keywords) / sizeof(*keywords);
 
 	for (long i = 0; i != count; i++) {
-		__auto_type res =
-		    strncmp((char *)new + pos, keywords[i], strlen(keywords[i]));
+		__auto_type res = strncmp((char *)new + pos, keywords[i], strlen(keywords[i]));
 		if (res > 0)
 			continue;
 		else if (res == 0 && len == strlen(keywords[i]))
@@ -121,15 +148,12 @@ static int isKeyword(const struct __vec *new, long pos) {
 STR_TYPE_DEF(char *, Str);
 STR_TYPE_FUNCS(char *, Str);
 const void *skipWhitespace(const struct __vec *text, long from) {
-	for (__auto_type ptr = (void *)text + from;
-	     ptr != (void *)text + __vecSize(text); ptr++)
-		if (!isblank(*(char *)ptr) && *(char *)ptr != '\n' &&
-		    *(char *)ptr != '\r' && ptr != '\0')
+	for (__auto_type ptr = (void *)text + from; ptr != (void *)text + __vecSize(text); ptr++)
+		if (!isblank(*(char *)ptr) && *(char *)ptr != '\n' && *(char *)ptr != '\r' && ptr != '\0')
 			return ptr;
 	return __vecSize(text) + (void *)text;
 }
-static struct __vec *intLex(const struct __vec *new, long pos, long *end,
-                            int *err) {
+static struct __vec *intLex(const struct __vec *new, long pos, long *end, int *err) {
 	if (err != NULL)
 		*err = 0;
 
@@ -164,8 +188,7 @@ static struct __vec *intLex(const struct __vec *new, long pos, long *end,
 			New += alnumCount;
 
 			__auto_type startAt = (void *)new + pos;
-			__auto_type slice =
-			    __vecAppendItem(NULL, startAt, (void *)New - (void *)startAt);
+			__auto_type slice = __vecAppendItem(NULL, startAt, (void *)New - (void *)startAt);
 			sscanf((char *)slice, "%lx", &valueU);
 
 			goto dumpU;
@@ -183,8 +206,7 @@ static struct __vec *intLex(const struct __vec *new, long pos, long *end,
 			New += alnumCount;
 
 			__auto_type startAt = (void *)new + pos;
-			__auto_type slice =
-			    __vecAppendItem(NULL, startAt, (void *)New - (void *)startAt);
+			__auto_type slice = __vecAppendItem(NULL, startAt, (void *)New - (void *)startAt);
 			sscanf((char *)slice, "%lo", &valueU);
 
 			goto dumpU;
@@ -237,7 +259,7 @@ dumpU : {
 	struct lexerInt retVal;
 
 	retVal.base = base;
-	retVal.type = INT_SLONG ;
+	retVal.type = INT_SLONG;
 	if (INT64_MAX < valueU)
 		retVal.value.sLong = valueU;
 	else
@@ -250,13 +272,12 @@ malformed : {
 	return NULL;
 }
 }
-static struct __vec *floatingLex(const struct __vec *vec, long pos, long *end,
-                                 int *err) {
+static struct __vec *floatingLex(const struct __vec *vec, long pos, long *end, int *err) {
 	if (err != NULL)
 		*err = 0;
 
-	__auto_type originalPos=(char *)vec + pos;
-	__auto_type endPtr = strlen((char*)vec) + (char *)vec;
+	__auto_type originalPos = (char *)vec + pos;
+	__auto_type endPtr = strlen((char *)vec) + (char *)vec;
 	__auto_type currPtr = (char *)vec + pos;
 
 	__auto_type alnumCount = countAlnum(vec, pos);
@@ -325,9 +346,9 @@ returnLabel : {
 		*end = currPtr - (char *)vec;
 
 	struct lexerFloating f;
-	char buffer[currPtr-originalPos+1];
-	strncpy(buffer, originalPos, currPtr-originalPos);
-	buffer[currPtr-originalPos]='\0';
+	char buffer[currPtr - originalPos + 1];
+	strncpy(buffer, originalPos, currPtr - originalPos);
+	buffer[currPtr - originalPos] = '\0';
 	sscanf(buffer, "%lf", &f.value);
 	return __vecAppendItem(NULL, &f, sizeof(f));
 }
@@ -338,8 +359,7 @@ malformed : {
 }
 	return 0;
 }
-static struct __vec *nameLex(const struct __vec *new, long pos, long *end,
-                             int *err) {
+static struct __vec *nameLex(const struct __vec *new, long pos, long *end, int *err) {
 	if (err != NULL)
 		*err = 0;
 
@@ -360,16 +380,13 @@ static struct __vec *nameLex(const struct __vec *new, long pos, long *end,
 	__auto_type retVal = __vecAppendItem(NULL, (char *)new + pos, len);
 	return __vecAppendItem(retVal, &z, 1);
 }
-static struct __vec *stringLex(const struct __vec *new, long pos, long *end,
-                               int *err) {
+static struct __vec *stringLex(const struct __vec *new, long pos, long *end, int *err) {
 	struct parsedString find;
 	if (stringParse(new, pos, end, &find, err))
 		return __vecAppendItem(NULL, &find, sizeof(struct parsedString));
 	return NULL;
 }
-static struct __vec *__keywordLex(const char **keywords, long count,
-                                  const struct __vec *new, long pos, long *end,
-                                  int *err) {
+static struct __vec *__keywordLex(const char **keywords, long count, const struct __vec *new, long pos, long *end, int *err) {
 	if (err != NULL)
 		*err = 0;
 
@@ -404,13 +421,11 @@ static struct __vec *__keywordLex(const char **keywords, long count,
 
 	return NULL;
 }
-static struct __vec *keywordLex(const struct __vec *new, long pos, long *end,
-                                int *err) {
+static struct __vec *keywordLex(const struct __vec *new, long pos, long *end, int *err) {
 	__auto_type count = sizeof(keywords) / sizeof(*keywords);
 	return __keywordLex(keywords, count, new, pos, end, err);
 }
-static struct __vec *operatorLex(const struct __vec *new, long pos, long *end,
-                                 int *err) {
+static struct __vec *operatorLex(const struct __vec *new, long pos, long *end, int *err) {
 	__auto_type count = sizeof(operators) / sizeof(*operators);
 	return __keywordLex(operators, count, new, pos, end, err);
 }
@@ -422,8 +437,7 @@ struct lexerItemTemplate nameTemplate;
 struct lexerItemTemplate opTemplate;
 struct lexerItemTemplate kwTemplate;
 static struct lexerItemTemplate *templates[] = {
-    &intTemplate,  &strTemplate, &floatTemplate,
-    &nameTemplate, &opTemplate,  &kwTemplate,
+    &intTemplate, &strTemplate, &floatTemplate, &nameTemplate, &opTemplate, &kwTemplate,
 };
 void initTemplates();
 void initTemplates() {
@@ -433,7 +447,7 @@ void initTemplates() {
 
 	strTemplate.lexItem = stringLex;
 	strTemplate.killItemData = NULL;
- 
+
 	floatTemplate.killItemData = NULL;
 	floatTemplate.lexItem = floatingLex;
 
@@ -474,8 +488,8 @@ llLexerItem lexText(const struct __vec *text, int *err) {
 		for (long i = 0; i != tCount; i++) {
 			long end;
 			__auto_type find = templates[i]->lexItem(text, pos, &end, &err2);
-			//if (err2)
-			//goto fail;
+			// if (err2)
+			// goto fail;
 
 			if (find != NULL) {
 				if (maximumEnd > end) {
@@ -502,8 +516,7 @@ llLexerItem lexText(const struct __vec *text, int *err) {
 			*(struct lexerItem *)buffer = newItem;
 			memcpy(buffer + sizeof(newItem), value, __vecSize(value));
 
-			__auto_type newNode =
-			    __llCreate(buffer, sizeof(newItem) + __vecSize(value));
+			__auto_type newNode = __llCreate(buffer, sizeof(newItem) + __vecSize(value));
 			llLexerItemInsertListAfter(retVal, newNode);
 			retVal = newNode;
 

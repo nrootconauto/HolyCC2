@@ -83,8 +83,7 @@ char *escapeString(char *str) {
 		//\uHHHH
 		const uint8_t twoByteUTF8 = 0 | 0b11000000;
 		const uint8_t threeByteUTF8 = 0 | 0b11100000;
-		if ((str[0] & 0b11100000) == twoByteUTF8 ||
-		    (str[0] & 0b11110000) == threeByteUTF8) {
+		if ((str[0] & 0b11100000) == twoByteUTF8 || (str[0] & 0b11110000) == threeByteUTF8) {
 			uint64_t value = 0;
 			bool flag = false; // if passes 3 bytes
 			if ((str[0] & 0b11110000) == threeByteUTF8) {
@@ -103,9 +102,7 @@ char *escapeString(char *str) {
 				value = str[0] & 0b00111111;
 			}
 			char temp[7];
-			sprintf(temp, "\\u%x%x%x%x", (uint32_t)((value >> 12) & 0xf),
-			        (uint32_t)((value >> 8) & 0xf), (uint32_t)((value >> 4) & 0xf),
-			        (uint32_t)((value >> 0) & 0xf));
+			sprintf(temp, "\\u%x%x%x%x", (uint32_t)((value >> 12) & 0xf), (uint32_t)((value >> 8) & 0xf), (uint32_t)((value >> 4) & 0xf), (uint32_t)((value >> 0) & 0xf));
 			memcpy(where, temp, 6);
 			where += 6;
 			str++;
@@ -121,11 +118,9 @@ char *escapeString(char *str) {
 				value |= str[i] & 0b00111111;
 			}
 			char temp[2 + 8 + 1]; //[\][U][H]*8[null]
-			sprintf(temp, "\\U%x%x%x%x%x%x%x%x", (uint32_t)((value >> 28) & 0xf),
-			        (uint32_t)((value >> 24) & 0xf), (uint32_t)((value >> 20) & 0xf),
+			sprintf(temp, "\\U%x%x%x%x%x%x%x%x", (uint32_t)((value >> 28) & 0xf), (uint32_t)((value >> 24) & 0xf), (uint32_t)((value >> 20) & 0xf),
 			        (uint32_t)((value >> 16) & 0xf), // 4
-			        (uint32_t)((value >> 12) & 0xf), (uint32_t)((value >> 8) & 0xf),
-			        (uint32_t)((value >> 3) & 0xf),
+			        (uint32_t)((value >> 12) & 0xf), (uint32_t)((value >> 8) & 0xf), (uint32_t)((value >> 3) & 0xf),
 			        (uint32_t)((value >> 0) & 0xf) // 8
 			);
 			memcpy(where, temp, 2 + 8);

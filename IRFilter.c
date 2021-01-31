@@ -10,11 +10,9 @@ static int isFlowNode(enum IRConnType type) {
 		return 0;
 	}
 }
-static int isFlowBlockOrStartOrEndPred(const struct __graphNode *node,
-                                       const void *start) {
+static int isFlowBlockOrStartOrEndPred(const struct __graphNode *node, const void *start) {
 	// Check if multiple incoming flows
-	strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) =
-	    graphNodeIRIncoming((graphNodeIR)node);
+	strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming((graphNodeIR)node);
 	int flowCount = 0;
 	for (long i = 0; i != strGraphEdgeIRPSize(incoming); i++)
 		if (isFlowNode(*graphEdgeIRValuePtr(incoming[i])))
@@ -24,8 +22,7 @@ static int isFlowBlockOrStartOrEndPred(const struct __graphNode *node,
 		return 1;
 
 	// Check if multiple flow out
-	strGraphEdgeIRP outgoing CLEANUP(strGraphEdgeIRPDestroy) =
-	    graphNodeIROutgoing((graphNodeIR)node);
+	strGraphEdgeIRP outgoing CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIROutgoing((graphNodeIR)node);
 	flowCount = 0;
 	for (long i = 0; i != strGraphEdgeIRPSize(outgoing); i++)
 		if (isFlowNode(*graphEdgeIRValuePtr(outgoing[i])))
@@ -63,35 +60,32 @@ struct assocPairIR2Mapping {
 };
 STR_TYPE_DEF(struct assocPairIR2Mapping, Assoc);
 STR_TYPE_FUNCS(struct assocPairIR2Mapping, Assoc);
-static int assocCmp(const struct assocPairIR2Mapping *a,
-                    const struct assocPairIR2Mapping *b) {
+static int assocCmp(const struct assocPairIR2Mapping *a, const struct assocPairIR2Mapping *b) {
 	return ptrPtrCmp(&a->ir, &b->ir);
 }
-static int assocContainsMapping(const void *node,
-                                const struct assocPairIR2Mapping *pair) {
+static int assocContainsMapping(const void *node, const struct assocPairIR2Mapping *pair) {
 	return pair->mapping == node;
 }
 typedef int (*gnCmpType)(const graphNodeIR *, const graphNodeIR *);
 static void __filterTransparentKill(graphNodeMapping node) {
-		strGraphEdgeMappingP in CLEANUP(strGraphEdgeMappingPDestroy)=graphNodeMappingIncoming(node);
-		strGraphEdgeMappingP out CLEANUP(strGraphEdgeMappingPDestroy)=graphNodeMappingOutgoing(node);
-		for(long i=0;i!=strGraphEdgeMappingPSize(in);i++) {
-				for(long o=0;o!=strGraphEdgeMappingPSize(out);o++) {
-						if(!graphNodeMappingConnectedTo(graphEdgeMappingIncoming(in[i]), graphEdgeMappingOutgoing(out[o])))
-								graphNodeMappingConnect(graphEdgeMappingIncoming(in[i]), graphEdgeMappingOutgoing(out[o]), NULL);
-				}
+	strGraphEdgeMappingP in CLEANUP(strGraphEdgeMappingPDestroy) = graphNodeMappingIncoming(node);
+	strGraphEdgeMappingP out CLEANUP(strGraphEdgeMappingPDestroy) = graphNodeMappingOutgoing(node);
+	for (long i = 0; i != strGraphEdgeMappingPSize(in); i++) {
+		for (long o = 0; o != strGraphEdgeMappingPSize(out); o++) {
+			if (!graphNodeMappingConnectedTo(graphEdgeMappingIncoming(in[i]), graphEdgeMappingOutgoing(out[o])))
+				graphNodeMappingConnect(graphEdgeMappingIncoming(in[i]), graphEdgeMappingOutgoing(out[o]), NULL);
 		}
-		graphNodeMappingKill(&node, NULL, NULL);
+	}
+	graphNodeMappingKill(&node, NULL, NULL);
 }
-graphNodeIR IRFilter(graphNodeIR start, int (*pred)(graphNodeIR, const void *),
-                     const void *data) {
-		graphNodeMapping mapping=graphNodeCreateMapping(start, 0);
-		strGraphNodeMappingP allNodes CLEANUP(strGraphNodeMappingPDestroy)=graphNodeMappingAllNodes(mapping);
-		for(long i=0;i<strGraphNodeMappingPSize(allNodes);i++) {
-				if(*graphNodeMappingValuePtr(allNodes[i])==start)
-						continue;
-				if(!pred(*graphNodeMappingValuePtr(allNodes[i]),data))
-						__filterTransparentKill(allNodes[i]);
-		}
+graphNodeIR IRFilter(graphNodeIR start, int (*pred)(graphNodeIR, const void *), const void *data) {
+	graphNodeMapping mapping = graphNodeCreateMapping(start, 0);
+	strGraphNodeMappingP allNodes CLEANUP(strGraphNodeMappingPDestroy) = graphNodeMappingAllNodes(mapping);
+	for (long i = 0; i < strGraphNodeMappingPSize(allNodes); i++) {
+		if (*graphNodeMappingValuePtr(allNodes[i]) == start)
+			continue;
+		if (!pred(*graphNodeMappingValuePtr(allNodes[i]), data))
+			__filterTransparentKill(allNodes[i]);
+	}
 	return mapping;
 }

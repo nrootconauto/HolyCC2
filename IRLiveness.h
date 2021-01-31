@@ -1,7 +1,7 @@
 #pragma once
 #include <IR.h>
-#include <ptrMap.h>
 #include <basicBlocks.h>
+#include <ptrMap.h>
 struct IRVarLiveness {
 	struct IRVar ref;
 };
@@ -13,7 +13,5 @@ struct IRAttrBasicBlock {
 	struct basicBlock *block;
 };
 graphNodeIRLive IRInterferenceGraph(graphNodeIR start);
-strGraphNodeIRLiveP
-IRInterferenceGraphFilter(graphNodeIR start, const void *data,
-                          int (*varFilter)(graphNodeIR node, const void *data));
+strGraphNodeIRLiveP IRInterferenceGraphFilter(graphNodeIR start, const void *data, int (*varFilter)(graphNodeIR node, const void *data));
 extern void *IR_ATTR_BASIC_BLOCK;

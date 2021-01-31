@@ -35,7 +35,9 @@ static char *strClone(const char *str) {
 	strcpy(retVal, str);
 	return retVal;
 }
-static char *ptr2Str(const void *a) { return base64Enc((void *)&a, sizeof(a)); }
+static char *ptr2Str(const void *a) {
+	return base64Enc((void *)&a, sizeof(a));
+}
 /**
  * This function hashes an object,*it also assigns the hash to the object if it
  * doesn't exit.*
@@ -80,8 +82,7 @@ hashObject(struct object *obj, int *alreadyExists) {
 		// If integer dim
 		if (arr->dim->type == NODE_LIT_INT) {
 			struct parserNodeLitInt *lint = (void *)arr->dim;
-			long len = snprintf(NULL, 0, "%s[%lli]", baseH,
-			                    (long long)lint->value.value.sLong);
+			long len = snprintf(NULL, 0, "%s[%lli]", baseH, (long long)lint->value.value.sLong);
 			char buffer[len + 1];
 			sprintf(buffer, "%s[%lli]", baseH, (long long)lint->value.value.sLong);
 
@@ -139,12 +140,9 @@ hashObject(struct object *obj, int *alreadyExists) {
 				if (name->base.type == NODE_NAME)
 					argName = name->text;
 
-			long len =
-			    snprintf(NULL, 0, "%s %s=%s", hashObject(func->args[i].type, NULL),
-			             argName, dftValStr);
+			long len = snprintf(NULL, 0, "%s %s=%s", hashObject(func->args[i].type, NULL), argName, dftValStr);
 			char buffer[len + 1];
-			sprintf(buffer, "%s %s=%s", hashObject(func->args[i].type, NULL), argName,
-			        dftValStr);
+			sprintf(buffer, "%s %s=%s", hashObject(func->args[i].type, NULL), argName, dftValStr);
 
 			argStr = strCharAppendData(argStr, buffer, strlen(buffer));
 		}
@@ -291,8 +289,7 @@ objectSize(const struct object *type, int *success) {
  * Makes a class,See `struct objectMember`. This also registers said class.
  */
 struct object * /*This created class.*/
-objectClassCreate(const struct parserNode *name,
-                  const struct objectMember *members, long count) {
+objectClassCreate(const struct parserNode *name, const struct objectMember *members, long count) {
 	struct objectClass *newClass = malloc(sizeof(struct objectClass));
 	newClass->name = (struct parserNode *)name;
 	newClass->base.type = TYPE_CLASS;
@@ -319,12 +316,10 @@ objectClassCreate(const struct parserNode *name,
 		if (!success)
 			goto fail;
 
-		newClass->members =
-		    strObjectMemberAppendItem(newClass->members, members[i]);
+		newClass->members = strObjectMemberAppendItem(newClass->members, members[i]);
 	}
 	if (offset % largestMemberAlign)
-		newClass->size =
-		    offset + largestMemberAlign - (offset % largestMemberAlign);
+		newClass->size = offset + largestMemberAlign - (offset % largestMemberAlign);
 
 	if (name) {
 		const char *name2 = ((struct parserNodeName *)name)->text;
@@ -343,9 +338,7 @@ fail:
  * This creates a union and registers it too.
  */
 struct object * /*The union being returned. */
-objectUnionCreate(
-    const struct parserNode *name /*Can be `NULL` for empty union.*/,
-    const struct objectMember *members, long count) {
+objectUnionCreate(const struct parserNode *name /*Can be `NULL` for empty union.*/, const struct objectMember *members, long count) {
 	int success;
 
 	struct objectUnion *newUnion = malloc(sizeof(struct objectUnion));
@@ -372,8 +365,7 @@ objectUnionCreate(
 			largestSize = size;
 
 		clone.name = strClone(clone.name);
-		newUnion->members =
-		    strObjectMemberAppendItem(newUnion->members, members[i]);
+		newUnion->members = strObjectMemberAppendItem(newUnion->members, members[i]);
 	}
 	largestSize += largestSize % largestMemberAlign;
 	newUnion->size = largestSize;
@@ -429,13 +421,10 @@ objectArrayCreate(struct object *baseType, struct parserNode *dim) {
  * This function takes `TYPE_CLASS`/`TYPE_UNION` for forward declarations.
  */
 struct object * /*This returns a forward declaration.*/
-objectForwardDeclarationCreate(
-    const struct parserNode *name,
-    enum holyCTypeKind type /* See `TYPE_CLASS`/`TYPE_UNION`.*/) {
-	struct objectForwardDeclaration *retVal =
-	    malloc(sizeof(struct objectForwardDeclaration));
+objectForwardDeclarationCreate(const struct parserNode *name, enum holyCTypeKind type /* See `TYPE_CLASS`/`TYPE_UNION`.*/) {
+	struct objectForwardDeclaration *retVal = malloc(sizeof(struct objectForwardDeclaration));
 	retVal->base.type = TYPE_FORWARD;
-	retVal->base.name=NULL;
+	retVal->base.name = NULL;
 	retVal->name = (struct parserNode *)name;
 	retVal->type = type;
 
@@ -540,12 +529,13 @@ objectFuncCreate(struct object *retType, strFuncArg args) {
  * `hashObject`. This produces readable representations of objects that exclude
  * defualt arguemnt types for readabilty.
  */
-char *object2Str(struct object *obj) { return NULL; }
+char *object2Str(struct object *obj) {
+	return NULL;
+}
 /**
  * This compares if objects are equal.
  */
-int /*Returns 0 if not equal.*/ objectEqual(const struct object *a,
-                                            const struct object *b) {
+int /*Returns 0 if not equal.*/ objectEqual(const struct object *a, const struct object *b) {
 	if (a == b)
 		return 1;
 
@@ -595,10 +585,7 @@ int /*Returns 0 if not equal.*/ objectEqual(const struct object *a,
  */
 static int /*Non-0 if arithmetic type*/
 isArith(const struct object *type) {
-	if (type == &typeU8i || type == &typeU16i || type == &typeU32i ||
-	    type == &typeU64i || type == &typeI8i || type == &typeI16i ||
-	    type == &typeI32i || type == &typeI64i || type == &typeF64 ||
-	    type->type == TYPE_PTR || type->type == TYPE_ARRAY) {
+	if (type == &typeU8i || type == &typeU16i || type == &typeU32i || type == &typeU64i || type == &typeI8i || type == &typeI16i || type == &typeI32i || type == &typeI64i || type == &typeF64 || type->type == TYPE_PTR || type->type == TYPE_ARRAY) {
 		return 1;
 	}
 	return 0;
@@ -606,8 +593,7 @@ isArith(const struct object *type) {
 /**
  * This compares if objects are compatable with each other.
  */
-int /*Non-0 if types are compatible. */ objectIsCompat(const struct object *a,
-                                                       const struct object *b) {
+int /*Non-0 if types are compatible. */ objectIsCompat(const struct object *a, const struct object *b) {
 	if (objectEqual(a, b))
 		return 1;
 	return isArith(a) && isArith(b);

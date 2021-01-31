@@ -9,7 +9,9 @@ static char *ptr2Str(const void *ptr) {
 	return base64Enc((void *)&ptr, sizeof(ptr));
 }
 void initDebugPrint();
-void initDebugPrint() { ptrNames = mapStrCreate(); }
+void initDebugPrint() {
+	ptrNames = mapStrCreate();
+}
 static char *strClone(const char *str) {
 	char *retVal = malloc(strlen(str) + 1);
 	strcpy(retVal, str);

@@ -16,6 +16,4 @@ void diagWarnStart(long start, long end);
 void diagNoteStart(long start, long end);
 void diagErrorStart(long start, long end);
 int diagErrorCount();
-void diagInstCreate(enum outputType type, const strFileMappings fileMappings,
-                    const strTextModify mappings, const char *fileName,
-                    FILE *dumpToFile);
+void diagInstCreate(enum outputType type, const strFileMappings fileMappings, const strTextModify mappings, const char *fileName, FILE *dumpToFile);

@@ -9,20 +9,18 @@
 #include <stringParser.h>
 #include <unistd.h>
 // TODO implement exe,if,ifdef,ifndef
-static void fileDestroy(FILE **file) { fclose(*file); }
+static void fileDestroy(FILE **file) {
+	fclose(*file);
+}
 MAP_TYPE_DEF(struct defineMacro, DefineMacro);
 MAP_TYPE_FUNCS(struct defineMacro, DefineMacro);
 ;
 static long lineStart;
 static strTextModify sourceMappings = NULL;
 static strFileMappings allFileMappings = NULL;
-static FILE *createPreprocessedFileLine(mapDefineMacro defines,
-                                        struct __vec *text_, int *err);
-static void expandDefinesInRange(struct __vec **retVal, mapDefineMacro defines,
-                                 long where, long end, int *expanded, int *err);
-static void expandNextWord(struct __vec **retVal, FILE **prependLinesTo,
-                           mapDefineMacro defines, long where, int *expanded,
-                           int recur, int *err);
+static FILE *createPreprocessedFileLine(mapDefineMacro defines, struct __vec *text_, int *err);
+static void expandDefinesInRange(struct __vec **retVal, mapDefineMacro defines, long where, long end, int *expanded, int *err);
+static void expandNextWord(struct __vec **retVal, FILE **prependLinesTo, mapDefineMacro defines, long where, int *expanded, int recur, int *err);
 static void concatFile(FILE *a, FILE *b);
 static struct __vec *createNullTerminated(struct __vec *vec) {
 	__auto_type nameLen = __vecSize(vec);
@@ -52,9 +50,7 @@ void *findNextLine(const struct __vec *text, long pos) {
 	}
 	return retVal;
 }
-static void *findSkipStringAndComments(
-    const struct __vec *text, long pos, const void *data,
-    void *(*findFunc)(const void *, const struct __vec *text, long pos)) {
+static void *findSkipStringAndComments(const struct __vec *text, long pos, const void *data, void *(*findFunc)(const void *, const struct __vec *text, long pos)) {
 	__auto_type end = (void *)text + __vecSize(text);
 loop:;
 	void *find = findFunc(data, text, pos);
@@ -63,8 +59,7 @@ loop:;
 	void *findCommentM = strstr((void *)text + pos, "/*");
 	findCommentS = (findCommentS == NULL) ? end : findCommentS;
 	findCommentM = (findCommentM == NULL) ? end : findCommentM;
-	__auto_type lesserComment =
-	    (findCommentS < findCommentM) ? findCommentS : findCommentM;
+	__auto_type lesserComment = (findCommentS < findCommentM) ? findCommentS : findCommentM;
 
 	void *findStr1 = strchr((void *)text + pos, '\'');
 	void *findStr2 = strchr((void *)text + pos, '"');
@@ -169,9 +164,7 @@ static void *skipWhitespace(struct __vec *text, long pos) {
 	}
 	return where;
 }
-static int expectMacroAndSkip(const char *macroText, struct __vec **text,
-                              FILE **prependLinesTo, mapDefineMacro defines,
-                              long pos, long *end, int *err) {
+static int expectMacroAndSkip(const char *macroText, struct __vec **text, FILE **prependLinesTo, mapDefineMacro defines, long pos, long *end, int *err) {
 	if (err != NULL)
 		*err = 0;
 
@@ -196,15 +189,12 @@ static int expectMacroAndSkip(const char *macroText, struct __vec **text,
 		*end = pos + len;
 	return 0 == strncmp(*(void **)text + pos, macroText, len);
 }
-static int includeMacroLex(struct __vec **text_, FILE **prependLinesTo,
-                           mapDefineMacro defines, long pos, long *end,
-                           struct includeMacro *result, int *err) {
+static int includeMacroLex(struct __vec **text_, FILE **prependLinesTo, mapDefineMacro defines, long pos, long *end, struct includeMacro *result, int *err) {
 
 	if (err != NULL)
 		*err = 0;
 
-	if (!expectMacroAndSkip("include", text_, prependLinesTo, defines, pos, &pos,
-	                        err))
+	if (!expectMacroAndSkip("include", text_, prependLinesTo, defines, pos, &pos, err))
 		return 0;
 
 	expandNextWord(text_, prependLinesTo, defines, pos, NULL, 1, err);
@@ -220,8 +210,7 @@ static int includeMacroLex(struct __vec **text_, FILE **prependLinesTo,
 		goto malformed;
 
 	struct includeMacro retVal;
-	retVal.fileName =
-	    __vecAppendItem(NULL, (char *)filename.text, __vecSize(filename.text));
+	retVal.fileName = __vecAppendItem(NULL, (char *)filename.text, __vecSize(filename.text));
 
 	FILE *after = tmpfile();
 	long lineLen = strlen(*(char **)text_);
@@ -237,11 +226,8 @@ malformed : {
 	return 0;
 }
 }
-static int defineMacroLex(struct __vec **text_, FILE **prependLinesTo,
-                          mapDefineMacro defines, long pos, long *end,
-                          struct defineMacro *result, int *err) {
-	if (!expectMacroAndSkip("define", text_, prependLinesTo, defines, pos, &pos,
-	                        err))
+static int defineMacroLex(struct __vec **text_, FILE **prependLinesTo, mapDefineMacro defines, long pos, long *end, struct defineMacro *result, int *err) {
+	if (!expectMacroAndSkip("define", text_, prependLinesTo, defines, pos, &pos, err))
 		return 0;
 	if (err != NULL)
 		if (*err)
@@ -269,8 +255,7 @@ static int defineMacroLex(struct __vec **text_, FILE **prependLinesTo,
 		;
 	end2++; // end2 points to last non-blank,so move forard to last blank
 
-	struct __vec *replacement =
-	    __vecAppendItem(NULL, &pos[(char *)text], end2 - pos);
+	struct __vec *replacement = __vecAppendItem(NULL, &pos[(char *)text], end2 - pos);
 	if (end != NULL)
 		*end = findEndOfLine(text, pos) - (void *)text;
 	replacement = __vecAppendItem(replacement, "\0", 1);
@@ -286,8 +271,7 @@ malformed : {
 	return 0;
 }
 }
-static void insertMacroText(struct __vec **text, const struct __vec *toInsert,
-                            long insertAt, long deleteCount) {
+static void insertMacroText(struct __vec **text, const struct __vec *toInsert, long insertAt, long deleteCount) {
 
 	long insertLen = 0;
 	if (toInsert != NULL)
@@ -314,9 +298,7 @@ static void insertMacroText(struct __vec **text, const struct __vec *toInsert,
 	}
 
 	// Insert the text and delete requested amount of chars
-	memmove(*(void **)text + insertAt + insertLen,
-	        *(void **)text + insertAt + deleteCount,
-	        sourceLen - insertAt - deleteCount);
+	memmove(*(void **)text + insertAt + insertLen, *(void **)text + insertAt + deleteCount, sourceLen - insertAt - deleteCount);
 	memmove(*(void **)text + insertAt, toInsert, insertLen);
 }
 static long fstreamSeekEndOfLine(FILE *stream) {
@@ -371,17 +353,13 @@ static long fstreamSeekPastEndOfLine(FILE *stream) {
 }
 MAP_TYPE_DEF(void *, UsedDefines);
 MAP_TYPE_FUNCS(void *, UsedDefines);
-static void expandDefinesInRangeRecur(struct __vec **retVal,
-                                      mapDefineMacro defines, long where,
-                                      long end, int *expanded,
-                                      mapUsedDefines used, int *err) {
+static void expandDefinesInRangeRecur(struct __vec **retVal, mapDefineMacro defines, long where, long end, int *expanded, mapUsedDefines used, int *err) {
 	__auto_type prev = *(void **)retVal + where;
 
 	for (;;) {
 		void *nextReplacement = findNextWord(*retVal, where);
 		void *nextMacroStart = strchr(where + *(char **)retVal, '#');
-		long newEnd =
-		    (nextMacroStart == NULL) ? end : nextMacroStart - *(void **)retVal;
+		long newEnd = (nextMacroStart == NULL) ? end : nextMacroStart - *(void **)retVal;
 		end = (newEnd < end) ? newEnd : end;
 
 		if (nextReplacement == NULL) {
@@ -391,8 +369,7 @@ static void expandDefinesInRangeRecur(struct __vec **retVal,
 		} else {
 			// Get replacement text
 			__auto_type alnumCount = 0;
-			for (__auto_type i = nextReplacement; isalnum(*(char *)i);
-			     i++, alnumCount++)
+			for (__auto_type i = nextReplacement; isalnum(*(char *)i); i++, alnumCount++)
 				;
 			struct __vec *slice CLEANUP(__vecDestroy);
 			slice = __vecAppendItem(NULL, nextReplacement, alnumCount);
@@ -426,9 +403,7 @@ static void expandDefinesInRangeRecur(struct __vec **retVal,
 			int expanded2 = 0;
 			where = insertAt;
 			do {
-				expandDefinesInRangeRecur(retVal, defines, where,
-				                          where + __vecSize(replacement->text),
-				                          &expanded2, used, err);
+				expandDefinesInRangeRecur(retVal, defines, where, where + __vecSize(replacement->text), &expanded2, used, err);
 				if (err != NULL)
 					if (*err)
 						return;
@@ -438,16 +413,13 @@ static void expandDefinesInRangeRecur(struct __vec **retVal,
 			where = where + strlen((char *)replacement->text);
 
 			// Check if macro was inserted,if so quit
-			long nextMacroStart2 =
-			    strchr(oldWhere + *(char **)retVal, '#') - *(char **)retVal;
+			long nextMacroStart2 = strchr(oldWhere + *(char **)retVal, '#') - *(char **)retVal;
 			if (nextMacroStart2 < where)
 				return;
 		}
 	}
 }
-static void expandDefinesInRange(struct __vec **retVal, mapDefineMacro defines,
-                                 long where, long end, int *expanded,
-                                 int *err) {
+static void expandDefinesInRange(struct __vec **retVal, mapDefineMacro defines, long where, long end, int *expanded, int *err) {
 	if (expanded != NULL)
 		*expanded = 0;
 
@@ -455,8 +427,7 @@ static void expandDefinesInRange(struct __vec **retVal, mapDefineMacro defines,
 	expandDefinesInRangeRecur(retVal, defines, where, end, expanded, used, err);
 	mapUsedDefinesDestroy(used, NULL);
 }
-static struct __vec *fileReadLine(FILE *file, long lineStart,
-                                  long *nextLineStart, struct __vec **newLine);
+static struct __vec *fileReadLine(FILE *file, long lineStart, long *nextLineStart, struct __vec **newLine);
 static FILE *fileRemoveFirstLine(FILE *file, struct __vec **firstLine) {
 	fseek(file, 0, SEEK_SET);
 
@@ -490,9 +461,7 @@ static FILE *fileRemoveFirstLine(FILE *file, struct __vec **firstLine) {
 	fclose(file);
 	return retVal;
 }
-static void expandNextWord(struct __vec **retVal, FILE **prependLinesTo,
-                           mapDefineMacro defines, long where, int *expanded,
-                           int recur, int *err) {
+static void expandNextWord(struct __vec **retVal, FILE **prependLinesTo, mapDefineMacro defines, long where, int *expanded, int recur, int *err) {
 	if (expanded != NULL)
 		*expanded = 0;
 
@@ -550,11 +519,9 @@ static void expandNextWord(struct __vec **retVal, FILE **prependLinesTo,
 		if (*expanded)
 			if (recur)
 				for (int expanded2 = 1; expanded2 != 0;)
-					expandNextWord(retVal, prependLinesTo, defines, where, &expanded2, 1,
-					               err);
+					expandNextWord(retVal, prependLinesTo, defines, where, &expanded2, 1, err);
 }
-static struct __vec *fileReadLine(FILE *file, long lineStart,
-                                  long *nextLineStart, struct __vec **newLine) {
+static struct __vec *fileReadLine(FILE *file, long lineStart, long *nextLineStart, struct __vec **newLine) {
 	__auto_type fileLineEnd = fstreamSeekEndOfLine(file);
 	fseek(file, lineStart - ftell(file), SEEK_CUR);
 
@@ -600,8 +567,7 @@ static char *stringClone(const char *str) {
 	strcpy(retVal, str);
 	return retVal;
 }
-static FILE *includeFile(const char *fileName, mapDefineMacro defines,
-                         struct __vec *textFollowingInclude, int *err) {
+static FILE *includeFile(const char *fileName, mapDefineMacro defines, struct __vec *textFollowingInclude, int *err) {
 	FILE *readFrom = fopen(fileName, "r");
 	fseek(readFrom, 0, SEEK_END);
 	long fileEnd = ftell(readFrom);
@@ -611,8 +577,7 @@ static FILE *includeFile(const char *fileName, mapDefineMacro defines,
 
 	// Insert the file text
 	struct textModify wholeFileInsert;
-	wholeFileInsert.len = fileSize, wholeFileInsert.where = lineStart,
-	wholeFileInsert.type = MODIFY_INSERT;
+	wholeFileInsert.len = fileSize, wholeFileInsert.where = lineStart, wholeFileInsert.type = MODIFY_INSERT;
 	sourceMappings = strTextModifyAppendItem(sourceMappings, wholeFileInsert);
 
 	struct fileMapping __newFileMappping;
@@ -620,8 +585,7 @@ static FILE *includeFile(const char *fileName, mapDefineMacro defines,
 	__newFileMappping.fileName = stringClone(fileName);
 	__newFileMappping.mappingIndexStart = strTextModifySize(sourceMappings);
 	__newFileMappping.mappingIndexEnd = -1;
-	allFileMappings =
-	    strFileMappingsAppendItem(allFileMappings, __newFileMappping);
+	allFileMappings = strFileMappingsAppendItem(allFileMappings, __newFileMappping);
 	long t = sizeof(struct fileMapping);
 	long newFileMappingPos = strFileMappingsSize(allFileMappings) - 1;
 
@@ -642,8 +606,7 @@ static FILE *includeFile(const char *fileName, mapDefineMacro defines,
 		 * #include
 		 */
 		if (strlen((char *)newLine) == 0) {
-			lineText = __vecAppendItem(lineText, textFollowingInclude,
-			                           __vecSize(textFollowingInclude));
+			lineText = __vecAppendItem(lineText, textFollowingInclude, __vecSize(textFollowingInclude));
 		}
 
 		__auto_type lump = createPreprocessedFileLine(defines, lineText, err);
@@ -661,18 +624,14 @@ static FILE *includeFile(const char *fileName, mapDefineMacro defines,
 			break;
 	}
 
-	allFileMappings[newFileMappingPos].mappingIndexEnd =
-	    strTextModifySize(sourceMappings);
+	allFileMappings[newFileMappingPos].mappingIndexEnd = strTextModifySize(sourceMappings);
 	// Set end relative to included file size
-	allFileMappings[newFileMappingPos].fileEndOffset =
-	    ftell(retValFile) - retValStart +
-	    allFileMappings[newFileMappingPos].fileOffset;
+	allFileMappings[newFileMappingPos].fileEndOffset = ftell(retValFile) - retValStart + allFileMappings[newFileMappingPos].fileOffset;
 
 	fclose(readFrom);
 	return retValFile;
 }
-static FILE *createPreprocessedFileLine(mapDefineMacro defines,
-                                        struct __vec *text_, int *err) {
+static FILE *createPreprocessedFileLine(mapDefineMacro defines, struct __vec *text_, int *err) {
 	__auto_type writeTo = tmpfile();
 	FILE *afterLines;
 	afterLines = tmpfile();
@@ -684,8 +643,7 @@ static FILE *createPreprocessedFileLine(mapDefineMacro defines,
 	loop:;
 		void *nextMacro = skipNonMacro(retVal, where);
 
-		__auto_type expandEnd =
-		    (nextMacro == NULL) ? __vecSize(retVal) : nextMacro - (void *)retVal;
+		__auto_type expandEnd = (nextMacro == NULL) ? __vecSize(retVal) : nextMacro - (void *)retVal;
 		int expanded;
 		for (;;) {
 			expandDefinesInRange(&retVal, defines, where, expandEnd, &expanded, err);
@@ -705,8 +663,7 @@ static FILE *createPreprocessedFileLine(mapDefineMacro defines,
 		long endPos;
 		struct defineMacro define;
 		struct includeMacro include;
-		if (defineMacroLex(&retVal, &afterLines, defines,
-		                   nextMacro - (void *)retVal, &endPos, &define, err)) {
+		if (defineMacroLex(&retVal, &afterLines, defines, nextMacro - (void *)retVal, &endPos, &define, err)) {
 			// Make slice with null ending
 			__auto_type nameStr = createNullTerminated(define.name);
 
@@ -723,9 +680,7 @@ static FILE *createPreprocessedFileLine(mapDefineMacro defines,
 
 			// endPos-at is deleted text,so start at at
 			where = at;
-		} else if (includeMacroLex(&retVal, &afterLines, defines,
-		                           nextMacro - (void *)retVal, &endPos, &include,
-		                           err)) {
+		} else if (includeMacroLex(&retVal, &afterLines, defines, nextMacro - (void *)retVal, &endPos, &include, err)) {
 			struct includeMacro includeClone;
 			includeClone = include;
 
@@ -741,15 +696,13 @@ static FILE *createPreprocessedFileLine(mapDefineMacro defines,
 			assert(fn != NULL); // TODO whine about file not found
 
 			struct __vec *textFollowingInclude;
-			textFollowingInclude = __vecAppendItem(NULL, (void *)retVal + endPos,
-			                                       __vecSize(retVal) - endPos);
+			textFollowingInclude = __vecAppendItem(NULL, (void *)retVal + endPos, __vecSize(retVal) - endPos);
 
 			retVal = __vecResize(retVal, where);
 			fwrite(retVal, 1, __vecSize(retVal), writeTo);
 			lineStart += __vecSize(retVal);
 
-			__auto_type included = includeFile((char *)include.fileName, defines,
-			                                   textFollowingInclude, err);
+			__auto_type included = includeFile((char *)include.fileName, defines, textFollowingInclude, err);
 			if (err != NULL)
 				if (*err)
 					goto fail;
@@ -778,8 +731,7 @@ fail:
 	return NULL;
 }
 
-FILE *createPreprocessedFile(const char *fileName, strTextModify *mappings,
-                             strFileMappings *fileMappings, int *err) {
+FILE *createPreprocessedFile(const char *fileName, strTextModify *mappings, strFileMappings *fileMappings, int *err) {
 	if (err != NULL)
 		*err = 0;
 
@@ -792,11 +744,9 @@ FILE *createPreprocessedFile(const char *fileName, strTextModify *mappings,
 	__auto_type preprocessedSource = includeFile(fileName, defines, NULL, err);
 
 	if (mappings != NULL)
-		*mappings = (strTextModify)__vecAppendItem(
-		    NULL, sourceMappings, __vecSize((struct __vec *)sourceMappings));
+		*mappings = (strTextModify)__vecAppendItem(NULL, sourceMappings, __vecSize((struct __vec *)sourceMappings));
 	if (fileMappings != NULL)
-		*fileMappings = (strFileMappings)__vecAppendItem(
-		    NULL, allFileMappings, __vecSize((struct __vec *)allFileMappings));
+		*fileMappings = (strFileMappings)__vecAppendItem(NULL, allFileMappings, __vecSize((struct __vec *)allFileMappings));
 returnLabel:
 	mapDefineMacroDestroy(defines, NULL);
 
@@ -812,9 +762,7 @@ returnLabel:
 // The inner most mapping's start is closest to pos beause nested #includes move
 // forward The end is also closest to the position #include "a" #include "b" [ a
 // text    [   pos    ] ]
-static struct fileMapping *
-innerMostFileMapping(strFileMappings mappings, long lowerBoundI,
-                     long upperBoundI, const struct fileMapping *m, long pos) {
+static struct fileMapping *innerMostFileMapping(strFileMappings mappings, long lowerBoundI, long upperBoundI, const struct fileMapping *m, long pos) {
 	long largestIndex = -1, smallestOffsetStart = -1, smallestOffsetEnd = -1;
 	for (long i = lowerBoundI; i != upperBoundI; i++) {
 		if (largestIndex == -1)
@@ -850,6 +798,5 @@ const char *fileNameFromPos(strFileMappings mappings, long pos) {
 	}
 	if (lower == -1)
 		lower = strFileMappingsSize(mappings) - 1;
-	return innerMostFileMapping(mappings, lower, upper + 1, mappings, pos)
-	    ->fileName;
+	return innerMostFileMapping(mappings, lower, upper + 1, mappings, pos)->fileName;
 }

@@ -39,8 +39,7 @@ void llInsertListBefore(struct __ll *a, struct __ll *b) {
 		oldPrev->next = bStart;
 	}
 }
-struct __ll *__llInsert(struct __ll *from, struct __ll *newItem,
-                        int (*pred)(const void *, const void *)) {
+struct __ll *__llInsert(struct __ll *from, struct __ll *newItem, int (*pred)(const void *, const void *)) {
 	if (from == NULL)
 		return newItem;
 	if (pred == NULL) {
@@ -150,10 +149,13 @@ struct __ll *__llPrev(const struct __ll *node) {
 		return NULL;
 	return node->prev;
 }
-int llLastPred(const void *a, const void *b) { return 1; }
-int __llFirstPred(const void *a, const void *b) { return -1; }
-struct __ll *__llFindLeft(const struct __ll *list, const void *data,
-                          int (*pred)(const void *a, const void *b)) {
+int llLastPred(const void *a, const void *b) {
+	return 1;
+}
+int __llFirstPred(const void *a, const void *b) {
+	return -1;
+}
+struct __ll *__llFindLeft(const struct __ll *list, const void *data, int (*pred)(const void *a, const void *b)) {
 	if (list == NULL)
 		return NULL;
 	if (0 == pred(data, __llValuePtr(list)))
@@ -166,8 +168,7 @@ struct __ll *__llFindLeft(const struct __ll *list, const void *data,
 	}
 	return NULL;
 }
-struct __ll *__llFindRight(const struct __ll *list, const void *data,
-                           int (*pred)(const void *a, const void *b)) {
+struct __ll *__llFindRight(const struct __ll *list, const void *data, int (*pred)(const void *a, const void *b)) {
 	if (list == NULL)
 		return NULL;
 	if (0 == pred(data, __llValuePtr(list)))
@@ -223,9 +224,10 @@ struct __ll *__llValueResize(struct __ll *list, long newSize) {
 	list->itemSize = newSize;
 	return list;
 }
-long __llItemSize(const struct __ll *list) { return list->itemSize; }
-struct __ll *__llFind(const struct __ll *list, const void *data,
-                      int (*pred)(const void *, const void *)) {
+long __llItemSize(const struct __ll *list) {
+	return list->itemSize;
+}
+struct __ll *__llFind(const struct __ll *list, const void *data, int (*pred)(const void *, const void *)) {
 	int firstRun = 1;
 	int dir = 0;
 	while (list != NULL) {

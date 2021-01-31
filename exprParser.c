@@ -3,25 +3,22 @@
 #include <hashTable.h>
 #include <parserA.h>
 #include <parserB.h>
+#include <registers.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <registers.h>
 static struct object *dftValType() {
-		switch(getCurrentArch()) {
-		case ARCH_TEST_SYSV:
-		case ARCH_X86_SYSV:
-				return &typeI32i;
-		case ARCH_X64_SYSV:
-				return &typeI64i;
-		}
-		assert(0);
+	switch (getCurrentArch()) {
+	case ARCH_TEST_SYSV:
+	case ARCH_X86_SYSV:
+		return &typeI32i;
+	case ARCH_X64_SYSV:
+		return &typeI64i;
+	}
+	assert(0);
 }
 struct object *assignTypeToOp(const struct parserNode *node);
 static int isArith(const struct object *type) {
-	if (type == &typeU8i || type == &typeU16i || type == &typeU32i ||
-	    type == &typeU64i || type == &typeI8i || type == &typeI16i ||
-	    type == &typeI32i || type == &typeI64i || type == &typeF64 ||
-	    type->type == TYPE_PTR || type->type == TYPE_ARRAY) {
+	if (type == &typeU8i || type == &typeU16i || type == &typeU32i || type == &typeU64i || type == &typeI8i || type == &typeI16i || type == &typeI32i || type == &typeI64i || type == &typeF64 || type->type == TYPE_PTR || type->type == TYPE_ARRAY) {
 		return 1;
 	}
 	return 0;
@@ -68,8 +65,7 @@ static int isAssignOp(const struct parserNode *op) {
 	assert(op2->base.type == NODE_OP);
 	return NULL != mapSetGet(assignOps, op2->text);
 }
-static int objIndex(const struct object **objs, long count,
-                    const struct object *obj) {
+static int objIndex(const struct object **objs, long count, const struct object *obj) {
 	for (long i = 0; i != count; i++)
 		if (obj == objs[i])
 			return i;
@@ -77,30 +73,36 @@ static int objIndex(const struct object **objs, long count,
 	assert(0);
 	return -1;
 }
-#define inRange(exp,min,max) ((exp)>=min&&(exp)<=max)
+#define inRange(exp, min, max) ((exp) >= min && (exp) <= max)
 static struct object *intLitType(struct parserNodeLitInt *i) {
-		if(i->value.type==INT_SLONG) {
-				__auto_type val=i->value.value.sLong;
-				if(inRange(val,INT8_MIN,INT8_MAX)) return &typeI8i;
-				if(inRange(val,INT16_MIN,INT16_MAX)) return &typeI16i;
-				if(inRange(val,INT32_MIN,INT32_MAX)) return &typeI32i;
-				if(inRange(val,INT64_MIN,INT64_MAX)) return &typeI64i;
-		}
-		if(i->value.type==INT_ULONG) {
-				__auto_type val=i->value.value.uLong;
-				if(inRange(val,0,UINT8_MAX)) return &typeU8i;
-				if(inRange(val,0,UINT16_MAX)) return &typeU16i;
-				if(inRange(val,0,UINT32_MAX)) return &typeU32i;
-				if(inRange(val,0,UINT64_MAX)) return &typeU64i;
-		}
-		assert(0);
-		return &typeI64i;
+	if (i->value.type == INT_SLONG) {
+		__auto_type val = i->value.value.sLong;
+		if (inRange(val, INT8_MIN, INT8_MAX))
+			return &typeI8i;
+		if (inRange(val, INT16_MIN, INT16_MAX))
+			return &typeI16i;
+		if (inRange(val, INT32_MIN, INT32_MAX))
+			return &typeI32i;
+		if (inRange(val, INT64_MIN, INT64_MAX))
+			return &typeI64i;
+	}
+	if (i->value.type == INT_ULONG) {
+		__auto_type val = i->value.value.uLong;
+		if (inRange(val, 0, UINT8_MAX))
+			return &typeU8i;
+		if (inRange(val, 0, UINT16_MAX))
+			return &typeU16i;
+		if (inRange(val, 0, UINT32_MAX))
+			return &typeU32i;
+		if (inRange(val, 0, UINT64_MAX))
+			return &typeU64i;
+	}
+	assert(0);
+	return &typeI64i;
 }
-static struct object *promotionType(const struct object *a,
-                                    const struct object *b) {
+static struct object *promotionType(const struct object *a, const struct object *b) {
 	const struct object *ranks[] = {
-	    &typeU0,   &typeI8i,  &typeU8i,  &typeI16i, &typeU16i,
-	    &typeI32i, &typeU32i, &typeI64i, &typeU64i, &typeF64,
+	    &typeU0, &typeI8i, &typeU8i, &typeI16i, &typeU16i, &typeI32i, &typeU32i, &typeI64i, &typeU64i, &typeF64,
 	};
 	long count = sizeof(ranks) / sizeof(*ranks);
 	long I32Rank = objIndex(ranks, count, dftValType());
@@ -121,8 +123,7 @@ static struct object *promotionType(const struct object *a,
 
 	return NULL;
 }
-static struct parserNode *promoteIfNeeded(struct parserNode *node,
-                                          struct object *toType) {
+static struct parserNode *promoteIfNeeded(struct parserNode *node, struct object *toType) {
 	if (assignTypeToOp(node) != toType) {
 		struct parserNodeTypeCast *cast = malloc(sizeof(struct parserNodeTypeCast));
 		cast->base.type = NODE_TYPE_CAST;
@@ -410,21 +411,21 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 
 	castEnd:
 		return cast->type;
-	} else if(node->type==NODE_LIT_INT) {
-			__auto_type lit=(struct parserNodeLitInt*)node;
-			switch(objectSize(dftValType(), NULL)) {
-			case 2:
-					return promotionType(intLitType(lit), &typeI16i);
-			case 4:
-					return promotionType(intLitType(lit), &typeI32i);
-			case 8:
-					return promotionType(intLitType(lit), &typeI64i);
-			default:
-					fprintf(stderr, "That's an odd defualt value size.");
-					abort();
-			}
-	} else if(node->type==NODE_LIT_FLT) {
-			return &typeF64;
+	} else if (node->type == NODE_LIT_INT) {
+		__auto_type lit = (struct parserNodeLitInt *)node;
+		switch (objectSize(dftValType(), NULL)) {
+		case 2:
+			return promotionType(intLitType(lit), &typeI16i);
+		case 4:
+			return promotionType(intLitType(lit), &typeI32i);
+		case 8:
+			return promotionType(intLitType(lit), &typeI64i);
+		default:
+			fprintf(stderr, "That's an odd defualt value size.");
+			abort();
+		}
+	} else if (node->type == NODE_LIT_FLT) {
+		return &typeF64;
 	}
 
 	// Couldn't detirmine type
