@@ -194,6 +194,17 @@ static void bbFromExpr(graphNodeIR start, strBasicBlock *results, int (*varFilte
 
 		__auto_type node = *graphNodeMappingValuePtr(exprNodes[i2]);
 		struct IRNode *irNode = graphNodeIRValuePtr(*graphNodeMappingValuePtr(exprNodes[i2]));
+
+		//
+		// Check for do-later
+		//  expr nodes stops at incoming assigns so continue search upwards
+		if(*graphNodeMappingValuePtr(start) != node) {
+				strGraphEdgeIRP incoming = graphNodeIRIncoming(node);
+				strGraphEdgeIRP incomingAssigns CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(incoming, IR_CONN_DEST);
+				if (strGraphEdgeIRPSize(incomingAssigns))
+						doLater = strGraphNodeMappingPAppendItem(doLater, exprNodes[i2]);
+		}
+		
 		if (isVarNode(irNode)) {
 			// If filter predicate provided,filter it out
 			if (varFilter)
@@ -218,7 +229,6 @@ static void bbFromExpr(graphNodeIR start, strBasicBlock *results, int (*varFilte
 #endif
 					block.nodes = strGraphNodeIRPSortedInsert(block.nodes, exprNodes[i2], (gnCmpType)ptrPtrCmp);
 				} else {
-					doLater = strGraphNodeMappingPAppendItem(doLater, exprNodes[i2]);
 					goto registerRead;
 				}
 			} else {

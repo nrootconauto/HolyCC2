@@ -76,7 +76,7 @@ struct colorPair {
 strFrameEntry IRComputeFrameLayout(graphNodeIR start, long *frameSize) {
 	strFrameEntry retVal = NULL;
 	// These return "first" nodes of graphs
-	strGraphNodeIRLiveP graphs CLEANUP(strGraphNodeIRLivePDestroy2) = IRInterferenceGraphFilter(start, NULL, isGlobal);
+	strGraphNodeIRLiveP graphs CLEANUP(strGraphNodeIRLivePDestroy2) = IRInterferenceGraphFilter(start, NULL, NULL);
 	for (long i = 0; i != strGraphNodeIRLivePSize(graphs); i++) {
 		__auto_type colors = graphColor(graphs[i]);
 		strGraphNodeIRLiveP allNodes CLEANUP(strGraphNodeIRLivePDestroy) = graphNodeIRLiveAllNodes(graphs[i]);
