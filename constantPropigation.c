@@ -304,7 +304,7 @@ static strIRVar  __IRConstPropigation(graphNodeIR start,strIRVar consts) {
 						continue;
 				}
 				
-				__auto_type newBlocks=IRGetBasicBlocksFromExpr(start, NULL, allMappedNodes[0], NULL,NULL);
+				__auto_type newBlocks=IRGetBasicBlocksFromExpr(start, NULL, allMappedNodes[0],NULL, NULL,NULL);
 				strGraphNodeMappingP dummy CLEANUP(strGraphNodeMappingPDestroy)=strGraphNodeMappingPAppendItem(NULL, allMappedNodes[0]);
 				blocks=strBasicBlockConcat(blocks, newBlocks);
 				for(long i=0;i!=strBasicBlockSize(newBlocks);i++) {

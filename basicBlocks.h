@@ -19,5 +19,5 @@ STR_TYPE_FUNCS(struct basicBlock *, BasicBlock);
 PTR_MAP_FUNCS(struct __graphNode *,struct blockMetaNode, BlockMetaNode);
 strBasicBlock
 IRGetBasicBlocksFromExpr(graphNodeIR dontDestroy, ptrMapBlockMetaNode metaNodes,
-																									graphNodeMapping start, const void *data,
+																									graphNodeMapping start,strGraphNodeMappingP *consumedNodes, const void *data,
 																									int (*varFilter)(graphNodeIR var, const void *data));

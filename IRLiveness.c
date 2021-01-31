@@ -311,19 +311,16 @@ strGraphNodeIRLiveP __IRInterferenceGraphFilter(
 			// Add current node visted;
 			visited = strGraphNodeMappingPSortedInsert(visited, allMappedNodes[i],
 			                                           (gnCmpType)ptrPtrCmp);
-
-			__auto_type basicBlocks = IRGetBasicBlocksFromExpr(
-			    mappedClone, metaNodes, allMappedNodes[i], data, varFilter);
+			strGraphNodeMappingP consumedNodes CLEANUP(strGraphNodeMappingPDestroy)=NULL;
+			__auto_type basicBlocks = IRGetBasicBlocksFromExpr(mappedClone, metaNodes, allMappedNodes[i],&consumedNodes, data, varFilter);
 
 			// NULL if not found
 			if (!basicBlocks)
 				continue;
 
 			// Remove nodes in basic blocks
-			for (long i = 0; i != strBasicBlockSize(basicBlocks); i++) {
 				allMappedNodes = strGraphNodeMappingPSetDifference(
-				    allMappedNodes, basicBlocks[i]->nodes, (gnCmpType)ptrPtrCmp);
-			}
+				    allMappedNodes, consumedNodes, (gnCmpType)ptrPtrCmp);
 
 			// Mark as found;
 			found = 1;

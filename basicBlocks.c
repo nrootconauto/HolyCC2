@@ -231,7 +231,7 @@ static void bbFromExpr(graphNodeIR start,strBasicBlock *results,int(*varFilter)(
 } 
 strBasicBlock
 IRGetBasicBlocksFromExpr(graphNodeIR dontDestroy, ptrMapBlockMetaNode metaNodes,
-                       graphNodeMapping start, const void *data,
+																									graphNodeMapping start,strGraphNodeMappingP *consumedNodes, const void *data,
                        int (*varFilter)(graphNodeIR var, const void *data)) {
 		varFilterPred=varFilter;
 		varFilterData=(void*)data;
@@ -340,6 +340,9 @@ IRGetBasicBlocksFromExpr(graphNodeIR dontDestroy, ptrMapBlockMetaNode metaNodes,
 			graphNodeMappingConnect(last,graphEdgeMappingOutgoing(outM[o]), NULL);
 
 	graphNodeMappingKill(&dummy, NULL, NULL);
+	
+	if(consumedNodes)
+			*consumedNodes=strGraphNodeMappingPClone(nodes);
 	return retVal;
 }
 static void basicBlockDestroy(struct basicBlock *bb) {
