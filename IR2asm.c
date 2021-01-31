@@ -2312,45 +2312,12 @@ static int isNotArgEdge(const void *data,const graphEdgeIR *edge) {
 				return 1;		
 		}
 }
-static __thread graphNodeIR argEdgeSortNode=NULL;
-static int argEdgeSortPrec(graphEdgeIR edge) {
-		__auto_type type=*graphEdgeIRValuePtr(edge);
-		switch(type) {
-		case IR_CONN_SOURCE_A:
-				return 0;
-		case IR_CONN_SOURCE_B:
-				return 1;
-		case IR_CONN_DEST:
-				return 2;
-		case IR_CONN_COND:
-				return 0;
-		case IR_CONN_FUNC_ARG: {
-				struct IRNodeFuncCall *call=(void*)graphNodeIRValuePtr(argEdgeSortNode);
-				return 1+strGraphNodeIRPSortedFind(call->incomingArgs,graphEdgeIRIncoming(edge),(gnCmpType)ptrPtrCmp)
-						-call->incomingArgs;
-		}
-		case IR_CONN_FUNC:
-				return 0;
-		default:
-				assert(0);
-				return 0;		
-		}
-}
-static int argEdgeSort(const void *a,const void *b) {
-		const graphEdgeIR *A=a,*B=b;
-		return argEdgeSortPrec(*A)-argEdgeSortPrec(*B);
-}
 static int isUnvisited(const void *data,const graphNodeIR *node) {
 		return NULL!=ptrMapCompiledNodesGet(compiledNodes, *node);
 }
 void __IR2AsmExpr(graphNodeIR start) {
 	computeArgs:;
-		strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
-		incoming=strGraphEdgeIRPRemoveIf(incoming, NULL, isNotArgEdge);
-		//Is a global used to sort the arguments (orders function args in order)
-		argEdgeSortNode=start;
-		qsort(incoming, strGraphEdgeIRPSize(incoming), sizeof(*incoming), argEdgeSort);
-		
+		strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy)=IREdgesByPrec(start);	
 		for(long a=0;a!=strGraphEdgeIRPSize(incoming);a++) {
 				__IR2AsmExpr(graphEdgeIRIncoming(incoming[a]));
 		}

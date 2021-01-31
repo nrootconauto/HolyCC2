@@ -409,3 +409,4 @@ graphNodeIR IRCreateFloat(double value);
 void IRAttrReplace(graphNodeIR node,llIRAttr attribute);
 graphNodeIR IRCreateJumpTable();
 graphNodeIR IRCreateFrameAddress(long offset,struct object *obj);
+strGraphEdgeIRP IREdgesByPrec(graphNodeIR node);

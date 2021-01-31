@@ -1082,6 +1082,8 @@ void IRGraphMap2GraphViz(
 
 	long labelCount = 0;
 	for (long i = 0; i != strGraphNodeIRPSize(allNodes); i++) {
+			if(!*graphNodeMappingValuePtr(allNodes[i]))
+					continue;
 		struct IRNode *nodeVal =
 		    graphNodeIRValuePtr(*graphNodeMappingValuePtr(allNodes[i]));
 		if (nodeVal->type == IR_LABEL) {
@@ -1647,4 +1649,44 @@ graphNodeIR IRCreateFrameAddress(long offset,struct object *obj) {
 		val.val.value.__frame.offset=offset;
 		val.val.value.__frame.type=obj;
 		return GRAPHN_ALLOCATE(val);
+}
+static __thread graphNodeIR argEdgeSortNode=NULL;
+static int argEdgeSortPrec(graphEdgeIR edge) {
+		__auto_type type=*graphEdgeIRValuePtr(edge);
+		switch(type) {
+		case IR_CONN_SOURCE_A:
+				return 0;
+		case IR_CONN_SOURCE_B:
+				return 1;
+		case IR_CONN_DEST:
+				return 2;
+		case IR_CONN_COND:
+				return 0;
+		case IR_CONN_FUNC_ARG: {
+				struct IRNodeFuncCall *call=(void*)graphNodeIRValuePtr(argEdgeSortNode);
+				return 1+strGraphNodeIRPSortedFind(call->incomingArgs,graphEdgeIRIncoming(edge),(gnIRCmpType)ptrPtrCmp)
+						-call->incomingArgs;
+		}
+		case IR_CONN_FUNC:
+				return 0;
+		default:
+				assert(0);
+				return 0;		
+		}
+}
+static int argEdgeSort(const void *a,const void *b) {
+		const graphEdgeIR *A=a,*B=b;
+		return argEdgeSortPrec(*A)-argEdgeSortPrec(*B);
+}
+strGraphEdgeIRP IREdgesByPrec(graphNodeIR node) {
+		argEdgeSortNode=node;
+		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy) =graphNodeIRIncoming(node);
+		strGraphEdgeIRP inExpr =NULL;
+		for(long i=0;i!=strGraphEdgeIRPSize(in);i++)
+				if(IRIsExprEdge(*graphEdgeIRValuePtr(in[i])))
+						inExpr=strGraphEdgeIRPAppendItem(inExpr, in[i]);
+
+		qsort(inExpr, strGraphEdgeIRPSize(inExpr), sizeof(*inExpr), argEdgeSort);
+		argEdgeSortNode=NULL;
+		return inExpr;
 }

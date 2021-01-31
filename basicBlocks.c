@@ -160,15 +160,36 @@ static int untilAssignOutPred(const struct __graphNode *n,const struct __graphEd
 		
 		return 0==strGraphEdgeIRPSize(outAssign);
 }
+static void visitBackwardsByPrec(graphNodeMapping start,strGraphNodeIRP *result) {
+		__auto_type ir=*graphNodeMappingValuePtr(start);
+		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=IREdgesByPrec(ir);
+		*result=strGraphNodeIRPAppendItem(*result, start);
+
+		strGraphEdgeMappingP inM CLEANUP(strGraphEdgeMappingPDestroy)=graphNodeMappingIncoming(start);
+		
+		for(long i=0;i!=strGraphEdgeIRPSize(in);i++) {
+				long mapEdgeI=-1;
+				for(long m=0;m!=strGraphEdgeMappingPSize(inM);m++) {
+						__auto_type ir=*graphNodeMappingValuePtr(graphEdgeMappingIncoming(inM[m]));
+						if(ir==graphEdgeIRIncoming(in[i])) {
+								mapEdgeI=m;
+								break;
+						}
+				}
+				assert(mapEdgeI!=-1);
+				
+				if(untilAssignOutPred(graphEdgeIRIncoming(inM[mapEdgeI]), inM[mapEdgeI], NULL))
+						visitBackwardsByPrec(graphEdgeIRIncoming(inM[mapEdgeI]),result);
+		}
+}
 static void bbFromExpr(graphNodeIR start,strBasicBlock *results,int(*varFilter)(graphNodeMapping,const void*),const void *data) {
 		DEBUG_PRINT("ENTERING SUB-BLOCK %li\n", strBasicBlockSize(*results));
 		//
 		// startAtAssign marks the node we are starting at,it signifes to not stop at the incoming assign to start
 		//
 		startAtAssign=start;
-		strGraphNodeMappingP exprNodes CLEANUP(strGraphNodeMappingPDestroy)=strGraphNodeMappingPAppendItem(NULL, start);
-		graphNodeIRVisitBackward(start, &exprNodes, untilAssignOutPred, appendToNodes);
-		
+		strGraphNodeMappingP exprNodes CLEANUP(strGraphNodeMappingPDestroy)=NULL;
+		visitBackwardsByPrec(start,&exprNodes);
 		struct basicBlock block;
 		block.nodes = NULL;
 		block.read = NULL;
