@@ -282,7 +282,7 @@ static void debugShowGraphIR(graphNodeMapping enter,ptrMapBlockMetaNode *nodeDat
 	fclose(f);
 	char buffer[1024];
 	sprintf(buffer,
-	        "sleep 0.1 &&dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg & ",
+	        "sleep 0.1 &&dot -Tsvg %s > /tmp/live.svg && firefox /tmp/live.svg & ",
 	        name);
 
 	system(buffer);
@@ -378,7 +378,6 @@ strGraphNodeIRLiveP __IRInterferenceGraphFilter(
 	for (;;) {
 			int changed = 0;
 			DEBUG_PRINT("START,%i\n\n",10);
-			debugShowGraphIR(mappedClone,&metaNodes);
 		for (long i = strGraphNodeMappingPSize(forwards) - 1; i >= 0; i--) {
 			__auto_type find = ptrMapBlockMetaNodeGet(metaNodes, forwards[i]);
 
@@ -449,6 +448,7 @@ strGraphNodeIRLiveP __IRInterferenceGraphFilter(
 		if (!changed)
 			break;
 	}
+	debugShowGraphIR(mappedClone,&metaNodes);
 
 	//
 	// Create interference graph
@@ -591,7 +591,10 @@ strGraphNodeIRLiveP __IRInterferenceGraphFilter(
 								// Dont reconnect
 								if (graphNodeIRLiveConnectedTo(outNodes[i1], defNodes[i2]))
 										continue;
-
+								
+								if(outNodes[i1]== defNodes[i2])
+										continue;
+								
 								// Connect(bi-directional to simulate undirected)
 								graphNodeIRLiveConnect(outNodes[i1], defNodes[i2], NULL);
 								graphNodeIRLiveConnect(defNodes[i2], outNodes[i1], NULL);

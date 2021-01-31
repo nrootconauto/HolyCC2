@@ -1125,7 +1125,7 @@ loop:
 			__auto_type interfere = interferes[i];
 
 			ptrMapregSlice regsByLivenessNode = ptrMapregSliceCreate(); // TODO rename
-		debugPrintInterferenceGraph(interferes[i], regsByLivenessNode);
+			//debugPrintInterferenceGraph(interferes[i], regsByLivenessNode);
 			
 		__auto_type vertexColors = graphColor(interfere);
 
@@ -1177,7 +1177,7 @@ loop:
 
 		}
 
-		debugPrintInterferenceGraph(interferes[i], regsByLivenessNode);
+		//debugPrintInterferenceGraph(interferes[i], regsByLivenessNode);
 		
 		// Get conflicts and spill nodes
 		strGraphNodeIRLiveP spillNodes = NULL;
