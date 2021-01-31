@@ -172,13 +172,19 @@ static const char *getLabelName(graphNodeIR node) {
 		}
 		goto loop;
 }
+static struct reg *basePointer() {
+		return (ptrSize()==4)?&regX86EBP:&regAMD64RBP;
+}
+static struct reg *stackPointer() {
+		return ptrSize()==4?&regX86ESP:&regAMD64RSP;
+}
 static struct X86AddressingMode *__node2AddrMode(graphNodeIR start) {
 		if(graphNodeIRValuePtr(start)->type==IR_VALUE) {
 				struct IRNodeValue *value=(void*)graphNodeIRValuePtr(start);
 				switch(value->val.type) {
 				case __IR_VAL_MEM_FRAME: {
 						if(getCurrentArch()==ARCH_TEST_SYSV||getCurrentArch()==ARCH_X86_SYSV||getCurrentArch()==ARCH_X64_SYSV) {
-								return X86AddrModeIndirSIB(0, NULL, (ptrSize()==4)?&regX86EBP:&regAMD64RBP,
+								return X86AddrModeIndirSIB(0, NULL, basePointer(),
 																																			X86AddrModeSint(value->val.value.__frame.offset), IRNodeType(start));
 						} else {
 								assert(0); //TODO  implement
@@ -1174,6 +1180,12 @@ static graphNodeIR assembleOpInt(graphNodeIR start,const char *opName) {
 		}
 		return out;
 }
+static int interferesWithConsumedReg(struct reg *r) {
+		for(long i=0;i!=strRegPSize(consumedRegisters);i++)
+				if(regConflict(r, consumedRegisters[i]))
+						return 1;
+		return 0;
+}
 static void typecastAssign(struct X86AddressingMode *outMode,struct X86AddressingMode *inMode) {
 		switch(inMode->type) {
 		case X86ADDRMODE_FLT: {
@@ -1450,48 +1462,79 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 								strX86AddrMode mulArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 								strX86AddrMode ppArgsA CLEANUP(strX86AddrModeDestroy2)=NULL;
 								strX86AddrMode ppArgsD CLEANUP(strX86AddrModeDestroy2)=NULL;
-								switch(objectSize(IRNodeType(a), NULL)) {
+
+								strRegP pushPopRegs CLEANUP(strRegPDestroy)=NULL;
+								struct reg *outReg=NULL;
+
+								long outSize=objectSize(IRNodeType(a), NULL);
+								switch(outSize) {
 								case 1: {
 										struct X86AddressingMode *alMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86AL);
 										assign(alMode, aMode, 1);
 										mulArgs=strX86AddrModeAppendItem(mulArgs, X86AddrModeClone(bMode));
-										ppArgsA=strX86AddrModeAppendItem(ppArgsA, X86AddrModeReg(&regX86AX)); //Result is stored in ax
+										pushPopRegs =strRegPAppendItem(pushPopRegs, &regX86AX);
+										outReg=&regX86AL;
 										break;
 								}
 								case 2: {
 										struct X86AddressingMode *axMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86AX);
 										assign(axMode, aMode, 2);
 										mulArgs=strX86AddrModeAppendItem(mulArgs, X86AddrModeClone(bMode));
-										ppArgsA=strX86AddrModeAppendItem(ppArgsA, X86AddrModeClone(axMode));
-										ppArgsD=strX86AddrModeAppendItem(ppArgsD, X86AddrModeReg(&regX86DX));
+										pushPopRegs =strRegPAppendItem(pushPopRegs, &regX86AX);
+										pushPopRegs =strRegPAppendItem(pushPopRegs, &regX86DX);
+										outReg=&regX86AX;
 										break;
 								}
 								case 4: {
 										struct X86AddressingMode *eaxMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86EAX);
 										assign(eaxMode, aMode, 4);
 										mulArgs=strX86AddrModeAppendItem(mulArgs, X86AddrModeClone(bMode));
-										ppArgsA=strX86AddrModeAppendItem(ppArgsA, X86AddrModeClone(eaxMode));
-										ppArgsD=strX86AddrModeAppendItem(ppArgsD, X86AddrModeReg(&regX86EDX));
-											break;
+										pushPopRegs =strRegPAppendItem(pushPopRegs, &regX86EAX);
+										pushPopRegs =strRegPAppendItem(pushPopRegs, &regX86EDX);
+										outReg=&regX86EAX;
+										break;
 								}
 								case 8: {
 										struct X86AddressingMode *raxMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regAMD64RAX);
 										assign(raxMode, aMode, 8);
 										mulArgs=strX86AddrModeAppendItem(mulArgs, X86AddrModeClone(bMode));
-										ppArgsA=strX86AddrModeAppendItem(ppArgsA, X86AddrModeClone(raxMode));
-										ppArgsD=strX86AddrModeAppendItem(ppArgsD, X86AddrModeReg(&regAMD64RDX));
+										pushPopRegs =strRegPAppendItem(pushPopRegs, &regAMD64RAX);
+										pushPopRegs =strRegPAppendItem(pushPopRegs, &regAMD64RDX);
+										outReg=&regAMD64RAX;
 										break;
 								}
 										assert(0);
 								}
 								
-								if(ppArgsD)
-										assembleInst("PUSH", ppArgsD);
-								assembleInst("PUSH", ppArgsA);
+								//Make room on stack for  result
+								strX86AddrMode addSPArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+								addSPArgs=strX86AddrModeAppendItem(addSPArgs, X86AddrModeSint(outSize));
+								addSPArgs=strX86AddrModeAppendItem(addSPArgs, X86AddrModeReg(stackPointer()));
+								assembleInst("ADD", addSPArgs);
+								
+								//Push uncomsumed registers that are affected
+								for(long r=0;r!=strRegPSize(pushPopRegs);r++)
+												pushReg(pushPopRegs[r]);
+								
+								struct X86AddressingMode *resRegMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(outReg);
 								assembleInst("MUL", mulArgs);
-								assembleInst("POP", ppArgsA);
-								if(ppArgsD)
-										assembleInst("POP", ppArgsD);
+								
+								//Assign to area below pushed args
+								long offset=0;
+								for(long r=0;r!=strRegPSize(pushPopRegs);r++)
+										offset+=pushPopRegs[r]->size;
+								struct X86AddressingMode *resultPointer=X86AddrModeIndirSIB(0, 0, (ptrSize()==4?&regX86ESP:&regAMD64RSP), X86AddrModeSint(-offset), IRNodeType(nodeDest(start)));
+								assign(resultPointer, resRegMode ,  outSize);
+
+								// Pop uncomsumed registers that are affected
+								for(long r=strRegPSize(pushPopRegs)-1;r>=0;r--)
+												popReg(pushPopRegs[r]);
+								
+								struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy)=node2AddrMode(nodeDest(start));
+								assign(oMode, X86AddrModeIndirReg(stackPointer(), IRNodeType(nodeDest(start))), outSize);
+								// Free room for result on stack
+								assembleInst("SUB", addSPArgs);
+
 						}
 				} 
 				return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
