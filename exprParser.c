@@ -18,7 +18,8 @@ static struct object *dftValType() {
 }
 struct object *assignTypeToOp(const struct parserNode *node);
 static int isArith(const struct object *type) {
-	if (type == &typeU8i || type == &typeU16i || type == &typeU32i || type == &typeU64i || type == &typeI8i || type == &typeI16i || type == &typeI32i || type == &typeI64i || type == &typeF64 || type->type == TYPE_PTR || type->type == TYPE_ARRAY) {
+	if (type == &typeU8i || type == &typeU16i || type == &typeU32i || type == &typeU64i || type == &typeI8i || type == &typeI16i || type == &typeI32i ||
+	    type == &typeI64i || type == &typeF64 || type->type == TYPE_PTR || type->type == TYPE_ARRAY) {
 		return 1;
 	}
 	return 0;

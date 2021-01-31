@@ -154,7 +154,8 @@ llVertexColor graphColor(const struct __graphNode *node) {
 			ptr = &Q[strIntSize(uData->adjColors)][strGraphNodePSize(uData->adjUncolored)];
 			*ptr = strGraphNodePAppendItem(*ptr, uData->node);
 
-			DEBUG_PRINT("NODE: %i inserted at %li ,%li\n", *(int *)__graphNodeValuePtr(uData->node), strIntSize(uData->adjColors), strGraphNodePSize(uData->adjUncolored));
+			DEBUG_PRINT("NODE: %i inserted at %li ,%li\n", *(int *)__graphNodeValuePtr(uData->node), strIntSize(uData->adjColors),
+			            strGraphNodePSize(uData->adjUncolored));
 
 			long newS = strIntSize(uData->adjColors);
 			s = (s > newS) ? s : newS;

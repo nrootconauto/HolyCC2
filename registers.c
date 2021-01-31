@@ -319,7 +319,8 @@ void initRegisters() {
 	regsTest = strRegPAppendData(NULL, (void *)gpTest, len);
 
 	struct reg *amd64Regs[] = {
-	    &regX86AL,      &regX86BL,      &regX86CL,       &regX86DL,       &regX86AH,       &regX86BH,       &regX86CH,       &regX86DH,       &regAMD64R8u8, &regAMD64R9u8, &regAMD64R10u8, &regAMD64R11u8, &regAMD64R12u8, &regAMD64R13u8, &regAMD64R14u8, &regAMD64R15u8,
+	    &regX86AL,      &regX86BL,      &regX86CL,       &regX86DL,       &regX86AH,       &regX86BH,       &regX86CH,       &regX86DH,
+	    &regAMD64R8u8,  &regAMD64R9u8,  &regAMD64R10u8,  &regAMD64R11u8,  &regAMD64R12u8,  &regAMD64R13u8,  &regAMD64R14u8,  &regAMD64R15u8,
 
 	    &regAMD64R8u16, &regAMD64R9u16, &regAMD64R10u16, &regAMD64R11u16, &regAMD64R12u16, &regAMD64R13u16, &regAMD64R14u16, &regAMD64R15u16,
 
@@ -337,7 +338,9 @@ void initRegisters() {
 
 	    &regX86ES,      &regX86CS,      &regX86SS,       &regX86DS,       &regX86FS,       &regX86SS,       &regX86GS,
 
-	    &regX86ST0,     &regX86ST1,     &regX86ST2,      &regX86ST3,      &regX86ST4,      &regX86ST5,      &regX86ST6,      &regX86ST7,      &regX86MM0,    &regX86MM1,    &regX86MM2,     &regX86MM3,     &regX86MM4,     &regX86MM5,     &regX86MM6,     &regX86MM7,     &regX86XMM0, &regX86XMM1, &regX86XMM2, &regX86XMM3, &regX86XMM4, &regX86XMM5, &regX86XMM6, &regX86XMM7,
+	    &regX86ST0,     &regX86ST1,     &regX86ST2,      &regX86ST3,      &regX86ST4,      &regX86ST5,      &regX86ST6,      &regX86ST7,
+	    &regX86MM0,     &regX86MM1,     &regX86MM2,      &regX86MM3,      &regX86MM4,      &regX86MM5,      &regX86MM6,      &regX86MM7,
+	    &regX86XMM0,    &regX86XMM1,    &regX86XMM2,     &regX86XMM3,     &regX86XMM4,     &regX86XMM5,     &regX86XMM6,     &regX86XMM7,
 	};
 	len = sizeof(amd64Regs) / sizeof(*amd64Regs);
 	qsort(amd64Regs, len, sizeof(*amd64Regs), ptrPtrCmp);

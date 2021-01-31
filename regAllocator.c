@@ -111,7 +111,8 @@ static void transparentKill(graphNodeIR node, int preserveEdgeValue) {
 	__auto_type outgoing = graphNodeIROutgoing(node);
 	for (long i1 = 0; i1 != strGraphEdgeIRPSize(incoming); i1++)
 		for (long i2 = 0; i2 != strGraphEdgeIRPSize(outgoing); i2++)
-			graphNodeIRConnect(graphEdgeIRIncoming(incoming[i1]), graphEdgeIROutgoing(outgoing[i2]), (preserveEdgeValue) ? *graphEdgeIRValuePtr(incoming[i1]) : IR_CONN_FLOW);
+			graphNodeIRConnect(graphEdgeIRIncoming(incoming[i1]), graphEdgeIROutgoing(outgoing[i2]),
+			                   (preserveEdgeValue) ? *graphEdgeIRValuePtr(incoming[i1]) : IR_CONN_FLOW);
 
 	graphNodeIRKill(&node, NULL, NULL);
 }
@@ -559,6 +560,8 @@ static int filterIntVars(graphNodeIR node, const void *data) {
 		return 0;
 	if (value->val.value.var.addressedByPtr)
 		return 0;
+	if (value->val.value.var.value.var->isNoreg)
+		return 0;
 	if (__varFiltPred)
 		if (!__varFiltPred(value->val.value.var.value.var, __varFilterData))
 			return 0;
@@ -755,7 +758,8 @@ static int nodeEqual(const graphNodeIR *a, const graphNodeIR *b) {
 //
 
 typedef int (*regCmpType)(const struct reg **, const struct reg **);
-typedef struct regSlice (*color2RegPredicate)(strRegSlice adjacent, strRegP avail, graphNodeIRLive live, int color, const void *data, long colorCount, const int *colors);
+typedef struct regSlice (*color2RegPredicate)(strRegSlice adjacent, strRegP avail, graphNodeIRLive live, int color, const void *data, long colorCount,
+                                              const int *colors);
 static struct regSlice color2Reg(strRegSlice adjacent, strRegP avail, graphNodeIRLive live, int color, const void *data, long colorCount, const int *colors) {
 	__auto_type avail2 = strRegPClone(avail);
 	strRegP adjRegs = NULL;
@@ -1002,7 +1006,8 @@ static struct IRVar *getVar(graphNodeIR node) {
 static void mapRegSliceDestroy2(ptrMapregSlice *toDestroy) {
 	ptrMapregSliceDestroy(*toDestroy, NULL);
 }
-void IRRegisterAllocate(graphNodeIR start, color2RegPredicate colorFunc, void *colorData, int (*varFiltPred)(const struct parserVar *, const void *), const void *varFiltData) {
+void IRRegisterAllocate(graphNodeIR start, color2RegPredicate colorFunc, void *colorData, int (*varFiltPred)(const struct parserVar *, const void *),
+                        const void *varFiltData) {
 	__varFilterData = varFiltData;
 	__varFiltPred = varFiltPred;
 	// SSA
@@ -1037,7 +1042,7 @@ loop:
 	IRRemoveRepeatAssigns(start);
 	debugShowGraphIR(start);
 
-	__auto_type intInterfere = IRInterferenceGraphFilter(start, filterIntVars, NULL);
+	__auto_type intInterfere = IRInterferenceGraphFilter(start, NULL, filterIntVars);
 
 	__auto_type floatInterfere = NULL;
 	// IRInterferenceGraphFilter(start, filterFloatVars, NULL);
@@ -1052,7 +1057,8 @@ loop:
 		__auto_type interfere = interferes[i];
 
 		ptrMapregSlice regsByLivenessNode = ptrMapregSliceCreate(); // TODO rename
-		                                                            // debugPrintInterferenceGraph(interferes[i], regsByLivenessNode);
+
+		// debugPrintInterferenceGraph(interferes[i], regsByLivenessNode);
 
 		__auto_type vertexColors = graphColor(interfere);
 
@@ -1156,7 +1162,8 @@ loop:
 			assert(lowestConflictI != -1);
 
 			// Add to spill nodes
-			graphNodeIRLive lowestConflictNode = (conflicts[lowestConflictI].aWeight < conflicts[lowestConflictI].bWeight) ? conflicts[lowestConflictI].a : conflicts[lowestConflictI].b;
+			graphNodeIRLive lowestConflictNode =
+			    (conflicts[lowestConflictI].aWeight < conflicts[lowestConflictI].bWeight) ? conflicts[lowestConflictI].a : conflicts[lowestConflictI].b;
 			spillNodes = strGraphNodeIRLivePSortedInsert(spillNodes, lowestConflictNode, (gnCmpType)ptrPtrCmp);
 
 			// Remove all references to spilled node in conflicts and

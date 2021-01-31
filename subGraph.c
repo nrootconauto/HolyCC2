@@ -61,7 +61,8 @@ static int degree(strBits row) {
 	}
 	return retVal;
 }
-static struct __mat initMorphism(struct __mat *graph, struct __mat *sub, strGraphNodeP graphNodes, strGraphNodeP subNodes, int (*nodePred)(const struct __graphNode *, const struct __graphNode *)) {
+static struct __mat initMorphism(struct __mat *graph, struct __mat *sub, strGraphNodeP graphNodes, strGraphNodeP subNodes,
+                                 int (*nodePred)(const struct __graphNode *, const struct __graphNode *)) {
 	strBits2D data = strBits2DResize(NULL, sub->h);
 	for (int i = 0; i != sub->h; i++) {
 		__auto_type ints = graph->h / INT_BITS + (graph->h % INT_BITS != 0 ? 1 : 0);
@@ -175,7 +176,8 @@ static strGraphEdgeP edgesConnectedToNode(struct __graphNode *from, struct __gra
 	outgoing = strGraphEdgePSetDifference(outgoing, toRemove, (geCmpType)edgeComp);
 	return outgoing;
 }
-static strGraphNodeSubP reconstructFromAdj(struct __mat *mat, strGraphNodeP graphNodes, strGraphNodeP subGraph, int (*edgePred)(const struct __graphEdge *, const struct __graphEdge *)) {
+static strGraphNodeSubP reconstructFromAdj(struct __mat *mat, strGraphNodeP graphNodes, strGraphNodeP subGraph,
+                                           int (*edgePred)(const struct __graphEdge *, const struct __graphEdge *)) {
 	__auto_type subGraphSize = strGraphNodePSize(subGraph);
 	strGraphNodeSubP nodes = strGraphNodeSubPResize(NULL, subGraphSize);
 	assert(subGraphSize == mat->h);
@@ -231,7 +233,8 @@ fail:;
 
 	return NULL;
 }
-strSub isolateSubGraph(strGraphNodeP graph, strGraphNodeP sub, int (*nodePred)(const struct __graphNode *, const struct __graphNode *), int (*edgePred)(const struct __graphEdge *, const struct __graphEdge *)) {
+strSub isolateSubGraph(strGraphNodeP graph, strGraphNodeP sub, int (*nodePred)(const struct __graphNode *, const struct __graphNode *),
+                       int (*edgePred)(const struct __graphEdge *, const struct __graphEdge *)) {
 	struct __mat graphAdjMat;
 	struct __mat subAdjMat;
 	graphAdjMat = __adjMatrixCreate(graph);

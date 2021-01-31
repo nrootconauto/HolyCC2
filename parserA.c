@@ -54,12 +54,12 @@ static char *strCopy(const char *text) {
 
 	return retVal;
 }
-#define ALLOCATE(x)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            \
-	({                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           \
-		__auto_type len = sizeof(x);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               \
-		void *$retVal = malloc(len);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               \
-		memcpy($retVal, &x, len);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  \
-		$retVal;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   \
+#define ALLOCATE(x)                                                                                                                                                \
+	({                                                                                                                                                               \
+		__auto_type len = sizeof(x);                                                                                                                                   \
+		void *$retVal = malloc(len);                                                                                                                                   \
+		memcpy($retVal, &x, len);                                                                                                                                      \
+		$retVal;                                                                                                                                                       \
 	})
 static void assignPosByLexerItems(struct parserNode *node, llLexerItem start, llLexerItem end) {
 	node->pos.start = llLexerItemValuePtr(start)->start;
@@ -424,7 +424,8 @@ struct pnPair {
 };
 STR_TYPE_DEF(struct pnPair, PNPair);
 STR_TYPE_FUNCS(struct pnPair, PNPair);
-static strPNPair tailBinop(llLexerItem start, llLexerItem end, llLexerItem *result, const char **ops, long opCount, struct parserNode *(*func)(llLexerItem, llLexerItem, llLexerItem *)) {
+static strPNPair tailBinop(llLexerItem start, llLexerItem end, llLexerItem *result, const char **ops, long opCount,
+                           struct parserNode *(*func)(llLexerItem, llLexerItem, llLexerItem *)) {
 	strPNPair retVal = NULL;
 	for (; start != NULL;) {
 		struct parserNode *op;
@@ -473,7 +474,8 @@ static struct parserNode *nameParse(llLexerItem start, llLexerItem end, llLexerI
 	}
 	return NULL;
 }
-static struct parserNode *pairOperator(const char *left, const char *right, llLexerItem start, llLexerItem end, llLexerItem *result, int *success, long *startP, long *endP) {
+static struct parserNode *pairOperator(const char *left, const char *right, llLexerItem start, llLexerItem end, llLexerItem *result, int *success, long *startP,
+                                       long *endP) {
 	if (success != NULL)
 		*success = 0;
 
@@ -515,7 +517,8 @@ end:
 
 	return exp;
 }
-static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end, struct object *baseType, struct parserNode **name, struct parserNode **dftVal, strParserNode *metaDatas);
+static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end, struct object *baseType, struct parserNode **name, struct parserNode **dftVal,
+                                       strParserNode *metaDatas);
 static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end, llLexerItem *result) {
 	if (start == NULL)
 		return NULL;
@@ -710,7 +713,8 @@ static struct parserNode *prec1Recur(llLexerItem start, llLexerItem end, llLexer
 fail:
 	return tail;
 }
-static struct parserNode *binopLeftAssoc(const char **ops, long count, llLexerItem start, llLexerItem end, llLexerItem *result, struct parserNode *(*next)(llLexerItem, llLexerItem, llLexerItem *)) {
+static struct parserNode *binopLeftAssoc(const char **ops, long count, llLexerItem start, llLexerItem end, llLexerItem *result,
+                                         struct parserNode *(*next)(llLexerItem, llLexerItem, llLexerItem *)) {
 	if (start == NULL)
 		return NULL;
 
@@ -739,7 +743,8 @@ end:
 
 	return head;
 }
-static struct parserNode *binopRightAssoc(const char **ops, long count, llLexerItem start, llLexerItem end, llLexerItem *result, struct parserNode *(*next)(llLexerItem, llLexerItem, llLexerItem *)) {
+static struct parserNode *binopRightAssoc(const char **ops, long count, llLexerItem start, llLexerItem end, llLexerItem *result,
+                                          struct parserNode *(*next)(llLexerItem, llLexerItem, llLexerItem *)) {
 	if (start == NULL)
 		return NULL;
 
@@ -783,17 +788,17 @@ end:;
 
 	return retVal;
 }
-#define LEFT_ASSOC_OP(name, next, ...)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         \
-	static const char *name##Ops[] = {__VA_ARGS__};                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              \
-	static struct parserNode *name##Recur(llLexerItem start, llLexerItem end, llLexerItem *result) {                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             \
-		__auto_type count = sizeof(name##Ops) / sizeof(*name##Ops);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \
-		return binopLeftAssoc(name##Ops, count, start, end, result, next);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         \
+#define LEFT_ASSOC_OP(name, next, ...)                                                                                                                             \
+	static const char *name##Ops[] = {__VA_ARGS__};                                                                                                                  \
+	static struct parserNode *name##Recur(llLexerItem start, llLexerItem end, llLexerItem *result) {                                                                 \
+		__auto_type count = sizeof(name##Ops) / sizeof(*name##Ops);                                                                                                    \
+		return binopLeftAssoc(name##Ops, count, start, end, result, next);                                                                                             \
 	}
-#define RIGHT_ASSOC_OP(name, next, ...)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        \
-	static const char *name##Ops[] = {__VA_ARGS__};                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              \
-	static struct parserNode *name##Recur(llLexerItem start, llLexerItem end, llLexerItem *result) {                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             \
-		__auto_type count = sizeof(name##Ops) / sizeof(*name##Ops);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \
-		return binopRightAssoc(name##Ops, count, start, end, result, next);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        \
+#define RIGHT_ASSOC_OP(name, next, ...)                                                                                                                            \
+	static const char *name##Ops[] = {__VA_ARGS__};                                                                                                                  \
+	static struct parserNode *name##Recur(llLexerItem start, llLexerItem end, llLexerItem *result) {                                                                 \
+		__auto_type count = sizeof(name##Ops) / sizeof(*name##Ops);                                                                                                    \
+		return binopRightAssoc(name##Ops, count, start, end, result, next);                                                                                            \
 	}
 RIGHT_ASSOC_OP(prec13, prec12Recur, "=", "-=", "+=", "*=", "/=", "%=", "<<=", ">>=", "&=", "|=", "^=");
 LEFT_ASSOC_OP(prec12, prec11Recur, "||");
@@ -843,7 +848,8 @@ static struct linkage getLinkage(llLexerItem start, llLexerItem *result) {
 	;
 
 	struct linkagePair pairs[] = {
-	    {LINKAGE_PUBLIC, "public"}, {LINKAGE_STATIC, "static"}, {LINKAGE_EXTERN, "extern"}, {LINKAGE__EXTERN, "_extern"}, {LINKAGE_IMPORT, "import"}, {LINKAGE__IMPORT, "_import"},
+	    {LINKAGE_PUBLIC, "public"},   {LINKAGE_STATIC, "static"}, {LINKAGE_EXTERN, "extern"},
+	    {LINKAGE__EXTERN, "_extern"}, {LINKAGE_IMPORT, "import"}, {LINKAGE__IMPORT, "_import"},
 	};
 	__auto_type count = sizeof(pairs) / sizeof(*pairs);
 
@@ -904,7 +910,8 @@ static void getPtrsAndDims(llLexerItem start, llLexerItem *end, struct parserNod
 	if (end != NULL)
 		*end = start;
 }
-static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end, struct object *baseType, struct parserNode **name, struct parserNode **dftVal, strParserNode *metaDatas);
+static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end, struct object *baseType, struct parserNode **name, struct parserNode **dftVal,
+                                       strParserNode *metaDatas);
 struct parserNode *parseSingleVarDecl(llLexerItem start, llLexerItem *end) {
 	__auto_type originalStart = start;
 	struct parserNode *base;
@@ -1023,7 +1030,8 @@ static llLexerItem findEndOfExpression(llLexerItem start, int stopAtComma) {
 
 	return NULL;
 }
-static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end, struct object *baseType, struct parserNode **name, struct parserNode **dftVal, strParserNode *metaDatas) {
+static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end, struct object *baseType, struct parserNode **name, struct parserNode **dftVal,
+                                       strParserNode *metaDatas) {
 	int failed = 0;
 
 	if (metaDatas != NULL)
@@ -3170,6 +3178,8 @@ static struct X86AddressingMode *sibOffset2Addrmode(struct parserNode *node) {
 		struct parserNodeName *name = (void *)node;
 		__auto_type find = mapParserNodeGet(asmImports, name->text);
 		if (find) {
+			if (find[0]->type == NODE_VAR)
+				((struct parserNodeVar *)*find)->var->isNoreg = 1;
 			return X86AddrModeItemAddrOf(*find, NULL);
 		}
 		addLabelRef((struct parserNode *)node, name->text);
@@ -3363,6 +3373,8 @@ struct parserNode *parseAsmInstructionX86(llLexerItem start, llLexerItem *end) {
 					// Items imported in a "asm" block dont need "&",check if is imported
 					if (mapParserNodeGet(asmImports, name->text)) {
 						__auto_type addrOfExpr = parseExpression(start, findEndOfExpression(start, 1), &start);
+						if (addrOfExpr->type == NODE_VAR)
+							((struct parserNodeVar *)addrOfExpr)->var->isNoreg = 1;
 						args = strX86AddrModeAppendItem(args, X86AddrModeItemAddrOf(addrOfExpr, assignTypeToOp(addrOfExpr)));
 					} else {
 						args = strX86AddrModeAppendItem(args, X86AddrModeLabel(name->text));
@@ -3384,9 +3396,11 @@ struct parserNode *parseAsmInstructionX86(llLexerItem start, llLexerItem *end) {
 					parserArgs = strParserNodeAppendItem(parserArgs, literal);
 					start = llLexerItemNext(start);
 					__auto_type addrOfExpr = parseExpression(start, findEndOfExpression(start, 1), &start);
-					if (addrOfExpr)
+					if (addrOfExpr) {
+						if (addrOfExpr->type == NODE_VAR)
+							((struct parserNodeVar *)addrOfExpr)->var->isNoreg = 1;
 						args = strX86AddrModeAppendItem(args, X86AddrModeItemAddrOf(addrOfExpr, assignTypeToOp(addrOfExpr)));
-					else {
+					} else {
 						// TODO whine
 						args = strX86AddrModeAppendItem(args, X86AddrModeSint(-1));
 					}
@@ -3647,6 +3661,11 @@ struct parserNode *parseAsm(llLexerItem start, llLexerItem *end) {
 					diagEndMsg();
 				} else
 					mapParserNodeInsert(asmImports, name2->text, find);
+				// Mark as noreg if imported
+				if (find->type == NODE_VAR) {
+					struct parserNodeVar *var = (void *)find;
+					var->var->isNoreg = 1;
+				}
 				symbols = strParserNodeAppendItem(symbols, find);
 			}
 			struct parserNodeAsmImport import;
