@@ -917,8 +917,14 @@ struct X86AddressingMode *X86AddrModeClone(struct X86AddressingMode *mode) {
 	}
 	case X86ADDRMODE_MEM: {
 		__auto_type clone = *mode;
-		if (clone.value.m.type == x86ADDR_INDIR_SIB)
-			clone.value.m.value.sib.offset = X86AddrModeClone(clone.value.m.value.sib.offset);
+		if (clone.value.m.type == x86ADDR_INDIR_SIB) {
+				if(clone.value.m.value.sib.offset)
+				clone.value.m.value.sib.offset = X86AddrModeClone(clone.value.m.value.sib.offset);
+				if(clone.value.m.value.sib.base)
+				clone.value.m.value.sib.base = X86AddrModeClone(clone.value.m.value.sib.base);
+				if(clone.value.m.value.sib.index)
+			clone.value.m.value.sib.index = X86AddrModeClone(clone.value.m.value.sib.index);
+		}
 		if (clone.value.m.type == x86ADDR_INDIR_LABEL)
 			clone.value.m.value.label = X86AddrModeClone(clone.value.m.value.label);
 		return ALLOCATE(clone);
