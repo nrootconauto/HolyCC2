@@ -69,19 +69,18 @@ graphNodeIR IRCreateFuncCall(graphNodeIR func, ...) {
 	struct IRNodeFuncCall call;
 	call.base.attrs = NULL;
 	call.base.type = IR_FUNC_CALL;
-	call.incomingArgs = NULL;
 	__auto_type retVal = GRAPHN_ALLOCATE(call);
 
 	va_list args;
 	va_start(args, func);
-	for (;;) {
+	for (long a=0;;a++) {
 		__auto_type arg = va_arg(args, graphNodeIR);
 		if (!arg)
 			break;
 
+		assert(a<=128);
 		struct IRNodeFuncCall *call = (void *)graphNodeIRValuePtr(retVal);
-		call->incomingArgs = strGraphNodeIRPAppendItem(call->incomingArgs, arg);
-		graphNodeIRConnect(arg, retVal, IR_CONN_FUNC_ARG);
+		graphNodeIRConnect(arg, retVal, IR_CONN_FUNC_ARG_1+a);
 	}
 	va_end(args);
 
@@ -369,10 +368,10 @@ int IRIsExprEdge(enum IRConnType type) {
 	switch (type) {
 	case IR_CONN_SOURCE_A:
 	case IR_CONN_SOURCE_B:
-	case IR_CONN_FUNC_ARG:
 	case IR_CONN_FUNC:
 	case IR_CONN_SIMD_ARG:
 	case IR_CONN_DEST:
+	case IR_CONN_FUNC_ARG_1...IR_CONN_FUNC_ARG_128:
 		return 1;
 	default:
 		return 0;
@@ -609,10 +608,16 @@ char *graphEdgeIR2Str(struct __graphEdge *edge) {
 		return strClone("IR_CONN_COND_TRUE");
 	case IR_CONN_FUNC:
 		return strClone("IR_CONN_FUNC");
-	case IR_CONN_FUNC_ARG:
-		return strClone("IR_CONN_FUNC_ARG");
 	case IR_CONN_SIMD_ARG:
 		return strClone("IR_CONN_SIMD_ARG");
+	case IR_CONN_FUNC_ARG_1...IR_CONN_FUNC_ARG_128: {
+			int argi=*graphEdgeIRValuePtr(edge)-IR_CONN_FUNC_ARG_1+1;
+			const char *fmt="IR_CONN_FUNC_ARG(&i)";
+			long c=snprintf(NULL, 0, fmt, argi);
+			char buffer[c+1];
+			sprintf(buffer, fmt, argi);
+			return strClone(buffer);
+	}
 	}
 
 	return NULL;
@@ -950,7 +955,7 @@ static char *IRCreateGraphVizEdge(const struct __graphEdge *__edge, mapGraphVizA
 	case IR_CONN_FUNC:
 		mapGraphVizAttrInsert(*attrs, "color", strClone(rainbowColors[0]));
 		return NULL;
-	case IR_CONN_FUNC_ARG: {
+	case IR_CONN_FUNC_ARG_1...IR_CONN_FUNC_ARG_128: {
 		struct IRNodeFuncCall *funcNode = (void *)graphNodeIRValuePtr(graphEdgeIROutgoing((struct __graphEdge *)edge));
 		// Look at func node and find index of edge
 		if (funcNode) {
@@ -958,22 +963,20 @@ static char *IRCreateGraphVizEdge(const struct __graphEdge *__edge, mapGraphVizA
 				__auto_type incomingNode = graphEdgeIRIncoming((struct __graphEdge *)edge);
 
 				// Look for index of edge
-				for (long i = 0; i != strGraphNodeIRPSize(funcNode->incomingArgs); i++) {
-					if (funcNode->incomingArgs[i] == incomingNode) {
-						// Color based on rainbow
-						__auto_type color = rainbowColors[i % (sizeof(rainbowColors) / sizeof(*rainbowColors))];
-						mapGraphVizAttrInsert(*attrs, "color", strClone(color));
-
-						// Label name is index
-						__auto_type str = FROM_FORMAT("Arg %li", i);
-						__auto_type retVal = strClone(str);
-
-						return retVal;
-					}
-				}
+				int i=*graphEdgeIRValuePtr(edge)-IR_CONN_FUNC_ARG_1;
+				
+				// Color based on rainbow
+				__auto_type color = rainbowColors[i % (sizeof(rainbowColors) / sizeof(*rainbowColors))];
+				mapGraphVizAttrInsert(*attrs, "color", strClone(color));
+				
+				// Label name is index
+				__auto_type str = FROM_FORMAT("Arg %i", i);
+				__auto_type retVal = strClone(str);
+				
+				return retVal;
 			}
 		}
-
+		
 		// Isnt connected to a  func-call node
 		mapGraphVizAttrInsert(*attrs, "color", strClone(COLOR_GREY));
 		return NULL;
@@ -1096,7 +1099,6 @@ static graphNodeIR __cloneNode(ptrMapGraphNode mappings, graphNodeIR node, enum 
 		struct IRNodeFuncCall clone;
 		clone.base.attrs = NULL;
 		clone.base.type = IR_FUNC_CALL;
-		clone.incomingArgs = NULL;
 
 		__auto_type newNode = GRAPHN_ALLOCATE(clone);
 
@@ -1120,20 +1122,20 @@ static graphNodeIR __cloneNode(ptrMapGraphNode mappings, graphNodeIR node, enum 
 			// Connect all incoming that arg args,those will be done later(IN ORDER)
 			for (long i = 0; i != strGraphEdgeIRPSize(incoming); i++) {
 				// if not func arg
-				if (*graphEdgeIRValuePtr(incoming[i]) == IR_CONN_FUNC_ARG)
+				if (*graphEdgeIRValuePtr(incoming[i]) < IR_CONN_FUNC_ARG_1)
 					continue;
-
+				if (*graphEdgeIRValuePtr(incoming[i]) > IR_CONN_FUNC_ARG_128)
+					continue;
+				
 				__auto_type newNode2 = __cloneNode(mappings, graphEdgeIRIncoming(incoming[i]), mode, data);
 				graphNodeIRConnect(newNode2, newNode, *graphEdgeIRValuePtr(incoming[i]));
 			}
 
 			// Now do function arguments
 			__auto_type newNodeCall = (struct IRNodeFuncCall *)graphNodeIRValuePtr(newNode);
-			for (long i = 0; i != strGraphNodeIRPSize(reference->incomingArgs); i++) {
+			for (long i = 0; i != strGraphEdgeIRPSize(incoming); i++) {
 				__auto_type newNode2 = __cloneNode(mappings, graphEdgeIRIncoming(incoming[i]), mode, data);
-				graphNodeIRConnect(newNode2, newNode, IR_CONN_FUNC_ARG);
-				// Append in order
-				newNodeCall->incomingArgs = strGraphNodeIRPAppendItem(newNodeCall->incomingArgs, newNode2);
+				graphNodeIRConnect(newNode2, newNode, *graphEdgeIRValuePtr(incoming[i]));
 			}
 		}
 
@@ -1577,9 +1579,8 @@ static int argEdgeSortPrec(graphEdgeIR edge) {
 		return 2;
 	case IR_CONN_COND:
 		return 0;
-	case IR_CONN_FUNC_ARG: {
-		struct IRNodeFuncCall *call = (void *)graphNodeIRValuePtr(argEdgeSortNode);
-		return 1 + strGraphNodeIRPSortedFind(call->incomingArgs, graphEdgeIRIncoming(edge), (gnIRCmpType)ptrPtrCmp) - call->incomingArgs;
+	case IR_CONN_FUNC_ARG_1...IR_CONN_FUNC_ARG_128: {
+		return 1+type-IR_CONN_FUNC_ARG_1;
 	}
 	case IR_CONN_FUNC:
 		return 0;

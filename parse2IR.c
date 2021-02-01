@@ -152,7 +152,7 @@ static int visitNotVisitedOperand(const struct __graphNode *node, const struct _
 	case IR_CONN_SOURCE_A:
 	case IR_CONN_SOURCE_B:
 	case IR_CONN_DEST:
-	case IR_CONN_FUNC_ARG:
+	case IR_CONN_FUNC_ARG_1...IR_CONN_FUNC_ARG_128:
 		break;
 	default:
 		return 0;
@@ -680,8 +680,7 @@ static graphNodeIR parserNode2Expr(const struct parserNode *node) {
 		struct IRNodeFuncCall call;
 		call.base.attrs = NULL;
 		call.base.type = IR_FUNC_CALL;
-		call.incomingArgs = NULL;
-
+	
 		struct parserNodeFuncCall *call2 = (void *)node;
 		__auto_type func = parserNode2Expr(call2->func);
 
@@ -702,10 +701,10 @@ static graphNodeIR parserNode2Expr(const struct parserNode *node) {
 		}
 
 		// Connect args
-		call.incomingArgs = args;
 		graphNodeIR callNode = GRAPHN_ALLOCATE(call);
+		assert(strGraphNodeIRPSize(args)<=128);
 		for (long i = 0; i != strGraphNodeIRPSize(args); i++) {
-			graphNodeIRConnect(args[i], callNode, IR_CONN_FUNC_ARG);
+			graphNodeIRConnect(args[i], callNode, IR_CONN_FUNC_ARG_1+i);
 		}
 
 		// Connect func
@@ -1343,7 +1342,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 		graphNodeIR currentNode = NULL;
 		struct enterExit retVal = {NULL, NULL};
 		for (long i = 0; i != strParserNodeSize(decls->decls); i++) {
-			__auto_type tmp = varDecl2IR(decls->decls[i]);
+ 			__auto_type tmp = varDecl2IR(decls->decls[i]);
 			if (!retVal.enter)
 				retVal.enter = tmp.enter;
 			if (currentNode)

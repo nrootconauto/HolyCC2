@@ -15,4 +15,3 @@ struct X86AddressingMode *X86EmitAsmDU64(strX86AddrMode data, long len);
 struct X86AddressingMode *X86EmitAsmStrLit(const char *text);
 void X86EmitAsmIncludeBinfile(const char *fileName);
 void X86EmitAsmGlobalVar(struct parserVar *var);
-extern  __thread ptrMapFrameOffset localVarFrameOffsets;
