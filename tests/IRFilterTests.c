@@ -56,7 +56,6 @@ void IRFilterTests() {
 
 		struct IRVar CVar;
 		CVar.SSANum=0;
-		CVar.type=IR_VAR_VAR;
-		CVar.value.var=c;
+		CVar.var=c;
 		__auto_type res= IRFilter(start, isVarPred, &CVar);
 }

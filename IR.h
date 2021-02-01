@@ -156,20 +156,9 @@ struct IRValMemFrame {
 struct IRValMemGlobal {
 	struct parserVar *symbol;
 };
-enum IRVarType {
-	IR_VAR_VAR,
-	IR_VAR_MEMBER,
-};
 struct IRVar {
 	unsigned int addressedByPtr : 1;
-	enum IRVarType type;
-	union {
 		struct parserVar *var;
-		struct {
-			graphNodeIR base;
-			struct objectMember *mem;
-		} member;
-	} value;
 	long SSANum;
 };
 struct IRValue {

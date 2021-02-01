@@ -94,14 +94,8 @@ static int __isAssignedVar(struct varAndEnterPair *data, struct __graphNode *nod
 	if (ir->type == IR_VALUE) {
 		struct IRNodeValue *val = (void *)ir;
 		if (val->val.type == IR_VAL_VAR_REF) {
-			if (expectedVar->type == val->val.value.var.type) {
-				if (expectedVar->type == IR_VAR_MEMBER) {
-					// TODO check equal
-				} else if (expectedVar->type == IR_VAR_VAR) {
-					if (expectedVar->value.var == val->val.value.var.value.var)
+				if (expectedVar->var == val->val.value.var.var)
 						goto checkForAssign;
-				}
-			}
 		}
 	}
 
@@ -366,11 +360,11 @@ static strGraphNodeIRP IRSSACompute(graphNodeMapping start, struct IRVar *var, p
 				if (val->val.type != IR_VAL_VAR_REF)
 					continue;
 
-				if (val->val.value.var.value.var == var->value.var)
+				if (val->val.value.var.var == var->var)
 					chooseFrom = strGraphNodeIRPSortedInsert(chooseFrom, exprNodes[i], (gnCmpType)ptrPtrCmp);
 			}
 		}
-		createChoose(masterNode, chooseFrom, var->value.var);
+		createChoose(masterNode, chooseFrom, var->var);
 	}
 
 	ptrMapChooseIncomingsDestroy(frontiersToMaster, NULL);

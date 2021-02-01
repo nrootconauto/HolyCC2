@@ -11,10 +11,10 @@ static char *var2Str(graphNodeIR node) {
 		return NULL;
 	if (val->val.type != IR_VAL_VAR_REF)
 		return NULL;
-	if (val->val.value.var.value.var->name)
-		sprintf(buffer, "%s-%li", val->val.value.var.value.var->name, val->val.value.var.SSANum);
+	if (val->val.value.var.var->name)
+		sprintf(buffer, "%s-%li", val->val.value.var.var->name, val->val.value.var.SSANum);
 	else
-		sprintf(buffer, "%p-%li", val->val.value.var.value.var, val->val.value.var.SSANum);
+		sprintf(buffer, "%p-%li", val->val.value.var.var, val->val.value.var.SSANum);
 
 	return strcpy(malloc(strlen(buffer) + 1), buffer);
 }

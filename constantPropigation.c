@@ -463,7 +463,7 @@ static strIRVar __IRConstPropigation(graphNodeIR start, strIRVar consts) {
 					unresolvedChooses = strGraphNodeIRPSortedInsert(unresolvedChooses, chooseNode, (gnCmpType)ptrPtrCmp);
 					goto notConst;
 				}
-				IREvalSetVarVal(find->var.value.var, first);
+				IREvalSetVarVal(find->var.var, first);
 				ptrMapIREvalValByGNAdd(validNodeValues, find->assign, first);
 				goto allConst;
 			} else {
@@ -483,7 +483,7 @@ static strIRVar __IRConstPropigation(graphNodeIR start, strIRVar consts) {
 			}
 
 			// Replace all occurances of assigned var with value
-			strGraphNodeIRP refs CLEANUP(strGraphNodeIRPDestroy) = IRVarRefs(find->var.value.var, &find->var.SSANum);
+			strGraphNodeIRP refs CLEANUP(strGraphNodeIRPDestroy) = IRVarRefs(find->var.var, &find->var.SSANum);
 			replaceOrder = strGraphNodeIRPAppendData(replaceOrder, refs, strGraphNodeIRPSize(refs));
 			for (long i = 0; i != strGraphNodeIRPSize(refs); i++) {
 				ptrMapIREvalValByGNAdd(validNodeValues, refs[i], *ptrMapIREvalValByGNGet(validNodeValues, find->assign));

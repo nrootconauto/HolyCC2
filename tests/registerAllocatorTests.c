@@ -82,7 +82,7 @@ void registerAllocatorTests() {
 				int found=0;
 				for(long i=0;i!=strGraphNodeIRPSize(outgoing);i++) {
 						struct IRNodeValue *val=(struct IRNodeValue *)graphNodeIRValuePtr(outgoing[i]);
-						found|=val->val.value.var.value.var==firstRef->val.value.var.value.var;
+						found|=val->val.value.var.var==firstRef->val.value.var.var;
 				}
 				assert(found);
 
@@ -129,14 +129,14 @@ void registerAllocatorTests() {
 				//c=1
 				__auto_type outgoingFrom=graphNodeIROutgoingNodes(one);
 				struct IRNodeValue *val=(void*)graphNodeIRValuePtr(outgoingFrom[0]);
-				__auto_type var=val->val.value.var.value.var;
+				__auto_type var=val->val.value.var.var;
 
 				//3 Assigns,so 4 vars to replace(1 per-assign + 1 for last node)
 				//b=c,a=b,d=b ... 1+1+1
 				for(long i=0;i!=1+1+1+1;i++) {
 						outgoingFrom=graphNodeIROutgoingNodes(outgoingFrom[0]);
  						struct IRNodeValue *val=(void*)graphNodeIRValuePtr(outgoingFrom[0]);
-						assert(val->val.value.var.value.var==var);
+						assert(val->val.value.var.var==var);
 				}
 
 				//Replace redundant assigns
@@ -145,7 +145,7 @@ void registerAllocatorTests() {
 				outgoingFrom=graphNodeIROutgoingNodes(one);
 				val=(void*)graphNodeIRValuePtr(outgoingFrom[0]);
 				assert(val->base.type==IR_VALUE);
-				assert(val->val.value.var.value.var==var);
+				assert(val->val.value.var.var==var);
  
 				__auto_type outgoingEdges=graphNodeIROutgoing(outgoingFrom[0]);
 				__auto_type assigns=IRGetConnsOfType(outgoingEdges, IR_CONN_DEST);

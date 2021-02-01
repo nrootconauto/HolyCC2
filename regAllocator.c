@@ -21,15 +21,15 @@ static char *var2Str(graphNodeIR var) {
 		return debugGetPtrName(var);
 
 	__auto_type value = (struct IRNodeValue *)graphNodeIRValuePtr(var);
-	if (value->val.value.var.value.var->name) {
+	if (value->val.value.var.var->name) {
 		char buffer[1024];
-		sprintf(buffer, "%s-%li", value->val.value.var.value.var->name, value->val.value.var.SSANum);
+		sprintf(buffer, "%s-%li", value->val.value.var.var->name, value->val.value.var.SSANum);
 		char *retVal = malloc(strlen(buffer) + 1);
 		strcpy(retVal, buffer);
 		return retVal;
 	} else {
 		char buffer[1024];
-		sprintf(buffer, "%p-%li", value->val.value.var.value.var, value->val.value.var.SSANum);
+		sprintf(buffer, "%p-%li", value->val.value.var.var, value->val.value.var.SSANum);
 		char *retVal = malloc(strlen(buffer) + 1);
 		strcpy(retVal, buffer);
 		return retVal;
@@ -56,15 +56,15 @@ static char *interfereNode2Label(const struct __graphNode *node, mapGraphVizAttr
 	ptrMapregSlice map = (void *)data;
 
 	__auto_type var = &graphNodeIRLiveValuePtr((graphNodeIRLive)node)->ref;
-	__auto_type dummy = IRCreateVarRef(var->value.var);
+	__auto_type dummy = IRCreateVarRef(var->var);
 	((struct IRNodeValue *)graphNodeIRValuePtr(dummy))->val.value.var.SSANum = var->SSANum;
 	char *name = var2Str(dummy);
 	graphNodeIRKill(&dummy, NULL, NULL);
 
 	if (name)
 		name = name;
-	else if (var->value.var->name)
-		name = strClone(var->value.var->name);
+	else if (var->var->name)
+		name = strClone(var->var->name);
 	else
 		name = ptr2Str(var);
 
@@ -560,10 +560,10 @@ static int filterIntVars(graphNodeIR node, const void *data) {
 		return 0;
 	if (value->val.value.var.addressedByPtr)
 		return 0;
-	if (value->val.value.var.value.var->isNoreg)
+	if (value->val.value.var.var->isNoreg)
 		return 0;
 	if (__varFiltPred)
-		if (!__varFiltPred(value->val.value.var.value.var, __varFilterData))
+		if (!__varFiltPred(value->val.value.var.var, __varFilterData))
 			return 0;
 	return 1;
 }
@@ -578,7 +578,7 @@ static int filterFloatVars(graphNodeIR node, const void *data) {
 	if (value->val.value.var.addressedByPtr)
 		return 0;
 	if (__varFiltPred)
-		if (!__varFiltPred(value->val.value.var.value.var, __varFilterData))
+		if (!__varFiltPred(value->val.value.var.var, __varFilterData))
 			return 0;
 	return 1;
 }

@@ -22,7 +22,7 @@ static int isGlobal(graphNodeIR node, const void *data) {
 	struct IRNodeValue *val = (void *)graphNodeIRValuePtr(node);
 	if (val->base.type == IR_VALUE)
 		if (val->val.type == IR_VAL_VAR_REF)
-			return !val->val.value.var.value.var->isGlobal;
+			return !val->val.value.var.var->isGlobal;
 
 	return 0;
 }
@@ -108,7 +108,7 @@ strFrameEntry IRComputeFrameLayout(graphNodeIR start, long *frameSize) {
 			// Get biggest item of color
 			for (long i = 0; i != strGraphNodeIRLivePSize(items); i++) {
 				int success;
-				long size = 8 * objectSize(graphNodeIRLiveValuePtr(items[i])->ref.value.var->type, &success);
+				long size = 8 * objectSize(graphNodeIRLiveValuePtr(items[i])->ref.var->type, &success);
 				assert(success);
 				if (largestItemSize < size)
 					largestItemSize = size;

@@ -614,15 +614,15 @@ void IRCompile(graphNodeIR start) {
 					goto markAsNoreg;
 		}
 
-		if (value->val.value.var.value.var->isNoreg)
+		if (value->val.value.var.var->isNoreg)
 			goto markAsNoreg;
 
-		__auto_type var = value->val.value.var.value.var;
+		__auto_type var = value->val.value.var.var;
 		if (!strPVarSortedFind(inRegs, var, (PVarCmpType)ptrPtrCmp))
 			inRegs = strPVarSortedInsert(inRegs, var, (PVarCmpType)ptrPtrCmp);
 		continue;
 	markAsNoreg : {
-		__auto_type var = value->val.value.var.value.var;
+		__auto_type var = value->val.value.var.var;
 		if (!strPVarSortedFind(noregs, var, (PVarCmpType)ptrPtrCmp))
 			noregs = strPVarSortedInsert(noregs, var, (PVarCmpType)ptrPtrCmp);
 	}
@@ -642,17 +642,14 @@ void IRCompile(graphNodeIR start) {
 		for (long i = 0; i != strGraphNodeIRPSize(regAllocedNodes); i++) {
 			if (graphNodeIRValuePtr(regAllocedNodes[i])->type == IR_SPILL_LOAD) {
 				struct IRNodeSpill *spillLoad = (void *)graphNodeIRValuePtr(regAllocedNodes[i]);
-				if (spillLoad->item.value.var.type == IR_VAL_VAR_REF) {
-					__auto_type var = spillLoad->item.value.var.value.var;
-					strGraphNodeP toReplace CLEANUP(strGraphNodePDestroy) = strGraphNodePAppendItem(NULL, regAllocedNodes[i]);
-					__auto_type newNode = IRCreateVarRef(var);
-					graphReplaceWithNode(toReplace, newNode, NULL, (void (*)(void *))IRNodeDestroy, sizeof(enum IRConnType));
+				
+				__auto_type var = spillLoad->item.value.var.var;
+				strGraphNodeP toReplace CLEANUP(strGraphNodePDestroy) = strGraphNodePAppendItem(NULL, regAllocedNodes[i]);
+				__auto_type newNode = IRCreateVarRef(var);
+				graphReplaceWithNode(toReplace, newNode, NULL, (void (*)(void *))IRNodeDestroy, sizeof(enum IRConnType));
 
-					removedNodes = strGraphNodeIRPSortedInsert(removedNodes, regAllocedNodes[i], (gnCmpType)ptrPtrCmp);
-					addedNodes = strGraphNodeIRPSortedInsert(addedNodes, newNode, (gnCmpType)ptrPtrCmp);
-				} else {
-					assert(0);
-				}
+				removedNodes = strGraphNodeIRPSortedInsert(removedNodes, regAllocedNodes[i], (gnCmpType)ptrPtrCmp);
+				addedNodes = strGraphNodeIRPSortedInsert(addedNodes, newNode, (gnCmpType)ptrPtrCmp);
 			}
 		}
 		regAllocedNodes = strGraphNodeIRPSetDifference(regAllocedNodes, removedNodes, (gnCmpType)ptrPtrCmp);
@@ -668,7 +665,7 @@ void IRCompile(graphNodeIR start) {
 			strFrameEntry layout CLEANUP(strFrameEntryDestroy) = IRComputeFrameLayout(start, &frameSize);
 			localVarFrameOffsets = ptrMapFrameOffsetCreate();
 			for (long i = 0; i != strFrameEntrySize(layout); i++)
-					ptrMapFrameOffsetAdd(localVarFrameOffsets, layout[i].var.value.var, layout[i].offset);
+					ptrMapFrameOffsetAdd(localVarFrameOffsets, layout[i].var.var, layout[i].offset);
 
 			strGraphNodeIRP removed CLEANUP(strGraphNodeIRPDestroy)=NULL;
 			strGraphNodeIRP added CLEANUP(strGraphNodeIRPDestroy)=NULL;
@@ -679,10 +676,10 @@ void IRCompile(graphNodeIR start) {
 					if(ir->val.type!=IR_VAL_VAR_REF)
 							continue;
 
-					__auto_type find=ptrMapFrameOffsetGet(localVarFrameOffsets, ir->val.value.var.value.var);
+					__auto_type find=ptrMapFrameOffsetGet(localVarFrameOffsets, ir->val.value.var.var);
 					assert(find);
 					removed=strGraphNodeIRPSortedInsert(removed, regAllocedNodes[n], (gnCmpType)ptrPtrCmp);
-					__auto_type frameReference=IRCreateFrameAddress(*find, ir->val.value.var.value.var->type);
+					__auto_type frameReference=IRCreateFrameAddress(*find, ir->val.value.var.var->type);
 					added=strGraphNodeIRPSortedInsert(added, frameReference, (gnCmpType)ptrPtrCmp);
 
 					strGraphNodeIRP dummy CLEANUP(strGraphNodeIRPDestroy)=strGraphNodeIRPAppendItem(NULL, regAllocedNodes[n]); 
@@ -2344,7 +2341,7 @@ static int isUnvisited(const void *data, const graphNodeIR *node) {
 }
 void __IR2AsmExpr(graphNodeIR start) {
 computeArgs:;
-	strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) = IREdgesByPrec(start);
+		strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) = IREdgesByPrec(start);
 	for (long a = 0; a != strGraphEdgeIRPSize(incoming); a++) {
 		__IR2AsmExpr(graphEdgeIRIncoming(incoming[a]));
 	}

@@ -194,8 +194,7 @@ loop:;
 	if (!find) {
 		struct IRVar ref;
 		ref.SSANum = 0;
-		ref.type = IR_VAR_VAR;
-		ref.value.var = var;
+		ref.var = var;
 		struct IRVarRefs refs;
 		refs.refs = NULL;
 		ptrMapIRVarRefsAdd(IRVars, var, refs);
@@ -210,8 +209,7 @@ loop:;
 
 	val.val.value.var.addressedByPtr = 0;
 	val.val.value.var.SSANum = 0;
-	val.val.value.var.type = IR_VAR_VAR;
-	val.val.value.var.value.var = var;
+	val.val.value.var.var = var;
 
 	__auto_type alloced = GRAPHN_ALLOCATE(val);
 	find->refs = strGraphNodeIRPSortedInsert(find->refs, alloced, (gnIRCmpType)ptrCmp);
@@ -305,13 +303,9 @@ strGraphEdgeIRP IRGetConnsOfType(strGraphEdgeIRP conns, enum IRConnType type) {
 	return retVal;
 }
 struct object *IRValueGetType(struct IRValue *node) {
-	switch (node->type) {
+		switch (node->type) {
 	case IR_VAL_VAR_REF: {
-		if (node->value.var.type == IR_VAR_VAR)
-			return node->value.var.value.var->type;
-		else if (node->value.var.type == IR_VAR_MEMBER)
-			return node->value.var.value.member.mem->type;
-		return NULL;
+		return node->value.var.var->type;
 	}
 	case IR_VAL_STR_LIT:
 		return objectPtrCreate(&typeU8i);
@@ -543,34 +537,17 @@ graphNodeIR IRStmtStart(graphNodeIR node) {
 	return label;
 }
 int IRVarCmpIgnoreVersion(const struct IRVar *a, const struct IRVar *b) {
-	if (0 != a->type - b->type)
-		return a->type - b->type;
-
-	if (a->type == IR_VAR_VAR) {
-		return ptrCmp(a->value.var, b->value.var);
-	} else {
-		// TODO implement
-	}
-
-	return 0;
+		return ptrCmp(a->var, b->var);
 }
 int IRVarCmp(const struct IRVar *a, const struct IRVar *b) {
-	if (0 != a->type - b->type)
-		return a->type - b->type;
-
 	if (a->SSANum != b->SSANum) {
 		if (a->SSANum > b->SSANum)
 			return 1;
 		else if (a->SSANum < b->SSANum)
 			return -1;
 	}
-	if (a->type == IR_VAR_VAR) {
-		return ptrCmp(a->value.var, b->value.var);
-	} else {
-		// TODO implement
-	}
-
-	return 0;
+	
+	return ptrCmp(a->var, b->var);
 }
 static strChar lexerInt2Str(struct lexerInt *i) {
 	strChar retVal = strCharAppendItem(NULL, '\0');
@@ -772,16 +749,12 @@ static char *IRValue2GraphVizLabel(struct IRValue *val) {
 	}
 	case IR_VAL_VAR_REF: {
 		strChar tmp = NULL;
-		if (val->value.var.type == IR_VAR_MEMBER) {
-			// TODO
-		} else if (val->value.var.type == IR_VAR_VAR) {
-			if (val->value.var.value.var->name)
-				tmp = strClone(val->value.var.value.var->name);
-			else {
-				tmp = FROM_FORMAT("%p", val->value.var.value.var);
-			}
+		if (val->value.var.var->name)
+				tmp = strClone(val->value.var.var->name);
+		else {
+				tmp = FROM_FORMAT("%p", val->value.var.var);
 		}
-
+		
 		const char *format = "VAL VAR :%s-%li";
 		__auto_type labelText = FROM_FORMAT(format, tmp, val->value.var.SSANum);
 
@@ -1561,7 +1534,7 @@ void IRNodeDestroy(struct IRNode *node) {
 	if (node->type == IR_VALUE) {
 		struct IRNodeValue *valueNode = (void *)node;
 		if (valueNode->val.type == IR_VAL_VAR_REF) {
-			__auto_type find = ptrMapIRVarRefsGet(IRVars, valueNode->val.value.var.value.var);
+			__auto_type find = ptrMapIRVarRefsGet(IRVars, valueNode->val.value.var.var);
 			assert(find);
 			for (long i = 0; i != strGraphNodeIRPSize(find->refs); i++) {
 				if (graphNodeIRValuePtr(find->refs[i]) == node) {

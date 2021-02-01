@@ -6,7 +6,7 @@
 MAP_TYPE_DEF(struct frameEntry, FrameEntry);
 MAP_TYPE_FUNCS(struct frameEntry, FrameEntry);
 static const char *varNameFromLive(graphNodeIRLive node) {
-		return graphNodeIRLiveValuePtr(node)->ref.value.var->name;
+		return graphNodeIRLiveValuePtr(node)->ref.var->name;
 }
 static long min(long a,long b) {
 		return (a<b)?a:b;
@@ -152,7 +152,7 @@ void frameLayoutTests() {
 		mapFrameEntry byVar=mapFrameEntryCreate();
 		assert(strFrameEntrySize(layout)==6); //1 for each variable
 		for(long i=0;i!=6;i++)
-				mapFrameEntryInsert(byVar, layout[i].var.value.var->name, layout[i]);
+				mapFrameEntryInsert(byVar, layout[i].var.var->name, layout[i]);
 		strGraphNodeIRLiveP allNodes=graphNodeIRLiveAllNodes(live);
 		assert(strGraphNodeIRLivePSize(allNodes)==6);
 		for(long i=0;i!=6;i++) {
@@ -162,9 +162,9 @@ void frameLayoutTests() {
 						__auto_type a=*mapFrameEntryGet(byVar, varNameFromLive(allNodes[i]));
 						__auto_type b=*mapFrameEntryGet(byVar, varNameFromLive(out[o]));
 						int success;
-						__auto_type aSize=8*objectSize(a.var.value.var->type,&success);
+						__auto_type aSize=8*objectSize(a.var.var->type,&success);
 						assert(success);
-						__auto_type bSize=8*objectSize(b.var.value.var->type,&success);
+						__auto_type bSize=8*objectSize(b.var.var->type,&success);
 						assert(success);
 						//Check for overlap
 						//https://stackoverflow.com/questions/3269434/whats-the-most-efficient-way-to-test-two-integer-ranges-for-overlap

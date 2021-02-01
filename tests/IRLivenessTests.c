@@ -15,7 +15,7 @@ mapGraphNode getInterfereVars(graphNodeIRLive interfere,struct nameVarPair *expe
 				
 				for(long i=0;i!=len;i++) {
 						for(long i2=0;i2!=len;i2++) {
-								if(graphNodeIRLiveValuePtr(allNodes[i2])->ref.value.var==expected[i].var) {
+								if(graphNodeIRLiveValuePtr(allNodes[i2])->ref.var==expected[i].var) {
 										expected[i].node=allNodes[i2];
 
 										//Register in map

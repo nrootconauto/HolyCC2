@@ -17,15 +17,15 @@ typedef int (*varRefCmpType)(const struct IRVar **, const struct IRVar **);
 		ptr;                                                                                                                                                           \
 	})
 static char *__var2Str(struct IRVar var) {
-	if (var.value.var->name) {
+	if (var.var->name) {
 		char buffer[1024];
-		sprintf(buffer, "%s-%li", var.value.var->name, var.SSANum);
+		sprintf(buffer, "%s-%li", var.var->name, var.SSANum);
 		char *retVal = malloc(strlen(buffer) + 1);
 		strcpy(retVal, buffer);
 		return retVal;
 	} else {
 		char buffer[1024];
-		sprintf(buffer, "%p-%li", var.value.var, var.SSANum);
+		sprintf(buffer, "%p-%li", var.var, var.SSANum);
 		char *retVal = malloc(strlen(buffer) + 1);
 		strcpy(retVal, buffer);
 		return retVal;
@@ -92,11 +92,11 @@ static int IRVarRefCmp(const struct IRVar **a, const struct IRVar **b) {
 }
 static void printVars(strVar vars) {
 	for (long i = 0; i != strVarSize(vars); i++) {
-		__auto_type name = vars[i].value.var->name;
+		__auto_type name = vars[i].var->name;
 		if (name) {
 			DEBUG_PRINT("    - %s,%li\n", name, vars[i].SSANum);
 		} else {
-			DEBUG_PRINT("    - %p,%li\n", vars[i].value.var, vars[i].SSANum);
+			DEBUG_PRINT("    - %p,%li\n", vars[i].var, vars[i].SSANum);
 		}
 	}
 }
@@ -309,7 +309,7 @@ strGraphNodeIRLiveP __IRInterferenceGraphFilter(graphNodeMapping start, const vo
 		}
 
 		if (!found)
-			break;
+				break;
 	}
 
 	//

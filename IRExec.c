@@ -131,8 +131,7 @@ static struct IREvalVal *valueHash(struct IRValue *value) {
 
 		return regValue;
 	} else if (value->type == IR_VAL_VAR_REF) {
-		if (value->value.var.type == IR_VAR_VAR) {
-			__auto_type ptrStr = ptr2Str(value->value.var.value.var);
+			__auto_type ptrStr = ptr2Str(value->value.var.var);
 		loopVar:;
 			__auto_type find = mapVarValGet(varVals, ptrStr);
 			if (!find) {
@@ -142,9 +141,6 @@ static struct IREvalVal *valueHash(struct IRValue *value) {
 
 			assert(find);
 			return find;
-		} else if (value->value.var.type == IR_VAR_MEMBER) {
-			assert(-0);
-		}
 	} else if (value->type == IR_VAL_REG) {
 		// TODO implement me
 	} else if (value->type == __IR_VAL_MEM_FRAME) {
@@ -212,11 +208,7 @@ static struct IREvalVal *loadFromFrame(struct IRVar *frameVar) {
 struct object *IRValuegetType(struct IRValue *node) {
 	switch (node->type) {
 	case IR_VAL_VAR_REF: {
-		if (node->value.var.type == IR_VAR_VAR)
-			return node->value.var.value.var->type;
-		else if (node->value.var.type == IR_VAR_MEMBER)
-			return (void *)node->value.var.value.member.mem->type;
-		return NULL;
+			return node->value.var.var->type;
 	}
 	case IR_VAL_STR_LIT:
 		return objectPtrCreate(&typeU8i);
@@ -779,8 +771,7 @@ fail:
 void IREvalSetVarVal(const struct parserVar *var, struct IREvalVal value) {
 	struct IRValue ref;
 	ref.type = IR_VAL_VAR_REF;
-	ref.value.var.type = IR_VAR_VAR;
-	ref.value.var.value.var = (void *)var;
+	ref.value.var.var = (void *)var;
 	*valueHash(&ref) = value;
 }
 static struct IREvalVal __IREvalPath(graphNodeIR start, struct IREvalVal *currentValue, int *success) {
