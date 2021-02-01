@@ -663,8 +663,8 @@ void IRCompile(graphNodeIR start) {
 	__auto_type oldOffsets = localVarFrameOffsets;
 
 	//Frame allocate
+	long frameSize;
 	{
-			long frameSize;
 			strFrameEntry layout CLEANUP(strFrameEntryDestroy) = IRComputeFrameLayout(start, &frameSize);
 			localVarFrameOffsets = ptrMapFrameOffsetCreate();
 			for (long i = 0; i != strFrameEntrySize(layout); i++)
@@ -703,6 +703,11 @@ void IRCompile(graphNodeIR start) {
 	struct X86AddressingMode *bp=X86AddrModeReg(basePointer());
 	struct X86AddressingMode *sp=X86AddrModeReg(stackPointer());
 	assign(bp, sp, ptrSize());
+	//Add to stack pointer to make room for locals
+	strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+	addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeReg(stackPointer()));
+	addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeSint(frameSize));
+	
 	IR2Asm(start);
 	
 	ptrMapFrameOffsetDestroy(localVarFrameOffsets, NULL);
