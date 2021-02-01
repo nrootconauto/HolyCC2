@@ -10,8 +10,8 @@ void IRAttrABIInfoDestroy(struct IRAttr *a) {
 }
 static void *IR_ATTR_OLD_REG_SLICE = "OLD_REG_SLICE";
 struct IRATTRoldRegSlice {
-	struct IRAttr base;
-	struct regSlice old;
+		struct IRAttr base;
+		graphNodeIR old;
 };
 typedef int (*gnCmpType)(const graphNodeMapping *, const graphNodeMapping *);
 static int ptrPtrCmp(const void *a, const void *b) {
@@ -43,6 +43,23 @@ static struct reg *__registerContainingBoth(struct reg *master,struct reg * a,st
 	*/
 static struct reg *smallestRegContainingBoth(struct reg * a,struct reg *b) {
 		return __registerContainingBoth(a->masterReg, a, b);
+}
+static int killEdgeIfEq(void *a, void *b) {
+		return a==b;
+}
+static void swapNode(graphNodeIR old,graphNodeIR with) {
+		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(old);
+		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(old);
+		for(long i=0;i!=strGraphEdgeIRPSize(in);i++) {
+				__auto_type from=graphEdgeIRIncoming(in[i]); 
+				graphNodeIRConnect(from, with, *graphEdgeIRValuePtr(in[i]));
+				graphEdgeIRKill(from, old, in[i],killEdgeIfEq,NULL);
+		}
+		for(long o=0;o!=strGraphEdgeIRPSize(out);o++) {
+				__auto_type to=graphEdgeIROutgoing(out[o]); 
+				graphNodeIRConnect(with,to, *graphEdgeIRValuePtr(out[o]));
+				graphEdgeIRKill(old,to, out[o],killEdgeIfEq,NULL);
+		}
 }
 static strRegP usedRegisters(strGraphNodeIRP nodes) {
 	strRegP retVal = NULL;
@@ -101,10 +118,9 @@ static void findRegisterLiveness(graphNodeIR start) {
 		struct IRATTRoldRegSlice newAttr;
 		newAttr.base.name = IR_ATTR_OLD_REG_SLICE;
 		newAttr.base.destroy = NULL;
-		newAttr.old = value->val.value.reg;
+		newAttr.old = allNodes[i];
 		IRAttrReplace(newNode, __llCreate(&newAttr, sizeof(newAttr)));
-		strGraphNodeIRP dummy CLEANUP(strGraphNodeIRPDestroy) = strGraphNodeIRPAppendItem(NULL, allNodes[i]);
-		graphReplaceWithNode(dummy, newNode, NULL, (void (*)(void *))IRNodeDestroy, sizeof(enum IRConnType));
+		swapNode(allNodes[i], newNode);
 		replacedNodes = strGraphNodeIRPSortedInsert(replacedNodes, allNodes[i], (gnCmpType)ptrPtrCmp);
 		addedNodes = strGraphNodeIRPSortedInsert(addedNodes, newNode, (gnCmpType)ptrPtrCmp);
 	}
@@ -181,8 +197,8 @@ static void findRegisterLiveness(graphNodeIR start) {
 			struct IRATTRoldRegSlice *find=(void*)llIRAttrFind(node->base.attrs, IR_ATTR_OLD_REG_SLICE, IRAttrGetPred);
 			if(!find)
 					continue;
-			strGraphNodeIRP dummy CLEANUP(strGraphNodeIRPDestroy)=strGraphNodeIRPAppendItem(NULL, allNodes[n]);
-			graphIRReplaceNodes(dummy, IRCreateRegRef(&find->old), NULL,(void(*)(void*))IRNodeDestroy);
+			swapNode(allNodes[n], find->old);
+			graphNodeIRKill(&allNodes[n], (void(*)(void*))IRNodeDestroy, NULL);
 	}
 	
 	ptrMapVar2RegDestroy(var2Reg, NULL);
