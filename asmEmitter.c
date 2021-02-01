@@ -8,6 +8,8 @@
 #include <ptrMap.h>
 #include <registers.h>
 #include <stdio.h>
+#include <frameLayout.h>
+#include <X86AsmSharedVars.h>
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
 PTR_MAP_FUNCS(struct parserNode *, strChar, LabelNames);
@@ -237,6 +239,15 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 		break;
 	}
 	case X86ADDRMODE_ITEM_ADDR: {
+			//Check if a (local) vairable
+			if(args[i]->value.itemAddr->type==NODE_VAR) {
+					struct parserNodeVar *var=(void*)args[i]->value.itemAddr;
+					__auto_type find=ptrMapFrameOffsetGet(localVarFrameOffsets, var->var);
+					if(find) {
+							struct X86AddressingMode *offset CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(*find), var->var->type);
+							return emitMode(&offset, 0);
+					}
+			}
 		strChar name CLEANUP(strCharDestroy) = parserNodeSymbolName(args[i]->value.itemAddr);
 		if (!name) {
 			fprintf(stderr, "Cant find name for symbol\n");
@@ -303,9 +314,17 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 		}
 		case x86ADDR_INDIR_SIB: {
 			strChar retVal CLEANUP(strCharDestroy) = NULL;
-			__auto_type indexStr = ptrMapRegNameGet(regNames, args[i]->value.m.value.sib.index);
+
+			strChar  indexStr CLEANUP(strCharDestroy) = NULL;
+			if(args[i]->value.m.value.sib.index)
+					indexStr=emitMode(&args[i]->value.m.value.sib.index, 0);
+
 			strChar scaleStr CLEANUP(strCharDestroy) = int64ToStr(args[i]->value.m.value.sib.scale);
-			__auto_type baseStr = ptrMapRegNameGet(regNames, args[i]->value.m.value.sib.base);
+			
+			strChar baseStr CLEANUP(strCharDestroy) = NULL;
+			if(args[i]->value.m.value.sib.base)
+					baseStr=emitMode(&args[i]->value.m.value.sib.base, 0);
+			
 			// Emit mode takes an array,so pass the pointer
 			strChar offsetStr CLEANUP(strCharDestroy) = NULL;
 			if (args[i]->value.m.value.sib.offset)
@@ -313,18 +332,18 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 			strChar buffer CLEANUP(strCharDestroy) = NULL;
 			int insertAdd = 0;
 			if (indexStr && args[i]->value.m.value.sib.scale) {
-				retVal = strCharAppendData(retVal, *indexStr, strlen(*indexStr));
+				retVal = strCharAppendData(retVal, indexStr, strlen(indexStr));
 				retVal = strCharAppendItem(retVal, '*');
 				retVal = strCharAppendData(retVal, scaleStr, strlen(scaleStr));
 				insertAdd = 1;
 			} else if (indexStr) {
-				retVal = strCharAppendData(retVal, *indexStr, strlen(*indexStr));
+				retVal = strCharAppendData(retVal, indexStr, strlen(indexStr));
 				insertAdd = 1;
 			}
 			if (insertAdd && baseStr)
 				retVal = strCharAppendItem(retVal, '+');
 			if (baseStr) {
-				retVal = strCharAppendData(retVal, *baseStr, strlen(*baseStr));
+				retVal = strCharAppendData(retVal, baseStr, strlen(baseStr));
 			}
 			if (args[i]->value.m.value.sib.offset) {
 				if (offsetStr[0] != '-')

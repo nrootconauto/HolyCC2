@@ -2,6 +2,7 @@
 #include <opcodesParser.h>
 #include <parserA.h>
 #include <stdio.h>
+#include <frameLayout.h>
 void X86EmitAsmInst(struct opcodeTemplate *template, strX86AddrMode args, int *err);
 void X86EmitAsmParserInst(struct parserNodeAsmInstX86 *inst);
 void X86EmitAsmInit();
@@ -14,3 +15,4 @@ struct X86AddressingMode *X86EmitAsmDU64(strX86AddrMode data, long len);
 struct X86AddressingMode *X86EmitAsmStrLit(const char *text);
 void X86EmitAsmIncludeBinfile(const char *fileName);
 void X86EmitAsmGlobalVar(struct parserVar *var);
+extern  __thread ptrMapFrameOffset localVarFrameOffsets;

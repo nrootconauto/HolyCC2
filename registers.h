@@ -148,3 +148,6 @@ enum archEndian archEndian();
 enum archConfig getCurrentArch();
 int regConflict(struct reg *a, struct reg *b);
 struct reg *subRegOfType(struct reg *r, struct object *type);
+long ptrSize();
+struct reg *basePointer();
+struct reg *stackPointer();

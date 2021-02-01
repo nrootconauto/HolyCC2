@@ -13,8 +13,8 @@ struct X86MemoryLoc {
 		uint64_t mem;
 		struct reg *indirReg;
 		struct {
-			struct reg *index;
-			struct reg *base;
+			struct X86AddressingMode *index;
+			struct X86AddressingMode *base;
 			int scale;
 			struct X86AddressingMode *offset;
 		} sib;
@@ -52,7 +52,7 @@ struct X86AddressingMode *X86AddrModeReg(struct reg *reg);
 struct X86AddressingMode *X86AddrModeIndirMem(uint64_t where, struct object *type);
 struct X86AddressingMode *X86AddrModeLabel(const char *name);
 struct X86AddressingMode *X86AddrModeIndirReg(struct reg *where, struct object *type);
-struct X86AddressingMode *X86AddrModeIndirSIB(long scale, struct reg *index, struct reg *base, struct X86AddressingMode *offset, struct object *type);
+struct X86AddressingMode *X86AddrModeIndirSIB(long scale, struct X86AddressingMode *index, struct X86AddressingMode *base, struct X86AddressingMode *offset, struct object *type);
 struct X86AddressingMode *X86AddrModeItemAddrOf(struct parserNode *addrOf, struct object *type);
 struct opcodeTemplateArg {
 	enum {

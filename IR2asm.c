@@ -16,6 +16,7 @@
 #include <registers.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <X86AsmSharedVars.h>
 typedef int (*regCmpType)(const struct reg **, const struct reg **);
 typedef int (*gnCmpType)(const graphNodeIR *, const graphNodeIR *);
 static int ptrPtrCmp(const void *a, const void *b) {
@@ -31,11 +32,9 @@ STR_TYPE_FUNCS(char, Char);
 PTR_MAP_FUNCS(graphNodeIR, strChar, LabelNames);
 PTR_MAP_FUNCS(graphNodeIR, int, CompiledNodes);
 PTR_MAP_FUNCS(struct parserFunction *, strChar, FuncNames);
-PTR_MAP_FUNCS(struct parserVar *, long, FrameOffset);
 static __thread long labelsCount;
 static __thread ptrMapFuncNames funcNames;
 static __thread ptrMapLabelNames asmLabelNames;
-static __thread ptrMapFrameOffset varFrameOffsets;
 static __thread ptrMapCompiledNodes compiledNodes;
 static __thread int insertLabelsForAsmCalled = 0;
 static strGraphNodeIRP removeNeedlessLabels(graphNodeIR start) {
@@ -73,7 +72,6 @@ void IR2AsmInit() {
 	labelsCount = 0;
 	funcNames = ptrMapFuncNamesCreate();
 	asmLabelNames = ptrMapLabelNamesCreate();
-	varFrameOffsets = NULL;
 	compiledNodes = ptrMapCompiledNodesCreate();
 	insertLabelsForAsmCalled = 1;
 }
@@ -89,15 +87,6 @@ strChar uniqueLabel(const char *head) {
 	char buffer[count + 1];
 	sprintf(buffer, "$%s_%li", head, labelsCount);
 	return strCharAppendData(NULL, buffer, count + 1);
-}
-static long ptrSize() {
-	switch (getCurrentArch()) {
-	case ARCH_X64_SYSV:
-		return 8;
-	case ARCH_TEST_SYSV:
-	case ARCH_X86_SYSV:
-		return 4;
-	}
 }
 static struct reg *regForTypeExcludingConsumed(struct object *type) {
 	strRegP regs CLEANUP(strRegPDestroy) = regGetForType(type);
@@ -181,19 +170,13 @@ loop:;
 	}
 	goto loop;
 }
-static struct reg *basePointer() {
-	return (ptrSize() == 4) ? &regX86EBP : &regAMD64RBP;
-}
-static struct reg *stackPointer() {
-	return ptrSize() == 4 ? &regX86ESP : &regAMD64RSP;
-}
 static struct X86AddressingMode *__node2AddrMode(graphNodeIR start) {
 	if (graphNodeIRValuePtr(start)->type == IR_VALUE) {
 		struct IRNodeValue *value = (void *)graphNodeIRValuePtr(start);
 		switch (value->val.type) {
 		case __IR_VAL_MEM_FRAME: {
 			if (getCurrentArch() == ARCH_TEST_SYSV || getCurrentArch() == ARCH_X86_SYSV || getCurrentArch() == ARCH_X64_SYSV) {
-				return X86AddrModeIndirSIB(0, NULL, basePointer(), X86AddrModeSint(value->val.value.__frame.offset), IRNodeType(start));
+					return X86AddrModeIndirSIB(0, NULL,  X86AddrModeReg(basePointer()), X86AddrModeSint(value->val.value.__frame.offset), IRNodeType(start));
 			} else {
 				assert(0); // TODO  implement
 			}
@@ -375,9 +358,9 @@ static void consumeRegFromMode(struct X86AddressingMode *mode) {
 			consumeRegister(mode->value.m.value.indirReg);
 		else if (mode->value.m.type == x86ADDR_INDIR_SIB) {
 			if (mode->value.m.value.sib.base)
-				consumeRegister(mode->value.m.value.sib.base);
+				consumeRegFromMode(mode->value.m.value.sib.base);
 			if (mode->value.m.value.sib.index)
-				consumeRegister(mode->value.m.value.sib.index);
+				consumeRegFromMode(mode->value.m.value.sib.index);
 		}
 	}
 }
@@ -395,9 +378,9 @@ static void unconsumeRegFromMode(struct X86AddressingMode *mode) {
 			consumeRegister(mode->value.m.value.indirReg);
 		else if (mode->value.m.type == x86ADDR_INDIR_SIB) {
 			if (mode->value.m.value.sib.base)
-				consumeRegister(mode->value.m.value.sib.base);
+				unconsumeRegFromMode(mode->value.m.value.sib.base);
 			if (mode->value.m.value.sib.index)
-				consumeRegister(mode->value.m.value.sib.index);
+				unconsumeRegFromMode(mode->value.m.value.sib.index);
 		}
 	}
 }
@@ -677,17 +660,35 @@ void IRCompile(graphNodeIR start) {
 	}
 
 	//"Push" the old frame layout
-	__auto_type oldOffsets = varFrameOffsets;
+	__auto_type oldOffsets = localVarFrameOffsets;
 
-	long frameSize;
-	strFrameEntry layout CLEANUP(strFrameEntryDestroy) = IRComputeFrameLayout(start, &frameSize);
-	varFrameOffsets = ptrMapFrameOffsetCreate();
-	for (long i = 0; i != strFrameEntrySize(layout); i++)
-		ptrMapFrameOffsetAdd(varFrameOffsets, layout[i].var.value.var, layout[i].offset);
-	ptrMapFrameOffsetDestroy(varFrameOffsets, NULL);
+	//Frame allocate
+	{
+			long frameSize;
+			strFrameEntry layout CLEANUP(strFrameEntryDestroy) = IRComputeFrameLayout(start, &frameSize);
+			localVarFrameOffsets = ptrMapFrameOffsetCreate();
+			for (long i = 0; i != strFrameEntrySize(layout); i++)
+					ptrMapFrameOffsetAdd(localVarFrameOffsets, layout[i].var.value.var, layout[i].offset);
 
-	//"Pop" the old frame layout
-	varFrameOffsets = oldOffsets;
+			strGraphNodeIRP removed CLEANUP(strGraphNodeIRPDestroy)=NULL;
+			strGraphNodeIRP added CLEANUP(strGraphNodeIRPDestroy)=NULL;
+			for(long n=0;n!=strGraphNodeIRPSize(regAllocedNodes);n++) {
+					struct IRNodeValue *ir=(void*)graphNodeIRValuePtr(regAllocedNodes[n]);
+					if(ir->base.type!=IR_VALUE)
+							continue;
+					if(ir->val.type!=IR_VAL_VAR_REF)
+							continue;
+
+					__auto_type find=ptrMapFrameOffsetGet(localVarFrameOffsets, ir->val.value.var.value.var);
+					assert(find);
+					removed=strGraphNodeIRPSortedInsert(removed, regAllocedNodes[n], (gnCmpType)ptrPtrCmp);
+					__auto_type frameReference=IRCreateFrameAddress(*find, ir->val.value.var.value.var->type);
+					added=strGraphNodeIRPSortedInsert(added, frameReference, (gnCmpType)ptrPtrCmp);
+
+					strGraphNodeIRP dummy CLEANUP(strGraphNodeIRPDestroy)=strGraphNodeIRPAppendItem(NULL, regAllocedNodes[n]); 
+					graphIRReplaceNodes(dummy, frameReference, NULL, (void(*)(void*))IRNodeDestroy);
+			}
+	}
 
 	// For all non-reg globals,dump them to global scope
 	for (long p = 0; p != strPVarSize(noregs); p++) {
@@ -703,6 +704,10 @@ void IRCompile(graphNodeIR start) {
 	struct X86AddressingMode *sp=X86AddrModeReg(stackPointer());
 	assign(bp, sp, ptrSize());
 	IR2Asm(start);
+	
+	ptrMapFrameOffsetDestroy(localVarFrameOffsets, NULL);
+	//"Pop" the old frame layout
+	localVarFrameOffsets = oldOffsets;
 }
 static int isPtrType(struct object *obj) {
 	__auto_type type = objectBaseType(obj)->type;
@@ -1516,7 +1521,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				for (long r = 0; r != strRegPSize(pushPopRegs); r++)
 					offset += pushPopRegs[r]->size;
 				struct X86AddressingMode *resultPointer =
-				    X86AddrModeIndirSIB(0, 0, (ptrSize() == 4 ? &regX86ESP : &regAMD64RSP), X86AddrModeSint(-offset), IRNodeType(nodeDest(start)));
+						X86AddrModeIndirSIB(0, 0, X86AddrModeReg((ptrSize() == 4 ? &regX86ESP : &regAMD64RSP)), X86AddrModeSint(-offset), IRNodeType(nodeDest(start)));
 				assign(resultPointer, resRegMode, outSize);
 
 				// Pop uncomsumed registers that are affected
@@ -1974,7 +1979,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			} else
 				assign(indexMode, bMode, ptrSize());
 
-			struct X86AddressingMode *indirMode CLEANUP(X86AddrModeDestroy) = X86AddrModeIndirSIB(itemSize, index, base, 0, (struct object *)getTypeForSize(itemSize));
+			struct X86AddressingMode *indirMode CLEANUP(X86AddrModeDestroy) = X86AddrModeIndirSIB(itemSize, X86AddrModeReg(index), X86AddrModeReg(base), 0, (struct object *)getTypeForSize(itemSize));
 			if (hasIncomingAssign)
 				assign(indirMode, inMode, objectSize(IRNodeType(nodeDest(start)), NULL));
 			assign(oMode, indirMode, objectSize(IRNodeType(nodeDest(start)), NULL));
@@ -2236,7 +2241,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		struct X86AddressingMode *jmpTabLabMode CLEANUP(X86AddrModeDestroy) = X86AddrModeLabel(jmpTabLabel);
 		assign(regMode, jmpTabLabMode, ptrSize());
 		strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
-		leaArgs = strX86AddrModeAppendItem(leaArgs, X86AddrModeIndirSIB(ptrSize(), NULL, b, 0, (struct object *)getTypeForSize(ptrSize())));
+		leaArgs = strX86AddrModeAppendItem(leaArgs, X86AddrModeIndirSIB(ptrSize(), NULL, X86AddrModeReg(b), 0, (struct object *)getTypeForSize(ptrSize())));
 
 		popReg(b);
 

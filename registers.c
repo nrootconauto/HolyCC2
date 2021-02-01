@@ -531,3 +531,19 @@ struct reg *subRegOfType(struct reg *r, struct object *type) {
 		return NULL;
 	return subRegister->reg;
 }
+long ptrSize() {
+	switch (getCurrentArch()) {
+	case ARCH_X64_SYSV:
+		return 8;
+	case ARCH_TEST_SYSV:
+	case ARCH_X86_SYSV:
+		return 4;
+	}
+}
+
+struct reg *basePointer() {
+	return (ptrSize() == 4) ? &regX86EBP : &regAMD64RBP;
+}
+struct reg *stackPointer() {
+	return ptrSize() == 4 ? &regX86ESP : &regAMD64RSP;
+}
