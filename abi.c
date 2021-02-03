@@ -70,7 +70,7 @@ static strRegP usedRegisters(strGraphNodeIRP nodes) {
 		if (value->base.type == IR_VALUE)
 			if (value->val.type == IR_VAL_REG) {
 				__auto_type reg = value->val.value.reg.reg;
-				if (strRegPSortedFind(retVal, reg, (regCmpType)ptrPtrCmp))
+				if (!strRegPSortedFind(retVal, reg, (regCmpType)ptrPtrCmp))
 					retVal = strRegPSortedInsert(retVal, reg, (regCmpType)ptrPtrCmp);
 			}
 	}
@@ -140,7 +140,7 @@ static void findRegisterLiveness(graphNodeIR start) {
 			continue;
 		__auto_type reg = value->val.value.reg.reg;
 		__auto_type index = strRegPSortedFind(usedRegs, reg, (regCmpType)ptrPtrCmp) - usedRegs;
-		__auto_type newNode = IRCreateVarRef(regVars[i]);
+		__auto_type newNode = IRCreateVarRef(regVars[index]);
 		
 		struct IRATTRoldRegSlice newAttr;
 		newAttr.base.name = IR_ATTR_OLD_REG_SLICE;
@@ -156,7 +156,7 @@ static void findRegisterLiveness(graphNodeIR start) {
 	//
 	// This has a side effect of attributing basic block attributes to nodes,which tell the in/out variables for each node in an expression
 	//
-	strGraphNodeIRLiveP livenessGraphs CLEANUP(strGraphNodeIRLivePDestroy) = IRInterferenceGraphFilter(start, regVars, isSelectVariable);
+	strGraphNodeIRLiveP livenessGraphs CLEANUP(strGraphNodeIRLivePDestroy) = IRInterferenceGraphFilter(start, &regVars, isSelectVariable);
 	for (long n = 0; n != strGraphNodeIRPSize(allNodes); n++) {
 		struct IRNodeFuncCall *call = (void *)graphNodeIRValuePtr(allNodes[n]);
 		if (call->base.type != IR_FUNC_CALL)
@@ -202,10 +202,11 @@ static void findRegisterLiveness(graphNodeIR start) {
 					continue;
 			if(node->val.type!=IR_VAL_VAR_REF)
 					continue;
-			struct IRATTRoldRegSlice *find=(void*)llIRAttrFind(node->base.attrs, IR_ATTR_OLD_REG_SLICE, IRAttrGetPred);
+			__auto_type find =llIRAttrFind(node->base.attrs, IR_ATTR_OLD_REG_SLICE, IRAttrGetPred);
 			if(!find)
 					continue;
-			swapNode(allNodes[n], find->old);
+			struct IRATTRoldRegSlice *attr=(void*)llIRAttrValuePtr(find);
+			swapNode(allNodes[n], attr->old);
 			graphNodeIRKill(&allNodes[n], (void(*)(void*))IRNodeDestroy, NULL);
 	}
 	
