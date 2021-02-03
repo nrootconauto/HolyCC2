@@ -7,6 +7,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <str.h>
+#include <parserA.h>
+#include <parserB.h>
+#include <X86AsmSharedVars.h>
 STR_TYPE_DEF(uint8_t, OpcodeBytes);
 STR_TYPE_FUNCS(uint8_t, OpcodeBytes);
 #define ALLOCATE(item)                                                                                                                                             \
@@ -131,12 +134,12 @@ static int lexKeyword(strChar text, long *Pos, const char **keywords, long kwCou
 	}
 	return 0;
 }
-struct lexerItem {
+struct opLexerItem {
 	enum {
-		LEXER_INT,
-		LEXER_KW,
-		LEXER_WORD,
-		LEXER_STR,
+		OP_LEXER_INT,
+		OP_LEXER_KW,
+		OP_LEXER_WORD,
+		OP_LEXER_STR,
 	} type;
 	union {
 		long Int;
@@ -145,29 +148,29 @@ struct lexerItem {
 		const char *kw;
 	} value;
 };
-static void lexerItemDestroy(struct lexerItem **item) {
+static void opLexerItemDestroy(struct opLexerItem **item) {
 	if (!*item)
 		return;
-	if (item[0]->type == LEXER_WORD)
+	if (item[0]->type == OP_LEXER_WORD)
 		strCharDestroy(&item[0]->value.name);
-	if (item[0]->type == LEXER_STR)
+	if (item[0]->type == OP_LEXER_STR)
 		strCharDestroy(&item[0]->value.str);
 	free(item[0]);
 }
-static struct lexerItem *lexItem(strChar text, long *pos, const char **keywords, long kwCount) {
+static struct opLexerItem *lexItem(strChar text, long *pos, const char **keywords, long kwCount) {
 	*pos = skipWhitespace(text, *pos);
-	struct lexerItem *item = malloc(sizeof(struct lexerItem));
+	struct opLexerItem *item = malloc(sizeof(struct opLexerItem));
 	if (lexStr(text, pos, &item->value.str)) {
-		item->type = LEXER_STR;
+		item->type = OP_LEXER_STR;
 		return item;
 	} else if (lexKeyword(text, pos, keywords, kwCount, &item->value.kw)) {
-		item->type = LEXER_KW;
+		item->type = OP_LEXER_KW;
 		return item;
 	} else if (lexName(text, pos, &item->value.name)) {
-		item->type = LEXER_WORD;
+		item->type = OP_LEXER_WORD;
 		return item;
 	} else if (lexInt(text, pos, &item->value.Int)) {
-		item->type = LEXER_INT;
+		item->type = OP_LEXER_INT;
 		return item;
 	}
 
@@ -251,21 +254,21 @@ void parseOpcodeFile() {
 		pos = skipWhitespace(text, pos);
 		if (text[pos] == '\0')
 			break;
-		struct lexerItem *item CLEANUP(lexerItemDestroy) = lexItem(text, &pos, keywords, kwCount);
+		struct opLexerItem *item CLEANUP(opLexerItemDestroy) = lexItem(text, &pos, keywords, kwCount);
 		assert(item);
-		if (item->type == LEXER_KW) {
+		if (item->type == OP_LEXER_KW) {
 			if (0 == strcmp(item->value.kw, "OPCODE")) {
-				struct lexerItem *name CLEANUP(lexerItemDestroy) = malloc(sizeof(struct lexerItem));
-				struct lexerItem *intelAlias CLEANUP(lexerItemDestroy) = NULL;
-				name->type = LEXER_WORD;
+				struct opLexerItem *name CLEANUP(opLexerItemDestroy) = malloc(sizeof(struct opLexerItem));
+				struct opLexerItem *intelAlias CLEANUP(opLexerItemDestroy) = NULL;
+				name->type = OP_LEXER_WORD;
 				pos = skipWhitespace(text, pos);
 				lexName(text, &pos, &name->value.name);
 				// OPCODE TOSname #intelName or
 				// OPCODE TOSname ##"alias"
 				long oldPos = pos;
-				struct lexerItem *hashTag CLEANUP(lexerItemDestroy) = lexItem(text, &pos, keywords, kwCount);
+				struct opLexerItem *hashTag CLEANUP(opLexerItemDestroy) = lexItem(text, &pos, keywords, kwCount);
 				if (hashTag) {
-					if (hashTag->type == LEXER_KW) {
+					if (hashTag->type == OP_LEXER_KW) {
 						pos = skipWhitespace(text, pos);
 						if (0 == strcmp(hashTag->value.kw, "#")) {
 							intelAlias = lexItem(text, &pos, keywords, kwCount);
@@ -281,7 +284,7 @@ void parseOpcodeFile() {
 			lookForEncodings:;
 				strOpcodeTemplate templates = NULL;
 				for (;;) {
-					if (item->type == LEXER_KW) {
+					if (item->type == OP_LEXER_KW) {
 						struct opcodeTemplate template;
 						memset(&template, 0, sizeof(template));
 						template.name = malloc(strlen(name->value.name) + 1);
@@ -289,14 +292,14 @@ void parseOpcodeFile() {
 						template.intelAlias = NULL;
 						if (intelAlias) {
 							// intelName can be string or name
-							if (intelAlias->type == LEXER_WORD) {
+							if (intelAlias->type == OP_LEXER_WORD) {
 								template.intelAlias = malloc(strlen(intelAlias->value.name) + 1);
 								strcpy(template.intelAlias, intelAlias->value.name);
-							} else if (intelAlias->type == LEXER_STR) {
+							} else if (intelAlias->type == OP_LEXER_STR) {
 								template.intelAlias = malloc(strlen(intelAlias->value.str) + 1);
 								strcpy(template.intelAlias, intelAlias->value.str);
 							} else {
-								assert(intelAlias->type == LEXER_STR || intelAlias->type == LEXER_WORD);
+								assert(intelAlias->type == OP_LEXER_STR || intelAlias->type == OP_LEXER_WORD);
 							}
 						} else {
 							// Use defualt TOS name
@@ -307,10 +310,10 @@ void parseOpcodeFile() {
 						template.args = NULL;
 						for (;;) {
 							long oldPos = pos;
-							struct lexerItem *item CLEANUP(lexerItemDestroy) = lexItem(text, &pos, keywords, kwCount);
-							if (item->type == LEXER_INT)
+							struct opLexerItem *item CLEANUP(opLexerItemDestroy) = lexItem(text, &pos, keywords, kwCount);
+							if (item->type == OP_LEXER_INT)
 								template.bytes = strOpcodeBytesAppendItem(template.bytes, item->value.Int);
-							else if (item->type == LEXER_KW) {
+							else if (item->type == OP_LEXER_KW) {
 								if (0 == strcmp(item->value.kw, ";")) {
 									templates = strOpcodeTemplateAppendItem(templates, ALLOCATE(template));
 									goto registerTemplates;
@@ -327,17 +330,17 @@ void parseOpcodeFile() {
 						// Look for arg keywords or flags
 						for (;;) {
 							long oldPos = pos;
-							struct lexerItem *item CLEANUP(lexerItemDestroy) = lexItem(text, &pos, keywords, kwCount);
+							struct opLexerItem *item CLEANUP(opLexerItemDestroy) = lexItem(text, &pos, keywords, kwCount);
 #define ARG_BY_NAME(arg, name)                                                                                                                                     \
 	else if (0 == strcmp(item->value.kw, name)) {                                                                                                                    \
 		struct opcodeTemplateArg __arg;                                                                                                                                \
 		__arg.type = arg;                                                                                                                                              \
 		template.args = strOpcodeTemplateArgAppendItem(template.args, __arg);                                                                                          \
 	}
-							if (item->type == LEXER_INT) {
+							if (item->type == OP_LEXER_INT) {
 								pos = oldPos;
 								goto opcodeFinish;
-							} else if (item->type == LEXER_KW) {
+							} else if (item->type == OP_LEXER_KW) {
 								if (0 == strcmp(item->value.kw, ";")) {
 									templates = strOpcodeTemplateAppendItem(templates, ALLOCATE(template));
 									goto registerTemplates;
@@ -407,16 +410,16 @@ void parseOpcodeFile() {
 									// Aliases
 									templates = strOpcodeTemplateAppendItem(templates, ALLOCATE(template));
 									for (;;) {
-										struct lexerItem *next CLEANUP(lexerItemDestroy) = lexItem(text, &pos, keywords, kwCount);
-										if (next->type == LEXER_KW)
+										struct opLexerItem *next CLEANUP(opLexerItemDestroy) = lexItem(text, &pos, keywords, kwCount);
+										if (next->type == OP_LEXER_KW)
 											if (0 == strcmp(next->value.kw, ";"))
 												goto registerTemplates;
 										// Insert clone into map
-										assert(next->type == LEXER_WORD);
+										assert(next->type == OP_LEXER_WORD);
 										mapOpcodeTemplatesInsert(opcodes, next->value.name, strOpcodeTemplateClone2(templates));
 									}
 								}
-							} else if (item->type == LEXER_WORD) {
+							} else if (item->type == OP_LEXER_WORD) {
 								// Check for register
 								__auto_type find = mapRegGet(regsByName, item->value.name);
 								assert(find);
@@ -990,4 +993,33 @@ struct X86AddressingMode *X86AddrModeIndirLabel(const char *text, struct object 
 	mode.value.m.type = x86ADDR_INDIR_LABEL;
 	mode.value.m.value.label = X86AddrModeLabel(text);
 	return ALLOCATE(mode);
+}
+struct X86AddressingMode *X86AddrModeGlblVar(struct parserVar *var) {
+		assert(var->isGlobal);
+		return X86AddrModeItemAddrOf(parserGetGlobalSym(var->name) , var->type);
+}
+struct X86AddressingMode *X86AddrModeFunc(struct parserFunction *func) {
+		struct X86AddressingMode mode;
+		mode.type=X86ADDRMODE_LABEL;
+		mode.valueType=func->type;
+		//Use name if global,else name mangle
+		if(func->parentFunction==NULL) {
+				mode.value.label=strcpy(malloc(strlen(func->name)+1), func->name);
+		} else {
+		loop:;
+				__auto_type find=ptrMapAsmFuncNameGet(asmFuncNames, func);
+				if(find) {
+						mode.value.label=strcpy(malloc(strlen(*find)+1), *find);
+				} else {
+						const char *fmt="$lam_%s";
+						long cnt=snprintf(NULL,0,fmt,func->name);
+						char buffer[cnt+1];
+						sprintf(buffer, fmt, func->name);
+
+						char *newName=strcpy(malloc(strlen(buffer)+1), buffer);
+						ptrMapAsmFuncNameAdd(asmFuncNames, func, newName);
+						goto loop;
+				}
+		}
+		return ALLOCATE(mode);
 }
