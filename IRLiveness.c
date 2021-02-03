@@ -104,7 +104,7 @@ static int isExprEdge(graphEdgeIR edge) {
 	switch (*graphEdgeIRValuePtr(edge)) {
 	case IR_CONN_DEST:
 	case IR_CONN_FUNC:
-	case IR_CONN_FUNC_ARG:
+	case IR_CONN_FUNC_ARG_1...IR_CONN_FUNC_ARG_128:
 	case IR_CONN_SIMD_ARG:
 	case IR_CONN_SOURCE_A:
 	case IR_CONN_SOURCE_B:

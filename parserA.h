@@ -1,7 +1,6 @@
 #pragma once
 #include <lexer.h>
 #include <object.h>
-#include <opcodesParser.h>
 #include <str.h>
 enum parserNodeType {
 	NODE_ASM_REG,

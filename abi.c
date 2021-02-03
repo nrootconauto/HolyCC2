@@ -3,7 +3,7 @@
 #include <cleanup.h>
 #include <assert.h>
 #include <asmEmitter.h>
-#include <IR2asm.h>>
+#include <IR2asm.h>
 #define DEBUG_PRINT_ENABLE 1
 void *IR_ATTR_ABI_INFO="ABI_INFO";
 void IRAttrABIInfoDestroy(struct IRAttr *a) {
@@ -224,6 +224,9 @@ static strGraphNodeIRP getFuncArgs(graphNodeIR call) {
 		}
 		return args;
 }
+void IRComputeABIInfo(graphNodeIR start) {
+		findRegisterLiveness(start);
+}
 static void assembleInst(const char *name, strX86AddrMode args) {
 	strOpcodeTemplate ops CLEANUP(strOpcodeTemplateDestroy) = X86OpcodesByArgs(name, args, NULL);
 	assert(strOpcodeTemplateSize(ops));
@@ -439,4 +442,5 @@ void IR_ABI_I386_SYSV_2Asm(graphNodeIR start) {
 				strX86AddrMode outArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL,IRNode2AddrMode(outNode));
 				assembleInst("POP",  outArgs);
 		}
+		assert(stackSize==0);
 }

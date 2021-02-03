@@ -17,6 +17,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <X86AsmSharedVars.h>
+#include <abi.h>
 typedef int (*regCmpType)(const struct reg **, const struct reg **);
 typedef int (*gnCmpType)(const graphNodeIR *, const graphNodeIR *);
 static int ptrPtrCmp(const void *a, const void *b) {
@@ -659,6 +660,7 @@ void IRCompile(graphNodeIR start) {
 		X86EmitAsmGlobalVar(noregs[p]);
 	}
 
+	IRComputeABIInfo(start);
 	debugShowGraphIR(start);
 
 	//Make EBP equal to ESP

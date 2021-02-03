@@ -7,6 +7,7 @@
 #include <preprocessor.h>
 #include <stdio.h>
 #include <registers.h>
+#include <opcodesParser.h>
 static FILE *file;
 static void createFile(const char *text) {
 	if (file != NULL)
@@ -1004,8 +1005,8 @@ static void asmTests() {
 				assert(b->value.m.value.sib.offset->type==X86ADDRMODE_SINT);
 				assert(b->value.m.value.sib.offset->type==10);
 				assert(b->value.m.value.sib.scale==2);
-				assert(b->value.m.value.sib.index==&regX86EAX);
-				assert(b->value.m.value.sib.base==&regX86EAX);
+				assert(b->value.m.value.sib.index->value.reg==&regX86EAX);
+				assert(b->value.m.value.sib.base->value.reg==&regX86EAX);
 		}
 		text="MOV EAX,I32i ES:10[2*EAX+EAX]";
 		createFile(text);
@@ -1028,8 +1029,8 @@ static void asmTests() {
 				assert(b->value.m.value.sib.offset->type==X86ADDRMODE_SINT);
 				assert(b->value.m.value.sib.offset->value.sint==10);
 				assert(b->value.m.value.sib.scale==2);
-				assert(b->value.m.value.sib.index==&regX86EAX);
-				assert(b->value.m.value.sib.base==&regX86EAX);
+				assert(b->value.m.value.sib.index->value.reg==&regX86EAX);
+				assert(b->value.m.value.sib.base->value.reg==&regX86EAX);
 		}
 		initParserData();
 		setArch(ARCH_X64_SYSV);
