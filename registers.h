@@ -151,3 +151,4 @@ struct reg *subRegOfType(struct reg *r, struct object *type);
 long ptrSize();
 struct reg *basePointer();
 struct reg *stackPointer();
+long dataSize();

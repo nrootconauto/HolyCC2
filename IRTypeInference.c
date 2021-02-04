@@ -52,6 +52,26 @@ static struct object *getHigherType(struct object *a, struct object *b) {
 	__auto_type bIndex = objIndex(ranks, count, b);
 	return (aIndex > bIndex) ? a : b;
 }
+static int intSignedExceeds(struct IRValue *value,int64_t low,int64_t high) {
+		if(value->value.intLit.type==INT_SLONG) {
+				if(value->value.intLit.value.sLong>high)
+						return 1;
+				else if(value->value.intLit.value.sLong<low)
+						return 1;
+		} else if(value->value.intLit.type==INT_ULONG)
+				if(value->value.intLit.value.uLong>high)
+						return 1;
+		return 0;
+}
+static int intUnsignedExceeds(struct IRValue *value,uint64_t high) {
+		if(value->value.intLit.type==INT_SLONG) {
+				if(value->value.intLit.value.sLong>high)
+						return 1;
+		} else if(value->value.intLit.type==INT_ULONG)
+				if(value->value.intLit.value.uLong>high)
+						return 1;
+		return 0;
+}
 struct object *IRNodeType(graphNodeIR node);
 struct object *__IRNodeType(graphNodeIR node) {
 	if (NULL != *getType(node))
@@ -65,6 +85,37 @@ struct object *__IRNodeType(graphNodeIR node) {
 				return nodeVal->val.value.var.var->type;
 		} else if (nodeVal->val.type == __IR_VAL_MEM_FRAME) {
 			return nodeVal->val.value.__frame.type;
+		} else if(nodeVal->val.type==IR_VAL_FUNC) {
+				return nodeVal->val.value.func->type;
+		} else if(nodeVal->val.type==IR_VAL_INT_LIT) {
+				int dataSize2=dataSize();
+		dataSizeLoop:;
+				switch(dataSize2) {
+				case 1:
+						if(intUnsignedExceeds(&nodeVal->val, UINT8_MAX)&&intSignedExceeds(&nodeVal->val,INT8_MIN,INT8_MAX)) {
+								dataSize2=2;
+								goto dataSizeLoop;
+						}
+						return intSignedExceeds(&nodeVal->val,INT8_MIN,INT8_MAX)?&typeU8i:&typeI8i;
+				case 2:
+						if(intUnsignedExceeds(&nodeVal->val, UINT16_MAX)&&intSignedExceeds(&nodeVal->val,INT16_MIN,INT16_MAX)) {
+								dataSize2=4;
+								goto dataSizeLoop;
+						}
+						return intSignedExceeds(&nodeVal->val,INT16_MIN,INT16_MAX)?&typeU16i:&typeI16i;
+				case 4:
+						
+						if(intUnsignedExceeds(&nodeVal->val, UINT32_MAX)&&intSignedExceeds(&nodeVal->val,INT32_MIN,INT32_MAX)) {
+								dataSize2=8;
+								goto dataSizeLoop;
+						}
+						return intSignedExceeds(&nodeVal->val,INT32_MIN,INT32_MAX)?&typeU32i:&typeI32i;
+				case 8:
+						return intSignedExceeds(&nodeVal->val,INT64_MIN,INT64_MAX)?&typeU64i:&typeI64i;
+				default:
+								fprintf(stderr, "That's a weird data size.\n");
+								abort();
+				}
 		}
 		return NULL;
 	}

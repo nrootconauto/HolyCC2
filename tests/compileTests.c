@@ -124,7 +124,7 @@ void compileTests() {
 				free(asmF);	
 				free(source);
 				}*/
-		{
+		/*		{
 				const char * text=
 						"{\n"
 						"    I32i a=0;\n"
@@ -146,4 +146,23 @@ void compileTests() {
 				free(asmF);	
 				free(source);
 				}
+		*/
+		{
+				const char * text=
+						"U0 printY(I32i times) {\n"
+						"    for(I32i x=times;x>=0;x=x-1) {\n"
+						putY
+						"    }\n"
+						"}\n"
+						"printY(3);"
+						"asm {\n"
+						exitStr
+						"}\n";
+				char *source=text2File(text);
+				char *asmF=strDup(tmpnam(NULL));
+				compileFile(source, asmF);
+				runTest(asmF,"yyy");
+				free(asmF);	
+				free(source);
+		}
 }

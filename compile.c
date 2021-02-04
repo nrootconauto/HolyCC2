@@ -50,7 +50,7 @@ void compileFile(const char *fn, const char *dumpTo) {
 
 		IR2AsmInit();
 		X86EmitAsmLabel("_start");
-		IRCompile(ee.enter);
+		IRCompile(ee.enter,0);
 		X86EmitAsm2File(dumpTo);
 		return;
 	}

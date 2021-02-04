@@ -542,8 +542,9 @@ callMemcpy : {
 	return;
 }
 }
-void IRCompile(graphNodeIR start) {
-	__auto_type entry = IRCreateLabel();
+void IRCompile(graphNodeIR start,int isFunc) {
+		__auto_type originalStart=start;
+		__auto_type entry = IRCreateLabel();
 	graphNodeIRConnect(entry, start, IR_CONN_FLOW);
 	start = entry;
 
@@ -558,6 +559,8 @@ void IRCompile(graphNodeIR start) {
 	strGraphNodeIRP funcsWithin CLEANUP(strGraphNodeIRPDestroy)=NULL;
 	//Get list of function nodes,then we remove them from the main
 	for (long n = 0; n != strGraphNodeIRPSize(nodes); n++) {
+			if(nodes[n]==originalStart&&isFunc)
+					continue;
 			struct IRNodeFuncStart *start=(void*)graphNodeIRValuePtr(nodes[n]);
 			if(start->base.type!=IR_FUNC_START)
 					continue;
@@ -577,7 +580,9 @@ void IRCompile(graphNodeIR start) {
 
 			funcsWithin=strGraphNodeIRPSortedInsert(funcsWithin, nodes[n], (gnCmpType)ptrPtrCmp);
 	}
-
+	strGraphNodeIRPDestroy(&nodes);
+	nodes=graphNodeIRAllNodes(start);
+	
 	// If start is a function-start,make a list of arguments and store them into variables,replace references to function argument node with variable
 	
 	// "Push" asmFuncArgVars
@@ -629,8 +634,8 @@ void IRCompile(graphNodeIR start) {
 	// ABI section requires args to be converted to variables for register allocator.
 	// This will also load the function arguments into the variables.
 	//
-	if(graphNodeIRValuePtr(start)->type==IR_FUNC_START) {
-			IRABIInsertLoadArgs(start);
+	if(isFunc) {
+			IRABIInsertLoadArgs(originalStart);
 	}
 	
 	IRInsertNodesBetweenExprs(start, NULL, NULL);
@@ -697,10 +702,11 @@ void IRCompile(graphNodeIR start) {
 		X86EmitAsmGlobalVar(noregs[p]);
 	}
 
-	if(graphNodeIRValuePtr(start)->type==IR_FUNC_START) {
-			IRComputeABIInfo(start);
+	if(isFunc) {
 			IRABIAsmPrologue();
 	}
+	//This computes calling information for the ABI
+	IRComputeABIInfo(start);
 	debugShowGraphIR(start);
 
 	//Make EBP equal to ESP
@@ -717,6 +723,10 @@ void IRCompile(graphNodeIR start) {
 	ptrMapFrameOffsetDestroy(localVarFrameOffsets, NULL);
 	//"Pop" the old frame layout
 	localVarFrameOffsets = oldOffsets;
+
+	for(long f=0;f!=strGraphNodeIRPSize(funcsWithin);f++) {
+			IRCompile(funcsWithin[f],1);
+	}
 }
 static int isPtrType(struct object *obj) {
 	__auto_type type = objectBaseType(obj)->type;
@@ -2317,8 +2327,11 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		X86EmitAsmIncludeBinfile(import->fileName);
 		return nextNodesToCompile(start);
 	}
+	case IR_FUNC_CALL: {
+			IRABICall2Asm(start);
+			return nextNodesToCompile(start);
+	}
 	case IR_FUNC_ARG:
-	case IR_FUNC_CALL:
 	case IR_FUNC_RETURN:
 	case IR_FUNC_START:
 	case IR_FUNC_END:

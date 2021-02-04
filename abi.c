@@ -124,17 +124,20 @@ static strRegP mergeConflictingRegs(strRegP conflicts) {
 
 		return conflicts;
 }
+PTR_MAP_FUNCS(struct reg*, struct parserVar *, Reg2Var);
 static void findRegisterLiveness(graphNodeIR start) {
 	strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRAllNodes(start);
 	// Replace Registers with variables and do liveness analysis on the variables
 	strRegP usedRegs CLEANUP(strRegPDestroy) = usedRegisters(allNodes);
 	strVariable regVars CLEANUP(strVariableDestroy) = NULL;
 	ptrMapVar2Reg var2Reg = ptrMapVar2RegCreate();
+	ptrMapReg2Var reg2Var=ptrMapReg2VarCreate();
 	for (long i = 0; i != strRegPSize(usedRegs); i++) {
 		__auto_type newVar = IRCreateVirtVar(&typeI64i);
 		newVar->name=strDup(usedRegs[i]->name);
 		regVars = strVariableSortedInsert(regVars, newVar, (varCmpType)ptrPtrCmp);
 		ptrMapVar2RegAdd(var2Reg, newVar, usedRegs[i]);
+		ptrMapReg2VarAdd(reg2Var,  usedRegs[i],newVar);
 	}
 	
 	strGraphNodeIRP replacedNodes CLEANUP(strGraphNodeIRPDestroy) = NULL;
@@ -146,8 +149,7 @@ static void findRegisterLiveness(graphNodeIR start) {
 		if (value->val.type != IR_VAL_REG)
 			continue;
 		__auto_type reg = value->val.value.reg.reg;
-		__auto_type index = strRegPSortedFind(usedRegs, reg, (regCmpType)ptrPtrCmp) - usedRegs;
-		__auto_type newNode = IRCreateVarRef(regVars[index]);
+		__auto_type newNode = IRCreateVarRef(*ptrMapReg2VarGet(reg2Var, reg));
 		
 		struct IRATTRoldRegSlice newAttr;
 		newAttr.base.name = IR_ATTR_OLD_REG_SLICE;
@@ -216,7 +218,8 @@ static void findRegisterLiveness(graphNodeIR start) {
 			swapNode(allNodes[n], attr->old);
 			graphNodeIRKill(&allNodes[n], (void(*)(void*))IRNodeDestroy, NULL);
 	}
-	
+
+	ptrMapReg2VarDestroy(reg2Var, NULL);
 	ptrMapVar2RegDestroy(var2Reg, NULL);
 }
 static strGraphNodeIRP getFuncArgs(graphNodeIR call) {
@@ -233,10 +236,6 @@ static strGraphNodeIRP getFuncArgs(graphNodeIR call) {
 		return args;
 }
 void IRComputeABIInfo(graphNodeIR start) {
-		if(!calledInsertArgs) {
-				fprintf(stderr, "CALL IRABIInsertLoadArgs to insert loading arguments from ABI,be sure to call it before register allocation.!!!\n");
-				assert(calledInsertArgs); //Insert args before register allocation!!!
-		}
 		findRegisterLiveness(start);
 		computedABIInfo=1;
 }
@@ -288,8 +287,10 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start) {
 				assert(computedABIInfo); //Call IRComputeABIInfo!!! 
 		}
 		struct IRNodeFuncCall *call=(void*)graphNodeIRValuePtr(start);
-		struct IRAttrABIInfo *info=(void*)llIRAttrFind(call->base.attrs, IR_ATTR_ABI_INFO, IRAttrGetPred);
-
+		llIRAttr llInfo=(void*)llIRAttrFind(call->base.attrs, IR_ATTR_ABI_INFO, IRAttrGetPred);
+		assert(llInfo);
+		struct IRAttrABIInfo *info=(void*)llIRAttrValuePtr(llInfo);
+		
 		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
 		strGraphEdgeIRP inFunc CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_FUNC);
 		struct object *funcType= IRNodeType(graphEdgeIRIncoming(inFunc[0]));
@@ -323,7 +324,7 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start) {
 		int retsFloat=retType==&typeF64;
 
 		//Is an int
-		if(!retsStruct&&!retsFloat) {
+		if(!retsStruct&&!retsFloat&&retType!=&typeU0) {
 				//Make a dummy area to store retVal when poping registers
 				strX86AddrMode dpp CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeSint(0));
 				assembleInst("PUSH", dpp);
@@ -454,7 +455,7 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start) {
 		}
 		
 		//Now we are left with the spot we made eariler for return values,let's pop it(if not a structure,all int non-structs get stuffed in EAX)
-		if(!retsStruct&&!retsFloat) {
+		if(!retsStruct&&!retsFloat&&retType!=&typeU0) {
 				__auto_type outNode=graphEdgeIROutgoing(dst[0]);
 				strX86AddrMode outArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL,IRNode2AddrMode(outNode));
 				assembleInst("POP",  outArgs);
@@ -528,9 +529,6 @@ static strVar IR_ABI_I386_SYS_InsertLoadArgs(graphNodeIR start) {
 					graphNodeIRConnect(arg, var, IR_CONN_DEST);
 					defineChain=var;
 			}
-
-			if(defineChainStart)
-					IRInsertAfter(start, defineChainStart, defineChain, IR_CONN_FLOW);
 			
 			for(long n=0;n!=strGraphNodeIRPSize(nodes);n++) {
 					struct IRNodeFuncArg *arg=(void*)graphNodeIRValuePtr(nodes[n]);
@@ -541,6 +539,9 @@ static strVar IR_ABI_I386_SYS_InsertLoadArgs(graphNodeIR start) {
 					graphIRReplaceNodes(toReplace, ref, NULL, (void(*)(void*))IRNodeDestroy);
 			}
 
+			if(defineChainStart)
+					IRInsertAfter(start, defineChainStart, defineChain, IR_CONN_FLOW);
+			
 			for(long n=0;n!=strGraphNodeIRPSize(argNodes);n++) {
 					struct IRAttrFunc funcAttr;
 					funcAttr.base.destroy=NULL;
@@ -639,5 +640,15 @@ void IRABIAsmPrologue() {
 		case ARCH_X64_SYSV:
 				assert(0);
 				return ;
+		}
+}
+void IRABICall2Asm(graphNodeIR start) {
+		switch(getCurrentArch()) {
+		case ARCH_TEST_SYSV:
+		case ARCH_X86_SYSV: {
+				return IR_ABI_I386_SYSV_2Asm(start);
+		}
+		case ARCH_X64_SYSV:
+				assert(0);
 		}
 }

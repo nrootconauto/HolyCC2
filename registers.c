@@ -540,7 +540,15 @@ long ptrSize() {
 		return 4;
 	}
 }
-
+long dataSize() {
+		switch (getCurrentArch()) {
+		case ARCH_X64_SYSV:
+				return 8;
+		case ARCH_TEST_SYSV:
+		case ARCH_X86_SYSV:
+				return 4;
+		}
+}
 struct reg *basePointer() {
 	return (ptrSize() == 4) ? &regX86EBP : &regAMD64RBP;
 }
