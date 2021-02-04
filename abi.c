@@ -6,6 +6,9 @@
 #include <IR2asm.h>
 #define DEBUG_PRINT_ENABLE 1
 void *IR_ATTR_ABI_INFO="ABI_INFO";
+static void *IR_ATTR_FUNC="FUNC"; 
+static __thread char calledInsertArgs=0;
+static __thread char computedABIInfo=0;
 void IRAttrABIInfoDestroy(struct IRAttr *a) {
 		struct IRAttrABIInfo *abi=(void*)a;
 		strRegPDestroy(&abi->toPushPop);
@@ -14,6 +17,10 @@ static void *IR_ATTR_OLD_REG_SLICE = "OLD_REG_SLICE";
 struct IRATTRoldRegSlice {
 		struct IRAttr base;
 		graphNodeIR old;
+};
+struct IRAttrFunc {
+		struct IRAttr base;
+		struct parserFunction *func;
 };
 typedef int (*gnCmpType)(const graphNodeMapping *, const graphNodeMapping *);
 static int ptrPtrCmp(const void *a, const void *b) {
@@ -226,7 +233,12 @@ static strGraphNodeIRP getFuncArgs(graphNodeIR call) {
 		return args;
 }
 void IRComputeABIInfo(graphNodeIR start) {
+		if(!calledInsertArgs) {
+				fprintf(stderr, "CALL IRABIInsertLoadArgs to insert loading arguments from ABI,be sure to call it before register allocation.!!!\n");
+				assert(calledInsertArgs); //Insert args before register allocation!!!
+		}
 		findRegisterLiveness(start);
+		computedABIInfo=1;
 }
 static void assembleInst(const char *name, strX86AddrMode args) {
 	strOpcodeTemplate ops CLEANUP(strOpcodeTemplateDestroy) = X86OpcodesByArgs(name, args, NULL);
@@ -269,8 +281,12 @@ static int conflictsWithRegisters(const void *_regs,const struct reg **r) {
 //
 // http://www.sco.com/developers/devspecs/abi386-4.pdf
 //
-void IR_ABI_I386_SYSV_2Asm(graphNodeIR start) {
-		findRegisterLiveness(start);
+static strVar IR_ABI_I386_SYS_InsertLoadArgs(graphNodeIR start);
+static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start) {
+		if(!computedABIInfo) {
+				fprintf(stderr, "CALL computedABIInfo before calling me!!!\n");
+				assert(computedABIInfo); //Call IRComputeABIInfo!!! 
+		}
 		struct IRNodeFuncCall *call=(void*)graphNodeIRValuePtr(start);
 		struct IRAttrABIInfo *info=(void*)llIRAttrFind(call->base.attrs, IR_ATTR_ABI_INFO, IRAttrGetPred);
 
@@ -351,7 +367,7 @@ void IR_ABI_I386_SYSV_2Asm(graphNodeIR start) {
 						asmAssign(stack, val, itemSize);
 
 						//Must be aligned to 4 bytes
-						long aligned=itemSize/4*4;
+						long aligned=itemSize/4*4+((itemSize%4)?4:0);
 						strX86AddrMode addSP CLEANUP(strX86AddrModeDestroy2)=NULL;
 						addSP=strX86AddrModeAppendItem(addSP, X86AddrModeReg(stackPointer()));
 						addSP=strX86AddrModeAppendItem(addSP, X86AddrModeSint(aligned));
@@ -444,4 +460,184 @@ void IR_ABI_I386_SYSV_2Asm(graphNodeIR start) {
 				assembleInst("POP",  outArgs);
 		}
 		assert(stackSize==0);
+}
+static graphNodeIR abiI386AddrModeNode(struct objectFunction *func,long argI) {
+		int returnsStruct=func->retType->type==TYPE_CLASS||func->retType->type==TYPE_UNION;
+		long offset=returnsStruct?-8:-4;
+		if(returnsStruct) {
+				return IRCreateFrameAddress(offset, objectPtrCreate(func->retType));
+		}
+		for(long i=0;i!=strFuncArgSize(func->args);i++) {
+				long size=objectSize(func->args[i].type,NULL);
+				if(i==argI-(returnsStruct?1:0))
+						return IRCreateFrameAddress(offset, func->args[i].type);
+				offset-=size/4*4+((size%4)?4:0);
+		}
+		assert(argI<strFuncArgSize(func->args));
+		return NULL;
+}
+static strVar IR_ABI_I386_SYS_InsertLoadArgs(graphNodeIR start) {
+		calledInsertArgs=0;
+		
+		strGraphNodeIRP nodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);
+		struct IRNodeFuncStart *funcStart=(void*)graphNodeIRValuePtr(start);
+			struct objectFunction *fType=(void*)funcStart->func->type;
+
+			//Returning a structure returns adds a hidden first argument pointing to the return location
+			int returnsStruct=0;
+			if(fType->retType->type==TYPE_CLASS||fType->retType->type==TYPE_UNION)
+					returnsStruct=1;
+			
+			strVar args=strVarResize(NULL, strFuncArgSize(fType->args)+(returnsStruct?1:0));
+
+			//
+			// This is a chain of assigning a function argument to it's variable
+			// [arg1]->var1
+			// [arg2]->var2
+			//
+			graphNodeIR defineChain=NULL,defineChainStart=NULL;
+			strGraphNodeIRP argNodes CLEANUP(strGraphNodeIRPDestroy)=NULL;
+			if(returnsStruct) {
+					struct IRVar ir;
+					ir.SSANum=0;
+					ir.addressedByPtr=0;
+					ir.var=IRCreateVirtVar(objectPtrCreate(fType->retType));
+					args[0]=ir;
+					
+					__auto_type arg=abiI386AddrModeNode(fType,0);
+					__auto_type var=IRCreateVarRef(ir.var);
+					defineChainStart=arg;
+					defineChain=var;
+					argNodes=strGraphNodeIRPAppendItem(argNodes, arg);
+			}
+			
+			for(long v=(returnsStruct?1:0);v!=strVarSize(args);v++) {
+					struct IRVar ir;
+					ir.SSANum=0;
+					ir.addressedByPtr=0;
+					ir.var=IRCreateVirtVar(fType->args[v].type);
+					args[v]=ir;
+
+					__auto_type arg=abiI386AddrModeNode(fType,v);
+					__auto_type var=IRCreateVarRef(ir.var);
+					argNodes=strGraphNodeIRPAppendItem(argNodes, arg);
+					if(!defineChainStart)
+							defineChainStart=arg;
+					if(defineChain)
+							graphNodeIRConnect(defineChain, arg, IR_CONN_FLOW);
+					graphNodeIRConnect(arg, var, IR_CONN_DEST);
+					defineChain=var;
+			}
+
+			if(defineChainStart)
+					IRInsertAfter(start, defineChainStart, defineChain, IR_CONN_FLOW);
+			
+			for(long n=0;n!=strGraphNodeIRPSize(nodes);n++) {
+					struct IRNodeFuncArg *arg=(void*)graphNodeIRValuePtr(nodes[n]);
+					if(arg->base.type!=IR_FUNC_ARG)
+							continue;
+					__auto_type ref=IRCreateVarRef(args[arg->argIndex].var);
+					strGraphNodeIRP toReplace CLEANUP(strGraphNodeIRPDestroy)=strGraphNodePAppendItem(NULL, nodes[n]);
+					graphIRReplaceNodes(toReplace, ref, NULL, (void(*)(void*))IRNodeDestroy);
+			}
+
+			for(long n=0;n!=strGraphNodeIRPSize(argNodes);n++) {
+					struct IRAttrFunc funcAttr;
+					funcAttr.base.destroy=NULL;
+					funcAttr.base.name=IR_ATTR_FUNC;
+					funcAttr.func=funcStart->func;
+					IRAttrReplace(argNodes[n], __llCreate(&funcAttr, sizeof(funcAttr)));
+			}
+			
+			return args;
+}
+static void IR_ABI_I386_SYSV_Return(graphNodeIR start) {
+		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
+		strGraphEdgeIRP inSource CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_FLOW);
+		if(strGraphEdgeIRPSize(inSource)!=0) {
+				__auto_type source=graphEdgeIRIncoming(inSource[0]);
+				struct X86AddressingMode *mode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(source);
+				__auto_type baseType=objectBaseType(mode->valueType);
+				if(baseType==&typeF64) {
+						if(mode->type==X86ADDRMODE_REG) {
+								//X87 fpu stack must contain return ST(0) upon return
+								assert(mode->value.reg==&regX86ST0);
+								goto loadBasePtr;
+						} else {
+								struct X86AddressingMode *st0 CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86ST0);
+								asmTypecastAssign(NULL, mode);
+								goto loadBasePtr;
+						}
+				} else if(baseType->type==TYPE_CLASS||baseType->type==TYPE_UNION) {
+						
+						/* SystemV ABI expects both struct return addess and func return address to be popped 
+							* So let's exchange the  struct pointer and func return addr,pop into EAX then reutrn
+							*/
+						struct X86AddressingMode *retPtr CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer()), X86AddrModeSint(0), objectPtrCreate(baseType));
+						struct X86AddressingMode *eaxNode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86EAX);
+						asmAssign(eaxNode, retPtr, ptrSize());
+						
+						strX86AddrMode xchgArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+						__auto_type structPtr=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer()), X86AddrModeSint(-4), objectPtrCreate(baseType));
+						xchgArgs=strX86AddrModeAppendItem(xchgArgs, structPtr);
+						xchgArgs=strX86AddrModeAppendItem(xchgArgs, X86AddrModeReg(&regX86EAX));
+						assembleInst("XCHG", xchgArgs);
+
+						//Assign old ebp into
+						struct X86AddressingMode *ebpMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(basePointer());
+						struct X86AddressingMode *oldBPMode CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer()), X86AddrModeSint(4), objectPtrCreate(&typeU0));
+						asmAssign(ebpMode, oldBPMode, ptrSize());
+
+						//Pop the extra 4 bytes from the return address,then return
+						assembleInst("LEAVE", NULL);
+						
+						goto ret;
+				} else if(baseType==&typeU0) {
+						goto loadBasePtr;
+				} else {
+						//Isn't a struct/union/F64,so is an int/ptr
+						struct X86AddressingMode *eaxMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86EAX);
+						asmTypecastAssign(eaxMode, mode);
+						goto loadBasePtr;
+				}
+		}
+	loadBasePtr: {
+				struct X86AddressingMode *ebpMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(basePointer());
+				struct X86AddressingMode *oldBPMode CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer()), X86AddrModeSint(4), objectPtrCreate(&typeU0));
+				asmAssign(ebpMode, oldBPMode, ptrSize());
+		}
+	ret:;
+		struct X86AddressingMode *ebpMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(basePointer());
+		struct X86AddressingMode *espMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(stackPointer());
+		asmAssign(espMode, ebpMode, ptrSize());
+
+		assembleInst("RET", NULL);
+}
+strVar IRABIInsertLoadArgs(graphNodeIR start) {
+		calledInsertArgs=1;
+		switch(getCurrentArch()) {
+		case ARCH_TEST_SYSV:
+		case ARCH_X86_SYSV: {
+				return IR_ABI_I386_SYS_InsertLoadArgs(start);
+		}
+		case ARCH_X64_SYSV:
+				assert(0);
+				return NULL;
+		}
+}
+void IRABIAsmPrologue() {
+		switch(getCurrentArch()) {
+		case ARCH_TEST_SYSV:
+		case ARCH_X86_SYSV: {
+				struct X86AddressingMode *esp CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(stackPointer());
+				struct X86AddressingMode *ebp CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(basePointer());
+				asmAssign(ebp, esp, ptrSize());
+				strX86AddrMode pushArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeReg(basePointer()));
+				assembleInst("PUSH", pushArgs);
+				return;
+		}
+		case ARCH_X64_SYSV:
+				assert(0);
+				return ;
+		}
 }

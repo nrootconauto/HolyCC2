@@ -554,6 +554,35 @@ void IRCompile(graphNodeIR start) {
 		strGraphNodeIRP inserted CLEANUP(strGraphNodeIRPDestroy) = insertLabelsForAsm(nodes);
 		inserted = strGraphNodeIRPSetUnion(nodes, inserted, (gnCmpType)ptrPtrCmp);
 	}
+
+	strGraphNodeIRP funcsWithin CLEANUP(strGraphNodeIRPDestroy)=NULL;
+	//Get list of function nodes,then we remove them from the main
+	for (long n = 0; n != strGraphNodeIRPSize(nodes); n++) {
+			struct IRNodeFuncStart *start=(void*)graphNodeIRValuePtr(nodes[n]);
+			if(start->base.type!=IR_FUNC_START)
+					continue;
+			// Make a "transparent" label to route all traffic in/out of the function's "space" in the graph(pretend the function never existed and compile it later)
+			__auto_type lab=IRCreateLabel();
+			IRInsertBefore(nodes[n], lab, lab, IR_CONN_FLOW);
+			
+			// Kill all incoming and outgoing nodes to isolate the function
+			strGraphNodeIRP in CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRIncomingNodes(nodes[n]);
+			for(long i=0;i!=strGraphNodeIRPSize(in);i++)
+					graphEdgeIRKill(in[i], nodes[n], NULL, NULL, NULL);
+			strGraphNodeIRP out CLEANUP(strGraphNodeIRPDestroy)=graphNodeIROutgoingNodes(start->end);
+			for(long o=0;o!=strGraphNodeIRPSize(out);o++) {
+					graphNodeIRConnect(lab, out[o], IR_CONN_FLOW);
+					graphEdgeIRKill(start->end, out[o],NULL, NULL, NULL);
+			}
+
+			funcsWithin=strGraphNodeIRPSortedInsert(funcsWithin, nodes[n], (gnCmpType)ptrPtrCmp);
+	}
+
+	// If start is a function-start,make a list of arguments and store them into variables,replace references to function argument node with variable
+	
+	// "Push" asmFuncArgVars
+	__auto_type oldAsmFuncArgVars=asmFuncArgVars;
+	
 	// Get list of variables that will always be stored in memory
 	// - variables that are referenced by ptr
 	// - Classes/unions with primitive base that have members references(I64.u8[1] etc)
@@ -596,6 +625,14 @@ void IRCompile(graphNodeIR start) {
 	for (long i = 0; i != strPVarSize(noregs); i++)
 		noregs[i]->isNoreg = 1;
 
+	//
+	// ABI section requires args to be converted to variables for register allocator.
+	// This will also load the function arguments into the variables.
+	//
+	if(graphNodeIRValuePtr(start)->type==IR_FUNC_START) {
+			IRABIInsertLoadArgs(start);
+	}
+	
 	IRInsertNodesBetweenExprs(start, NULL, NULL);
 	IRRegisterAllocate(start, NULL, NULL, isNotNoreg, noregs);
 	debugShowGraphIR(start);
@@ -660,7 +697,10 @@ void IRCompile(graphNodeIR start) {
 		X86EmitAsmGlobalVar(noregs[p]);
 	}
 
-	IRComputeABIInfo(start);
+	if(graphNodeIRValuePtr(start)->type==IR_FUNC_START) {
+			IRComputeABIInfo(start);
+			IRABIAsmPrologue();
+	}
 	debugShowGraphIR(start);
 
 	//Make EBP equal to ESP
@@ -2328,6 +2368,8 @@ void IR2Asm(graphNodeIR start) {
 	} else {
 		next = __IR2Asm(start);
 	}
+	next=strGraphNodeIRPUnique(next, (gnCmpType)ptrPtrCmp, NULL);
+
 	for (long n = 0; n != strGraphNodeIRPSize(next); n++)
 		IR2Asm(next[n]);
 }

@@ -301,6 +301,12 @@ strGraphEdgeIRP IRGetConnsOfType(strGraphEdgeIRP conns, enum IRConnType type) {
 
 	return retVal;
 }
+void IRMoveAttrsTo(graphNodeIR from,graphNodeIR to) {
+		__auto_type fromNode=graphNodeIRValuePtr(from);
+		__auto_type toNode=graphNodeIRValuePtr(to);
+		toNode->attrs=fromNode->attrs;
+		fromNode->attrs=NULL;
+}
 struct object *IRValueGetType(struct IRValue *node) {
 		switch (node->type) {
 	case IR_VAL_VAR_REF: {
