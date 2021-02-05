@@ -2331,10 +2331,16 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			IRABICall2Asm(start);
 			return nextNodesToCompile(start);
 	}
-	case IR_FUNC_ARG:
+	case IR_FUNC_ARG: {
+	}
 	case IR_FUNC_RETURN:
-	case IR_FUNC_START:
-	case IR_FUNC_END:
+	case IR_FUNC_END: {
+			IRABIReturn2Asm(start);
+			return NULL;
+	}
+	case IR_FUNC_START: {
+			return nextNodesToCompile(start);
+	}
 	case IR_SUB_SWITCH_START_LABEL:
 	case IR_DERREF:
 	case IR_SPILL_LOAD:

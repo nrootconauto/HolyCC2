@@ -13,3 +13,4 @@ void IRComputeABIInfo(graphNodeIR start);
 strVar IRABIInsertLoadArgs(graphNodeIR start);
 void IRABIAsmPrologue();
 void IRABICall2Asm(graphNodeIR start);
+void IRABIReturn2Asm(graphNodeIR start);

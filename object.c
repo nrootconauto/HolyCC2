@@ -6,6 +6,7 @@
 #include <parserA.h>
 #include <stdio.h>
 #include <string.h>
+#include <registers.h>
 MAP_TYPE_DEF(struct object *, Object);
 MAP_TYPE_FUNCS(struct object *, Object);
 STR_TYPE_DEF(char, Char);
@@ -252,8 +253,7 @@ objectSize(const struct object *type, int *success) {
 		return 0;
 	}
 	case TYPE_PTR: {
-		// TODO check architecture
-		return 0;
+		return ptrSize();
 	}
 	case TYPE_UNION: {
 		__auto_type ptr = (struct objectUnion *)type;

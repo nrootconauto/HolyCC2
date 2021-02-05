@@ -554,7 +554,7 @@ static strVar IR_ABI_I386_SYS_InsertLoadArgs(graphNodeIR start) {
 }
 static void IR_ABI_I386_SYSV_Return(graphNodeIR start) {
 		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
-		strGraphEdgeIRP inSource CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_FLOW);
+		strGraphEdgeIRP inSource CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_SOURCE_A);
 		if(strGraphEdgeIRPSize(inSource)!=0) {
 				__auto_type source=graphEdgeIRIncoming(inSource[0]);
 				struct X86AddressingMode *mode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(source);
@@ -640,6 +640,16 @@ void IRABIAsmPrologue() {
 		case ARCH_X64_SYSV:
 				assert(0);
 				return ;
+		}
+}
+void IRABIReturn2Asm(graphNodeIR start) {
+		switch(getCurrentArch()) {
+		case ARCH_TEST_SYSV:
+		case ARCH_X86_SYSV: {
+				return IR_ABI_I386_SYSV_Return(start);
+		}
+		case ARCH_X64_SYSV:
+				assert(0);
 		}
 }
 void IRABICall2Asm(graphNodeIR start) {
