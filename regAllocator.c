@@ -1015,7 +1015,8 @@ void IRRegisterAllocate(graphNodeIR start, color2RegPredicate colorFunc, void *c
 	removeChooseNodes(allNodes, start);
 	// debugShowGraphIR(start);
 	IRToSSA(start);
-	// debugShowGraphIR(start);
+	//IRCoalesce(allNodes, start);;
+	debugShowGraphIR(start);
 
 	strGraphNodeIRP allNodes2 CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRAllNodes(start);
 	strGraphNodeIRP visited CLEANUP(strGraphNodeIRPDestroy) = NULL;
@@ -1037,10 +1038,8 @@ loop:
 
 	// Merge variables that can be merges
 	allNodes = graphNodeIRAllNodes(start);
-	// debugShowGraphIR(start);
-	IRCoalesce(allNodes, start);
 	IRRemoveRepeatAssigns(start);
-	//debugShowGraphIR(start);
+	debugShowGraphIR(start);
 
 	__auto_type intInterfere = IRInterferenceGraphFilter(start, NULL, filterIntVars);
 

@@ -418,9 +418,11 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start) {
 				__auto_type outNode=graphEdgeIROutgoing(dst[0]);
 				if(!retsStruct) {
 						//We point to area we made on the stack for the return value eariler
-						struct X86AddressingMode *outMode CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(0, NULL,X86AddrModeReg(stackPointer()), X86AddrModeSint(-stackSize), IRNodeType(outNode));
+						struct X86AddressingMode *outMode CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(0, NULL,X86AddrModeReg(stackPointer()), X86AddrModeSint(stackSize-4), IRNodeType(outNode));
 						if(objectBaseType( outMode->valueType)!=&typeF64) {
 								struct X86AddressingMode *eaxMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86EAX); 
+								//Assign type of eaxMode
+								eaxMode->valueType=retType;
 								asmTypecastAssign(outMode, eaxMode);
 								goto end;
 						} else {
@@ -441,7 +443,7 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start) {
 		strX86AddrMode stackSubArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 		stackSubArgs=strX86AddrModeAppendItem(stackSubArgs, X86AddrModeReg(stackPointer()));
 		stackSubArgs=strX86AddrModeAppendItem(stackSubArgs, X86AddrModeSint(stackSize-stackSizeBeforeArgs));
-		assembleInst("SUB", stackSubArgs);
+		assembleInst("ADD", stackSubArgs);
 		stackSize=stackSizeBeforeArgs;
 		
 		//Pop all the clobered
@@ -459,6 +461,7 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start) {
 				__auto_type outNode=graphEdgeIROutgoing(dst[0]);
 				strX86AddrMode outArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL,IRNode2AddrMode(outNode));
 				assembleInst("POP",  outArgs);
+				stackSize-=4;
 		}
 		assert(stackSize==0);
 }
@@ -598,6 +601,7 @@ static void IR_ABI_I386_SYSV_Return(graphNodeIR start) {
 				} else {
 						//Isn't a struct/union/F64,so is an int/ptr
 						struct X86AddressingMode *eaxMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86EAX);
+						eaxMode->valueType=mode->valueType;
 						asmTypecastAssign(eaxMode, mode);
 						goto loadBasePtr;
 				}

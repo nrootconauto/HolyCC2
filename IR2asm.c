@@ -1278,10 +1278,12 @@ void asmTypecastAssign(struct X86AddressingMode *outMode, struct X86AddressingMo
 					asmAssign(outMode, mode, objectSize(outMode->valueType, NULL));
 				}
 				return;
+			} else {
+					asmAssign(outMode, inMode, iSize);
 			}
 		} else if (isFltType(outMode->valueType)) {
-			// Assign handles flt<-int
-			asmAssign(outMode, inMode, objectSize(outMode->valueType, NULL));
+				// Assign handles flt<-int
+				asmAssign(outMode, inMode, objectSize(outMode->valueType, NULL));
 		} else
 			assert(0);
 		return;
