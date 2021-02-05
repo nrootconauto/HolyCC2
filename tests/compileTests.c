@@ -149,19 +149,22 @@ void compileTests() {
 		*/
 		{
 				const char * text=
-						"U0 printY(I32i times) {\n"
+						"I32i printY(I32i times) {\n"
 						"    for(I32i x=times;x>0;x=x-1) {\n"
 						putY
 						"    }\n"
+						"    return times+5;"
 						"}\n"
-						"printY(3);"
+						"if(8==printY(3)) {\n"
+						putY
+						"}\n"
 						"asm {\n"
 						exitStr
 						"}\n";
 				char *source=text2File(text);
 				char *asmF=strDup(tmpnam(NULL));
 				compileFile(source, asmF);
-				runTest(asmF,"yyy");
+				runTest(asmF,"yyyy");
 				free(asmF);	
 				free(source);
 		}

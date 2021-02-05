@@ -1037,10 +1037,10 @@ loop:
 
 	// Merge variables that can be merges
 	allNodes = graphNodeIRAllNodes(start);
-		 debugShowGraphIR(start);
+	// debugShowGraphIR(start);
 	IRCoalesce(allNodes, start);
 	IRRemoveRepeatAssigns(start);
-	debugShowGraphIR(start);
+	//debugShowGraphIR(start);
 
 	__auto_type intInterfere = IRInterferenceGraphFilter(start, NULL, filterIntVars);
 

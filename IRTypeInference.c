@@ -24,7 +24,7 @@ loop:;
 static int isUndetirminedType(const struct __graphNode *node, const struct __graphEdge *edge, const void *data) {
 	if (!IRIsExprEdge(*graphEdgeIRValuePtr((graphEdgeIR)edge)))
 		return 0;
-	if (NULL == *getType((graphNodeIR)node))
+	if (NULL == IRNodeType((graphNodeIR)node))
 		return 1;
 	return 0;
 }
