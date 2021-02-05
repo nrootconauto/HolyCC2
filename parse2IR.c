@@ -596,7 +596,7 @@ static graphNodeIR addrOf(graphNodeIR in) {
 		graphNodeIRKill(&in, (void (*)(void *))IRNodeDestroy, NULL);
 
 		return IRCreateBinop(base, index, IR_ADD);
-	} else if (graphNodeIRValuePtr(in)->type == IR_VAL_VAR_REF) {
+	} else if (graphNodeIRValuePtr(in)->type == IR_VALUE) {
 		return IRCreateUnop(in, IR_ADDR_OF);
 	} else if (graphNodeIRValuePtr(in)->type == IR_MEMBERS) {
 		// turn a.b in derref(a)+offset(b);

@@ -291,7 +291,7 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 		// Dont promote if inc/dec
 		struct parserNodeOpTerm *op = (void *)unop->op;
 		if (!mapSetGet(incOps, op->text))
-			unop->a = promoteIfNeeded(unop->a, &typeI64i);
+			unop->a = promoteIfNeeded(unop->a, dftValType());
 
 		unop->type = assignTypeToOp(unop->a);
 		return unop->type;
