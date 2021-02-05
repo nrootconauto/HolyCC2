@@ -586,7 +586,7 @@ static void IR_ABI_I386_SYSV_Return(graphNodeIR start) {
 
 						//Assign old ebp into
 						struct X86AddressingMode *ebpMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(basePointer());
-						struct X86AddressingMode *oldBPMode CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer()), X86AddrModeSint(4), objectPtrCreate(&typeU0));
+						struct X86AddressingMode *oldBPMode CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer()), X86AddrModeSint(-4), objectPtrCreate(&typeU0));
 						asmAssign(ebpMode, oldBPMode, ptrSize());
 
 						//Pop the extra 4 bytes from the return address,then return
@@ -604,7 +604,7 @@ static void IR_ABI_I386_SYSV_Return(graphNodeIR start) {
 		}
 	loadBasePtr: {
 				struct X86AddressingMode *ebpMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(basePointer());
-				struct X86AddressingMode *oldBPMode CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer()), X86AddrModeSint(4), objectPtrCreate(&typeU0));
+				struct X86AddressingMode *oldBPMode CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer()), X86AddrModeSint(-4), objectPtrCreate(&typeU0));
 				asmAssign(ebpMode, oldBPMode, ptrSize());
 		}
 	ret:;

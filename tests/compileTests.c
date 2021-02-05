@@ -150,7 +150,7 @@ void compileTests() {
 		{
 				const char * text=
 						"U0 printY(I32i times) {\n"
-						"    for(I32i x=times;x>=0;x=x-1) {\n"
+						"    for(I32i x=times;x>0;x=x-1) {\n"
 						putY
 						"    }\n"
 						"}\n"
