@@ -8,6 +8,11 @@
 #define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 #include <graphDominance.h>
+static void *IR_ATTR_VARIABLE = "IS_VARIABLE";
+struct IRAttrVariable {
+	struct IRAttr base;
+	struct IRVar var;
+};
 static __thread const void *__varFilterData = NULL;
 static __thread int (*__varFiltPred)(const struct parserVar *, const void *);
 static char *ptr2Str(const void *a) {
@@ -254,9 +259,34 @@ static int getVarRefIndex(strVarRefs refs, graphNodeIR node) {
 	assert(0);
 	return -1;
 }
+static struct IRVar *getVar(graphNodeIR node) {
+	struct IRNode *irNode = (void *)graphNodeIRValuePtr(node);
+	if (irNode->type == IR_SPILL_LOAD) {
+		struct IRNodeSpill *spill = (void *)irNode;
+		if (spill->item.type != IR_VAL_VAR_REF)
+			return NULL;
+
+		return &spill->item.value.var;
+	} else if (irNode->type == IR_VALUE) {
+		struct IRNodeValue *value = (void *)irNode;
+		if (value->val.type == IR_VAL_VAR_REF) {
+			return &value->val.value.var;
+		} else if (value->val.type == IR_VAL_REG) {
+			// Check for vairiable attribute if in register
+			__auto_type find = llIRAttrFind(irNode->attrs, IR_ATTR_VARIABLE, IRAttrGetPred);
+			if (!find)
+				return NULL;
+
+			return &((struct IRAttrVariable *)llIRAttrValuePtr(find))->var;
+		} else
+			return NULL;
+	} else
+		return NULL;
+}
 //
 // Dont Alias variables that exist in memory
 //
+static __thread  strVar dontCoalesceIntoVars=NULL;
 void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 	strVarRefs refs CLEANUP(strVarRefsDestroy) = NULL;
 	strAliasPair aliases CLEANUP(strAliasPairDestroy) = NULL;
@@ -308,6 +338,9 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 			continue;
 		if (val->val.type != IR_VAL_VAR_REF)
 			continue;
+
+		if(strVarSortedFind(dontCoalesceIntoVars, *getVar(nodes[i]), IRVarCmp))
+				continue;
 
 		// Check if written into by another variable.
 		strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(nodes[i]);
@@ -819,12 +852,7 @@ strConflictPair conflictPairFindAffects(graphNodeIRLive node, strConflictPair pa
 static int conflictPairContains(graphNodeIRLive node, const struct conflictPair *pair) {
 	return pair->a == node || pair->b == node;
 }
-static void *IR_ATTR_VARIABLE = "IS_VARIABLE";
 static void *IR_ATTR_TEMP_VARIABLE = "TMP_VAR";
-struct IRAttrVariable {
-	struct IRAttr base;
-	struct IRVar var;
-};
 static void replaceVarsWithSpillOrLoad(strGraphNodeIRLiveP spillNodes, graphNodeIR enter) {
 	strGraphNodeIRP allNodes = graphNodeIRAllNodes(enter);
 
@@ -979,30 +1007,6 @@ static void addToNodes(struct __graphNode *node, void *data) {
 static void ptrMapGraphNodeDestroy2(ptrMapGraphNode *node) {
 	ptrMapGraphNodeDestroy(*node, NULL);
 }
-static struct IRVar *getVar(graphNodeIR node) {
-	struct IRNode *irNode = (void *)graphNodeIRValuePtr(node);
-	if (irNode->type == IR_SPILL_LOAD) {
-		struct IRNodeSpill *spill = (void *)irNode;
-		if (spill->item.type != IR_VAL_VAR_REF)
-			return NULL;
-
-		return &spill->item.value.var;
-	} else if (irNode->type == IR_VALUE) {
-		struct IRNodeValue *value = (void *)irNode;
-		if (value->val.type == IR_VAL_VAR_REF) {
-			return &value->val.value.var;
-		} else if (value->val.type == IR_VAL_REG) {
-			// Check for vairiable attribute if in register
-			__auto_type find = llIRAttrFind(irNode->attrs, IR_ATTR_VARIABLE, IRAttrGetPred);
-			if (!find)
-				return NULL;
-
-			return &((struct IRAttrVariable *)llIRAttrValuePtr(find))->var;
-		} else
-			return NULL;
-	} else
-		return NULL;
-}
 static void mapRegSliceDestroy2(ptrMapregSlice *toDestroy) {
 	ptrMapregSliceDestroy(*toDestroy, NULL);
 }
@@ -1015,9 +1019,11 @@ void IRRegisterAllocate(graphNodeIR start, color2RegPredicate colorFunc, void *c
 	removeChooseNodes(allNodes, start);
 	// debugShowGraphIR(start);
 	IRToSSA(start);
-	//IRCoalesce(allNodes, start);;
-	debugShowGraphIR(start);
 
+
+	//Dont Coalesce variables that has multiple SSA Sources(connected to choose node)
+	dontCoalesceIntoVars=NULL;
+	
 	strGraphNodeIRP allNodes2 CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRAllNodes(start);
 	strGraphNodeIRP visited CLEANUP(strGraphNodeIRPDestroy) = NULL;
 loop:
@@ -1027,7 +1033,15 @@ loop:
 		visited = strGraphNodeIRPSortedInsert(visited, allNodes2[i], (gnCmpType)ptrPtrCmp);
 
 		if (graphNodeIRValuePtr(allNodes2[i])->type == IR_CHOOSE) {
-			strGraphNodeIRP replaced;
+				strGraphEdgeIRP outgoing CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(allNodes2[i]);
+				strGraphEdgeIRP asn CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(outgoing, IR_CONN_DEST);
+				if(strGraphEdgeIRPSize(asn)==1) {
+						__auto_type asnNode=graphEdgeIROutgoing(asn[0]);
+						if(isVar(asnNode))
+								dontCoalesceIntoVars=strVarSortedInsert(dontCoalesceIntoVars, *getVar(asnNode), IRVarCmp);
+				}
+				
+				strGraphNodeIRP replaced CLEANUP(strGraphNodeIRPDestroy)=NULL;
 			IRSSAReplaceChooseWithAssigns(allNodes2[i], &replaced);
 
 			allNodes2 = strGraphNodeIRPSetDifference(allNodes2, replaced, (gnCmpType)ptrPtrCmp);
@@ -1038,6 +1052,8 @@ loop:
 
 	// Merge variables that can be merges
 	allNodes = graphNodeIRAllNodes(start);
+	IRCoalesce(allNodes, start);
+	strVarDestroy(&dontCoalesceIntoVars);
 	IRRemoveRepeatAssigns(start);
 	debugShowGraphIR(start);
 
