@@ -177,7 +177,7 @@ static struct X86AddressingMode *__node2AddrMode(graphNodeIR start) {
 		switch (value->val.type) {
 		case __IR_VAL_MEM_FRAME: {
 			if (getCurrentArch() == ARCH_TEST_SYSV || getCurrentArch() == ARCH_X86_SYSV || getCurrentArch() == ARCH_X64_SYSV) {
-					return X86AddrModeIndirSIB(0, NULL,  X86AddrModeReg(basePointer()), X86AddrModeSint(value->val.value.__frame.offset), IRNodeType(start));
+					return X86AddrModeIndirSIB(0, NULL,  X86AddrModeReg(basePointer()), X86AddrModeSint(-value->val.value.__frame.offset), IRNodeType(start));
 			} else {
 				assert(0); // TODO  implement
 			}
@@ -543,6 +543,12 @@ callMemcpy : {
 }
 }
 void IRCompile(graphNodeIR start,int isFunc) {
+		debugShowGraphIR(start);
+		if(isFunc) {
+				struct IRNodeFuncStart *funcNode=(void*)graphNodeIRValuePtr(start);
+				X86EmitAsmLabel(funcNode->func->name);
+		}
+		
 		__auto_type originalStart=start;
 		__auto_type entry = IRCreateLabel();
 	graphNodeIRConnect(entry, start, IR_CONN_FLOW);
@@ -596,7 +602,7 @@ void IRCompile(graphNodeIR start,int isFunc) {
 	strPVar inRegs CLEANUP(strPVarDestroy) = NULL;
 	for (long i = 0; i != strGraphNodeIRPSize(nodes); i++) {
 		struct IRNodeValue *value = (void *)graphNodeIRValuePtr(nodes[i]);
-		if (value->base.type != IR_VALUE)
+		if (value->base.type !=IR_VALUE)
 			continue;
 		if (value->val.type != IR_VAL_VAR_REF)
 			continue;
@@ -704,15 +710,15 @@ void IRCompile(graphNodeIR start,int isFunc) {
 
 	if(isFunc) {
 			IRABIAsmPrologue();
+	} else {
+			//Make EBP equal to ESP
+			struct X86AddressingMode *bp=X86AddrModeReg(basePointer());
+			struct X86AddressingMode *sp=X86AddrModeReg(stackPointer());
+			asmAssign(bp, sp, ptrSize());
 	}
 	//This computes calling information for the ABI
 	IRComputeABIInfo(start);
 	debugShowGraphIR(start);
-
-	//Make EBP equal to ESP
-	struct X86AddressingMode *bp=X86AddrModeReg(basePointer());
-	struct X86AddressingMode *sp=X86AddrModeReg(stackPointer());
-	asmAssign(bp, sp, ptrSize());
 	//Add to stack pointer to make room for locals
 	strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 	addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeReg(stackPointer()));

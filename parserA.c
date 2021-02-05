@@ -2719,6 +2719,7 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 		func.bodyScope = scope;
 		func.funcType = funcType;
 		func.name = name;
+		func.args=args;
 
 		retVal = ALLOCATE(func);
 	}

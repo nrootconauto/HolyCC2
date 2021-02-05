@@ -288,6 +288,7 @@ struct parserNodeTypeCast {
 };
 struct parserNodeFuncDef {
 	struct parserNode base;
+		strParserNode args;
 	struct object *funcType;
 	struct parserNode *name;
 	struct parserFunction *func;

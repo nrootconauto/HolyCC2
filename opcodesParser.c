@@ -684,7 +684,7 @@ struct X86AddressingMode *X86AddrModeUint(uint64_t imm) {
 }
 struct X86AddressingMode *X86AddrModeSint(int64_t imm) {
 	struct X86AddressingMode retVal;
-	retVal.type = X86ADDRMODE_UINT;
+	retVal.type = X86ADDRMODE_SINT;
 	retVal.value.sint = imm;
 	retVal.valueType = NULL;
 	return ALLOCATE(retVal);

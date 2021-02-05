@@ -1075,7 +1075,9 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 		struct objectFunction *func = (void *)def->funcType;
 		for (long i = 0; i != strFuncArgSize(func->args); i++) {
 			__auto_type arg = IRCreateFuncArg(func->args[i].type, i);
-			__auto_type var = IRCreateVarRef(IRCreateVirtVar(func->args[i].type));
+			struct parserNodeVarDecl *decl=(void*)def->args[i];
+			assert(decl->base.type==NODE_VAR_DECL);
+			__auto_type var = IRCreateVarRef(decl->var);
 			graphNodeIRConnect(currentNode, arg, IR_CONN_FLOW);
 			graphNodeIRConnect(arg, var, IR_CONN_DEST);
 
