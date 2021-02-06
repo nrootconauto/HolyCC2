@@ -6,10 +6,7 @@
 #include <graphColoring.h>
 #include <hashTable.h>
 #include <stdio.h>
-static long degree(graphNodeIRLive live) {
-	strGraphEdgeIRLiveP out CLEANUP(strGraphEdgeIRLivePDestroy) = graphNodeIRLiveOutgoing(live);
-	return strGraphEdgeIRLivePSize(out);
-}
+#include <limits.h>
 static int ptrPtrCmp(const void *a, const void *b) {
 	if (*(void **)a > *(void **)b)
 		return 1;
@@ -22,105 +19,98 @@ static int isGlobal(graphNodeIR node, const void *data) {
 	struct IRNodeValue *val = (void *)graphNodeIRValuePtr(node);
 	if (val->base.type == IR_VALUE)
 		if (val->val.type == IR_VAL_VAR_REF)
-			return !val->val.value.var.var->isGlobal;
+			return val->val.value.var.var->isGlobal;
 
 	return 0;
 }
-static void strGraphNodeIRLivePDestroy2(strGraphNodeIRLiveP *lives) {
-	for (long i = 0; i != strGraphNodeIRPSize(*lives); i++)
-		graphNodeIRLiveKillGraph(&lives[0][i], NULL, NULL);
-	strGraphNodeIRLivePDestroy(lives);
-}
-STR_TYPE_DEF(int, Int);
-STR_TYPE_FUNCS(int, Int);
-static int intCmp(const int *a, const int *b) {
-	return *a - *b;
-}
-static void reColorNodeIfAdj(graphNodeIRLive node, llVertexColor colors, int *colorCount) {
-	strGraphEdgeIRLiveP out CLEANUP(strGraphEdgeIRLivePDestroy) = graphNodeIRLiveOutgoing(node);
-	int currentColor = llVertexColorGet(colors, node)->color;
-
-	strInt adjColors CLEANUP(strIntDestroy) = NULL;
-	for (long i = 0; i != strGraphEdgeIRLivePSize(out); i++) {
-		__auto_type outNode = graphEdgeIRLiveOutgoing(out[i]);
-		__auto_type adjColor = llVertexColorGet(colors, outNode)->color;
-		if (!strIntSortedFind(adjColors, adjColor, intCmp))
-			adjColors = strIntSortedInsert(adjColors, adjColor, intCmp);
-	}
-	if (strIntSortedFind(adjColors, currentColor, intCmp)) {
-		// Conflict
-		for (long i = 0; i != *colorCount; i++) {
-			if (strIntSortedFind(adjColors, i, intCmp)) {
-				continue;
-			} else {
-				llVertexColorGet(colors, node)->color = i;
-				return;
-			}
-		}
-		// Need to add color
-		llVertexColorGet(colors, node)->color = *colorCount;
-		++*colorCount;
-	}
-}
-MAP_TYPE_DEF(strGraphNodeIRLiveP, LiveNodesByColor);
-MAP_TYPE_FUNCS(strGraphNodeIRLiveP, LiveNodesByColor);
-static void __strGraphNodeIRLivePDestroy(void *str) {
-	strGraphNodeIRLivePDestroy(str);
-}
-static void mapLiveNodesByColorDestroy2(mapLiveNodesByColor *map) {
-	mapLiveNodesByColorDestroy(*map, (void (*)(void *))__strGraphNodeIRLivePDestroy);
-}
-struct colorPair {
-	int a, b;
+struct IRVarRefsPair {
+		struct IRVar var;
+		strGraphNodeIRP refs;
+		long offset;
 };
+STR_TYPE_DEF(struct IRVarRefsPair,IRVarRefs);
+STR_TYPE_FUNCS(struct IRVarRefsPair,IRVarRefs);
+static int IRVarRefsCmp(const struct IRVarRefsPair *a,const struct IRVarRefsPair *b) {
+		return IRVarCmp(&a->var,&b->var);
+}
+static void IRVarRefsDestroy2(strIRVarRefs *refs) {
+		for(long r=0;r!=strIRVarRefsSize(*refs);r++)
+				strGraphNodeIRPDestroy(&refs[0][r].refs);
+		strIRVarRefsDestroy(refs);
+}
+static int IRVarRefsSizeCmpRev(const void *a,const void *b) {
+		const struct IRVarRefsPair *A=a,*B=b;
+		return objectSize(B->var.var->type,NULL)-objectSize(A->var.var->type,NULL);
+}
+static long pack(long baseOffset,long endBound,strIRVarRefs *refs,strIRVarRefs *order) {
+		long len=strIRVarRefsSize(*refs);
+		struct IRVarRefsPair clone[len];
+		memcpy(clone, *refs, sizeof(*clone)*len);
+		qsort(clone, len,sizeof(*clone), IRVarRefsSizeCmpRev);
+
+		for(long v=0;v!=len;v++) {
+				long largestSize=objectSize(clone[0].var.var->type,NULL);
+				long largestAlign=objectAlign(clone[0].var.var->type, NULL);
+				long pad=largestSize%largestAlign;
+				long end=baseOffset+largestSize+pad;
+				//Chcck if fits in the extra space an if it is below the expected end
+				if(endBound>=end&&end-baseOffset>=largestSize) {
+						__auto_type find=strIRVarRefsSortedFind(*refs, clone[v], IRVarRefsCmp);
+						long offset=baseOffset+pad;
+						find->offset=offset;
+						*refs=strIRVarRefsRemoveItem(*refs, clone[v], IRVarRefsCmp);
+						*order=strIRVarRefsAppendItem(*order, *find);
+						pack(baseOffset, offset,refs,order);
+						pack(end,endBound,refs,order);
+						return end;
+				}
+		}
+		return endBound;
+}
 strFrameEntry IRComputeFrameLayout(graphNodeIR start, long *frameSize) {
 	strFrameEntry retVal = NULL;
-	// These return "first" nodes of graphs
-	strGraphNodeIRLiveP graphs CLEANUP(strGraphNodeIRLivePDestroy2) = IRInterferenceGraphFilter(start, NULL, NULL);
-	for (long i = 0; i != strGraphNodeIRLivePSize(graphs); i++) {
-		__auto_type colors = graphColor(graphs[i]);
-		strGraphNodeIRLiveP allNodes CLEANUP(strGraphNodeIRLivePDestroy) = graphNodeIRLiveAllNodes(graphs[i]);
-		int colorCount = vertexColorCount(colors) + 1;
-		for (long n = 0; n != strGraphNodeIRLivePSize(allNodes); n++)
-			reColorNodeIfAdj(allNodes[n], colors, &colorCount);
-		mapLiveNodesByColor byColor CLEANUP(mapLiveNodesByColorDestroy2) = mapLiveNodesByColorCreate();
-		for (long n = 0; n != strGraphNodeIRLivePSize(allNodes); n++) {
-			int color = llVertexColorGet(colors, allNodes[n])->color;
-			long len = snprintf(NULL, 0, "%i", color);
-			char buffer[len + 1];
-			sprintf(buffer, "%i", color);
-		loop:;
-			__auto_type find = mapLiveNodesByColorGet(byColor, buffer);
-			if (!find) {
-				mapLiveNodesByColorInsert(byColor, buffer, NULL);
-				goto loop;
+	long currentOffset=0;
+	
+	//Find list of frame address
+	strIRVarRefs refs CLEANUP(IRVarRefsDestroy2)=NULL;
+	strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);
+	for(long n=0;n!=strGraphNodeIRPSize(allNodes);n++) {
+			struct IRNodeValue *val=(void*)graphNodeIRValuePtr(allNodes[n]);
+			if(val->base.type!=IR_VALUE)
+					continue;
+			if(val->val.type!=IR_VAL_VAR_REF)
+					continue;
+			if(isGlobal(allNodes[n], NULL))
+					continue;
+			
+			struct IRVarRefsPair dummy;
+			dummy.refs=NULL;
+			dummy.var=val->val.value.var;
+	loop:;
+			__auto_type find=strIRVarRefsSortedFind(refs, dummy, IRVarRefsCmp);
+			if(find) {
+					find->refs=strGraphNodeIRPSortedInsert(find->refs, allNodes[n], (gnCmpType)ptrPtrCmp);
+			} else {
+					refs=strIRVarRefsSortedInsert(refs, dummy, IRVarRefsCmp);
+					goto loop;
 			}
-			*find = strGraphNodeIRLivePSortedInsert(*find, allNodes[n], (gnCmpType)ptrPtrCmp);
-		}
-		long kCount;
-		mapLiveNodesByColorKeys(byColor, NULL, &kCount);
-		const char *keys[kCount];
-		mapLiveNodesByColorKeys(byColor, keys, &kCount);
-		long currentOffset = 0;
-		for (long k = 0; k != kCount; k++) {
-			long largestItemSize = -1;
-			__auto_type items = *mapLiveNodesByColorGet(byColor, keys[k]);
-			// Get biggest item of color
-			for (long i = 0; i != strGraphNodeIRLivePSize(items); i++) {
-				int success;
-				long size = 8 * objectSize(graphNodeIRLiveValuePtr(items[i])->ref.var->type, &success);
-				assert(success);
-				if (largestItemSize < size)
-					largestItemSize = size;
-				struct frameEntry entry;
-				entry.offset = currentOffset;
-				entry.var = graphNodeIRLiveValuePtr(items[i])->ref;
-				retVal = strFrameEntryAppendItem(retVal, entry);
-			}
-			currentOffset += largestItemSize;
-		}
-		if (frameSize)
-			*frameSize = currentOffset;
 	}
+
+	strIRVarRefs order CLEANUP(IRVarRefsDestroy2)=NULL;
+	long offset=0;
+	while(strIRVarRefsSize(refs)) {
+			assert(offset!=LONG_MAX);
+			offset=pack(offset, LONG_MAX, &refs,&order);
+	}
+	for(long r=0;r!=strIRVarRefsSize(order);r++) {
+			currentOffset=order[r].offset+objectSize(order[r].var.var->type, NULL);
+			struct frameEntry entry;
+			entry.offset=order[r].offset;
+			entry.var=order[r].var;
+			retVal=strFrameEntryAppendItem(retVal, entry);
+	}
+	
+	if (frameSize)
+			*frameSize = currentOffset;
 	return retVal;
 }
