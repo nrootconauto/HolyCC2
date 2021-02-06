@@ -295,7 +295,8 @@ objectClassCreate(const struct parserNode *name, const struct objectMember *memb
 	newClass->base.type = TYPE_CLASS;
 	newClass->methods = NULL;
 	newClass->members = NULL;
-
+	newClass->baseType=NULL;
+	
 	long largestMemberAlign = 0;
 	int success;
 	for (long i = 0; i != count; i++) {

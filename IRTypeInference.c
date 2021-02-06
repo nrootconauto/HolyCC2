@@ -156,6 +156,9 @@ struct object *__IRNodeType(graphNodeIR node) {
 			} else if(op==IR_DERREF) {
 					struct objectPtr *aPtr=(void*)aType;
 					return aPtr->type;
+			} else if(op==IR_MEMBERS) {
+					struct IRNodeMembers *mems=(void*)graphNodeIRValuePtr(node);
+					return mems->members->type;
 			}
 		return aType;
 	}
