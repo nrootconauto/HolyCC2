@@ -1889,17 +1889,15 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		binopArgs(start, &a, &b);
 		struct X86AddressingMode *aMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(a);
 		struct X86AddressingMode *bMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(b);
-		// MOV outMode,0
 		// CMP aMode,0
 		// JE emd
 		// CMP bMode,0
+		// MOV outMode,0
 		// JE end
 		// MOV outMode,1
 		// end:
 		struct X86AddressingMode *zero CLEANUP(X86AddrModeDestroy) = X86AddrModeSint(0);
 		struct X86AddressingMode *one CLEANUP(X86AddrModeDestroy) = X86AddrModeSint(1);
-		asmAssign(outMode, zero, objectSize(IRNodeType(outNode), NULL));
-
 		strX86AddrMode cmpAArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeClone(aMode));
 		cmpAArgs = strX86AddrModeAppendItem(cmpAArgs, X86AddrModeSint(0));
 		assembleInst("CMP", cmpAArgs);
@@ -1911,7 +1909,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		strX86AddrMode cmpBArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeClone(aMode));
 		cmpBArgs = strX86AddrModeAppendItem(cmpBArgs, X86AddrModeSint(0));
 		assembleInst("CMP", cmpBArgs);
-
+		asmAssign(outMode, zero, objectSize(IRNodeType(outNode), NULL));
 		assembleInst("JE", jmpeArgs);
 
 		asmAssign(outMode, one, objectSize(IRNodeType(outNode), NULL));
