@@ -377,7 +377,10 @@ STR_TYPE_DEF(struct parserVar *, PVar);
 STR_TYPE_FUNCS(struct parserVar *, PVar);
 typedef int (*PVarCmpType)(const struct parserVar **, const struct parserVar **);
 static int isPrimitiveType(const struct object *obj) {
-	const struct object *prims[] = {
+		if(objectBaseType(obj)->type==TYPE_PTR)
+				return 1;
+		
+		const struct object *prims[] = {
 	    &typeU0, &typeU8i, &typeU16i, &typeU32i, &typeU64i, &typeI8i, &typeI16i, &typeI32i, &typeI64i, &typeF64,
 	};
 	for (long i = 0; i != sizeof(prims) / sizeof(*prims); i++) {
