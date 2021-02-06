@@ -563,16 +563,15 @@ static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end, llLexer
 			if (next == NULL)
 				goto fail;
 			if (ptr != NULL) {
-				struct parserNodeBinop binop;
-				binop.a = head;
-				binop.base.type = NODE_BINOP;
-				binop.op = ptr;
-				binop.b = next;
-				binop.base.pos.start = head->pos.start;
-				binop.base.pos.end = head->pos.end;
-				binop.type = NULL;
-
-				head = ALLOCATE(binop);
+				struct parserNodeMemberAccess access;
+				access.exp = head;
+				access.base.type = NODE_MEMBER_ACCESS;
+				access.base.pos.start = head->pos.start;
+				access.base.pos.end = head->pos.end;
+				access.name=next;
+				access.op=ptr;
+				
+				head = ALLOCATE(access);
 				goto loop1;
 			}
 		}
@@ -939,6 +938,8 @@ struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end) {
 
 	struct parserNode *base;
 	struct object *baseType = NULL;
+	struct parserNode *cls=NULL;
+	struct parserNode *un=NULL;
 	int foundType = 0;
 	base = nameParse(start, NULL, &start);
 
@@ -947,7 +948,7 @@ struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end) {
 		baseType = objectByName(baseName->text);
 		foundType = baseType != NULL;
 	} else {
-		__auto_type cls = parseClass(start, &start, 0);
+		cls = parseClass(start, &start, 0);
 		if (cls != NULL) {
 			foundType = 1;
 
@@ -979,8 +980,14 @@ struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end) {
 			decl.base.type = NODE_VAR_DECL;
 			decl.type = parseVarDeclTail(start, &start, baseType, &decl.name, &decl.dftVal, &decl.metaData);
 
-			decls = strParserNodeAppendItem(decls, ALLOCATE(decl));
-		}
+			if(!decl.name) {
+					struct parserNode *alloced=ALLOCATE(decl);
+					parserNodeDestroy(&alloced);
+					break;
+			} else {
+					decls = strParserNodeAppendItem(decls, ALLOCATE(decl));
+			}
+			}
 	end:;
 		if (end != NULL)
 			*end = start;
@@ -997,6 +1004,8 @@ struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end) {
 				assignPosByLexerItems((struct parserNode *)&retVal, originalStart, NULL);
 
 			return ALLOCATE(retVal);
+		} else {
+				return cls;
 		}
 	}
 fail:
@@ -1546,7 +1555,8 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 	struct linkage link = getLinkage(start2, &start2);
 	__auto_type varDecls = parseVarDecls(start2, end);
 	if (varDecls) {
-		addDeclsToScope(varDecls, link);
+			if(varDecls->type==NODE_VAR_DECL||varDecls->type==NODE_VAR_DECLS)
+					addDeclsToScope(varDecls, link);
 
 		if (end) {
 			__auto_type semi = expectKeyword(*end, ";");

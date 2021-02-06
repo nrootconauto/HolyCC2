@@ -302,6 +302,7 @@ struct parserNodeFuncRef {
 struct parserNodeMemberAccess {
 	struct parserNode base;
 	struct parserNode *exp;
+		struct parserNode *op;
 	struct parserNode *name;
 };
 struct parserNodeFuncForwardDec {

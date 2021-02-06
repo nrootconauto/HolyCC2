@@ -195,12 +195,63 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 		seq->type = &typeU0;
 		return &typeU0;
 	}
+	if(node->type==NODE_MEMBER_ACCESS) {
+			struct parserNodeMemberAccess *access=(void*)node;
+			__auto_type aType = assignTypeToOp(access->exp);
+			struct parserNodeOpTerm *op=(void*)access->op;
+		if(0==strcmp(op->text, ".")||0==strcmp(op->text, "->")) {
+				if(aType->type!=TYPE_PTR&&0==strcmp(op->text, "->")) {
+						diagErrorStart(op->base.pos.start, op->base.pos.end);
+						diagPushQoutedText(access->op->pos.start, access->op->pos.end);
+						diagPushText(" needs a pointer operand.");
+						diagEndMsg();
+						goto fail;
+				}
+				if(aType->type==TYPE_PTR)
+						aType=((struct objectPtr*)aType)->type;
+				
+				struct parserNodeName *nm=(void*)access->name;
+				if(aType->type!=TYPE_CLASS&&aType->type!=TYPE_UNION) {
+				failMember:;
+						diagErrorStart(op->base.pos.start, op->base.pos.end);
+						diagPushText("Type ");
+						diagPushText(aType->name);
+						diagPushText(" doesn't have member ");
+						diagPushQoutedText(access->base.pos.start, access->base.pos.end);
+						diagPushText(".");
+						diagEndMsg();
+						goto fail;
+				}
+				struct objectMember *member=NULL;
+				if(aType->type==TYPE_CLASS) {
+						struct objectClass *cls=(void*)aType;
+						for(long m=0;m!=strObjectMemberSize(cls->members);m++) {
+								if(0==strcmp(cls->members[m].name,nm->text)) {
+										member=&cls->members[m];
+										break;
+								}
+						}
+				} else if(aType->type==TYPE_UNION) {
+						struct objectUnion *un=(void*)aType;
+						for(long m=0;m!=strObjectMemberSize(un->members);m++) {
+								if(0==strcmp(un->members[m].name,nm->text)) {
+										member=&un->members[m];
+										break;
+								}
+						}
+				}
+				if(member==NULL)
+						goto failMember;
+
+				return member->type;
+		}
+	}
 	if (node->type == NODE_BINOP) {
 		struct parserNodeBinop *binop = (void *)node;
 		if (binop->type != NULL)
 			return binop->type;
 
-		__auto_type aType = assignTypeToOp(binop->a);
+		__auto_type aType=assignTypeToOp(binop->a);
 		__auto_type bType = assignTypeToOp(binop->b);
 
 		int aArih = isArith(aType);
@@ -428,7 +479,7 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 	} else if (node->type == NODE_LIT_FLT) {
 		return &typeF64;
 	}
-
+	fail:
 	// Couldn't detirmine type
 	return &typeI64i;
 }

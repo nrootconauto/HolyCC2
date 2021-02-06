@@ -1407,7 +1407,9 @@ graphNodeIR IRCreateMemberAccess(graphNodeIR input, const char *name) {
 	memberNode.base.attrs = NULL;
 	memberNode.base.type = IR_MEMBERS;
 	memberNode.members = member;
-	return GRAPHN_ALLOCATE(member);
+	__auto_type memNode=GRAPHN_ALLOCATE(member);
+	graphNodeIRConnect(input, memNode, IR_CONN_SOURCE_A);
+	return memNode;
 }
 #include <IRFilter.h>
 static int isNotExprEdge(const void *data, const graphEdgeIR *edge) {
