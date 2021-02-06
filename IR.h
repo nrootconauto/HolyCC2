@@ -517,3 +517,5 @@ graphNodeIR IRCreateJumpTable();
 graphNodeIR IRCreateFrameAddress(long offset, struct object *obj);
 strGraphEdgeIRP IREdgesByPrec(graphNodeIR node);
 void IRMoveAttrsTo(graphNodeIR from,graphNodeIR to);
+graphNodeIR IRCreateAddrOf(graphNodeIR input);
+graphNodeIR IRCreateDerref(graphNodeIR input);

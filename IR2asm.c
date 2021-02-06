@@ -18,6 +18,15 @@
 #include <stdio.h>
 #include <X86AsmSharedVars.h>
 #include <abi.h>
+static void *IR_ATTR_ADDR_MODE="ADDR_MODE";
+struct IRAttrAddrMode {
+		struct IRAttr base;
+		struct X86AddressingMode *mode;
+};
+static void IRAttrAddrModeDestroy(struct IRAttr *attr) {
+		struct IRAttrAddrMode *Attr=(void*)attr;
+		X86AddrModeDestroy(&Attr->mode);
+}
 typedef int (*regCmpType)(const struct reg **, const struct reg **);
 typedef int (*gnCmpType)(const graphNodeIR *, const graphNodeIR *);
 static int ptrPtrCmp(const void *a, const void *b) {
@@ -240,14 +249,60 @@ static struct X86AddressingMode *__node2AddrMode(graphNodeIR start) {
 		}
 	} else if (graphNodeIRValuePtr(start)->type == IR_LABEL) {
 		return X86AddrModeLabel(getLabelName(start));
+	} else if(graphNodeIRValuePtr(start)->type==IR_MEMBERS) {
+			struct IRNodeMembers *mems=(void*)graphNodeIRValuePtr(start);
+			strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
+			strGraphEdgeIRP inSource CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_SOURCE_A);
+			struct X86AddressingMode *mode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(graphEdgeIRIncoming(inSource[0]));
+			if(mode->type==X86ADDRMODE_ITEM_ADDR) {
+					return X86AddrModeIndirSIB(0, NULL, X86AddrModeClone(mode), X86AddrModeSint(mems->members->offset), mems->members->type);
+			} else if(mode->type==X86ADDRMODE_MEM) {
+					switch(mode->value.m.type) {
+					case x86ADDR_INDIR_LABEL:
+							return X86AddrModeIndirSIB(0, NULL, X86AddrModeClone(mode->value.m.value.label), X86AddrModeSint(mems->members->offset), mems->members->type);
+					case x86ADDR_INDIR_REG:
+							return X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(mode->value.m.value.indirReg), X86AddrModeSint(mems->members->offset), mems->members->type);
+					case x86ADDR_INDIR_SIB: {
+							__auto_type clone=X86AddrModeClone(mode);
+							__auto_type offset=clone->value.m.value.sib.offset;
+							assert(offset->type==X86ADDRMODE_SINT||offset->type==X86ADDRMODE_UINT);
+							if(offset->type==X86ADDRMODE_SINT) {
+									offset->value.sint+=mems->members->offset;
+							} else if(offset->type==X86ADDRMODE_UINT) {
+									offset->value.uint+=mems->members->offset;
+							}
+							clone->valueType=mems->members->type;
+							return clone;
+					}
+					case x86ADDR_MEM: {
+							__auto_type clone=X86AddrModeClone(mode);
+							clone->value.m.value.mem+=mems->members->offset;
+							clone->valueType=mems->members->type;
+							return clone;
+					}
+					}
+			} else {
+					fprintf(stderr, "Accessing member requires pointer source.\n");
+			}
 	}
 	assert(0);
 	return X86AddrModeSint(-1);
 }
 
 struct X86AddressingMode *IRNode2AddrMode(graphNodeIR start) {
-	__auto_type retVal = __node2AddrMode(start);
+		struct IRNode *node=graphNodeIRValuePtr(start);
+		__auto_type find=llIRAttrFind(node->attrs, IR_ATTR_ADDR_MODE, IRAttrGetPred);
+		if(find)
+				return X86AddrModeClone(((struct IRAttrAddrMode*)llIRAttrValuePtr(find))->mode);
+		
+		__auto_type retVal = __node2AddrMode(start);
 	retVal->valueType = IRNodeType(start);
+	
+	struct IRAttrAddrMode modeAttr;
+	modeAttr.base.name=IR_ATTR_ADDR_MODE;
+	modeAttr.base.destroy=IRAttrAddrModeDestroy;
+	modeAttr.mode=X86AddrModeClone(retVal);
+	IRAttrReplace(start, __llCreate(&modeAttr, sizeof(modeAttr)));
 	return retVal;
 }
 static void strX86AddrModeDestroy2(strX86AddrMode *str) {
@@ -783,6 +838,7 @@ static struct X86AddressingMode *demoteAddrMode(struct X86AddressingMode *addr, 
 		mode->value.reg = subReg;
 		break;
 	}
+	case X86ADDRMODE_STR:
 	case X86ADDRMODE_FLT:
 	case X86ADDRMODE_ITEM_ADDR:
 	case X86ADDRMODE_LABEL:
@@ -2405,9 +2461,18 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			popReg(regAddr);
 			return nextNodesToCompile(start);
 	}
+	case IR_MEMBERS: {
+			struct X86AddressingMode *iMode=IRNode2AddrMode(start);
+			strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
+			strGraphEdgeIRP inAssn CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_DEST);
+			if(strGraphEdgeIRPSize(inAssn)==1) {
+					struct X86AddressingMode *oMode=IRNode2AddrMode(graphEdgeIRIncoming(inAssn[0]));
+					asmTypecastAssign(oMode, iMode);
+			}
+			return nextNodesToCompile(start);
+	}
 	case IR_SUB_SWITCH_START_LABEL:
 	case IR_SPILL_LOAD:
-	case IR_MEMBERS:
 		assert(0);
 	}
 }

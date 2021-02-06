@@ -1371,6 +1371,22 @@ graphNodeIR IRCreateFuncArg(struct object *type, long funcIndex) {
 
 	return GRAPHN_ALLOCATE(arg);
 }
+graphNodeIR IRCreateAddrOf(graphNodeIR input) {
+		struct IRNode node;
+		node.attrs=NULL;
+		node.type=IR_ADDR_OF;
+		__auto_type retVal=GRAPHN_ALLOCATE(node);
+		graphNodeIRConnect(input, retVal, IR_CONN_SOURCE_A);
+		return retVal;
+}
+graphNodeIR IRCreateDerref(graphNodeIR input) {
+		struct IRNode node;
+		node.attrs=NULL;
+		node.type=IR_DERREF;
+		__auto_type retVal=GRAPHN_ALLOCATE(node);
+		graphNodeIRConnect(input, retVal, IR_CONN_SOURCE_A);
+		return retVal;
+}
 graphNodeIR IRCreateMemberAccess(graphNodeIR input, const char *name) {
 	__auto_type type = IRNodeType(input);
 	struct objectMember *member = NULL;

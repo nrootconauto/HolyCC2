@@ -44,7 +44,15 @@ static int objIndex(const struct object **objs, long count, const struct object 
 }
 
 static struct object *getHigherType(struct object *a, struct object *b) {
-	const struct object *ranks[] = {
+		if(a->type==TYPE_PTR)
+				return a;
+		else if(b->type==TYPE_PTR)
+				return b;
+
+		a=objectBaseType(a);
+		a=objectBaseType(b);;
+		
+		const struct object *ranks[] = {
 	    &typeU0, &typeI8i, &typeU8i, &typeI16i, &typeU16i, &typeI32i, &typeU32i, &typeI64i, &typeU64i, &typeF64,
 	};
 	long count = sizeof(ranks) / sizeof(*ranks);
@@ -139,9 +147,16 @@ struct object *__IRNodeType(graphNodeIR node) {
 			return getHigherType(aType, bType);
 		} else
 			return NULL;
-	} else if (strGraphEdgeIRPSize(sourceA) || strGraphEdgeIRPSize(sourceB)) {
-		// Unop
-		__auto_type aType = IRNodeType(graphEdgeIRIncoming(sourceA[0]));
+	} else if (strGraphEdgeIRPSize(sourceA)) {
+			// Unop
+			__auto_type aType = IRNodeType(graphEdgeIRIncoming(sourceA[0]));
+			__auto_type op=graphNodeIRValuePtr(node)->type;
+			if(op==IR_ADDR_OF) {
+					return objectPtrCreate(aType);
+			} else if(op==IR_DERREF) {
+					struct objectPtr *aPtr=(void*)aType;
+					return aPtr->type;
+			}
 		return aType;
 	}
 	return NULL;
