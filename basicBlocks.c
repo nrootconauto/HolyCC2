@@ -202,7 +202,7 @@ static void bbFromExpr(graphNodeIR start, strBasicBlock *results, int (*varFilte
 				strGraphEdgeIRP incoming = graphNodeIRIncoming(node);
 				strGraphEdgeIRP incomingAssigns CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(incoming, IR_CONN_DEST);
 				if (strGraphEdgeIRPSize(incomingAssigns))
-						doLater = strGraphNodeMappingPAppendItem(doLater, exprNodes[i2]);
+						bbFromExpr(exprNodes[i2], results, varFilter, data);
 		}
 		
 		if (isVarNode(irNode)) {
@@ -246,8 +246,8 @@ static void bbFromExpr(graphNodeIR start, strBasicBlock *results, int (*varFilte
 	}
 
 	*results = strBasicBlockAppendItem(*results, ALLOCATE(block));
-	for (long d = 0; d != strGraphNodeMappingPSize(doLater); d++)
-		bbFromExpr(doLater[d], results, varFilter, data);
+	// for (long d = 0; d != strGraphNodeMappingPSize(doLater); d++)
+	// bbFromExpr(doLater[d], results, varFilter, data);
 }
 strBasicBlock IRGetBasicBlocksFromExpr(graphNodeIR dontDestroy, ptrMapBlockMetaNode metaNodes, graphNodeMapping start, strGraphNodeMappingP *consumedNodes,
                                        const void *data, int (*varFilter)(graphNodeIR var, const void *data)) {
@@ -332,7 +332,7 @@ strBasicBlock IRGetBasicBlocksFromExpr(graphNodeIR dontDestroy, ptrMapBlockMetaN
 
 	graphNodeMapping last = NULL;
 	graphNodeMapping first = NULL;
-	for (long b = strBasicBlockSize(retVal) - 1; b >= 0; b--) {
+	for (long b=0;b != strBasicBlockSize(retVal); b++) {
 		struct blockMetaNode pair;
 		__auto_type meta = graphNodeMappingCreate(NULL, 0);
 		pair.node = meta;

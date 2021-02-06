@@ -313,11 +313,15 @@ objectClassCreate(const struct parserNode *name, const struct objectMember *memb
 	newClass->members = NULL;
 	long offset = 0;
 	for (long i = 0; i != count; i++) {
-		offset += objectAlign(members[i].type, &success);
+		offset += offset%objectAlign(members[i].type, &success);
 		if (!success)
 			goto fail;
-
+		
 		newClass->members = strObjectMemberAppendItem(newClass->members, members[i]);
+		newClass->members[strObjectMemberSize(newClass->members)-1].offset=offset;
+		offset+=objectSize(members[i].type, &success);
+		if(!success)
+				goto fail;
 	}
 	if (offset % largestMemberAlign)
 		newClass->size = offset + largestMemberAlign - (offset % largestMemberAlign);

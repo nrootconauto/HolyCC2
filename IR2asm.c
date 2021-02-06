@@ -2462,13 +2462,21 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			return nextNodesToCompile(start);
 	}
 	case IR_MEMBERS: {
-			struct X86AddressingMode *iMode=IRNode2AddrMode(start);
+			struct X86AddressingMode *memMode=IRNode2AddrMode(start);
 			strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
 			strGraphEdgeIRP inAssn CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_DEST);
 			if(strGraphEdgeIRPSize(inAssn)==1) {
-					struct X86AddressingMode *oMode=IRNode2AddrMode(graphEdgeIRIncoming(inAssn[0]));
-					asmTypecastAssign(oMode, iMode);
+					struct X86AddressingMode *asnMode=IRNode2AddrMode(graphEdgeIRIncoming(inAssn[0]));
+					asmTypecastAssign(memMode,asnMode);
 			}
+
+			strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(start);
+			strGraphEdgeIRP outAssn CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(out, IR_CONN_DEST);
+			if(strGraphEdgeIRPSize(outAssn)==1) {
+						struct X86AddressingMode *toMode=IRNode2AddrMode(graphEdgeIROutgoing(outAssn[0]));
+						asmTypecastAssign(toMode,memMode);
+			}
+			
 			return nextNodesToCompile(start);
 	}
 	case IR_SUB_SWITCH_START_LABEL:
