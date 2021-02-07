@@ -347,7 +347,7 @@ struct IRNodeInc {
 };
 struct IRNodeMembers {
 	struct IRNode base;
-	struct objectMember *members;
+	strObjectMember members;
 };
 struct IRNodeDec {
 	struct IRNode base;

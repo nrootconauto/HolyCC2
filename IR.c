@@ -1389,6 +1389,11 @@ graphNodeIR IRCreateDerref(graphNodeIR input) {
 }
 graphNodeIR IRCreateMemberAccess(graphNodeIR input, const char *name) {
 	__auto_type type = IRNodeType(input);
+	__auto_type originalType=type;
+	if(type->type==TYPE_PTR) {
+			struct objectPtr *ptr=(void*)type;
+			type=ptr->type;
+	}
 	struct objectMember *member = NULL;
 	if (type->type == TYPE_CLASS) {
 		struct objectClass *cls = (void *)type;
@@ -1403,10 +1408,18 @@ graphNodeIR IRCreateMemberAccess(graphNodeIR input, const char *name) {
 				member = &un->members[i];
 	}
 
+	if(graphNodeIRValuePtr(input)->type==IR_MEMBERS) {
+			struct IRNodeMembers *members=(void*)graphNodeIRValuePtr(input);
+			members->members=strObjectMemberAppendItem(members->members, *member);
+			return input;
+	}
+	
+	assert(member);
+	
 	struct IRNodeMembers memberNode;
 	memberNode.base.attrs = NULL;
 	memberNode.base.type = IR_MEMBERS;
-	memberNode.members = member;
+	memberNode.members = strObjectMemberAppendItem(NULL,*member);
 	__auto_type memNode=GRAPHN_ALLOCATE(memberNode);
 	graphNodeIRConnect(input, memNode, IR_CONN_SOURCE_A);
 	return memNode;
@@ -1442,6 +1455,7 @@ static void __IRInsertNodesBetweenExprs(graphNodeIR expr, ptrMapAffectedNodes af
 		struct IRNodeValue *nodeValue = (void *)graphNodeIRValuePtr(node);
 		if (nodeValue->base.type == IR_VALUE)
 			continue;
+		
 		// Not a value so insert a variable after the operation(the varaible will be assigned into)
 		__auto_type tmp = IRCreateVirtVar(IRNodeType(node));
 		__auto_type tmpRef = IRCreateVarRef(tmp);

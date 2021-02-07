@@ -180,7 +180,9 @@ static strChar uint64ToStr(uint64_t value) {
 	;
 }
 static strChar getSizeStr(struct object *obj) {
-	__auto_type base = objectBaseType(obj);
+		if(!obj)
+				return strClone(""); 
+		__auto_type base = objectBaseType(obj);
 	switch (objectSize(base, NULL)) {
 	case 1:
 		return strClone("BYTE");
@@ -359,7 +361,10 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 				sprintf(retVal2, "%s [%s] ", typeStr, retVal);
 				return retVal2;
 			} else {
-				return retVal;
+					long len = snprintf(NULL, 0, "[%s] ", retVal);
+					strChar retVal2 = strCharResize(NULL, len + 1);
+					sprintf(retVal2, "[%s] ", retVal);
+					return retVal2;
 			}
 			break;
 		}

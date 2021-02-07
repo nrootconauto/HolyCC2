@@ -828,7 +828,10 @@ static graphNodeIR parserNode2Expr(const struct parserNode *node) {
 		struct parserNodeMemberAccess *access = (void *)node;
 		assert(access->name->type == NODE_NAME);
 		struct parserNodeName *name = (void *)access->name;
-		__auto_type retVal = IRCreateMemberAccess(parserNode2Expr(access->exp), name->text);
+		__auto_type expr=parserNode2Expr(access->exp);
+		struct parserNodeOpTerm *op=(void*)access->op;
+		graphNodeIR retVal=NULL;
+		retVal = IRCreateMemberAccess(expr, name->text);
 		return retVal;
 	}
 	}

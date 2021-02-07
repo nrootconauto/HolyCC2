@@ -204,12 +204,12 @@ objectAlign(const struct object *type, int *success) {
 		return 0;
 	}
 	case TYPE_PTR: {
-		// TODO check architecture
-		return 0;
+		return ptrSize();
 	}
 	case TYPE_UNION: {
 		__auto_type ptr = (struct objectUnion *)type;
 		return ptr->size;
+		
 	}
 	case TYPE_CLASS: {
 		__auto_type ptr = (struct objectClass *)type;
@@ -293,6 +293,7 @@ objectClassCreate(const struct parserNode *name, const struct objectMember *memb
 	struct objectClass *newClass = malloc(sizeof(struct objectClass));
 	newClass->name = (struct parserNode *)name;
 	newClass->base.type = TYPE_CLASS;
+	newClass->base.name=NULL;
 	newClass->methods = NULL;
 	newClass->members = NULL;
 	newClass->baseType=NULL;
@@ -323,9 +324,8 @@ objectClassCreate(const struct parserNode *name, const struct objectMember *memb
 		if(!success)
 				goto fail;
 	}
-	if (offset % largestMemberAlign)
-		newClass->size = offset + largestMemberAlign - (offset % largestMemberAlign);
-
+	newClass->size = offset +  offset % largestMemberAlign;
+	
 	if (name) {
 		const char *name2 = ((struct parserNodeName *)name)->text;
 		if (NULL == mapObjectGet(objectRegistry, name2))

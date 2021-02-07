@@ -40,7 +40,9 @@ static void IRVarRefsDestroy2(strIRVarRefs *refs) {
 }
 static int IRVarRefsSizeCmpRev(const void *a,const void *b) {
 		const struct IRVarRefsPair *A=a,*B=b;
-		return objectSize(B->var.var->type,NULL)-objectSize(A->var.var->type,NULL);
+		__auto_type bSize= objectSize(B->var.var->type,NULL);
+		__auto_type aSize=objectSize(A->var.var->type,NULL);
+		return bSize-aSize;
 }
 static long pack(long baseOffset,long endBound,strIRVarRefs *refs,strIRVarRefs *order) {
 		long len=strIRVarRefsSize(*refs);
@@ -49,8 +51,8 @@ static long pack(long baseOffset,long endBound,strIRVarRefs *refs,strIRVarRefs *
 		qsort(clone, len,sizeof(*clone), IRVarRefsSizeCmpRev);
 
 		for(long v=0;v!=len;v++) {
-				long largestSize=objectSize(clone[0].var.var->type,NULL);
-				long largestAlign=objectAlign(clone[0].var.var->type, NULL);
+				long largestSize=objectSize(clone[v].var.var->type,NULL);
+				long largestAlign=objectAlign(clone[v].var.var->type, NULL);
 				long pad=largestSize%largestAlign;
 				long end=baseOffset+largestSize+pad;
 				//Chcck if fits in the extra space an if it is below the expected end
@@ -58,8 +60,8 @@ static long pack(long baseOffset,long endBound,strIRVarRefs *refs,strIRVarRefs *
 						__auto_type find=strIRVarRefsSortedFind(*refs, clone[v], IRVarRefsCmp);
 						long offset=baseOffset+pad;
 						find->offset=offset;
-						*refs=strIRVarRefsRemoveItem(*refs, clone[v], IRVarRefsCmp);
 						*order=strIRVarRefsAppendItem(*order, *find);
+						*refs=strIRVarRefsRemoveItem(*refs, clone[v], IRVarRefsCmp);
 						pack(baseOffset, offset,refs,order);
 						pack(end,endBound,refs,order);
 						return end;

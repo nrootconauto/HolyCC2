@@ -158,7 +158,7 @@ struct object *__IRNodeType(graphNodeIR node) {
 					return aPtr->type;
 			} else if(op==IR_MEMBERS) {
 					struct IRNodeMembers *mems=(void*)graphNodeIRValuePtr(node);
-					return mems->members->type;
+					return mems->members[strObjectMemberSize(mems->members)-1].type;
 			}
 		return aType;
 	}
