@@ -1336,6 +1336,41 @@ static int IRTableRangeCmp(const struct IRJumpTableRange *a, const struct IRJump
 	else
 		return 0;
 }
+static void storeMemberPtrInReg(struct reg *memReg,graphNodeIR sourceNode,strObjectMember members) {
+		struct X86AddressingMode *memRegMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(memReg);
+		strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+			leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeReg(memReg));
+			leaArgs=strX86AddrModeAppendItem(leaArgs, IRNode2AddrMode(sourceNode));
+			leaArgs[1]->valueType=NULL;
+			assembleInst("LEA", leaArgs);
+
+			__auto_type currentType=IRNodeType(sourceNode);
+			long currentOffset=0;
+			for(long m=0;m!=strObjectMemberSize(members);m++) {
+					if(currentType->type==TYPE_PTR) {
+							if(currentOffset) {
+									strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+									addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeReg(memReg));
+									addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeSint(currentOffset));
+									assembleInst("ADD", addArgs);
+									currentOffset=0;
+							}
+							
+							//De-reference
+							struct X86AddressingMode *indir CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirReg(memReg,objectPtrCreate(&typeU0));
+							asmAssign(memRegMode, indir, ptrSize());
+					}
+					memRegMode->valueType=objectPtrCreate(members[m].type);
+					currentOffset+=members[m].offset;
+					currentType=members[m].type;
+			}
+			if(currentOffset) {
+					strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+					addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeReg(memReg));
+					addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeSint(currentOffset));
+					assembleInst("ADD", addArgs);
+			}
+}
 static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 	if (ptrMapCompiledNodesGet(compiledNodes, start)) {
 		// If encountering already "compiled" label node,jump to it
@@ -2455,40 +2490,10 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			struct X86AddressingMode *memRegMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(memReg);
 			memRegMode->valueType=IRNodeType(start);
 			strGraphEdgeIRP source CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_SOURCE_A);
-			strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
-			leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeReg(memReg));
-			leaArgs=strX86AddrModeAppendItem(leaArgs, IRNode2AddrMode(graphEdgeIRIncoming(source[0])));
-			leaArgs[1]->valueType=NULL;
-			assembleInst("LEA", leaArgs);
-
-			__auto_type currentType=IRNodeType(graphEdgeIRIncoming(source[0]));
-			long currentOffset=0;
-			for(long m=0;m!=strObjectMemberSize(mems->members);m++) {
-					if(currentType->type==TYPE_PTR) {
-							if(currentOffset) {
-									strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
-									addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeReg(memReg));
-									addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeSint(currentOffset));
-									assembleInst("ADD", addArgs);
-									currentOffset=0;
-							}
-							
-							//De-reference
-							struct X86AddressingMode *indir CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirReg(memReg,objectPtrCreate(&typeU0));
-							asmAssign(memRegMode, indir, ptrSize());
-					}
-					memRegMode->valueType=objectPtrCreate(mems->members[m].type);
-					currentOffset+=mems->members[m].offset;
-					currentType=mems->members[m].type;
-			}
-			if(currentOffset) {
-					strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
-					addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeReg(memReg));
-					addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeSint(currentOffset));
-					assembleInst("ADD", addArgs);
-			}
+			storeMemberPtrInReg(memReg, graphEdgeIRIncoming(source[0]), mems->members);
+			
 			X86AddrModeDestroy(&memRegMode);
-			memRegMode=X86AddrModeIndirReg(memReg, currentType);
+			memRegMode=X86AddrModeIndirReg(memReg, IRNodeType(start));
 			
 			//Reserve a register for the member ptr
 			if(strGraphEdgeIRPSize(inAssn)==1) {
@@ -2516,17 +2521,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 }
 static int isNotArgEdge(const void *data, const graphEdgeIR *edge) {
 	__auto_type type = *graphEdgeIRValuePtr(*edge);
-	switch (type) {
-	case IR_CONN_SOURCE_A:
-	case IR_CONN_SOURCE_B:
-	case IR_CONN_COND:
-	case IR_CONN_FUNC_ARG_1...IR_CONN_FUNC_ARG_128:
-	case IR_CONN_FUNC:
-	case IR_CONN_DEST:
-		return 0;
-	default:
-		return 1;
-	}
+	return !IRIsExprEdge(type);
 }
 static int isUnvisited(const void *data, const graphNodeIR *node) {
 	return NULL != ptrMapCompiledNodesGet(compiledNodes, *node);

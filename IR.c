@@ -312,6 +312,8 @@ struct object *IRValueGetType(struct IRValue *node) {
 	case IR_VAL_VAR_REF: {
 		return node->value.var.var->type;
 	}
+		case IR_VAL_FLT_LIT:
+				return &typeF64;
 	case IR_VAL_STR_LIT:
 		return objectPtrCreate(&typeU8i);
 	case IR_VAL_INT_LIT:
@@ -377,6 +379,7 @@ int IRIsExprEdge(enum IRConnType type) {
 	case IR_CONN_FUNC:
 	case IR_CONN_SIMD_ARG:
 	case IR_CONN_DEST:
+	case IR_CONN_ASSIGN_FROM_PTR:
 	case IR_CONN_FUNC_ARG_1...IR_CONN_FUNC_ARG_128:
 		return 1;
 	default:
@@ -598,6 +601,14 @@ dumpU:
 }
 char *graphEdgeIR2Str(struct __graphEdge *edge) {
 	switch (*graphEdgeIRValuePtr(edge)) {
+	case IR_CONN_NEVER_FLOW:
+			return strClone("IR_CONN_NEVER_FLOW");
+	case IR_CONN_CASE:
+			return strClone("IR_CONN_CASE");
+	case IR_CONN_DFT:
+			return strClone("IR_CONN_DFT");
+	case IR_CONN_ASSIGN_FROM_PTR:
+			return strClone("IR_CONN_ASSIGN_FROM_PTR");
 	case IR_CONN_FLOW:
 		return strClone("IR_CONN_FLOW");
 	case IR_CONN_SOURCE_A:
@@ -854,6 +865,7 @@ static char *IRCreateGraphVizNode(const struct __graphNode *node, mapGraphVizAtt
 		return strClone("FUNC-START");
 	case IR_FUNC_END:
 		return strClone("FUNC-END");
+	case IR_LABEL_LOCAL:
 	case IR_LABEL: {
 		__auto_type ptrStr = ptr2Str(node);
 		__auto_type labelNum = *mapLabelNumGet(*data2->labelNums, ptrStr);
@@ -891,14 +903,93 @@ static char *IRCreateGraphVizNode(const struct __graphNode *node, mapGraphVizAtt
 	case IR_SUB_SWITCH_START_LABEL:
 		makeGVTerminalNode(attrs);
 		return strClone("SUB-SWITCH START");
-	default:;
+	case IR_MEMBERS_ADDR_OF: {
+			const char *header="ADDR-OF ";
+			strChar message CLEANUP(strCharDestroy)=strCharAppendData(NULL, header, strlen(header));
+			struct IRNodeMembersAddrOf *mems=(void*)value;
+			strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming((graphNodeIR)node);
+			__auto_type currentType=IRNodeType(graphEdgeIRIncoming(in[0]));
+			for(long m=0;m!=strObjectMemberSize(mems->members);m++) {
+					if(currentType->type==TYPE_PTR) {
+							message=strCharAppendData(message, "->", 2);
+					} else {
+							message=strCharAppendItem(message, '.');
+					}
+					message=strCharAppendData(message, mems->members[m].name, strlen(mems->members[m].name));
+			}
+
+			return strClone(message);
+	}
+	case IR_MEMBERS: {
+			goto fail;
+			strChar message CLEANUP(strCharDestroy)=NULL;
+			struct IRNodeMembers *mems=(void*)value;
+			strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming((graphNodeIR)node);
+			__auto_type currentType=IRNodeType(graphEdgeIRIncoming(in[0]));
+			for(long m=0;m!=strObjectMemberSize(mems->members);m++) {
+					if(currentType->type==TYPE_PTR) {
+							message=strCharAppendData(message, "->", 2);
+					} else {
+							message=strCharAppendItem(message, '.');
+					}
+					message=strCharAppendData(message, mems->members[m].name, strlen(mems->members[m].name));
+			}
+
+			return strClone(message);
+	}
+	case  IR_INC:
+	case IR_DEC:
+	case IR_ADD:
+	case IR_SUB:
+	case IR_POS:
+	case IR_NEG:
+	case IR_MULT:case IR_MOD: case IR_DIV: case IR_POW:
+	case IR_LAND:
+	case IR_LXOR:
+	case IR_LOR:
+	case IR_LNOT:
+	case IR_BNOT:
+	case IR_BAND:
+	case IR_BXOR:
+	case IR_BOR:
+	case IR_LSHIFT:
+	case IR_RSHIFT:
+	case IR_ARRAY_ACCESS:
+	case IR_GT:
+	case IR_LT:
+	case IR_GE:
+	case IR_LE:
+	case IR_EQ:
+	case IR_NE:
+	case IR_FUNC_CALL:
+	case IR_ADDR_OF:
+	case IR_DERREF:;
+			//default:;
 		// Check for operator type
 		__auto_type retVal = opToText(value->type);
 		if (retVal) {
 			makeGVProcessNode(attrs);
 			return retVal;
 		}
-
+		goto fail; 
+	case IR_FUNC_ARG: {
+			struct IRNodeFuncArg *arg=(void*)value;
+			const char *fmt="FUNC-ARG:%li";
+			long len=snprintf(NULL, 0, fmt, arg->argIndex);
+			char buffer[len+1];
+			sprintf(buffer, fmt, arg->argIndex);
+			return strClone(buffer);
+	}
+	case IR_X86_INST: {
+			struct IRNodeX86Inst *inst=(void*)value;
+			const char *fmt="INST:%s";
+			long len=snprintf(NULL, 0, fmt, inst->name);
+			char buffer[len+1];
+			sprintf(buffer, fmt, inst->name);
+			return strClone(buffer);
+	}
+			default:
+	fail:
 		// Unkown type
 		return strClone("\?\?\?!");
 	}
@@ -942,6 +1033,9 @@ static char *IRCreateGraphVizEdge(const struct __graphEdge *__edge, mapGraphVizA
 	}
 
 	switch (*edgeVal) {
+	case IR_CONN_ASSIGN_FROM_PTR:
+			mapGraphVizAttrInsert(*attrs, "color", strClone("orange"));
+			return strClone("Assign from Ptr");
 	case IR_CONN_NEVER_FLOW:
 		mapGraphVizAttrInsert(*attrs, "style", strClone("dashed"));
 		return NULL;
@@ -1431,9 +1525,7 @@ graphNodeIR IRCreateAddrOf(graphNodeIR input) {
 				}
 				
 				__auto_type scaleNode=IRCreateIntLit(scale);
-				//Needs to be connected to start
-				graphNodeIRConnect(startNode,scaleNode,  IR_CONN_FLOW);
-
+				
 				graphNodeIR retVal=IRCreateBinop(baseNode, IRCreateBinop(indexNode, scaleNode, IR_MULT), IR_ADD);
 				graphNodeIRKill(&input, (void(*)(void*))IRNodeDestroy, NULL);
 				return retVal;
