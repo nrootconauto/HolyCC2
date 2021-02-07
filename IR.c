@@ -1109,7 +1109,7 @@ static graphNodeIR __cloneNode(ptrMapGraphNode mappings, graphNodeIR node, enum 
 		__auto_type newNode = GRAPHN_ALLOCATE(clone);
 
 		// Quit if we are where we want to bne
-		if (IR_CLONE_UP_TO) {
+		if (mode==IR_CLONE_UP_TO) {
 			// Check if we are to stop at node
 			if (NULL != strGraphNodeIRPSortedFind((strGraphNodeIRP)data, node, (gnIRCmpType)ptrPtrCmp))
 				return newNode;
@@ -1251,19 +1251,42 @@ static graphNodeIR __cloneNode(ptrMapGraphNode mappings, graphNodeIR node, enum 
 		__auto_type retVal = GRAPHN_ALLOCATE(newTable);
 
 		// Quit if we are where we want to be
-		if (IR_CLONE_UP_TO) {
+		if (mode==IR_CLONE_UP_TO) {
 			// Check if we are to stop at node
 			if (NULL != strGraphNodeIRPSortedFind((strGraphNodeIRP)data, node, (gnIRCmpType)ptrPtrCmp))
 				return retVal;
 		}
 
-		// Copy connections
-		__cloneNodeCopyConnections(mappings, node, retVal, mode, data);
-
+		if(mode !=IR_CLONE_NODE) {
+				// Copy connections
+				__cloneNodeCopyConnections(mappings, node, retVal, mode, data);
+		}
 		// Register node
 		ptrMapGraphNodeAdd(mappings, node, retVal);
 
 		return retVal;
+	}
+	case IR_LABEL_LOCAL: {
+			struct IRNodeLabelLocal *loc=(void*)graphNodeIRValuePtr(node);
+			__auto_type retVal=GRAPHN_ALLOCATE(*loc);
+			// Register node
+			ptrMapGraphNodeAdd(mappings, node, retVal);
+			return retVal;
+	}
+	case IR_FUNC_ARG: {
+			struct IRNodeFuncArg *arg=(void*)graphNodeIRValuePtr(node);
+			__auto_type retVal=GRAPHN_ALLOCATE(*arg);
+			// Quit if we are where we want to be
+		if (mode==IR_CLONE_UP_TO) {
+			// Check if we are to stop at node
+			if (NULL != strGraphNodeIRPSortedFind((strGraphNodeIRP)data, node, (gnIRCmpType)ptrPtrCmp))
+				return retVal;
+		}
+
+		if(mode !=IR_CLONE_NODE) {
+				// Copy connections
+				__cloneNodeCopyConnections(mappings, node, retVal, mode, data);
+		}
 	}
 	}
 }
@@ -1372,6 +1395,55 @@ graphNodeIR IRCreateFuncArg(struct object *type, long funcIndex) {
 	return GRAPHN_ALLOCATE(arg);
 }
 graphNodeIR IRCreateAddrOf(graphNodeIR input) {
+		if(graphNodeIRValuePtr(input)->type==IR_MEMBERS) {
+				struct IRNodeMembers *mems=(void*)graphNodeIRValuePtr(input);
+				__auto_type members=strObjectMemberClone(mems->members);
+				struct IRNodeMembersAddrOf addrOf;
+				addrOf.base.attrs=NULL;
+				addrOf.base.type=IR_MEMBERS_ADDR_OF;
+				addrOf.members=members;
+				__auto_type retVal=GRAPHN_ALLOCATE(addrOf);
+				strGraphNodeIRP toReplace CLEANUP(strGraphNodeIRPDestroy)=strGraphNodeIRPAppendItem(NULL , input);
+				graphIRReplaceNodes(toReplace, retVal, NULL, (void(*)(void*))IRNodeDestroy);
+				return retVal;
+		} else if(graphNodeIRValuePtr(input)->type==IR_ARRAY_ACCESS) {
+				__auto_type startNode=IRStmtStart(input);
+				strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(input);
+				strGraphEdgeIRP base CLEANUP(strGraphEdgeIRPDestroy)= IRGetConnsOfType(in, IR_CONN_SOURCE_A);
+				strGraphEdgeIRP index CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_SOURCE_B);
+				__auto_type baseNode=graphEdgeIRIncoming(base[0]);
+				__auto_type indexNode=graphEdgeIRIncoming(index[0]);
+
+				__auto_type baseType=IRNodeType(baseNode);
+				long scale=0;
+				if(baseType->type==TYPE_ARRAY) {
+						struct objectArray *arr=(void*)baseType;
+						int success;
+						long size=objectSize(arr->type, &success);
+						//Is assumed to be a pointer if not a definite size
+						scale=(!success)?ptrSize():size;
+				} else if(baseType->type==TYPE_PTR) {
+						struct objectPtr *ptr=(void*)baseType;
+						scale=objectSize(ptr->type, NULL);
+				} else {
+						fputs("Array access needs an array or pointer.\n", stderr);
+						abort();
+				}
+				
+				__auto_type scaleNode=IRCreateIntLit(scale);
+				//Needs to be connected to start
+				graphNodeIRConnect(startNode,scaleNode,  IR_CONN_FLOW);
+
+				graphNodeIR retVal=IRCreateBinop(baseNode, IRCreateBinop(indexNode, scaleNode, IR_MULT), IR_ADD);
+				graphNodeIRKill(&input, (void(*)(void*))IRNodeDestroy, NULL);
+				return retVal;
+		} else if(graphNodeIRValuePtr(input)->type==IR_DERREF) {
+				strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(input);
+				strGraphEdgeIRP inSource CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(inSource, IR_CONN_SOURCE_A);
+				__auto_type inNode=graphEdgeIRIncoming(inSource[0]);
+				graphNodeIRKill(&input, (void(*)(void*))IRNodeDestroy, NULL);
+				return inNode;
+		}
 		struct IRNode node;
 		node.attrs=NULL;
 		node.type=IR_ADDR_OF;
@@ -1380,6 +1452,24 @@ graphNodeIR IRCreateAddrOf(graphNodeIR input) {
 		return retVal;
 }
 graphNodeIR IRCreateDerref(graphNodeIR input) {
+		if(graphNodeIRValuePtr(input)->type==IR_MEMBERS_ADDR_OF) {
+				struct IRNodeMembersAddrOf *addrOf=(void*)graphNodeIRValuePtr(input);
+				__auto_type clone=strObjectMemberClone(addrOf->members);
+				struct IRNodeMembers members;
+				members.base.attrs=NULL;
+				members.base.type=IR_MEMBERS;
+				members.members=clone;
+				strGraphNodeIRP toReplace CLEANUP(strGraphNodeIRPDestroy)=strGraphNodeIRPAppendItem(NULL, input);
+				__auto_type retVal=GRAPHN_ALLOCATE(members);
+				graphIRReplaceNodes(toReplace, retVal, NULL, (void(*)(void*))IRNodeDestroy);
+				return retVal;
+		} else if(graphNodeIRValuePtr(input)->type==IR_ADDR_OF) {
+				strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(input);
+				strGraphEdgeIRP inSource CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(incoming, IR_CONN_SOURCE_A);
+				__auto_type sourceNode=graphEdgeIRIncoming(inSource[0]);
+				graphNodeIRKill(&input, (void(*)(void*))IRNodeDestroy, NULL);
+				return sourceNode;
+		}
 		struct IRNode node;
 		node.attrs=NULL;
 		node.type=IR_DERREF;

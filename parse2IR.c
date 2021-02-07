@@ -574,46 +574,6 @@ static struct enterExit __createSwitchCodeAfterBody(const struct parserNode *nod
 	retVal.exit = switchEndLabel;
 	return retVal;
 }
-static graphNodeIR addrOf(graphNodeIR in) {
-	if (graphNodeIRValuePtr(in)->type == IR_DERREF) {
-		// Get rid of "*"
-		strGraphEdgeIRP in2 CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming((graphNodeIR)in);
-		strGraphEdgeIRP inSource CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(in2, IR_CONN_SOURCE_A);
-		assert(strGraphEdgeIRPSize(in2) == 1);
-		__auto_type retVal = graphEdgeIRIncoming(inSource[0]);
-		graphNodeIRKill(&in, (void (*)(void *))IRNodeDestroy, NULL);
-		return retVal;
-	} else if (graphNodeIRValuePtr(in)->type == IR_ARRAY_ACCESS) {
-		// Turn b[i] to b+i
-		strGraphEdgeIRP in2 CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming((graphNodeIR)in);
-		strGraphEdgeIRP inSourceA CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(in2, IR_CONN_SOURCE_A);
-		strGraphEdgeIRP inSourceB CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(in2, IR_CONN_SOURCE_B);
-		assert(strGraphEdgeIRPSize(inSourceA) == 1);
-		assert(strGraphEdgeIRPSize(inSourceB) == 1);
-		__auto_type base = graphEdgeIRIncoming(inSourceA[0]);
-		__auto_type index = graphEdgeIRIncoming(inSourceB[0]);
-
-		graphNodeIRKill(&in, (void (*)(void *))IRNodeDestroy, NULL);
-
-		return IRCreateBinop(base, index, IR_ADD);
-	} else if (graphNodeIRValuePtr(in)->type == IR_VALUE) {
-		return IRCreateUnop(in, IR_ADDR_OF);
-	} else if (graphNodeIRValuePtr(in)->type == IR_MEMBERS) {
-		// turn a.b in derref(a)+offset(b);
-		strGraphEdgeIRP in2 CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming((graphNodeIR)in);
-		strGraphEdgeIRP inSourceA CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(in2, IR_CONN_SOURCE_A);
-		assert(strGraphEdgeIRPSize(inSourceA) == 1);
-
-		__auto_type derref = addrOf(graphEdgeIRIncoming(inSourceA[0]));
-
-		struct IRNodeMembers *mem = (void *)graphNodeIRValuePtr(in);
-		return IRCreateBinop(derref, IRCreateIntLit(mem->members->offset), IR_ADD);
-	} else {
-		fputs("Ensure you are getting address of lvalue.\n", stderr);
-		assert(0);
-	}
-	return NULL;
-}
 static graphNodeIR parserNode2Expr(const struct parserNode *node) {
 	switch (node->type) {
 	default:
@@ -802,10 +762,7 @@ static graphNodeIR parserNode2Expr(const struct parserNode *node) {
 				graphNodeIRConnect(in, newNode, IR_CONN_SOURCE_A);
 				return newNode;
 			} else if (0 == strcmp(op->text, "&")) {
-				//
-				// "&" operators do not exist in assembly(let alone IR),so do context specific workarounds
-				//
-				return addrOf(in);
+				return IRCreateAddrOf(in);
 			}
 		}
 		assert(0);

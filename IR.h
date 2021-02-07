@@ -232,6 +232,7 @@ enum IRNodeType {
 	IR_SPILL_LOAD,
 	//
 	IR_MEMBERS,
+	IR_MEMBERS_ADDR_OF,
 	//
 	IR_ARRAY,
 	//
@@ -344,6 +345,10 @@ struct IRNodeValue {
 struct IRNodeInc {
 	struct IRNode base;
 	long isSuffix;
+};
+struct IRNodeMembersAddrOf {
+		struct IRNode base;
+		strObjectMember members;
 };
 struct IRNodeMembers {
 	struct IRNode base;
