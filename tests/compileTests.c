@@ -190,7 +190,7 @@ void compileTests() {
 				free(source);
 				}
 		*/
-		/*{
+		{
 				const char * text=
 						"{\n"
 						"    class abc {\n"
@@ -211,15 +211,15 @@ void compileTests() {
 				runTest(asmF,"y");
 				free(asmF);	
 				free(source);
-				}*/
+				}
 		{
 				const char * text=
 						"{\n"
-						"    class abc {\n"
+						"    class abc2 {\n"
 						"        I32i a,b,c;"
 						"    };\n"
-						"    abc X;\n"
-						"    abc *x=&X;\n"
+						"    abc2 X;\n"
+						"    abc2 *x=&X;\n"
 						"    x->a=1,x->b=2,x->c=3;\n"
 						"    if(x->a==1&&x->b==2&&x->c==3) {\n"
 						putY

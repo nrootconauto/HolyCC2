@@ -2458,7 +2458,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 			leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeReg(memReg));
 			leaArgs=strX86AddrModeAppendItem(leaArgs, IRNode2AddrMode(graphEdgeIRIncoming(source[0])));
-			leaArgs[0]->valueType=NULL;
+			leaArgs[1]->valueType=NULL;
 			assembleInst("LEA", leaArgs);
 
 			__auto_type currentType=IRNodeType(graphEdgeIRIncoming(source[0]));
@@ -2473,13 +2473,13 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 									currentOffset=0;
 							}
 							
-							struct objectPtr *ptrType=(void*)currentType;
 							//De-reference
-							struct X86AddressingMode *indir CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirReg(memReg,currentType);
+							struct X86AddressingMode *indir CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirReg(memReg,objectPtrCreate(&typeU0));
 							asmAssign(memRegMode, indir, ptrSize());
 					}
 					memRegMode->valueType=objectPtrCreate(mems->members[m].type);
 					currentOffset+=mems->members[m].offset;
+					currentType=mems->members[m].type;
 			}
 			if(currentOffset) {
 					strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
