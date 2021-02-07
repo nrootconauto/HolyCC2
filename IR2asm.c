@@ -1381,9 +1381,33 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		return NULL;
 	}
 	ptrMapCompiledNodesAdd(compiledNodes, start, 1);
-
+	
 	strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIROutgoing(start);
 	switch (graphNodeIRValuePtr(start)->type) {
+	case IR_MEMBERS_ADDR_OF: {
+			strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
+			strGraphEdgeIRP inSource CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_SOURCE_A);
+			__auto_type sourceNode=graphEdgeIRIncoming(inSource[0]);
+			
+			struct IRNodeMembersAddrOf *mems=(void*)graphNodeIRValuePtr(start);
+			strGraphEdgeIRP outAssn CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(out, IR_CONN_DEST);
+			if(strGraphEdgeIRPSize(outAssn)==1) {
+					struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(graphEdgeIROutgoing(outAssn[0]));
+					if(oMode->type==X86ADDRMODE_REG) {
+							storeMemberPtrInReg(oMode->value.reg, sourceNode, mems->members);
+					} else {
+							AUTO_LOCK_MODE_REGS(oMode);
+							struct reg *r=regForTypeExcludingConsumed(objectPtrCreate(&typeU0));
+							pushReg(r);
+							storeMemberPtrInReg(r, sourceNode, mems->members);
+							struct X86AddressingMode *regMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(r);
+							regMode->valueType=IRNodeType(graphEdgeIROutgoing(outAssn[0]));
+							asmTypecastAssign(oMode,  regMode);
+							popReg(r);
+					}
+			}
+			return nextNodesToCompile(start);
+	}
 	case IR_ADD: {
 #define COMPILE_87_IFN                                                                                                                                             \
 	({                                                                                                                                                               \
@@ -2365,14 +2389,44 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		return retVal;
 	}
 	case IR_VALUE: {
-		strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(start);
-		strGraphEdgeIRP assigns CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(incoming, IR_CONN_DEST);
-		if (strGraphEdgeIRPSize(assigns) == 1) {
-			// Operator automatically assign into thier destination,so ensure isn't an operator.
-			if (graphNodeIRValuePtr(graphEdgeIRIncoming(assigns[0]))->type == IR_VALUE)
-				asmAssign(IRNode2AddrMode(start), IRNode2AddrMode(graphEdgeIRIncoming(assigns[0])), objectSize(IRNodeType(start), NULL));
-		}
-		return nextNodesToCompile(start);
+			struct X86AddressingMode *currMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(start);
+			AUTO_LOCK_MODE_REGS(currMode);
+			
+			strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(start);
+			strGraphEdgeIRP assigns CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(incoming, IR_CONN_DEST);
+			if (strGraphEdgeIRPSize(assigns) == 1) {
+					// Operator automatically assign into thier destination,so ensure isn't an operator.
+					if (graphNodeIRValuePtr(graphEdgeIRIncoming(assigns[0]))->type == IR_VALUE)
+							asmAssign(currMode, IRNode2AddrMode(graphEdgeIRIncoming(assigns[0])), objectSize(IRNodeType(start), NULL));
+			}
+			strGraphEdgeIRP fromPtrAssigns CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(incoming, IR_CONN_ASSIGN_FROM_PTR);
+			if (strGraphEdgeIRPSize(fromPtrAssigns) == 1) {
+					__auto_type incoming=graphEdgeIRIncoming(fromPtrAssigns[0]);
+					struct X86AddressingMode *inMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(incoming);
+					AUTO_LOCK_MODE_REGS(inMode);
+					struct reg *ppReg=NULL; //pushPop
+					
+					struct X86AddressingMode *readFrom CLEANUP(X86AddrModeDestroy)=NULL;
+					if(inMode->type==X86ADDRMODE_REG) {
+							readFrom=X86AddrModeIndirReg(inMode->value.reg, IRNodeType(start));
+					} else {
+							ppReg=regForTypeExcludingConsumed(objectPtrCreate(&typeU0));
+							pushReg(ppReg);
+
+							strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+							leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeReg(ppReg));
+							leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeClone(inMode));
+							leaArgs[1]->valueType=NULL;
+							assembleInst("LEA", leaArgs);
+							readFrom=X86AddrModeIndirReg(ppReg, IRNodeType(start));
+					}
+
+					asmTypecastAssign(currMode, readFrom);
+					
+					if(ppReg)
+							popReg(ppReg);
+			}
+			return nextNodesToCompile(start);
 	}
 	case IR_LABEL_LOCAL:
 	case IR_LABEL: {
