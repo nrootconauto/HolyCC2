@@ -296,7 +296,7 @@ static strGraphNodeIRP IRSSACompute(graphNodeMapping start, struct IRVar *var, p
 	//
 	__auto_type frontiersToMaster = ptrMapChooseIncomingsCreate();
 	__auto_type nodeKey2Ptr = ptrMapGraphNodeCreate();
-
+	
 	strGraphNodeMappingP mappedNodes CLEANUP(strGraphNodeMappingPDestroy) = graphNodeMappingAllNodes(start);
 	__auto_type doms = graphComputeDominatorsPerNode(start); // TODO free
 	__auto_type first = llDominatorsValuePtr(llDominatorsFind(doms, start, llDominatorCmp));

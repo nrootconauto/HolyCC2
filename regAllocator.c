@@ -8,11 +8,6 @@
 #define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 #include <graphDominance.h>
-static void *IR_ATTR_VARIABLE = "IS_VARIABLE";
-struct IRAttrVariable {
-	struct IRAttr base;
-	struct IRVar var;
-};
 static __thread const void *__varFilterData = NULL;
 static __thread int (*__varFiltPred)(const struct parserVar *, const void *);
 static char *ptr2Str(const void *a) {
@@ -762,7 +757,7 @@ loop:
 					__auto_type in = graphEdgeIRIncoming(incoming[0]);
 
 					// Wasn't found in live vairables so delete assign
-					transparentKill(allNodes[i], 0);
+					transparentKill(allNodes[i], 1);
 
 					// Check if dead expression now that we removed the dead assign
 					if (IRIsDeadExpression(in)) {
@@ -1020,7 +1015,7 @@ void IRRegisterAllocate(graphNodeIR start, color2RegPredicate colorFunc, void *c
 	removeChooseNodes(allNodes, start);
 	// debugShowGraphIR(start);
 	IRToSSA(start);
-	debugShowGraphIR(start);
+	//debugShowGraphIR(start);
 
 	//Dont Coalesce variables that has multiple SSA Sources(connected to choose node)
 	dontCoalesceIntoVars=NULL;
@@ -1044,7 +1039,7 @@ loop:
 								allSame=0;
 				}
 				if(allSame) {
-						transparentKill(allNodes2[i], 0);
+						transparentKill(allNodes2[i], 1);
 						allNodes2=strGraphNodeIRPRemoveItem(allNodes2, allNodes2[i], (gnCmpType)ptrPtrCmp);
 						goto loop;
 				}
@@ -1137,7 +1132,7 @@ loop:
 			ptrMapregSliceAdd(regsByLivenessNode, allColorNodes[i], slice);
 		}
 
-		debugPrintInterferenceGraph(interferes[i], regsByLivenessNode);
+		//debugPrintInterferenceGraph(interferes[i], regsByLivenessNode);
 
 		// Get conflicts and spill nodes
 		strGraphNodeIRLiveP spillNodes = NULL;

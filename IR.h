@@ -259,6 +259,7 @@ struct IRNode {
 };
 GRAPH_TYPE_DEF(struct IRNode, enum IRConnType, IR);
 GRAPH_TYPE_FUNCS(struct IRNode, enum IRConnType, IR);
+extern void *IR_ATTR_VARIABLE;
 enum IRValueType {
 	__IR_VAL_MEM_FRAME,
 	__IR_VAL_MEM_GLOBAL,
@@ -525,3 +526,7 @@ strGraphEdgeIRP IREdgesByPrec(graphNodeIR node);
 void IRMoveAttrsTo(graphNodeIR from,graphNodeIR to);
 graphNodeIR IRCreateAddrOf(graphNodeIR input);
 graphNodeIR IRCreateDerref(graphNodeIR input);
+struct IRAttrVariable {
+	struct IRAttr base;
+	struct IRVar var;
+};

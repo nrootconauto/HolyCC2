@@ -5,6 +5,7 @@
 #include <exprParser.h>
 #include <stdarg.h>
 #include <stdint.h>
+void *IR_ATTR_VARIABLE = "IS_VARIABLE";
 typedef int (*gnIRCmpType)(const graphNodeIR *, const graphNodeIR *);
 typedef int (*geIRCmpType)(const graphEdgeIR *, const graphEdgeIR *);
 typedef int (*geMapCmpType)(const graphEdgeMapping *, const graphEdgeMapping *);
@@ -12,7 +13,7 @@ typedef int (*gnMapCmpType)(const graphNodeMapping *, const graphNodeMapping *);
 #define ALLOCATE(x)                                                                                                                                                \
 	({                                                                                                                                                               \
 		typeof(&x) ptr = malloc(sizeof(x));                                                                                                                            \
-		memcpy(ptr, &x, sizeof(x));                                                                                                                                    \
+		memcpy(ptr, &x, sizeof(x));																																											\
 		ptr;                                                                                                                                                           \
 	})
 #define GRAPHN_ALLOCATE(x) ({ __graphNodeCreate(&x, sizeof(x), 0); })
@@ -901,8 +902,25 @@ static char *IRCreateGraphVizNode(const struct __graphNode *node, mapGraphVizAtt
 	case IR_STATEMENT_END:
 		makeGVTerminalNode(attrs);
 		return strClone("STMT-END");
-	case IR_VALUE:
-		return IRValue2GraphVizLabel(&((struct IRNodeValue *)value)->val);
+	case IR_VALUE: {
+			strChar attrs CLEANUP(strCharDestroy)=NULL;
+			__auto_type var=llIRAttrFind(value->attrs, IR_ATTR_VARIABLE, IRAttrGetPred);
+			if(var) {
+					struct IRAttrVariable *varAttr=(void*)llIRAttrValuePtr(var);
+					struct IRValue tmp;
+					tmp.type=IR_VAL_VAR_REF;
+					tmp.value.var=varAttr->var;
+					char *varStr=IRValue2GraphVizLabel(&tmp);
+					char *nugget=FROM_FORMAT("[%s]", varStr);
+					attrs=strCharAppendData(attrs, nugget, strlen(nugget));
+					free(varStr);
+			}
+			attrs=strCharAppendItem(attrs, '\0');
+			char *tmp=IRValue2GraphVizLabel(&((struct IRNodeValue *)value)->val);
+			char *retVal=FROM_FORMAT("%s%s", tmp,attrs);
+			free(tmp);
+			return retVal;
+	}
 	case IR_TYPECAST: {
 		struct IRNodeTypeCast *cast = (void *)value;
 		char *typeNameIn = object2Str(cast->in);
