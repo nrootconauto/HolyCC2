@@ -580,6 +580,8 @@ static struct parserNode *parseSizeof(llLexerItem start, llLexerItem end, llLexe
 				start=llLexerItemNext(start);
 		else
 				whineExpected(start, ")");
+		if(result)
+				*result=start;
 		assignPosByLexerItems(retVal, original, start);
 		return retVal;
 }

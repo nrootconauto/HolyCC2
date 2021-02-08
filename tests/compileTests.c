@@ -277,9 +277,7 @@ void compileTests() {
 						"    abc3 x,y;\n"
 						"    x.a=1,x.b=2,x.c=3;\n"
 						"    y=x;\n"
-						"    if(y.a==1&&y.b==2&&y.c==3) {\n"
-						putY
-						"    }\n"
+						"    assertEq(&x,&y,sizeof(x));\n"
 						"}\n"
 						"asm {\n"
 						exitStr
