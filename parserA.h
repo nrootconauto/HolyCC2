@@ -58,6 +58,8 @@ enum parserNodeType {
 	NODE_MEMBER_ACCESS,
 	NODE_RETURN,
 	NODE_GOTO,
+	NODE_SIZEOF_TYPE,
+	NODE_SIZEOF_EXP,
 	/**
 	 * extern,import,_extern,_import,public
 	 */
@@ -103,6 +105,14 @@ struct parserSourcePos {
 struct parserNode {
 	enum parserNodeType type;
 	struct parserSourcePos pos;
+};
+struct parserNodeSizeofType {
+		struct parserNode base;
+		struct object *type;
+};
+struct parserNodeSizeofExp {
+		struct parserNode base;
+		struct parserNode *exp;
 };
 struct parserNodeGoto {
 	struct parserNode base;

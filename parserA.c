@@ -519,10 +519,79 @@ end:
 }
 static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end, struct object *baseType, struct parserNode **name, struct parserNode **dftVal,
                                        strParserNode *metaDatas);
-static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end, llLexerItem *result) {
-	if (start == NULL)
+static struct parserNode *expectKeyword(llLexerItem __item, const char *text) {
+	if (__item == NULL)
 		return NULL;
 
+	__auto_type item = llLexerItemValuePtr(__item);
+
+	if (item->template == &kwTemplate) {
+		__auto_type itemText = *(const char **)lexerItemValuePtr(item);
+		if (0 == strcmp(itemText, text)) {
+			struct parserNodeKeyword kw;
+			kw.base.type = NODE_KW;
+			kw.base.pos.start = item->start;
+			kw.base.pos.end = item->end;
+			kw.text = text;
+
+			return ALLOCATE(kw);
+		}
+	}
+	return NULL;
+}
+static struct parserNode *parseSizeof(llLexerItem start, llLexerItem end, llLexerItem *result) {
+		__auto_type original=start;
+		struct parserNode *sz CLEANUP(parserNodeDestroy)=expectKeyword(start, "sizeof");
+		if(!sz)
+				return NULL;
+		start=llLexerItemNext(start);
+		struct parserNode *l CLEANUP(parserNodeDestroy)=expectOp(start, "(");
+		__auto_type leftItem=start;
+		if(!l) {
+				whineExpected(start, "(");
+		} else
+				start=llLexerItemNext(start);
+
+		struct parserNode *retVal=NULL;
+		if(llLexerItemValuePtr(start)->template==&nameTemplate) {
+				struct parserNode *nm CLEANUP(parserNodeDestroy)=nameParse(start, NULL, &start);
+				__auto_type type=objectByName(((struct parserNodeName*)nm)->text);
+				if(type) {
+						type=parseVarDeclTail(start, &start,type, NULL, NULL, NULL);
+						struct parserNodeSizeofType node;
+						node.base.type=NODE_SIZEOF_TYPE;
+						node.type=type;
+						retVal=ALLOCATE(node);
+				} else {
+						__auto_type expr=parseExpression(start, findOtherSide(leftItem, end), &start);
+						struct parserNodeSizeofExp node;
+						node.base.type=NODE_SIZEOF_EXP;
+						node.exp=expr;
+						retVal=ALLOCATE(node);
+				}
+		} else  {
+				whineExpectedExpr(start);
+				if(result)
+						*result=start;
+				return NULL;
+		}
+		struct parserNode *r CLEANUP(parserNodeDestroy)=expectOp(start, ")");
+		if(r)
+				start=llLexerItemNext(start);
+		else
+				whineExpected(start, ")");
+		assignPosByLexerItems(retVal, original, start);
+		return retVal;
+}
+
+static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end, llLexerItem *result) {
+		if (start == NULL)
+		return NULL;
+
+		__auto_type sz=parseSizeof(start,end,result);
+		if(sz)
+				return sz;
+		
 	if (result != NULL)
 		*result = start;
 
@@ -643,7 +712,7 @@ static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end, llLexer
 		if (success) {
 			struct parserNodeArrayAccess access;
 			access.exp = head;
-			access.base.type = NODE_BINOP;
+			access.base.type = NODE_ARRAY_ACCESS;
 			access.index = array;
 			access.base.pos.start = startP;
 			access.base.pos.end = endP;
@@ -812,26 +881,6 @@ LEFT_ASSOC_OP(prec4, prec3Recur, "&");
 LEFT_ASSOC_OP(prec3, prec2Recur, "*", "%", "/");
 LEFT_ASSOC_OP(prec2, prec1Recur, "`", "<<", ">>");
 
-static struct parserNode *expectKeyword(llLexerItem __item, const char *text) {
-	if (__item == NULL)
-		return NULL;
-
-	__auto_type item = llLexerItemValuePtr(__item);
-
-	if (item->template == &kwTemplate) {
-		__auto_type itemText = *(const char **)lexerItemValuePtr(item);
-		if (0 == strcmp(itemText, text)) {
-			struct parserNodeKeyword kw;
-			kw.base.type = NODE_KW;
-			kw.base.pos.start = item->start;
-			kw.base.pos.end = item->end;
-			kw.text = text;
-
-			return ALLOCATE(kw);
-		}
-	}
-	return NULL;
-}
 struct linkagePair {
 	typeof(((struct linkage *)NULL)->type) link;
 	const char *text;
@@ -2882,6 +2931,13 @@ void parserNodeDestroy(struct parserNode **node) {
 	if (!node[0])
 		return;
 	switch (node[0]->type) {
+	case NODE_SIZEOF_TYPE:
+			break;
+	case NODE_SIZEOF_EXP: {
+			struct parserNodeSizeofExp *sz=(void*)node;
+			parserNodeDestroy(&sz->exp);
+			break;
+	}
 	case NODE_ASM_REG:
 		break;
 	case NODE_ASM_ADDRMODE_SIB: {

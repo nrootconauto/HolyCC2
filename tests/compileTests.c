@@ -235,8 +235,41 @@ void compileTests() {
 				free(asmF);	
 				free(source);
 				}*/
+		/*{
+				const char * text=
+						"{\n"
+						"    class abc3 {\n"
+						"        I32i a,b,c;"
+						"    };\n"
+						"    abc3 x,y;\n"
+						"    x.a=1,x.b=2,x.c=3;\n"
+						"    y=x;\n"
+						"    if(y.a==1&&y.b==2&&y.c==3) {\n"
+						putY
+						"    }\n"
+						"}\n"
+						"asm {\n"
+						exitStr
+						"}\n";
+				char *source=text2File(text);
+				char *asmF=strDup(tmpnam(NULL));
+				compileFile(source, asmF);
+				runTest(asmF,"y");
+				free(asmF);	
+				free(source);
+				}
+		*/
 		{
 				const char * text=
+						"U0 assertEq(U8i *A,U8i *B,I32i len) {\n"
+						"    for(I32i b=0;b!=len;b=b+1) {\n"
+						"        if(A[b]!=B[b]) {\n"
+						"            asm {\n"
+						exitStr
+						"            }\n"
+						"        }\n"
+						"    }\n"
+						"}\n"
 						"{\n"
 						"    class abc3 {\n"
 						"        I32i a,b,c;"

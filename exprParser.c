@@ -320,7 +320,20 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 			//
 			// Check if "&" on function(which is valid),used for function ptr's
 			//
-			if (0 == strcmp(op->text, "&")) {
+			if (0 == strcmp(op->text, "*"))  {
+					if(aType->type==TYPE_PTR) {
+							struct objectPtr *ptr=(void*)aType;
+							return ptr->type;
+					} else if(aType->type==TYPE_ARRAY) {
+							struct objectArray *arr=(void*)aType;
+							return arr->type;
+					} else {
+							diagErrorStart(node->pos.start, node->pos.end);
+							diagPushText("Attempting to der-refference a non-pointer/array type.");
+							diagEndMsg();
+							goto fail;
+					}
+			} else if (0 == strcmp(op->text, "&")) {
 				// Make a func-ptr
 				__auto_type ptr = objectPtrCreate(aType);
 				unop->type = ptr;
@@ -474,7 +487,7 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 
 	castEnd:
 		return cast->type;
-	} else if (node->type == NODE_LIT_INT) {
+	} else if (node->type == NODE_LIT_INT)  {
 		__auto_type lit = (struct parserNodeLitInt *)node;
 		switch (objectSize(dftValType(), NULL)) {
 		case 2:
@@ -489,6 +502,43 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 		}
 	} else if (node->type == NODE_LIT_FLT) {
 		return &typeF64;
+	} else if(node->type==NODE_SIZEOF_TYPE) {
+			struct parserNodeSizeofType *t=(void*)node;
+			int success;
+			objectSize(t->type, &success);
+			if(!success) {
+					diagErrorStart(node->pos.start, node->pos.end);
+					diagPushText("Unable to detirmine size of type.");
+					diagEndMsg();
+			}
+			return dftValType();
+	} else if(node->type==NODE_SIZEOF_EXP) {
+			struct parserNodeSizeofExp *e=(void*)node;
+			int success;
+			objectSize(assignTypeToOp(e->exp), &success);
+			if(!success) {
+					diagErrorStart(node->pos.start, node->pos.end);
+					diagPushText("Unable to detirmine size of type.");
+					diagEndMsg();
+			}
+			return dftValType();
+	} else if(node->type==NODE_ARRAY_ACCESS) {
+			struct parserNodeArrayAccess *arrAcc=(void*)node;
+			__auto_type baseType=objectBaseType(assignTypeToOp(arrAcc->exp));
+			struct object *retVal=NULL;
+			if(baseType->type==TYPE_PTR) {
+					struct objectPtr *ptr=(void*)baseType;
+					retVal=ptr->type;
+			} else if(baseType->type==TYPE_ARRAY) {
+					struct objectArray *array=(void*)baseType;
+					retVal=array->type;
+			} else {
+					diagErrorStart(node->pos.start, node->pos.end);
+					diagPushText("Attempting to der-refference a non-pointer/array type.");
+					diagEndMsg();
+					goto fail;
+			}
+			return retVal;
 	}
 	fail:
 	// Couldn't detirmine type
