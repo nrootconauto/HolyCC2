@@ -1010,6 +1010,7 @@ static void ptrMapGraphNodeDestroy2(ptrMapGraphNode *node) {
 static void mapRegSliceDestroy2(ptrMapregSlice *toDestroy) {
 	ptrMapregSliceDestroy(*toDestroy, NULL);
 }
+
 void IRRegisterAllocate(graphNodeIR start, color2RegPredicate colorFunc, void *colorData, int (*varFiltPred)(const struct parserVar *, const void *),
                         const void *varFiltData) {
 	__varFilterData = varFiltData;
@@ -1033,6 +1034,21 @@ loop:
 		visited = strGraphNodeIRPSortedInsert(visited, allNodes2[i], (gnCmpType)ptrPtrCmp);
 
 		if (graphNodeIRValuePtr(allNodes2[i])->type == IR_CHOOSE) {
+				//Can coalesce variables whoose choose nodes always point to same item
+				struct IRNodeChoose *choose=(void*)graphNodeIRValuePtr(allNodes2[i]);
+				__auto_type first=*getVar(choose->canidates[0]);
+				int allSame=1;
+				for(long c=1;c!=strGraphNodeIRPSize(choose->canidates);c++) {
+						__auto_type can=*getVar(choose->canidates[c]);
+						if(0!=IRVarCmp(&first, &can))
+								allSame=0;
+				}
+				if(allSame) {
+						transparentKill(allNodes2[i], 0);
+						allNodes2=strGraphNodeIRPRemoveItem(allNodes2, allNodes2[i], (gnCmpType)ptrPtrCmp);
+						goto loop;
+				}
+
 				strGraphEdgeIRP outgoing CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(allNodes2[i]);
 				strGraphEdgeIRP asn CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(outgoing, IR_CONN_DEST);
 				if(strGraphEdgeIRPSize(asn)==1) {

@@ -857,9 +857,20 @@ static char *IRCreateGraphVizNode(const struct __graphNode *node, mapGraphVizAtt
 
 		return strClone(buffer);
 	}
-	case IR_CHOOSE:
+	case IR_CHOOSE: {
 		makeGVDecisionNode(attrs);
-		return strClone("CHOOSE");
+		strChar message CLEANUP(strCharDestroy)=NULL;
+		message=strCharAppendData(message, "CHOOSE",strlen("CHOOSE"));
+		struct IRNodeChoose *choose=(void*)graphNodeIRValuePtr(*graphNodeMappingValuePtr((graphNodeMapping)node));
+		for(long c=0;c!=strGraphNodeIRPSize(choose->canidates);c++) {
+				char *msg=IRValue2GraphVizLabel(&((struct IRNodeValue*)graphNodeIRValuePtr(choose->canidates[c]))->val);
+				message=strCharAppendItem(message, ',');
+				message=strCharAppendData(message,msg,strlen(msg));
+				free(msg);
+		}
+		message=strCharAppendItem(message, '\0');
+		return strClone(message);
+	}
 	case IR_COND_JUMP:
 		makeGVDecisionNode(attrs);
 		return strClone("IF");

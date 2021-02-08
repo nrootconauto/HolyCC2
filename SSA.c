@@ -529,7 +529,7 @@ void IRToSSA(graphNodeIR enter) {
 		__auto_type clone = graphNodeMappingClone(filtered);
 		filterVBlobMap4Var(clone, &allVars[i], blobs);
 #if DEBUG_PRINT_ENABLE
-		debugPrintGraph(map);
+		debugPrintGraph(clone);
 #endif
 		// Compute choose nodes
 		strGraphNodeIRP chooses = IRSSACompute(clone, &allVars[i], blobs);
@@ -614,7 +614,8 @@ static void strIRPathsDestroy2(strIRPaths *paths) {
 }
 static void __paths2Choose(graphNodeIR node, graphNodeIR choose, strIRPath *currentPath, strIRPaths *paths) {
 	__auto_type end = IREndOfExpr(node);
-	node = (!end) ? node : end;
+	if(strIRPathSize(*currentPath)!=0)
+			node = (!end) ? node : end;
 	if (IRStmtStart(node) == choose) {
 		for (long p = 0; p != strIRPathsSize(*paths); p++) {
 			if (strIRPathSize(*currentPath) != strIRPathSize(paths[0][p]))
@@ -696,7 +697,10 @@ void IRSSAReplaceChooseWithAssigns(graphNodeIR node, strGraphNodeIRP *replaced) 
 
 	strIRPaths paths CLEANUP(strIRPathsDestroy2) = NULL;
 	for (long i = 0; i != strGraphNodeIRPSize(choose->canidates); i++) {
-		paths2Choose(&paths, choose->canidates[i], node);
+			struct IRNodeValue *canVal=(void*)graphNodeIRValuePtr(choose->canidates[i]);
+			if(0==IRVarCmp(&canVal->val.value.var, var))
+					continue;
+			paths2Choose(&paths, choose->canidates[i], node);
 	}
 
 	strIRPaths order CLEANUP(strIRPathsDestroy) = NULL;
