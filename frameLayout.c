@@ -107,7 +107,7 @@ strFrameEntry IRComputeFrameLayout(graphNodeIR start, long *frameSize) {
 	for(long r=0;r!=strIRVarRefsSize(order);r++) {
 			currentOffset=order[r].offset+objectSize(order[r].var.var->type, NULL);
 			struct frameEntry entry;
-			entry.offset=order[r].offset;
+			entry.offset=order[r].offset+objectSize(order[r].var.var->type, NULL);
 			entry.var=order[r].var;
 			retVal=strFrameEntryAppendItem(retVal, entry);
 	}

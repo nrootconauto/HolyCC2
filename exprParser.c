@@ -248,6 +248,17 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 	}
 	if (node->type == NODE_BINOP) {
 		struct parserNodeBinop *binop = (void *)node;
+		struct parserNodeOpTerm *op=(void*)binop->op;
+		if(0==strcmp(op->text,"=")) {
+				__auto_type aType=assignTypeToOp(binop->a);
+				__auto_type base=objectBaseType(aType);
+				if(base->type==TYPE_CLASS||base->type==TYPE_UNION) {
+						__auto_type bType=objectBaseType(assignTypeToOp(binop->b));
+						if(aType!=bType)
+								goto binopInvalid;
+						return base;
+				}
+		}
 		if (binop->type != NULL)
 			return binop->type;
 

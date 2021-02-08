@@ -356,7 +356,12 @@ void IRInsertAfter(graphNodeIR insertAfter, graphNodeIR entry, graphNodeIR exit,
 	graphNodeIRConnect(insertAfter, entry, connType);
 }
 graphNodeIR IRCreateAssign(graphNodeIR in, graphNodeIR dst) {
-	graphNodeIRConnect(in, dst, IR_CONN_DEST);
+		__auto_type baseType=objectBaseType(IRNodeType(dst));
+		if(baseType->type==TYPE_CLASS||baseType->type==TYPE_UNION) {
+				graphNodeIRConnect(IRCreateAddrOf(in), dst, IR_CONN_ASSIGN_FROM_PTR);
+				return dst;
+		}
+		graphNodeIRConnect(in, dst, IR_CONN_DEST);
 	return dst;
 }
 graphNodeIR IRCreateCondJmp(graphNodeIR cond, graphNodeIR t, graphNodeIR f) {
