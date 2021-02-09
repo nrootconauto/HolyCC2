@@ -8,6 +8,8 @@
 #include <hashTable.h>
 #include <stdio.h>
 #include <topoSort.h>
+#include <hashTable.h>
+#include <limits.h>
 //#define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 static void debugPrintGraph(graphNodeMapping map) {
@@ -510,6 +512,83 @@ void filterVBlobMap4Var(graphNodeMapping start, struct IRVar *var, ptrMapVarBlob
 		transparentKillMapping(allNodes[i]);
 	}
 }
+MAP_TYPE_DEF(strGraphNodeIRP, StrGNIR);
+MAP_TYPE_FUNCS(strGraphNodeIRP, StrGNIR);
+static int __removeSameyChooses(graphNodeIR chooseNode,mapStrGNIR byNum) {
+		struct IRNodeChoose *choose=(void*)graphNodeIRValuePtr(chooseNode);
+		struct IRNodeValue *val=(void*)graphNodeIRValuePtr(choose->canidates[0]);;
+
+		strGraphNodeIRP out CLEANUP(strGraphNodeIRPDestroy)=graphNodeIROutgoingNodes(chooseNode);
+		struct IRNodeValue *val2=(void*)graphNodeIRValuePtr(out[0]);
+		long toReplace=val2->val.value.var.SSANum;
+
+		long first=LONG_MIN;
+		for(long c=1;c<strGraphNodeIRPSize(choose->canidates);c++) {
+				struct IRNodeValue *val=(void*)graphNodeIRValuePtr(choose->canidates[c]);
+				long num=val->val.value.var.SSANum;
+				if(num==toReplace)
+						continue;
+				if(first==LONG_MIN) {
+						first=num;
+						continue;
+				}
+				if(first!=num)
+						return 0;
+		}
+		char bufferSrc[32];
+		sprintf(bufferSrc, "%li", toReplace);
+		__auto_type findSrc=*mapStrGNIRGet(byNum, bufferSrc);
+
+		char bufferDst[32];
+		sprintf(bufferDst, "%li", first);
+		__auto_type findDest=mapStrGNIRGet(byNum, bufferDst);
+		for(long r=0;r!=strGraphNodeIRPSize(findSrc);r++) {
+				struct IRNodeValue *val=(void*)graphNodeIRValuePtr(findSrc[r]);
+				val->val.value.var.SSANum=first;
+				*findDest=strGraphNodeIRPSortedInsert(*findDest, findSrc[r], (gnCmpType)ptrPtrCmp);
+		}
+		strGraphNodeIRPDestroy(mapStrGNIRGet(byNum, bufferSrc));
+
+		graphNodeIRKill(&chooseNode, (void(*)(void*))IRNodeDestroy, NULL);
+
+		return 1;
+}
+static void removeSameyChooses(graphNodeIR start,struct parserVar *var) {
+		strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);
+		strGraphNodeIRP allChooses4Var CLEANUP(strGraphNodeIRPDestroy)=NULL;
+
+		mapStrGNIR byNum=mapStrGNIRCreate();;
+		for(long n=0;n!=strGraphNodeIRPSize(allNodes);n++) {
+				if(graphNodeIRValuePtr(allNodes[n])->type==IR_CHOOSE) {
+						strGraphNodeIRP out CLEANUP(strGraphNodeIRPDestroy)=graphNodeIROutgoingNodes(allNodes[n]);
+						struct IRNodeValue *val=(void*)graphNodeIRValuePtr(out[0]);
+						if(var==val->val.value.var.var)
+								allChooses4Var=strGraphNodeIRPSortedInsert(allChooses4Var, allNodes[n], (gnCmpType)ptrPtrCmp);
+				} else if(graphNodeIRValuePtr(allNodes[n])->type==IR_VALUE) {
+						struct IRNodeValue *val=(void*)graphNodeIRValuePtr(allNodes[n]);
+						if(var!=val->val.value.var.var)
+								continue;
+						char buffer[32];
+						sprintf(buffer, "%li", val->val.value.var.SSANum);
+				loop:
+						if(mapStrGNIRGet(byNum, buffer)) {
+								__auto_type find=mapStrGNIRGet(byNum, buffer);
+								*find=strGraphNodeIRPSortedInsert(*find,allNodes[n],(gnCmpType)ptrPtrCmp); 
+						} else {
+								mapStrGNIRInsert(byNum, buffer,NULL);
+								goto loop;
+						}
+				}
+		}
+
+	removedLoop:;
+		for(long c=0;c!=strGraphNodeIRPSize(allChooses4Var);c++) {
+				if(__removeSameyChooses(allChooses4Var[c], byNum)) {
+						allChooses4Var=strGraphNodeIRPRemoveItem(allChooses4Var, allChooses4Var[c], (gnCmpType)ptrPtrCmp);
+						goto removedLoop;
+				}
+		}
+}
 void IRToSSA(graphNodeIR enter) {
 	__auto_type nodes = graphNodeIRAllNodes(enter);
 	if (strGraphNodeIRPSize(nodes) == 0)
@@ -533,9 +612,12 @@ void IRToSSA(graphNodeIR enter) {
 #endif
 		// Compute choose nodes
 		strGraphNodeIRP chooses = IRSSACompute(clone, &allVars[i], blobs);
+		graphNodeMappingKill(&clone, NULL, NULL);
 		// Number the versions
 		SSAVersionVar(enter, &allVars[i]);
 
+		removeSameyChooses(enter,allVars[i].var);
+		
 		newNodes = strGraphNodeIRPConcat(newNodes, chooses);
 	}
 
