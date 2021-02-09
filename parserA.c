@@ -554,16 +554,17 @@ static struct parserNode *parseSizeof(llLexerItem start, llLexerItem end, llLexe
 
 		struct parserNode *retVal=NULL;
 		if(llLexerItemValuePtr(start)->template==&nameTemplate) {
-				struct parserNode *nm CLEANUP(parserNodeDestroy)=nameParse(start, NULL, &start);
+				struct parserNode *nm CLEANUP(parserNodeDestroy)=nameParse(start, NULL, NULL);
 				__auto_type type=objectByName(((struct parserNodeName*)nm)->text);
 				if(type) {
+						start=llLexerItemNext(start);
 						type=parseVarDeclTail(start, &start,type, NULL, NULL, NULL);
 						struct parserNodeSizeofType node;
 						node.base.type=NODE_SIZEOF_TYPE;
 						node.type=type;
 						retVal=ALLOCATE(node);
 				} else {
-						__auto_type expr=parseExpression(start, findOtherSide(leftItem, end), &start);
+						__auto_type expr=parseExpression(start, NULL, &start);
 						struct parserNodeSizeofExp node;
 						node.base.type=NODE_SIZEOF_EXP;
 						node.exp=expr;
