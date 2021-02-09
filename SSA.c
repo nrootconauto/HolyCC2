@@ -514,20 +514,31 @@ void filterVBlobMap4Var(graphNodeMapping start, struct IRVar *var, ptrMapVarBlob
 }
 MAP_TYPE_DEF(strGraphNodeIRP, StrGNIR);
 MAP_TYPE_FUNCS(strGraphNodeIRP, StrGNIR);
+static void transparentKill(graphNodeIR node) {
+	__auto_type incoming = graphNodeIRIncoming(node);
+	__auto_type outgoing = graphNodeIROutgoing(node);
+	for (long i1 = 0; i1 != strGraphEdgeIRPSize(incoming); i1++)
+		for (long i2 = 0; i2 != strGraphEdgeIRPSize(outgoing); i2++)
+			graphNodeIRConnect(graphEdgeIRIncoming(incoming[i1]), graphEdgeIROutgoing(outgoing[i2]), *graphEdgeIRValuePtr(incoming[i1]));
+
+	graphNodeIRKill(&node, NULL, NULL);
+}
 static int __removeSameyChooses(graphNodeIR chooseNode,mapStrGNIR byNum) {
 		struct IRNodeChoose *choose=(void*)graphNodeIRValuePtr(chooseNode);
 		struct IRNodeValue *val=(void*)graphNodeIRValuePtr(choose->canidates[0]);;
 
 		strGraphNodeIRP out CLEANUP(strGraphNodeIRPDestroy)=graphNodeIROutgoingNodes(chooseNode);
+		__auto_type chooseAssign=out[0];
 		struct IRNodeValue *val2=(void*)graphNodeIRValuePtr(out[0]);
 		long toReplace=val2->val.value.var.SSANum;
 
 		long first=LONG_MIN;
-		for(long c=1;c<strGraphNodeIRPSize(choose->canidates);c++) {
+		for(long c=0;c<strGraphNodeIRPSize(choose->canidates);c++) {
 				struct IRNodeValue *val=(void*)graphNodeIRValuePtr(choose->canidates[c]);
 				long num=val->val.value.var.SSANum;
-				if(num==toReplace)
+				if(num==toReplace) {
 						continue;
+				}
 				if(first==LONG_MIN) {
 						first=num;
 						continue;
@@ -535,6 +546,9 @@ static int __removeSameyChooses(graphNodeIR chooseNode,mapStrGNIR byNum) {
 				if(first!=num)
 						return 0;
 		}
+		if(first==LONG_MIN)
+				first=toReplace;
+		
 		char bufferSrc[32];
 		sprintf(bufferSrc, "%li", toReplace);
 		__auto_type findSrc=*mapStrGNIRGet(byNum, bufferSrc);
@@ -542,15 +556,27 @@ static int __removeSameyChooses(graphNodeIR chooseNode,mapStrGNIR byNum) {
 		char bufferDst[32];
 		sprintf(bufferDst, "%li", first);
 		__auto_type findDest=mapStrGNIRGet(byNum, bufferDst);
-		for(long r=0;r!=strGraphNodeIRPSize(findSrc);r++) {
-				struct IRNodeValue *val=(void*)graphNodeIRValuePtr(findSrc[r]);
-				val->val.value.var.SSANum=first;
-				*findDest=strGraphNodeIRPSortedInsert(*findDest, findSrc[r], (gnCmpType)ptrPtrCmp);
+		if(first!=toReplace) {
+				for(long r=0;r!=strGraphNodeIRPSize(findSrc);r++) {
+						struct IRNodeValue *val=(void*)graphNodeIRValuePtr(findSrc[r]);
+						val->val.value.var.SSANum=first;
+						*findDest=strGraphNodeIRPSortedInsert(*findDest, findSrc[r], (gnCmpType)ptrPtrCmp);
+				}
 		}
 		strGraphNodeIRPDestroy(mapStrGNIRGet(byNum, bufferSrc));
 
-		graphNodeIRKill(&chooseNode, (void(*)(void*))IRNodeDestroy, NULL);
-
+		transparentKill(chooseNode);
+		//Assigned is the node being assigned into by the choose node,if no expressions reading/writing the node,can safley destroy it
+		strGraphEdgeIRP assignedIn CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(chooseAssign);
+		strGraphEdgeIRP assignedOut CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(chooseAssign);
+		for(long i=0;i!=strGraphEdgeIRPSize(assignedIn);i++)
+				if(IRIsExprEdge(*graphEdgeIRValuePtr(assignedIn[i])))
+						goto end;
+		for(long o=0;o!=strGraphEdgeIRPSize(assignedOut);o++)
+				if(IRIsExprEdge(*graphEdgeIRValuePtr(assignedOut[o])))
+						goto end;
+		transparentKill(chooseAssign);
+		end:
 		return 1;
 }
 static void removeSameyChooses(graphNodeIR start,struct parserVar *var) {
@@ -658,15 +684,6 @@ static int gnIRCmpVar(const graphNodeIR *a, const graphNodeIR *b) {
 	struct IRNodeValue *B = (void *)graphNodeIRValuePtr(*b);
 
 	return IRVarCmp(&A->val.value.var, &B->val.value.var);
-}
-static void transparentKill(graphNodeIR node) {
-	__auto_type incoming = graphNodeIRIncoming(node);
-	__auto_type outgoing = graphNodeIROutgoing(node);
-	for (long i1 = 0; i1 != strGraphEdgeIRPSize(incoming); i1++)
-		for (long i2 = 0; i2 != strGraphEdgeIRPSize(outgoing); i2++)
-			graphNodeIRConnect(graphEdgeIRIncoming(incoming[i1]), graphEdgeIROutgoing(outgoing[i2]), IR_CONN_FLOW);
-
-	graphNodeIRKill(&node, NULL, NULL);
 }
 /**
  * Make a custom method for finding paths to choose, doing a raw search for all paths  to choose would be gaint(would go through expressions),
