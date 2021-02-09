@@ -171,12 +171,12 @@ void initRegisters() {
 	regX86MM6 = createRegister("MM6", NULL, 8, REG_TYPE_GP, 0);
 	regX86MM7 = createRegister("MM7", NULL, 8, REG_TYPE_GP, 0);
 
-	regX86ES = createRegister("ES", NULL, 1, REG_TYPE_GP, 0);
-	regX86CS = createRegister("CS", NULL, 1, REG_TYPE_GP, 0);
-	regX86SS = createRegister("SS", NULL, 1, REG_TYPE_GP, 0);
-	regX86DS = createRegister("DS", NULL, 1, REG_TYPE_GP, 0);
-	regX86FS = createRegister("FS", NULL, 1, REG_TYPE_GP, 0);
-	regX86GS = createRegister("GS", NULL, 1, REG_TYPE_GP, 0);
+	regX86ES = createRegister("ES", NULL, 2, REG_TYPE_GP, 0);
+	regX86CS = createRegister("CS", NULL, 2, REG_TYPE_GP, 0);
+	regX86SS = createRegister("SS", NULL, 2, REG_TYPE_GP, 0);
+	regX86DS = createRegister("DS", NULL, 2, REG_TYPE_GP, 0);
+	regX86FS = createRegister("FS", NULL, 2, REG_TYPE_GP, 0);
+	regX86GS = createRegister("GS", NULL, 2, REG_TYPE_GP, 0);
 
 	regAMD64R8u8 = createRegister("R8u8", &regAMD64R8u64, 1, REG_TYPE_GP, 0);
 	regAMD64R9u8 = createRegister("R9u8", &regAMD64R9u64, 1, REG_TYPE_GP, 0);
@@ -229,7 +229,7 @@ void initRegisters() {
 	regX86DH = createRegister("DH", &regAMD64RDX, 1, REG_TYPE_GP, 0);
 
 	regX86AX = createRegister("AX", &regAMD64RAX, 2, REG_TYPE_GP, 2, createRegSlice(&regX86AL, 0, 8), createRegSlice(&regX86AH, 8, 8));
-	regX86BX = createRegister("BX", &regAMD64RBX, 2, REG_TYPE_GP, 2, createRegSlice(&regX86BL, 0, 8), createRegSlice(&regX86EBX, 8, 8));
+	regX86BX = createRegister("BX", &regAMD64RBX, 2, REG_TYPE_GP, 2, createRegSlice(&regX86BL, 0, 8), createRegSlice(&regX86BH, 8, 8));
 	regX86CX = createRegister("CX", &regAMD64RCX, 2, REG_TYPE_GP, 2, createRegSlice(&regX86CL, 0, 8), createRegSlice(&regX86CH, 8, 8));
 	regX86DX = createRegister("DX", &regAMD64RDX, 2, REG_TYPE_GP, 2, createRegSlice(&regX86DL, 0, 8), createRegSlice(&regX86DH, 8, 8));
 	regX86SI = createRegister("SI", &regAMD64RSI, 2, REG_TYPE_GP, 1, createRegSlice(&regX86SIL, 0, 8));
@@ -284,8 +284,6 @@ void initRegisters() {
 	    &regX86CX,  &regX86DX,  &regX86SI,  &regX86DI,  &regX86BP,  &regX86SP,
 
 	    &regX86EAX, &regX86EBX, &regX86ECX, &regX86EDX, &regX86ESI, &regX86EDI, &regX86EBP, &regX86ESP,
-
-	    &regX86ES,  &regX86CS,  &regX86SS,  &regX86DS,  &regX86FS,  &regX86SS,  &regX86GS,
 
 	    &regX86ST0, &regX86ST1, &regX86ST2, &regX86ST3, &regX86ST4, &regX86ST5, &regX86ST6, &regX86ST7,
 	};
@@ -436,6 +434,7 @@ strRegP regGetForType(struct object *type) {
 		// Reserved registers
 		const struct reg *res[] = {
 		    &regX86ESP, &regX86EBP, &regX86SP, &regX86BP, &regX86SPL, &regX86BPL,
+						&regX86SS,&regX86CS,&regX86DS,&regX86ES,&regX86FS,&regX86GS
 		};
 		long len = sizeof(res) / sizeof(*res);
 		qsort(res, len, sizeof(*res), ptrPtrCmp);

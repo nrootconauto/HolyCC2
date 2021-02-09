@@ -359,7 +359,7 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start) {
 		}
 
 		long stackSizeBeforeArgs=stackSize;
-		for(long i=0;i!=strGraphNodeIRPSize(args);i++) {
+		for(long i=strGraphNodeIRPSize(args)-1 ;i>=0;i--) {
 				__auto_type type=objectBaseType(IRNodeType(args[i]));
 				long itemSize=objectSize(type, NULL);
 				if(type->type==TYPE_CLASS||type->type==TYPE_UNION) {
@@ -589,7 +589,7 @@ static void IR_ABI_I386_SYSV_Return(graphNodeIR start) {
 
 						//Assign old ebp into
 						struct X86AddressingMode *ebpMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(basePointer());
-						struct X86AddressingMode *oldBPMode CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer()), X86AddrModeSint(-4), objectPtrCreate(&typeU0));
+						struct X86AddressingMode *oldBPMode CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer()), X86AddrModeSint(0), objectPtrCreate(&typeU0));
 						asmAssign(ebpMode, oldBPMode, ptrSize());
 
 						//Pop the extra 4 bytes from the return address,then return
@@ -607,9 +607,7 @@ static void IR_ABI_I386_SYSV_Return(graphNodeIR start) {
 				}
 		}
 	loadBasePtr: {
-				struct X86AddressingMode *ebpMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(basePointer());
-				struct X86AddressingMode *oldBPMode CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer()), X86AddrModeSint(-4), objectPtrCreate(&typeU0));
-				asmAssign(ebpMode, oldBPMode, ptrSize());
+				assembleInst("LEAVE", NULL);
 		}
 	ret:;
 		struct X86AddressingMode *ebpMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(basePointer());
@@ -636,9 +634,9 @@ void IRABIAsmPrologue() {
 		case ARCH_X86_SYSV: {
 				struct X86AddressingMode *esp CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(stackPointer());
 				struct X86AddressingMode *ebp CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(basePointer());
-				asmAssign(ebp, esp, ptrSize());
 				strX86AddrMode pushArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeReg(basePointer()));
 				assembleInst("PUSH", pushArgs);
+				asmAssign(ebp, esp, ptrSize());
 				return;
 		}
 		case ARCH_X64_SYSV:

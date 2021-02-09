@@ -466,6 +466,19 @@ static void popReg(struct reg *r) {
 	strX86AddrMode ppIndexArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeReg(r));
 	assembleInst("POP", ppIndexArgs);
 }
+static struct object *getTypeForSize(long size) {
+	switch (size) {
+	case 1:
+		return &typeI8i;
+	case 2:
+		return &typeI16i;
+	case 4:
+		return &typeI32i;
+	case 8:
+		return &typeI64i;
+	}
+	return &typeU0;
+}
 void asmAssign(struct X86AddressingMode *a, struct X86AddressingMode *b, long size) {
 	if (a->type == X86ADDRMODE_REG) {
 		if (isX87FltReg(a->value.reg)) {
@@ -478,7 +491,26 @@ void asmAssign(struct X86AddressingMode *a, struct X86AddressingMode *b, long si
 		args = strX86AddrModeAppendItem(args, b);
 	}
 	if (size == 1 || size == 2 || size == 4 || size == 8) {
-		assembleInst("MOV", args);
+			if(a->type==X86ADDRMODE_MEM||a->type==X86ADDRMODE_ITEM_ADDR) {
+					if(b->type==X86ADDRMODE_MEM||b->type==X86ADDRMODE_ITEM_ADDR) {
+							//Can't move memory to memory,so store b item in a register
+							AUTO_LOCK_MODE_REGS(a);
+							__auto_type reg=regForTypeExcludingConsumed(getTypeForSize(size));
+							pushReg(reg);
+							strX86AddrMode  mov1Args CLEANUP(strX86AddrModeDestroy2)=NULL;
+							mov1Args=strX86AddrModeAppendItem(mov1Args, X86AddrModeReg(reg));
+							mov1Args=strX86AddrModeAppendItem(mov1Args, X86AddrModeClone(b));
+							assembleInst("MOV", mov1Args);
+
+							strX86AddrMode  mov2Args CLEANUP(strX86AddrModeDestroy2)=NULL;
+							mov2Args=strX86AddrModeAppendItem(mov2Args, X86AddrModeClone(a));
+							mov2Args=strX86AddrModeAppendItem(mov2Args, X86AddrModeReg(reg));
+							assembleInst("MOV", mov2Args);
+							popReg(reg);
+							return;
+					}
+			}
+			assembleInst("MOV", args);
 		return;
 	} else {
 		long repCount, width;
@@ -821,8 +853,8 @@ void IRCompile(graphNodeIR start,int isFunc) {
 }
 static int isPtrType(struct object *obj) {
 	__auto_type type = objectBaseType(obj)->type;
-	return type == TYPE_PTR || type == TYPE_ARRAY;
-}
+	return type == TYPE_PTR || type == TYPE_ARRAY;}
+
 static int isPtrNode(graphNodeIR start) {
 	return isPtrType(IRNodeType(start));
 }
@@ -1177,19 +1209,6 @@ static int typeIsSigned(struct object *obj) {
 			return 1;
 	}
 	return 0;
-}
-static const struct object *getTypeForSize(long size) {
-	switch (size) {
-	case 1:
-		return &typeI8i;
-	case 2:
-		return &typeI16i;
-	case 4:
-		return &typeI32i;
-	case 8:
-		return &typeI64i;
-	}
-	return &typeU0;
 }
 static void __typecastSignExt(struct X86AddressingMode *outMode, struct X86AddressingMode *inMode) {
 	long iSize = objectSize(inMode->valueType, NULL);
