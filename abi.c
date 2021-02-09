@@ -467,7 +467,7 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start) {
 }
 static graphNodeIR abiI386AddrModeNode(struct objectFunction *func,long argI) {
 		int returnsStruct=func->retType->type==TYPE_CLASS||func->retType->type==TYPE_UNION;
-		long offset=returnsStruct?-8:-4;
+		long offset=returnsStruct?-12:-8;
 		if(returnsStruct) {
 				return IRCreateFrameAddress(offset, objectPtrCreate(func->retType));
 		}

@@ -339,6 +339,26 @@ static int isFuncEnd(const struct __graphNode *node, graphNodeIR end) {
 static void consumeRegister(struct reg *reg) {
 	consumedRegisters = strRegPSortedInsert(consumedRegisters, reg, (regCmpType)ptrPtrCmp);
 }
+static strRegP regsFromMode(struct X86AddressingMode *mode) {
+		if (mode->type == X86ADDRMODE_REG) {
+				return strRegPAppendItem(NULL,mode->value.reg);
+	} else if (mode->type == X86ADDRMODE_MEM) {
+				if (mode->value.m.type == x86ADDR_INDIR_REG) {
+						return strRegPAppendItem(NULL,mode->value.m.value.indirReg);
+				} else if (mode->value.m.type == x86ADDR_INDIR_SIB) {
+						strRegP retVal=NULL;
+						if (mode->value.m.value.sib.base)
+								retVal=regsFromMode(mode->value.m.value.sib.base);
+						if (mode->value.m.value.sib.index) {
+								__auto_type tmp=strRegPSetUnion(regsFromMode(mode->value.m.value.sib.index), retVal, (regCmpType)ptrPtrCmp);
+								strRegPDestroy(&retVal);
+								retVal=tmp;
+						}
+						return retVal;
+				}
+		}
+		return NULL;
+}
 static void consumeRegFromMode(struct X86AddressingMode *mode) {
 	if (mode->type == X86ADDRMODE_REG) {
 		consumeRegister(mode->value.reg);
@@ -459,11 +479,38 @@ static strGraphNodeIRP insertLabelsForAsm(strGraphNodeIRP nodes) {
 	return inserted;
 }
 static void pushReg(struct reg *r) {
+		//Can't push 8-bit registers,so make room on the stack and assign 
+		if(r->size==1) {
+				strX86AddrMode subArgs CLEANUP(strX86AddrModeDestroy2) =NULL;
+				subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeReg(stackPointer()));
+				subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeSint(1));
+				assembleInst("SUB", subArgs);
+
+				strX86AddrMode movArgs CLEANUP(strX86AddrModeDestroy2) =NULL;
+				movArgs=strX86AddrModeAppendItem(movArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(1), &typeU8i));
+				movArgs=strX86AddrModeAppendItem(movArgs, X86AddrModeReg(r));
+				assembleInst("MOV", movArgs);
+				return;
+		}
 	strX86AddrMode ppIndexArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeReg(r));
 	assembleInst("PUSH", ppIndexArgs);
 }
 static void popReg(struct reg *r) {
-	strX86AddrMode ppIndexArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeReg(r));
+		//Can't pop 8-bit registers,so make room on the stack and assign 
+		if(r->size==1) {
+				strX86AddrMode movArgs CLEANUP(strX86AddrModeDestroy2) =NULL;
+				movArgs=strX86AddrModeAppendItem(movArgs, X86AddrModeReg(r));
+				movArgs=strX86AddrModeAppendItem(movArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(1), &typeU8i));
+				assembleInst("MOV", movArgs);
+
+				strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2) =NULL;
+				addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeReg(stackPointer()));
+				addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeSint(1));
+				assembleInst("ADD", addArgs);
+				return;
+		}
+		
+		strX86AddrMode ppIndexArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeReg(r));
 	assembleInst("POP", ppIndexArgs);
 }
 static struct object *getTypeForSize(long size) {
@@ -1242,6 +1289,15 @@ static void __typecastSignExt(struct X86AddressingMode *outMode, struct X86Addre
 		assembleInst("POP", ppArgs);
 	}
 }
+static int addrModeConflict(struct X86AddressingMode *a,struct X86AddressingMode *b) {
+		strRegP aModeRegs CLEANUP(strRegPDestroy)=regsFromMode(a);
+		strRegP bModeRegs CLEANUP(strRegPDestroy)=regsFromMode(b);
+		for(long A=0;A!=strRegPSize(aModeRegs);A++)
+				for(long B=0;B!=strRegPSize(bModeRegs);B++)
+						if(regConflict(aModeRegs[A], bModeRegs[B]))
+								return 1;
+		return 0;
+}
 static graphNodeIR assembleOpInt(graphNodeIR start, const char *opName) {
 	graphNodeIR a, b, out = nodeDest(start);
 	binopArgs(start, &a, &b);
@@ -1251,7 +1307,7 @@ static graphNodeIR assembleOpInt(graphNodeIR start, const char *opName) {
 	AUTO_LOCK_MODE_REGS(bMode);
 	struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(out);
 	AUTO_LOCK_MODE_REGS(oMode);
-	int hasReg = isReg(a);
+	int hasReg = isReg(a)||isReg(b);
 	if (hasReg && out) {
 		// Load a into out then OP DEST,SRC as DEST=DEST OP SRC if sizeof(DEST)==sizeof(a)
 		long oSize = objectSize(IRNodeType(out), NULL);
@@ -1259,6 +1315,24 @@ static graphNodeIR assembleOpInt(graphNodeIR start, const char *opName) {
 		long bSize = objectSize(IRNodeType(b), NULL);
 		assert(aSize == bSize && aSize == oSize);
 
+		//Check if a/b conflicts with dest,if so use a tempory variable
+		if(addrModeConflict(aMode,oMode)||addrModeConflict(bMode,oMode)) {
+				AUTO_LOCK_MODE_REGS(bMode);
+				AUTO_LOCK_MODE_REGS(oMode);
+				__auto_type reg=regForTypeExcludingConsumed(IRNodeType(start));
+				pushReg(reg);
+				struct X86AddressingMode *regMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(reg);
+				asmAssign(regMode, aMode,reg->size);
+
+				strX86AddrMode opArgs CLEANUP(strX86AddrModeDestroy) = strX86AddrModeAppendItem(NULL, X86AddrModeClone(regMode));
+				opArgs = strX86AddrModeAppendItem(opArgs, X86AddrModeClone(bMode));
+				assembleInst(opName, opArgs);
+				
+				asmAssign(oMode, regMode,reg->size);
+				popReg(reg);
+				return out;
+		}
+		
 		asmAssign(oMode, aMode, objectSize(IRNodeType(out), NULL));
 
 		strX86AddrMode opArgs CLEANUP(strX86AddrModeDestroy) = strX86AddrModeAppendItem(NULL, IRNode2AddrMode(out));
