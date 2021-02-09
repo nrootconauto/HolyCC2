@@ -269,6 +269,7 @@ void compileTests() {
 						"            }\n"
 						"        }\n"
 						"    }\n"
+						putY
 						"}\n"
 						"{\n"
 						"    class abc3 {\n"
@@ -277,7 +278,7 @@ void compileTests() {
 						"    abc3 x,y;\n"
 						"    x.a=1,x.b=2,x.c=3;\n"
 						"    y=x;\n"
-						//"    assertEq(&x,&y,sizeof(x));\n"
+						"    assertEq(&x,&y,sizeof(x));\n"
 						"}\n"
 						"asm {\n"
 						exitStr

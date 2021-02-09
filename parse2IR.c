@@ -578,6 +578,16 @@ static graphNodeIR parserNode2Expr(const struct parserNode *node) {
 	switch (node->type) {
 	default:
 		return NULL;
+		case NODE_SIZEOF_EXP: {
+			struct parserNodeSizeofExp *exp=(void*)node;
+			__auto_type size=IRCreateIntLit(objectSize(assignTypeToOp(exp->exp), NULL));
+			return size;
+	}
+	case NODE_SIZEOF_TYPE: {
+			struct parserNodeSizeofType *t=(void*)node;
+			__auto_type size=IRCreateIntLit(objectSize(t->type, NULL));
+			return size;
+	}
 	case NODE_VAR: {
 		struct parserNodeVar *var = (void *)node;
 		return IRCreateVarRef(var->var);
@@ -851,16 +861,8 @@ static void IRAttrLabelNameDestroy(struct IRAttr *attr) {
 }
 static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 	switch (node->type) {
-	case NODE_SIZEOF_EXP: {
-			struct parserNodeSizeofExp *exp=(void*)node;
-			__auto_type size=IRCreateIntLit(objectSize(assignTypeToOp(exp->exp), NULL));
-			return (struct enterExit){size,size};
-	}
-	case NODE_SIZEOF_TYPE: {
-			struct parserNodeSizeofType *t=(void*)node;
-			__auto_type size=IRCreateIntLit(objectSize(t->type, NULL));
-			return (struct enterExit){size,size};
-	}
+	case NODE_SIZEOF_EXP:
+	case NODE_SIZEOF_TYPE:
 	case NODE_LINKAGE:
 	case NODE_CLASS_FORWARD_DECL:
 	case NODE_UNION_FORWARD_DECL:

@@ -86,7 +86,20 @@ struct object *__IRNodeType(graphNodeIR node) {
 		return *getType(node);
 
 	struct IRNodeValue *nodeVal = (void *)graphNodeIRValuePtr(node);
-	if (nodeVal->base.type == IR_VALUE) {
+	if(nodeVal->base.type==IR_ARRAY_ACCESS) {
+			strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(node);
+			strGraphEdgeIRP inBase CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_SOURCE_A);
+			__auto_type baseType=objectBaseType(IRNodeType(graphEdgeIRIncoming(inBase[0])));
+			if(baseType->type==TYPE_PTR) {
+					struct objectPtr *ptr=(void*)baseType;
+					return ptr->type;
+			} else if(baseType->type==TYPE_ARRAY) {
+					struct objectArray *arr=(void*)baseType;
+					return arr->type;
+			} else {
+					fputs("IR_ARRAY_ACCESS needs pointer or array base type\n.", stderr);
+			}
+	} else if (nodeVal->base.type == IR_VALUE) {
 		if (nodeVal->val.type == IR_VAL_REG) {
 			return nodeVal->val.value.reg.type;
 		} else if (nodeVal->val.type == IR_VAL_VAR_REF) {

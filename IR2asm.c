@@ -2154,7 +2154,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				indexNeedsPop = 1;
 				pushReg(index);
 			} else
-				index = addrModeReg(aMode);
+				index = addrModeReg(bMode);
 			consumeRegister(index);
 
 			struct X86AddressingMode *indexMode CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(index);
