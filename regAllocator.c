@@ -336,6 +336,8 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 
 		if(strVarSortedFind(dontCoalesceIntoVars, *getVar(nodes[i]), IRVarCmp))
 				continue;
+		if(getVar(nodes[i])->var->isGlobal)
+				continue;
 
 		// Check if written into by another variable.
 		strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(nodes[i]);
