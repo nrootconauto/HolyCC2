@@ -652,7 +652,8 @@ graphNodeIR IRCreateReturn(graphNodeIR exp, graphNodeIR func) {
 	ret.exp = exp;
 
 	__auto_type retVal = GRAPHN_ALLOCATE(ret);
-	graphNodeIRConnect(exp, retVal, IR_CONN_SOURCE_A);
+	if(exp)
+			graphNodeIRConnect(exp, retVal, IR_CONN_SOURCE_A);
 
 	return retVal;
 }

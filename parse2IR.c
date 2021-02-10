@@ -1012,10 +1012,10 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 			pair = __parserNode2IRStmt(retNode->value);
 			value = pair.exit;
 		}
-
+		
 		pair.exit = IRCreateReturn(value, NULL); // TODO
 		if (!pair.enter)
-			pair.exit = pair.enter;
+			pair.enter = pair.exit;
 
 		return pair;
 	}

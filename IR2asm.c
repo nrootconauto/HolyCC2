@@ -769,8 +769,12 @@ void IRCompile(graphNodeIR start,int isFunc) {
 			continue;
 		if (value->val.type != IR_VAL_VAR_REF)
 			continue;
+		
 		strGraphNodeIRP out CLEANUP(strGraphNodeIRPDestroy) = graphNodeIROutgoingNodes(nodes[i]);
 
+		if(value->val.value.var.var->isGlobal)
+				goto markAsNoreg;
+		
 		if (!isPrimitiveType(objectBaseType(IRNodeType(nodes[i]))))
 			goto markAsNoreg;
 
@@ -852,7 +856,9 @@ void IRCompile(graphNodeIR start,int isFunc) {
 							continue;
 					if(ir->val.type!=IR_VAL_VAR_REF)
 							continue;
-
+					if(ir->val.value.var.var->isGlobal)
+							continue;
+					
 					__auto_type find=ptrMapFrameOffsetGet(localVarFrameOffsets, ir->val.value.var.var);
 					assert(find);
 					removed=strGraphNodeIRPSortedInsert(removed, regAllocedNodes[n], (gnCmpType)ptrPtrCmp);
@@ -880,6 +886,7 @@ void IRCompile(graphNodeIR start,int isFunc) {
 			asmAssign(bp, sp, ptrSize());
 	}
 	//This computes calling information for the ABI
+	debugShowGraphIR(start);
 	IRComputeABIInfo(start);
 	debugShowGraphIR(start);
 	//Add to stack pointer to make room for locals

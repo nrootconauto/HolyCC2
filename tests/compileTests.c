@@ -259,7 +259,7 @@ void compileTests() {
 				free(source);
 				}
 		*/
-		{
+		/*{
 				const char * text=
 						"U0 assertEq(U8i *A,U8i *B,I32i len) {\n"
 						"    for(I32i b=0;b!=len;b=b+1) {\n"
@@ -280,6 +280,53 @@ void compileTests() {
 						"    y=x;\n"
 						"    assertEq(&x,&y,sizeof(x));\n"
 						"}\n"
+						"asm {\n"
+						exitStr
+						"}\n";
+				char *source=text2File(text);
+				char *asmF=strDup(tmpnam(NULL));
+				compileFile(source, asmF);
+				runTest(asmF,"y");
+				free(asmF);	
+				free(source);
+				}*/
+		{
+				const char * text=
+						"I32i rEax,rEcx,rEdx,rEbx,rEsi,rEdi;\n"
+						"I32i rEax2,rEcx2,rEdx2,rEbx2,rEsi2,rEdi2;"
+						"asm {\n"
+						"    gpDump::"
+						"    IMPORT rEax,rEcx,rEdx,rEbx,rEsi,rEdi;\n"
+						"    MOV I32i [rEax], EAX \n"
+						"    MOV I32i [rEcx], ECX \n"
+						"    MOV I32i [rEdx], EDX \n"
+						"    MOV I32i [rEbx], EBX \n"
+						"    MOV I32i [rEsi], ESI \n"
+						"    MOV I32i [rEdi], EDI \n"
+						"    RET\n"
+						"}\n"
+						"extern U0 gpDump();\n"
+						"U0 moveGpTo2() {\n"
+						"    rEax2=rEax,rEcx2=rEcx,rEdx2=rEdx,rEbx2=rEbx,rEsi2=rEsi,rEdi2=rEdi;\n"
+						"}\n"
+						"U0 assertEq() {\n"
+						"    if(rEax2!=rEax) goto fail;\n"
+						"    if(rEcx2!=rEcx) goto fail;\n"
+						"    if(rEdx2!=rEdx) goto fail;\n"
+						"    if(rEbx2!=rEbx) goto fail;\n"
+						"    if(rEsi2!=rEsi) goto fail;\n"
+						"    if(rEdi2!=rEdi) goto fail;\n"
+						"    return;\n"
+						"    fail:\n"
+						"    asm {\n"
+						exitStr
+						"    }\n"
+						"}\n"
+						// We will assign into global variables which will not be in registers,
+						// we will then ensure no general purpose operations have been changed during the operation
+						"I32i a=2,b=15,c;\n"
+#define operationTest(text) "gpDump();moveGpTo2();\n" text "gpDump();assertEq();\n"
+						operationTest("c=a+b;\n")
 						"asm {\n"
 						exitStr
 						"}\n";

@@ -178,6 +178,7 @@ void initParserData();
 void initParserData() {
 	mapSymbolDestroy(symbolTable, NULL);
 	__initParserA();
+	currentScope=NULL;
 	enterScope();
 	symbolTable = mapSymbolCreate();
 }
