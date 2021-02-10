@@ -896,12 +896,13 @@ void IRCompile(graphNodeIR start,int isFunc) {
 		regAllocedNodes=strGraphNodeIRPSetUnion(regAllocedNodes, added, (gnCmpType)ptrPtrCmp);
 	}
 	// For all non-reg globals,dump them to global scope
-	for (long p = 0; p != strPVarSize(noregs); p++) {
-		if (!noregs[p]->isGlobal)
-			continue;
-		X86EmitAsmGlobalVar(noregs[p]);
-	}
-
+	if(!isFunc)
+			for (long p = 0; p != strPVarSize(noregs); p++) {
+					if (!noregs[p]->isGlobal)
+							continue;
+					X86EmitAsmGlobalVar(noregs[p]);
+			}
+	
 	if(isFunc) {
 			IRABIAsmPrologue();
 	} else {
@@ -911,7 +912,7 @@ void IRCompile(graphNodeIR start,int isFunc) {
 			asmAssign(bp, sp, ptrSize());
 	}
 	//This computes calling information for the ABI
-	debugShowGraphIR(start);
+	//debugShowGraphIR(start);
 	IRComputeABIInfo(start);
 	//debugShowGraphIR(start);
 	//Add to stack pointer to make room for locals
