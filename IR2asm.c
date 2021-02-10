@@ -192,8 +192,7 @@ static struct X86AddressingMode *__node2AddrMode(graphNodeIR start) {
 			}
 		}
 		case __IR_VAL_MEM_GLOBAL: {
-			struct X86AddressingMode *mode = X86AddrModeLabel(value->val.value.__global.symbol->name);
-			mode->valueType = IRNodeType(start);
+				struct X86AddressingMode *mode = X86AddrModeIndirLabel(value->val.value.__global.symbol->name, value->val.value.__global.symbol->type);
 			return mode;
 		}
 		case __IR_VAL_LABEL: {
@@ -264,7 +263,8 @@ struct X86AddressingMode *IRNode2AddrMode(graphNodeIR start) {
 				return X86AddrModeClone(((struct IRAttrAddrMode*)llIRAttrValuePtr(find))->mode);
 		
 		__auto_type retVal = __node2AddrMode(start);
-	retVal->valueType = IRNodeType(start);
+		if(!retVal->valueType)
+				retVal->valueType = IRNodeType(start);
 	
 	struct IRAttrAddrMode modeAttr;
 	modeAttr.base.name=IR_ATTR_ADDR_MODE;
@@ -868,8 +868,33 @@ void IRCompile(graphNodeIR start,int isFunc) {
 					strGraphNodeIRP dummy CLEANUP(strGraphNodeIRPDestroy)=strGraphNodeIRPAppendItem(NULL, regAllocedNodes[n]); 
 					graphIRReplaceNodes(dummy, frameReference, NULL, (void(*)(void*))IRNodeDestroy);
 			}
+
+			regAllocedNodes=strGraphNodeIRPSetDifference(regAllocedNodes, removed, (gnCmpType)ptrPtrCmp);
+			regAllocedNodes=strGraphNodeIRPSetUnion(regAllocedNodes, added, (gnCmpType)ptrPtrCmp);
 	}
 
+	//Replace all global variables with 
+	{
+		strGraphNodeIRP removed CLEANUP(strGraphNodeIRPDestroy)=NULL;
+		strGraphNodeIRP added CLEANUP(strGraphNodeIRPDestroy)=NULL;	
+		for(long n=0;n!=strGraphNodeIRPSize(regAllocedNodes);n++) {
+				struct IRNodeValue *val=(void*)graphNodeIRValuePtr(regAllocedNodes[n]);
+				if(val->base.type!=IR_VALUE)
+						continue;
+				if(val->val.type!=IR_VAL_VAR_REF)
+						continue;
+				if(!val->val.value.var.var->isGlobal)
+						continue;
+				__auto_type sym=IRCreateGlobalVarRef(val->val.value.var.var);
+				strGraphNodeIRP toReplace CLEANUP(strGraphNodeIRPDestroy)=strGraphNodeIRPAppendItem(NULL, regAllocedNodes[n]);
+				graphIRReplaceNodes(toReplace, sym, NULL, (void(*)(void*))IRNodeDestroy);
+
+				removed=strGraphNodeIRPSortedInsert(removed, regAllocedNodes[n], (gnCmpType)ptrPtrCmp);
+				added=strGraphNodeIRPSortedInsert(added, sym, (gnCmpType)ptrPtrCmp);
+		}
+		regAllocedNodes=strGraphNodeIRPSetDifference(regAllocedNodes, removed, (gnCmpType)ptrPtrCmp);
+		regAllocedNodes=strGraphNodeIRPSetUnion(regAllocedNodes, added, (gnCmpType)ptrPtrCmp);
+	}
 	// For all non-reg globals,dump them to global scope
 	for (long p = 0; p != strPVarSize(noregs); p++) {
 		if (!noregs[p]->isGlobal)
@@ -888,7 +913,7 @@ void IRCompile(graphNodeIR start,int isFunc) {
 	//This computes calling information for the ABI
 	debugShowGraphIR(start);
 	IRComputeABIInfo(start);
-	debugShowGraphIR(start);
+	//debugShowGraphIR(start);
 	//Add to stack pointer to make room for locals
 	strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 	addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeReg(stackPointer()));

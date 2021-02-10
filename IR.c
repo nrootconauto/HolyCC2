@@ -1446,9 +1446,16 @@ graphNodeIR IRCloneUpTo(graphNodeIR node, strGraphNodeIRP to, ptrMapGraphNode *m
 graphNodeIR IREndOfExpr(graphNodeIR node) {
 	if (graphNodeIRValuePtr(node)->type == IR_LABEL) {
 		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIROutgoing(node);
+		int flowOut=0;
+		for(long e=0;e!=strGraphEdgeIRPSize(out);e++)
+				if(*graphEdgeIRValuePtr(out[e])==IR_CONN_FLOW)
+						flowOut++;
 		// Labels can be used to start statements that have 2 or more operands
-		if (strGraphEdgeIRPSize(out) < 2)
+		if (flowOut < 2)
 			return node;
+		//Label may contain no-flow edge
+		if(flowOut!=strGraphEdgeIRPSize(out))
+				return node;
 		node = graphEdgeIROutgoing(out[0]);
 	}
 	for (;;) {
@@ -1812,6 +1819,15 @@ graphNodeIR IRCreateJumpTable() {
 	table.labels = NULL;
 	__auto_type tableNode = GRAPHN_ALLOCATE(table);
 	return tableNode;
+}
+graphNodeIR IRCreateGlobalVarRef(struct parserVar *var) {
+		assert(var->isGlobal);
+		struct IRNodeValue val;
+		val.base.attrs=NULL;
+		val.base.type=IR_VALUE;
+		val.val.type=__IR_VAL_MEM_GLOBAL;
+		val.val.value.__global.symbol=var;
+		return GRAPHN_ALLOCATE(val);
 }
 graphNodeIR IRCreateFrameAddress(long offset, struct object *obj) {
 	struct IRNodeValue val;

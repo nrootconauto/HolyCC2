@@ -100,8 +100,10 @@ struct object *__IRNodeType(graphNodeIR node) {
 					fputs("IR_ARRAY_ACCESS needs pointer or array base type\n.", stderr);
 			}
 	} else if (nodeVal->base.type == IR_VALUE) {
-		if (nodeVal->val.type == IR_VAL_REG) {
-			return nodeVal->val.value.reg.type;
+			if(nodeVal->val.type == __IR_VAL_MEM_GLOBAL) {
+					return nodeVal->val.value.__global.symbol->type;
+			} else if (nodeVal->val.type == IR_VAL_REG) {
+					return nodeVal->val.value.reg.type;
 		} else if (nodeVal->val.type == IR_VAL_VAR_REF) {
 				return nodeVal->val.value.var.var->type;
 		} else if (nodeVal->val.type == __IR_VAL_MEM_FRAME) {

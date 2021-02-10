@@ -530,3 +530,4 @@ struct IRAttrVariable {
 	struct IRAttr base;
 	struct IRVar var;
 };
+graphNodeIR IRCreateGlobalVarRef(struct parserVar *var);

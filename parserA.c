@@ -2578,7 +2578,8 @@ end:
 	return retVal;
 }
 struct parserNode *parseReturn(llLexerItem start, llLexerItem *end) {
-	struct parserNode *ret = expectKeyword(start, "return");
+		__auto_type originalStart=start;
+		struct parserNode *ret = expectKeyword(start, "return");
 	if (ret) {
 		start = llLexerItemNext(start);
 		// Ensrue if in function
@@ -2646,8 +2647,7 @@ struct parserNode *parseReturn(llLexerItem start, llLexerItem *end) {
 
 		struct parserNodeReturn node;
 		node.base.type = NODE_RETURN;
-		node.base.pos.start = ret->pos.start;
-		node.base.pos.end = retVal->pos.end;
+		assignPosByLexerItems((struct parserNode*)&node, originalStart, start);
 		node.value = retVal;
 
 		if (end)

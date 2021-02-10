@@ -2,7 +2,7 @@
 #include <IRLiveness.h>
 #include <assert.h>
 #include <cleanup.h>
-#define DEBUG_PRINT_ENABLE 1
+//#define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 static char *var2Str(graphNodeIR node) {
 	char buffer[1024];

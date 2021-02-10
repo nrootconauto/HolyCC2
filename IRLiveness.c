@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <base64.h>
 #include <cleanup.h>
-#define DEBUG_PRINT_ENABLE 1
+//#define DEBUG_PRINT_ENABLE 1
 #include <basicBlocks.h>
 #include <debugPrint.h>
 #include <stdio.h>
@@ -421,7 +421,7 @@ strGraphNodeIRLiveP __IRInterferenceGraphFilter(graphNodeMapping start, const vo
 		if (!changed)
 			break;
 	}
-	debugShowGraphIR(mappedClone, &metaNodes);
+	//debugShowGraphIR(mappedClone, &metaNodes);
 
 	//
 	// Create interference graph

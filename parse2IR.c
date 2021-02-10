@@ -1002,7 +1002,10 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 			graphNodeIRConnect(label, pointsToLabel, IR_CONN_FLOW);
 		}
 
-		return (struct enterExit){label, label};
+		__auto_type dummy=IRCreateLabel();
+		graphNodeIRConnect(label, dummy, IR_CONN_NEVER_FLOW);
+		
+		return (struct enterExit){label, dummy};
 	}
 	case NODE_RETURN: {
 		struct parserNodeReturn *retNode = (void *)node;

@@ -1015,7 +1015,7 @@ void IRRegisterAllocate(graphNodeIR start, color2RegPredicate colorFunc, void *c
 	removeChooseNodes(allNodes, start);
 	// debugShowGraphIR(start);
 	IRToSSA(start);
-	//debugShowGraphIR(start);
+	debugShowGraphIR(start);
 
 	//Dont Coalesce variables that has multiple SSA Sources(connected to choose node)
 	dontCoalesceIntoVars=NULL;
