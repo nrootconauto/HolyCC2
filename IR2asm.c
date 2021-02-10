@@ -886,7 +886,7 @@ void IRCompile(graphNodeIR start,int isFunc) {
 	strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 	addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeReg(stackPointer()));
 	addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeSint(frameSize));
-	assembleInst("ADD", addArgs);
+	assembleInst("SUB", addArgs);
 	
 	IR2Asm(start);
 	
@@ -1098,9 +1098,7 @@ static void compileX87Expr(graphNodeIR start) {
 		}
 		case IR_GT: {
 			assembleInst("FCOM", NULL);
-			strX86AddrMode setccArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
 			struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(graphEdgeIROutgoing(dst[0]));
-			setCond("G", oMode);
 			continue;
 		}
 		case IR_LT: {
@@ -1298,6 +1296,39 @@ static int addrModeConflict(struct X86AddressingMode *a,struct X86AddressingMode
 								return 1;
 		return 0;
 }
+static graphNodeIR assembleOpIntLogical(graphNodeIR start, const char *suffix) {
+		graphNodeIR a, b, out = nodeDest(start);
+		binopArgs(start, &a, &b);
+		struct X86AddressingMode *aMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(a);
+		struct X86AddressingMode *bMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(b);
+
+		if(aMode->type!=X86ADDRMODE_REG&&bMode->type!=X86ADDRMODE_REG) {
+				struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(out);
+				AUTO_LOCK_MODE_REGS(bMode);
+				AUTO_LOCK_MODE_REGS(oMode);
+				__auto_type reg=regForTypeExcludingConsumed(IRNodeType(a));
+				pushReg(reg);
+				struct X86AddressingMode *regMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(reg);
+				asmAssign(regMode, aMode, objectSize(IRNodeType(start), NULL));
+				strX86AddrMode cmpArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+				cmpArgs=strX86AddrModeAppendItem(cmpArgs, X86AddrModeReg(reg));
+				cmpArgs=strX86AddrModeAppendItem(cmpArgs, X86AddrModeClone(bMode));
+				assembleInst("CMP", cmpArgs);
+				setCond(suffix, oMode);
+				popReg(reg);
+		} else {
+				struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(out);
+				//One must be a register if reaching here
+				__auto_type regMode=aMode->type==X86ADDRMODE_REG?aMode:bMode;
+				__auto_type other=aMode->type==X86ADDRMODE_REG?bMode:aMode;
+				strX86AddrMode cmpArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+				cmpArgs=strX86AddrModeAppendItem(cmpArgs, X86AddrModeClone(regMode));
+				cmpArgs=strX86AddrModeAppendItem(cmpArgs, X86AddrModeClone(other));
+				assembleInst("CMP", cmpArgs);
+				setCond(suffix, oMode);
+		}
+		return out;
+}
 static graphNodeIR assembleOpInt(graphNodeIR start, const char *opName) {
 	graphNodeIR a, b, out = nodeDest(start);
 	binopArgs(start, &a, &b);
@@ -1306,7 +1337,6 @@ static graphNodeIR assembleOpInt(graphNodeIR start, const char *opName) {
 	struct X86AddressingMode *bMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(b);
 	AUTO_LOCK_MODE_REGS(bMode);
 	struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(out);
-	AUTO_LOCK_MODE_REGS(oMode);
 	int hasReg = isReg(a)||isReg(b);
 	if (hasReg && out) {
 		// Load a into out then OP DEST,SRC as DEST=DEST OP SRC if sizeof(DEST)==sizeof(a)
@@ -2354,9 +2384,9 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		graphNodeIR a, b;
 		binopArgs(start, &a, &b);
 		if (typeIsSigned(IRNodeType(a)) || typeIsSigned(IRNodeType(b))) {
-			setCond("G", oMode);
+				assembleOpIntLogical(start, "G");
 		} else {
-			setCond("A", oMode);
+			assembleOpIntLogical(start, "A");
 		}
 		return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 	}
@@ -2368,9 +2398,9 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		graphNodeIR a, b;
 		binopArgs(start, &a, &b);
 		if (typeIsSigned(IRNodeType(a)) || typeIsSigned(IRNodeType(b))) {
-			setCond("L", oMode);
+				assembleOpIntLogical(start, "L");
 		} else {
-			setCond("B", oMode);
+				assembleOpIntLogical(start, "B");
 		}
 		return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 	}
@@ -2382,9 +2412,9 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		graphNodeIR a, b;
 		binopArgs(start, &a, &b);
 		if (typeIsSigned(IRNodeType(a)) || typeIsSigned(IRNodeType(b))) {
-			setCond("GE", oMode);
+				assembleOpIntLogical(start, "GE");
 		} else {
-			setCond("AE", oMode);
+				assembleOpIntLogical(start, "AE");
 		}
 		return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 	}
@@ -2396,9 +2426,9 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		graphNodeIR a, b;
 		binopArgs(start, &a, &b);
 		if (typeIsSigned(IRNodeType(a)) || typeIsSigned(IRNodeType(b))) {
-			setCond("LE", oMode);
+				assembleOpIntLogical(start, "LE");
 		} else {
-			setCond("BE", oMode);
+				assembleOpIntLogical(start, "BE");
 		}
 		return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 	}
@@ -2407,7 +2437,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 
 		assembleOpInt(start, "CMP");
 		struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(nodeDest(start));
-		setCond("E", oMode);
+		assembleOpIntLogical(start, "E");
 		return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 	}
 	case IR_NE: {
@@ -2415,7 +2445,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 
 		assembleOpInt(start, "CMP");
 		struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(nodeDest(start));
-		setCond("NE", oMode);
+		assembleOpIntLogical(start, "NE");
 		return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 	}
 	case IR_CHOOSE: {

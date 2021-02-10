@@ -609,11 +609,7 @@ static void IR_ABI_I386_SYSV_Return(graphNodeIR start) {
 	loadBasePtr: {
 				assembleInst("LEAVE", NULL);
 		}
-	ret:;
-		struct X86AddressingMode *ebpMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(basePointer());
-		struct X86AddressingMode *espMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(stackPointer());
-		asmAssign(espMode, ebpMode, ptrSize());
-
+	ret:
 		assembleInst("RET", NULL);
 }
 strVar IRABIInsertLoadArgs(graphNodeIR start) {
