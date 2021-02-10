@@ -1253,11 +1253,11 @@ static void compileX87Expr(graphNodeIR start) {
 }
 static strGraphNodeIRP nextNodesToCompile(graphNodeIR node) {
 	strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIROutgoing(node);
-	strGraphEdgeIRP flow CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(out, IR_CONN_FLOW);
-	strGraphNodeIRP retVal = strGraphNodeIRPResize(NULL, strGraphEdgeIRPSize(flow));
-	for (long e = 0; e != strGraphEdgeIRPSize(flow); e++)
-		retVal[e] = graphEdgeIROutgoing(flow[e]);
-	qsort(retVal, strGraphEdgeIRPSize(flow), (sizeof *retVal), ptrPtrCmp);
+	strGraphNodeIRP retVal = NULL;
+	for (long e = 0; e != strGraphEdgeIRPSize(out); e++)
+			if(*graphEdgeIRValuePtr(out[e])!=IR_CONN_NEVER_FLOW)
+					retVal=strGraphNodeIRPAppendItem(retVal, graphEdgeIROutgoing(out[e]));
+	qsort(retVal, strGraphEdgeIRPSize(out), (sizeof *retVal), ptrPtrCmp);
 	return retVal;
 }
 
@@ -2502,10 +2502,21 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 
 		AUTO_LOCK_MODE_REGS(inMode);
 		strX86AddrMode cmpArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
-		cmpArgs = strX86AddrModeAppendItem(cmpArgs, X86AddrModeClone(inMode));
-		cmpArgs = strX86AddrModeAppendItem(cmpArgs, X86AddrModeSint(0));
-		assembleInst("CMP", cmpArgs);
-
+		if(inMode->type!=X86ADDRMODE_MEM||inMode->type!=X86ADDRMODE_REG) {
+				struct reg *r=regForTypeExcludingConsumed(getTypeForSize(dataSize()));
+				struct X86AddressingMode *regMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(r);
+				pushReg(r);
+				regMode->valueType=getTypeForSize(dataSize());
+				asmTypecastAssign(regMode, inMode);
+				cmpArgs = strX86AddrModeAppendItem(cmpArgs, X86AddrModeReg(r));
+				cmpArgs = strX86AddrModeAppendItem(cmpArgs, X86AddrModeSint(0));
+				assembleInst("CMP", cmpArgs);
+				popReg(r);
+		} else {
+				cmpArgs = strX86AddrModeAppendItem(cmpArgs, X86AddrModeClone(inMode));
+				cmpArgs = strX86AddrModeAppendItem(cmpArgs, X86AddrModeSint(0));
+				assembleInst("CMP", cmpArgs);
+		}
 		strX86AddrMode jmpTArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
 		jmpTArgs = strX86AddrModeAppendItem(jmpTArgs, X86AddrModeClone(trueLab));
 		assembleInst("JNE", jmpTArgs);

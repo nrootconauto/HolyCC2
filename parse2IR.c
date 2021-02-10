@@ -1172,9 +1172,9 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 		struct IRAttrLabelName attr;
 		attr.base.name = (void *)IR_ATTR_LABEL_NAME;
 		attr.base.destroy = IRAttrLabelNameDestroy;
-		IRAttrReplace(lab, __llCreate(&attr, sizeof(attr)));
 		attr.name = malloc(strlen(name->text) + 1);
 		strcpy(attr.name, name->text);
+		IRAttrReplace(lab, __llCreate(&attr, sizeof(attr)));
 
 		return (struct enterExit){lab, lab};
 	}

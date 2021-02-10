@@ -255,9 +255,9 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 			fprintf(stderr, "Cant find name for symbol\n");
 			assert(0);
 		}
-		long len = snprintf(NULL, 0, "%s ", name);
+		long len = snprintf(NULL, 0, "[%s] ", name);
 		strChar retVal = strCharResize(NULL, len + 1);
-		sprintf(retVal, "%s ", name);
+		sprintf(retVal, "[%s] ", name);
 		return retVal;
 	}
 	case X86ADDRMODE_LABEL: {

@@ -294,6 +294,7 @@ void compileTests() {
 				const char * text=
 						"I32i rEax,rEcx,rEdx,rEbx,rEsi,rEdi;\n"
 						"I32i rEax2,rEcx2,rEdx2,rEbx2,rEsi2,rEdi2;"
+						"if(0) {"
 						"asm {\n"
 						"    gpDump::"
 						"    IMPORT rEax,rEcx,rEdx,rEbx,rEsi,rEdi;\n"
@@ -304,6 +305,7 @@ void compileTests() {
 						"    MOV I32i [rEsi], ESI \n"
 						"    MOV I32i [rEdi], EDI \n"
 						"    RET\n"
+						"}\n"
 						"}\n"
 						"extern U0 gpDump();\n"
 						"U0 moveGpTo2() {\n"
