@@ -495,6 +495,14 @@ static void pushReg(struct reg *r) {
 	strX86AddrMode ppIndexArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeReg(r));
 	assembleInst("PUSH", ppIndexArgs);
 }
+static void pushMode(struct X86AddressingMode *mode) {
+		if(mode->type==X86ADDRMODE_REG) {
+				pushReg(mode->value.reg);
+		} else {
+				strX86AddrMode pushArgs CLEANUP(strX86AddrModeDestroy ) =strX86AddrModeAppendItem(NULL, mode);
+				assembleInst("PUSH", pushArgs);
+		}
+}
 static void popReg(struct reg *r) {
 		//Can't pop 8-bit registers,so make room on the stack and assign 
 		if(r->size==1) {
@@ -512,6 +520,14 @@ static void popReg(struct reg *r) {
 		
 		strX86AddrMode ppIndexArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeReg(r));
 	assembleInst("POP", ppIndexArgs);
+}
+static void popMode(struct X86AddressingMode *mode) {
+		if(mode->type==X86ADDRMODE_REG) {
+				popReg(mode->value.reg);
+		} else {
+				strX86AddrMode pushArgs CLEANUP(strX86AddrModeDestroy ) =strX86AddrModeAppendItem(NULL, mode);
+				assembleInst("POP", pushArgs);
+		}
 }
 static struct object *getTypeForSize(long size) {
 	switch (size) {
@@ -1329,6 +1345,52 @@ static int addrModeConflict(struct X86AddressingMode *a,struct X86AddressingMode
 								return 1;
 		return 0;
 }
+static graphNodeIR assembleOpIntShift(graphNodeIR start, const char *op) {
+		graphNodeIR a,b;
+		binopArgs(start, &a, &b);
+		__auto_type out=nodeDest(start);
+		struct X86AddressingMode *aMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(a);
+		struct X86AddressingMode *bMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(b);
+		struct X86AddressingMode *clMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86CL);
+		int shift=0;
+		if(bMode->type==X86ADDRMODE_SINT) {
+				if(bMode->value.sint==1)
+						goto one;
+				shift=bMode->value.sint;
+				goto imm;
+		}
+		if(bMode->type==X86ADDRMODE_UINT) {
+				if(bMode->value.uint==1)
+						goto one;
+				shift=bMode->value.uint;
+				goto imm;
+		}
+		clMode->valueType=&typeI8i;
+		{
+				pushReg(&regX86CL);
+				asmTypecastAssign(clMode, bMode);
+				strX86AddrMode args CLEANUP(strX86AddrModeDestroy2)=NULL;
+				args=strX86AddrModeAppendItem(args, X86AddrModeClone(aMode));
+				args=strX86AddrModeAppendItem(args, X86AddrModeReg(&regX86CL));
+				assembleInst(op, args);
+				popReg(&regX86CL);
+				return out;
+		}
+	one: {
+				strX86AddrMode args CLEANUP(strX86AddrModeDestroy2)=NULL;
+				args=strX86AddrModeAppendItem(args, X86AddrModeClone(aMode));
+				args=strX86AddrModeAppendItem(args, X86AddrModeSint(1));
+				assembleInst(op, args);
+				return out;
+		}
+	imm: {
+				strX86AddrMode args CLEANUP(strX86AddrModeDestroy2)=NULL;
+				args=strX86AddrModeAppendItem(args, X86AddrModeClone(aMode));
+				args=strX86AddrModeAppendItem(args, X86AddrModeSint(shift));
+				assembleInst(op, args);
+				return out;
+		}
+} 
 static graphNodeIR assembleOpIntLogical(graphNodeIR start, const char *suffix) {
 		graphNodeIR a, b, out = nodeDest(start);
 		binopArgs(start, &a, &b);
@@ -1500,15 +1562,14 @@ void asmTypecastAssign(struct X86AddressingMode *outMode, struct X86AddressingMo
 					struct X86AddressingMode *demoted2Out CLEANUP(X86AddrModeDestroy) = demoteAddrMode(rax, outMode->valueType);
 					struct X86AddressingMode *demoted2In CLEANUP(X86AddrModeDestroy) = demoteAddrMode(rax, inMode->valueType);
 
-					strX86AddrMode ppArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeClone(demoted2Out));
-					assembleInst("PUSH", ppArgs);
+					pushMode(demoted2Out);
 
 					struct X86AddressingMode *zero CLEANUP(X86AddrModeDestroy) = X86AddrModeSint(0);
 					asmAssign(demoted2Out, zero, objectSize(outMode->valueType, NULL));
 					asmAssign(demoted2In, inMode, objectSize(inMode->valueType, NULL));
 					asmAssign(outMode, demoted2Out, objectSize(outMode->valueType, NULL));
 
-					assembleInst("POP", ppArgs);
+					popMode(demoted2Out);
 				} else {
 					asmAssign(outMode, mode, objectSize(outMode->valueType, NULL));
 				}
@@ -1907,7 +1968,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 #define IF_NOT_CONFLICT(reg, code)                                                                                                                                 \
 	({                                                                                                                                                               \
 		if (out) {                                                                                                                                                     \
-			if (!regConflict(&reg, outReg)) {                                                                                                                            \
+				if(outReg) if (!regConflict(&reg, outReg)) {																								\
 				code;                                                                                                                                                      \
 			}                                                                                                                                                            \
 		} else {                                                                                                                                                       \
@@ -2231,9 +2292,9 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			graphNodeIR a, b;
 			binopArgs(start, &a, &b);
 			if (typeIsSigned(IRNodeType(start)))
-				assembleOpInt(start, "SAL");
+				assembleOpIntShift(start, "SAL");
 			else
-				assembleOpInt(start, "SHL");
+				assembleOpIntShift(start, "SHL");
 		} else
 			assert(0);
 		return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
@@ -2245,9 +2306,9 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			graphNodeIR a, b;
 			binopArgs(start, &a, &b);
 			if (typeIsSigned(IRNodeType(start)))
-				assembleOpInt(start, "SAR");
+				assembleOpIntShift(start, "SAR");
 			else
-				assembleOpInt(start, "SHR");
+				assembleOpIntShift(start, "SHR");
 		} else
 			assert(0);
 		return strGraphNodeIRPAppendItem(NULL, nodeDest(start));

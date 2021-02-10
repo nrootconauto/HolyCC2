@@ -496,6 +496,8 @@ enum archConfig getCurrentArch() {
 }
 struct reg *subRegOfType(struct reg *r, struct object *type) {
 	long iSize = objectSize(type, NULL);
+	if(iSize==r->size)
+			return r;
 	// Use the lower size part of register
 	strRegSlice *affects = &r->affects;
 	struct regSlice *subRegister = NULL;

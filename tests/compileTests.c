@@ -329,6 +329,13 @@ void compileTests() {
 						"I32i a=2,b=15,c;\n"
 #define operationTest(text) "gpDump();moveGpTo2();\n" text "gpDump();assertEq();\n"
 						operationTest("c=a+b;\n")
+						operationTest("c=a-b;\n")
+						operationTest("c=a*b;\n")
+						operationTest("c=a%b;\n")
+						operationTest("c=a/b;\n")
+						operationTest("c=a>>b;\n")
+						operationTest("c=a<<b;\n")
+						putY
 						"asm {\n"
 						exitStr
 						"}\n";
