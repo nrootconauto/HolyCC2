@@ -1547,7 +1547,7 @@ void asmTypecastAssign(struct X86AddressingMode *outMode, struct X86AddressingMo
 				}
 				return;
 			} else if (iSize > oSize) {
-				struct X86AddressingMode *mode CLEANUP(X86AddrModeDestroy) = demoteAddrMode(outMode, outMode->valueType);
+				struct X86AddressingMode *mode CLEANUP(X86AddrModeDestroy) = demoteAddrMode(inMode, outMode->valueType);
 				if (!mode) {
 					// Cant demote current mode,so use RAX register as accumatior(which can be demoted)
 					struct X86AddressingMode *rax CLEANUP(X86AddrModeDestroy) = NULL;

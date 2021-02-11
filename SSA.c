@@ -231,17 +231,7 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 
 		val->val.value.var.SSANum = version++;
 	}
-
-	//
-	// First do a set union of all paths though the assigned vars. Then number the
-	// items between each edge's node(is a mapped graph) of the assign graph.
-	//
-	strGraphEdgeMappingP un CLEANUP(strGraphEdgeMappingPDestroy) = NULL;
-	for (long i = 0; i != strGraphNodeMappingPSize(allVarAssigns); i++) {
-		strGraphEdgeMappingP allEdges CLEANUP(strGraphEdgeMappingPDestroy) = graphNodeMappingOutgoing(allVarAssigns[i]);
-		un = strGraphEdgePSetUnion(un, allEdges, (int (*)(const struct __graphEdge **, const struct __graphEdge **))ptrPtrCmp);
-	}
-
+	
 	//
 	// Get list of start nodes,we want to not stop at other versions starts while
 	// going from one versions start to
@@ -249,53 +239,27 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 	strGraphNodeIRP versionStarts CLEANUP(strGraphNodeIRPDestroy) = NULL;
 	for (long i = 0; i != strGraphNodeMappingPSize(allVarAssigns); i++) {
 		__auto_type node = *graphNodeMappingValuePtr(allVarAssigns[i]);
+		if(node==start)
+				continue;
 		versionStarts = strGraphNodeIRPSortedInsert(versionStarts, node, (gnCmpType)ptrPtrCmp);
 	}
 
-	for (long i = 0; i != strGraphEdgeMappingPSize(un); i++) {
-		__auto_type start = *graphNodeMappingValuePtr(graphEdgeMappingIncoming(un[i]));
-		__auto_type end = *graphNodeMappingValuePtr(graphEdgeMappingOutgoing(un[i]));
-
-		__auto_type mappedStart = *ptrMapGraphNodeGet(IR2MappingNode, start);
-		__auto_type mappedEnd = *ptrMapGraphNodeGet(IR2MappingNode, end);
-
-		// Find all paths from start->end
-		strGraphPath allPaths CLEANUP(strGraphPathDestroy2) = graphAllPathsTo(mappedStart, mappedEnd);
-		for (long pathI = 0; pathI != strGraphPathSize(allPaths); pathI++) {
-			// Insert versions between assigns
-
-			//!!! Last edge points to next assign and we dont want to overwrite assign
-			// Dont pop a self-reference
-			if (strGraphEdgePSize(allPaths[pathI]) == 0)
-				continue;
-			allPaths[pathI] = strGraphEdgePPop(allPaths[pathI], NULL);
-
-			versionAllVarsBetween(allPaths[pathI], versionStarts);
-		}
-	}
-	//
-	// Find exit nodes
-	//
 	for (long i = 0; i != strGraphNodeIRPSize(versionStarts); i++) {
-		if (versionStarts[i] == start)
-			continue;
-
-		__auto_type mappedNode = *ptrMapGraphNodeGet(IR2MappingNode, versionStarts[i]);
-
-		// Find all null paths from assign
-		__nullPathOrVersioned_IgnoreMapping=mappedNode;
-		strGraphEdgeMappingP allEdges CLEANUP(strGraphEdgeMappingPDestroy) = graphAllEdgesBetween(mappedNode, versionStarts, (int(*)(const struct  __graphNode*,const void*))nullPathOrVersioned);
-
-		// Version vars from assign to exit
-		for (long i2 = 0; i2 != strGraphEdgeMappingPSize(allEdges); i2++) {
-				__auto_type outIR=*graphNodeMappingValuePtr(graphEdgeMappingOutgoing(allEdges[i2]));
+		__auto_type mappedStart = *ptrMapGraphNodeGet(IR2MappingNode, versionStarts[i]);
+		// Find all paths from start->end
+		__nullPathOrVersioned_IgnoreMapping=mappedStart;
+		strGraphEdgeMappingP  allPaths CLEANUP(strGraphEdgeMappingPDestroy) = graphAllEdgesBetween(mappedStart, versionStarts, (int(*)(const struct  __graphNode*,const void*))nullPathOrVersioned);
+		for (long pathI = 0; pathI != strGraphEdgeMappingPSize(allPaths); pathI++) {
+			// Insert versions between assigns
+				__auto_type outIR=*graphNodeMappingValuePtr(graphEdgeMappingOutgoing(allPaths[pathI]));
 				if(strGraphNodeIRPSortedFind(versionStarts, outIR, (gnCmpType)ptrPtrCmp))
 						continue;
-				struct IRNodeValue *in=(void*)graphNodeIRValuePtr(versionStarts[i]);
+				struct IRNodeValue *in=(void*)graphNodeIRValuePtr(*graphNodeMappingValuePtr(mappedStart));
 				struct IRNodeValue *o=(void*)graphNodeIRValuePtr(outIR);
 				o->val.value.var.SSANum=in->val.value.var.SSANum;
 		}
 	}
+	debugPrintGraph(varRefsG);
 }
 STR_TYPE_DEF(struct IRVar, IRVar);
 STR_TYPE_FUNCS(struct IRVar, IRVar);

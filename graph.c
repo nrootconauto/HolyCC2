@@ -454,18 +454,21 @@ graphNodeMapping createFilteredGraph(struct __graphNode *start, strGraphNodeP no
 
 	return retVal;
 }
-static void __graphAllEdgesBetween(strGraphEdgeP *nodes, strGraphEdgeP *visitedNodes, strGraphEdgeP *currentPath, const struct __graphEdge *from, const void *data,
+static void __graphAllEdgesBetween(strGraphEdgeP *nodes, strGraphNodeP *visitedNodes, strGraphEdgeP *currentPath, const struct __graphEdge *from, const void *data,
                                    int (*predicate)(const struct __graphNode *node, const void *data)) {
-	if (strGraphEdgePSortedFind(*visitedNodes, from, (geCmpType)ptrCompare))
-		return;
-	if (predicate(from->to, data)) {
-		long len = strGraphEdgePSize(*currentPath); // Exclude last node
+		//
+		// If we land on  an edge that leads to destination,that edge leads to the destination so we dont have to look forward
+		//
+		if(strGraphEdgePSortedFind(*nodes, from, (geCmpType)ptrCompare))
+					goto add;
+		if (predicate(from->to, data)) {
+		add:;
+				long len = strGraphEdgePSize(*currentPath); // Exclude last node
 		strGraphEdgeP pathClone CLEANUP(strGraphEdgePDestroy) = strGraphEdgePAppendData(NULL, (const struct __graphEdge **)*currentPath, len);
 		qsort(pathClone, len, sizeof(*pathClone), ptrCompare);
 		*nodes = strGraphEdgePSetUnion(*nodes, pathClone, (geCmpType)ptrCompare);
 		return;
 	}
-	*visitedNodes = strGraphEdgePSortedInsert(*visitedNodes, (struct __graphEdge *)from, (geCmpType)ptrCompare);
 	for (long i = 0; i != strGraphEdgePSize(from->to->outgoing); i++) {
 		*currentPath = strGraphEdgePAppendItem(*currentPath, from->to->outgoing[i]);
 		__graphAllEdgesBetween(nodes, visitedNodes, currentPath, from->to->outgoing[i], data, predicate);
@@ -474,10 +477,13 @@ static void __graphAllEdgesBetween(strGraphEdgeP *nodes, strGraphEdgeP *visitedN
 }
 strGraphEdgeP graphAllEdgesBetween(const struct __graphNode *node, const void *data, int (*predicate)(const struct __graphNode *node, const void *data)) {
 	strGraphEdgeP nodes = NULL;
-	strGraphEdgeP visited CLEANUP(strGraphEdgePDestroy) = NULL;
+	strGraphNodeP visited CLEANUP(strGraphNodePDestroy) = NULL;
 	strGraphEdgeP currentPath CLEANUP(strGraphEdgePDestroy) = NULL;
-	for (long i = 0; i != strGraphEdgePSize(node->outgoing); i++)
-		__graphAllEdgesBetween(&nodes, &visited, &currentPath, node->outgoing[i], data, predicate);
+	for (long i = 0; i != strGraphEdgePSize(node->outgoing); i++) {
+				currentPath = strGraphEdgePAppendItem(currentPath, node->outgoing[i]);
+			__graphAllEdgesBetween(&nodes, &visited, &currentPath, node->outgoing[i], data, predicate);
+			currentPath = strGraphEdgePPop(currentPath, NULL);
+	}
 	return nodes;
 }
 // https://efficientcodeblog.wordpress.com/2018/02/15/finding-all-paths-between-two-nodes-in-a-graph/
