@@ -12,11 +12,13 @@
 //#define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 static void debugPrintGraph(graphNodeMapping map) {
+#if DEBUG_PRINT_ENABLE
 	char *fn = tmpnam(NULL);
 	IRGraphMap2GraphViz(map, "filter", fn, NULL, NULL, NULL, NULL);
 	char buffer[1024];
 	sprintf(buffer, "dot -Tsvg %s >/tmp/dot.svg && firefox /tmp/dot.svg &", fn);
 	system(buffer);
+#endif
 }
 #define GRAPHN_ALLOCATE(x) ({ __graphNodeCreate(&x, sizeof(x), 0); })
 typedef int (*strGN_IRCmpType)(const strGraphNodeIRP *, const strGraphNodeIRP *);

@@ -18,6 +18,7 @@
 #include <registers.h>
 #include <stdarg.h>
 #include <stdio.h>
+#define DEBUG_PRINT_ENABLE 1
 static void *IR_ATTR_ADDR_MODE = "ADDR_MODE";
 struct IRAttrAddrMode {
 	struct IRAttr base;
@@ -442,13 +443,15 @@ static int frameEntryCmp(const void *a, const void *b) {
 	return IRVarCmp(&A->var, &B->var);
 }
 static void debugShowGraphIR(graphNodeIR enter) {
-	const char *name = tmpnam(NULL);
+#if DEBUG_PRINT_ENABLE
+		const char *name = tmpnam(NULL);
 	__auto_type map = graphNodeCreateMapping(enter, 1);
 	IRGraphMap2GraphViz(map, "viz", name, NULL, NULL, NULL, NULL);
 	char buffer[1024];
 	sprintf(buffer, "sleep 0.1 &&dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg & ", name);
 
 	system(buffer);
+	#endif
 }
 static strGraphNodeIRP insertLabelsForAsm(strGraphNodeIRP nodes) {
 	strGraphNodeIRP inserted = NULL;
@@ -722,7 +725,7 @@ callMemcpy : {
 }
 }
 void IRCompile(graphNodeIR start, int isFunc) {
-	debugShowGraphIR(start);
+		debugShowGraphIR(start);
 	if (isFunc) {
 		struct IRNodeFuncStart *funcNode = (void *)graphNodeIRValuePtr(start);
 		X86EmitAsmLabel(funcNode->func->name);

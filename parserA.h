@@ -88,6 +88,7 @@ struct parserVar {
 	strParserNode refs;
 	unsigned int isGlobal : 1;
 	unsigned int isNoreg : 1;
+		unsigned int isTmp:1;
 };
 struct parserFunction {
 	char *name;

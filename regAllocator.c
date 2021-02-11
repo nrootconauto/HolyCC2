@@ -43,13 +43,15 @@ static char *strClone(const char *text) {
 	return retVal;
 }
 static void debugShowGraphIR(graphNodeIR enter) {
-	const char *name = tmpnam(NULL);
+#if DEBUG_PRINT_ENABLE
+		const char *name = tmpnam(NULL);
 	__auto_type map = graphNodeCreateMapping(enter, 1);
 	IRGraphMap2GraphViz(map, "viz", name, NULL, NULL, NULL, NULL);
 	char buffer[1024];
 	sprintf(buffer, "sleep 0.1 &&dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg & ", name);
 
 	system(buffer);
+#endif
 }
 PTR_MAP_FUNCS(struct __graphNode *, struct regSlice, regSlice);
 static char *interfereNode2Label(const struct __graphNode *node, mapGraphVizAttr *attrs, const void *data) {

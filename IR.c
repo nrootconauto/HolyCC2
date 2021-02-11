@@ -159,6 +159,7 @@ struct parserVar *IRCreateVirtVar(struct object *type) {
 	var.refs = NULL;
 	var.type = type;
 	var.isGlobal = 0;
+	var.isTmp=1;
 	__auto_type alloced = ALLOCATE(var);
 
 	return alloced;
