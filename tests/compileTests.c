@@ -290,7 +290,7 @@ void compileTests() {
 				free(asmF);	
 				free(source);
 				}*/
-		{
+		/*{
 				const char * text=
 						"I32i rEax,rEcx,rEdx,rEbx,rEsi,rEdi;\n"
 						"I32i rEax2,rEcx2,rEdx2,rEbx2,rEsi2,rEdi2;"
@@ -346,6 +346,72 @@ void compileTests() {
 						operationTest("c=a^b;\n")
 						operationTest("c=a^b;\n")
 						operationTest("c=~b;\n")
+						putY
+						"asm {\n"
+						exitStr
+						"}\n";
+				char *source=text2File(text);
+				char *asmF=strDup(tmpnam(NULL));
+				compileFile(source, asmF);
+				runTest(asmF,"y");
+				free(asmF);	
+				free(source);
+				}*/
+		{
+				const char * text=
+						"U0 assertEq(I32i a,I32i b) {\n"
+						"    if(a!=b) {\n"
+						"         asm {\n"
+						exitStr
+						"         }\n"
+						"    }\n"
+						"}\n"
+						"I32i a,b,c;\n"
+						"a=25,b=5;\n"
+						"c=a+b;\n"
+						"assertEq(c,30);\n"
+						"c=a-b;\n"
+						"assertEq(c,20);\n"
+						"c=a/b;\n"
+						"assertEq(c,5);\n"
+						"c=a*b;\n"
+						"assertEq(c,125);\n"
+						"c=a%b;\n"
+						"assertEq(c,0);\n"
+						"c=a<<b;\n"
+						"assertEq(c,800);\n"
+						"c=a>>b;\n"
+						"assertEq(c,0);\n"
+						"c=a>b;\n"
+						"assertEq(c,1);\n"
+						"c=a<b;\n"
+						"assertEq(c,0);\n"
+						"c=a>=25;\n"
+						"assertEq(c,1);\n"
+						"c=a<=25;\n"
+						"assertEq(c,1);\n"
+						"c=a==b;\n"
+						"assertEq(c,0);\n"
+						"c=a!=b;\n"
+						"assertEq(c,1);\n"
+						"c=a!=b;\n"
+						"assertEq(c,1);\n"
+						"c=a&b;\n"
+						"assertEq(c,1);\n"
+						"c=a|b;\n"
+						"assertEq(c,29);\n"
+						"c=a^b;\n"
+						"assertEq(c,28);\n"
+						"c=~~b;\n"
+						"assertEq(c,5);\n"
+						"c=!b;\n"
+						"assertEq(c,0);\n"
+						"c=a&&b;\n"
+						"assertEq(c,1);\n"
+						"c=a||b;\n"
+						"assertEq(c,1);\n"
+						"c=a^^b;\n"
+						"assertEq(c,0);\n"
 						putY
 						"asm {\n"
 						exitStr

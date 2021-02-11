@@ -181,6 +181,15 @@ static void strGraphPathDestroy2(strGraphPath *paths) {
 static void graphNodeMappingDestroy2(graphNodeMapping *map) {
 	graphNodeMappingKill(map, NULL, NULL);
 }
+static __thread graphNodeMapping __nullPathOrVersioned_IgnoreMapping=NULL;
+static int nullPathOrVersioned(graphNodeMapping mapping,strGraphNodeIRP versioned) {
+		strGraphEdgeMappingP out CLEANUP(strGraphEdgeMappingPDestroy)=graphNodeMappingOutgoing(mapping);
+		if(strGraphEdgeMappingPSize(out)==0)
+				return 1;
+		if(mapping==__nullPathOrVersioned_IgnoreMapping)
+				return 0;
+		return NULL!=strGraphNodeIRPSortedFind(versioned, *graphNodeMappingValuePtr(mapping), (gnCmpType)ptrPtrCmp);
+} 
 static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 	//
 	struct varAndEnterPair pair;
@@ -208,7 +217,7 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 
 	strGraphNodeMappingP allVarAssigns CLEANUP(strGraphNodeMappingPDestroy) = graphNodeMappingAllNodes(varAssignG);
 
-	// graphPrint(varAssignG, node2Str);
+	debugPrintGraph(varAssignG);
 	// Number the assigns
 	long version = 1;
 	for (long i = 0; i != strGraphNodeMappingPSize(allVarAssigns); i++) {
@@ -267,18 +276,24 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 	//
 	// Find exit nodes
 	//
-	for (long i = 0; i != strGraphNodeMappingPSize(versionStarts); i++) {
+	for (long i = 0; i != strGraphNodeIRPSize(versionStarts); i++) {
 		if (versionStarts[i] == start)
 			continue;
 
 		__auto_type mappedNode = *ptrMapGraphNodeGet(IR2MappingNode, versionStarts[i]);
 
 		// Find all null paths from assign
-		strGraphPath nullPaths CLEANUP(strGraphPathDestroy2) = graphAllPathsTo(mappedNode, NULL);
+		__nullPathOrVersioned_IgnoreMapping=mappedNode;
+		strGraphEdgeMappingP allEdges CLEANUP(strGraphEdgeMappingPDestroy) = graphAllEdgesBetween(mappedNode, versionStarts, (int(*)(const struct  __graphNode*,const void*))nullPathOrVersioned);
 
 		// Version vars from assign to exit
-		for (long i2 = 0; i2 != strGraphPathSize(nullPaths); i2++) {
-			versionAllVarsBetween(nullPaths[i2], versionStarts);
+		for (long i2 = 0; i2 != strGraphEdgeMappingPSize(allEdges); i2++) {
+				__auto_type outIR=*graphNodeMappingValuePtr(graphEdgeMappingOutgoing(allEdges[i2]));
+				if(strGraphNodeIRPSortedFind(versionStarts, outIR, (gnCmpType)ptrPtrCmp))
+						continue;
+				struct IRNodeValue *in=(void*)graphNodeIRValuePtr(versionStarts[i]);
+				struct IRNodeValue *o=(void*)graphNodeIRValuePtr(outIR);
+				o->val.value.var.SSANum=in->val.value.var.SSANum;
 		}
 	}
 }

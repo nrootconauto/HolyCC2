@@ -2239,6 +2239,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		asmAssign(oMode, zero, objectSize(IRNodeType(outNode), NULL));
 
 		strX86AddrMode cmpArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeClone(iMode));
+		cmpArgs=strX86AddrModeAppendItem(cmpArgs, X86AddrModeSint(0));
 		assembleInst("CMP", cmpArgs);
 
 		setCond("E", oMode);

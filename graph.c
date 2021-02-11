@@ -531,7 +531,7 @@ strGraphPath graphAllPathsTo(struct __graphNode *from, struct __graphNode *to) {
 	strGraphPath paths = NULL;
 	strGraphEdgeP currentPath = NULL;
 
-	__graphAllPathsTo(&currentPath, &paths, from, to, allPaths2Pred);
+	__graphAllPathsTo(&currentPath, &paths, from, to, (to==NULL)?NULL:allPaths2Pred);
 
 	return paths;
 }
