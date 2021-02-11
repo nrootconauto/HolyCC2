@@ -335,6 +335,17 @@ void compileTests() {
 						operationTest("c=a/b;\n")
 						operationTest("c=a>>b;\n")
 						operationTest("c=a<<b;\n")
+						operationTest("c=a<b;\n")
+						operationTest("c=a>b;\n")
+						operationTest("c=a<=b;\n")
+						operationTest("c=a>=b;\n")
+						operationTest("c=a==b;\n")
+						operationTest("c=a!=b;\n")
+						operationTest("c=a&b;\n")
+						operationTest("c=a|b;\n")
+						operationTest("c=a^b;\n")
+						operationTest("c=a^b;\n")
+						operationTest("c=~b;\n")
 						putY
 						"asm {\n"
 						exitStr
