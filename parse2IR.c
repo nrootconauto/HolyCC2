@@ -152,7 +152,7 @@ static int visitNotVisitedOperand(const struct __graphNode *node, const struct _
 	case IR_CONN_SOURCE_A:
 	case IR_CONN_SOURCE_B:
 	case IR_CONN_DEST:
-	case IR_CONN_FUNC_ARG_1...IR_CONN_FUNC_ARG_128:
+	case IR_CONN_FUNC_ARG_1 ... IR_CONN_FUNC_ARG_128:
 		break;
 	default:
 		return 0;
@@ -578,15 +578,15 @@ static graphNodeIR parserNode2Expr(const struct parserNode *node) {
 	switch (node->type) {
 	default:
 		return NULL;
-		case NODE_SIZEOF_EXP: {
-			struct parserNodeSizeofExp *exp=(void*)node;
-			__auto_type size=IRCreateIntLit(objectSize(assignTypeToOp(exp->exp), NULL));
-			return size;
+	case NODE_SIZEOF_EXP: {
+		struct parserNodeSizeofExp *exp = (void *)node;
+		__auto_type size = IRCreateIntLit(objectSize(assignTypeToOp(exp->exp), NULL));
+		return size;
 	}
 	case NODE_SIZEOF_TYPE: {
-			struct parserNodeSizeofType *t=(void*)node;
-			__auto_type size=IRCreateIntLit(objectSize(t->type, NULL));
-			return size;
+		struct parserNodeSizeofType *t = (void *)node;
+		__auto_type size = IRCreateIntLit(objectSize(t->type, NULL));
+		return size;
 	}
 	case NODE_VAR: {
 		struct parserNodeVar *var = (void *)node;
@@ -650,7 +650,7 @@ static graphNodeIR parserNode2Expr(const struct parserNode *node) {
 		struct IRNodeFuncCall call;
 		call.base.attrs = NULL;
 		call.base.type = IR_FUNC_CALL;
-	
+
 		struct parserNodeFuncCall *call2 = (void *)node;
 		__auto_type func = parserNode2Expr(call2->func);
 
@@ -672,9 +672,9 @@ static graphNodeIR parserNode2Expr(const struct parserNode *node) {
 
 		// Connect args
 		graphNodeIR callNode = GRAPHN_ALLOCATE(call);
-		assert(strGraphNodeIRPSize(args)<=128);
+		assert(strGraphNodeIRPSize(args) <= 128);
 		for (long i = 0; i != strGraphNodeIRPSize(args); i++) {
-			graphNodeIRConnect(args[i], callNode, IR_CONN_FUNC_ARG_1+i);
+			graphNodeIRConnect(args[i], callNode, IR_CONN_FUNC_ARG_1 + i);
 		}
 
 		// Connect func
@@ -795,9 +795,9 @@ static graphNodeIR parserNode2Expr(const struct parserNode *node) {
 		struct parserNodeMemberAccess *access = (void *)node;
 		assert(access->name->type == NODE_NAME);
 		struct parserNodeName *name = (void *)access->name;
-		__auto_type expr=parserNode2Expr(access->exp);
-		struct parserNodeOpTerm *op=(void*)access->op;
-		graphNodeIR retVal=NULL;
+		__auto_type expr = parserNode2Expr(access->exp);
+		struct parserNodeOpTerm *op = (void *)access->op;
+		graphNodeIR retVal = NULL;
 		retVal = IRCreateMemberAccess(expr, name->text);
 		return retVal;
 	}
@@ -841,7 +841,6 @@ default:;
 }
 	*/
 
-		
 	__auto_type retVal = __parserNode2IRNoStmt(node);
 
 	// Leave statement if in statement
@@ -1002,9 +1001,9 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 			graphNodeIRConnect(label, pointsToLabel, IR_CONN_FLOW);
 		}
 
-		__auto_type dummy=IRCreateLabel();
+		__auto_type dummy = IRCreateLabel();
 		graphNodeIRConnect(label, dummy, IR_CONN_NEVER_FLOW);
-		
+
 		return (struct enterExit){label, dummy};
 	}
 	case NODE_RETURN: {
@@ -1015,7 +1014,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 			pair = __parserNode2IRStmt(retNode->value);
 			value = pair.exit;
 		}
-		
+
 		pair.exit = IRCreateReturn(value, NULL); // TODO
 		if (!pair.enter)
 			pair.enter = pair.exit;
@@ -1051,8 +1050,8 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 		struct objectFunction *func = (void *)def->funcType;
 		for (long i = 0; i != strFuncArgSize(func->args); i++) {
 			__auto_type arg = IRCreateFuncArg(func->args[i].type, i);
-			struct parserNodeVarDecl *decl=(void*)def->args[i];
-			assert(decl->base.type==NODE_VAR_DECL);
+			struct parserNodeVarDecl *decl = (void *)def->args[i];
+			assert(decl->base.type == NODE_VAR_DECL);
 			__auto_type var = IRCreateVarRef(decl->var);
 			graphNodeIRConnect(currentNode, arg, IR_CONN_FLOW);
 			graphNodeIRConnect(arg, var, IR_CONN_DEST);
@@ -1293,8 +1292,8 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 	}
 	case NODE_CLASS_DEF:
 	case NODE_FUNC_FORWARD_DECL: {
-			__auto_type lab=IRCreateLabel();
-			return (struct enterExit){lab,lab};
+		__auto_type lab = IRCreateLabel();
+		return (struct enterExit){lab, lab};
 	}
 	case NODE_KW:
 	case NODE_META_DATA:
@@ -1323,7 +1322,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 		graphNodeIR currentNode = NULL;
 		struct enterExit retVal = {NULL, NULL};
 		for (long i = 0; i != strParserNodeSize(decls->decls); i++) {
- 			__auto_type tmp = varDecl2IR(decls->decls[i]);
+			__auto_type tmp = varDecl2IR(decls->decls[i]);
 			if (!retVal.enter)
 				retVal.enter = tmp.enter;
 			if (currentNode)

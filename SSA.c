@@ -6,10 +6,9 @@
 #include <cleanup.h>
 #include <graphDominance.h>
 #include <hashTable.h>
+#include <limits.h>
 #include <stdio.h>
 #include <topoSort.h>
-#include <hashTable.h>
-#include <limits.h>
 //#define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 static void debugPrintGraph(graphNodeMapping map) {
@@ -96,8 +95,8 @@ static int __isAssignedVar(struct varAndEnterPair *data, struct __graphNode *nod
 	if (ir->type == IR_VALUE) {
 		struct IRNodeValue *val = (void *)ir;
 		if (val->val.type == IR_VAL_VAR_REF) {
-				if (expectedVar->var == val->val.value.var.var)
-						goto checkForAssign;
+			if (expectedVar->var == val->val.value.var.var)
+				goto checkForAssign;
 		}
 	}
 
@@ -298,7 +297,7 @@ static strGraphNodeIRP IRSSACompute(graphNodeMapping start, struct IRVar *var, p
 	//
 	__auto_type frontiersToMaster = ptrMapChooseIncomingsCreate();
 	__auto_type nodeKey2Ptr = ptrMapGraphNodeCreate();
-	
+
 	strGraphNodeMappingP mappedNodes CLEANUP(strGraphNodeMappingPDestroy) = graphNodeMappingAllNodes(start);
 	__auto_type doms = graphComputeDominatorsPerNode(start); // TODO free
 	__auto_type first = llDominatorsValuePtr(llDominatorsFind(doms, start, llDominatorCmp));
@@ -523,97 +522,99 @@ static void transparentKill(graphNodeIR node) {
 
 	graphNodeIRKill(&node, NULL, NULL);
 }
-static int __removeSameyChooses(graphNodeIR chooseNode,mapStrGNIR byNum) {
-		struct IRNodeChoose *choose=(void*)graphNodeIRValuePtr(chooseNode);
-		struct IRNodeValue *val=(void*)graphNodeIRValuePtr(choose->canidates[0]);;
+static int __removeSameyChooses(graphNodeIR chooseNode, mapStrGNIR byNum) {
+	struct IRNodeChoose *choose = (void *)graphNodeIRValuePtr(chooseNode);
+	struct IRNodeValue *val = (void *)graphNodeIRValuePtr(choose->canidates[0]);
+	;
 
-		strGraphNodeIRP out CLEANUP(strGraphNodeIRPDestroy)=graphNodeIROutgoingNodes(chooseNode);
-		__auto_type chooseAssign=out[0];
-		struct IRNodeValue *val2=(void*)graphNodeIRValuePtr(out[0]);
-		long toReplace=val2->val.value.var.SSANum;
+	strGraphNodeIRP out CLEANUP(strGraphNodeIRPDestroy) = graphNodeIROutgoingNodes(chooseNode);
+	__auto_type chooseAssign = out[0];
+	struct IRNodeValue *val2 = (void *)graphNodeIRValuePtr(out[0]);
+	long toReplace = val2->val.value.var.SSANum;
 
-		long first=LONG_MIN;
-		for(long c=0;c<strGraphNodeIRPSize(choose->canidates);c++) {
-				struct IRNodeValue *val=(void*)graphNodeIRValuePtr(choose->canidates[c]);
-				long num=val->val.value.var.SSANum;
-				if(num==toReplace) {
-						continue;
-				}
-				if(first==LONG_MIN) {
-						first=num;
-						continue;
-				}
-				if(first!=num)
-						return 0;
+	long first = LONG_MIN;
+	for (long c = 0; c < strGraphNodeIRPSize(choose->canidates); c++) {
+		struct IRNodeValue *val = (void *)graphNodeIRValuePtr(choose->canidates[c]);
+		long num = val->val.value.var.SSANum;
+		if (num == toReplace) {
+			continue;
 		}
-		if(first==LONG_MIN)
-				first=toReplace;
-		
-		char bufferSrc[32];
-		sprintf(bufferSrc, "%li", toReplace);
-		__auto_type findSrc=*mapStrGNIRGet(byNum, bufferSrc);
-
-		char bufferDst[32];
-		sprintf(bufferDst, "%li", first);
-		__auto_type findDest=mapStrGNIRGet(byNum, bufferDst);
-		if(first!=toReplace) {
-				for(long r=0;r!=strGraphNodeIRPSize(findSrc);r++) {
-						struct IRNodeValue *val=(void*)graphNodeIRValuePtr(findSrc[r]);
-						val->val.value.var.SSANum=first;
-						*findDest=strGraphNodeIRPSortedInsert(*findDest, findSrc[r], (gnCmpType)ptrPtrCmp);
-				}
+		if (first == LONG_MIN) {
+			first = num;
+			continue;
 		}
-		strGraphNodeIRPDestroy(mapStrGNIRGet(byNum, bufferSrc));
+		if (first != num)
+			return 0;
+	}
+	if (first == LONG_MIN)
+		first = toReplace;
 
-		transparentKill(chooseNode);
-		//Assigned is the node being assigned into by the choose node,if no expressions reading/writing the node,can safley destroy it
-		strGraphEdgeIRP assignedIn CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(chooseAssign);
-		strGraphEdgeIRP assignedOut CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(chooseAssign);
-		for(long i=0;i!=strGraphEdgeIRPSize(assignedIn);i++)
-				if(IRIsExprEdge(*graphEdgeIRValuePtr(assignedIn[i])))
-						goto end;
-		for(long o=0;o!=strGraphEdgeIRPSize(assignedOut);o++)
-				if(IRIsExprEdge(*graphEdgeIRValuePtr(assignedOut[o])))
-						goto end;
-		transparentKill(chooseAssign);
-		end:
-		return 1;
+	char bufferSrc[32];
+	sprintf(bufferSrc, "%li", toReplace);
+	__auto_type findSrc = *mapStrGNIRGet(byNum, bufferSrc);
+
+	char bufferDst[32];
+	sprintf(bufferDst, "%li", first);
+	__auto_type findDest = mapStrGNIRGet(byNum, bufferDst);
+	if (first != toReplace) {
+		for (long r = 0; r != strGraphNodeIRPSize(findSrc); r++) {
+			struct IRNodeValue *val = (void *)graphNodeIRValuePtr(findSrc[r]);
+			val->val.value.var.SSANum = first;
+			*findDest = strGraphNodeIRPSortedInsert(*findDest, findSrc[r], (gnCmpType)ptrPtrCmp);
+		}
+	}
+	strGraphNodeIRPDestroy(mapStrGNIRGet(byNum, bufferSrc));
+
+	transparentKill(chooseNode);
+	// Assigned is the node being assigned into by the choose node,if no expressions reading/writing the node,can safley destroy it
+	strGraphEdgeIRP assignedIn CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(chooseAssign);
+	strGraphEdgeIRP assignedOut CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIROutgoing(chooseAssign);
+	for (long i = 0; i != strGraphEdgeIRPSize(assignedIn); i++)
+		if (IRIsExprEdge(*graphEdgeIRValuePtr(assignedIn[i])))
+			goto end;
+	for (long o = 0; o != strGraphEdgeIRPSize(assignedOut); o++)
+		if (IRIsExprEdge(*graphEdgeIRValuePtr(assignedOut[o])))
+			goto end;
+	transparentKill(chooseAssign);
+end:
+	return 1;
 }
-static void removeSameyChooses(graphNodeIR start,struct parserVar *var) {
-		strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);
-		strGraphNodeIRP allChooses4Var CLEANUP(strGraphNodeIRPDestroy)=NULL;
+static void removeSameyChooses(graphNodeIR start, struct parserVar *var) {
+	strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRAllNodes(start);
+	strGraphNodeIRP allChooses4Var CLEANUP(strGraphNodeIRPDestroy) = NULL;
 
-		mapStrGNIR byNum=mapStrGNIRCreate();;
-		for(long n=0;n!=strGraphNodeIRPSize(allNodes);n++) {
-				if(graphNodeIRValuePtr(allNodes[n])->type==IR_CHOOSE) {
-						strGraphNodeIRP out CLEANUP(strGraphNodeIRPDestroy)=graphNodeIROutgoingNodes(allNodes[n]);
-						struct IRNodeValue *val=(void*)graphNodeIRValuePtr(out[0]);
-						if(var==val->val.value.var.var)
-								allChooses4Var=strGraphNodeIRPSortedInsert(allChooses4Var, allNodes[n], (gnCmpType)ptrPtrCmp);
-				} else if(graphNodeIRValuePtr(allNodes[n])->type==IR_VALUE) {
-						struct IRNodeValue *val=(void*)graphNodeIRValuePtr(allNodes[n]);
-						if(var!=val->val.value.var.var)
-								continue;
-						char buffer[32];
-						sprintf(buffer, "%li", val->val.value.var.SSANum);
-				loop:
-						if(mapStrGNIRGet(byNum, buffer)) {
-								__auto_type find=mapStrGNIRGet(byNum, buffer);
-								*find=strGraphNodeIRPSortedInsert(*find,allNodes[n],(gnCmpType)ptrPtrCmp); 
-						} else {
-								mapStrGNIRInsert(byNum, buffer,NULL);
-								goto loop;
-						}
-				}
+	mapStrGNIR byNum = mapStrGNIRCreate();
+	;
+	for (long n = 0; n != strGraphNodeIRPSize(allNodes); n++) {
+		if (graphNodeIRValuePtr(allNodes[n])->type == IR_CHOOSE) {
+			strGraphNodeIRP out CLEANUP(strGraphNodeIRPDestroy) = graphNodeIROutgoingNodes(allNodes[n]);
+			struct IRNodeValue *val = (void *)graphNodeIRValuePtr(out[0]);
+			if (var == val->val.value.var.var)
+				allChooses4Var = strGraphNodeIRPSortedInsert(allChooses4Var, allNodes[n], (gnCmpType)ptrPtrCmp);
+		} else if (graphNodeIRValuePtr(allNodes[n])->type == IR_VALUE) {
+			struct IRNodeValue *val = (void *)graphNodeIRValuePtr(allNodes[n]);
+			if (var != val->val.value.var.var)
+				continue;
+			char buffer[32];
+			sprintf(buffer, "%li", val->val.value.var.SSANum);
+		loop:
+			if (mapStrGNIRGet(byNum, buffer)) {
+				__auto_type find = mapStrGNIRGet(byNum, buffer);
+				*find = strGraphNodeIRPSortedInsert(*find, allNodes[n], (gnCmpType)ptrPtrCmp);
+			} else {
+				mapStrGNIRInsert(byNum, buffer, NULL);
+				goto loop;
+			}
 		}
+	}
 
-	removedLoop:;
-		for(long c=0;c!=strGraphNodeIRPSize(allChooses4Var);c++) {
-				if(__removeSameyChooses(allChooses4Var[c], byNum)) {
-						allChooses4Var=strGraphNodeIRPRemoveItem(allChooses4Var, allChooses4Var[c], (gnCmpType)ptrPtrCmp);
-						goto removedLoop;
-				}
+removedLoop:;
+	for (long c = 0; c != strGraphNodeIRPSize(allChooses4Var); c++) {
+		if (__removeSameyChooses(allChooses4Var[c], byNum)) {
+			allChooses4Var = strGraphNodeIRPRemoveItem(allChooses4Var, allChooses4Var[c], (gnCmpType)ptrPtrCmp);
+			goto removedLoop;
 		}
+	}
 }
 void IRToSSA(graphNodeIR enter) {
 	__auto_type nodes = graphNodeIRAllNodes(enter);
@@ -642,8 +643,8 @@ void IRToSSA(graphNodeIR enter) {
 		// Number the versions
 		SSAVersionVar(enter, &allVars[i]);
 
-		removeSameyChooses(enter,allVars[i].var);
-		
+		removeSameyChooses(enter, allVars[i].var);
+
 		newNodes = strGraphNodeIRPConcat(newNodes, chooses);
 	}
 
@@ -713,8 +714,8 @@ static void strIRPathsDestroy2(strIRPaths *paths) {
 }
 static void __paths2Choose(graphNodeIR node, graphNodeIR choose, strIRPath *currentPath, strIRPaths *paths) {
 	__auto_type end = IREndOfExpr(node);
-	if(strIRPathSize(*currentPath)!=0)
-			node = (!end) ? node : end;
+	if (strIRPathSize(*currentPath) != 0)
+		node = (!end) ? node : end;
 	if (IRStmtStart(node) == choose) {
 		for (long p = 0; p != strIRPathsSize(*paths); p++) {
 			if (strIRPathSize(*currentPath) != strIRPathSize(paths[0][p]))
@@ -796,10 +797,10 @@ void IRSSAReplaceChooseWithAssigns(graphNodeIR node, strGraphNodeIRP *replaced) 
 
 	strIRPaths paths CLEANUP(strIRPathsDestroy2) = NULL;
 	for (long i = 0; i != strGraphNodeIRPSize(choose->canidates); i++) {
-			struct IRNodeValue *canVal=(void*)graphNodeIRValuePtr(choose->canidates[i]);
-			if(0==IRVarCmp(&canVal->val.value.var, var))
-					continue;
-			paths2Choose(&paths, choose->canidates[i], node);
+		struct IRNodeValue *canVal = (void *)graphNodeIRValuePtr(choose->canidates[i]);
+		if (0 == IRVarCmp(&canVal->val.value.var, var))
+			continue;
+		paths2Choose(&paths, choose->canidates[i], node);
 	}
 
 	strIRPaths order CLEANUP(strIRPathsDestroy) = NULL;

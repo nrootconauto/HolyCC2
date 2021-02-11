@@ -281,7 +281,7 @@ static struct IRVar *getVar(graphNodeIR node) {
 //
 // Dont Alias variables that exist in memory
 //
-static __thread  strVar dontCoalesceIntoVars=NULL;
+static __thread strVar dontCoalesceIntoVars = NULL;
 void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 	strVarRefs refs CLEANUP(strVarRefsDestroy) = NULL;
 	strAliasPair aliases CLEANUP(strAliasPairDestroy) = NULL;
@@ -334,10 +334,10 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 		if (val->val.type != IR_VAL_VAR_REF)
 			continue;
 
-		if(strVarSortedFind(dontCoalesceIntoVars, *getVar(nodes[i]), IRVarCmp))
-				continue;
-		if(getVar(nodes[i])->var->isGlobal)
-				continue;
+		if (strVarSortedFind(dontCoalesceIntoVars, *getVar(nodes[i]), IRVarCmp))
+			continue;
+		if (getVar(nodes[i])->var->isGlobal)
+			continue;
 
 		// Check if written into by another variable.
 		strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(nodes[i]);
@@ -1019,9 +1019,9 @@ void IRRegisterAllocate(graphNodeIR start, color2RegPredicate colorFunc, void *c
 	IRToSSA(start);
 	debugShowGraphIR(start);
 
-	//Dont Coalesce variables that has multiple SSA Sources(connected to choose node)
-	dontCoalesceIntoVars=NULL;
-	
+	// Dont Coalesce variables that has multiple SSA Sources(connected to choose node)
+	dontCoalesceIntoVars = NULL;
+
 	strGraphNodeIRP allNodes2 CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRAllNodes(start);
 	strGraphNodeIRP visited CLEANUP(strGraphNodeIRPDestroy) = NULL;
 loop:
@@ -1031,30 +1031,30 @@ loop:
 		visited = strGraphNodeIRPSortedInsert(visited, allNodes2[i], (gnCmpType)ptrPtrCmp);
 
 		if (graphNodeIRValuePtr(allNodes2[i])->type == IR_CHOOSE) {
-				//Can coalesce variables whoose choose nodes always point to same item
-				struct IRNodeChoose *choose=(void*)graphNodeIRValuePtr(allNodes2[i]);
-				__auto_type first=*getVar(choose->canidates[0]);
-				int allSame=1;
-				for(long c=1;c!=strGraphNodeIRPSize(choose->canidates);c++) {
-						__auto_type can=*getVar(choose->canidates[c]);
-						if(0!=IRVarCmp(&first, &can))
-								allSame=0;
-				}
-				if(allSame) {
-						transparentKill(allNodes2[i], 1);
-						allNodes2=strGraphNodeIRPRemoveItem(allNodes2, allNodes2[i], (gnCmpType)ptrPtrCmp);
-						goto loop;
-				}
+			// Can coalesce variables whoose choose nodes always point to same item
+			struct IRNodeChoose *choose = (void *)graphNodeIRValuePtr(allNodes2[i]);
+			__auto_type first = *getVar(choose->canidates[0]);
+			int allSame = 1;
+			for (long c = 1; c != strGraphNodeIRPSize(choose->canidates); c++) {
+				__auto_type can = *getVar(choose->canidates[c]);
+				if (0 != IRVarCmp(&first, &can))
+					allSame = 0;
+			}
+			if (allSame) {
+				transparentKill(allNodes2[i], 1);
+				allNodes2 = strGraphNodeIRPRemoveItem(allNodes2, allNodes2[i], (gnCmpType)ptrPtrCmp);
+				goto loop;
+			}
 
-				strGraphEdgeIRP outgoing CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(allNodes2[i]);
-				strGraphEdgeIRP asn CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(outgoing, IR_CONN_DEST);
-				if(strGraphEdgeIRPSize(asn)==1) {
-						__auto_type asnNode=graphEdgeIROutgoing(asn[0]);
-						if(isVar(asnNode))
-								dontCoalesceIntoVars=strVarSortedInsert(dontCoalesceIntoVars, *getVar(asnNode), IRVarCmp);
-				}
-				
-				strGraphNodeIRP replaced CLEANUP(strGraphNodeIRPDestroy)=NULL;
+			strGraphEdgeIRP outgoing CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIROutgoing(allNodes2[i]);
+			strGraphEdgeIRP asn CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(outgoing, IR_CONN_DEST);
+			if (strGraphEdgeIRPSize(asn) == 1) {
+				__auto_type asnNode = graphEdgeIROutgoing(asn[0]);
+				if (isVar(asnNode))
+					dontCoalesceIntoVars = strVarSortedInsert(dontCoalesceIntoVars, *getVar(asnNode), IRVarCmp);
+			}
+
+			strGraphNodeIRP replaced CLEANUP(strGraphNodeIRPDestroy) = NULL;
 			IRSSAReplaceChooseWithAssigns(allNodes2[i], &replaced);
 
 			allNodes2 = strGraphNodeIRPSetDifference(allNodes2, replaced, (gnCmpType)ptrPtrCmp);
@@ -1134,7 +1134,7 @@ loop:
 			ptrMapregSliceAdd(regsByLivenessNode, allColorNodes[i], slice);
 		}
 
-		//debugPrintInterferenceGraph(interferes[i], regsByLivenessNode);
+		// debugPrintInterferenceGraph(interferes[i], regsByLivenessNode);
 
 		// Get conflicts and spill nodes
 		strGraphNodeIRLiveP spillNodes = NULL;
@@ -1223,5 +1223,5 @@ loop:
 	}
 
 	//	removeDeadExpresions(start, liveVars);
-	//debugShowGraphIR(start);
+	// debugShowGraphIR(start);
 }

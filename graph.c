@@ -286,7 +286,7 @@ struct __graphEdge *__graphNodeConnect(struct __graphNode *a, struct __graphNode
 	newEdgeNode->valuePresent = data != NULL;
 	newEdgeNode->itemSize = itemSize;
 
- 	a->outgoing = strGraphEdgePSortedInsert(a->outgoing, newEdgeNode, (geCmpType)ptrCompare);
+	a->outgoing = strGraphEdgePSortedInsert(a->outgoing, newEdgeNode, (geCmpType)ptrCompare);
 	//
 	b->incoming = strGraphEdgePSortedInsert(b->incoming, newEdgeNode, (geCmpType)ptrCompare);
 	return newEdgeNode;

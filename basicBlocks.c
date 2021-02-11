@@ -198,13 +198,13 @@ static void bbFromExpr(graphNodeIR start, strBasicBlock *results, int (*varFilte
 		//
 		// Check for do-later
 		//  expr nodes stops at incoming assigns so continue search upwards
-		if(*graphNodeMappingValuePtr(start) != node) {
-				strGraphEdgeIRP incoming = graphNodeIRIncoming(node);
-				strGraphEdgeIRP incomingAssigns CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(incoming, IR_CONN_DEST);
-				if (strGraphEdgeIRPSize(incomingAssigns))
-						bbFromExpr(exprNodes[i2], results, varFilter, data);
+		if (*graphNodeMappingValuePtr(start) != node) {
+			strGraphEdgeIRP incoming = graphNodeIRIncoming(node);
+			strGraphEdgeIRP incomingAssigns CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(incoming, IR_CONN_DEST);
+			if (strGraphEdgeIRPSize(incomingAssigns))
+				bbFromExpr(exprNodes[i2], results, varFilter, data);
 		}
-		
+
 		if (isVarNode(irNode)) {
 			// If filter predicate provided,filter it out
 			if (varFilter)
@@ -332,7 +332,7 @@ strBasicBlock IRGetBasicBlocksFromExpr(graphNodeIR dontDestroy, ptrMapBlockMetaN
 
 	graphNodeMapping last = NULL;
 	graphNodeMapping first = NULL;
-	for (long b=0;b != strBasicBlockSize(retVal); b++) {
+	for (long b = 0; b != strBasicBlockSize(retVal); b++) {
 		struct blockMetaNode pair;
 		__auto_type meta = graphNodeMappingCreate(NULL, 0);
 		pair.node = meta;

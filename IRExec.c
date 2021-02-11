@@ -131,16 +131,16 @@ static struct IREvalVal *valueHash(struct IRValue *value) {
 
 		return regValue;
 	} else if (value->type == IR_VAL_VAR_REF) {
-			__auto_type ptrStr = ptr2Str(value->value.var.var);
-		loopVar:;
-			__auto_type find = mapVarValGet(varVals, ptrStr);
-			if (!find) {
-				mapVarValInsert(varVals, ptrStr, dftValueType(IREVAL_VAL_INT));
-				goto loopVar;
-			}
+		__auto_type ptrStr = ptr2Str(value->value.var.var);
+	loopVar:;
+		__auto_type find = mapVarValGet(varVals, ptrStr);
+		if (!find) {
+			mapVarValInsert(varVals, ptrStr, dftValueType(IREVAL_VAL_INT));
+			goto loopVar;
+		}
 
-			assert(find);
-			return find;
+		assert(find);
+		return find;
 	} else if (value->type == IR_VAL_REG) {
 		// TODO implement me
 	} else if (value->type == __IR_VAL_MEM_FRAME) {
@@ -208,7 +208,7 @@ static struct IREvalVal *loadFromFrame(struct IRVar *frameVar) {
 struct object *IRValuegetType(struct IRValue *node) {
 	switch (node->type) {
 	case IR_VAL_VAR_REF: {
-			return node->value.var.var->type;
+		return node->value.var.var->type;
 	}
 	case IR_VAL_STR_LIT:
 		return objectPtrCreate(&typeU8i);
@@ -355,17 +355,17 @@ static struct IREvalVal evalIRCallFunc(graphNodeIR funcStart, strIREvalVal args,
 	return returnValue;
 }
 static strGraphNodeIRP getFuncArgs(graphNodeIR call) {
-		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=IREdgesByPrec(call);
-		strGraphNodeIRP args=NULL;
-		for(long i=0;i!=strGraphEdgeIRPSize(in);i++) {
-				switch(*graphEdgeIRValuePtr(in[i])) {
-						default:
-								break;
-				case IR_CONN_FUNC_ARG_1...IR_CONN_FUNC_ARG_128:
-						args=strGraphNodeIRPAppendItem(args, graphEdgeIRIncoming(in[i]));
-				}
+	strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy) = IREdgesByPrec(call);
+	strGraphNodeIRP args = NULL;
+	for (long i = 0; i != strGraphEdgeIRPSize(in); i++) {
+		switch (*graphEdgeIRValuePtr(in[i])) {
+		default:
+			break;
+		case IR_CONN_FUNC_ARG_1 ... IR_CONN_FUNC_ARG_128:
+			args = strGraphNodeIRPAppendItem(args, graphEdgeIRIncoming(in[i]));
 		}
-		return args;
+	}
+	return args;
 }
 struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 	struct IRNode *ir = graphNodeIRValuePtr(node);
@@ -648,7 +648,7 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 	}
 	case IR_FUNC_CALL: {
 		struct IRNodeFuncCall *call = (void *)graphNodeIRValuePtr(node);
-		strGraphNodeIRP argNodes CLEANUP(strGraphNodeIRPDestroy)=getFuncArgs(node);
+		strGraphNodeIRP argNodes CLEANUP(strGraphNodeIRPDestroy) = getFuncArgs(node);
 		strIREvalVal args CLEANUP(strIREvalValDestroy) = strIREvalValResize(NULL, strGraphNodeIRPSize(argNodes));
 		for (long i = 0; i != strGraphNodeIRPSize(argNodes); i++) {
 			int success2;

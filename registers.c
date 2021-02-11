@@ -432,10 +432,8 @@ strRegP regGetForType(struct object *type) {
 	case ARCH_X86_SYSV: {
 		avail = regsForArch();
 		// Reserved registers
-		const struct reg *res[] = {
-		    &regX86ESP, &regX86EBP, &regX86SP, &regX86BP, &regX86SPL, &regX86BPL,
-						&regX86SS,&regX86CS,&regX86DS,&regX86ES,&regX86FS,&regX86GS
-		};
+		const struct reg *res[] = {&regX86ESP, &regX86EBP, &regX86SP, &regX86BP, &regX86SPL, &regX86BPL,
+		                           &regX86SS,  &regX86CS,  &regX86DS, &regX86ES, &regX86FS,  &regX86GS};
 		long len = sizeof(res) / sizeof(*res);
 		qsort(res, len, sizeof(*res), ptrPtrCmp);
 		strRegP reserved CLEANUP(strRegPDestroy) = strRegPAppendData(NULL, res, len);
@@ -463,7 +461,7 @@ search:
 	} else {
 		for (long i = 0; i != strRegPSize(avail); i++) {
 			if (avail[i]->type & REG_TYPE_GP) {
-				if (bsearch(&type, ints, sizeof(ints) / sizeof(*ints), sizeof(*ints), ptrPtrCmp)||type->type==TYPE_PTR) {
+				if (bsearch(&type, ints, sizeof(ints) / sizeof(*ints), sizeof(*ints), ptrPtrCmp) || type->type == TYPE_PTR) {
 					if (avail[i]->size == objectSize(type, NULL))
 						retVal = strRegPSortedInsert(retVal, avail[i], (regPCmpType)ptrPtrCmp);
 				}
@@ -496,8 +494,8 @@ enum archConfig getCurrentArch() {
 }
 struct reg *subRegOfType(struct reg *r, struct object *type) {
 	long iSize = objectSize(type, NULL);
-	if(iSize==r->size)
-			return r;
+	if (iSize == r->size)
+		return r;
 	// Use the lower size part of register
 	strRegSlice *affects = &r->affects;
 	struct regSlice *subRegister = NULL;
@@ -542,13 +540,13 @@ long ptrSize() {
 	}
 }
 long dataSize() {
-		switch (getCurrentArch()) {
-		case ARCH_X64_SYSV:
-				return 8;
-		case ARCH_TEST_SYSV:
-		case ARCH_X86_SYSV:
-				return 4;
-		}
+	switch (getCurrentArch()) {
+	case ARCH_X64_SYSV:
+		return 8;
+	case ARCH_TEST_SYSV:
+	case ARCH_X86_SYSV:
+		return 4;
+	}
 }
 struct reg *basePointer() {
 	return (ptrSize() == 4) ? &regX86EBP : &regAMD64RBP;

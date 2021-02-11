@@ -4,9 +4,9 @@
 #include <hashTable.h>
 #include <object.h>
 #include <parserA.h>
+#include <registers.h>
 #include <stdio.h>
 #include <string.h>
-#include <registers.h>
 MAP_TYPE_DEF(struct object *, Object);
 MAP_TYPE_FUNCS(struct object *, Object);
 STR_TYPE_DEF(char, Char);
@@ -209,7 +209,6 @@ objectAlign(const struct object *type, int *success) {
 	case TYPE_UNION: {
 		__auto_type ptr = (struct objectUnion *)type;
 		return ptr->size;
-		
 	}
 	case TYPE_CLASS: {
 		__auto_type ptr = (struct objectClass *)type;
@@ -293,11 +292,11 @@ objectClassCreate(const struct parserNode *name, const struct objectMember *memb
 	struct objectClass *newClass = malloc(sizeof(struct objectClass));
 	newClass->name = (struct parserNode *)name;
 	newClass->base.type = TYPE_CLASS;
-	newClass->base.name=NULL;
+	newClass->base.name = NULL;
 	newClass->methods = NULL;
 	newClass->members = NULL;
-	newClass->baseType=NULL;
-	
+	newClass->baseType = NULL;
+
 	long largestMemberAlign = 0;
 	int success;
 	for (long i = 0; i != count; i++) {
@@ -314,18 +313,18 @@ objectClassCreate(const struct parserNode *name, const struct objectMember *memb
 	newClass->members = NULL;
 	long offset = 0;
 	for (long i = 0; i != count; i++) {
-		offset += offset%objectAlign(members[i].type, &success);
+		offset += offset % objectAlign(members[i].type, &success);
 		if (!success)
 			goto fail;
-		
+
 		newClass->members = strObjectMemberAppendItem(newClass->members, members[i]);
-		newClass->members[strObjectMemberSize(newClass->members)-1].offset=offset;
-		offset+=objectSize(members[i].type, &success);
-		if(!success)
-				goto fail;
+		newClass->members[strObjectMemberSize(newClass->members) - 1].offset = offset;
+		offset += objectSize(members[i].type, &success);
+		if (!success)
+			goto fail;
 	}
-	newClass->size = offset +  offset % largestMemberAlign;
-	
+	newClass->size = offset + offset % largestMemberAlign;
+
 	if (name) {
 		const char *name2 = ((struct parserNodeName *)name)->text;
 		if (NULL == mapObjectGet(objectRegistry, name2))
