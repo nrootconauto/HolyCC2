@@ -101,7 +101,9 @@ struct object *__IRNodeType(graphNodeIR node) {
 			fputs("IR_ARRAY_ACCESS needs pointer or array base type\n.", stderr);
 		}
 	} else if (nodeVal->base.type == IR_VALUE) {
-		if (nodeVal->val.type == __IR_VAL_MEM_GLOBAL) {
+			if(nodeVal->val.type==IR_VAL_FLT_LIT) {
+					return &typeF64;
+			}else if (nodeVal->val.type == __IR_VAL_MEM_GLOBAL) {
 			return nodeVal->val.value.__global.symbol->type;
 		} else if (nodeVal->val.type == IR_VAL_REG) {
 			return nodeVal->val.value.reg.type;

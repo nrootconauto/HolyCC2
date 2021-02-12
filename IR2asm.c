@@ -838,12 +838,14 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	switch(getCurrentArch()) {
 	case ARCH_TEST_SYSV:
 	case ARCH_X86_SYSV:
+	x87fpuRemoveLoop:
 			for(long v=0;v!=strPVarSize(inRegs);v++) {
 					if(objectBaseType(inRegs[v]->type)==&typeF64) {
 							__auto_type var=inRegs[v];
 							inRegs=strPVarRemoveItem(inRegs, var, (PVarCmpType)ptrPtrCmp);
 							if (!strPVarSortedFind(noregs, var, (PVarCmpType)ptrPtrCmp))
 									noregs = strPVarSortedInsert(noregs, var, (PVarCmpType)ptrPtrCmp);
+							goto x87fpuRemoveLoop;
 					}
 			}
 			allocateX87fpuRegs=1;
@@ -853,10 +855,10 @@ void IRCompile(graphNodeIR start, int isFunc) {
 
 	IRInsertNodesBetweenExprs(start, NULL, NULL);
 	IRRegisterAllocate(start, NULL, NULL, isNotNoreg, noregs);
-	debugShowGraphIR(start);
 
 	if(allocateX87fpuRegs) {
 			IRRegisterAllocateX87(start);
+			debugShowGraphIR(start);
 	}
 	
 	strGraphNodeIRP regAllocedNodes CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRAllNodes(start);

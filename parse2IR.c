@@ -578,6 +578,10 @@ static graphNodeIR parserNode2Expr(const struct parserNode *node) {
 	switch (node->type) {
 	default:
 		return NULL;
+	case NODE_LIT_FLT: {
+			struct parserNodeLitFlt *flt=(void*)node;
+			return IRCreateFloat(flt->value);
+	}
 	case NODE_SIZEOF_EXP: {
 		struct parserNodeSizeofExp *exp = (void *)node;
 		__auto_type size = IRCreateIntLit(objectSize(assignTypeToOp(exp->exp), NULL));
