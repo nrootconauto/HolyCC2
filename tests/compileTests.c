@@ -357,7 +357,7 @@ void compileTests() {
 				free(asmF);	
 				free(source);
 				}*/
-		{
+		/*		{
 				const char * text=
 						"U0 assertEq(I32i a,I32i b) {\n"
 						"    if(a!=b) {\n"
@@ -422,5 +422,21 @@ void compileTests() {
 				runTest(asmF,"y");
 				free(asmF);	
 				free(source);
-				}
+				}*/
+		{
+				const char *text=
+						"{\n"
+						"    F64 a=1.2,b=3.4,c;\n"
+						"    c=a+b;\n"
+						"    asm {\n"
+						exitStr
+						"    }\n"
+						"}\n";
+				char *source=text2File(text);
+				char *asmF=strDup(tmpnam(NULL));
+				compileFile(source, asmF);
+				runTest(asmF,"y");
+				free(asmF);	
+				free(source);
+		}
 }

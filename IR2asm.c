@@ -18,6 +18,7 @@
 #include <registers.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <x87fpu.h>
 #define DEBUG_PRINT_ENABLE 1
 static void *IR_ATTR_ADDR_MODE = "ADDR_MODE";
 struct IRAttrAddrMode {
@@ -274,6 +275,7 @@ struct X86AddressingMode *IRNode2AddrMode(graphNodeIR start) {
 	IRAttrReplace(start, __llCreate(&modeAttr, sizeof(modeAttr)));
 	return retVal;
 }
+
 static void strX86AddrModeDestroy2(strX86AddrMode *str) {
 	for (long i = 0; i != strX86AddrModeSize(*str); i++)
 		X86AddrModeDestroy(&str[0][i]);
@@ -815,6 +817,7 @@ void IRCompile(graphNodeIR start, int isFunc) {
 		continue;
 	markAsNoreg : {
 		__auto_type var = value->val.value.var.var;
+		inRegs=strPVarRemoveItem(inRegs, var, (PVarCmpType)ptrPtrCmp);
 		if (!strPVarSortedFind(noregs, var, (PVarCmpType)ptrPtrCmp))
 			noregs = strPVarSortedInsert(noregs, var, (PVarCmpType)ptrPtrCmp);
 	}
@@ -830,10 +833,32 @@ void IRCompile(graphNodeIR start, int isFunc) {
 		IRABIInsertLoadArgs(originalStart);
 	}
 
+	//SYSV-i386 uses X87 registers for values,so if SYSV-i386 ABI,use a special register allocator for floating points
+	int allocateX87fpuRegs=0;
+	switch(getCurrentArch()) {
+	case ARCH_TEST_SYSV:
+	case ARCH_X86_SYSV:
+			for(long v=0;v!=strPVarSize(inRegs);v++) {
+					if(objectBaseType(inRegs[v]->type)==&typeF64) {
+							__auto_type var=inRegs[v];
+							inRegs=strPVarRemoveItem(inRegs, var, (PVarCmpType)ptrPtrCmp);
+							if (!strPVarSortedFind(noregs, var, (PVarCmpType)ptrPtrCmp))
+									noregs = strPVarSortedInsert(noregs, var, (PVarCmpType)ptrPtrCmp);
+					}
+			}
+			allocateX87fpuRegs=1;
+			break;
+	case ARCH_X64_SYSV:;
+	}
+
 	IRInsertNodesBetweenExprs(start, NULL, NULL);
 	IRRegisterAllocate(start, NULL, NULL, isNotNoreg, noregs);
 	debugShowGraphIR(start);
 
+	if(allocateX87fpuRegs) {
+			IRRegisterAllocateX87(start);
+	}
+	
 	strGraphNodeIRP regAllocedNodes CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRAllNodes(start);
 	{
 		strGraphNodeIRP removedNodes CLEANUP(strGraphNodeIRPDestroy) = NULL;

@@ -1086,6 +1086,8 @@ static llLexerItem findEndOfExpression(llLexerItem start, int stopAtComma) {
 			continue;
 		if (item->template == &opTemplate)
 			continue;
+		if (item->template == &floatTemplate)
+			continue;
 		return start;
 	}
 

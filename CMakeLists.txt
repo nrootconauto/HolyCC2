@@ -53,6 +53,7 @@ list(APPEND sources "IR2asm.c")
 list(APPEND sources "compile.c")
 list(APPEND sources "X86AsmSharedVars.c")
 list(APPEND sources "abi.c")
+list(APPEND sources "x87fpu.c")
 
 set(tests "")
 list(APPEND tests "tests/compileTests.c")
