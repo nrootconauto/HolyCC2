@@ -1192,9 +1192,13 @@ OPCODE FILD
  0xDB,/0 M32    //Load I32
  0xDF,/5 `M64;  //Load I64
 OPCODE FISTP
- 0xDF,/7 `M64;  //Store I64
+0xDF /3  M16
+0xDB,/3  M32
+0xDF,/7 `M64;  //Store I64
 OPCODE FISTTP
- 0xDD,/1 `M64;  //Store I64
+0xDF /1  M16
+0xDB,/1  M32
+0xDD,/1 `M64;  //Store I64
 OPCODE FLD
  0xD9,/0 M32    //Load F32
  0xDD,/0 `M64   //Load F64
