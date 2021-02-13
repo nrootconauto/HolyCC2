@@ -8,6 +8,15 @@ struct IRAttrNodeType {
 	struct IRAttr base;
 	struct object *type;
 };
+typedef int(*gnCmpType)(const graphNodeIR *,const graphNodeIR *);
+static int ptrPtrCmp(const void *a, const void *b) {
+	if (*(void **)a > *(void **)b)
+		return 1;
+	else if (*(void **)a < *(void **)b)
+		return -1;
+	else
+		return 0;
+}
 static struct object **getType(graphNodeIR node) {
 loop:;
 	__auto_type find = llIRAttrFind(graphNodeIRValuePtr(node)->attrs, IR_ATTR_NODE_TYPE, IRAttrGetPred);
@@ -151,6 +160,20 @@ struct object *__IRNodeType(graphNodeIR node) {
 	strGraphEdgeIRP sourceA CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(in, IR_CONN_SOURCE_A);
 	strGraphEdgeIRP sourceB CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(in, IR_CONN_SOURCE_B);
 
+	switch(graphNodeIRValuePtr(node)->type) {
+	case IR_LAND:
+	case IR_LOR:
+	case IR_LXOR:
+	case IR_GT:
+	case IR_GE:
+	case IR_LE:
+	case IR_LT:
+	case IR_EQ:
+	case IR_NE:
+			return (dataSize()==4)?&typeI32i:&typeI64i;
+	default:;
+	}
+	
 	if (strGraphEdgeIRPSize(sourceA) && strGraphEdgeIRPSize(sourceB)) {
 		// Binop
 		__auto_type aType = IRNodeType(graphEdgeIRIncoming(sourceA[0]));
@@ -186,4 +209,70 @@ struct object *IRNodeType(graphNodeIR node) {
 	__auto_type type = __IRNodeType(node);
 	*getType(node) = type;
 	return type;
+}
+void IRInsertImplicitTypecasts(graphNodeIR start) {
+		strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);
+		strGraphNodeIRP visited CLEANUP(strGraphNodeIRPDestroy)=NULL;
+	loop:
+		for(long n=0;n!=strGraphNodeIRPSize(allNodes);n++) {
+				visited=strGraphNodeIRPSortedInsert(visited, allNodes[n], (gnCmpType)ptrPtrCmp);
+				__auto_type end=IREndOfExpr(allNodes[n]);
+				if(end==NULL)
+						continue;
+				if(end!=allNodes[n])
+						continue;
+				
+				strGraphNodeIRP exprNodes CLEANUP(strGraphNodeIRPDestroy)=IRStmtNodes(end);
+				for(long e=0;e!=strGraphNodeIRPSize(exprNodes);e++) {
+						strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=IREdgesByPrec(exprNodes[e]);
+						if(graphNodeIRValuePtr(exprNodes[e])->type==IR_FUNC_CALL)
+								continue;
+						if(graphNodeIRValuePtr(exprNodes[e])->type==IR_TYPECAST)
+								continue;
+
+						struct object *toType=IRNodeType(exprNodes[e]);
+						
+						//If is a compare type,typecast to first argument
+						switch(graphNodeIRValuePtr(exprNodes[e])->type) {
+						case IR_GT:
+						case IR_GE:
+						case IR_LE:
+						case IR_LT:
+						case IR_EQ:
+						case IR_NE: {
+								strGraphEdgeIRP inA CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_SOURCE_A);
+								strGraphEdgeIRP inB CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_SOURCE_B);
+								toType= getHigherType(IRNodeType(graphEdgeIRIncoming(inA[0])), IRNodeType(graphEdgeIRIncoming(inB[0])));
+						}
+						default:;
+						}
+						//If is logical compare type,typecast to Bool
+						switch(graphNodeIRValuePtr(exprNodes[e])->type) {
+						case IR_LXOR:
+						case IR_LOR:
+						case IR_LAND:{
+								strGraphEdgeIRP inA CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_SOURCE_A);
+								strGraphEdgeIRP inB CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_SOURCE_B);
+								toType= getHigherType(IRNodeType(graphEdgeIRIncoming(inA[0])), IRNodeType(graphEdgeIRIncoming(inB[0])));
+						}
+						default:;
+						}
+						
+						for(long i=0;i!=strGraphEdgeIRPSize(in);i++) {
+								__auto_type inNode=graphEdgeIRIncoming(in[i]);
+								if(toType==IRNodeType(inNode))
+										continue;
+								__auto_type edgeValue=*graphEdgeIRValuePtr(in[i]);
+								
+								__auto_type tc=IRCreateTypecast(inNode, IRNodeType(inNode), toType);
+								graphNodeIRConnect(tc,exprNodes[e], edgeValue);
+								graphEdgeIRKill(inNode, exprNodes[e], NULL, NULL, NULL);
+						}
+				}
+				visited=strGraphNodeIRPSetUnion(visited, exprNodes, (gnCmpType)ptrPtrCmp);
+				allNodes=strGraphNodeIRPSetDifference(allNodes, visited, (gnCmpType)ptrPtrCmp);
+				strGraphNodeIRPDestroy(&visited);
+				visited=NULL;
+				goto loop;
+		}
 }

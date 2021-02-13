@@ -885,6 +885,9 @@ void IRCompile(graphNodeIR start, int isFunc) {
 		funcsWithin = strGraphNodeIRPSortedInsert(funcsWithin, nodes[n], (gnCmpType)ptrPtrCmp);
 	}
 	strGraphNodeIRPDestroy(&nodes);
+
+	IRInsertImplicitTypecasts(start);
+	
 	nodes = graphNodeIRAllNodes(start);
 
 	// If start is a function-start,make a list of arguments and store them into variables,replace references to function argument node with variable
@@ -966,7 +969,7 @@ void IRCompile(graphNodeIR start, int isFunc) {
 			break;
 	case ARCH_X64_SYSV:;
 	}
-
+	
 	IRInsertNodesBetweenExprs(start, NULL, NULL);
 	IRRegisterAllocate(start, NULL, NULL, isNotNoreg, noregs);
 
@@ -1610,8 +1613,20 @@ void asmTypecastAssign(struct X86AddressingMode *outMode, struct X86AddressingMo
 		if (isIntType(outMode->valueType) || isPtrType(outMode->valueType)) {
 			int64_t value = inMode->value.flt;
 			asmAssign(outMode, X86AddrModeSint(value), objectSize(outMode->valueType, NULL),0);
-		} else if (isFltType(inMode->valueType)) {
+		} else if (isFltType(outMode->valueType)) {
 				asmAssign(outMode, inMode, objectSize(outMode->valueType, NULL),0);
+		} else if(objectBaseType(outMode->valueType)==&typeBool) {
+		flt2Bool:;
+				struct X86AddressingMode *st0Mode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86ST0);
+				asmAssign(st0Mode, inMode, 8, 0);
+				assembleInst("FLDZ", NULL);
+				
+				strX86AddrMode fcomipArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+				fcomipArgs=strX86AddrModeAppendItem(fcomipArgs, X86AddrModeReg(&regX86ST0));
+				fcomipArgs=strX86AddrModeAppendItem(fcomipArgs, X86AddrModeReg(&regX86ST1));
+				assembleInst((flags&ASM_ASSIGN_X87FPU_POP)?"FCOMIP":"FCOMI",  NULL);
+				
+				setCond( "NZ",outMode);
 		} else
 			assert(0);
 		return;
@@ -1690,6 +1705,17 @@ void asmTypecastAssign(struct X86AddressingMode *outMode, struct X86AddressingMo
 		} else if (isFltType(outMode->valueType)) {
 			// Assign handles flt<-int
 			asmAssign(outMode, inMode, objectSize(outMode->valueType, NULL),0);
+		} else if(objectBaseType(outMode->valueType)==&typeBool) {
+				if(isIntType(inMode->valueType)||isPtrType(inMode->valueType)) {
+						strX86AddrMode cmpArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+						cmpArgs=strX86AddrModeAppendItem(cmpArgs, X86AddrModeClone(inMode));
+						cmpArgs=strX86AddrModeAppendItem(cmpArgs, X86AddrModeSint(0));
+						assembleInst("CMP", cmpArgs);
+
+						setCond("NZ", outMode);
+				} else if(isFltType(inMode->valueType)) {
+						goto flt2Bool;
+				}
 		} else {
 			__auto_type base = objectBaseType(outMode->valueType);
 			if (base->type == TYPE_CLASS || base->type == TYPE_UNION) {
