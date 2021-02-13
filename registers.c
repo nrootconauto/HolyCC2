@@ -413,7 +413,7 @@ strRegP regsForArch() {
 }
 strRegP regGetForType(struct object *type) {
 	const struct object *ints[] = {
-	    &typeU8i, &typeU16i, &typeU32i, &typeU64i, &typeI8i, &typeI16i, &typeI32i, &typeI64i,
+			&typeBool,&typeU8i, &typeU16i, &typeU32i, &typeU64i, &typeI8i, &typeI16i, &typeI32i, &typeI64i,
 	};
 	qsort(ints, sizeof(ints) / sizeof(*ints), sizeof(*ints), ptrPtrCmp);
 

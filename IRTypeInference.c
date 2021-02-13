@@ -170,7 +170,7 @@ struct object *__IRNodeType(graphNodeIR node) {
 	case IR_LT:
 	case IR_EQ:
 	case IR_NE:
-			return (dataSize()==4)?&typeI32i:&typeI64i;
+			return &typeBool;
 	default:;
 	}
 	
