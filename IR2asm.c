@@ -49,6 +49,7 @@ static __thread ptrMapFuncNames funcNames;
 static __thread ptrMapLabelNames asmLabelNames;
 static __thread ptrMapCompiledNodes compiledNodes;
 static __thread int insertLabelsForAsmCalled = 0;
+static __thread long frameSize=0;
 static strGraphNodeIRP removeNeedlessLabels(graphNodeIR start) {
 	strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRAllNodes(start);
 	strGraphNodeIRP removed = NULL;
@@ -998,9 +999,9 @@ void IRCompile(graphNodeIR start, int isFunc) {
 
 	//"Push" the old frame layout
 	__auto_type oldOffsets = localVarFrameOffsets;
-
+	long oldFrameSize=frameSize;
+	
 	// Frame allocate
-	long frameSize;
 	{
 		strFrameEntry layout CLEANUP(strFrameEntryDestroy) = IRComputeFrameLayout(start, &frameSize);
 		localVarFrameOffsets = ptrMapFrameOffsetCreate();
@@ -1063,7 +1064,7 @@ void IRCompile(graphNodeIR start, int isFunc) {
 		}
 
 	if (isFunc) {
-		IRABIAsmPrologue();
+		IRABIAsmPrologue(frameSize);
 	} else {
 		// Make EBP equal to ESP
 		struct X86AddressingMode *bp = X86AddrModeReg(basePointer());
@@ -1074,18 +1075,22 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	// debugShowGraphIR(start);
 	IRComputeABIInfo(start);
 	// debugShowGraphIR(start);
-	// Add to stack pointer to make room for locals
-	strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
-	addArgs = strX86AddrModeAppendItem(addArgs, X86AddrModeReg(stackPointer()));
-	addArgs = strX86AddrModeAppendItem(addArgs, X86AddrModeSint(frameSize));
-	assembleInst("SUB", addArgs);
 
+	if(!isFunc) {
+			// Add to stack pointer to make room for locals
+			strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
+			addArgs = strX86AddrModeAppendItem(addArgs, X86AddrModeReg(stackPointer()));
+			addArgs = strX86AddrModeAppendItem(addArgs, X86AddrModeSint(frameSize));
+			assembleInst("SUB", addArgs);
+	}
+	
 	IR2Asm(start);
 
 	ptrMapFrameOffsetDestroy(localVarFrameOffsets, NULL);
 	//"Pop" the old frame layout
 	localVarFrameOffsets = oldOffsets;
-
+	frameSize=oldFrameSize;
+	
 	for (long f = 0; f != strGraphNodeIRPSize(funcsWithin); f++) {
 		IRCompile(funcsWithin[f], 1);
 	}
@@ -2186,10 +2191,11 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			}
 			break;
 		}
-		if (ppRAX)
-			assembleInst("POP", ppRAX), unconsumeRegFromMode(ppRAX[0]);
+		
 		if (ppRDX)
 			assembleInst("POP", ppRDX), unconsumeRegFromMode(ppRDX[0]);
+		if (ppRAX)
+			assembleInst("POP", ppRAX), unconsumeRegFromMode(ppRAX[0]);
 		return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 	}
 	case IR_POW: {
@@ -2881,7 +2887,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 	}
 	case IR_FUNC_RETURN:
 	case IR_FUNC_END: {
-		IRABIReturn2Asm(start);
+			IRABIReturn2Asm(start,frameSize);
 		return NULL;
 	}
 	case IR_FUNC_START: {

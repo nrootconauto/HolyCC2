@@ -290,8 +290,16 @@ void compileTests() {
 				free(asmF);	
 				free(source);
 				}*/
-		/*{
+		{
 				const char * text=
+						"asm {\n"
+						"    MOV EAX,1"
+						"    MOV ECX,2"
+						"    MOV EBX,3"
+						"    MOV EDX,4"
+						"    MOV ESI,5"
+						"    MOV EDI,6"
+						"}\n"
 						"I32i rEax,rEcx,rEdx,rEbx,rEsi,rEdi;\n"
 						"I32i rEax2,rEcx2,rEdx2,rEbx2,rEsi2,rEdi2;"
 						"if(0) {"
@@ -356,7 +364,7 @@ void compileTests() {
 				runTest(asmF,"y");
 				free(asmF);	
 				free(source);
-				}*/
+				}
 		/*		{
 				const char * text=
 						"U0 assertEq(I32i a,I32i b) {\n"
@@ -423,7 +431,7 @@ void compileTests() {
 				free(asmF);	
 				free(source);
 				}*/
-		{
+		/*{
 				const char *text=
 						"{\n"
 						"    F64 a=1.2,b=3.4,c;\n"
@@ -434,9 +442,8 @@ void compileTests() {
 						"}\n";
 				char *source=text2File(text);
 				char *asmF=strDup(tmpnam(NULL));
-				compileFile(source, asmF);
-				runTest(asmF,"y");
+				compileFile(source, asmF);				runTest(asmF,"y");
 				free(asmF);	
 				free(source);
-		}
+				}*/
 }

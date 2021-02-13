@@ -11,6 +11,6 @@ struct IRAttrABIInfo {
 void IR2ABI_i386(graphNodeIR start);
 void IRComputeABIInfo(graphNodeIR start);
 strVar IRABIInsertLoadArgs(graphNodeIR start);
-void IRABIAsmPrologue();
+void IRABIAsmPrologue(long frameSize);
 void IRABICall2Asm(graphNodeIR start);
-void IRABIReturn2Asm(graphNodeIR start);
+void IRABIReturn2Asm(graphNodeIR start,long frameSize);

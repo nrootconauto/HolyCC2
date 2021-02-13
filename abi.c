@@ -14,6 +14,11 @@ void IRAttrABIInfoDestroy(struct IRAttr *a) {
 	strRegPDestroy(&abi->toPushPop);
 }
 static void *IR_ATTR_OLD_REG_SLICE = "OLD_REG_SLICE";
+static void strX86AddrModeDestroy2(strX86AddrMode *str) {
+	for (long i = 0; i != strX86AddrModeSize(*str); i++)
+		X86AddrModeDestroy(&str[0][i]);
+	strX86AddrModeDestroy(str);
+}
 struct IRATTRoldRegSlice {
 	struct IRAttr base;
 	graphNodeIR old;
@@ -246,6 +251,14 @@ static void assembleInst(const char *name, strX86AddrMode args) {
 	X86EmitAsmInst(ops[0], args, &err);
 	assert(!err);
 }
+static void pushReg(struct reg *r) {
+		strX86AddrMode ppIndexArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeReg(r));
+		assembleInst("PUSH", ppIndexArgs);
+}
+static void popReg(struct reg *r) {
+		strX86AddrMode ppIndexArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeReg(r));
+		assembleInst("POP", ppIndexArgs);
+}
 static struct X86AddressingMode *nodePtr(graphNodeIR node) {
 	struct IRNodeValue *val = (void *)graphNodeIRValuePtr(node);
 	switch (val->val.type) {
@@ -263,11 +276,6 @@ static struct X86AddressingMode *nodePtr(graphNodeIR node) {
 		assert(0);
 	}
 	return NULL;
-}
-static void strX86AddrModeDestroy2(strX86AddrMode *str) {
-	for (long i = 0; i != strX86AddrModeSize(*str); i++)
-		X86AddrModeDestroy(&str[0][i]);
-	strX86AddrModeDestroy(str);
 }
 static int conflictsWithRegisters(const void *_regs, const struct reg **r) {
 	strRegP regs = (void *)_regs;
@@ -557,7 +565,21 @@ static strVar IR_ABI_I386_SYS_InsertLoadArgs(graphNodeIR start) {
 
 	return args;
 }
-static void IR_ABI_I386_SYSV_Return(graphNodeIR start) {
+static void abiI386LoadPreservedRegs(long frameSize) {
+		struct X86AddressingMode *ebpMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(basePointer());
+		struct X86AddressingMode *espMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(stackPointer());
+		asmAssign(espMode, ebpMode, ptrSize(), 0);
+
+		strX86AddrMode subArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+		subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeReg(stackPointer()));
+		subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeSint(frameSize+4+4+4));
+		assembleInst("SUB", subArgs);
+
+		popReg(&regX86EDI);
+		popReg(&regX86ESI);
+		popReg(&regX86EBX);
+}
+static void IR_ABI_I386_SYSV_Return(graphNodeIR start,long frameSize) {
 	strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(start);
 	strGraphEdgeIRP inSource CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(in, IR_CONN_SOURCE_A);
 	if (strGraphEdgeIRPSize(inSource) != 0) {
@@ -568,10 +590,12 @@ static void IR_ABI_I386_SYSV_Return(graphNodeIR start) {
 			if (mode->type == X86ADDRMODE_REG) {
 				// X87 fpu stack must contain return ST(0) upon return
 				assert(mode->value.reg == &regX86ST0);
+				abiI386LoadPreservedRegs(frameSize);
 				goto loadBasePtr;
 			} else {
 				struct X86AddressingMode *st0 CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86ST0);
 				asmTypecastAssign(NULL, mode,0);
+				abiI386LoadPreservedRegs(frameSize);
 				goto loadBasePtr;
 			}
 		} else if (baseType->type == TYPE_CLASS || baseType->type == TYPE_UNION) {
@@ -596,19 +620,25 @@ static void IR_ABI_I386_SYSV_Return(graphNodeIR start) {
 			    X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer()), X86AddrModeSint(0), objectPtrCreate(&typeU0));
 			asmAssign(ebpMode, oldBPMode, ptrSize(),0);
 
+			abiI386LoadPreservedRegs(frameSize);
 			// Pop the extra 4 bytes from the return address,then return
 			assembleInst("LEAVE", NULL);
 
 			goto ret;
 		} else if (baseType == &typeU0) {
-			goto loadBasePtr;
+				abiI386LoadPreservedRegs(frameSize);
+				goto loadBasePtr;
 		} else {
 			// Isn't a struct/union/F64,so is an int/ptr
 			struct X86AddressingMode *eaxMode CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86EAX);
 			eaxMode->valueType = mode->valueType;
 			asmTypecastAssign(eaxMode, mode,0);
+			
+			abiI386LoadPreservedRegs(frameSize);
 			goto loadBasePtr;
 		}
+	} else {
+			abiI386LoadPreservedRegs(frameSize);
 	}
 loadBasePtr : { assembleInst("LEAVE", NULL); }
 ret:
@@ -626,15 +656,23 @@ strVar IRABIInsertLoadArgs(graphNodeIR start) {
 		return NULL;
 	}
 }
-void IRABIAsmPrologue() {
+void IRABIAsmPrologue(long frameSize) {
 	switch (getCurrentArch()) {
 	case ARCH_TEST_SYSV:
 	case ARCH_X86_SYSV: {
 		struct X86AddressingMode *esp CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(stackPointer());
 		struct X86AddressingMode *ebp CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(basePointer());
-		strX86AddrMode pushArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeReg(basePointer()));
-		assembleInst("PUSH", pushArgs);
+		pushReg(basePointer());
 		asmAssign(ebp, esp, ptrSize(),0);
+
+		strX86AddrMode subArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+		subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeReg(stackPointer()));
+		subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeSint(frameSize));
+		assembleInst("SUB", subArgs);
+
+		pushReg(&regX86EBX);
+		pushReg(&regX86ESI);
+		pushReg(&regX86EDI);
 		return;
 	}
 	case ARCH_X64_SYSV:
@@ -642,11 +680,11 @@ void IRABIAsmPrologue() {
 		return;
 	}
 }
-void IRABIReturn2Asm(graphNodeIR start) {
+void IRABIReturn2Asm(graphNodeIR start,long frameSize) {
 	switch (getCurrentArch()) {
 	case ARCH_TEST_SYSV:
 	case ARCH_X86_SYSV: {
-		return IR_ABI_I386_SYSV_Return(start);
+			return IR_ABI_I386_SYSV_Return(start,frameSize);
 	}
 	case ARCH_X64_SYSV:
 		assert(0);

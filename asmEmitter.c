@@ -21,6 +21,7 @@ static __thread long labelCount = 0;
 static __thread ptrMapLabelNames labelsByParserNode = NULL;
 static __thread FILE *constsTmpFile = NULL;
 static __thread FILE *symbolsTmpFile = NULL;
+static __thread FILE *initSymbolsTmpFile = NULL;
 static __thread FILE *codeTmpFile = NULL;
 static ptrMapRegName regNames;
 static void strCharDestroy2(strChar *str) {
@@ -161,6 +162,10 @@ void X86EmitAsmInit() {
 	if (codeTmpFile != NULL)
 		fclose(codeTmpFile);
 	codeTmpFile = tmpfile();
+
+	if (initSymbolsTmpFile != NULL)
+			fclose(initSymbolsTmpFile);
+	initSymbolsTmpFile=tmpfile();
 }
 static strChar int64ToStr(int64_t value) {
 	strChar retVal = NULL;
@@ -437,7 +442,7 @@ void X86EmitAsmParserInst(struct parserNodeAsmInstX86 *inst) {
 	assert(!err);
 }
 void X86EmitAsmGlobalVar(struct parserVar *var) {
-	fprintf(constsTmpFile, "%s: resb %li\n", var->name, objectSize(var->type, NULL));
+	fprintf(initSymbolsTmpFile, "%s: resb %li\n", var->name, objectSize(var->type, NULL));
 }
 void X86EmitAsmIncludeBinfile(const char *fileName) {
 	char *otherValids = " []{}\\|;:\"\'<>?,./`~!@#$%^&*()-_+=";
@@ -573,9 +578,13 @@ void X86EmitAsm2File(const char *name) {
 	strChar symbols CLEANUP(strCharDestroy) = file2Str(symbolsTmpFile);
 	strChar code CLEANUP(strCharDestroy) = file2Str(codeTmpFile);
 	strChar consts CLEANUP(strCharDestroy) = file2Str(constsTmpFile);
+	strChar initSyms CLEANUP(strCharDestroy) = file2Str(initSymbolsTmpFile);
 	fwrite(symbols, strCharSize(symbols), 1, fn);
 	fwrite(code, strCharSize(code), 1, fn);
 	fprintf(fn, "SECTION .data\n");
 	fwrite(consts, strCharSize(consts), 1, fn);
+	fprintf(fn, "SECTION .bss\n");
+	fwrite(initSyms, strCharSize(initSyms), 1, fn);
+	
 	fclose(fn);
 }
