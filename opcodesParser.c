@@ -611,7 +611,7 @@ static int templateAcceptsAddrMode(const struct opcodeTemplateArg *arg, const st
 			return sizeMatchUnsigned(mode, 4);
 		}
 		if (ptrSize() == 4) {
-			return mode->type == X86ADDRMODE_LABEL || mode->type == X86ADDRMODE_ITEM_ADDR || mode->type == X86ADDRMODE_STR;
+			return mode->type == X86ADDRMODE_LABEL || mode->type == X86ADDRMODE_ITEM_ADDR || mode->type == X86ADDRMODE_STR||mode->type == X86ADDRMODE_LABEL;
 		} else
 			goto fail;
 	case OPC_TEMPLATE_ARG_SINT64:
@@ -620,7 +620,7 @@ static int templateAcceptsAddrMode(const struct opcodeTemplateArg *arg, const st
 			return sizeMatchUnsigned(mode, 8);
 		}
 		if (ptrSize() == 8) {
-			return mode->type == X86ADDRMODE_LABEL || mode->type == X86ADDRMODE_ITEM_ADDR || mode->type == X86ADDRMODE_STR;
+			return mode->type == X86ADDRMODE_LABEL || mode->type == X86ADDRMODE_ITEM_ADDR || mode->type == X86ADDRMODE_STR||mode->type == X86ADDRMODE_LABEL;
 		} else
 			goto fail;
 	case OPC_TEMPLATE_ARG_RM8:

@@ -241,9 +241,7 @@ static struct X86AddressingMode *__node2AddrMode(graphNodeIR start) {
 		case IR_VAL_FLT_LIT: {
 			struct X86AddressingMode *encoded CLEANUP(X86AddrModeDestroy) = X86AddrModeUint(IEEE754Encode(value->val.value.fltLit));
 			strChar fltLab CLEANUP(strCharDestroy) = uniqueLabel("FLT");
-			X86EmitAsmLabel(fltLab);
-			X86EmitAsmDU64(&encoded, 1);
-			__auto_type lab = X86AddrModeLabel(fltLab);
+			__auto_type lab = X86EmitAsmDU64(&encoded, 1);
 			lab->valueType = &typeF64;
 			return lab;
 		}
@@ -583,9 +581,9 @@ void asmAssign(struct X86AddressingMode *a, struct X86AddressingMode *b, long si
 						fldArgs=strX86AddrModeAppendItem(fldArgs, X86AddrModeClone(b));
 						const char *op=NULL;
 						if(intLoad)
-								op=(flags&ASM_ASSIGN_X87FPU_POP)?"FILDP":"FILD";
+								op="FILD";
 						else
-								op=(flags&ASM_ASSIGN_X87FPU_POP)?"FLDP":"FLD";
+								op="FLD";
 						assembleInst(op,fldArgs);
 						return ;
 				}
@@ -670,8 +668,11 @@ void asmAssign(struct X86AddressingMode *a, struct X86AddressingMode *b, long si
 		args = strX86AddrModeAppendItem(args, b);
 	}
 	if (size == 1 || size == 2 || size == 4 || size == 8) {
-		if (a->type == X86ADDRMODE_MEM || a->type == X86ADDRMODE_ITEM_ADDR) {
-			if (b->type == X86ADDRMODE_MEM || b->type == X86ADDRMODE_ITEM_ADDR) {
+		if (a->type == X86ADDRMODE_MEM || a->type == X86ADDRMODE_ITEM_ADDR||a->type == X86ADDRMODE_LABEL) {
+			if (b->type == X86ADDRMODE_MEM || b->type == X86ADDRMODE_ITEM_ADDR||b->type == X86ADDRMODE_LABEL) {
+					if(size>dataSize()) {
+							goto memcpy;
+					}
 				// Can't move memory to memory,so store b item in a register
 				AUTO_LOCK_MODE_REGS(a);
 				__auto_type reg = regForTypeExcludingConsumed(getTypeForSize(size));
@@ -692,7 +693,8 @@ void asmAssign(struct X86AddressingMode *a, struct X86AddressingMode *b, long si
 		assembleInst("MOV", args);
 		return;
 	} else {
-		long repCount, width;
+	memcpy:;
+			long repCount, width;
 		if (size % 8 == 0 && dataSize() == 8) {
 			if (size <= (8 * 0xffff)) {
 				repCount = size / 8;
@@ -1203,7 +1205,7 @@ static void compileX87Expr(graphNodeIR node) {
 				fsubpArgs=strX86AddrModeAppendItem(fsubpArgs, IRNode2AddrMode(a));
 				fsubpArgs=strX86AddrModeAppendItem(fsubpArgs, IRNode2AddrMode(b));
 				assembleInst("FSUBP", fsubpArgs);
-				return;
+				return ;
 		}
 		case IR_POS: {
 				//Multiply by 1
@@ -1324,24 +1326,28 @@ static void compileX87Expr(graphNodeIR node) {
 				strGraphEdgeIRP inDstPtrAsn CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_ASSIGN_FROM_PTR);
 				if(strGraphEdgeIRPSize(inDst)==1) {
 						__auto_type inNode=graphEdgeIRIncoming(in[0]);
-						struct X86AddressingMode *iMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(inNode);
-						struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(node);
-						asmAssign(oMode,  iMode, objectSize(IRNodeType(inNode), NULL) ,  ASM_ASSIGN_X87FPU_POP);
+						if(graphNodeIRValuePtr(inNode)->type==IR_VALUE) {
+								struct X86AddressingMode *iMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(inNode);
+								struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(node);
+								asmAssign(oMode,  iMode, objectSize(IRNodeType(inNode), NULL) ,  ASM_ASSIGN_X87FPU_POP);
+						}
 				} else if(strGraphEdgeIRPSize(inDstPtrAsn)==1) {
 						__auto_type inNode=graphEdgeIRIncoming(in[0]);
-						struct X86AddressingMode *iMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(inNode);
-						struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(node);
-						AUTO_LOCK_MODE_REGS(iMode);
-						AUTO_LOCK_MODE_REGS(oMode);
+						if(graphNodeIRValuePtr(inNode)->type==IR_VALUE) {
+								struct X86AddressingMode *iMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(inNode);
+								struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(node);
+								AUTO_LOCK_MODE_REGS(iMode);
+								AUTO_LOCK_MODE_REGS(oMode);
 
-						__auto_type f64Ptr=objectPtrCreate(&typeF64);
-						__auto_type ptrReg=regForTypeExcludingConsumed(f64Ptr);
-						struct X86AddressingMode *regMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(ptrReg);
-						pushReg(ptrReg);
-						asmAssign(regMode, oMode, ptrSize(), 0);
-						struct X86AddressingMode *indirect CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirReg(ptrReg,f64Ptr);
-						asmAssign(oMode,  indirect, objectSize(IRNodeType(inNode), NULL) ,  ASM_ASSIGN_X87FPU_POP);
-						popReg(ptrReg);
+								__auto_type f64Ptr=objectPtrCreate(&typeF64);
+								__auto_type ptrReg=regForTypeExcludingConsumed(f64Ptr);
+								struct X86AddressingMode *regMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(ptrReg);
+								pushReg(ptrReg);
+								asmAssign(regMode, oMode, ptrSize(), 0);
+								struct X86AddressingMode *indirect CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirReg(ptrReg,f64Ptr);
+								asmAssign(oMode,  indirect, objectSize(IRNodeType(inNode), NULL) ,  ASM_ASSIGN_X87FPU_POP);
+								popReg(ptrReg);
+						}
 				}
 
 				//If is a x87 fpu register whose value is not used,pop it
@@ -2777,7 +2783,11 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		return retVal;
 	}
 	case IR_VALUE: {
-		struct X86AddressingMode *currMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(start);
+			if(objectBaseType(IRNodeType(start))==&typeF64) {
+					compileX87Expr(start);
+					return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
+			}
+			struct X86AddressingMode *currMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(start);
 		AUTO_LOCK_MODE_REGS(currMode);
 
 		strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(start);

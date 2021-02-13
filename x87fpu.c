@@ -137,7 +137,7 @@ static void exprRecur(graphNodeIR start,ptrMapRefCount refCounts,int parentIsFpu
 								nodeStack=strGraphNodeIRPAppendItem(nodeStack,node);
 				}
 				if(isFpOp||isTypecastFromF64) {
-						for(long i =0;i!=strGraphEdgeIRPSize(in);i++) {
+						for(long i=strGraphEdgeIRPSize(in)-1;i>=0;i--) {
 								__auto_type node=graphEdgeIRIncoming(in[i]);
 								struct IRNodeValue *value=(void*)graphNodeIRValuePtr(node);
 								if(value->val.type==IR_VAL_VAR_REF) {

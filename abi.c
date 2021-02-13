@@ -364,7 +364,7 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start) {
 		if (type->type == TYPE_CLASS || type->type == TYPE_UNION) {
 			struct X86AddressingMode *stack CLEANUP(X86AddrModeDestroy) = X86AddrModeIndirReg(stackPointer(), type);
 			struct X86AddressingMode *val CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(args[i]);
-			asmAssign(stack, val, itemSize);
+			asmAssign(stack, val, itemSize,0);
 
 			// Must be aligned to 4 bytes
 			long aligned = itemSize / 4 * 4 + ((itemSize % 4) ? 4 : 0);
@@ -393,7 +393,7 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start) {
 
 			if (itemSize != 4) {
 				struct X86AddressingMode *eax CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86EAX);
-				asmTypecastAssign(eax, mode);
+				asmTypecastAssign(eax, mode,0);
 				pushArgs = strX86AddrModeAppendItem(pushArgs, X86AddrModeReg(&regX86EAX));
 			} else {
 				pushArgs = strX86AddrModeAppendItem(pushArgs, IRNode2AddrMode(args[i]));
@@ -425,18 +425,18 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start) {
 				struct X86AddressingMode *eaxMode CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86EAX);
 				// Assign type of eaxMode
 				eaxMode->valueType = retType;
-				asmTypecastAssign(outMode, eaxMode);
+				asmTypecastAssign(outMode, eaxMode,0);
 				goto end;
 			} else {
 				struct X86AddressingMode *outMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(outNode);
 				struct X86AddressingMode *st0Mode CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86ST0);
-				asmAssign(outMode, st0Mode, 8);
+				asmAssign(outMode, st0Mode, 8,0);
 				goto end;
 			}
 		} else {
 			struct X86AddressingMode *outMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(outNode);
 			struct X86AddressingMode *indirEaxMode CLEANUP(X86AddrModeDestroy) = X86AddrModeIndirReg(&regX86EAX, IRNodeType(outNode));
-			asmAssign(outMode, indirEaxMode, objectSize(IRNodeType(outNode), NULL));
+			asmAssign(outMode, indirEaxMode, objectSize(IRNodeType(outNode), NULL),0);
 			goto end;
 		}
 		assert(0);
@@ -571,7 +571,7 @@ static void IR_ABI_I386_SYSV_Return(graphNodeIR start) {
 				goto loadBasePtr;
 			} else {
 				struct X86AddressingMode *st0 CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86ST0);
-				asmTypecastAssign(NULL, mode);
+				asmTypecastAssign(NULL, mode,0);
 				goto loadBasePtr;
 			}
 		} else if (baseType->type == TYPE_CLASS || baseType->type == TYPE_UNION) {
@@ -582,7 +582,7 @@ static void IR_ABI_I386_SYSV_Return(graphNodeIR start) {
 			struct X86AddressingMode *retPtr CLEANUP(X86AddrModeDestroy) =
 			    X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer()), X86AddrModeSint(0), objectPtrCreate(baseType));
 			struct X86AddressingMode *eaxNode CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86EAX);
-			asmAssign(eaxNode, retPtr, ptrSize());
+			asmAssign(eaxNode, retPtr, ptrSize(),0);
 
 			strX86AddrMode xchgArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
 			__auto_type structPtr = X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer()), X86AddrModeSint(-4), objectPtrCreate(baseType));
@@ -594,7 +594,7 @@ static void IR_ABI_I386_SYSV_Return(graphNodeIR start) {
 			struct X86AddressingMode *ebpMode CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(basePointer());
 			struct X86AddressingMode *oldBPMode CLEANUP(X86AddrModeDestroy) =
 			    X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer()), X86AddrModeSint(0), objectPtrCreate(&typeU0));
-			asmAssign(ebpMode, oldBPMode, ptrSize());
+			asmAssign(ebpMode, oldBPMode, ptrSize(),0);
 
 			// Pop the extra 4 bytes from the return address,then return
 			assembleInst("LEAVE", NULL);
@@ -606,7 +606,7 @@ static void IR_ABI_I386_SYSV_Return(graphNodeIR start) {
 			// Isn't a struct/union/F64,so is an int/ptr
 			struct X86AddressingMode *eaxMode CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86EAX);
 			eaxMode->valueType = mode->valueType;
-			asmTypecastAssign(eaxMode, mode);
+			asmTypecastAssign(eaxMode, mode,0);
 			goto loadBasePtr;
 		}
 	}
@@ -634,7 +634,7 @@ void IRABIAsmPrologue() {
 		struct X86AddressingMode *ebp CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(basePointer());
 		strX86AddrMode pushArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeReg(basePointer()));
 		assembleInst("PUSH", pushArgs);
-		asmAssign(ebp, esp, ptrSize());
+		asmAssign(ebp, esp, ptrSize(),0);
 		return;
 	}
 	case ARCH_X64_SYSV:
