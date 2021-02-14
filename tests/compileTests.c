@@ -290,7 +290,7 @@ void compileTests() {
 				free(asmF);	
 				free(source);
 				}*/
-		{
+		/*{
 				const char * text=
 						"asm {\n"
 						"    MOV EAX,1"
@@ -364,8 +364,8 @@ void compileTests() {
 				runTest(asmF,"y");
 				free(asmF);	
 				free(source);
-				}
-		/*		{
+				}*/
+			{
 				const char * text=
 						"U0 assertEq(I32i a,I32i b) {\n"
 						"    if(a!=b) {\n"
@@ -430,7 +430,7 @@ void compileTests() {
 				runTest(asmF,"y");
 				free(asmF);	
 				free(source);
-				}*/
+				}
 		/*{
 				const char *text=
 						"{\n"
