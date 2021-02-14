@@ -78,6 +78,60 @@ static void __filterTransparentKill(graphNodeMapping node) {
 	}
 	graphNodeMappingKill(&node, NULL, NULL);
 }
+PTR_MAP_FUNCS(graphNodeIR, int, Visited);
+static __thread ptrMapGraphNode mappedNodes=NULL;
+static int __IRFilter(graphNodeMapping parent,ptrMapVisited *visited,graphNodeIR node,graphNodeIR endNode) {
+		int hit=0;
+		
+		strGraphNodeIRP queue CLEANUP(strGraphNodeIRPDestroy)=strGraphNodeIRPAppendItem(NULL, node);
+		while(strGraphNodeIRPSize(queue)) {
+				graphNodeIR curr;
+				queue=strGraphNodeIRPPop(queue, &curr);
+				
+				if(ptrMapGraphNodeGet(mappedNodes, curr)) {
+						if(!graphNodeMappingConnectedTo(parent, *ptrMapGraphNodeGet(mappedNodes, curr)))
+								graphNodeMappingConnect(parent, *ptrMapGraphNodeGet(mappedNodes, curr), NULL);
+						hit=1;
+						continue;
+				}
+
+				if(curr==endNode)
+						continue;
+				
+				strGraphNodeIRP out CLEANUP(strGraphNodeIRPDestroy)=graphNodeIROutgoingNodes(curr);
+				int hitInExpr=0;
+				for(long o=0;o!=strGraphNodeIRPSize(out);o++) {
+						if(!ptrMapVisitedGet(*visited, out[o])) {
+								__auto_type end=IREndOfExpr(out[o]);
+								if(end&&!endNode) {
+										if(end!=out[o]) {
+														strGraphNodeIRP stmtNodes CLEANUP(strGraphNodeIRPDestroy)=IRStmtNodes(end);
+												int hasSelectInStmt=0;
+												int startsInStmt=0;
+												for(long s=0;s!=strGraphNodeIRPSize(stmtNodes);s++) {
+														if(ptrMapGraphNodeGet(mappedNodes, stmtNodes[s])) {
+																if(*ptrMapGraphNodeGet(mappedNodes, stmtNodes[s])==parent)
+																		startsInStmt=1;
+																hasSelectInStmt=1;
+														}
+												}
+												if(!startsInStmt) {
+														if(hasSelectInStmt) {
+																__IRFilter(parent, visited, out[o], end);
+																continue;
+														}
+												}
+										}
+										queue=strGraphNodeIRPAppendItem(queue, end);
+										continue;
+								}
+						}
+						queue=strGraphNodeIRPAppendItem(queue, out[o]);
+				}
+		}
+		return hit;
+}
+/*
 graphNodeIR IRFilter(graphNodeIR start, int (*pred)(graphNodeIR, const void *), const void *data) {
 	graphNodeMapping mapping = graphNodeCreateMapping(start, 0);
 	strGraphNodeMappingP allNodes CLEANUP(strGraphNodeMappingPDestroy) = graphNodeMappingAllNodes(mapping);
@@ -88,4 +142,30 @@ graphNodeIR IRFilter(graphNodeIR start, int (*pred)(graphNodeIR, const void *), 
 			__filterTransparentKill(allNodes[i]);
 	}
 	return mapping;
+}
+*/
+graphNodeIR IRFilter(graphNodeIR start, int (*pred)(graphNodeIR, const void *), const void *data) {
+		graphNodeMapping mapping = graphNodeMappingCreate(start, 0);
+		mappedNodes=ptrMapGraphNodeCreate();
+		strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);
+		for(long n=0;n!=strGraphNodeIRPSize(allNodes);n++) {
+				if(pred(allNodes[n],data)||allNodes[n]==start) {
+						ptrMapGraphNodeAdd(mappedNodes, allNodes[n], graphNodeMappingCreate(allNodes[ n],0));
+				}
+		}
+
+		long kCount=ptrMapGraphNodeSize(mappedNodes);
+		graphNodeIR keys[kCount];
+		ptrMapGraphNodeKeys(mappedNodes, keys);
+		for(long k=0;k!=kCount;k++) {
+				__auto_type visited=ptrMapVisitedCreate();
+				strGraphNodeIRP out CLEANUP(strGraphNodeIRPDestroy)=graphNodeIROutgoingNodes(keys[k]);
+				for(long o=0;o!=strGraphNodeIRPSize(out);o++)
+						__IRFilter(*ptrMapGraphNodeGet(mappedNodes, keys[k]), &visited, out[o], NULL);
+				ptrMapVisitedDestroy(visited, NULL);
+		}
+
+		__auto_type retVal=*ptrMapGraphNodeGet(mappedNodes, start);
+		ptrMapGraphNodeDestroy(mappedNodes, NULL);
+		return retVal;
 }
