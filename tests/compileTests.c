@@ -335,23 +335,23 @@ void compileTests() {
 						// We will assign into global variables which will not be in registers,
 						// we will then ensure no general purpose operations have been changed during the operation
 						"I32i a=2,b=15,c;\n"
+						"Bool d;\n"
 #define operationTest(text) "gpDump();moveGpTo2();\n" text "gpDump();assertEq();\n"
-						operationTest("c=a+b;\n")
+						operationTest("c=b+b;\n")
 						operationTest("c=a-b;\n")
 						operationTest("c=a*b;\n")
 						operationTest("c=a%b;\n")
 						operationTest("c=a/b;\n")
 						operationTest("c=a>>b;\n")
 						operationTest("c=a<<b;\n")
-						operationTest("c=a<b;\n")
-						operationTest("c=a>b;\n")
-						operationTest("c=a<=b;\n")
-						operationTest("c=a>=b;\n")
-						operationTest("c=a==b;\n")
-						operationTest("c=a!=b;\n")
+						operationTest("d=a<b;\n")
+						operationTest("d=a>b;\n")
+						operationTest("d=a<=b;\n")
+						operationTest("d=a>=b;\n")
+						operationTest("d=a==b;\n")
+						operationTest("d=a!=b;\n")
 						operationTest("c=a&b;\n")
 						operationTest("c=a|b;\n")
-						operationTest("c=a^b;\n")
 						operationTest("c=a^b;\n")
 						operationTest("c=~b;\n")
 						putY

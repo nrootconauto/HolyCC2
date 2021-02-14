@@ -18,7 +18,7 @@ static struct object *dftValType() {
 }
 struct object *assignTypeToOp(const struct parserNode *node);
 static int isArith(const struct object *type) {
-	if (type == &typeU8i || type == &typeU16i || type == &typeU32i || type == &typeU64i || type == &typeI8i || type == &typeI16i || type == &typeI32i ||
+		if (type==&typeBool||type == &typeU8i || type == &typeU16i || type == &typeU32i || type == &typeU64i || type == &typeI8i || type == &typeI16i || type == &typeI32i ||
 	    type == &typeI64i || type == &typeF64 || type->type == TYPE_PTR || type->type == TYPE_ARRAY) {
 		return 1;
 	}
@@ -26,8 +26,8 @@ static int isArith(const struct object *type) {
 }
 MAP_TYPE_DEF(void *, Set);
 MAP_TYPE_FUNCS(void *, Set);
-mapSet assignOps = NULL;
-mapSet incOps = NULL;
+static mapSet assignOps = NULL;
+static mapSet incOps = NULL;
 void initAssignOps();
 void initAssignOps() {
 	const char *assignOps2[] = {
@@ -103,7 +103,7 @@ static struct object *intLitType(struct parserNodeLitInt *i) {
 }
 static struct object *promotionType(const struct object *a, const struct object *b) {
 	const struct object *ranks[] = {
-	    &typeU0, &typeI8i, &typeU8i, &typeI16i, &typeU16i, &typeI32i, &typeU32i, &typeI64i, &typeU64i, &typeF64,
+			&typeU0, &typeBool,&typeI8i, &typeU8i, &typeI16i, &typeU16i, &typeI32i, &typeU32i, &typeI64i, &typeU64i, &typeF64,
 	};
 	long count = sizeof(ranks) / sizeof(*ranks);
 	long I32Rank = objIndex(ranks, count, dftValType());
@@ -125,14 +125,16 @@ static struct object *promotionType(const struct object *a, const struct object 
 	return NULL;
 }
 static struct parserNode *promoteIfNeeded(struct parserNode *node, struct object *toType) {
-	if (assignTypeToOp(node) != toType) {
-		struct parserNodeTypeCast *cast = malloc(sizeof(struct parserNodeTypeCast));
-		cast->base.type = NODE_TYPE_CAST;
-		cast->exp = node;
-		cast->type = toType;
-
-		return (void *)cast;
-	}
+		/*
+				if (assignTypeToOp(node) != toType) {
+				struct parserNodeTypeCast *cast = malloc(sizeof(struct parserNodeTypeCast));
+				cast->base.type = NODE_TYPE_CAST;
+				cast->exp = node;
+				cast->type = toType;
+				
+				return (void *)cast;
+				}
+		*/
 
 	return node;
 }

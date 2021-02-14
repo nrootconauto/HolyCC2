@@ -9,7 +9,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <topoSort.h>
-//#define DEBUG_PRINT_ENABLE 1
+#define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 static void debugPrintGraph(graphNodeMapping map) {
 #if DEBUG_PRINT_ENABLE
@@ -69,9 +69,7 @@ struct varAndEnterPair {
 static int occurOfVar(graphNodeIR node, const void *pair) {
 	const struct varAndEnterPair *expectedVar = pair;
 	struct IRNode *ir = graphNodeIRValuePtr((graphNodeIR)node);
-	if (node == expectedVar->enter)
-		return 1;
-
+	
 	if (ir->type == IR_VALUE) {
 		struct IRNodeValue *val = (void *)ir;
 		if (val->val.type != IR_VAL_VAR_REF)
@@ -198,10 +196,14 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 	pair.enter = start;
 	pair.var = var;
 
+	if(pair.var->var->name)
+			if(0==strcmp("c",var->var->name))
+					printf("dsgg");
 	// Get references to all vars
-	graphNodeMapping varRefsG CLEANUP(graphNodeMappingDestroy2) = IRFilter(start, occurOfVar, &pair);
+ 	graphNodeMapping varRefsG CLEANUP(graphNodeMappingDestroy2) = IRFilter(start, occurOfVar, &pair);
 	strGraphNodeMappingP allVarRefs CLEANUP(strGraphNodeMappingPDestroy) = graphNodeMappingAllNodes(varRefsG);
-	// graphPrint(varRefsG, node2Str);
+	
+	//debugPrintGraph(varRefsG);
 	// Hash the vars
 	ptrMapGraphNode IR2MappingNode = ptrMapGraphNodeCreate();
 	for (long i = 0; i != strGraphNodeMappingPSize(allVarRefs); i++) {
@@ -219,7 +221,7 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 
 	strGraphNodeMappingP allVarAssigns CLEANUP(strGraphNodeMappingPDestroy) = graphNodeMappingAllNodes(varAssignG);
 
-	debugPrintGraph(varAssignG);
+	//debugPrintGraph(varAssignG);
 	// Number the assigns
 	long version = 1;
 	for (long i = 0; i != strGraphNodeMappingPSize(allVarAssigns); i++) {
@@ -261,7 +263,7 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 				o->val.value.var.SSANum=in->val.value.var.SSANum;
 		}
 	}
-	debugPrintGraph(varRefsG);
+	//debugPrintGraph(varRefsG);
 }
 STR_TYPE_DEF(struct IRVar, IRVar);
 STR_TYPE_FUNCS(struct IRVar, IRVar);
@@ -616,7 +618,7 @@ void IRToSSA(graphNodeIR enter) {
 		__auto_type clone = graphNodeMappingClone(filtered);
 		filterVBlobMap4Var(clone, &allVars[i], blobs);
 #if DEBUG_PRINT_ENABLE
-		debugPrintGraph(clone);
+		//debugPrintGraph(clone);
 #endif
 		// Compute choose nodes
 		strGraphNodeIRP chooses = IRSSACompute(clone, &allVars[i], blobs);
@@ -761,7 +763,7 @@ static ptrMapIRPathsByGN groupPathsByEnd(ptrMapIRPathsByGN *retVal, strIRPaths p
 void IRSSAReplaceChooseWithAssigns(graphNodeIR node, strGraphNodeIRP *replaced) {
 #if DEBUG_PRINT_ENABLE
 	__auto_type map = graphNodeCreateMapping(node, 1);
-	debugPrintGraph(map);
+	//debugPrintGraph(map);
 #endif
 
 	assert(graphNodeIRValuePtr(node)->type == IR_CHOOSE);
@@ -911,7 +913,7 @@ void IRSSAReplaceChooseWithAssigns(graphNodeIR node, strGraphNodeIRP *replaced) 
 
 #if DEBUG_PRINT_ENABLE
 		__auto_type map = graphNodeCreateMapping(edgeOut, 1);
-		debugPrintGraph(map);
+		//debugPrintGraph(map);
 #endif
 	}
 
