@@ -736,45 +736,45 @@ static graphNodeIR parserNode2Expr(const struct parserNode *node) {
 		return retVal;
 	}
 	case NODE_UNOP: {
-		struct parserNodeUnop *unop = (void *)node;
-		struct parserNodeOpTerm *op = (void *)unop->op;
-		__auto_type in = parserNode2Expr(unop->a);
-
-		// Find assign unop
-		__auto_type find = mapIRNodeTypeGet(unopAssign2IRType, op->text);
-		if (find) {
-			graphNodeIR newNode = NULL;
-			if (0 == strcmp(op->text, "++")) {
-				struct IRNodeInc inc;
-				inc.base.type = IR_INC;
-				inc.base.attrs = NULL;
-				newNode = GRAPHN_ALLOCATE(inc);
-			} else if (0 == strcmp(op->text, "--")) {
-				struct IRNodeInc dec;
-				dec.base.type = IR_INC;
-				dec.base.attrs = NULL;
-				newNode = GRAPHN_ALLOCATE(dec);
-			} else {
-				struct IRNodeUnop unop;
-				unop.base.type = *find;
-				unop.base.attrs = NULL;
-				newNode = GRAPHN_ALLOCATE(unop);
-			}
-			assert(newNode != NULL);
-
-			graphNodeIRConnect(in, newNode, IR_CONN_SOURCE_A);
-
-			return newNode;
-		} else {
-			__auto_type find = mapIRNodeTypeGet(unop2IRType, op->text);
-			graphNodeIR newNode;
+			struct parserNodeUnop *unop = (void *)node;
+			struct parserNodeOpTerm *op = (void *)unop->op;
+			__auto_type in = parserNode2Expr(unop->a);
+			
+			// Find assign unop
+			__auto_type find = mapIRNodeTypeGet(unopAssign2IRType, op->text);
 			if (find) {
-				struct IRNodeUnop unop;
-				unop.base.type = *find;
-				unop.base.attrs = NULL;
-				newNode = GRAPHN_ALLOCATE(unop);
-				graphNodeIRConnect(in, newNode, IR_CONN_SOURCE_A);
-				return newNode;
+					graphNodeIR newNode = NULL;
+					if (0 == strcmp(op->text, "++")) {
+							struct IRNodeInc inc;
+							inc.base.type = IR_INC;
+							inc.base.attrs = NULL;
+							newNode = GRAPHN_ALLOCATE(inc);
+					} else if (0 == strcmp(op->text, "--")) {
+							struct IRNodeInc dec;
+							dec.base.type = IR_INC;
+							dec.base.attrs = NULL;
+							newNode = GRAPHN_ALLOCATE(dec);
+					} else {
+							struct IRNodeUnop unop;
+							unop.base.type = *find;
+							unop.base.attrs = NULL;
+							newNode = GRAPHN_ALLOCATE(unop);
+					}
+					assert(newNode != NULL);
+					
+					graphNodeIRConnect(in, newNode, IR_CONN_SOURCE_A);
+					
+					return newNode;
+			} else {
+					__auto_type find = mapIRNodeTypeGet(unop2IRType, op->text);
+					graphNodeIR newNode;
+					if (find) {
+							struct IRNodeUnop unop;
+							unop.base.type = *find;
+							unop.base.attrs = NULL;
+							newNode = GRAPHN_ALLOCATE(unop);
+							graphNodeIRConnect(in, newNode, IR_CONN_SOURCE_A);
+							return newNode;
 			} else if (0 == strcmp(op->text, "&")) {
 				return IRCreateAddrOf(in);
 			}
@@ -808,16 +808,48 @@ static graphNodeIR parserNode2Expr(const struct parserNode *node) {
 	}
 	return NULL;
 }
+static void dumpArrayLiterals(struct parserNode *toDump,strGraphNodeIRP *dumpTo) {
+		struct parserNodeArrayLit *lit=(void*)toDump;
+		for(long i=0;i!=strParserNodeSize(lit->items);i++) {
+				if(lit->items[i]->type!=NODE_ARRAY_LITERAL) {
+						*dumpTo=strGraphNodeIRPAppendItem(*dumpTo,parserNode2Expr(lit->items[i]));
+				} else
+						dumpArrayLiterals(toDump,dumpTo);
+		}
+}
 static struct enterExit varDecl2IR(const struct parserNode *node) {
 	struct enterExit retVal;
 	struct parserNodeVarDecl *decl = (void *)node;
-	__auto_type varRef = IRCreateVarRef(decl->var);
-	retVal.enter = retVal.exit = varRef;
-	// Assign defualt value(if present)
-	if (decl->dftVal) {
-		__auto_type dft = parserNode2Expr(decl->dftVal);
-		IRCreateAssign(dft, varRef);
-		retVal.enter = IRStmtStart(dft);
+	if(decl->type->type==TYPE_ARRAY) {
+			strGraphNodeIRP dims CLEANUP(strGraphNodeIRPDestroy)=NULL;
+			for(__auto_type type=decl->type;type->type==TYPE_ARRAY;) {
+					struct objectArray *arr=(void*)type;
+					dims=strGraphNodeIRPAppendItem(dims,__parserNode2IRStmt(arr->dim).exit);
+					//Use base array
+					type=arr->type;
+			}
+			dims=strGraphNodeIRPReverse(dims);
+			__auto_type arr=IRCreateArrayDecl(decl->var, decl->type, dims);
+			
+			//Assign initial value
+			if(decl->dftVal) {
+					assert(decl->dftVal->type==NODE_ARRAY_LITERAL);
+					strGraphNodeIRP initialValues CLEANUP(strGraphNodeIRPDestroy)=NULL;
+					dumpArrayLiterals(decl->dftVal,&initialValues);
+					fputs("Implement assigning array literls\n", stderr); 
+					abort();
+			}
+			
+			return (struct enterExit){IRStmtStart(arr),arr};
+	} else {
+			__auto_type varRef = IRCreateVarRef(decl->var);
+			retVal.enter = retVal.exit = varRef;
+			// Assign defualt value(if present)
+			if (decl->dftVal) {
+					__auto_type dft = parserNode2Expr(decl->dftVal);
+					IRCreateAssign(dft, varRef);
+					retVal.enter = IRStmtStart(dft);
+			}
 	}
 
 	return retVal;
@@ -864,6 +896,12 @@ static void IRAttrLabelNameDestroy(struct IRAttr *attr) {
 }
 static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 	switch (node->type) {
+	case NODE_ARRAY_LITERAL: {
+			__auto_type lab=IRCreateLabel();
+			fputs("Array literals must be in initializer\n", stderr);
+			abort();
+			return  (struct enterExit){lab,lab};
+	}
 	case NODE_SIZEOF_EXP:
 	case NODE_SIZEOF_TYPE:
 	case NODE_LINKAGE:

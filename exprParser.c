@@ -171,7 +171,7 @@ static void incompatTypes(struct parserNode *node, struct object *expected) {
 	diagEndMsg();
 }
 struct object *assignTypeToOp(const struct parserNode *node) {
-	if (node->type == NODE_FUNC_REF) {
+		if (node->type == NODE_FUNC_REF) {
 		struct parserNodeFuncRef *ref = (void *)node;
 		return ref->func->type;
 	} else if (node->type == NODE_VAR) {
@@ -524,6 +524,12 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 			diagEndMsg();
 		}
 		return dftValType();
+	} else if (node->type == NODE_ARRAY_LITERAL) {
+			//Should not be called  anywhere
+			diagErrorStart(node->pos.start, node->pos.end);
+			diagPushText("Array literals should only be used when assigning variables' initial values.");
+			diagEndMsg();
+			return &typeU0;	
 	} else if (node->type == NODE_ARRAY_ACCESS) {
 		struct parserNodeArrayAccess *arrAcc = (void *)node;
 		__auto_type baseType = objectBaseType(assignTypeToOp(arrAcc->exp));

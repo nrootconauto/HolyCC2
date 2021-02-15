@@ -1919,13 +1919,65 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		}
 		return nextNodesToCompile(start);
 	}
-	case IR_ARRAY:
+	case IR_ARRAY_DECL: {
+			strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=IREdgesByPrec(start);
+			strGraphNodeIRP dims CLEANUP(strGraphNodeIRPDestroy)=NULL;
+
+			//Assign the current stack pointer to the output as we will push the memory for the array on the stack
+			__auto_type out=nodeDest(start);
+			struct X86AddressingMode *outMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(out);
+			AUTO_LOCK_MODE_REGS(outMode);
+
+			//Add an area on the stack,,we will start 1 and multiply  by the itemsize of each nested array's dim then mutlply my the itemsize
+			strX86AddrMode pushArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeSint(1));
+			assembleInst("PUSH", pushArgs);
+
+			struct objectArray *type=(void*)IRNodeType(start);
+			for(long i=0;i!=strGraphEdgeIRPSize(in);i++) {
+					switch(*graphEdgeIRValuePtr(in[i])) {
+					case IR_CONN_ARRAY_DIM_1...IR_CONN_ARRAY_DIM_16: {
+							__auto_type inMode=IRNode2AddrMode(graphEdgeIRIncoming(in[i]));
+							AUTO_LOCK_MODE_REGS(inMode);
+							__auto_type reg32=regForTypeExcludingConsumed(&typeI32i);
+							pushReg(reg32);
+							
+							strX86AddrMode mulArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+							struct X86AddressingMode *stackPos=X86AddrModeIndirSIB(0,NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(4), &typeI32i);
+							mulArgs=strX86AddrModeAppendItem(mulArgs,stackPos);
+							
+							struct X86AddressingMode *reg32Mode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(reg32);
+							asmTypecastAssign(reg32Mode, inMode, ASM_ASSIGN_X87FPU_POP);
+							mulArgs=strX86AddrModeAppendItem(mulArgs,X86AddrModeReg(reg32));
+							assembleInst("IMUL", mulArgs);
+							
+							popReg(reg32);
+
+							type=(void*)type->type;
+					}		
+					default:
+							continue;
+					}
+					//Multiply by the base item size
+					strX86AddrMode mulArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+					struct X86AddressingMode *stackPos CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(0,NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(4), &typeI32i);
+					mulArgs=strX86AddrModeAppendItem(mulArgs,X86AddrModeClone(stackPos));
+					mulArgs=strX86AddrModeAppendItem(mulArgs,X86AddrModeSint(objectSize((struct object*)type, NULL)));
+					assembleInst("IMUL", mulArgs);
+
+					//Add 4 to the value to simulate a pop,we will substreact  the value on the stack to the stack pointer to make room for the array
+					strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+					addArgs=strX86AddrModeAppendItem(addArgs,X86AddrModeReg(stackPointer()));
+					addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeClone(stackPos));
+					assembleInst("ADD", addArgs);
+			}
+			return nextNodesToCompile(start);
+	}
 	case IR_TYPECAST: {
-		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(start);
-		__auto_type inNode = graphEdgeIRIncoming(in[0]);
-		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIROutgoing(start);
-		assert(strGraphEdgeIRPSize(out) == 1);
-		__auto_type outNode = graphEdgeIROutgoing(out[0]);
+			strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(start);
+			__auto_type inNode = graphEdgeIRIncoming(in[0]);
+			strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIROutgoing(start);
+			assert(strGraphEdgeIRPSize(out) == 1);
+			__auto_type outNode = graphEdgeIROutgoing(out[0]);
 		struct X86AddressingMode *aMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(inNode);
 		AUTO_LOCK_MODE_REGS(aMode);
 		struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(outNode);

@@ -64,6 +64,7 @@ enum parserNodeType {
 	 * extern,import,_extern,_import,public
 	 */
 	NODE_LINKAGE,
+	NODE_ARRAY_LITERAL,
 };
 struct linkage {
 	enum {
@@ -379,9 +380,14 @@ struct parserNodeAsmInstX86 {
 	struct parserNode *name;
 	strParserNode args;
 };
+struct parserNodeArrayLit {
+		struct parserNode base;
+		strParserNode items;
+};
 struct parserNode *parseExpression(llLexerItem start, llLexerItem end, llLexerItem *result);
 struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end);
 struct parserNode *parseClass(llLexerItem start, llLexerItem *end, int allowForwardDecl);
+struct parserNode *parseArrayLiteral(llLexerItem start, llLexerItem *end);
 struct parserNode *parseIf(llLexerItem start, llLexerItem *end);
 struct parserNode *parseStatement(llLexerItem start, llLexerItem *end);
 struct parserNode *parseFor(llLexerItem start, llLexerItem *end);

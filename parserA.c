@@ -243,7 +243,10 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end, llLex
 
 		return name;
 	} else {
-		return NULL;
+			__auto_type arrLit=parseArrayLiteral(start, result);
+			if(arrLit)
+					return arrLit;	
+			return NULL;
 	}
 
 	// TODO add float template.
@@ -1092,6 +1095,73 @@ static llLexerItem findEndOfExpression(llLexerItem start, int stopAtComma) {
 	}
 
 	return NULL;
+} 
+static int64_t intLitValue(struct parserNode *lit) {
+	__auto_type node = (struct parserNodeLitInt *)lit;
+	int64_t retVal;
+	if (node->value.type == INT_SLONG)
+		retVal = node->value.value.sLong;
+	else if (node->value.type == INT_ULONG)
+		retVal = node->value.value.uLong;
+	return retVal;
+}
+static int validateArrayDim(struct object *obj,struct parserNode *parent,strParserNode toValidate) {
+		long expectedDim=-1;
+		struct objectArray *arr=(void*)obj;
+		if(arr->dim) {
+				if(arr->dim->type==NODE_LIT_INT) {
+						expectedDim=intLitValue(arr->dim);
+				}
+		}
+		
+		long firstLen=0;
+		for(long v=0;v!=strParserNodeSize(toValidate);v++) {
+				if(toValidate[v]->type!=NODE_ARRAY_LITERAL) {
+						diagErrorStart(toValidate[v]->pos.start, toValidate[v]->pos.end);
+						diagPushText("Expected an array literal.");
+						diagPushQoutedText(toValidate[v]->pos.start, toValidate[v]->pos.end);
+						diagEndMsg();
+						return 1;
+				}
+				struct parserNodeArrayLit *lit=(void*)toValidate[v];
+				long len=strParserNodeSize(lit->items);
+				if(expectedDim!=-1&&len!=expectedDim) {
+						diagErrorStart(toValidate[v]->pos.start, toValidate[v]->pos.end);
+						diagPushText("Dimension mismatch in array literal");
+						diagPushQoutedText(toValidate[v]->pos.start, toValidate[v]->pos.end);
+						diagEndMsg();
+						return 1;
+				}
+				if(v==0) {
+						firstLen=len;
+				} else if(firstLen!=len) {
+						diagErrorStart(toValidate[v]->pos.start, toValidate[v]->pos.end);
+						diagPushText("Inconsistent array dim size.");
+						diagPushQoutedText(toValidate[v]->pos.start, toValidate[v]->pos.end);
+						diagEndMsg();
+						return 1;
+				}
+		}
+		struct parserNodeLitInt intLit;
+		intLit.base.pos.start=0;
+		intLit.base.pos.end=0;
+		intLit.value.type=INT_SLONG;
+		intLit.value.value.sLong=firstLen;
+		__auto_type lit=ALLOCATE(intLit);
+		parserNodeDestroy(&arr->dim);
+		arr->dim=lit;
+
+		if(arr->type->type==TYPE_ARRAY) {
+				strParserNode next CLEANUP(strParserNodeDestroy)=NULL;
+				for(long v=0;v!=strParserNodeSize(toValidate);v++) {
+						//Should be array literals is didn't  return an error 
+						struct parserNodeArrayLit *lit=(void*)toValidate[v];
+						assert(lit->base.type==NODE_ARRAY_LITERAL);
+						next=strParserNodeAppendData(next, (const struct parserNode **)lit->items, strParserNodeSize(lit->items));
+				}
+				validateArrayDim(arr->type, parent, next);
+		}
+		return 0;
 }
 static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end, struct object *baseType, struct parserNode **name, struct parserNode **dftVal,
                                        strParserNode *metaDatas) {
@@ -1172,7 +1242,7 @@ static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end, stru
 	for (long i = 0; i != ptrLevel; i++)
 		retValType = objectPtrCreate(retValType);
 	for (long i = 0; i != strParserNodeSize(dims); i++)
-		retValType = objectArrayCreate(retValType, dims[i]);
+			retValType = objectArrayCreate(retValType, dims[i],NULL);
 
 	// Look for metaData
 	strParserNode metaDatas2 = NULL;
@@ -1199,6 +1269,18 @@ metaDataLoop:;
 		__auto_type expEnd = findEndOfExpression(start, 1);
 		__auto_type dftVal2 = parseExpression(start, expEnd, &start);
 
+		//
+		//If is an array type,if the array bounds are undefined we can infer them if array initializer is present
+		//
+		if(retValType->type==TYPE_ARRAY) {
+				if(dftVal2) {
+						if(dftVal2->type==NODE_ARRAY_LITERAL) {
+								strParserNode array CLEANUP(strParserNodeDestroy)=strParserNodeAppendItem(NULL, dftVal2);
+								validateArrayDim(retValType, dftVal2, array);
+						}
+				}
+		}
+		
 		if (dftVal != NULL)
 			*dftVal = dftVal2;
 	} else {
@@ -2936,6 +3018,11 @@ void parserNodeDestroy(struct parserNode **node) {
 	if (!node[0])
 		return;
 	switch (node[0]->type) {
+	case NODE_ARRAY_LITERAL: {
+			struct parserNodeArrayLit *lit=(void*)node[0];
+			strParserNodeDestroy2(&lit->items);
+			break;
+	}
 	case NODE_SIZEOF_TYPE:
 		break;
 	case NODE_SIZEOF_EXP: {
@@ -3233,15 +3320,6 @@ static uint64_t uintLitValue(struct parserNode *lit) {
 		return retVal;
 	}
 	return -1;
-}
-static int64_t intLitValue(struct parserNode *lit) {
-	__auto_type node = (struct parserNodeLitInt *)lit;
-	int64_t retVal;
-	if (node->value.type == INT_SLONG)
-		retVal = node->value.value.sLong;
-	else if (node->value.type == INT_ULONG)
-		retVal = node->value.value.uLong;
-	return retVal;
 }
 static struct X86AddressingMode *sibOffset2Addrmode(struct parserNode *node) {
 	if (node->type == NODE_NAME) {
@@ -3820,4 +3898,32 @@ struct parserNode *parseAsm(llLexerItem start, llLexerItem *end) {
 	if (end)
 		*end = start;
 	return ALLOCATE(asmBlock);
+}
+struct parserNode *parseArrayLiteral(llLexerItem start, llLexerItem *end) {
+		__auto_type originalStart=start;
+		struct parserNode *lC CLEANUP(parserNodeDestroy)=expectKeyword(start, "{");
+		if(!lC)
+				return NULL;
+		start=llLexerItemNext(start);
+		strParserNode items=NULL;
+		for(;;) {
+				struct parserNode *rC CLEANUP(parserNodeDestroy)=expectKeyword(start, "}");
+				if(rC) {
+						start=llLexerItemNext(start);
+						break;
+				}
+				__auto_type exp=parseExpression(start, findEndOfExpression(start, 1), &start);
+				if(exp) {
+						items=strParserNodeAppendItem(items, exp);
+				} else {
+						whineExpectedExpr(start);
+						break;
+				}
+		}
+		struct parserNodeArrayLit lit;
+		lit.base.type=NODE_ARRAY_LITERAL;
+		lit.items=items;
+		__auto_type retVal=ALLOCATE(lit);
+		assignPosByLexerItems(retVal, originalStart, start);
+		return retVal;
 }

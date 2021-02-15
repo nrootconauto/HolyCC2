@@ -38,6 +38,23 @@ enum IRConnType {
 	IR_CONN_SIMD_ARG,
 	IR_CONN_FUNC,
 	//
+	IR_CONN_ARRAY_DIM_1,
+	IR_CONN_ARRAY_DIM_2,
+	IR_CONN_ARRAY_DIM_3,
+	IR_CONN_ARRAY_DIM_4,
+	IR_CONN_ARRAY_DIM_5,
+	IR_CONN_ARRAY_DIM_6,
+	IR_CONN_ARRAY_DIM_7,
+	IR_CONN_ARRAY_DIM_8,
+	IR_CONN_ARRAY_DIM_9,
+	IR_CONN_ARRAY_DIM_10,
+	IR_CONN_ARRAY_DIM_11,
+	IR_CONN_ARRAY_DIM_12,
+	IR_CONN_ARRAY_DIM_13,
+	IR_CONN_ARRAY_DIM_14,
+	IR_CONN_ARRAY_DIM_15,
+	IR_CONN_ARRAY_DIM_16,
+	//
 	IR_CONN_FUNC_ARG_1,
 	IR_CONN_FUNC_ARG_2,
 	IR_CONN_FUNC_ARG_3,
@@ -199,8 +216,6 @@ enum IRNodeType {
 	IR_LSHIFT,
 	IR_RSHIFT,
 	//
-	IR_ARRAY_ACCESS,
-	//
 	IR_SIMD,
 	//
 	IR_GT,
@@ -235,7 +250,7 @@ enum IRNodeType {
 	IR_MEMBERS,
 	IR_MEMBERS_ADDR_OF,
 	//
-	IR_ARRAY,
+	IR_ARRAY_DECL,
 	//
 	IR_X86_INST,
 	IR_ASM_DU8,
@@ -308,6 +323,10 @@ struct IRValue {
 		const char *strLit;
 		graphNodeIR memLabel;
 	} value;
+};
+struct IRNodeArrayDecl {
+		struct IRNode base;
+		struct object *itemType;
 };
 struct IRNodeAssign {
 	struct IRNode base;
@@ -531,3 +550,6 @@ struct IRAttrVariable {
 	struct IRVar var;
 };
 graphNodeIR IRCreateGlobalVarRef(struct parserVar *var);
+graphNodeIR IRCreateArrayDecl(struct parserVar *assignInto,struct object *type,strGraphNodeIRP dims);
+graphNodeIR IRGetArrayDimForVar(struct parserVar *arrVar,long i);
+graphNodeIR IRObjectArrayScale(struct objectArray *arr);

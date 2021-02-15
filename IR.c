@@ -5,6 +5,7 @@
 #include <exprParser.h>
 #include <stdarg.h>
 #include <stdint.h>
+#include <IRTypeInference.h>
 void *IR_ATTR_VARIABLE = "IS_VARIABLE";
 typedef int (*gnIRCmpType)(const graphNodeIR *, const graphNodeIR *);
 typedef int (*geIRCmpType)(const graphEdgeIR *, const graphEdgeIR *);
@@ -276,7 +277,7 @@ strGraphNodeP IRStatementNodes(const graphNodeIR stmtStart, const graphNodeIR st
 	return allNodes;
 }
 void initIR() {
-	IRVars = ptrMapIRVarRefsCreate();
+		IRVars = ptrMapIRVarRefsCreate();
 }
 graphNodeIR createFuncStart(const struct parserFunction *func) {
 	struct IRNodeFuncStart start;
@@ -388,6 +389,7 @@ int IRIsExprEdge(enum IRConnType type) {
 	case IR_CONN_DEST:
 	case IR_CONN_ASSIGN_FROM_PTR:
 	case IR_CONN_FUNC_ARG_1 ... IR_CONN_FUNC_ARG_128:
+	case IR_CONN_ARRAY_DIM_1 ... IR_CONN_ARRAY_DIM_16:
 		return 1;
 	default:
 		return 0;
@@ -608,6 +610,8 @@ dumpU:
 }
 char *graphEdgeIR2Str(struct __graphEdge *edge) {
 	switch (*graphEdgeIRValuePtr(edge)) {
+	case IR_CONN_ARRAY_DIM_1...IR_CONN_ARRAY_DIM_16:
+		return strClone("IR_CONN_ARRAY_DIM");
 	case IR_CONN_NEVER_FLOW:
 		return strClone("IR_CONN_NEVER_FLOW");
 	case IR_CONN_CASE:
@@ -827,6 +831,38 @@ struct graphVizDataNode {
 	void *data;
 	mapLabelNum *labelNums;
 };
+graphNodeIR IRCreateArrayDecl(struct parserVar *assignInto,struct object *type,strGraphNodeIRP dims) {
+		struct IRNodeArrayDecl arr;
+		arr.base.attrs=NULL;
+		arr.base.type=IR_ARRAY_DECL;
+		arr.itemType=type;
+		__auto_type retVal=GRAPHN_ALLOCATE(arr);
+		assert(strGraphNodeIRPSize(dims)<=16);
+		for(long d=0;d!=strGraphNodeIRPSize(dims);d++) {
+				graphNodeIR from=NULL;
+				//Create a variable to hold array dim if not an integer
+				struct IRNodeValue *val=(void*)graphNodeIRValuePtr(dims[d]);
+				if(val->base.type==IR_VALUE) {
+						if(val->val.type==IR_VAL_INT_LIT) {
+								from=dims[d];
+								goto connect;
+						}
+				}
+				__auto_type dimVar=IRCreateVirtVar(IRNodeType(dims[d]));
+				__auto_type dimVarRef=IRCreateVarRef(dimVar);
+				graphNodeIRConnect(dims[d], dimVarRef, IR_CONN_DEST);
+				from=dimVarRef;
+		connect:
+				graphNodeIRConnect(from, retVal, IR_CONN_ARRAY_DIM_1+d);
+
+				__auto_type arrClone=(struct objectArray*)type;
+				assert(arrClone->base.type==TYPE_ARRAY);
+				arrClone=(void*)objectArrayCreate(arrClone->type, NULL,from);
+		}
+		__auto_type assignNode=IRCreateVarRef(assignInto);
+		graphNodeIRConnect(retVal, assignNode, IR_CONN_DEST);
+		return assignNode;
+}
 static char *IRCreateGraphVizNode(const struct __graphNode *node, mapGraphVizAttr *attrs, const void *data) {
 	const struct graphVizDataNode *data2 = data;
 
@@ -850,6 +886,9 @@ static char *IRCreateGraphVizNode(const struct __graphNode *node, mapGraphVizAtt
 
 	struct IRNode *value = graphNodeIRValuePtr(*graphNodeMappingValuePtr((struct __graphNode *)node));
 	switch (value->type) {
+	case IR_ARRAY_DECL: {
+			return strClone("ARRAY");
+	}
 	case IR_SPILL_LOAD: {
 		struct IRNodeLoad *load = (void *)value;
 		char *val = IRValue2GraphVizLabel(&load->item);
@@ -1072,6 +1111,9 @@ static char *IRCreateGraphVizEdge(const struct __graphEdge *__edge, mapGraphVizA
 	}
 
 	switch (*edgeVal) {
+	case IR_CONN_ARRAY_DIM_1...IR_CONN_ARRAY_DIM_16:
+			mapGraphVizAttrInsert(*attrs, "color", strClone("dim"));
+			return NULL;
 	case IR_CONN_ASSIGN_FROM_PTR:
 		mapGraphVizAttrInsert(*attrs, "color", strClone("orange"));
 		return strClone("Assign from Ptr");
@@ -1232,6 +1274,10 @@ static graphNodeIR __cloneNode(ptrMapGraphNode mappings, graphNodeIR node, enum 
 
 	__auto_type ir = graphNodeIRValuePtr(node);
 	switch (ir->type) {
+	case IR_ARRAY_DECL: {
+			struct IRNodeArrayDecl *arr=(void*)ir;
+			return GRAPHN_ALLOCATE(*arr);
+	}
 	case IR_FUNC_CALL: {
 		// Copy argument vector
 		__auto_type reference = (struct IRNodeFuncCall *)graphNodeIRValuePtr(node);
@@ -1534,6 +1580,19 @@ graphNodeIR IRCreateFuncArg(struct object *type, long funcIndex) {
 
 	return GRAPHN_ALLOCATE(arg);
 }
+graphNodeIR IRObjectArrayScale(struct objectArray *arr) {
+		strGraphNodeIRP scales CLEANUP(strGraphNodeIRPDestroy)=NULL;
+		for(;arr->base.type==TYPE_ARRAY;arr=(void*)arr->type) {
+				assert(arr->dimIR);
+				scales=strGraphNodeIRPAppendItem(scales, arr->dimIR);
+		}
+		if(strGraphNodeIRPSize(scales)==1)
+				return scales[0];
+		graphNodeIR scale =IRCreateBinop(scales[0], scales[1], IR_MULT);
+		for(long s=2;s<strGraphNodeIRPSize(scales);s++)
+				scale=IRCreateBinop(scale, scales[s], IR_MULT);
+		return scale;
+}
 graphNodeIR IRCreateAddrOf(graphNodeIR input) {
 	if (graphNodeIRValuePtr(input)->type == IR_MEMBERS) {
 		struct IRNodeMembers *mems = (void *)graphNodeIRValuePtr(input);
@@ -1555,24 +1614,27 @@ graphNodeIR IRCreateAddrOf(graphNodeIR input) {
 		__auto_type indexNode = graphEdgeIRIncoming(index[0]);
 
 		__auto_type baseType = IRNodeType(baseNode);
-		long scale = 0;
+		graphNodeIR scaleNode =NULL;
 		if (baseType->type == TYPE_ARRAY) {
 			struct objectArray *arr = (void *)baseType;
 			int success;
 			long size = objectSize(arr->type, &success);
 			// Is assumed to be a pointer if not a definite size
-			scale = (!success) ? ptrSize() : size;
+			if(success) {
+					scaleNode=IRCreateIntLit(size);
+			} else {
+					scaleNode=IRObjectArrayScale(arr);
+			}
 		} else if (baseType->type == TYPE_PTR) {
 			struct objectPtr *ptr = (void *)baseType;
-			scale = objectSize(ptr->type, NULL);
+			scaleNode=IRCreateIntLit(objectSize(ptr->type, NULL));
 		} else {
 			fputs("Array access needs an array or pointer.\n", stderr);
 			abort();
 		}
-
-		__auto_type scaleNode = IRCreateIntLit(scale);
-
+		
 		graphNodeIR retVal = IRCreateBinop(baseNode, IRCreateBinop(indexNode, scaleNode, IR_MULT), IR_ADD);
+		IRNodeTypeAssign(retVal,objectPtrCreate(baseType));
 		graphNodeIRKill(&input, (void (*)(void *))IRNodeDestroy, NULL);
 		return retVal;
 	} else if (graphNodeIRValuePtr(input)->type == IR_DERREF) {
@@ -1702,6 +1764,16 @@ static int IsEndOfExprNode(graphNodeIR node, const void *data) {
 	}
 
 	return 0;
+}
+graphNodeIR IRCreateArrayAccess(graphNodeIR arr,graphNodeIR index) {
+		struct object *type=IRNodeType(arr);
+		if(type->type==TYPE_ARRAY) {
+				struct objectArray *arrayType=(void*)type;
+				__auto_type ptr=IRCreateBinop(arr,  IRCreateBinop(index , IRObjectArrayScale(arrayType), IR_MULT) , IR_ADD);
+				return IRCreateDerref(ptr);
+		}
+		__auto_type ptr=IRCreateBinop(arr,  IRCreateBinop(index , IRCreateIntLit(objectSize(type, NULL)), IR_MULT) , IR_ADD);
+		return IRCreateDerref(ptr);
 }
 void IRInsertNodesBetweenExprs(graphNodeIR expr, int (*pred)(graphNodeIR, const void *), const void *predData) {
 	__auto_type filtered = IRFilter(expr, IsEndOfExprNode, NULL);
@@ -1856,6 +1928,8 @@ static int argEdgeSortPrec(graphEdgeIR edge) {
 		return 0;
 	case IR_CONN_FUNC_ARG_1 ... IR_CONN_FUNC_ARG_128: {
 		return 1 + type - IR_CONN_FUNC_ARG_1;
+		case IR_CONN_ARRAY_DIM_1...IR_CONN_ARRAY_DIM_16:
+				return 1+type-IR_CONN_ARRAY_DIM_1;
 	}
 	case IR_CONN_FUNC:
 		return 0;

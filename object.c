@@ -92,9 +92,9 @@ hashObject(struct object *obj, int *alreadyExists) {
 		} else {
 			// Isn't an int-dim
 			__auto_type dimStr = ptr2Str(arr->dim);
-			long len = snprintf(NULL, 0, "%s[%p]", baseH, arr->dim);
+			long len = snprintf(NULL, 0, "%s[%p(%p)]", baseH, arr->dim,arr->dimIR);
 			char buffer[len + 1];
-			sprintf(buffer, "%s[%p]", baseH, arr->dim);
+			sprintf(buffer, "%s[%p(%p)]", baseH, arr->dim,arr->dimIR);
 
 			retVal = strClone(buffer);
 			goto end;
@@ -243,11 +243,30 @@ objectSize(const struct object *type, int *success) {
 		*success = 1;
 
 	switch (type->type) {
-	case TYPE_ARRAY:
-		// TODO check if const size
-		if (success != NULL)
-			*success = 0;
-		return -1;
+	case TYPE_ARRAY: {
+			if (success != NULL)
+			*success = 1;
+
+			//
+			// If cant detirmine size and is a variable length array,just return pointer size;
+			//
+			struct objectArray *arr=(void*)type;
+			long currentSize=1;
+			for(;arr->base.type==TYPE_ARRAY;arr=(struct objectArray*)arr->type) {
+					if(!arr->dim) {
+					arrayAmbig:
+							if(success)
+									*success=0;
+							return -1;
+					}
+					if(arr->dim->type!=NODE_LIT_INT)
+							goto arrayAmbig;
+					struct parserNodeLitInt *i=(void*)arr->dim;
+					currentSize*=(i->value.type==INT_SLONG)?i->value.value.sLong:i->value.value.uLong;
+			}
+			struct object *base=(void*)arr;
+			return objectSize(base, success)*currentSize;
+	}
 	case TYPE_U0: {
 		return 0;
 	}
@@ -409,11 +428,12 @@ objectPtrCreate(struct object *baseType) {
  * This creates an array type. parserA.h defines `struct parserNode`.
  */
 struct object * /*Array type.*/
-objectArrayCreate(struct object *baseType, struct parserNode *dim) {
+objectArrayCreate(struct object *baseType, struct parserNode *dim,void *dimIR) {
 	struct objectArray *array = malloc(sizeof(struct objectArray));
 	array->base.type = TYPE_ARRAY;
 	array->base.name = NULL;
 	array->dim = dim;
+	array->dimIR=dimIR;
 	array->type = baseType;
 
 	int alreadyExists;

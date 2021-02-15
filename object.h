@@ -72,6 +72,7 @@ struct objectArray {
 	struct object base;
 	struct object *type;
 	struct parserNode *dim;
+		void* dimIR;
 };
 struct objectForwardDeclaration {
 	struct object base;
@@ -91,7 +92,7 @@ struct objectFunction {
 	strFuncArg args;
 };
 struct object;
-struct object *objectArrayCreate(struct object *baseType, struct parserNode *dim);
+struct object *objectArrayCreate(struct object *baseType, struct parserNode *dim,void *dimIR);
 struct object *objectPtrCreate(struct object *baseType);
 struct object *objectUnionCreate(const struct parserNode *name, const struct objectMember *members, long count);
 struct object *objectClassCreate(const struct parserNode *name, const struct objectMember *members, long count);

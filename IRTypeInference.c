@@ -205,6 +205,9 @@ struct object *__IRNodeType(graphNodeIR node) {
 	}
 	return NULL;
 }
+void IRNodeTypeAssign(graphNodeIR node,struct object *type) {
+		*getType(node) = type;
+}
 struct object *IRNodeType(graphNodeIR node) {
 	__auto_type type = __IRNodeType(node);
 	*getType(node) = type;
