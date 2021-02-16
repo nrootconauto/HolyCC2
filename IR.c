@@ -545,8 +545,15 @@ graphNodeIR IRStmtStart(graphNodeIR node) {
 			graphNodeIRConnect(label, tops[i], *graphEdgeIRValuePtr(incoming[i2]));
 
 		// Kill old connections
-		for (long i2 = 0; i2 != strGraphEdgeIRPSize(incoming); i2++)
-			graphEdgeIRKill(graphEdgeIRIncoming(incoming[i2]), tops[i], NULL, NULL, NULL);
+		strGraphNodeIRP disconnected CLEANUP(strGraphNodeIRPDestroy)=NULL;
+		for (long i2 = 0; i2 != strGraphEdgeIRPSize(incoming); i2++) {
+				__auto_type node=graphEdgeIRIncoming(incoming[i2]);
+				if(strGraphNodeIRPSortedFind(disconnected, node, (gnIRCmpType)ptrPtrCmp))
+						continue;
+				
+				graphEdgeIRKill(node, tops[i], NULL, NULL, NULL);
+				disconnected=strGraphNodeIRPSortedInsert(disconnected,  node, (gnIRCmpType)ptrPtrCmp);
+		}
 
 		graphNodeIRConnect(label, tops[i], IR_CONN_FLOW);
 	}
@@ -836,7 +843,7 @@ graphNodeIR IRCreateArrayDecl(struct parserVar *assignInto,struct object *type,s
 		arr.itemType=type;
 		__auto_type retVal=GRAPHN_ALLOCATE(arr);
 		assert(strGraphNodeIRPSize(dims)<=16);
-		for(long d=0;d!=strGraphNodeIRPSize(dims);d++) {
+		for(long d=strGraphNodeIRPSize(dims)-1;d>=0;d--) {
 				graphNodeIR from=NULL;
 				//Create a variable to hold array dim if not an integer
 				struct IRNodeValue *val=(void*)graphNodeIRValuePtr(dims[d]);
@@ -856,8 +863,11 @@ graphNodeIR IRCreateArrayDecl(struct parserVar *assignInto,struct object *type,s
 				__auto_type arrClone=(struct objectArray*)type;
 				assert(arrClone->base.type==TYPE_ARRAY);
 				arrClone=(void*)objectArrayCreate(arrClone->type, NULL,from);
+				type=(struct object*)arrClone;
 		}
+		assignInto->type=type;
 		__auto_type assignNode=IRCreateVarRef(assignInto);
+		
 		graphNodeIRConnect(retVal, assignNode, IR_CONN_DEST);
 		return assignNode;
 }
@@ -1579,7 +1589,8 @@ graphNodeIR IRObjectArrayScale(struct objectArray *arr) {
 		strGraphNodeIRP scales CLEANUP(strGraphNodeIRPDestroy)=NULL;
 		for(;arr->base.type==TYPE_ARRAY;arr=(void*)arr->type) {
 				assert(arr->dimIR);
-				scales=strGraphNodeIRPAppendItem(scales, arr->dimIR);
+				//Should have been assigned into a variable or be a constant
+				scales=strGraphNodeIRPAppendItem(scales, IRCloneNode(arr->dimIR, IR_CLONE_NODE, NULL));
 		}
 		if(strGraphNodeIRPSize(scales)==1)
 				return scales[0];

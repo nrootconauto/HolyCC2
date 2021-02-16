@@ -53,9 +53,9 @@ static int objIndex(const struct object **objs, long count, const struct object 
 }
 
 static struct object *getHigherType(struct object *a, struct object *b) {
-	if (a->type == TYPE_PTR)
+	if (a->type == TYPE_PTR||a->type == TYPE_ARRAY)
 		return a;
-	else if (b->type == TYPE_PTR)
+	else if (b->type == TYPE_PTR||a->type == TYPE_ARRAY)
 		return b;
 
 	a = objectBaseType(a);

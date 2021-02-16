@@ -243,9 +243,6 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end, llLex
 
 		return name;
 	} else {
-			__auto_type arrLit=parseArrayLiteral(start, result);
-			if(arrLit)
-					return arrLit;	
 			return NULL;
 	}
 

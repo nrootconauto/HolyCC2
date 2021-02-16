@@ -881,6 +881,16 @@ static void IRAttrLabelNameDestroy(struct IRAttr *attr) {
 	struct IRAttrLabelName *nm = (void *)attr;
 	free(nm);
 }
+static void debugShowGraphIR(graphNodeIR enter) {
+		const char *name = tmpnam(NULL);
+	__auto_type map = graphNodeCreateMapping(enter, 1);
+	IRGraphMap2GraphViz(map, "viz", name, NULL, NULL, NULL, NULL);
+	char buffer[1024];
+	sprintf(buffer, "sleep 0.1 &&dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg & ", name);
+
+	system(buffer);
+}
+
 static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 	switch (node->type) {
 	case NODE_ARRAY_LITERAL: {
@@ -1340,6 +1350,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 	case NODE_MEMBER_ACCESS:
 	case NODE_VAR: {
 		__auto_type retVal = parserNode2Expr(node);
+		//debugShowGraphIR(retVal);
 		__auto_type start = IRStmtStart(retVal);
 		return (struct enterExit){start, retVal};
 	}

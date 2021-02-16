@@ -86,7 +86,8 @@ hashObject(struct object *obj, int *alreadyExists) {
 		struct objectArray *arr = (void *)obj;
 		const char *baseH = hashObject(arr->type, NULL);
 		// If integer dim
-		if (arr->dim->type == NODE_LIT_INT) {
+		if (arr->dim) {
+				if(arr->dim->type == NODE_LIT_INT) {
 			struct parserNodeLitInt *lint = (void *)arr->dim;
 			long len = snprintf(NULL, 0, "%s[%lli]", baseH, (long long)lint->value.value.sLong);
 			char buffer[len + 1];
@@ -94,19 +95,19 @@ hashObject(struct object *obj, int *alreadyExists) {
 
 			retVal = strClone(buffer);
 			goto end;
-		} else {
-			// Isn't an int-dim
-			__auto_type dimStr = ptr2Str(arr->dim);
-			long len = snprintf(NULL, 0, "%s[%p(%p)]", baseH, arr->dim,arr->dimIR);
-			char buffer[len + 1];
-			sprintf(buffer, "%s[%p(%p)]", baseH, arr->dim,arr->dimIR);
-
-			retVal = strClone(buffer);
-			goto end;
+				}
 		}
+		// Isn't an int-dim
+		__auto_type dimStr = ptr2Str(arr->dim);
+		long len = snprintf(NULL, 0, "%s[%p(%p)]", baseH, arr->dim,arr->dimIR);
+		char buffer[len + 1];
+		sprintf(buffer, "%s[%p(%p)]", baseH, arr->dim,arr->dimIR);
+		
+		retVal = strClone(buffer);
+		goto end;
 	}
 	case TYPE_Bool: {
-		retVal = strClone("Bool");
+			retVal = strClone("Bool");
 		goto end;
 	}
 	case TYPE_FORWARD: {
