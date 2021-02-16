@@ -200,11 +200,10 @@ objectAlign(const struct object *type, int *success) {
 		*success = 1;
 
 	switch (type->type) {
-	case TYPE_ARRAY:
-		// TODO check if constant size
-			if()/
-			*success = 0;
-		return -1;
+	case TYPE_ARRAY: {
+			struct objectArray *arr=(void*)type; 
+			return objectAlign(arr->type, success);
+	}
 	case TYPE_FORWARD:
 	case TYPE_FUNCTION:
 	case TYPE_U0: {
