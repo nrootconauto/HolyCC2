@@ -1587,11 +1587,12 @@ graphNodeIR IRCreateFuncArg(struct object *type, long funcIndex) {
 }
 graphNodeIR IRObjectArrayScale(struct objectArray *arr) {
 		strGraphNodeIRP scales CLEANUP(strGraphNodeIRPDestroy)=NULL;
-		for(;arr->base.type==TYPE_ARRAY;arr=(void*)arr->type) {
+		for(arr=(struct objectArray*)arr->type;arr->base.type==TYPE_ARRAY;arr=(void*)arr->type) {
 				assert(arr->dimIR);
 				//Should have been assigned into a variable or be a constant
 				scales=strGraphNodeIRPAppendItem(scales, IRCloneNode(arr->dimIR, IR_CLONE_NODE, NULL));
 		}
+		scales=strGraphNodeIRPAppendItem(scales, IRCreateIntLit(objectSize((struct object*)arr,NULL)));
 		if(strGraphNodeIRPSize(scales)==1)
 				return scales[0];
 		graphNodeIR scale =IRCreateBinop(scales[0], scales[1], IR_MULT);

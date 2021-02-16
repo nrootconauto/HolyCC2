@@ -449,7 +449,6 @@ void compileTests() {
 				}*/
 				{
 				const char *text=
-						"{\n"
 						"    U8i x[3];\n"
 						"    x[0]='h';\n"
 						"    x[1]='i';\n"
@@ -459,15 +458,15 @@ void compileTests() {
 						"        PUSHAD\n"
 						"        MOV EAX,4\n"
 						"        MOV EBX,1\n"
-						"        MOV ECX,x\n"
+						"        MOV ECX, [x]\n"
 						"        MOV EDX,3\n"
 						"        INT 0x80\n"
 						"        POPAD\n"
 						"    }\n"
-						"}\n";
+						exitStr;
 				char *source=text2File(text);
 				char *asmF=strDup(tmpnam(NULL));
-				compileFile(source, asmF);				runTest(asmF,"y");
+				compileFile(source, asmF);				runTest(asmF,"hi");
 				free(asmF);	
 				free(source);
 				}
