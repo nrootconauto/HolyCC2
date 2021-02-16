@@ -3485,6 +3485,8 @@ struct X86AddressingMode *parserNode2X86AddrMode(struct parserNode *node) {
 			// Is a string so add to memory addess
 			return X86AddrModeStr(str->text);
 		}
+	} else if(node->type==NODE_VAR||node->type==NODE_FUNC_REF) {
+			return X86AddrModeItemAddrOf(node, assignTypeToOp(node));
 	} else {
 		diagErrorStart(node->pos.start, node->pos.end);
 		diagPushText("Invalid opcode literal.");
@@ -3533,6 +3535,7 @@ struct parserNode *parseAsmInstructionX86(llLexerItem start, llLexerItem *end) {
 						if (addrOfExpr->type == NODE_VAR)
 							((struct parserNodeVar *)addrOfExpr)->var->isNoreg = 1;
 						args = strX86AddrModeAppendItem(args, X86AddrModeItemAddrOf(addrOfExpr, assignTypeToOp(addrOfExpr)));
+						parserArgs = strParserNodeAppendItem(parserArgs, addrOfExpr);
 					} else {
 						args = strX86AddrModeAppendItem(args, X86AddrModeLabel(name->text));
 						addLabelRef(label, name->text);
@@ -3550,13 +3553,14 @@ struct parserNode *parseAsmInstructionX86(llLexerItem start, llLexerItem *end) {
 				// Check for address of symbol
 				struct parserNode *addrOf CLEANUP(parserNodeDestroy) = expectOp(start, "&");
 				if (addrOf) {
-					parserArgs = strParserNodeAppendItem(parserArgs, literal);
+					parserArgs = strParserNodeAppendItem(parserArgs, addrOf);
 					start = llLexerItemNext(start);
 					__auto_type addrOfExpr = parseExpression(start, findEndOfExpression(start, 1), &start);
 					if (addrOfExpr) {
 						if (addrOfExpr->type == NODE_VAR)
 							((struct parserNodeVar *)addrOfExpr)->var->isNoreg = 1;
 						args = strX86AddrModeAppendItem(args, X86AddrModeItemAddrOf(addrOfExpr, assignTypeToOp(addrOfExpr)));
+						parserArgs=strParserNodeAppendItem(parserArgs,addrOfExpr);
 					} else {
 						// TODO whine
 						args = strX86AddrModeAppendItem(args, X86AddrModeSint(-1));

@@ -1927,19 +1927,16 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			__auto_type out=nodeDest(start);
 			struct X86AddressingMode *outMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(out);
 			AUTO_LOCK_MODE_REGS(outMode);
-
-			//Add an area on the stack,,we will start 1 and multiply  by the itemsize of each nested array's dim then mutlply my the itemsize
-			strX86AddrMode pushArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeSint(1));
-			assembleInst("PUSH", pushArgs);
-
+			__auto_type reg32=regForTypeExcludingConsumed(&typeI32i);
+			pushReg(reg32);
+			
 			struct objectArray *type=(void*)IRNodeType(start);
+			long stackSize=0;
 			for(long i=0;i!=strGraphEdgeIRPSize(in);i++) {
 					switch(*graphEdgeIRValuePtr(in[i])) {
 					case IR_CONN_ARRAY_DIM_1...IR_CONN_ARRAY_DIM_16: {
 							__auto_type inMode=IRNode2AddrMode(graphEdgeIRIncoming(in[i]));
 							AUTO_LOCK_MODE_REGS(inMode);
-							__auto_type reg32=regForTypeExcludingConsumed(&typeI32i);
-							pushReg(reg32);
 							
 							strX86AddrMode mulArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 							struct X86AddressingMode *stackPos=X86AddrModeIndirSIB(0,NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(4), &typeI32i);
@@ -1947,32 +1944,52 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 							struct X86AddressingMode *reg32Mode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(reg32);
 							reg32Mode->valueType=objectPtrCreate(&typeU0);
 							asmTypecastAssign(reg32Mode, inMode, ASM_ASSIGN_X87FPU_POP);
-							mulArgs=strX86AddrModeAppendItem(mulArgs,X86AddrModeReg(reg32));
-							mulArgs=strX86AddrModeAppendItem(mulArgs,stackPos);
+
+							//Add an area on the stack,,we will start 1 and multiply  by the itemsize of each nested array's dim then mutlply my the itemsize
+							strX86AddrMode pushArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeClone(reg32Mode));
+							assembleInst("PUSH", pushArgs);
 							
-							assembleInst("IMUL2", mulArgs);
-
-							asmTypecastAssign(stackPos, reg32Mode, ASM_ASSIGN_X87FPU_POP);
-							popReg(reg32);
-
 							type=(void*)type->type;
+							stackSize++;
 					}		
 					default:
 							continue;
 					}
-					//Multiply by the base item size
-					strX86AddrMode mulArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
-					struct X86AddressingMode *stackPos CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(0,NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(4), &typeI32i);
-					mulArgs=strX86AddrModeAppendItem(mulArgs,X86AddrModeClone(stackPos));
-					mulArgs=strX86AddrModeAppendItem(mulArgs,X86AddrModeSint(objectSize((struct object*)type, NULL)));
-					assembleInst("IMUL", mulArgs);
+			}
+			struct X86AddressingMode *stackTop CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirReg(stackPointer(), &typeI32i);
+			struct X86AddressingMode *itemSize CLEANUP(X86AddrModeDestroy)=X86AddrModeSint(objectSize((struct object*)type, NULL));
+			struct X86AddressingMode *reg32Mode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(reg32);
+			itemSize->valueType=&typeI32i;
+			reg32Mode->valueType=&typeI32i;
+			asmTypecastAssign(reg32Mode, itemSize, 0);
 
-					//Add 4 to the value to simulate a pop,we will substreact  the value on the stack to the stack pointer to make room for the array
+			for(long s=0;s!=stackSize;s++) {
+					strX86AddrMode imul2Args CLEANUP(strX86AddrModeDestroy)=NULL;
+					imul2Args=strX86AddrModeAppendItem(imul2Args, reg32Mode);
+					imul2Args=strX86AddrModeAppendItem(imul2Args, stackTop);
+					assembleInst("IMUL2", imul2Args);
+
+					//Add 4 from the stack pointer to "pop"
 					strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
-					addArgs=strX86AddrModeAppendItem(addArgs,X86AddrModeReg(stackPointer()));
-					addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeClone(stackPos));
+					addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeReg(stackPointer()));
+					addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeSint(4));
 					assembleInst("ADD", addArgs);
 			}
+			//Exchange the location of reg32's old value with reg32,then add the  value stored on the stack to the stack pointer
+			strX86AddrMode xchgArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+			xchgArgs=strX86AddrModeAppendItem(xchgArgs, X86AddrModeReg(reg32));
+			xchgArgs=strX86AddrModeAppendItem(xchgArgs, X86AddrModeClone(stackTop));
+			assembleInst("XCHG", xchgArgs);
+
+			//Assign the stack pointer to the output position which will point to the area on the stack
+			struct X86AddressingMode *spMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(stackPointer());
+			asmAssign(outMode, spMode , ptrSize(), 0);
+			
+			//Substract the data on top of the stack to the stack pointer to make room for the array
+			strX86AddrMode subArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+			subArgs=strX86AddrModeAppendItem(subArgs,X86AddrModeReg(stackPointer()));
+			subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeClone(stackTop));
+			assembleInst("SUB", subArgs);
 			return nextNodesToCompile(start);
 	}
 	case IR_TYPECAST: {
