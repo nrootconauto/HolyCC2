@@ -76,7 +76,8 @@ int stringParse(const struct __vec *new, long pos, long *end, struct parsedStrin
 
 				__auto_type slice = __vecAppendItem(NULL, (char *)escape, 4);
 				sscanf((char *)slice, "%x", &codePoint);
-
+				__vecDestroy(&slice);
+				
 				currPtr = (char *)escape + 4;
 				goto utfEncode;
 			}
@@ -92,17 +93,19 @@ int stringParse(const struct __vec *new, long pos, long *end, struct parsedStrin
 				goto utfEncode;
 			}
 			case '0' ... '8': {
-				int count = 1;
+					__auto_type originalPos=escape;
+					int count = 1;
 				for (escape++; escape < endPtr && count < 3; escape++)
 					if (*escape >= '0' && *escape <= '7')
 						count++;
 					else
 						break;
 
-				__auto_type slice = __vecAppendItem(NULL, (char *)escape, 4);
+				__auto_type slice = __vecAppendItem(NULL, (char *)originalPos, count);
+				slice=__vecAppendItem(slice, "\0", 1);
 				sscanf((char *)slice, "%o", &codePoint);
 
-				currPtr = (char *)escape + count;
+				currPtr = escape;
 				goto utfEncode;
 			}
 			}

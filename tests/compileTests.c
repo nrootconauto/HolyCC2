@@ -453,7 +453,7 @@ void compileTests() {
 						"    U8i x[3];\n"
 						"    x[0]='h';\n"
 						"    x[1]='i';\n"
-						"    x[2]='\0';\n"
+						"    x[2]='\\0';\n"
 						"    asm {\n"
 						"        IMPORT x;\n"
 						"        PUSHAD\n"
