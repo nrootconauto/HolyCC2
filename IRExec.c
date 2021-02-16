@@ -670,17 +670,6 @@ struct IREvalVal IREvalNode(graphNodeIR node, int *success) {
 			goto fail;
 		return retVal;
 	}
-	case IR_ARRAY_ACCESS: {
-		struct IREvalVal a, b;
-		if (!getBinopArgs(node, &a, &b))
-			goto fail;
-		if (a.type != IREVAL_VAL_ARRAY || b.type == IREVAL_VAL_INT || b.value.i < 0)
-			goto fail;
-		if (strIREvalValSize(a.value.array) > b.value.i)
-			goto fail;
-		IREvalValAssign(&a.value.array[b.value.i], &a);
-		return a.value.array[b.value.i];
-	}
 	case IR_SIMD:
 		goto fail;
 	case IR_SPILL_LOAD: {

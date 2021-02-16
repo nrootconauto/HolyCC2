@@ -553,3 +553,4 @@ graphNodeIR IRCreateGlobalVarRef(struct parserVar *var);
 graphNodeIR IRCreateArrayDecl(struct parserVar *assignInto,struct object *type,strGraphNodeIRP dims);
 graphNodeIR IRGetArrayDimForVar(struct parserVar *arrVar,long i);
 graphNodeIR IRObjectArrayScale(struct objectArray *arr);
+graphNodeIR IRCreateArrayAccess(graphNodeIR arr,graphNodeIR index);

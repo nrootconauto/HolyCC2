@@ -693,8 +693,6 @@ static strChar opToText(enum IRNodeType type) {
 		return strClone("+");
 	case IR_ADDR_OF:
 		return strClone("ADDR-OF");
-	case IR_ARRAY_ACCESS:
-		return strClone("[]");
 	case IR_BAND:
 		return strClone("&");
 	case IR_BNOT:
@@ -1032,7 +1030,6 @@ static char *IRCreateGraphVizNode(const struct __graphNode *node, mapGraphVizAtt
 	case IR_BOR:
 	case IR_LSHIFT:
 	case IR_RSHIFT:
-	case IR_ARRAY_ACCESS:
 	case IR_GT:
 	case IR_LT:
 	case IR_GE:
@@ -1360,7 +1357,6 @@ static graphNodeIR __cloneNode(ptrMapGraphNode mappings, graphNodeIR node, enum 
 	case IR_ADD:
 	case IR_VALUE:
 	case IR_ADDR_OF:
-	case IR_ARRAY_ACCESS:
 	case IR_BAND:
 	case IR_BNOT:
 	case IR_BOR:
@@ -1536,7 +1532,6 @@ int IRIsOperator(graphNodeIR node) {
 	switch (graphNodeIRValuePtr(node)->type) {
 	case IR_ADD:
 	case IR_ADDR_OF:
-	case IR_ARRAY_ACCESS:
 	case IR_BAND:
 	case IR_BNOT:
 	case IR_BOR:
@@ -1604,38 +1599,6 @@ graphNodeIR IRCreateAddrOf(graphNodeIR input) {
 		__auto_type retVal = GRAPHN_ALLOCATE(addrOf);
 		strGraphNodeIRP toReplace CLEANUP(strGraphNodeIRPDestroy) = strGraphNodeIRPAppendItem(NULL, input);
 		graphIRReplaceNodes(toReplace, retVal, NULL, (void (*)(void *))IRNodeDestroy);
-		return retVal;
-	} else if (graphNodeIRValuePtr(input)->type == IR_ARRAY_ACCESS) {
-		__auto_type startNode = IRStmtStart(input);
-		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(input);
-		strGraphEdgeIRP base CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(in, IR_CONN_SOURCE_A);
-		strGraphEdgeIRP index CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(in, IR_CONN_SOURCE_B);
-		__auto_type baseNode = graphEdgeIRIncoming(base[0]);
-		__auto_type indexNode = graphEdgeIRIncoming(index[0]);
-
-		__auto_type baseType = IRNodeType(baseNode);
-		graphNodeIR scaleNode =NULL;
-		if (baseType->type == TYPE_ARRAY) {
-			struct objectArray *arr = (void *)baseType;
-			int success;
-			long size = objectSize(arr->type, &success);
-			// Is assumed to be a pointer if not a definite size
-			if(success) {
-					scaleNode=IRCreateIntLit(size);
-			} else {
-					scaleNode=IRObjectArrayScale(arr);
-			}
-		} else if (baseType->type == TYPE_PTR) {
-			struct objectPtr *ptr = (void *)baseType;
-			scaleNode=IRCreateIntLit(objectSize(ptr->type, NULL));
-		} else {
-			fputs("Array access needs an array or pointer.\n", stderr);
-			abort();
-		}
-		
-		graphNodeIR retVal = IRCreateBinop(baseNode, IRCreateBinop(indexNode, scaleNode, IR_MULT), IR_ADD);
-		IRNodeTypeAssign(retVal,objectPtrCreate(baseType));
-		graphNodeIRKill(&input, (void (*)(void *))IRNodeDestroy, NULL);
 		return retVal;
 	} else if (graphNodeIRValuePtr(input)->type == IR_DERREF) {
 		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(input);
@@ -1736,7 +1699,7 @@ static void __IRInsertNodesBetweenExprs(graphNodeIR expr, ptrMapAffectedNodes af
 		// Ignore existing assigns(unless assigning into an array or ptr)
 		if (*graphEdgeIRValuePtr(in[i]) == IR_CONN_DEST) {
 			__auto_type type = graphNodeIRValuePtr(expr)->type;
-			if (type == IR_DERREF || type == IR_ARRAY_ACCESS)
+			if (type == IR_DERREF)
 				;
 			else
 				continue;

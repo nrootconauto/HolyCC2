@@ -12,6 +12,11 @@ MAP_TYPE_FUNCS(struct object *, Object);
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
 static mapObject objectRegistry = NULL;
+/**
+	* This is uses to treat arrays as pointers when addressing array size outside of a class/union
+	* We use this treat arrays as pointers outside of a class/union as arrays are actually pointers in functions.
+	*/
+static __thread int dontTreatArraysAsPtrs=0;
 struct object *objectBaseType(const struct object *obj) {
 	if (obj->type == TYPE_CLASS) {
 		struct objectClass *cls = (void *)obj;
@@ -247,6 +252,10 @@ objectSize(const struct object *type, int *success) {
 			if (success != NULL)
 			*success = 1;
 
+			if(dontTreatArraysAsPtrs)
+					return ptrSize();
+			
+			
 			//
 			// If cant detirmine size and is a variable length array,just return pointer size;
 			//
@@ -308,14 +317,16 @@ objectSize(const struct object *type, int *success) {
  */
 struct object * /*This created class.*/
 objectClassCreate(const struct parserNode *name, const struct objectMember *members, long count) {
-	struct objectClass *newClass = malloc(sizeof(struct objectClass));
+		dontTreatArraysAsPtrs++;
+
+		struct objectClass *newClass = malloc(sizeof(struct objectClass));
 	newClass->name = (struct parserNode *)name;
 	newClass->base.type = TYPE_CLASS;
 	newClass->base.name = NULL;
 	newClass->methods = NULL;
 	newClass->members = NULL;
 	newClass->baseType = NULL;
-
+	
 	long largestMemberAlign = 0;
 	int success;
 	for (long i = 0; i != count; i++) {
@@ -353,8 +364,11 @@ objectClassCreate(const struct parserNode *name, const struct objectMember *memb
 	}
 
 	hashObject((void *)newClass, NULL);
+	
+	dontTreatArraysAsPtrs--;
 	return (struct object *)newClass;
 fail:
+	dontTreatArraysAsPtrs--;
 	return NULL;
 }
 /**
@@ -363,7 +377,8 @@ fail:
 struct object * /*The union being returned. */
 objectUnionCreate(const struct parserNode *name /*Can be `NULL` for empty union.*/, const struct objectMember *members, long count) {
 	int success;
-
+	dontTreatArraysAsPtrs++;
+	
 	struct objectUnion *newUnion = malloc(sizeof(struct objectUnion));
 	newUnion->name = (struct parserNode *)name;
 	newUnion->base.type = TYPE_CLASS;
@@ -403,8 +418,11 @@ objectUnionCreate(const struct parserNode *name /*Can be `NULL` for empty union.
 	}
 
 	hashObject((void *)newUnion, NULL);
+
+	dontTreatArraysAsPtrs--;
 	return (struct object *)newUnion;
 fail:
+	dontTreatArraysAsPtrs--;
 	return NULL;
 }
 /**

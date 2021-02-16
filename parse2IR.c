@@ -720,20 +720,7 @@ static graphNodeIR parserNode2Expr(const struct parserNode *node) {
 		struct parserNodeArrayAccess *access = (void *)node;
 		__auto_type exp = parserNode2Expr(access->exp);
 		__auto_type index = parserNode2Expr(access->index);
-
-		int success;
-		__auto_type scale = objectSize(assignTypeToOp(node), &success);
-		assert(success);
-
-		struct IRNodeArrayAccess access2;
-		access2.base.type = IR_ARRAY_ACCESS;
-		access2.base.attrs = NULL;
-		access2.scale = scale;
-
-		__auto_type retVal = GRAPHN_ALLOCATE(access2);
-		graphNodeIRConnect(exp, retVal, IR_CONN_SOURCE_A);
-		graphNodeIRConnect(index, retVal, IR_CONN_SOURCE_B);
-		return retVal;
+		return IRCreateArrayAccess(exp, index);
 	}
 	case NODE_UNOP: {
 			struct parserNodeUnop *unop = (void *)node;

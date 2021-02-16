@@ -365,7 +365,8 @@ void compileTests() {
 				free(asmF);	
 				free(source);
 				}*/
-			{
+		/*
+		{
 				const char * text=
 						"U0 assertEq(I32i a,I32i b) {\n"
 						"    if(a!=b) {\n"
@@ -430,7 +431,7 @@ void compileTests() {
 				runTest(asmF,"y");
 				free(asmF);	
 				free(source);
-				}
+				}*/
 		/*{
 				const char *text=
 						"{\n"
@@ -446,4 +447,28 @@ void compileTests() {
 				free(asmF);	
 				free(source);
 				}*/
+				{
+				const char *text=
+						"{\n"
+						"    U8i x[3];\n"
+						"    x[0]='h';\n"
+						"    x[1]='i';\n"
+						"    x[2]='\0';\n"
+						"    asm {\n"
+						"        IMPORT x;\n"
+						"        PUSHAD\n"
+						"        MOV EAX,4\n"
+						"        MOV EBX,1\n"
+						"        MOV ECX,x\n"
+						"        MOV EDX,3\n"
+						"        INT 0x80\n"
+						"        POPAD\n"
+						"    }\n"
+						"}\n";
+				char *source=text2File(text);
+				char *asmF=strDup(tmpnam(NULL));
+				compileFile(source, asmF);				runTest(asmF,"y");
+				free(asmF);	
+				free(source);
+				}
 }
