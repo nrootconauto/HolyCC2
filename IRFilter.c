@@ -87,6 +87,10 @@ static int __IRFilter(graphNodeMapping parent,ptrMapVisited *visited,graphNodeIR
 		while(strGraphNodeIRPSize(queue)) {
 				graphNodeIR curr;
 				queue=strGraphNodeIRPPop(queue, &curr);
+
+				if(ptrMapVisitedGet(*visited, curr))
+						continue;
+				ptrMapVisitedAdd(*visited, curr, 1);
 				
 				if(ptrMapGraphNodeGet(mappedNodes, curr)) {
 						if(!graphNodeMappingConnectedTo(parent, *ptrMapGraphNodeGet(mappedNodes, curr)))

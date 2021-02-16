@@ -449,6 +449,13 @@ void compileTests() {
 				}*/
 				{
 				const char *text=
+						"I32i StrLen(U8i *str) {\n"
+						"    U8i *start=str;"
+						"    while(*str!='\\0') {"
+						"       str=str+1; "
+						"    }\n"
+						"   return str-start;"
+						"}\n"
 						"    U8i x[3];\n"
 						"    x[0]='h';\n"
 						"    x[1]='i';\n"

@@ -102,7 +102,15 @@ static struct object *intLitType(struct parserNodeLitInt *i) {
 	return &typeI64i;
 }
 static struct object *promotionType(const struct object *a, const struct object *b) {
-	const struct object *ranks[] = {
+		a=objectBaseType(a);
+		b=objectBaseType(b);
+		
+		if(a->type==TYPE_PTR||a->type==TYPE_ARRAY)
+				return (struct object*)a;
+		if(b->type==TYPE_PTR||b->type==TYPE_ARRAY)
+				return (struct object*)b;
+		
+		const struct object *ranks[] = {
 			&typeU0, &typeBool,&typeI8i, &typeU8i, &typeI16i, &typeU16i, &typeI32i, &typeU32i, &typeI64i, &typeU64i, &typeF64,
 	};
 	long count = sizeof(ranks) / sizeof(*ranks);
@@ -524,6 +532,22 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 			diagEndMsg();
 		}
 		return dftValType();
+	}  else if(node->type==NODE_LIT_STR) {
+			struct parserNodeLitStr *str=(void*)node;
+			if(str->isChar) {
+					struct parserNodeLitInt i;
+					i.base.type=NODE_LIT_INT;
+					i.value.base=10;
+					i.value.type=INT_ULONG;
+					i.value.value.uLong=0;
+					for(long c=0;c!=strlen(str->text);c++) {
+							i.value.value.uLong<<=8;
+							i.value.value.uLong|=((unsigned char*)str->text)[c];
+					}
+					return intLitType(&i);
+			} else {
+					return objectPtrCreate(&typeU8i);
+			}
 	} else if (node->type == NODE_ARRAY_LITERAL) {
 			//Should not be called  anywhere
 			diagErrorStart(node->pos.start, node->pos.end);
