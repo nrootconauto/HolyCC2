@@ -282,7 +282,7 @@ static void strX86AddrModeDestroy2(strX86AddrMode *str) {
 }
 static void assembleInst(const char *name, strX86AddrMode args) {
 	strOpcodeTemplate ops CLEANUP(strOpcodeTemplateDestroy) = X86OpcodesByArgs(name, args, NULL);
-	assert(strOpcodeTemplateSize(ops));
+ 	assert(strOpcodeTemplateSize(ops));
 	int err;
 	X86EmitAsmInst(ops[0], args, &err);
 	assert(!err);
@@ -1943,13 +1943,16 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 							
 							strX86AddrMode mulArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 							struct X86AddressingMode *stackPos=X86AddrModeIndirSIB(0,NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(4), &typeI32i);
-							mulArgs=strX86AddrModeAppendItem(mulArgs,stackPos);
 							
 							struct X86AddressingMode *reg32Mode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(reg32);
+							reg32Mode->valueType=objectPtrCreate(&typeU0);
 							asmTypecastAssign(reg32Mode, inMode, ASM_ASSIGN_X87FPU_POP);
 							mulArgs=strX86AddrModeAppendItem(mulArgs,X86AddrModeReg(reg32));
-							assembleInst("IMUL", mulArgs);
+							mulArgs=strX86AddrModeAppendItem(mulArgs,stackPos);
 							
+							assembleInst("IMUL2", mulArgs);
+
+							asmTypecastAssign(stackPos, reg32Mode, ASM_ASSIGN_X87FPU_POP);
 							popReg(reg32);
 
 							type=(void*)type->type;
