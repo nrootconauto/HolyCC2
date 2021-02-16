@@ -202,7 +202,8 @@ objectAlign(const struct object *type, int *success) {
 	switch (type->type) {
 	case TYPE_ARRAY:
 		// TODO check if constant size
-		*success = 0;
+			if()/
+			*success = 0;
 		return -1;
 	case TYPE_FORWARD:
 	case TYPE_FUNCTION:
@@ -253,7 +254,7 @@ objectSize(const struct object *type, int *success) {
 			if (success != NULL)
 			*success = 1;
 
-			if(dontTreatArraysAsPtrs)
+			if(!dontTreatArraysAsPtrs)
 					return ptrSize();
 			
 			
@@ -573,7 +574,53 @@ objectFuncCreate(struct object *retType, strFuncArg args) {
  * defualt arguemnt types for readabilty.
  */
 char *object2Str(struct object *obj) {
-	return NULL;
+		switch(obj->type) {
+		case TYPE_ARRAY: {
+				struct objectPtr *ptr=(void*)obj;
+				char *base=object2Str(ptr->type);
+				long len=snprintf(NULL, 0, "%s[]", base);
+				char buffer[len+1];
+				sprintf(buffer, "%s[]", base);
+				free(base);
+				return strClone(buffer);
+		}
+		case TYPE_Bool:
+				return strClone("Bool");
+		case TYPE_CLASS:
+		case TYPE_F64:
+				return strClone("F64");
+		case TYPE_FORWARD:
+		case TYPE_FUNCTION:
+		case TYPE_I8i:
+				return strClone("II8i");
+		case TYPE_I16i:
+				return strClone("I16i");
+		case TYPE_I32i:
+				return strClone("I32i");
+		case TYPE_I64i:
+				return strClone("I64i");
+		case TYPE_U8i:
+				return strClone("U8i");
+		case TYPE_U16i:
+				return strClone("U16i");
+		case TYPE_U32i:
+				return strClone("U32i");
+		case TYPE_U64i:
+				return strClone("U64i");
+		case TYPE_UNION:
+		case TYPE_U0:
+				return strClone("U0");
+		case TYPE_PTR: {
+				struct objectPtr *ptr=(void*)obj;
+				char *base=object2Str(ptr->type);
+				long len=snprintf(NULL, 0, "%s*", base);
+				char buffer[len+1];
+				sprintf(buffer, "%s*", base);
+				free(base);
+				return strClone(buffer);
+		}
+		}
+		return NULL;
 }
 /**
  * This compares if objects are equal.

@@ -96,7 +96,10 @@ struct object *__IRNodeType(graphNodeIR node) {
 		return *getType(node);
 
 	struct IRNodeValue *nodeVal = (void *)graphNodeIRValuePtr(node);
-	if (nodeVal->base.type == IR_VALUE) {
+	if(nodeVal->base.type==IR_ARRAY_DECL) {
+			struct IRNodeArrayDecl *decl=(void*)nodeVal;
+			return decl->itemType;
+	} else if (nodeVal->base.type == IR_VALUE) {
 			if(nodeVal->val.type==IR_VAL_FLT_LIT) {
 					return &typeF64;
 			}else if (nodeVal->val.type == __IR_VAL_MEM_GLOBAL) {

@@ -461,7 +461,7 @@ search:
 	} else {
 		for (long i = 0; i != strRegPSize(avail); i++) {
 			if (avail[i]->type & REG_TYPE_GP) {
-				if (bsearch(&type, ints, sizeof(ints) / sizeof(*ints), sizeof(*ints), ptrPtrCmp) || type->type == TYPE_PTR) {
+				if (bsearch(&type, ints, sizeof(ints) / sizeof(*ints), sizeof(*ints), ptrPtrCmp) || type->type == TYPE_PTR||type->type==TYPE_ARRAY) {
 					if (avail[i]->size == objectSize(type, NULL))
 						retVal = strRegPSortedInsert(retVal, avail[i], (regPCmpType)ptrPtrCmp);
 				}

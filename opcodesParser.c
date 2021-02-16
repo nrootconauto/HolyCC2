@@ -877,6 +877,8 @@ strOpcodeTemplate X86OpcodesByArgs(const char *name, strX86AddrMode args, int *a
 	for (long t = 0; t != strOpcodeTemplateSize(unambigTemplates); t++) {
 		for (long a = 0; a != strOpcodeTemplateArgSize(unambigTemplates[t]->args); a++) {
 			long operandSize = templateOperandSize(unambigTemplates[t]->args[a]);
+			if(operandSize==-1)
+					continue;
 			if (t == 0)
 				argSizes[a] = operandSize;
 			else if (argSizes[a] != operandSize)
