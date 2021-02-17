@@ -482,10 +482,13 @@ void compileTests() {
 						"{\n"
 						"    for(I32i i=0;i!=5;i=i+1) {\n"
 						"        switch(i) {\n"
+						"            start:"
+						putY
 						"            case 4:\n"
 						"            case 2:\n"
 						"            case 0:\n"
 						putY
+						"                end:"
 						"                break;\n"
 						"            case 3:\n"
 						"            case 1:\n"

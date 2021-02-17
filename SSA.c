@@ -252,6 +252,7 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 		__auto_type mappedStart = *ptrMapGraphNodeGet(IR2MappingNode, versionStarts[i]);
 		// Find all paths from start->end
 		__nullPathOrVersioned_IgnoreMapping=mappedStart;
+		//debugPrintGraph(mappedStart);
 		strGraphEdgeMappingP  allPaths CLEANUP(strGraphEdgeMappingPDestroy) = graphAllEdgesBetween(mappedStart, versionStarts, (int(*)(const struct  __graphNode*,const void*))nullPathOrVersioned);
 		for (long pathI = 0; pathI != strGraphEdgeMappingPSize(allPaths); pathI++) {
 			// Insert versions between assigns
@@ -558,6 +559,19 @@ static int __removeSameyChooses(graphNodeIR chooseNode, mapStrGNIR byNum) {
 	for (long o = 0; o != strGraphEdgeIRPSize(assignedOut); o++)
 		if (IRIsExprEdge(*graphEdgeIRValuePtr(assignedOut[o])))
 			goto end;
+
+	//Remove chooseAssign from byNum
+	struct IRNodeValue* chooseAsnVal=(void*)graphNodeIRValuePtr(chooseAssign);
+	if(chooseAsnVal->base.type==IR_VALUE) {
+			if(chooseAsnVal->val.type==IR_VAL_VAR_REF) {
+					__auto_type num=val->val.value.var.SSANum;
+					char buffer[32];
+					sprintf(buffer, "%li", first);
+					__auto_type find=mapStrGNIRGet(byNum, buffer);
+					*find=strGraphNodeIRPRemoveItem(*find, chooseAssign, (gnCmpType)ptrPtrCmp);
+			}
+	}
+
 	transparentKill(chooseAssign);
 end:
 	return 1;

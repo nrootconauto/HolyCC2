@@ -456,6 +456,13 @@ graphNodeMapping createFilteredGraph(struct __graphNode *start, strGraphNodeP no
 }
 static void __graphAllEdgesBetween(strGraphEdgeP *nodes, strGraphNodeP *visitedNodes, strGraphEdgeP *currentPath, const struct __graphEdge *from, const void *data,
                                    int (*predicate)(const struct __graphNode *node, const void *data)) {
+		// Check if hit already hit node in path
+		for(long e=0;e<strGraphEdgePSize(*nodes)-1;e++) {
+				if(nodes[0][e]->from==from->to||nodes[0][e]->to==from->to) {
+						return;
+				}
+		}
+
 		//
 		// If we land on  an edge that leads to destination,that edge leads to the destination so we dont have to look forward
 		//
@@ -469,7 +476,8 @@ static void __graphAllEdgesBetween(strGraphEdgeP *nodes, strGraphNodeP *visitedN
 		*nodes = strGraphEdgePSetUnion(*nodes, pathClone, (geCmpType)ptrCompare);
 		return;
 	}
-	for (long i = 0; i != strGraphEdgePSize(from->to->outgoing); i++) {
+		
+		for (long i = 0; i != strGraphEdgePSize(from->to->outgoing); i++) {
 		*currentPath = strGraphEdgePAppendItem(*currentPath, from->to->outgoing[i]);
 		__graphAllEdgesBetween(nodes, visitedNodes, currentPath, from->to->outgoing[i], data, predicate);
 		*currentPath = strGraphEdgePPop(*currentPath, NULL);
