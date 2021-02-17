@@ -511,7 +511,7 @@ struct X86AddressingMode *X86EmitAsmDU64(strX86AddrMode data, long len) {
 		fprintf(constsTmpFile, "%s", text);
 	}
 	fprintf(constsTmpFile, "\n");
-	return X86AddrModeIndirLabel(buffer,NULL);
+	return X86AddrModeLabel(buffer);
 }
 struct X86AddressingMode *X86EmitAsmDU32(strX86AddrMode data, long len) {
 	long count = snprintf(NULL, 0, "$DU32_%li", ++labelCount);
@@ -525,7 +525,7 @@ struct X86AddressingMode *X86EmitAsmDU32(strX86AddrMode data, long len) {
 		fprintf(constsTmpFile, "%s", text);
 	}
 	fprintf(constsTmpFile, "\n");
-	return X86AddrModeIndirLabel(buffer,NULL);
+	return X86AddrModeLabel(buffer);
 }
 struct X86AddressingMode *X86EmitAsmDU16(strX86AddrMode data, long len) {
 	long count = snprintf(NULL, 0, "$DU16_%li", ++labelCount);
@@ -539,7 +539,7 @@ struct X86AddressingMode *X86EmitAsmDU16(strX86AddrMode data, long len) {
 		fprintf(constsTmpFile, "%s", text);
 	}
 	fprintf(constsTmpFile, "\n");
-	return X86AddrModeIndirLabel(buffer, NULL);
+	return X86AddrModeLabel(buffer);
 }
 struct X86AddressingMode *X86EmitAsmDU8(strX86AddrMode data, long len) {
 	long count = snprintf(NULL, 0, "$DU8_%li", ++labelCount);
@@ -553,7 +553,7 @@ struct X86AddressingMode *X86EmitAsmDU8(strX86AddrMode data, long len) {
 		fprintf(constsTmpFile, "%s", text);
 	}
 	fprintf(constsTmpFile, "\n");
-	return X86AddrModeIndirLabel(buffer, NULL);
+	return X86AddrModeLabel(buffer);
 }
 struct X86AddressingMode *X86EmitAsmStrLit(const char *text) {
 	strChar unes CLEANUP(strCharDestroy) = dumpStrLit(text);

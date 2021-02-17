@@ -2745,25 +2745,26 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			}
 		}
 
-		strChar jmpTabLabel CLEANUP(strCharDestroy) = uniqueLabel("JmpTab");
 		// Returns copy of label
-		free(X86EmitAsmLabel(jmpTabLabel));
+		struct X86AddressingMode *jmpTabLabMode CLEANUP(X86AddrModeDestroy) = NULL;
 		switch (ptrSize()) {
 		case 2:
 			fprintf(stderr, "HolyC on a commodore 64 isn't possible yet,bro.\n");
 			assert(0);
 		case 4: {
-			X86EmitAsmDU32(jmpTable, strX86AddrModeSize(jmpTable));
+			jmpTabLabMode=X86EmitAsmDU32(jmpTable, strX86AddrModeSize(jmpTable));
 			break;
 		}
 		case 8: {
-			X86EmitAsmDU64(jmpTable, strX86AddrModeSize(jmpTable));
+			jmpTabLabMode=X86EmitAsmDU64(jmpTable, strX86AddrModeSize(jmpTable));
 			break;
 		}
 		default:
 			fprintf(stderr, "Are you in the future where 64bit address space is obselete?\n");
 			assert(0);
 		}
+
+		//IF out of bounds of jump table,go to defualt
 		strX86AddrMode cmpArgs1 CLEANUP(strX86AddrModeDestroy2) = NULL;
 		cmpArgs1 = strX86AddrModeAppendItem(cmpArgs1, X86AddrModeClone(inMode));
 		cmpArgs1 = strX86AddrModeAppendItem(cmpArgs1, X86AddrModeSint(smallest));
@@ -2778,23 +2779,44 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		cmpArgs2 = strX86AddrModeAppendItem(cmpArgs2, X86AddrModeSint(largest));
 		assembleInst("CMP", cmpArgs2);
 
-		assembleInst("JGE", jmpDftArgs);
+		assembleInst("JG", jmpDftArgs);
 
+		AUTO_LOCK_MODE_REGS(inMode);
 		struct reg *b = regForTypeExcludingConsumed((struct object *)getTypeForSize(ptrSize()));
 		struct X86AddressingMode *regMode CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(b);
 		AUTO_LOCK_MODE_REGS(regMode);
 		pushReg(b);
 
-		struct X86AddressingMode *jmpTabLabMode CLEANUP(X86AddrModeDestroy) = X86AddrModeLabel(jmpTabLabel);
+		//Load the jump-table address onto the stack,then pop
 		asmAssign(regMode, jmpTabLabMode, ptrSize(),0);
-		strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
-		leaArgs = strX86AddrModeAppendItem(leaArgs, X86AddrModeIndirSIB(ptrSize(), NULL, X86AddrModeReg(b), 0, (struct object *)getTypeForSize(ptrSize())));
 
-		popReg(b);
+		struct reg *indexReg = regForTypeExcludingConsumed((struct object *)getTypeForSize(ptrSize()));
+		pushReg(indexReg);
+		struct X86AddressingMode *indexRegMode CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(indexReg);
+		asmAssign(indexRegMode, inMode, ptrSize(), 0);
+		
+		//Add the offset of the input to b for the offset
+		strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
+		leaArgs=strX86AddrModeAppendItem(leaArgs,X86AddrModeReg(b));
+		leaArgs=strX86AddrModeAppendItem(leaArgs,X86AddrModeIndirSIB(ptrSize(), X86AddrModeReg(indexReg), X86AddrModeReg(b), NULL, objectPtrCreate(&typeU0)));
+		assembleInst("LEA", leaArgs);
+		popReg(indexReg);
+		
+		strX86AddrMode movArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
+		movArgs=strX86AddrModeAppendItem(movArgs,X86AddrModeReg(b));
+		movArgs = strX86AddrModeAppendItem(movArgs, X86AddrModeIndirSIB(ptrSize(), NULL, X86AddrModeReg(b), NULL, (struct object *)getTypeForSize(ptrSize())));
+		assembleInst("MOV", movArgs);
+
+		strX86AddrMode xchgArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
+		xchgArgs=strX86AddrModeAppendItem(xchgArgs,X86AddrModeReg(b));
+		xchgArgs=strX86AddrModeAppendItem(xchgArgs,X86AddrModeIndirReg(stackPointer(), objectPtrCreate(&typeU0)));																																		
+		assembleInst("XCHG", xchgArgs);
+		
+		assembleInst("RET", NULL); 
 
 		strGraphNodeIRP retVal = strGraphNodeIRPAppendItem(NULL, graphEdgeIROutgoing(outDft[0]));
 		strGraphEdgeIRP outCases CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(out, IR_CONN_CASE);
-		for (long i = 0; strGraphEdgeIRPSize(outCases); i++)
+		for (long i = 0; i!=strGraphEdgeIRPSize(outCases); i++)
 			retVal = strGraphNodeIRPAppendItem(retVal, graphEdgeIROutgoing(outCases[i]));
 		return retVal;
 	}
