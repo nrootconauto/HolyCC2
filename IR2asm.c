@@ -869,8 +869,6 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	{
 		strGraphNodeIRP removed CLEANUP(strGraphNodeIRPDestroy) = removeNeedlessLabels(start);
 		nodes = strGraphNodeIRPSetDifference(nodes, removed, (gnCmpType)ptrPtrCmp);
-		strGraphNodeIRP inserted CLEANUP(strGraphNodeIRPDestroy) = insertLabelsForAsm(nodes);
-		inserted = strGraphNodeIRPSetUnion(nodes, inserted, (gnCmpType)ptrPtrCmp);
 	}
 
 	strGraphNodeIRP funcsWithin CLEANUP(strGraphNodeIRPDestroy) = NULL;
@@ -1099,6 +1097,12 @@ void IRCompile(graphNodeIR start, int isFunc) {
 			addArgs = strX86AddrModeAppendItem(addArgs, X86AddrModeReg(stackPointer()));
 			addArgs = strX86AddrModeAppendItem(addArgs, X86AddrModeSint(frameSize));
 			assembleInst("SUB", addArgs);
+	}
+
+	{
+			strGraphNodeIRP inserted CLEANUP(strGraphNodeIRPDestroy) = insertLabelsForAsm(nodes);
+		inserted = strGraphNodeIRPSetUnion(nodes, inserted, (gnCmpType)ptrPtrCmp);
+		debugShowGraphIR(start);
 	}
 	
 	IR2Asm(start);
