@@ -886,7 +886,8 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	}
 	strGraphNodeIRPDestroy(&nodes);
 
-	//IRInsertImplicitTypecasts(start);
+	IRInsertImplicitTypecasts(start);
+	debugShowGraphIR(start);
 	
 	nodes = graphNodeIRAllNodes(start);
 

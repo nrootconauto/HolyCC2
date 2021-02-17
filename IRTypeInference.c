@@ -96,7 +96,13 @@ struct object *__IRNodeType(graphNodeIR node) {
 		return *getType(node);
 
 	struct IRNodeValue *nodeVal = (void *)graphNodeIRValuePtr(node);
-	if(nodeVal->base.type==IR_ARRAY_DECL) {
+	if(nodeVal->base.type==IR_FUNC_ARG) {
+			struct IRNodeFuncArg *arg=(void*)nodeVal;
+			return arg->type;
+	} else if(nodeVal->base.type == IR_TYPECAST) {
+					struct IRNodeTypeCast *cast=(void*)nodeVal;
+					return cast->out;
+	} else	if(nodeVal->base.type==IR_ARRAY_DECL) {
 			struct IRNodeArrayDecl *decl=(void*)nodeVal;
 			return decl->itemType;
 	} else if (nodeVal->base.type == IR_VALUE) {
@@ -111,8 +117,8 @@ struct object *__IRNodeType(graphNodeIR node) {
 		} else if (nodeVal->val.type == __IR_VAL_MEM_FRAME) {
 			return nodeVal->val.value.__frame.type;
 		} else if (nodeVal->val.type == IR_VAL_FUNC) {
-			return nodeVal->val.value.func->type;
-		} else if (nodeVal->val.type == IR_VAL_INT_LIT) {
+					return nodeVal->val.value.func->type;
+			}  else if (nodeVal->val.type == IR_VAL_INT_LIT) {
 			int dataSize2 = dataSize();
 		dataSizeLoop:;
 			switch (dataSize2) {
@@ -222,9 +228,25 @@ void IRInsertImplicitTypecasts(graphNodeIR start) {
 								continue;
 						if(graphNodeIRValuePtr(exprNodes[e])->type==IR_TYPECAST)
 								continue;
-
+						if(graphNodeIRValuePtr(exprNodes[e])->type==IR_DERREF) {
+								__auto_type derrefType=IRNodeType(exprNodes[e]);
+								strGraphEdgeIRP inDst CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_DEST);
+								if(strGraphEdgeIRPSize(inDst)) {
+										__auto_type inNode=graphEdgeIRIncoming(inDst[0]);
+										__auto_type tc=IRCreateTypecast(inNode, IRNodeType(inNode), derrefType);
+										graphNodeIRConnect(tc,exprNodes[e], IR_CONN_DEST);
+										graphEdgeIRKill(inNode, exprNodes[e], NULL, NULL, NULL);
+								}
+								continue;
+						}
+						
 						struct object *toType=IRNodeType(exprNodes[e]);
 						
+						//If an array decl,typecast to defuault value type
+						if(graphNodeIRValuePtr(exprNodes[e])->type==IR_ARRAY_DECL) {
+								toType=&typeI32i;
+						}
+
 						//If is a compare type,typecast to first argument
 						switch(graphNodeIRValuePtr(exprNodes[e])->type) {
 						case IR_GT:

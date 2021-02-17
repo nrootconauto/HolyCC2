@@ -167,6 +167,8 @@ struct parserVar *IRCreateVirtVar(struct object *type) {
 }
 graphNodeIR IRCreateTypecast(graphNodeIR in, struct object *inType, struct object *outType) {
 	struct IRNodeTypeCast cast;
+	assert(inType);
+	assert(outType);
 	cast.base.attrs = NULL;
 	cast.base.type = IR_TYPECAST;
 	cast.in = inType;
