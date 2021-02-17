@@ -60,11 +60,24 @@ static strGraphNodeIRP removeNeedlessLabels(graphNodeIR start) {
 		__auto_type val = graphNodeIRValuePtr(allNodes[i]);
 		if (val->type != IR_LABEL)
 			continue;
+		
 		// Dont remove if named
 		if (llIRAttrFind(val->attrs, IR_ATTR_LABEL_NAME, IRAttrGetPred))
 			continue;
 
 		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(allNodes[i]);
+		
+		// Dont remvoe if connected to jump-table
+		int connectedToJmpTab=0;
+		for(long i=0;i!=strGraphEdgeIRPSize(in);i++) {
+				if(graphNodeIRValuePtr(graphEdgeIRIncoming(in[i]))->type==IR_JUMP_TAB) {
+						connectedToJmpTab=1;
+						break;
+				}
+		}
+		if(connectedToJmpTab)
+				continue;
+
 		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIROutgoing(allNodes[i]);
 		if (strGraphEdgeIRPSize(in) != 1)
 			continue;
@@ -2713,22 +2726,22 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		strIRTableRange ranges CLEANUP(strIRTableRangeDestroy) = strIRTableRangeClone(table->labels);
 		qsort(ranges, strIRTableRangeSize(ranges), sizeof(*ranges), (int (*)(const void *, const void *))IRTableRangeCmp);
 		int64_t smallest = ranges[0].start;
-		int64_t largest = ranges[strIRTableRangeSize(ranges) - 1].start;
-		int64_t diff = largest - smallest;
+		int64_t largest = ranges[strIRTableRangeSize(ranges) - 1].end;
+		int64_t diff = 1+largest - smallest;
 
 		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIROutgoing(start);
-		strGraphEdgeIRP outDft CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(in, IR_CONN_DFT);
+		strGraphEdgeIRP outDft CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(out, IR_CONN_DFT);
 		assert(strGraphEdgeIRPSize(outDft) == 1);
 		__auto_type dftNode = graphEdgeIROutgoing(outDft[0]);
 
 		strX86AddrMode jmpTable CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeResize(NULL, diff);
-		for (long i = 0; i != strIRTableRangeSize(ranges); i++) {
+		for (long i = 0; i != diff; i++) {
 			jmpTable[i] = IRNode2AddrMode(dftNode);
 		}
 		for (long i = 0; i != strIRTableRangeSize(ranges); i++) {
-			for (long j = ranges[i].start + smallest; j != ranges[i].end + smallest; j++) {
-				X86AddrModeDestroy(&jmpTable[i]);
-				jmpTable[i] = IRNode2AddrMode(ranges[i].to);
+			for (long j = ranges[i].start + smallest; j != 1+ranges[i].end + smallest; j++) {
+				X86AddrModeDestroy(&jmpTable[j]);
+				jmpTable[j] = IRNode2AddrMode(ranges[i].to);
 			}
 		}
 

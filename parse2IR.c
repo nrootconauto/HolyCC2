@@ -564,6 +564,8 @@ static struct enterExit __createSwitchCodeAfterBody(const struct parserNode *nod
 		}
 	}
 
+	graphNodeIRConnect(tableNode, *dftNode, IR_CONN_DFT);
+	
 	// Kill switch scope data
 	mapIRCaseDestroy(newScope->value.swit.casesByRange, NULL);
 	ptrMapGNIRByParserNodeDestroy(newScope->value.swit.subSwitchEnterCodeByParserNode, NULL);

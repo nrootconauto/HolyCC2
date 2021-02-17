@@ -447,7 +447,7 @@ void compileTests() {
 				free(asmF);	
 				free(source);
 				}*/
-				{
+		/*{
 				const char *text=
 						"I32i StrLen(U8i *str) {\n"
 						"    U8i *start=str;"
@@ -474,6 +474,29 @@ void compileTests() {
 				char *source=text2File(text);
 				char *asmF=strDup(tmpnam(NULL));
 				compileFile(source, asmF);				runTest(asmF,"hi");
+				free(asmF);	
+				free(source);
+				}*/
+		{
+				const char *text=
+						"{\n"
+						"    for(I32i i=0;i!=5;i=i+1) {\n"
+						"        switch(i) {\n"
+						"            case 4:\n"
+						"            case 2:\n"
+						"            case 0:\n"
+						putY
+						"                break;\n"
+						"            case 3:\n"
+						"            case 1:\n"
+						"                break;\n"
+						"        }\n"
+						"    }\n"
+						"}\n"
+						exitStr;
+				char *source=text2File(text);
+				char *asmF=strDup(tmpnam(NULL));
+				compileFile(source, asmF);				runTest(asmF,"yyy");
 				free(asmF);	
 				free(source);
 				}

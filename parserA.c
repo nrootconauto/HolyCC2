@@ -2451,9 +2451,9 @@ static void ensureCaseDoesntExist(long valueLow, long valueHigh, long rangeStart
 
 				int consumed = 0;
 				// Check if high is in range
-				consumed |= valueHigh < cs->valueUpper && valueHigh <= cs->valueLower;
+				consumed |= valueHigh <= cs->valueUpper && valueHigh >= cs->valueLower;
 				// Check if low is in range
-				consumed |= valueLow >= cs->valueUpper && valueLow <= cs->valueLower;
+				consumed |= valueLow <= cs->valueUpper && valueLow >= cs->valueLower;
 				// Check if range is consumed
 				consumed |= valueHigh >= cs->valueUpper && valueLow <= cs->valueLower;
 				if (consumed) {
@@ -2546,7 +2546,7 @@ struct parserNode *parseCase(llLexerItem start, llLexerItem *end) {
 		if (parent == NULL)
 			whineCaseNoSwitch(kwCase, startP, endP);
 
-		caseValueUpper = (caseValueUpper == -1) ? caseValue + 1 : caseValue;
+		caseValueUpper = (caseValueUpper == -1) ? caseValue  : caseValueUpper;
 
 		ensureCaseDoesntExist(caseValue, caseValueUpper, startP, endP);
 
@@ -2555,6 +2555,7 @@ struct parserNode *parseCase(llLexerItem start, llLexerItem *end) {
 		caseNode.parent = parent;
 		caseNode.valueLower = caseValue;
 		caseNode.valueUpper = caseValueUpper;
+		caseNode.label=kwCase;
 		retVal = ALLOCATE(caseNode);
 		if (end)
 			assignPosByLexerItems(retVal, originalStart, *end);

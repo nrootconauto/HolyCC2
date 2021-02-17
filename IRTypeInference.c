@@ -96,7 +96,10 @@ struct object *__IRNodeType(graphNodeIR node) {
 		return *getType(node);
 
 	struct IRNodeValue *nodeVal = (void *)graphNodeIRValuePtr(node);
-	if(nodeVal->base.type==IR_FUNC_ARG) {
+	if(nodeVal->base.type==IR_SPILL_LOAD) {
+			struct IRNodeSpill *spill=(void*)nodeVal;
+			return spill->item.value.var.var->type;
+	} else if(nodeVal->base.type==IR_FUNC_ARG) {
 			struct IRNodeFuncArg *arg=(void*)nodeVal;
 			return arg->type;
 	} else if(nodeVal->base.type == IR_TYPECAST) {
