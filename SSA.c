@@ -709,10 +709,33 @@ static void strIRPathsDestroy2(strIRPaths *paths) {
 		strIRPathDestroy(&paths[0][i]);
 	strIRPathsDestroy(paths);
 }
-static void __paths2Choose(graphNodeIR node, graphNodeIR choose, strIRPath *currentPath, strIRPaths *paths) {
-	__auto_type end = IREndOfExpr(node);
-	if (strIRPathSize(*currentPath) != 0)
+static void __paths2Choose(strGraphNodeIRP stopAtNodes,graphNodeIR node, graphNodeIR choose, strIRPath *currentPath, strIRPaths *paths) {
+			__auto_type end = IREndOfExpr(node);
+		for(long e=0;e<strIRPathSize(currentPath[0])-1;e++) {
+				if(currentPath[0][e].start==node)
+						return;
+				if(currentPath[0][e].end==node)
+						return;
+				if(currentPath[0][e].start==end)
+						return;
+				if(currentPath[0][e].end==end)
+						return;
+		}
+
+		if(strGraphNodeIRPSortedFind(stopAtNodes,node,(gnCmpType)ptrPtrCmp))
+				return;
+		
+		if(end!=node) {
+				strGraphNodeIRP nodes CLEANUP(strGraphNodeIRPDestroy)=IRStmtNodes(end);
+				for(long n=0;n!=strGraphNodeIRPSize(nodes);n++) {
+						if(strGraphNodeIRPSortedFind(stopAtNodes,nodes[n],(gnCmpType)ptrPtrCmp))
+								return;
+				}
+		}
+
+		if (strIRPathSize(*currentPath) != 0)
 		node = (!end) ? node : end;
+	
 	if (IRStmtStart(node) == choose) {
 		for (long p = 0; p != strIRPathsSize(*paths); p++) {
 			if (strIRPathSize(*currentPath) != strIRPathSize(paths[0][p]))
@@ -729,13 +752,13 @@ static void __paths2Choose(graphNodeIR node, graphNodeIR choose, strIRPath *curr
 		__auto_type outNode = graphEdgeIROutgoing(out[i]);
 		struct IRPath edge = {node, outNode, out[i]};
 		*currentPath = strIRPathAppendItem(*currentPath, edge);
-		__paths2Choose(outNode, choose, currentPath, paths);
+		__paths2Choose(stopAtNodes,outNode, choose, currentPath, paths);
 		*currentPath = strIRPathPop(*currentPath, NULL);
 	}
 }
-static void paths2Choose(strIRPaths *paths, graphNodeIR node, graphNodeIR choose) {
+static void paths2Choose(strGraphNodeIRP stopAt,strIRPaths *paths, graphNodeIR node, graphNodeIR choose) {
 	strIRPath path CLEANUP(strIRPathDestroy) = NULL;
-	__paths2Choose(node, choose, &path, paths);
+	__paths2Choose(stopAt,node, choose, &path, paths);
 }
 static int edgeEqual(void *a, void *b) {
 	return *(const enum IRConnType *)a == *(const enum IRConnType *)b;
@@ -797,7 +820,9 @@ void IRSSAReplaceChooseWithAssigns(graphNodeIR node, strGraphNodeIRP *replaced) 
 		struct IRNodeValue *canVal = (void *)graphNodeIRValuePtr(choose->canidates[i]);
 		if (0 == IRVarCmp(&canVal->val.value.var, var))
 			continue;
-		paths2Choose(&paths, choose->canidates[i], node);
+		strGraphNodeIRP stopAt CLEANUP(strGraphNodeIRPDestroy)=strGraphNodeIRPClone(choose->canidates);
+		stopAt=strGraphNodeIRPRemoveItem(stopAt, choose->canidates[i], (gnCmpType)ptrPtrCmp);
+		paths2Choose(stopAt,&paths, choose->canidates[i], node);
 	}
 
 	strIRPaths order CLEANUP(strIRPathsDestroy) = NULL;
