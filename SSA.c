@@ -20,6 +20,9 @@ static void debugPrintGraph(graphNodeMapping map) {
 	system(buffer);
 #endif
 }
+STR_TYPE_DEF(struct IRVar, IRVar);
+STR_TYPE_FUNCS(struct IRVar, IRVar);
+
 #define GRAPHN_ALLOCATE(x) ({ __graphNodeCreate(&x, sizeof(x), 0); })
 typedef int (*strGN_IRCmpType)(const strGraphNodeIRP *, const strGraphNodeIRP *);
 typedef int (*geCmpType)(const graphEdgeIR *, const graphEdgeIR *);
@@ -189,7 +192,9 @@ static int nullPathOrVersioned(graphNodeMapping mapping,strGraphNodeIRP versione
 		if(mapping==__nullPathOrVersioned_IgnoreMapping)
 				return 0;
 		return NULL!=strGraphNodeIRPSortedFind(versioned, *graphNodeMappingValuePtr(mapping), (gnCmpType)ptrPtrCmp);
-} 
+}
+static void removeSameyChooses(strGraphNodeIRP physicalAssigns,graphNodeIR start, struct parserVar *var);
+static void __phyiscalAssignsFrom(strIRVar chooseVars,strGraphNodeIRP *visited,strGraphNodeIRP *physical,graphNodeIR ref);
 static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 	//
 	struct varAndEnterPair pair;
@@ -213,7 +218,7 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 	}
 
 	graphNodeMapping varAssignG CLEANUP(graphNodeMappingDestroy2) = IRFilter(start, isAssignedVar, &pair);
-
+	
 	if (!varAssignG) {
 		ptrMapGraphNodeDestroy(IR2MappingNode, NULL);
 		return;
@@ -221,18 +226,22 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 
 	strGraphNodeMappingP allVarAssigns CLEANUP(strGraphNodeMappingPDestroy) = graphNodeMappingAllNodes(varAssignG);
 
-	//debugPrintGraph(varAssignG);
+	strGraphNodeIRP physicalAssigns CLEANUP(strGraphNodeIRPDestroy)=NULL;
+	strGraphNodeIRP virtualAssigns CLEANUP(strGraphNodeIRPDestroy)=NULL;
+	strIRVar chooseVars CLEANUP(strIRVarDestroy)=NULL;
+	
 	// Number the assigns
 	long version = 1;
 	for (long i = 0; i != strGraphNodeMappingPSize(allVarAssigns); i++) {
-		__auto_type node = graphNodeIRValuePtr(*graphNodeMappingValuePtr(allVarAssigns[i]));
+			__auto_type irNode=*graphNodeMappingValuePtr(allVarAssigns[i]);
+		__auto_type node = graphNodeIRValuePtr(irNode);
 		// Ensure is a var
 		if (node->type != IR_VALUE)
 			continue;
 		struct IRNodeValue *val = (void *)node;
 		if (val->val.type != IR_VAL_VAR_REF)
 			continue;
-
+		
 		val->val.value.var.SSANum = version++;
 	}
 	
@@ -264,10 +273,42 @@ static void SSAVersionVar(graphNodeIR start, struct IRVar *var) {
 				o->val.value.var.SSANum=in->val.value.var.SSANum;
 		}
 	}
+	
+for (long i = 0; i != strGraphNodeMappingPSize(allVarAssigns); i++) {
+			__auto_type irNode=*graphNodeMappingValuePtr(allVarAssigns[i]);
+			struct IRNodeValue *val = (void *)graphNodeIRValuePtr(irNode);
+			if(val->base.type!=IR_VALUE)
+					continue;
+			if(val->val.type!=IR_VAL_VAR_REF)
+					continue;
+			
+			strGraphNodeIRP in CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRIncomingNodes(irNode);
+		if(strGraphNodeIRPSize(in)==1) {
+				if(graphNodeIRValuePtr(in[0])->type==IR_CHOOSE){
+						virtualAssigns=strGraphNodeIRPSortedInsert(virtualAssigns, irNode, (gnCmpType)ptrPtrCmp);
+						chooseVars=strIRVarSortedInsert(chooseVars, val->val.value.var, IRVarCmp);
+						goto isChoose;
+				}
+		}
+		physicalAssigns=strGraphNodeIRPSortedInsert(physicalAssigns, irNode, (gnCmpType)ptrPtrCmp);
+	isChoose:;
+	}
+	
 	//debugPrintGraph(varRefsG);
+	for(long a=0;a!=strGraphNodeIRPSize(virtualAssigns);a++) {
+			//Point to variable assigned into by choose
+			strGraphNodeIRP visited CLEANUP(strGraphNodeIRPDestroy)=NULL;
+			strGraphNodeIRP result =NULL;
+			__phyiscalAssignsFrom(chooseVars, &visited, &result, virtualAssigns[a]);
+
+			strGraphNodeIRP inChoose=(void*)graphNodeIRIncomingNodes(virtualAssigns[a]);
+			struct IRNodeChoose *choose=(void*)graphNodeIRValuePtr(inChoose[0]);
+			strGraphNodeIRPDestroy(&choose->canidates);
+			choose->canidates=result;		
+	}	
+	
+	removeSameyChooses(physicalAssigns,start, var->var);
 }
-STR_TYPE_DEF(struct IRVar, IRVar);
-STR_TYPE_FUNCS(struct IRVar, IRVar);
 struct varBlob {
 	strIRVar read;
 	strIRVar write;
@@ -506,10 +547,32 @@ static void transparentKill(graphNodeIR node) {
 
 	graphNodeIRKill(&node, NULL, NULL);
 }
-static int __removeSameyChooses(graphNodeIR chooseNode, mapStrGNIR byNum) {
+static void __phyiscalAssignsFrom(strIRVar chooseVars,strGraphNodeIRP *visited,strGraphNodeIRP *physical,graphNodeIR ref) {
+		if(strGraphNodeIRPSortedFind(*visited, ref, (gnCmpType)ptrPtrCmp))
+				return;
+		*visited=strGraphNodeIRPSortedInsert(*visited, ref, (gnCmpType)ptrPtrCmp);
+
+		struct IRNodeValue *val=(void*)graphNodeIRValuePtr(ref);
+		__auto_type var=val->val.value.var;
+		
+		if(!strIRVarSortedFind(chooseVars, var, IRVarCmp)) {
+				*physical=strGraphNodeIRPSortedInsert(*physical, ref, (gnCmpType)ptrPtrCmp);
+				return;
+		}
+		
+		strGraphNodeIRP in CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRIncomingNodes(ref);
+		if(strGraphNodeIRPSize(in)==1) {
+				if(graphNodeIRValuePtr(in[0])->type==IR_CHOOSE) {
+						struct IRNodeChoose *choose=(void*)graphNodeIRValuePtr(in[0]);
+						for(long c=0;c!=strGraphNodeIRPSize(choose->canidates);c++) {
+								__phyiscalAssignsFrom(chooseVars,visited,physical,choose->canidates[c]);
+						}
+						return;
+				}	
+		}
+}
+static int __removeSameyChooses(strGraphNodeIRP physicalAssigns,graphNodeIR chooseNode, mapStrGNIR byNum) {
 	struct IRNodeChoose *choose = (void *)graphNodeIRValuePtr(chooseNode);
-	struct IRNodeValue *val = (void *)graphNodeIRValuePtr(choose->canidates[0]);
-	;
 
 	strGraphNodeIRP out CLEANUP(strGraphNodeIRPDestroy) = graphNodeIROutgoingNodes(chooseNode);
 	__auto_type chooseAssign = out[0];
@@ -547,8 +610,7 @@ static int __removeSameyChooses(graphNodeIR chooseNode, mapStrGNIR byNum) {
 			*findDest = strGraphNodeIRPSortedInsert(*findDest, findSrc[r], (gnCmpType)ptrPtrCmp);
 		}
 	}
-	strGraphNodeIRPDestroy(mapStrGNIRGet(byNum, bufferSrc));
-
+	
 	transparentKill(chooseNode);
 	// Assigned is the node being assigned into by the choose node,if no expressions reading/writing the node,can safley destroy it
 	strGraphEdgeIRP assignedIn CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(chooseAssign);
@@ -564,7 +626,7 @@ static int __removeSameyChooses(graphNodeIR chooseNode, mapStrGNIR byNum) {
 	struct IRNodeValue* chooseAsnVal=(void*)graphNodeIRValuePtr(chooseAssign);
 	if(chooseAsnVal->base.type==IR_VALUE) {
 			if(chooseAsnVal->val.type==IR_VAL_VAR_REF) {
-					__auto_type num=val->val.value.var.SSANum;
+					__auto_type num=val2->val.value.var.SSANum;
 					char buffer[32];
 					sprintf(buffer, "%li", first);
 					__auto_type find=mapStrGNIRGet(byNum, buffer);
@@ -573,10 +635,13 @@ static int __removeSameyChooses(graphNodeIR chooseNode, mapStrGNIR byNum) {
 	}
 
 	transparentKill(chooseAssign);
-end:
+	
+	strGraphNodeIRPDestroy(mapStrGNIRGet(byNum, bufferSrc));
+	
+	end:
 	return 1;
 }
-static void removeSameyChooses(graphNodeIR start, struct parserVar *var) {
+static void removeSameyChooses(strGraphNodeIRP physicalAssigns,graphNodeIR start, struct parserVar *var) {
 	strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRAllNodes(start);
 	strGraphNodeIRP allChooses4Var CLEANUP(strGraphNodeIRPDestroy) = NULL;
 
@@ -607,7 +672,7 @@ static void removeSameyChooses(graphNodeIR start, struct parserVar *var) {
 
 removedLoop:;
 	for (long c = 0; c != strGraphNodeIRPSize(allChooses4Var); c++) {
-		if (__removeSameyChooses(allChooses4Var[c], byNum)) {
+			if (__removeSameyChooses(physicalAssigns, allChooses4Var[c], byNum)) {
 			allChooses4Var = strGraphNodeIRPRemoveItem(allChooses4Var, allChooses4Var[c], (gnCmpType)ptrPtrCmp);
 			goto removedLoop;
 		}
@@ -638,10 +703,9 @@ void IRToSSA(graphNodeIR enter) {
 		strGraphNodeIRP chooses = IRSSACompute(clone, &allVars[i], blobs);
 		graphNodeMappingKill(&clone, NULL, NULL);
 		// Number the versions
+		
 		SSAVersionVar(enter, &allVars[i]);
-
-		removeSameyChooses(enter, allVars[i].var);
-
+		
 		newNodes = strGraphNodeIRPConcat(newNodes, chooses);
 	}
 
