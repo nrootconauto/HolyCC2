@@ -22,7 +22,6 @@ static void debugPrintGraph(graphNodeMapping map) {
 }
 STR_TYPE_DEF(struct IRVar, IRVar);
 STR_TYPE_FUNCS(struct IRVar, IRVar);
-
 #define GRAPHN_ALLOCATE(x) ({ __graphNodeCreate(&x, sizeof(x), 0); })
 typedef int (*strGN_IRCmpType)(const strGraphNodeIRP *, const strGraphNodeIRP *);
 typedef int (*geCmpType)(const graphEdgeIR *, const graphEdgeIR *);

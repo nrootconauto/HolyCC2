@@ -280,18 +280,44 @@ static struct IRVar *getVar(graphNodeIR node) {
 	} else
 		return NULL;
 }
+static int chooseCmp(const graphNodeIR *a,const graphNodeIR *b) {
+		struct  IRNodeChoose *A=(void*)graphNodeIRValuePtr(*a);
+		struct  IRNodeChoose *B=(void*)graphNodeIRValuePtr(*b);
+		long aSize=strGraphNodeIRPSize(A->canidates);
+		long bSize=strGraphNodeIRPSize(A->canidates);
+		long min=aSize>bSize?bSize:aSize;
+		for(long v=0;v!=min;v++) {
+				int cmp=IRVarCmp(getVar(A->canidates[v]),getVar(B->canidates[v]));
+				if(cmp!=0)
+						return cmp;
+		}
+		if(aSize==bSize)
+				return 0;
+		return aSize>bSize?1:-1;
+}
 //
 // Dont Alias variables that exist in memory
 //
-static __thread strVar dontCoalesceIntoVars = NULL;
-void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
+
+void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start,int dryRun) {
 	strVarRefs refs CLEANUP(strVarRefsDestroy) = NULL;
-	strAliasPair aliases CLEANUP(strAliasPairDestroy) = NULL;
+	strVar dontCoalesceIntoVars CLEANUP(strVarDestroy)= NULL;
+	
+	strGraphNodeIRP chooses CLEANUP(strGraphNodeIRPDestroy)=NULL;
+	
 	for (long i = 0; i != strGraphNodeIRPSize(nodes); i++) {
 		__auto_type val = graphNodeIRValuePtr(nodes[i]);
 		// No value?
 		if (!val)
 			continue;
+
+		if(val->type==IR_CHOOSE) {
+				struct IRNodeChoose *choose=(void*)val;
+				chooses=strGraphNodeIRPSortedInsert(chooses, nodes[i], (gnCmpType)ptrPtrCmp);
+				//Outgoings for chooses point to variable being assigned into
+				strGraphNodeIRP cOutgoing CLEANUP(strGraphNodeIRPDestroy)=graphNodeIROutgoingNodes(nodes[i]);
+				dontCoalesceIntoVars=strVarSortedInsert(dontCoalesceIntoVars , *getVar(cOutgoing[0]), IRVarCmp);
+		}
 
 		// Find an existing reference to varaible in val
 		if (val->type == IR_VALUE) {
@@ -329,6 +355,34 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 		}
 	}
 
+	//
+	// Lets get a list of chooses,sort them by contents of canidates so same canidates will be adjacent
+	// If choosecmp(a,b)==0,they have the same canidates to the variable,so we can merge them
+	//
+	strGraphNodeIRP sortedChooses=strGraphNodeIRPClone(chooses);
+	qsort(sortedChooses, strGraphNodeIRPSize(chooses), sizeof(*chooses), (int(*)(const void*,const void *))chooseCmp);
+	for(long c=0;c+1<strGraphNodeIRPSize(chooses);c++) {
+			if(chooseCmp(&chooses[c], &chooses[c+1])==0) {
+					//Outgoings for chooses point to variable being assigned into
+					strGraphNodeIRP cOutgoing CLEANUP(strGraphNodeIRPDestroy)=graphNodeIROutgoingNodes(chooses[c]);
+					strGraphNodeIRP c1Outgoing CLEANUP(strGraphNodeIRPDestroy)=graphNodeIROutgoingNodes(chooses[c+1]);
+					
+					__auto_type aIndex = getVarRefIndex(refs, cOutgoing[0]);
+					__auto_type bIndex = getVarRefIndex(refs, c1Outgoing[0]);
+					
+					if (aIndex == bIndex)
+						continue;
+
+					for(long r=0;r!=strGraphNodeIRPSize(refs[bIndex]);r++) {
+							getVar(refs[bIndex][r])->SSANum=getVar(cOutgoing[0])->SSANum;
+					}
+					
+					refs[aIndex] = strGraphNodeIRPSetUnion(refs[aIndex], refs[bIndex], (gnCmpType)ptrPtrCmp);
+					memmove(&refs[bIndex], &refs[bIndex + 1], (strVarRefsSize(refs) - bIndex - 1) * sizeof(*refs));
+					refs = strVarRefsPop(refs, NULL);
+			}
+	}
+	
 	for (long i = 0; i != strGraphNodeIRPSize(nodes); i++) {
 		struct IRNodeValue *val = (void *)graphNodeIRValuePtr(nodes[i]);
 		if (val->base.type != IR_VALUE)
@@ -357,21 +411,14 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 				if (inValueNode->val.type == IR_VAL_VAR_REF) {
 					aliasNode = graphEdgeIRIncoming(filtered[0]);
 
-					// Union
 					__auto_type aIndex = getVarRefIndex(refs, aliasNode);
 					__auto_type bIndex = getVarRefIndex(refs, nodes[i]);
 
-					//
-					// Ignore alias to own blob as we delete such blob ahead
-					//
 					if (aIndex == bIndex)
 						continue;
 
 					refs[aIndex] = strGraphNodeIRPSetUnion(refs[aIndex], refs[bIndex], (gnCmpType)ptrPtrCmp);
-
-					// Remove bIndex
 					memmove(&refs[bIndex], &refs[bIndex + 1], (strVarRefsSize(refs) - bIndex - 1) * sizeof(*refs));
-					// Pop to decrement size
 					refs = strVarRefsPop(refs, NULL);
 				}
 			}
@@ -390,9 +437,13 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
 			// Dont replace self
 			if (refs[i][i2] == master)
 				continue;
-
+			
+			if(strVarSortedFind(dontCoalesceIntoVars, *getVar(refs[i][i2]), IRVarCmp))
+					continue;
+			
 			// Replace with cloned value
-			replaceNodeWithExpr(refs[i][i2], IRCloneNode(master, IR_CLONE_NODE, NULL));
+			if(!dryRun)
+					replaceNodeWithExpr(refs[i][i2], IRCloneNode(master, IR_CLONE_NODE, NULL));
 		}
 	}
 }
@@ -1004,7 +1055,7 @@ static void addToNodes(struct __graphNode *node, void *data) {
 	*Data = strGraphNodeIRPSortedInsert(*Data, node, (gnCmpType)ptrPtrCmp);
 }
 static void ptrMapGraphNodeDestroy2(ptrMapGraphNode *node) {
-	ptrMapGraphNodeDestroy(*node, NULL);
+ 	ptrMapGraphNodeDestroy(*node, NULL);
 }
 static void mapRegSliceDestroy2(ptrMapregSlice *toDestroy) {
 	ptrMapregSliceDestroy(*toDestroy, NULL);
@@ -1021,10 +1072,11 @@ void IRRegisterAllocate(graphNodeIR start, color2RegPredicate colorFunc, void *c
 	IRToSSA(start);
 	debugShowGraphIR(start);
 
-	// Dont Coalesce variables that has multiple SSA Sources(connected to choose node)
-	dontCoalesceIntoVars = NULL;
-
 	strGraphNodeIRP allNodes2 CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRAllNodes(start);
+	IRCoalesce(allNodes2, start,1);
+	debugShowGraphIR(start);
+
+	
 	strGraphNodeIRP visited CLEANUP(strGraphNodeIRPDestroy) = NULL;
 loop:
 	allNodes2 = strGraphNodeIRPSetDifference(allNodes2, visited, (gnCmpType)ptrPtrCmp);
@@ -1048,14 +1100,6 @@ loop:
 				goto loop;
 			}
 
-			strGraphEdgeIRP outgoing CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIROutgoing(allNodes2[i]);
-			strGraphEdgeIRP asn CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(outgoing, IR_CONN_DEST);
-			if (strGraphEdgeIRPSize(asn) == 1) {
-				__auto_type asnNode = graphEdgeIROutgoing(asn[0]);
-				if (isVar(asnNode))
-					dontCoalesceIntoVars = strVarSortedInsert(dontCoalesceIntoVars, *getVar(asnNode), IRVarCmp);
-			}
-
 			strGraphNodeIRP replaced CLEANUP(strGraphNodeIRPDestroy) = NULL;
 			IRSSAReplaceChooseWithAssigns(allNodes2[i], &replaced);
 
@@ -1068,8 +1112,6 @@ loop:
 	// Merge variables that can be merges
 	debugShowGraphIR(start);
 	allNodes = graphNodeIRAllNodes(start);
-	IRCoalesce(allNodes, start);
-	strVarDestroy(&dontCoalesceIntoVars);
 	IRRemoveRepeatAssigns(start);
 	debugShowGraphIR(start);
 
