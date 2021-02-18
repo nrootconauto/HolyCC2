@@ -445,8 +445,138 @@ static int isVar(graphNodeIR node) {
 	}
 	return 0;
 }
+struct assignPair {
+		struct IRVar *dst,*src;
+};
+static int isSingleAssign(graphNodeIR node,const void *data) {
+		if(!getVar(node))
+				return 0;
+		
+		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(node);
+		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(node);
+		for(long i=0;i!=strGraphEdgeIRPSize(out);i++)
+				if(IRIsExprEdge(*graphEdgeIRValuePtr(out[i])))
+						return 0;
+						
+		strGraphEdgeIRP dst CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_DEST);
+		if(strGraphEdgeIRPSize(dst)==1) {
+				__auto_type inNode=graphEdgeIRIncoming(dst[0]);
+				if(!getVar(inNode))
+						return 0;
+				
+				strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(inNode);
+				for(long i=0;i!=strGraphEdgeIRPSize(in);i++)
+						if(IRIsExprEdge(*graphEdgeIRValuePtr(in[i])))
+								return 0;
+				
+				if(data) {
+						const struct assignPair *Data=data;
+						if(IRVarCmp(Data->dst, getVar(node)))
+								return 0;
+						if(IRVarCmp(Data->src, getVar(inNode)))
+								return 0;
+				}
+				return 1;
+		}
+		return 0;
+}
+MAP_TYPE_DEF(long,Count);
+MAP_TYPE_FUNCS(long,Count);
+struct assignPair getAssignPairFromNode(graphNodeIR enter) {
+		__auto_type dstNode=enter;
+		strGraphNodeIRP inAsn CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRIncomingNodes(dstNode);
+		__auto_type srcNode=inAsn[0];
+
+		struct IRVar *d=getVar(dstNode),*s=getVar(srcNode);
+		struct assignPair pair;
+		pair.dst=d,pair.src=s;
+		return pair;
+}
+static void removeFromDominatorTree(graphNodeIR enter) {
+		graphNodeMapping map=IRFilter(enter, isSingleAssign, NULL);
+		llDominators doms= graphComputeDominatorsPerNode(map);
+		graphNodeMapping tree=dominatorsTreeCreate(doms);
+
+		strGraphNodeMappingP allMapNodes CLEANUP(strGraphNodeMappingPDestroy)=graphNodeMappingAllNodes(tree);
+		strGraphNodeMappingP killedNodes CLEANUP(strGraphNodeMappingPDestroy)=NULL;
+		//first node is start node,not an assign
+		for(long n=0;n!=strGraphNodeMappingPSize(allMapNodes);n++) {
+				if(allMapNodes[n]==tree)
+						continue;
+				if(strGraphNodeMappingPSortedFind(killedNodes, allMapNodes[n], (gnCmpType)ptrPtrCmp))
+						continue;
+				
+				//allMapNodes[n] is a mapping of a mapping
+				__auto_type irNode=*graphNodeMappingValuePtr(*graphNodeMappingValuePtr(allMapNodes[n]));
+				struct assignPair baseAssign=getAssignPairFromNode(irNode);
+				//
+				// Go up the tree until we reach an assign or we reach the start node
+				// If we encounter a copy of baseAssign,kill baseAssign as it is dominated by the item
+				//
+				for(__auto_type treeNode=allMapNodes[n];;) {
+						strGraphEdgeMappingP incoming CLEANUP(strGraphEdgeMappingPDestroy)=graphNodeMappingIncoming(treeNode);
+						treeNode=graphEdgeMappingIncoming(incoming[0]);
+						if(treeNode==tree)
+								break;
+
+						if(strGraphNodeMappingPSortedFind(killedNodes, treeNode, (gnCmpType)ptrPtrCmp))
+								continue;
+
+						
+						__auto_type irNode=*graphNodeMappingValuePtr(*graphNodeMappingValuePtr(treeNode));
+						printf("    %p(%p)\n", *graphNodeMappingValuePtr(*graphNodeMappingValuePtr(treeNode)),treeNode);
+						
+						struct assignPair parentAssign=getAssignPairFromNode(irNode);
+
+						if(0==IRVarCmp(parentAssign.dst,baseAssign.dst))
+								if(0==IRVarCmp(parentAssign.src,baseAssign.src)) {
+										killedNodes=strGraphNodeMappingPSortedInsert(killedNodes, allMapNodes[n], (gnCmpType)ptrPtrCmp);
+										__auto_type irNode=*graphNodeMappingValuePtr(*graphNodeMappingValuePtr(allMapNodes[n]));
+										transparentKill(irNode, 0);
+										printf("%p(%p)\n", irNode,treeNode);
+										break;
+								}
+				}
+		}
+		
+		llDominatorsDestroy(&doms, NULL); //TODO
+		/*
+		mapCount assignPairs=mapCountCreate();
+		const char *pairFmt="%p-%li=%p-%li";
+		strGraphNodeMappingP allMapNodes CLEANUP(strGraphNodeMappingPDestroy)=graphNodeMappingAllNodes(map);
+		for(long n=0;n!=strGraphNodeMappingPSize(allMapNodes);n++) {
+				__auto_type dstNode=*graphNodeMappingValuePtr(allMapNodes[n]);
+				strGraphNodeIRP inAsn CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRIncomingNodes(dstNode);
+				__auto_type srcNode=inAsn[0];
+
+				struct IRVar *d=getVar(dstNode),*s=getVar(srcNode);
+				long len=snprintf(NULL, 0, pairFmt,  d->var,d->SSANum,s->var,s->SSANum);
+				char buffer[len+1];
+				sprintf(buffer, pairFmt,  d->var,d->SSANum,s->var,s->SSANum);
+
+		countLoop:;
+				__auto_type find=mapCountGet(assignPairs, buffer);
+				if(!find) {
+						mapCountInsert(assignPairs, buffer,0);
+						goto countLoop;
+				} else
+						++*find;
+		}
+
+		long count;		
+		mapCountKeys(assignPairs, NULL, &count);
+		const char *keys[count];
+		mapCountKeys(assignPairs, keys, NULL);
+
+		for(long k=0;k!=count;k++) {
+				
+		}
+		*/
+}
 void IRRemoveRepeatAssigns(graphNodeIR enter) {
-	__auto_type allNodes = graphNodeIRAllNodes(enter);
+		removeFromDominatorTree(enter);
+
+		__auto_type allNodes = graphNodeIRAllNodes(enter);
 
 	strGraphNodeIRP toRemove = NULL;
 	for (long i = 0; i != strGraphNodeIRPSize(allNodes); i++) {
@@ -1124,7 +1254,7 @@ loop:
 	allNodes = graphNodeIRAllNodes(start);
 	IRRemoveRepeatAssigns(start);
 	debugShowGraphIR(start);
-
+	
 	__auto_type intInterfere = IRInterferenceGraphFilter(start, NULL, filterIntVars);
 
 	__auto_type floatInterfere = NULL;
