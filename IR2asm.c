@@ -1100,7 +1100,7 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	}
 
 	{
-			strGraphNodeIRP inserted CLEANUP(strGraphNodeIRPDestroy) = insertLabelsForAsm(nodes);
+			strGraphNodeIRP inserted CLEANUP(strGraphNodeIRPDestroy) = insertLabelsForAsm(regAllocedNodes);
 		inserted = strGraphNodeIRPSetUnion(nodes, inserted, (gnCmpType)ptrPtrCmp);
 		debugShowGraphIR(start);
 	}
