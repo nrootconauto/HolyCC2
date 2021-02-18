@@ -298,9 +298,10 @@ static int chooseCmp(const graphNodeIR *a,const graphNodeIR *b) {
 //
 // Dont Alias variables that exist in memory
 //
-
-void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start,int dryRun) {
-	strVarRefs refs CLEANUP(strVarRefsDestroy) = NULL;
+STR_TYPE_DEF(strVar,VarAliases);
+STR_TYPE_FUNCS(strVar,VarAliases);
+strVarAliases IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
+	 strVarRefs refs CLEANUP(strVarRefsDestroy)  = NULL;
 	strVar dontCoalesceIntoVars CLEANUP(strVarDestroy)= NULL;
 	
 	strGraphNodeIRP chooses CLEANUP(strGraphNodeIRPDestroy)=NULL;
@@ -372,10 +373,6 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start,int dryRun) {
 					
 					if (aIndex == bIndex)
 						continue;
-
-					for(long r=0;r!=strGraphNodeIRPSize(refs[bIndex]);r++) {
-							getVar(refs[bIndex][r])->SSANum=getVar(cOutgoing[0])->SSANum;
-					}
 					
 					refs[aIndex] = strGraphNodeIRPSetUnion(refs[aIndex], refs[bIndex], (gnCmpType)ptrPtrCmp);
 					memmove(&refs[bIndex], &refs[bIndex + 1], (strVarRefsSize(refs) - bIndex - 1) * sizeof(*refs));
@@ -425,27 +422,18 @@ void IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start,int dryRun) {
 		}
 	}
 
-	//
-	// Replace vars with aliases
-	//
-	for (long i = 0; i != strVarRefsSize(refs); i++) {
-		// Find first ref.
-		__auto_type master = refs[i][0];
-
-		// Replace rest of blobs
-		for (long i2 = 0; i2 != strGraphNodeIRPSize(refs[i]); i2++) {
-			// Dont replace self
-			if (refs[i][i2] == master)
-				continue;
-			
-			if(strVarSortedFind(dontCoalesceIntoVars, *getVar(refs[i][i2]), IRVarCmp))
-					continue;
-			
-			// Replace with cloned value
-			if(!dryRun)
-					replaceNodeWithExpr(refs[i][i2], IRCloneNode(master, IR_CLONE_NODE, NULL));
-		}
+	strVarAliases aliases=strVarAliasesResize(NULL, strVarRefsSize(refs));
+	for(long r=0;r!=strVarRefsSize(refs);r++) {
+			aliases[r]=NULL;
+			for(long n=0;n!=strGraphNodeIRPSize(refs[r]);n++) {
+					__auto_type var=*getVar(refs[r][n]);
+					if(!strVarSortedFind(aliases[r], var, IRVarCmp)) {
+							aliases[r]=strVarSortedInsert(aliases[r], var, IRVarCmp);
+					}
+			}
+			strGraphNodeIRPDestroy(&refs[r]);
 	}
+	return aliases;
 }
 static int isVar(graphNodeIR node) {
 	if (graphNodeIRValuePtr(node)->type == IR_VALUE) {
@@ -1073,9 +1061,7 @@ void IRRegisterAllocate(graphNodeIR start, color2RegPredicate colorFunc, void *c
 	debugShowGraphIR(start);
 
 	strGraphNodeIRP allNodes2 CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRAllNodes(start);
-	IRCoalesce(allNodes2, start,1);
-	debugShowGraphIR(start);
-
+	strVarAliases refs CLEANUP(strVarAliasesDestroy)=IRCoalesce(allNodes2, start);
 	
 	strGraphNodeIRP visited CLEANUP(strGraphNodeIRPDestroy) = NULL;
 loop:
@@ -1109,6 +1095,30 @@ loop:
 		}
 	}
 
+	strGraphNodeIRPDestroy(&allNodes2);
+	allNodes2=graphNodeIRAllNodes(start);
+	for(long n=0;n!=strGraphNodeIRPSize(allNodes2);n++) {
+			struct IRNodeValue *val=(void*)graphNodeIRValuePtr(allNodes2[n]);
+			if(val->base.type!=IR_VALUE)
+					continue;
+			if(val->val.type!=IR_VAL_VAR_REF)
+					continue;
+			for(long blob=0;blob!=strVarAliasesSize(refs);blob++) {
+					__auto_type find=strVarSortedFind(refs[blob], *getVar(allNodes2[n]), IRVarCmp);
+					if(find) {
+							//Dont replace first occurance
+							if(0==IRVarCmp(&refs[blob][0], getVar(allNodes2[n])))
+									continue;
+							__auto_type replaceWith=IRCreateVarRef(refs[blob][0].var);
+							((struct IRNodeValue *)graphNodeIRValuePtr(replaceWith))->val.value.var.SSANum=refs[blob][0].SSANum;
+							replaceNodeWithExpr(allNodes2[n], replaceWith);
+							goto next;
+					}
+			}
+	next:;
+	}
+	for(long blob=0;blob!=strVarAliasesSize(refs);blob++)
+			strVarDestroy(&refs[blob]);
 	// Merge variables that can be merges
 	debugShowGraphIR(start);
 	allNodes = graphNodeIRAllNodes(start);
