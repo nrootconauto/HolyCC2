@@ -9,6 +9,7 @@
 #include <parserA.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <preprocessor.h>
 typedef int (*gnIRCmpType)(const graphNodeIR *, const graphNodeIR *);
 typedef int (*pnCmpType)(const struct parserNode **, const struct parserNode **);
 static int ptrPtrCmp(const void *a, const void *b) {
@@ -89,7 +90,8 @@ void IRGenInstDestroy(struct IRGenInst *inst) {
 static __thread struct IRGenInst *currentGen = NULL;
 static __thread strGraphNodeIRP currentStatement = NULL;
 static __thread ptrMapGNIRByParserNode labelsByPN = NULL;
-void IRGenInit() {
+__thread strFileMappings currFileMappings;
+void IRGenInit(strFileMappings mappings) {
 	if (currentGen != NULL)
 		IRGenInstDestroy(currentGen);
 	ptrMapGNIRByParserNodeDestroy(labelsByPN, NULL);
@@ -97,8 +99,25 @@ void IRGenInit() {
 	labelsByPN = ptrMapGNIRByParserNodeCreate();
 	currentStatement = NULL;
 	currentGen = IRGenInstCreate();
-}
 
+	if(currFileMappings)
+			strFileMappingsDestroy(&currFileMappings);
+	currFileMappings=strFileMappingsClone(mappings);
+}
+static struct enterExit insSrcMapping(long start,long end,struct enterExit pair) {
+		if(currFileMappings) { 
+				const char *fn=fileNameFromPos(currFileMappings, start);
+				__auto_type mapping=IRCreateSourceMapping(fn, start, end-start);
+				graphNodeIRConnect(mapping, pair.enter, IR_CONN_FLOW);
+				pair.enter=mapping;
+		}
+		return pair;
+}
+static struct enterExit insSrcMappingsForBody(struct parserNode *node,struct enterExit pair) {
+		if(node->type==NODE_BINOP||node->type==NODE_UNOP)
+				insSrcMapping(node->pos.start, node->pos.end, pair);
+		return pair;
+}
 static struct IRGenScopeStack *IRGenScopePush(enum scopeType type) {
 	struct IRGenScopeStack tmp;
 	tmp.type = type;
@@ -371,6 +390,7 @@ static struct enterExit __createSwitchCodeAfterBody(const struct parserNode *nod
 	strParserNode cases = NULL;
 	getCases(swit->caseSubcases, &cases, &dft);
 	__auto_type cond = __parserNode2IRStmt(swit->exp);
+	cond=insSrcMapping(swit->exp->pos.start, swit->exp->pos.end, cond);
 	retVal.enter = cond.enter;
 
 	// "Push scope"
@@ -381,6 +401,7 @@ static struct enterExit __createSwitchCodeAfterBody(const struct parserNode *nod
 	newScope->value.swit.switExitLab = switchEndLabel;
 	// Parse Body
 	__auto_type body = __parserNode2IRStmt(swit->body);
+	body=insSrcMappingsForBody(swit->body,body);
 	graphNodeIRConnect(body.exit, switchEndLabel, IR_CONN_FLOW);
 
 	// Create a jump Table
@@ -843,7 +864,8 @@ static struct enterExit varDecl2IR(const struct parserNode *node) {
 					retVal.enter = IRStmtStart(dft);
 			}
 	}
-
+	retVal=insSrcMapping(node->pos.start, node->pos.end, retVal);
+	
 	return retVal;
 }
 static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node);
@@ -895,7 +917,6 @@ static void debugShowGraphIR(graphNodeIR enter) {
 
 	system(buffer);
 }
-
 static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 	switch (node->type) {
 	case NODE_ARRAY_LITERAL: {
@@ -941,7 +962,9 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 		import.fileName = malloc(__vecSize(lit->str.text) + 1);
 		strcpy(import.fileName, (char*)lit->str.text);
 		__auto_type gn = GRAPHN_ALLOCATE(import);
-		return (struct enterExit){gn, gn};
+		__auto_type pair=(struct enterExit){gn, gn};
+		pair=insSrcMapping(node->pos.start,node->pos.end,pair);
+		return pair;
 	}
 	case NODE_ASM_DU8:
 	case NODE_ASM_DU16:
@@ -984,7 +1007,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 			du64.count = count, du64.data = clone;
 			gn = GRAPHN_ALLOCATE(du64);
 		}
-		return (struct enterExit){gn, gn};
+		return insSrcMapping(node->pos.start,node->pos.end,(struct enterExit){gn, gn});
 	}
 	case NODE_ASM_USE16:
 	case NODE_ASM_USE32:
@@ -1048,7 +1071,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 		__auto_type dummy = IRCreateLabel();
 		graphNodeIRConnect(label, dummy, IR_CONN_NEVER_FLOW);
 
-		return (struct enterExit){label, dummy};
+		return insSrcMapping(node->pos.start,node->pos.end,(struct enterExit){label, dummy});
 	}
 	case NODE_RETURN: {
 		struct parserNodeReturn *retNode = (void *)node;
@@ -1063,7 +1086,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 		if (!pair.enter)
 			pair.enter = pair.exit;
 
-		return pair;
+		return insSrcMapping(node->pos.start,node->pos.end,pair);
 	}
 	case NODE_DEFAULT:
 	case NODE_CASE: {
@@ -1078,7 +1101,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 		strChar key CLEANUP(strCharDestroy) = caseHash(node);
 		__auto_type retVal = IRCreateLabel();
 		mapIRCaseInsert(currentGen->scopes[i].value.swit.casesByRange, key, retVal);
-		return (struct enterExit){retVal, retVal};
+		return insSrcMapping(node->pos.start,node->pos.end,(struct enterExit){retVal, retVal});
 	};
 	case NODE_FUNC_DEF: {
 		struct parserNodeFuncDef *def = (void *)node;
@@ -1124,14 +1147,16 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 		// Label
 		__auto_type exitLabel = IRCreateLabel();
 		__auto_type cond = __parserNode2IRStmt(doStmt->cond);
+		insSrcMapping(doStmt->cond->pos.start,doStmt->cond->pos.end,cond);
+		
 		__auto_type scope = IRGenScopePush(SCOPE_TYPE_LOOP);
 		scope->value.loop.exit = exitLabel;
 		scope->value.loop.next = cond.enter;
 		__auto_type body = __parserNode2IRStmt(doStmt->body);
+		body=insSrcMappingsForBody(doStmt->body,body);
 		IRGenScopePop(SCOPE_TYPE_LOOP);
 		graphNodeIRConnect(body.exit, cond.enter, IR_CONN_FLOW);
 		__auto_type cJump = IRCreateCondJmp(cond.exit, body.enter, exitLabel);
-
 		return (struct enterExit){body.enter, exitLabel};
 	}
 	case NODE_FOR: {
@@ -1145,18 +1170,33 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 		__auto_type labCond = GRAPHN_ALLOCATE(lab);
 
 		struct parserNodeFor *forStmt = (void *)node;
-		__auto_type init = __parserNode2IRStmt(forStmt->init);
-		retVal.enter = init.enter;
+		graphNodeIR current=NULL;
+		if(forStmt->init) {
+				__auto_type init = __parserNode2IRStmt(forStmt->init);
+				init=insSrcMapping(forStmt->init->pos.start, forStmt->init->pos.end, init);
+				retVal.enter = init.enter;
+				current=init.exit;
+		}
 		__auto_type trueLab = IRCreateLabel();
-		__auto_type cond = __parserNode2IRStmt(forStmt->cond);
-		graphNodeIRConnect(init.exit, cond.enter, IR_CONN_FLOW);
-		IRCreateCondJmp(cond.exit, trueLab, labExit);
+		graphNodeIR condEnter;
+		if(forStmt->cond) {
+				__auto_type cond = __parserNode2IRStmt(forStmt->cond);
+				cond=insSrcMapping(forStmt->cond->pos.start, forStmt->cond->pos.end, cond);
+				graphNodeIRConnect(current, cond.enter, IR_CONN_FLOW);
+				IRCreateCondJmp(cond.exit, trueLab, labExit);
+				condEnter=cond.enter;
+		} else {
+				graphNodeIRConnect(current, trueLab, IR_CONN_FLOW);
+				condEnter=current;
+		}
+		
 		__auto_type scope = IRGenScopePush(SCOPE_TYPE_LOOP);
 		scope->value.loop.next = labNext;
 		scope->value.loop.exit = labExit;
 
 		// Enter body
 		__auto_type body = __parserNode2IRStmt(forStmt->body);
+		body=insSrcMappingsForBody(forStmt->body,body);
 		graphNodeIRConnect(trueLab, body.enter, IR_CONN_FLOW);
 		graphNodeIRConnect(body.exit, labNext, IR_CONN_FLOW);
 		// Pop "scope"
@@ -1167,7 +1207,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 		graphNodeIRConnect(labNext, inc.enter, IR_CONN_FLOW);
 		retVal.exit = labExit;
 		// Connect increment to cond code
-		graphNodeIRConnect(inc.exit, cond.enter, IR_CONN_FLOW);
+		graphNodeIRConnect(inc.exit, condEnter, IR_CONN_FLOW);
 
 		return retVal;
 	}
@@ -1183,12 +1223,15 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 			fBranch = IRCreateLabel();
 		}
 		__auto_type body = __parserNode2IRStmt(ifNode->body);
+		body=insSrcMappingsForBody(ifNode->body, body);
 		__auto_type cond = __parserNode2IRStmt(ifNode->cond);
+		cond=insSrcMapping(ifNode->cond->pos.start, ifNode->cond->pos.end, cond);
 		__auto_type condJ = IRCreateCondJmp(cond.exit, body.enter, fBranch);
 		retVal.enter = cond.enter;
 		graphNodeIRConnect(body.exit, endBranch, IR_CONN_FLOW);
 		if (ifNode->el) {
 			__auto_type elseBody = __parserNode2IRStmt(ifNode->body);
+			elseBody=insSrcMappingsForBody(ifNode->body, elseBody);
 			graphNodeIRConnect(fBranch, elseBody.enter, IR_CONN_FLOW);
 			graphNodeIRConnect(elseBody.exit, endBranch, IR_CONN_FLOW);
 		} else {
@@ -1266,6 +1309,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 		;
 		for (long i = 0; i != strParserNodeSize(scope->stmts); i++) {
 			__auto_type body = __parserNode2IRStmt(scope->stmts[i]);
+			body=insSrcMappingsForBody(scope->stmts[i], body);
 			if (top == NULL)
 				top = body.enter;
 			else
@@ -1308,12 +1352,14 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 	case NODE_WHILE: {
 		struct parserNodeWhile *wh = (void *)node;
 		__auto_type cond = __parserNode2IRStmt(wh->cond);
-		;
+		cond=insSrcMapping(wh->cond->pos.start, wh->cond->pos.end, cond);
+		
 		__auto_type endLab = IRCreateLabel();
 		__auto_type scope = IRGenScopePush(SCOPE_TYPE_LOOP);
 		scope->value.loop.exit = endLab;
 		scope->value.loop.next = cond.enter;
 		__auto_type body = __parserNode2IRStmt(wh->body);
+		body=insSrcMappingsForBody(wh->body, body);
 		currentGen->scopes = strScopeStackPop(currentGen->scopes, NULL);
 		__auto_type cJmp = IRCreateCondJmp(cond.exit, body.enter, endLab);
 		graphNodeIRConnect(body.exit, cond.enter, IR_CONN_FLOW);
@@ -1387,6 +1433,7 @@ struct enterExit parserNodes2IR(strParserNode nodes) {
 	for (long i = 0; i != strParserNodeSize(nodes); i++) {
 		if (nodes[i]) {
 			__auto_type tmp = __parserNode2IRStmt(nodes[i]);
+			tmp=insSrcMappingsForBody(nodes[i], tmp);
 			if (!retVal.enter)
 				retVal.enter = tmp.enter;
 			if (retVal.exit)

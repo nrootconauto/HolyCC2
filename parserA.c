@@ -1031,8 +1031,9 @@ struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end) {
 
 			struct parserNodeVarDecl decl;
 			decl.base.type = NODE_VAR_DECL;
+			__auto_type originalStart=start;
 			decl.type = parseVarDeclTail(start, &start, baseType, &decl.name, &decl.dftVal, &decl.metaData);
-
+			assignPosByLexerItems((struct parserNode*)&decl, originalStart, start);
 			if (!decl.name) {
 				struct parserNode *alloced = ALLOCATE(decl);
 				parserNodeDestroy(&alloced);

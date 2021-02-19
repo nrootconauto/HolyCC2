@@ -757,9 +757,9 @@ static const char *rainbowColors[] = {
 #define FROM_FORMAT(fmt, ...)                                                                                                                                      \
 	({                                                                                                                                                               \
 		long len = snprintf(NULL, 0, fmt, __VA_ARGS__);                                                                                                                \
-		char buffer[len + 1];                                                                                                                                          \
-		sprintf(buffer, fmt, __VA_ARGS__);                                                                                                                             \
-		strClone(buffer);                                                                                                                                              \
+		char __buffer[len + 1];                                                                                                                                          \
+		sprintf(__buffer, fmt, __VA_ARGS__);                                                                                                                             \
+		strClone(__buffer);                                                                                                                                              \
 	})
 MAP_TYPE_DEF(int, LabelNum);
 MAP_TYPE_FUNCS(int, LabelNum);
@@ -786,7 +786,11 @@ static char *IRValue2GraphVizLabel(struct IRValue *val) {
 		break;
 	case IR_VAL_STR_LIT: {
 		const char *format = "VAL STR:\"%s\"";
-		return FROM_FORMAT(format, val->value.strLit);
+		long len=__vecSize(val->value.strLit);
+		char nulTerm[len+1];
+		memset(nulTerm, 0, len+1);
+		strncpy(nulTerm,(char*)val->value.strLit, len);
+		return FROM_FORMAT(format, nulTerm);
 	}
 	case IR_VAL_VAR_REF: {
 		strChar tmp = NULL;
@@ -896,6 +900,17 @@ static char *IRCreateGraphVizNode(const struct __graphNode *node, mapGraphVizAtt
 
 	struct IRNode *value = graphNodeIRValuePtr(*graphNodeMappingValuePtr((struct __graphNode *)node));
 	switch (value->type) {
+	case IR_SOURCE_MAPPING: {
+			struct IRNodeSourceMapping *mapping=(void*)value;
+			FILE *f=fopen(mapping->fn, "r");
+			char buffer [mapping->len+1];
+			memset(buffer, 0, mapping->len+1);
+			fseek(f,mapping->start,SEEK_SET);
+			fread(buffer, mapping->len, 1, f);
+			__auto_type retVal=FROM_FORMAT("MAPPING:%s", buffer);
+			fclose(f);
+			return retVal ;
+	}
 	case IR_ARRAY_DECL: {
 			return strClone("ARRAY");
 	}
@@ -1500,6 +1515,15 @@ graphNodeIR IRCloneUpTo(graphNodeIR node, strGraphNodeIRP to, ptrMapGraphNode *m
 	}
 
 	return retVal;
+}
+graphNodeIR IRCreateSourceMapping(const char *fileName,long start,long len) {
+		struct IRNodeSourceMapping mapping;
+		mapping.fn=fileName;
+		mapping.start=start;
+		mapping.len=len;
+		mapping.base.type=IR_SOURCE_MAPPING;
+		mapping.base.attrs=NULL;
+		return GRAPHN_ALLOCATE(mapping);
 }
 graphNodeIR IREndOfExpr(graphNodeIR node) {
 	if (graphNodeIRValuePtr(node)->type == IR_LABEL) {

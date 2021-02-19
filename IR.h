@@ -258,6 +258,8 @@ enum IRNodeType {
 	IR_ASM_DU32,
 	IR_ASM_DU64,
 	IR_ASM_IMPORT,
+	//
+	IR_SOURCE_MAPPING,
 };
 struct IRNode;
 struct IRAttr {
@@ -471,6 +473,11 @@ struct IRNodeAsmDU32 {
 	uint32_t *data;
 	long count;
 };
+struct IRNodeSourceMapping {
+		struct IRNode base;
+		const char *fn;
+		long start,len;
+};
 struct IRNodeAsmDU64 {
 	struct IRNode base;
 	uint64_t *data;
@@ -554,3 +561,4 @@ graphNodeIR IRCreateArrayDecl(struct parserVar *assignInto,struct object *type,s
 graphNodeIR IRGetArrayDimForVar(struct parserVar *arrVar,long i);
 graphNodeIR IRObjectArrayScale(struct objectArray *arr);
 graphNodeIR IRCreateArrayAccess(graphNodeIR arr,graphNodeIR index);
+graphNodeIR IRCreateSourceMapping(const char *fileName,long start,long len);

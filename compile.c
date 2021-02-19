@@ -11,6 +11,7 @@ static void fclose2(FILE **f) {
 }
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
+
 void compileFile(const char *fn, const char *dumpTo) {
 	{
 		setArch(ARCH_X86_SYSV);
@@ -42,8 +43,8 @@ void compileFile(const char *fn, const char *dumpTo) {
 			stmts = strParserNodeAppendItem(stmts, parseStatement(items, &items));
 		if (diagErrorCount())
 			goto fail;
-
-		IRGenInit();
+		
+		IRGenInit(fMappings);
 		initIR();
 		X86EmitAsmInit();
 		struct enterExit ee = parserNodes2IR(stmts);
