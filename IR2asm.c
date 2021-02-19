@@ -1869,6 +1869,29 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 
 	strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIROutgoing(start);
 	switch (graphNodeIRValuePtr(start)->type) {
+	case IR_SOURCE_MAPPING: {
+			struct IRNodeSourceMapping *mapping=(void*)graphNodeIRValuePtr(start);		
+			const char *fmt=";;;   %s:%li:\"\"\"%s\"\"\"   ;;;";
+			__auto_type f=fopen(mapping->fn, "r");
+			fseek(f, mapping->start, SEEK_SET);
+			strChar lineText CLEANUP(strCharDestroy)=strCharReserve(NULL, mapping->len+1);
+			for(long c=0;c!=mapping->len;c++) {
+					char chr=fgetc(f);
+					if(chr=='\n'||chr=='\r')
+							break;
+
+					lineText=strCharAppendItem(lineText, chr);
+			}
+			lineText=strCharAppendItem(lineText, '\0');
+			fclose(f);
+
+			long len=snprintf(NULL, 0, fmt, mapping->fn,mapping->start,lineText);
+			char buffer[len+1];
+			sprintf(buffer, fmt, mapping->fn,mapping->start,lineText);
+
+			X86EmitAsmComment(buffer);
+			return nextNodesToCompile(start);	
+	}
 	case IR_MEMBERS_ADDR_OF: {
 		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(start);
 		strGraphEdgeIRP inSource CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(in, IR_CONN_SOURCE_A);

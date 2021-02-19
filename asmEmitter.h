@@ -15,3 +15,4 @@ struct X86AddressingMode *X86EmitAsmDU64(strX86AddrMode data, long len);
 struct X86AddressingMode *X86EmitAsmStrLit(const char *text,long size);
 void X86EmitAsmIncludeBinfile(const char *fileName);
 void X86EmitAsmGlobalVar(struct parserVar *var);
+void X86EmitAsmComment(const char *text);

@@ -554,6 +554,9 @@ struct X86AddressingMode *X86EmitAsmDU8(strX86AddrMode data, long len) {
 	fprintf(constsTmpFile, "\n");
 	return X86AddrModeLabel(buffer);
 }
+void X86EmitAsmComment(const char *text) {
+		fprintf(codeTmpFile, " ;%s\n", text);
+}
 struct X86AddressingMode *X86EmitAsmStrLit(const char *text,long size) {
 		strChar unes CLEANUP(strCharDestroy) = dumpStrLit(text,size);
 	long count = snprintf(NULL, 0, "$STR_%li", ++labelCount);
