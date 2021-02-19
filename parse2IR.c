@@ -453,7 +453,7 @@ static struct enterExit __createSwitchCodeAfterBody(const struct parserNode *nod
 	//
 	struct parserVar *enteredSubCondition = NULL;
 	if (strGraphNodeIRPSize(subs) != 0) {
-		enteredSubCondition = IRCreateVirtVar(&typeBool);
+			enteredSubCondition = IRCreateVirtVar(&typeI32i);
 		__auto_type asn=IRCreateAssign(IRCreateIntLit(0),IRCreateVarRef(enteredSubCondition));
 		graphNodeIRConnect(asn,retVal.enter,IR_CONN_FLOW);
 		retVal.enter=IRStmtStart(asn);
