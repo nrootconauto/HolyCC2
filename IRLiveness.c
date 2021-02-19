@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <base64.h>
 #include <cleanup.h>
-#define DEBUG_PRINT_ENABLE 1
+//#define DEBUG_PRINT_ENABLE 1
 #include <basicBlocks.h>
 #include <debugPrint.h>
 #include <stdio.h>
@@ -405,14 +405,16 @@ strGraphNodeIRLiveP __IRInterferenceGraphFilter(graphNodeMapping start, const vo
 			find->block->out = newOuts;
 
 			// Check if changed
-			if (strVarSize(oldIns) == strVarSize(newIns))
-				changed |= 0 != memcmp(oldIns, newIns, strVarSize(oldIns) * sizeof(*oldIns));
-			else
+			if (strVarSize(oldIns) == strVarSize(newIns)) {
+					for(long v=0;v!=strVarSize(oldIns);v++)
+							changed|=0!=IRVarCmp(&oldIns[v], &newIns[v]);
+			} else
 				changed |= 1;
 
-			if (strVarSize(oldOuts) == strVarSize(newOuts))
-				changed |= 0 != memcmp(oldOuts, newOuts, strVarSize(oldOuts) * sizeof(*oldOuts));
-			else
+			if (strVarSize(oldOuts) == strVarSize(newOuts)) {
+					for(long v=0;v!=strVarSize(newOuts);v++)
+							changed|=0!=IRVarCmp(&oldOuts[v], &newOuts[v]);
+			} else
 				changed |= 1;
 
 			// Destroy olds

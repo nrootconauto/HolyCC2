@@ -1414,7 +1414,7 @@ static strGraphNodeIRP nextNodesToCompile(graphNodeIR node) {
 	for (long e = 0; e != strGraphEdgeIRPSize(out); e++)
 		if (*graphEdgeIRValuePtr(out[e]) != IR_CONN_NEVER_FLOW)
 			retVal = strGraphNodeIRPAppendItem(retVal, graphEdgeIROutgoing(out[e]));
-	qsort(retVal, strGraphEdgeIRPSize(out), (sizeof *retVal), ptrPtrCmp);
+	qsort(retVal, strGraphNodeIRPSize(retVal), (sizeof *retVal), ptrPtrCmp);
 	return retVal;
 }
 
