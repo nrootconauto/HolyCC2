@@ -320,7 +320,7 @@ struct IRValue {
 		struct parserFunction *func;
 		struct lexerInt intLit;
 		double fltLit;
-		const char *strLit;
+		struct __vec *strLit;
 		graphNodeIR memLabel;
 	} value;
 };

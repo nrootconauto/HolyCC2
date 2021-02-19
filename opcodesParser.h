@@ -42,7 +42,7 @@ struct X86AddressingMode {
 		struct X86MemoryLoc m;
 		struct parserNode *itemAddr;
 		char *label;
-		char *text;
+		struct __vec *text;
 	} value;
 	struct object *valueType;
 };
@@ -109,6 +109,6 @@ const char *opcodeTemplateIntelAlias(const struct opcodeTemplate *template);
 struct X86AddressingMode *X86AddrModeClone(struct X86AddressingMode *mode);
 void X86AddrModeDestroy(struct X86AddressingMode **mode);
 struct X86AddressingMode *X86AddrModeIndirLabel(const char *text, struct object *type);
-struct X86AddressingMode *X86AddrModeStr(const char *text);
+struct X86AddressingMode *X86AddrModeStr(const char *text,long len);
 struct X86AddressingMode *X86AddrModeGlblVar(struct parserVar *var);
 struct X86AddressingMode *X86AddrModeFunc(struct parserFunction *func);

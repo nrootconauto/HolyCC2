@@ -204,11 +204,12 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end, llLex
 		__auto_type str = *(struct parsedString *)lexerItemValuePtr(item);
 		struct parserNodeLitStr lit;
 		lit.base.type = NODE_LIT_STR;
-		lit.text = strClone((char *)str.text);
-		lit.isChar = str.isChar;
+		lit.str=str;
+		//Clone the string,lexer item string will be free'd
+		lit.str.text=__vecAppendItem(NULL, lit.str.text, __vecSize(lit.str.text));
 		lit.base.pos.start = item->start;
 		lit.base.pos.end = item->end;
-
+		
 		return ALLOCATE(lit);
 	} else if (item->template == &nameTemplate) {
 		__auto_type reg = parseAsmRegister(start, result);
@@ -1113,22 +1114,27 @@ static int validateArrayDim(struct object *obj,struct parserNode *parent,strPars
 		
 		long firstLen=0;
 		for(long v=0;v!=strParserNodeSize(toValidate);v++) {
-				if(toValidate[v]->type!=NODE_ARRAY_LITERAL) {
+				long len;
+				if(toValidate[v]->type==NODE_LIT_STR) {
+						struct parserNodeLitStr *str=(void*)toValidate[v];
+						len=__vecSize(str->str.text);
+				} if(toValidate[v]->type!=NODE_ARRAY_LITERAL) {
 						diagErrorStart(toValidate[v]->pos.start, toValidate[v]->pos.end);
 						diagPushText("Expected an array literal.");
 						diagPushQoutedText(toValidate[v]->pos.start, toValidate[v]->pos.end);
 						diagEndMsg();
 						return 1;
+				} else if(toValidate[v]->type==NODE_ARRAY_LITERAL) {
+						struct parserNodeArrayLit *lit=(void*)toValidate[v];
+						len=strParserNodeSize(lit->items);
 				}
-				struct parserNodeArrayLit *lit=(void*)toValidate[v];
-				long len=strParserNodeSize(lit->items);
 				if(expectedDim!=-1&&len!=expectedDim) {
-						diagErrorStart(toValidate[v]->pos.start, toValidate[v]->pos.end);
-						diagPushText("Dimension mismatch in array literal");
-						diagPushQoutedText(toValidate[v]->pos.start, toValidate[v]->pos.end);
-						diagEndMsg();
-						return 1;
-				}
+								diagErrorStart(toValidate[v]->pos.start, toValidate[v]->pos.end);
+								diagPushText("Dimension mismatch in array literal");
+								diagPushQoutedText(toValidate[v]->pos.start, toValidate[v]->pos.end);
+								diagEndMsg();
+								return 1;
+						}
 				if(v==0) {
 						firstLen=len;
 				} else if(firstLen!=len) {
@@ -1264,8 +1270,15 @@ metaDataLoop:;
 	if (eq != NULL) {
 		start = llLexerItemNext(start);
 		__auto_type expEnd = findEndOfExpression(start, 1);
-		__auto_type dftVal2 = parseExpression(start, expEnd, &start);
-
+		struct parserNode *dftVal2=NULL;
+		if(retValType->type==TYPE_ARRAY)  {
+				dftVal2=parseArrayLiteral(start, &start);
+				if(!dftVal2)
+						dftVal2 = parseExpression(start, expEnd, &start);
+		} else {
+				dftVal2 = parseExpression(start, expEnd, &start);
+		}
+		
 		//
 		//If is an array type,if the array bounds are undefined we can infer them if array initializer is present
 		//
@@ -3129,7 +3142,7 @@ void parserNodeDestroy(struct parserNode **node) {
 	}
 	case NODE_LIT_STR: {
 		struct parserNodeLitStr *str = (void *)node[0];
-		free(str->text);
+		__vecDestroy(&str->str.text);
 		break;
 	}
 	case NODE_KW: {
@@ -3311,8 +3324,8 @@ static uint64_t uintLitValue(struct parserNode *lit) {
 	} else if (lit->type == NODE_LIT_STR) {
 		struct parserNodeLitStr *str = (void *)lit;
 		uint64_t retVal = 0;
-		for (long i = 0; i != strlen(str->text); i++) {
-			uint64_t c = ((unsigned char *)str->text)[i];
+		for (long i = 0; i != __vecSize(str->str.text); i++) {
+			uint64_t c = ((unsigned char *)str->str.text)[i];
 			retVal |= c << 8 * i;
 		};
 		return retVal;
@@ -3480,11 +3493,11 @@ struct X86AddressingMode *parserNode2X86AddrMode(struct parserNode *node) {
 		return X86AddrModeFlt(((struct parserNodeLitFlt *)node)->value);
 	} else if (node->type == NODE_LIT_STR) {
 		struct parserNodeLitStr *str = (void *)node;
-		if (str->isChar) {
+		if (str->str.isChar) {
 			return X86AddrModeUint(uintLitValue(node));
 		} else {
 			// Is a string so add to memory addess
-			return X86AddrModeStr(str->text);
+				return X86AddrModeStr((char*)str->str.text,__vecSize(str->str.text));
 		}
 	} else if(node->type==NODE_VAR||node->type==NODE_FUNC_REF) {
 			return X86AddrModeItemAddrOf(node, assignTypeToOp(node));
@@ -3776,7 +3789,7 @@ struct parserNode *parseAsm(llLexerItem start, llLexerItem *end) {
 			body = strParserNodeAppendItem(body, ALLOCATE(binfile));
 			// Ensure file exists
 			struct parserNodeLitStr *str = (void *)fn;
-			FILE *file = fopen(str->text, "rb");
+			FILE *file = fopen((char*)str->str.text, "rb");
 			fclose(file);
 			if (!file) {
 				diagErrorStart(fn->pos.start, fn->pos.end);

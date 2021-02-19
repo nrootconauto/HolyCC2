@@ -845,7 +845,7 @@ static strOpcodeTemplate assumeTypes(strOpcodeTemplate templates, strX86AddrMode
 		}
 		return __X86OpcodesByArgs(templates[0]->name, clone);
 	}
-fail:;
+	fail:;
 	return NULL;
 }
 strOpcodeTemplate X86OpcodesByName(const char *name) {
@@ -917,8 +917,7 @@ struct X86AddressingMode *X86AddrModeClone(struct X86AddressingMode *mode) {
 	switch (mode->type) {
 	case X86ADDRMODE_STR: {
 		__auto_type clone = *mode;
-		clone.value.text = malloc(strlen(mode->value.text) + 1);
-		strcpy(clone.value.text, mode->value.text);
+		clone.value.text = __vecAppendItem(NULL, mode->value.text, __vecSize(mode->value.text));
 		return ALLOCATE(clone);
 	}
 	case X86ADDRMODE_MEM: {
@@ -980,11 +979,10 @@ void X86AddrModeDestroy(struct X86AddressingMode **mode) {
 	}
 	free(*mode);
 }
-struct X86AddressingMode *X86AddrModeStr(const char *text) {
+struct X86AddressingMode *X86AddrModeStr(const char *text,long len) {
 	struct X86AddressingMode mode;
 	mode.valueType = objectPtrCreate(&typeU8i);
-	mode.value.text = malloc(strlen(text) + 1);
-	strcpy(mode.value.text, text);
+	mode.value.text = __vecAppendItem(NULL, text, len);
 	mode.type = X86ADDRMODE_STR;
 	return ALLOCATE(mode);
 }

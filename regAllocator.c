@@ -524,7 +524,6 @@ static void removeFromDominatorTree(graphNodeIR enter) {
 
 						
 						__auto_type irNode=*graphNodeMappingValuePtr(*graphNodeMappingValuePtr(treeNode));
-						printf("    %p(%p)\n", *graphNodeMappingValuePtr(*graphNodeMappingValuePtr(treeNode)),treeNode);
 						
 						struct assignPair parentAssign=getAssignPairFromNode(irNode);
 
@@ -533,7 +532,6 @@ static void removeFromDominatorTree(graphNodeIR enter) {
 										killedNodes=strGraphNodeMappingPSortedInsert(killedNodes, allMapNodes[n], (gnCmpType)ptrPtrCmp);
 										__auto_type irNode=*graphNodeMappingValuePtr(*graphNodeMappingValuePtr(allMapNodes[n]));
 										transparentKill(irNode, 0);
-										printf("%p(%p)\n", irNode,treeNode);
 										break;
 								}
 				}

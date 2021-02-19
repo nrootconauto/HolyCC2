@@ -191,6 +191,7 @@ static struct __vec *intLex(const struct __vec *new, long pos, long *end, int *e
 
 			__auto_type startAt = (void *)new + pos;
 			__auto_type slice = __vecAppendItem(NULL, startAt, (void *)New - (void *)startAt);
+			slice=__vecAppendItem(slice,"\0",1);
 			sscanf((char *)slice, "%lx", &valueU);
 
 			goto dumpU;
@@ -209,6 +210,7 @@ static struct __vec *intLex(const struct __vec *new, long pos, long *end, int *e
 
 			__auto_type startAt = (void *)new + pos;
 			__auto_type slice = __vecAppendItem(NULL, startAt, (void *)New - (void *)startAt);
+			slice=__vecAppendItem(slice,"\0",1);
 			sscanf((char *)slice, "%lo", &valueU);
 
 			goto dumpU;

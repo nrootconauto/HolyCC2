@@ -499,7 +499,7 @@ void compileTests() {
 						exitStr;
 				char *source=text2File(text);
 				char *asmF=strDup(tmpnam(NULL));
-				compileFile(source, asmF);				runTest(asmF,"yyy");
+				compileFile(source, asmF);				runTest(asmF,"yyyyyy");
 				free(asmF);	
 				free(source);
 				}

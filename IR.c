@@ -105,7 +105,7 @@ graphNodeIR IRCreateStrLit(const char *text) {
 	val.base.attrs = NULL;
 	val.base.type = IR_VALUE;
 	val.val.type = IR_VAL_STR_LIT;
-	val.val.value.strLit = strClone(text);
+	val.val.value.strLit = __vecAppendItem(NULL, text,strlen(text)+1);
 
 	return GRAPHN_ALLOCATE(val);
 }

@@ -615,7 +615,7 @@ static graphNodeIR parserNode2Expr(const struct parserNode *node) {
 	}
 	case NODE_LIT_STR: {
 		struct parserNodeLitStr *str = (void *)node;
-		if (str->isChar) {
+		if (str->str.isChar) {
 			// Is a int literal
 			struct parserNodeLitInt *intLit = (void *)node;
 			struct IRNodeValue il;
@@ -627,8 +627,8 @@ static graphNodeIR parserNode2Expr(const struct parserNode *node) {
 			il.val.value.intLit.value.uLong = 0;
 
 			// Fill the literal with char bytes
-			for (int i = 0; i != strlen(str->text); i++) {
-				uint64_t chr = str->text[i];
+			for (int i = 0; i != __vecSize(str->str.text); i++) {
+					uint64_t chr = ((char*)str->str.text)[i];
 				il.val.value.intLit.value.uLong |= chr << i * 8;
 			}
 
@@ -638,8 +638,7 @@ static graphNodeIR parserNode2Expr(const struct parserNode *node) {
 			struct IRNodeValue val;
 			val.base.attrs = NULL;
 			val.base.type = IR_VALUE;
-			val.val.value.strLit = strClone(str->text);
-
+			val.val.value.strLit = __vecAppendItem( NULL,  str->str.text, __vecSize(str->str.text));
 			__auto_type retVal = GRAPHN_ALLOCATE(val);
 			return retVal;
 		}
@@ -939,8 +938,8 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 		import.base.type = IR_ASM_IMPORT;
 		struct parserNodeLitStr *lit = (void *)bf->fn;
 		assert(lit->base.type == NODE_LIT_STR);
-		import.fileName = malloc(strlen(lit->text) + 1);
-		strcpy(import.fileName, lit->text);
+		import.fileName = malloc(__vecSize(lit->str.text) + 1);
+		strcpy(import.fileName, (char*)lit->str.text);
 		__auto_type gn = GRAPHN_ALLOCATE(import);
 		return (struct enterExit){gn, gn};
 	}

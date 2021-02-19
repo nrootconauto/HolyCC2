@@ -171,8 +171,7 @@ struct parserNodeLinkage {
 };
 struct parserNodeLitStr {
 	struct parserNode base;
-	char *text;
-	int isChar;
+		struct parsedString str;
 };
 struct parserNodeFuncCall {
 	struct parserNode base;

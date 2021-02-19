@@ -534,15 +534,15 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 		return dftValType();
 	}  else if(node->type==NODE_LIT_STR) {
 			struct parserNodeLitStr *str=(void*)node;
-			if(str->isChar) {
+			if(str->str.isChar) {
 					struct parserNodeLitInt i;
 					i.base.type=NODE_LIT_INT;
 					i.value.base=10;
 					i.value.type=INT_ULONG;
 					i.value.value.uLong=0;
-					for(long c=0;c!=strlen(str->text);c++) {
+					for(long c=0;c!=__vecSize(str->str.text);c++) {
 							i.value.value.uLong<<=8;
-							i.value.value.uLong|=((unsigned char*)str->text)[c];
+							i.value.value.uLong|=((unsigned char*)str->str.text)[c];
 					}
 					return intLitType(&i);
 			} else {

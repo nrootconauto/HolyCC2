@@ -247,7 +247,7 @@ static struct X86AddressingMode *__node2AddrMode(graphNodeIR start) {
 		case IR_VAL_STR_LIT: {
 			strChar strLab CLEANUP(strCharDestroy) = uniqueLabel("FLT");
 			X86EmitAsmLabel(strLab);
-			X86EmitAsmStrLit(value->val.value.strLit);
+			X86EmitAsmStrLit((char*)value->val.value.strLit,__vecSize(value->val.value.strLit));
 			__auto_type lab = X86AddrModeLabel(strLab);
 			lab->valueType = objectPtrCreate(&typeU8i);
 			return lab;
@@ -1021,7 +1021,7 @@ void IRCompile(graphNodeIR start, int isFunc) {
 		strFrameEntry layout CLEANUP(strFrameEntryDestroy) = IRComputeFrameLayout(start, &frameSize);
 		localVarFrameOffsets = ptrMapFrameOffsetCreate();
 		for (long i = 0; i != strFrameEntrySize(layout); i++)
-			ptrMapFrameOffsetAdd(localVarFrameOffsets, layout[i].var.var, layout[i].offset);
+				ptrMapFrameOffsetAdd(localVarFrameOffsets, layout[i].var.var, layout[i].offset);
 
 		strGraphNodeIRP removed CLEANUP(strGraphNodeIRPDestroy) = NULL;
 		strGraphNodeIRP added CLEANUP(strGraphNodeIRPDestroy) = NULL;

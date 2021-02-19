@@ -246,7 +246,7 @@ static void X86EmitSymbolTable() {
 static strChar emitMode(struct X86AddressingMode **args, long i) {
 	switch (args[i]->type) {
 	case X86ADDRMODE_STR: {
-		struct X86AddressingMode *stred CLEANUP(X86AddrModeDestroy) = X86EmitAsmStrLit(args[i]->value.text);
+			struct X86AddressingMode *stred CLEANUP(X86AddrModeDestroy) = X86EmitAsmStrLit((char*)args[i]->value.text,__vecSize(args[i]->value.text));
 		return emitMode(&stred, 0);
 		break;
 	}
@@ -472,9 +472,8 @@ char *X86EmitAsmLabel(const char *name) {
 	strcpy(retVal, name);
 	return retVal;
 }
-static strChar dumpStrLit(const char *str) {
+static strChar dumpStrLit(const char *str,long len) {
 	char *otherValids = " []{}\\|;:\"\'<>?,./`~!@#$%^&*()-_+=";
-	long len = strlen(str);
 	strChar retVal = NULL;
 	for (long i = 0; i != len; i++) {
 		if (i != 0)
@@ -555,8 +554,8 @@ struct X86AddressingMode *X86EmitAsmDU8(strX86AddrMode data, long len) {
 	fprintf(constsTmpFile, "\n");
 	return X86AddrModeLabel(buffer);
 }
-struct X86AddressingMode *X86EmitAsmStrLit(const char *text) {
-	strChar unes CLEANUP(strCharDestroy) = dumpStrLit(text);
+struct X86AddressingMode *X86EmitAsmStrLit(const char *text,long size) {
+		strChar unes CLEANUP(strCharDestroy) = dumpStrLit(text,size);
 	long count = snprintf(NULL, 0, "$STR_%li", ++labelCount);
 	char buffer[count + 1];
 	sprintf(buffer, "$STR_%li", labelCount);
