@@ -828,12 +828,12 @@ static graphNodeIR createRepeatAccesses(struct parserVar *assignTo,strLong index
 				curr=IRCreateArrayAccess(curr, IRCreateIntLit(indexes[i]));
 		return curr;
 }
-static void dumpArrayLiterals(struct parserVar *assignTo,strLong *currDim,long dimCount,struct parserNode *toDump) {
+static graphNodeIR dumpArrayLiterals(graphNodeIR *parent,struct parserVar *assignTo,strLong *currDim,long dimCount,struct parserNode *toDump) {
 		if(toDump->type==NODE_ARRAY_LITERAL) {
 				struct parserNodeArrayLit *lit=(void*)toDump;
 				for(long i=0;i!=strParserNodeSize(lit->items);i++) {
 						*currDim=strLongAppendItem(*currDim, i);
-						dumpArrayLiterals(assignTo,currDim,dimCount,lit->items[i]);
+						dumpArrayLiterals(parent,assignTo,currDim,dimCount,lit->items[i]);
 						*currDim=strLongPop(*currDim, NULL);
 				}
 		} else if(toDump->type==NODE_LIT_STR&&strLongSize(*currDim)!=dimCount) {
@@ -843,6 +843,9 @@ static void dumpArrayLiterals(struct parserVar *assignTo,strLong *currDim,long d
 								
 						__auto_type access= createRepeatAccesses(assignTo, *currDim);
 						IRCreateAssign(IRCreateIntLit(((unsigned char*)str->str.text)[d]), access);
+						if(*parent)
+								graphNodeIRConnect(*parent,IRStmtStart(access), IR_CONN_FLOW);
+						*parent=access;
 
 						*currDim=strLongPop(*currDim, NULL);
 				}
@@ -851,7 +854,12 @@ static void dumpArrayLiterals(struct parserVar *assignTo,strLong *currDim,long d
 				//Not an array literal or array-literal-like string
 				__auto_type access= createRepeatAccesses(assignTo, *currDim);
 				IRCreateAssign(__parserNode2IRNoStmt(toDump).exit, access);		
+
+				if(*parent)
+						graphNodeIRConnect(*parent,IRStmtStart(access), IR_CONN_FLOW);
+				*parent=access;
 		}
+		return *parent;
 }
 static struct enterExit varDecl2IR(const struct parserNode *node) {
 	struct enterExit retVal;
@@ -878,7 +886,9 @@ static struct enterExit varDecl2IR(const struct parserNode *node) {
 							depth++;
 					}
 					strLong currDim CLEANUP(strLongDestroy)=NULL;
-					dumpArrayLiterals(decl->var,&currDim, depth, decl->dftVal);
+					graphNodeIR parent=IRCreateLabel();
+					__auto_type end=dumpArrayLiterals(&parent,decl->var,&currDim, depth, decl->dftVal);
+					return (struct enterExit){parent,end};
 			}
 			
 			return (struct enterExit){IRStmtStart(arr),arr};

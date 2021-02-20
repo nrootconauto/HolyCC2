@@ -6,6 +6,7 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <IRTypeInference.h>
+#include <ieee754.h>
 void *IR_ATTR_VARIABLE = "IS_VARIABLE";
 typedef int (*gnIRCmpType)(const graphNodeIR *, const graphNodeIR *);
 typedef int (*geIRCmpType)(const graphEdgeIR *, const graphEdgeIR *);
@@ -866,12 +867,10 @@ graphNodeIR IRCreateArrayDecl(struct parserVar *assignInto,struct object *type,s
 		connect:
 				graphNodeIRConnect(from, retVal, IR_CONN_ARRAY_DIM_1+d);
 
-				__auto_type arrClone=(struct objectArray*)type;
-				assert(arrClone->base.type==TYPE_ARRAY);
-				arrClone=(void*)objectArrayCreate(arrClone->type, NULL,from);
-				type=(struct object*)arrClone;
+				struct objectArray *arr=(void*)type;
+				arr->dimIR=from;
+				type=arr->type;
 		}
-		assignInto->type=type;
 		__auto_type assignNode=IRCreateVarRef(assignInto);
 		
 		graphNodeIRConnect(retVal, assignNode, IR_CONN_DEST);
