@@ -982,7 +982,8 @@ void IRCompile(graphNodeIR start, int isFunc) {
 			break;
 	case ARCH_X64_SYSV:;
 	}
-	
+
+	debugShowGraphIR(start);
 	IRInsertNodesBetweenExprs(start, NULL, NULL);
 	IRRegisterAllocate(start, NULL, NULL, isNotNoreg, noregs);
 
