@@ -1955,3 +1955,23 @@ strGraphEdgeIRP IREdgesByPrec(graphNodeIR node) {
 	argEdgeSortNode = NULL;
 	return inExpr;
 }
+static int irEdgeValEq(void *a,void *b) {
+		return *(enum IRConnType *)a==*(enum IRConnType *)b;
+}
+void IRRemoveNeverFlows(graphNodeIR node) {
+		strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(node);
+		for(long n=0;n!=strGraphNodeIRPSize(allNodes);n++) {
+				strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(allNodes[n]);
+				strGraphEdgeIRP outNeverFlow CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(out, IR_CONN_NEVER_FLOW);
+				for(long e=0;e!=strGraphEdgeIRPSize(outNeverFlow);e++) {
+						enum IRConnType del=IR_CONN_NEVER_FLOW;
+						graphEdgeIRKill(allNodes[n], graphEdgeIROutgoing(outNeverFlow[e]), &del, irEdgeValEq, NULL);
+				}
+		}
+		//Reaches all accessible nodes
+		strGraphNodeIRP visited CLEANUP(strGraphNodeIRPDestroy)=strGraphNodeIRPAppendItem(NULL, node);
+		graphNodeIRVisitForward(node,&visited, NULL,  addNode2List);
+		strGraphNodeIRP unacc CLEANUP(strGraphNodeIRPDestroy)=strGraphNodeIRPSetDifference(strGraphNodeIRPClone(allNodes), visited, (gnIRCmpType)ptrPtrCmp);
+		for(long n=0;n!=strGraphNodeIRPSize(unacc);n++)
+				graphNodeIRKill(&unacc[n], (void(*)(void*))IRNodeDestroy, NULL);
+}

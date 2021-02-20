@@ -562,3 +562,4 @@ graphNodeIR IRGetArrayDimForVar(struct parserVar *arrVar,long i);
 graphNodeIR IRObjectArrayScale(struct objectArray *arr);
 graphNodeIR IRCreateArrayAccess(graphNodeIR arr,graphNodeIR index);
 graphNodeIR IRCreateSourceMapping(const char *fileName,long start,long len);
+void IRRemoveNeverFlows(graphNodeIR node);
