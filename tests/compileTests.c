@@ -521,10 +521,11 @@ void compileTests() {
 						"    assertEq(b[0][0],1);\n"
 						"    assertEq(b[0][1],2);\n"
 						"}\n"
+						putY
 						exitStr;
 				char *source=text2File(text);
 				char *asmF=strDup(tmpnam(NULL));
-				compileFile(source, asmF);				runTest(asmF,"yyyyyy");
+				compileFile(source, asmF);				runTest(asmF,"y");
 				free(asmF);	
 				free(source);
 				}
