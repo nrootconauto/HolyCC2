@@ -477,7 +477,7 @@ void compileTests() {
 				free(asmF);	
 				free(source);
 				}*/
-		{
+		/*{
 				const char *text=
 						"{\n"
 						"    for(I32i i=0;i!=5;i=i+1) {\n"
@@ -495,6 +495,31 @@ void compileTests() {
 						"                break;\n"
 						"        }\n"
 						"    }\n"
+						"}\n"
+						exitStr;
+				char *source=text2File(text);
+				char *asmF=strDup(tmpnam(NULL));
+				compileFile(source, asmF);				runTest(asmF,"yyyyyy");
+				free(asmF);	
+				free(source);
+				}
+		*/
+		{
+				const char *text=
+						"U0 assertEq(I32i a,I32i b) {\n"
+						"    if(a!=b) {\n"
+						"         asm {\n"
+						exitStr
+						"         }\n"
+						"    }\n"
+						"}\n"
+						"{\n"
+						"    I32i a[1][2]={{1,2}};\n"
+						"    assertEq(a[0][0],1);\n"
+						"    assertEq(a[0][1],2);\n"
+						"    I32i b[][]={{1,2}};\n"
+						"    assertEq(b[0][0],1);\n"
+						"    assertEq(b[0][1],2);\n"
 						"}\n"
 						exitStr;
 				char *source=text2File(text);

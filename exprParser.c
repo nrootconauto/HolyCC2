@@ -549,11 +549,7 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 					return objectPtrCreate(&typeU8i);
 			}
 	} else if (node->type == NODE_ARRAY_LITERAL) {
-			//Should not be called  anywhere
-			diagErrorStart(node->pos.start, node->pos.end);
-			diagPushText("Array literals should only be used when assigning variables' initial values.");
-			diagEndMsg();
-			return &typeU0;	
+			return objectPtrCreate(&typeU0);	
 	} else if (node->type == NODE_ARRAY_ACCESS) {
 		struct parserNodeArrayAccess *arrAcc = (void *)node;
 		__auto_type baseType = objectBaseType(assignTypeToOp(arrAcc->exp));

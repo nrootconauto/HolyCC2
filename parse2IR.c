@@ -821,13 +821,36 @@ static graphNodeIR parserNode2Expr(const struct parserNode *node) {
 	}
 	return NULL;
 }
-static void dumpArrayLiterals(struct parserNode *toDump,strGraphNodeIRP *dumpTo) {
-		struct parserNodeArrayLit *lit=(void*)toDump;
-		for(long i=0;i!=strParserNodeSize(lit->items);i++) {
-				if(lit->items[i]->type!=NODE_ARRAY_LITERAL) {
-						*dumpTo=strGraphNodeIRPAppendItem(*dumpTo,parserNode2Expr(lit->items[i]));
-				} else
-						dumpArrayLiterals(toDump,dumpTo);
+static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node);
+static graphNodeIR createRepeatAccesses(struct parserVar *assignTo,strLong indexes) {
+		__auto_type curr=IRCreateVarRef(assignTo);
+		for(long i=0;i!=strLongSize(indexes);i++)
+				curr=IRCreateArrayAccess(curr, IRCreateIntLit(indexes[i]));
+		return curr;
+}
+static void dumpArrayLiterals(struct parserVar *assignTo,strLong *currDim,long dimCount,struct parserNode *toDump) {
+		if(toDump->type==NODE_ARRAY_LITERAL) {
+				struct parserNodeArrayLit *lit=(void*)toDump;
+				for(long i=0;i!=strParserNodeSize(lit->items);i++) {
+						*currDim=strLongAppendItem(*currDim, i);
+						dumpArrayLiterals(assignTo,currDim,dimCount,lit->items[i]);
+						*currDim=strLongPop(*currDim, NULL);
+				}
+		} else if(toDump->type==NODE_LIT_STR&&strLongSize(*currDim)!=dimCount) {
+				struct parserNodeLitStr *str=(void*)toDump;
+				for(long d=0;d!=__vecSize(str->str.text);d++) {
+						*currDim=strLongAppendItem(*currDim, d);
+								
+						__auto_type access= createRepeatAccesses(assignTo, *currDim);
+						IRCreateAssign(IRCreateIntLit(((unsigned char*)str->str.text)[d]), access);
+
+						*currDim=strLongPop(*currDim, NULL);
+				}
+		} else {
+				assert(strLongSize(*currDim)==dimCount);
+				//Not an array literal or array-literal-like string
+				__auto_type access= createRepeatAccesses(assignTo, *currDim);
+				IRCreateAssign(__parserNode2IRNoStmt(toDump).exit, access);		
 		}
 }
 static struct enterExit varDecl2IR(const struct parserNode *node) {
@@ -848,9 +871,14 @@ static struct enterExit varDecl2IR(const struct parserNode *node) {
 			if(decl->dftVal) {
 					assert(decl->dftVal->type==NODE_ARRAY_LITERAL);
 					strGraphNodeIRP initialValues CLEANUP(strGraphNodeIRPDestroy)=NULL;
-					dumpArrayLiterals(decl->dftVal,&initialValues);
-					fputs("Implement assigning array literls\n", stderr); 
-					abort();
+					struct objectArray  *arrType=(void*)decl->type;
+					long depth=0;
+					while(arrType->base.type==TYPE_ARRAY) {
+							arrType=(void*)arrType->type;
+							depth++;
+					}
+					strLong currDim CLEANUP(strLongDestroy)=NULL;
+					dumpArrayLiterals(decl->var,&currDim, depth, decl->dftVal);
 			}
 			
 			return (struct enterExit){IRStmtStart(arr),arr};
@@ -868,7 +896,6 @@ static struct enterExit varDecl2IR(const struct parserNode *node) {
 	
 	return retVal;
 }
-static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node);
 static struct enterExit __parserNode2IRStmt(const struct parserNode *node) {
 
 	// Create statement if node is an expression type.

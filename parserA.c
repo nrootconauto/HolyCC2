@@ -22,6 +22,7 @@ static __thread mapParserNode labels = NULL;
 static __thread mapParserNodes labelReferences = NULL;
 static __thread int isAsmMode = 0;
 static __thread mapParserNode asmImports = NULL;
+static __thread int allowsArrayLiterals = 0;
 static int isGlobalScope() {
 	return currentScope == NULL;
 }
@@ -35,7 +36,8 @@ loop:;
 	*find = strParserNodeAppendItem(*find, node);
 }
 void __initParserA() {
-	isAsmMode = 0;
+		allowsArrayLiterals=0;
+		isAsmMode = 0;
 	currentScope = NULL;
 	currentLoop = NULL;
 	mapParserNodeDestroy(asmImports, NULL);
@@ -243,6 +245,9 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end, llLex
 		}
 
 		return name;
+	}  else if(allowsArrayLiterals) {
+			__auto_type arrLit=parseArrayLiteral(start ,result);
+			return arrLit;
 	} else {
 			return NULL;
 	}
@@ -266,8 +271,8 @@ static struct parserNode *prec13Recur(llLexerItem start, llLexerItem end, llLexe
 STR_TYPE_DEF(int, Int);
 STR_TYPE_FUNCS(int, Int);
 static llLexerItem findOtherSide(llLexerItem start, llLexerItem end) {
-	const char *lefts[] = {"(", "[", "{"};
-	const char *rights[] = {")", "]", "}"};
+		const char *lefts[] = {"(", "[","{"};
+		const char *rights[] = {")", "]","}"};
 	__auto_type count = sizeof(lefts) / sizeof(*lefts);
 
 	strInt stack = NULL;
@@ -277,7 +282,7 @@ static llLexerItem findOtherSide(llLexerItem start, llLexerItem end) {
 			return NULL;
 		if (start == end)
 			return NULL;
-
+		
 		if (llLexerItemValuePtr(start)->template == &opTemplate) {
 			__auto_type text = *(const char **)lexerItemValuePtr(llLexerItemValuePtr(start));
 			int i;
@@ -287,13 +292,23 @@ static llLexerItem findOtherSide(llLexerItem start, llLexerItem end) {
 				if (0 == strcmp(rights[i], text))
 					goto foundRight;
 			}
-			goto next;
+		}  else if(llLexerItemValuePtr(start)->template==&kwTemplate) {
+				__auto_type text=*(const char **)lexerItemValuePtr(llLexerItemValuePtr(start));
+				int i;
+				for (i = 0; i != count; i++) {
+						if (0 == strcmp(lefts[i], text))
+								goto foundLeft;
+						if (0 == strcmp(rights[i], text))
+								goto foundRight;
+				}
+		}
+		goto next;
 		foundLeft : {
 			if (dir == 0)
 				dir = 1;
 
 			if (dir == 1)
-				stack = strIntAppendItem(stack, i);
+				stack = strIntAppendItem(stack, 0);
 			else
 				stack = strIntResize(stack, strIntSize(stack) - 1);
 
@@ -304,11 +319,10 @@ static llLexerItem findOtherSide(llLexerItem start, llLexerItem end) {
 				dir = -1;
 
 			if (dir == -1)
-				stack = strIntAppendItem(stack, i);
+				stack = strIntAppendItem(stack, 0);
 			else
 				stack = strIntResize(stack, strIntSize(stack) - 1);
 			goto next;
-		}
 		}
 	next:
 		if (dir == 0)
@@ -1146,14 +1160,17 @@ static int validateArrayDim(struct object *obj,struct parserNode *parent,strPars
 						return 1;
 				}
 		}
-		struct parserNodeLitInt intLit;
-		intLit.base.pos.start=0;
-		intLit.base.pos.end=0;
-		intLit.value.type=INT_SLONG;
-		intLit.value.value.sLong=firstLen;
-		__auto_type lit=ALLOCATE(intLit);
-		parserNodeDestroy(&arr->dim);
-		arr->dim=lit;
+		if(!arr->dim) {
+				struct parserNodeLitInt intLit;
+				intLit.base.pos.start=0;
+				intLit.base.pos.end=0;
+				intLit.base.type=NODE_LIT_INT;
+				intLit.value.type=INT_SLONG;
+				intLit.value.value.sLong=firstLen;
+				__auto_type lit=ALLOCATE(intLit);
+				parserNodeDestroy(&arr->dim);
+				arr->dim=lit;
+		}
 
 		if(arr->type->type==TYPE_ARRAY) {
 				strParserNode next CLEANUP(strParserNodeDestroy)=NULL;
@@ -1245,7 +1262,7 @@ static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end, stru
 	// Make type has pointers and dims
 	for (long i = 0; i != ptrLevel; i++)
 		retValType = objectPtrCreate(retValType);
-	for (long i = 0; i != strParserNodeSize(dims); i++)
+	for (long i = strParserNodeSize(dims)-1;i>=0; i--)
 			retValType = objectArrayCreate(retValType, dims[i],NULL);
 
 	// Look for metaData
@@ -1273,7 +1290,9 @@ metaDataLoop:;
 		__auto_type expEnd = findEndOfExpression(start, 1);
 		struct parserNode *dftVal2=NULL;
 		if(retValType->type==TYPE_ARRAY)  {
+				allowsArrayLiterals=1;
 				dftVal2=parseArrayLiteral(start, &start);
+				allowsArrayLiterals=0;
 				if(!dftVal2)
 						dftVal2 = parseExpression(start, expEnd, &start);
 		} else {
@@ -3922,12 +3941,23 @@ struct parserNode *parseArrayLiteral(llLexerItem start, llLexerItem *end) {
 				return NULL;
 		start=llLexerItemNext(start);
 		strParserNode items=NULL;
-		for(;;) {
+		for(int firstRun=1;;firstRun=0) {
 				struct parserNode *rC CLEANUP(parserNodeDestroy)=expectKeyword(start, "}");
+				int foundComma=0;
+				if(!firstRun) {
+						struct parserNode *comma CLEANUP(parserNodeDestroy)=expectOp(start, ",");
+						if(comma) {
+								start=llLexerItemNext(start);
+								foundComma=1;
+						}
+				}
 				if(rC) {
 						start=llLexerItemNext(start);
 						break;
 				}
+				if(!firstRun&&!foundComma)
+						whineExpected(start, ",");
+				
 				__auto_type exp=parseExpression(start, findEndOfExpression(start, 1), &start);
 				if(exp) {
 						items=strParserNodeAppendItem(items, exp);
@@ -3941,5 +3971,7 @@ struct parserNode *parseArrayLiteral(llLexerItem start, llLexerItem *end) {
 		lit.items=items;
 		__auto_type retVal=ALLOCATE(lit);
 		assignPosByLexerItems(retVal, originalStart, start);
+		if(end)
+				*end=start;
 		return retVal;
 }
