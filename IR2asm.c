@@ -2014,28 +2014,29 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 					imul2Args=strX86AddrModeAppendItem(imul2Args, reg32Mode);
 					imul2Args=strX86AddrModeAppendItem(imul2Args, stackTop);
 					assembleInst("IMUL2", imul2Args);
-
+					
 					//Add 4 from the stack pointer to "pop"
 					strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 					addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeReg(stackPointer()));
 					addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeSint(4));
 					assembleInst("ADD", addArgs);
 			}
+			
 			//Exchange the location of reg32's old value with reg32,then add the  value stored on the stack to the stack pointer
 			strX86AddrMode xchgArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 			xchgArgs=strX86AddrModeAppendItem(xchgArgs, X86AddrModeReg(reg32));
 			xchgArgs=strX86AddrModeAppendItem(xchgArgs, X86AddrModeClone(stackTop));
 			assembleInst("XCHG", xchgArgs);
 
-			//Assign the stack pointer to the output position which will point to the area on the stack
-			struct X86AddressingMode *spMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(stackPointer());
-			asmAssign(outMode, spMode , ptrSize(), 0);
-			
 			//Substract the data on top of the stack to the stack pointer to make room for the array
 			strX86AddrMode subArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 			subArgs=strX86AddrModeAppendItem(subArgs,X86AddrModeReg(stackPointer()));
 			subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeClone(stackTop));
 			assembleInst("SUB", subArgs);
+			
+			//Assign the stack pointer to the output position which will point to the area on the stack
+			struct X86AddressingMode *spMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(stackPointer());
+			asmAssign(outMode, spMode , ptrSize(), 0);
 			return nextNodesToCompile(start);
 	}
 	case IR_TYPECAST: {
@@ -2960,7 +2961,15 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 	case IR_DERREF: {
 		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(start);
 		strGraphEdgeIRP source CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(in, IR_CONN_SOURCE_A);
+		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIROutgoing(start);
+		strGraphEdgeIRP dst CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(out, IR_CONN_DEST);
 		struct X86AddressingMode *iMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(graphEdgeIRIncoming(source[0]));
+		if(IRNodeType(start)->type==TYPE_ARRAY) {
+			struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(graphEdgeIROutgoing(dst[0]));				
+				asmTypecastAssign(oMode, iMode, 0);
+				return nextNodesToCompile(start);
+		}
+
 		AUTO_LOCK_MODE_REGS(iMode);
 		__auto_type regAddr = regForTypeExcludingConsumed(objectPtrCreate(&typeU0));
 		pushReg(regAddr);
@@ -2974,8 +2983,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			asmTypecastAssign(oMode, iMode2,0);
 		}
 
-		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIROutgoing(start);
-		strGraphEdgeIRP dst CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(out, IR_CONN_DEST);
+		
 		if (strGraphEdgeIRPSize(dst) == 1) {
 			struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(graphEdgeIROutgoing(dst[0]));
 			struct X86AddressingMode *iMode2 CLEANUP(X86AddrModeDestroy) = X86AddrModeIndirReg(regAddr, oMode->valueType);
