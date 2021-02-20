@@ -295,7 +295,7 @@ for (long i = 0; i != strGraphNodeMappingPSize(allVarAssigns); i++) {
 	
 //debugPrintGraph(varRefsG);
 	
-	debugPrintGraph(graphNodeCreateMapping(start, 1));
+//debugPrintGraph(graphNodeCreateMapping(start, 1));
 	for(long a=0;a!=strGraphNodeIRPSize(virtualAssigns);a++) {
 			//Point to variable assigned into by choose
 			strGraphNodeIRP visited CLEANUP(strGraphNodeIRPDestroy)=NULL;

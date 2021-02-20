@@ -886,9 +886,9 @@ static struct enterExit varDecl2IR(const struct parserNode *node) {
 							depth++;
 					}
 					strLong currDim CLEANUP(strLongDestroy)=NULL;
-					graphNodeIR parent=IRCreateLabel();
+					graphNodeIR parent=arr;
 					__auto_type end=dumpArrayLiterals(&parent,decl->var,&currDim, depth, decl->dftVal);
-					return (struct enterExit){parent,end};
+					return (struct enterExit){IRStmtStart(arr),end};
 			}
 			
 			return (struct enterExit){IRStmtStart(arr),arr};

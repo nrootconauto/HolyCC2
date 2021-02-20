@@ -854,7 +854,6 @@ callMemcpy : {
 }
 }
 void IRCompile(graphNodeIR start, int isFunc) {
-		IRRemoveNeverFlows(start);
 		debugShowGraphIR(start);
 	if (isFunc) {
 		struct IRNodeFuncStart *funcNode = (void *)graphNodeIRValuePtr(start);
@@ -898,6 +897,7 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	}
 	strGraphNodeIRPDestroy(&nodes);
 
+	IRRemoveNeverFlows(start);
 	IRInsertImplicitTypecasts(start);
 	debugShowGraphIR(start);
 	

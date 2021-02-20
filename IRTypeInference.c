@@ -194,8 +194,16 @@ struct object *__IRNodeType(graphNodeIR node) {
 		if (op == IR_ADDR_OF) {
 			return objectPtrCreate(aType);
 		} else if (op == IR_DERREF) {
-			struct objectPtr *aPtr = (void *)aType;
-			return aPtr->type;
+				if(aType->type==TYPE_PTR) {
+						struct objectPtr *aPtr = (void *)aType;
+						return aPtr->type;
+				} else if(aType->type==TYPE_ARRAY) {
+						struct objectArray *aArr=(void *)aType;
+						return aArr->type;
+				} else {
+						fputs("Expected array or pointer to derrefernce\n", stderr);
+						abort();
+				}
 		} else if (op == IR_MEMBERS) {
 			struct IRNodeMembers *mems = (void *)graphNodeIRValuePtr(node);
 			return mems->members[strObjectMemberSize(mems->members) - 1].type;
