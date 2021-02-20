@@ -1872,6 +1872,10 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 	switch (graphNodeIRValuePtr(start)->type) {
 	case IR_SOURCE_MAPPING: {
 			struct IRNodeSourceMapping *mapping=(void*)graphNodeIRValuePtr(start);		
+			long line;
+			diagLineCol(mapping->fn, mapping->start, &line, NULL);
+			
+
 			const char *fmt=";;;   %s:%li:\"\"\"%s\"\"\"   ;;;";
 			__auto_type f=fopen(mapping->fn, "r");
 			fseek(f, mapping->start, SEEK_SET);
@@ -1886,9 +1890,9 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			lineText=strCharAppendItem(lineText, '\0');
 			fclose(f);
 
-			long len=snprintf(NULL, 0, fmt, mapping->fn,mapping->start,lineText);
+			long len=snprintf(NULL, 0, fmt, mapping->fn,line+1,lineText);
 			char buffer[len+1];
-			sprintf(buffer, fmt, mapping->fn,mapping->start,lineText);
+			sprintf(buffer, fmt, mapping->fn,line+1,lineText);
 
 			X86EmitAsmComment(buffer);
 			return nextNodesToCompile(start);	

@@ -483,7 +483,7 @@ static strChar dumpStrLit(const char *str,long len) {
 			retVal = strCharAppendItem(retVal, str[i]);
 			retVal = strCharAppendItem(retVal, '\'');
 		} else {
-			if (strchr(otherValids, str[i])) {
+			if (strchr(otherValids, str[i])&&str[i]!='\0') {
 				retVal = strCharAppendItem(retVal, '\'');
 				retVal = strCharAppendItem(retVal, str[i]);
 				retVal = strCharAppendItem(retVal, '\'');

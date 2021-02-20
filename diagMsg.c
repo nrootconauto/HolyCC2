@@ -205,7 +205,7 @@ static strLong fileLinesIndexes(FILE *file) {
 
 	return retVal;
 }
-static void getLineCol(struct diagInst *inst, long where, long *line, long *col) {
+static void __getLineCol(struct diagInst *inst, long where, long *line, long *col) {
 	long line2 = 0;
 	for (long i = 1; i != strLongSize(inst->lineStarts); i++) {
 		if (inst->lineStarts[i] <= where) {
@@ -220,6 +220,10 @@ found : {
 	if (col != NULL)
 		*col = where - inst->lineStarts[line2];
 }
+}
+void diagLineCol(const char *fn, long where, long *line, long *col) {
+		__auto_type inst=*mapInstGet(insts, fn);
+		__getLineCol(&inst, where, line, col);
 }
 static long fileSize(FILE *f) {
 	fseek(f, 0, SEEK_END);
@@ -281,7 +285,7 @@ static long goBeforeNewLine(FILE *fp, long where) {
 static void qouteLine(struct diagInst *inst, long start, long end, strDiagQoute qoutes) {
 	// Line end of line
 	long line, col;
-	getLineCol(inst, end, &line, &col);
+	__getLineCol(inst, end, &line, &col);
 	long lineEnd;
 	if (line + 1 >= strLongSize(inst->lineStarts))
 		lineEnd = fileSize(inst->sourceFile);
@@ -289,7 +293,7 @@ static void qouteLine(struct diagInst *inst, long start, long end, strDiagQoute 
 		lineEnd = goBeforeNewLine(inst->sourceFile, inst->lineStarts[line + 1]) + 1;
 
 	// Start of line
-	getLineCol(inst, start, &line, &col);
+	__getLineCol(inst, start, &line, &col);
 	long lineStart = inst->lineStarts[line];
 
 	// Sort qoutes
@@ -473,7 +477,7 @@ static void diagStateStart(long start, long end, enum diagState state, const cha
 
 	setAttrs(currentInst, color, ATTR_BOLD, 0);
 	long ln, col;
-	getLineCol(currentInst, start, &ln, &col);
+	__getLineCol(currentInst, start, &ln, &col);
 	fprintf(currentInst->dumpTo, "%s:%li,%li: ", currentInst->fileName, ln + 1, col + 1);
 	endAttrs(currentInst);
 

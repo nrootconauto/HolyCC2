@@ -128,7 +128,7 @@ int stringParse(const struct __vec *new, long pos, long *end, struct parsedStrin
 
 			if (toPtr == end2) {
 				// Append NULL byte
-					//				retValText = __vecAppendItem(retValText, "\0", 1);
+					retValText = __vecAppendItem(retValText, "\0", 1);
 
 				if (end != NULL)
 					*end = (end2 + 1 - (char *)new) / sizeof(char);
