@@ -539,6 +539,18 @@ void compileTests() {
 								"    }\n"
 								"    return 0;"
 								"}\n"
+								"static U0 putC(U8i chr) {\n"
+								"    asm {\n"
+								"        IMPORT chr;\n"
+								"        PUSHAD\n"
+								"        MOV EAX,4\n"
+								"        MOV EBX,1\n"
+								"        LEA ECX,[chr]\n"
+								"        MOV EDX,1\n"
+								"        INT 0x80\n"
+								"        POPAD\n"
+								"    }\n"
+								"}\n"
 								"U0 assertEq(I32i a,I32i b) {\n"
 								"    if(a!=b) {\n"
 								"         asm {\n"
@@ -547,7 +559,7 @@ void compileTests() {
 								"    }\n"
 								"}\n"
 								"assertEq(StrNCmp(\"AB\",\"AB\",2),0);\n"
-								putY
+								"putC('y');\n"
 								exitStr;
 						char *source=text2File(text);
 						char *asmF=strDup(tmpnam(NULL));
