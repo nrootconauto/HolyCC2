@@ -179,7 +179,13 @@ static void incompatTypes(struct parserNode *node, struct object *expected) {
 	diagEndMsg();
 }
 struct object *assignTypeToOp(const struct parserNode *node) {
-		if (node->type == NODE_FUNC_REF) {
+		if(node->type == NODE_NAME) {
+				diagErrorStart(node->pos.start, node->pos.end);
+				diagPushText("Unknown symbol ");
+				diagPushQoutedText(node->pos.start, node->pos.end);
+				diagPushText(".");
+				diagEndMsg();
+		} else if (node->type == NODE_FUNC_REF) {
 		struct parserNodeFuncRef *ref = (void *)node;
 		return ref->func->type;
 	} else if (node->type == NODE_VAR) {

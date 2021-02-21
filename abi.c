@@ -632,7 +632,7 @@ static void IR_ABI_I386_SYSV_Return(graphNodeIR start,long frameSize) {
 				goto loadBasePtr;
 		} else {
 			// Isn't a struct/union/F64,so is an int/ptr
-			struct X86AddressingMode *eaxMode CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86EAX);
+			struct X86AddressingMode *eaxMode CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(subRegOfType(&regX86EAX, mode->valueType));
 			eaxMode->valueType = mode->valueType;
 			asmTypecastAssign(eaxMode, mode,0);
 			

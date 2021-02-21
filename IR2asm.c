@@ -898,10 +898,8 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	}
 	strGraphNodeIRPDestroy(&nodes);
 
-	debugShowGraphIR(start);
 	IRRemoveNeverFlows(start);
 	IRInsertImplicitTypecasts(start);
-	debugShowGraphIR(start);
 	
 	nodes = graphNodeIRAllNodes(start);
 
@@ -986,11 +984,9 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	}
 
 	IRInsertNodesBetweenExprs(start, NULL, NULL);
-		debugShowGraphIR(start);
 		IRRegisterAllocate(start, NULL, NULL, isNotNoreg, noregs);
 
 	if(allocateX87fpuRegs) {
-debugShowGraphIR(start);
 			IRRegisterAllocateX87(start);
 			debugShowGraphIR(start);
 	}
