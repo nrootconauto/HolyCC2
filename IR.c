@@ -1729,10 +1729,10 @@ graphNodeIR IRCreateArrayAccess(graphNodeIR arr,graphNodeIR index) {
 		struct object *type=IRNodeType(arr);
 		if(type->type==TYPE_ARRAY) {
 				struct objectArray *arrayType=(void*)type;
-				__auto_type ptr=IRCreateBinop(arr,  IRCreateBinop(index , IRObjectArrayScale(arrayType), IR_MULT) , IR_ADD);
+				__auto_type ptr=IRCreateBinop(arr,  index , IR_ADD);
 				return IRCreateDerref(ptr);
 		}
-		__auto_type ptr=IRCreateBinop(arr,  IRCreateBinop(index , IRCreateIntLit(objectSize(type, NULL)), IR_MULT) , IR_ADD);
+		__auto_type ptr=IRCreateBinop(arr,  index , IR_ADD);
 		return IRCreateDerref(ptr);
 }
 void IRInsertNodesBetweenExprs(graphNodeIR expr, int (*pred)(graphNodeIR, const void *), const void *predData) {

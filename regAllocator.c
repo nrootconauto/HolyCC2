@@ -794,15 +794,9 @@ void IRRegisterAllocate(graphNodeIR start, color2RegPredicate colorFunc, void *c
 	__varFiltPred = varFiltPred;
 	// SSA
 	__auto_type allNodes = graphNodeIRAllNodes(start);
-	// debugShowGraphIR(start);
-	debugShowGraphIR(start);
-
 	strGraphNodeIRP allNodes2 CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRAllNodes(start);
-	
 	strGraphNodeIRPDestroy(&allNodes2);
 	allNodes2=graphNodeIRAllNodes(start);
-	allNodes = graphNodeIRAllNodes(start);
-	debugShowGraphIR(start);
 	
 	__auto_type intInterfere = IRInterferenceGraphFilter(start, NULL, filterIntVars);
 

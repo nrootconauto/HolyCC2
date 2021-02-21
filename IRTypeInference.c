@@ -283,6 +283,33 @@ void IRInsertImplicitTypecasts(graphNodeIR start) {
 						}
 						default:;
 						}
+
+						//If is pointer arithmetic ("+"/"-" only),typecast index to data ptrSize
+						switch(graphNodeIRValuePtr(exprNodes[e])->type) {
+						case IR_ADD:
+						case IR_SUB: {
+								strGraphEdgeIRP inA CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_SOURCE_A);
+								strGraphEdgeIRP inB CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_SOURCE_B);
+								__auto_type aType=objectBaseType(IRNodeType(graphEdgeIRIncoming(inA[0])));
+								__auto_type bType=objectBaseType(IRNodeType(graphEdgeIRIncoming(inB[0])));
+								int ptrArith=0;
+								ptrArith|=aType->type==TYPE_PTR||aType->type==TYPE_ARRAY;
+								ptrArith|=bType->type==TYPE_PTR||bType->type==TYPE_ARRAY;
+								if(ptrArith) {
+										toType=(ptrSize()==4)?&typeI32i:&typeI64i;
+										__auto_type indexEdge=(aType->type==TYPE_PTR||aType->type==TYPE_ARRAY)?inB[0]:inA[0];
+										__auto_type edgeValue=*graphEdgeIRValuePtr(indexEdge);
+										__auto_type inNode=graphEdgeIRIncoming(indexEdge);
+										
+										__auto_type tc=IRCreateTypecast(inNode, IRNodeType(inNode), toType);
+										graphNodeIRConnect(tc,exprNodes[e], edgeValue);
+										graphEdgeIRKill(inNode, exprNodes[e], NULL, NULL, NULL);
+										goto end;
+								}
+						}
+						default:
+										;
+						}
 						
 						for(long i=0;i!=strGraphEdgeIRPSize(in);i++) {
 								__auto_type inNode=graphEdgeIRIncoming(in[i]);
@@ -295,6 +322,7 @@ void IRInsertImplicitTypecasts(graphNodeIR start) {
 								graphEdgeIRKill(inNode, exprNodes[e], NULL, NULL, NULL);
 						}
 				}
+		end:
 				visited=strGraphNodeIRPSetUnion(visited, exprNodes, (gnCmpType)ptrPtrCmp);
 				allNodes=strGraphNodeIRPSetDifference(allNodes, visited, (gnCmpType)ptrPtrCmp);
 				strGraphNodeIRPDestroy(&visited);
