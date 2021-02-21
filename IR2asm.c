@@ -246,10 +246,8 @@ static struct X86AddressingMode *__node2AddrMode(graphNodeIR start) {
 			}
 		}
 		case IR_VAL_STR_LIT: {
-			strChar strLab CLEANUP(strCharDestroy) = uniqueLabel("FLT");
-			X86EmitAsmLabel(strLab);
-			X86EmitAsmStrLit((char*)value->val.value.strLit,__vecSize(value->val.value.strLit));
-			__auto_type lab = X86AddrModeLabel(strLab);
+			strChar strLab CLEANUP(strCharDestroy) = uniqueLabel("STR");
+			__auto_type lab = X86EmitAsmStrLit((char*)value->val.value.strLit,__vecSize(value->val.value.strLit));
 			lab->valueType = objectPtrCreate(&typeU8i);
 			return lab;
 		}
@@ -1088,9 +1086,7 @@ void IRCompile(graphNodeIR start, int isFunc) {
 		asmAssign(bp, sp, ptrSize(),0);
 	}
 	// This computes calling information for the ABI
-	debugShowGraphIR(start);
 	IRComputeABIInfo(start);
-	debugShowGraphIR(start);
 
 	if(!isFunc) {
 			// Add to stack pointer to make room for locals
@@ -1101,7 +1097,6 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	}
 
 	{
-			debugShowGraphIR(start);
 			strGraphNodeIRP inserted CLEANUP(strGraphNodeIRPDestroy) = insertLabelsForAsm(regAllocedNodes);
 		inserted = strGraphNodeIRPSetUnion(nodes, inserted, (gnCmpType)ptrPtrCmp);
 		debugShowGraphIR(start);

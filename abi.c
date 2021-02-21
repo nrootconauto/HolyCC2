@@ -38,6 +38,8 @@ static int ptrPtrCmp(const void *a, const void *b) {
 typedef int (*regCmpType)(const struct reg **, const struct reg **);
 typedef int (*varCmpType)(const struct parserVar **, const struct parserVar **);
 static int containsRegister(struct reg *par, struct reg *r) {
+		if(par==r)
+				return 1;
 	for (long a = 0; a != strRegSliceSize(par->affects); a++) {
 		if (par->affects[a].reg == r)
 			return 1;
@@ -403,6 +405,7 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start) {
 
 			if (itemSize != 4) {
 				struct X86AddressingMode *eax CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86EAX);
+				eax->valueType=&typeI32i;
 				asmTypecastAssign(eax, mode,0);
 				pushArgs = strX86AddrModeAppendItem(pushArgs, X86AddrModeReg(&regX86EAX));
 			} else {

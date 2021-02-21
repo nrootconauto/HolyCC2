@@ -574,7 +574,7 @@ void compileTests() {
 								"          ptr=dol;\n"
 								"    }\n"
 								"    dumpRest:\n"
-								"    while(*ptr!='\\0')"
+								"    for(;*ptr!='\\0';ptr=ptr+1)"
 								"        putC(*ptr);"
 								"}\n"
 								"printf(\"hi\");"
