@@ -154,7 +154,7 @@ static void __graphEdgeKillAllPred(struct __graphNode *from, struct __graphNode 
 				goto endLoop;
 		//
 		int kill2 = 0;
-		if (kill == NULL) {
+		if (pred == NULL) {
 			kill2 = 1;
 		} else {
 			kill2 = pred(data, value);

@@ -59,7 +59,7 @@ static struct reg *smallestRegContainingBoth(struct reg *a, struct reg *b) {
 	return __registerContainingBoth(a->masterReg, a, b);
 }
 static int killEdgeIfEq(void *a, void *b) {
-	return a == b;
+		return *(enum IRConnType*)a == *(enum IRConnType*)b;
 }
 static void swapNode(graphNodeIR old, graphNodeIR with) {
 	strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(old);
@@ -67,12 +67,14 @@ static void swapNode(graphNodeIR old, graphNodeIR with) {
 	for (long i = 0; i != strGraphEdgeIRPSize(in); i++) {
 		__auto_type from = graphEdgeIRIncoming(in[i]);
 		graphNodeIRConnect(from, with, *graphEdgeIRValuePtr(in[i]));
-		graphEdgeIRKill(from, old, in[i], killEdgeIfEq, NULL);
+		__auto_type val=*graphEdgeIRValuePtr(in[i]);
+		graphEdgeIRKill(from, old, &val, killEdgeIfEq, NULL);
 	}
 	for (long o = 0; o != strGraphEdgeIRPSize(out); o++) {
 		__auto_type to = graphEdgeIROutgoing(out[o]);
 		graphNodeIRConnect(with, to, *graphEdgeIRValuePtr(out[o]));
-		graphEdgeIRKill(old, to, out[o], killEdgeIfEq, NULL);
+		__auto_type val=*graphEdgeIRValuePtr(out[o]);
+		graphEdgeIRKill(old, to, &val, killEdgeIfEq, NULL);
 	}
 }
 static strRegP usedRegisters(strGraphNodeIRP nodes) {
