@@ -68,7 +68,7 @@ static void assignPosByLexerItems(struct parserNode *node, llLexerItem start, ll
 	if (end)
 		node->pos.end = llLexerItemValuePtr(end)->end;
 	else
-		node->pos.start = llLexerItemValuePtr(llLexerItemLast(start))->end;
+		node->pos.end = llLexerItemValuePtr(llLexerItemLast(start))->end;
 }
 static char *strClone(const char *str) {
 	if (!str)
@@ -861,7 +861,7 @@ static struct parserNode *binopRightAssoc(const char **ops, long count, llLexerI
 		binop.b = right;
 		binop.base.type = NODE_BINOP;
 		binop.base.pos.start = left->pos.start;
-		binop.base.pos.start = right->pos.end;
+		binop.base.pos.end = right->pos.end;
 		binop.type = NULL;
 
 		right = ALLOCATE(binop);

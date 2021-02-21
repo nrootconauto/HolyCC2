@@ -1599,7 +1599,7 @@ graphNodeIR IRCreateAddrOf(graphNodeIR input) {
 		return retVal;
 	} else if (graphNodeIRValuePtr(input)->type == IR_DERREF) {
 		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(input);
-		strGraphEdgeIRP inSource CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(inSource, IR_CONN_SOURCE_A);
+		strGraphEdgeIRP inSource CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(in, IR_CONN_SOURCE_A);
 		__auto_type inNode = graphEdgeIRIncoming(inSource[0]);
 		graphNodeIRKill(&input, (void (*)(void *))IRNodeDestroy, NULL);
 		return inNode;
