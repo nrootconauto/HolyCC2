@@ -1206,6 +1206,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 
 		struct parserNodeFor *forStmt = (void *)node;
 		graphNodeIR current=IRCreateLabel();
+		retVal.enter=current;
 		if(forStmt->init) {
 				__auto_type init = __parserNode2IRStmt(forStmt->init);
 				init=insSrcMapping(forStmt->init->pos.start, forStmt->init->pos.end, init);
@@ -1222,6 +1223,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 				condEnter=cond.enter;
 		} else {
 				graphNodeIRConnect(current, trueLab, IR_CONN_FLOW);
+				graphNodeIRConnect(current, labExit, IR_CONN_NEVER_FLOW);
 				condEnter=current;
 		}
 		
