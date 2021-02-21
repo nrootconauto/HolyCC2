@@ -560,19 +560,28 @@ void compileTests() {
 								"}\n"
 								"U8i *StrChr(U8i *str,U8i chr) {\n"
 								"    for(;;str=str+1) {\n"
-								"        if(*str==chr) return 0;\n"
 								"        if(*str==chr) return str;\n"
+								"        if(*str=='\\0') return 0;\n"
 								"    }\n"
 								"    return str;"
 								"}\n"
-								"assertEq(StrNCmp(\"AB\",\"AB\",2),0);\n"
-								"I32i *a=0;\n"
-								"I32i *b=8;\n"
-								"if(b-a==2) putC('y');\n"
+								"static U0 printf(U8i *str) {\n"
+								"    I32i len=StrChr(str,'\\0');\n"
+								"    U8i *ptr=str;\n"
+								"    while(*ptr!='\\0') {\n"
+								"          U8i *dol=StrChr(ptr,'$');\n"
+								"          if(!dol) goto dumpRest;\n"
+								"          ptr=dol;\n"
+								"    }\n"
+								"    dumpRest:\n"
+								"    while(*ptr!='\\0')"
+								"        putC(*ptr);"
+								"}\n"
+								"printf(\"hi\");"
 								exitStr;
 						char *source=text2File(text);
 						char *asmF=strDup(tmpnam(NULL));
-						compileFile(source, asmF);				runTest(asmF,"y");
+						compileFile(source, asmF);				runTest(asmF,"hi");
 						free(asmF);	
 						free(source);
 				}

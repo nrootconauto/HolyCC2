@@ -753,7 +753,8 @@ fail:
 	return NULL;
 }
 static struct parserNode *prec1Recur(llLexerItem start, llLexerItem end, llLexerItem *result) {
-	if (start == NULL)
+		__auto_type originalStart=start;
+		if (start == NULL)
 		return NULL;
 
 	llLexerItem result2 = start;
@@ -785,10 +786,9 @@ static struct parserNode *prec1Recur(llLexerItem start, llLexerItem end, llLexer
 			unop.a = tail;
 			unop.isSuffix = 0;
 			unop.op = opStack[i];
-			unop.base.pos.start = tail->pos.end;
-			unop.base.pos.end = opStack[i]->pos.start;
 			unop.type = NULL;
 			tail = ALLOCATE(unop);
+			assignPosByLexerItems(tail, originalStart, result2);
 		}
 	}
 
