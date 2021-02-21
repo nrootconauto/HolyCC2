@@ -1,17 +1,17 @@
 #include <IRFilter.h>
 #include <IRLiveness.h>
-#include <SSA.h>
 #include <assert.h>
-#include <base64.h>
 #include <cleanup.h>
 #include <graphColoring.h>
 #define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
-#include <graphDominance.h>
 static __thread const void *__varFilterData = NULL;
 static __thread int (*__varFiltPred)(const struct parserVar *, const void *);
 static char *ptr2Str(const void *a) {
-	return base64Enc((void *)&a, sizeof(a));
+		long len=snprintf(NULL, 0, "%p", a);
+		char buffer[len+1];
+		sprintf(buffer, "%p", a);
+		return strcpy(malloc(len+1),buffer);
 }
 static int IRVarCmp2(const struct IRVar **a, const struct IRVar **b) {
 	return IRVarCmp(*a, *b);
@@ -169,20 +169,6 @@ static void removeChooseNode(graphNodeIR chooseNode) {
 
 	transparentKill(chooseNode, 1);
 }
-static void removeChooseNodes(strGraphNodeIRP nodes, graphNodeIR start) {
-	for (long i = 0; i != strGraphNodeIRPSize(nodes); i++) {
-		__auto_type val = graphNodeIRValuePtr(nodes[i]);
-		// No value?
-		if (!val)
-			continue;
-
-		// Ignore non-chooses
-		if (val->type != IR_CHOOSE)
-			continue;
-
-		removeChooseNode(nodes[i]);
-	}
-}
 STR_TYPE_DEF(strGraphNodeIRP, VarRefs);
 STR_TYPE_FUNCS(strGraphNodeIRP, VarRefs);
 struct aliasPair {
@@ -295,358 +281,8 @@ static int chooseCmp(const graphNodeIR *a,const graphNodeIR *b) {
 				return 0;
 		return aSize>bSize?1:-1;
 }
-//
-// Dont Alias variables that exist in memory
-//
-STR_TYPE_DEF(strVar,VarAliases);
-STR_TYPE_FUNCS(strVar,VarAliases);
-strVarAliases IRCoalesce(strGraphNodeIRP nodes, graphNodeIR start) {
-	 strVarRefs refs CLEANUP(strVarRefsDestroy)  = NULL;
-	strVar dontCoalesceIntoVars CLEANUP(strVarDestroy)= NULL;
-	
-	strGraphNodeIRP chooses CLEANUP(strGraphNodeIRPDestroy)=NULL;
-	
-	for (long i = 0; i != strGraphNodeIRPSize(nodes); i++) {
-		__auto_type val = graphNodeIRValuePtr(nodes[i]);
-		// No value?
-		if (!val)
-			continue;
-
-		if(val->type==IR_CHOOSE) {
-				struct IRNodeChoose *choose=(void*)val;
-				chooses=strGraphNodeIRPSortedInsert(chooses, nodes[i], (gnCmpType)ptrPtrCmp);
-				//Outgoings for chooses point to variable being assigned into
-				strGraphNodeIRP cOutgoing CLEANUP(strGraphNodeIRPDestroy)=graphNodeIROutgoingNodes(nodes[i]);
-				dontCoalesceIntoVars=strVarSortedInsert(dontCoalesceIntoVars , *getVar(cOutgoing[0]), IRVarCmp);
-		}
-
-		// Find an existing reference to varaible in val
-		if (val->type == IR_VALUE) {
-			if (((struct IRNodeValue *)val)->val.type == IR_VAL_VAR_REF) {
-				// If variable is addressed by pointer,dont coalasce
-				if (((struct IRNodeValue *)val)->val.value.var.addressedByPtr)
-					continue;
-
-				strGraphNodeIRP *find = NULL;
-				// An an eqivalent variable in refs
-				for (long i2 = 0; i2 != strVarRefsSize(refs); i2++) {
-					for (long i3 = 0; i3 != strGraphNodeIRPSize(refs[i2]); i3++) {
-						__auto_type a = (struct IRNodeValue *)val;
-						__auto_type b = (struct IRNodeValue *)graphNodeIRValuePtr(refs[i2][i3]);
-						if (0 == IRVarCmp(&a->val.value.var, &b->val.value.var)) {
-							find = &refs[i2];
-							goto findVarLoopEnd;
-						}
-					}
-				}
-			findVarLoopEnd:
-
-				if (!find) {
-					// Add a vec of references(only reference is nodes[i])
-
-					strGraphNodeIRP tmp = strGraphNodeIRPAppendItem(NULL, nodes[i]);
-					refs = strVarRefsAppendItem(refs, tmp);
-				} else {
-
-					// Add nodes[i] to references
-					__auto_type vec = find;
-					*vec = strGraphNodeIRPSortedInsert(*vec, nodes[i], (gnCmpType)ptrPtrCmp);
-				}
-			}
-		}
-	}
-
-	//
-	// Lets get a list of chooses,sort them by contents of canidates so same canidates will be adjacent
-	// If choosecmp(a,b)==0,they have the same canidates to the variable,so we can merge them
-	//
-	strGraphNodeIRP sortedChooses=strGraphNodeIRPClone(chooses);
-	qsort(sortedChooses, strGraphNodeIRPSize(chooses), sizeof(*chooses), (int(*)(const void*,const void *))chooseCmp);
-	for(long c=0;c+1<strGraphNodeIRPSize(chooses);c++) {
-			if(chooseCmp(&chooses[c], &chooses[c+1])==0) {
-					//Outgoings for chooses point to variable being assigned into
-					strGraphNodeIRP cOutgoing CLEANUP(strGraphNodeIRPDestroy)=graphNodeIROutgoingNodes(chooses[c]);
-					strGraphNodeIRP c1Outgoing CLEANUP(strGraphNodeIRPDestroy)=graphNodeIROutgoingNodes(chooses[c+1]);
-					
-					__auto_type aIndex = getVarRefIndex(refs, cOutgoing[0]);
-					__auto_type bIndex = getVarRefIndex(refs, c1Outgoing[0]);
-					
-					if (aIndex == bIndex)
-						continue;
-					
-					refs[aIndex] = strGraphNodeIRPSetUnion(refs[aIndex], refs[bIndex], (gnCmpType)ptrPtrCmp);
-					memmove(&refs[bIndex], &refs[bIndex + 1], (strVarRefsSize(refs) - bIndex - 1) * sizeof(*refs));
-					refs = strVarRefsPop(refs, NULL);
-			}
-	}
-	
-	for (long i = 0; i != strGraphNodeIRPSize(nodes); i++) {
-		struct IRNodeValue *val = (void *)graphNodeIRValuePtr(nodes[i]);
-		if (val->base.type != IR_VALUE)
-			continue;
-		if (val->val.type != IR_VAL_VAR_REF)
-			continue;
-
-		if (strVarSortedFind(dontCoalesceIntoVars, *getVar(nodes[i]), IRVarCmp))
-			continue;
-		if (getVar(nodes[i])->var->isGlobal)
-			continue;
-
-		// Check if written into by another variable.
-		strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(nodes[i]);
-		strGraphEdgeIRP filtered CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(incoming, IR_CONN_DEST);
-
-		// aliasNode is NULL if an alias node isnt found
-		graphNodeIR aliasNode = NULL;
-
-		// If one filtered that is a value and a variable,set that as the alias
-		// node
-		if (strGraphEdgeIRPSize(filtered) == 1) {
-			__auto_type inNode = graphNodeIRValuePtr(graphEdgeIRIncoming(filtered[0]));
-			if (inNode->type == IR_VALUE) {
-				struct IRNodeValue *inValueNode = (void *)inNode;
-				if (inValueNode->val.type == IR_VAL_VAR_REF) {
-					aliasNode = graphEdgeIRIncoming(filtered[0]);
-
-					__auto_type aIndex = getVarRefIndex(refs, aliasNode);
-					__auto_type bIndex = getVarRefIndex(refs, nodes[i]);
-
-					if (aIndex == bIndex)
-						continue;
-
-					refs[aIndex] = strGraphNodeIRPSetUnion(refs[aIndex], refs[bIndex], (gnCmpType)ptrPtrCmp);
-					memmove(&refs[bIndex], &refs[bIndex + 1], (strVarRefsSize(refs) - bIndex - 1) * sizeof(*refs));
-					refs = strVarRefsPop(refs, NULL);
-				}
-			}
-		}
-	}
-
-	strVarAliases aliases=strVarAliasesResize(NULL, strVarRefsSize(refs));
-	for(long r=0;r!=strVarRefsSize(refs);r++) {
-			aliases[r]=NULL;
-			for(long n=0;n!=strGraphNodeIRPSize(refs[r]);n++) {
-					__auto_type var=*getVar(refs[r][n]);
-					if(!strVarSortedFind(aliases[r], var, IRVarCmp)) {
-							aliases[r]=strVarSortedInsert(aliases[r], var, IRVarCmp);
-					}
-			}
-			strGraphNodeIRPDestroy(&refs[r]);
-	}
-	return aliases;
-}
-static int isVar(graphNodeIR node) {
-	if (graphNodeIRValuePtr(node)->type == IR_VALUE) {
-		// Is a variable
-		struct IRNodeValue *valOut = (void *)graphNodeIRValuePtr(node);
-		if (valOut->val.type == IR_VAL_VAR_REF) {
-			return 1;
-		}
-	}
-	return 0;
-}
-struct assignPair {
-		struct IRVar *dst,*src;
-};
-static int isSingleAssign(graphNodeIR node,const void *data) {
-		if(!getVar(node))
-				return 0;
-		
-		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(node);
-		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(node);
-		for(long i=0;i!=strGraphEdgeIRPSize(out);i++)
-				if(IRIsExprEdge(*graphEdgeIRValuePtr(out[i])))
-						return 0;
-						
-		strGraphEdgeIRP dst CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_DEST);
-		if(strGraphEdgeIRPSize(dst)==1) {
-				__auto_type inNode=graphEdgeIRIncoming(dst[0]);
-				if(!getVar(inNode))
-						return 0;
-				
-				strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(inNode);
-				for(long i=0;i!=strGraphEdgeIRPSize(in);i++)
-						if(IRIsExprEdge(*graphEdgeIRValuePtr(in[i])))
-								return 0;
-				
-				if(data) {
-						const struct assignPair *Data=data;
-						if(IRVarCmp(Data->dst, getVar(node)))
-								return 0;
-						if(IRVarCmp(Data->src, getVar(inNode)))
-								return 0;
-				}
-				return 1;
-		}
-		return 0;
-}
 MAP_TYPE_DEF(long,Count);
 MAP_TYPE_FUNCS(long,Count);
-struct assignPair getAssignPairFromNode(graphNodeIR enter) {
-		__auto_type dstNode=enter;
-		strGraphNodeIRP inAsn CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRIncomingNodes(dstNode);
-		__auto_type srcNode=inAsn[0];
-
-		struct IRVar *d=getVar(dstNode),*s=getVar(srcNode);
-		struct assignPair pair;
-		pair.dst=d,pair.src=s;
-		return pair;
-}
-static void removeFromDominatorTree(graphNodeIR enter) {
-		graphNodeMapping map=IRFilter(enter, isSingleAssign, NULL);
-		llDominators doms= graphComputeDominatorsPerNode(map);
-		graphNodeMapping tree=dominatorsTreeCreate(doms);
-
-		strGraphNodeMappingP allMapNodes CLEANUP(strGraphNodeMappingPDestroy)=graphNodeMappingAllNodes(tree);
-		strGraphNodeMappingP killedNodes CLEANUP(strGraphNodeMappingPDestroy)=NULL;
-		//first node is start node,not an assign
-		for(long n=0;n!=strGraphNodeMappingPSize(allMapNodes);n++) {
-				if(allMapNodes[n]==tree)
-						continue;
-				if(strGraphNodeMappingPSortedFind(killedNodes, allMapNodes[n], (gnCmpType)ptrPtrCmp))
-						continue;
-				
-				//allMapNodes[n] is a mapping of a mapping
-				__auto_type irNode=*graphNodeMappingValuePtr(*graphNodeMappingValuePtr(allMapNodes[n]));
-				struct assignPair baseAssign=getAssignPairFromNode(irNode);
-				//
-				// Go up the tree until we reach an assign or we reach the start node
-				// If we encounter a copy of baseAssign,kill baseAssign as it is dominated by the item
-				//
-				for(__auto_type treeNode=allMapNodes[n];;) {
-						strGraphEdgeMappingP incoming CLEANUP(strGraphEdgeMappingPDestroy)=graphNodeMappingIncoming(treeNode);
-						treeNode=graphEdgeMappingIncoming(incoming[0]);
-						if(treeNode==tree)
-								break;
-
-						if(strGraphNodeMappingPSortedFind(killedNodes, treeNode, (gnCmpType)ptrPtrCmp))
-								continue;
-
-						
-						__auto_type irNode=*graphNodeMappingValuePtr(*graphNodeMappingValuePtr(treeNode));
-						
-						struct assignPair parentAssign=getAssignPairFromNode(irNode);
-
-						if(0==IRVarCmp(parentAssign.dst,baseAssign.dst))
-								if(0==IRVarCmp(parentAssign.src,baseAssign.src)) {
-										killedNodes=strGraphNodeMappingPSortedInsert(killedNodes, allMapNodes[n], (gnCmpType)ptrPtrCmp);
-										__auto_type irNode=*graphNodeMappingValuePtr(*graphNodeMappingValuePtr(allMapNodes[n]));
-										transparentKill(irNode, 0);
-										break;
-								}
-				}
-		}
-		
-		llDominatorsDestroy(&doms, NULL); //TODO
-		/*
-		mapCount assignPairs=mapCountCreate();
-		const char *pairFmt="%p-%li=%p-%li";
-		strGraphNodeMappingP allMapNodes CLEANUP(strGraphNodeMappingPDestroy)=graphNodeMappingAllNodes(map);
-		for(long n=0;n!=strGraphNodeMappingPSize(allMapNodes);n++) {
-				__auto_type dstNode=*graphNodeMappingValuePtr(allMapNodes[n]);
-				strGraphNodeIRP inAsn CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRIncomingNodes(dstNode);
-				__auto_type srcNode=inAsn[0];
-
-				struct IRVar *d=getVar(dstNode),*s=getVar(srcNode);
-				long len=snprintf(NULL, 0, pairFmt,  d->var,d->SSANum,s->var,s->SSANum);
-				char buffer[len+1];
-				sprintf(buffer, pairFmt,  d->var,d->SSANum,s->var,s->SSANum);
-
-		countLoop:;
-				__auto_type find=mapCountGet(assignPairs, buffer);
-				if(!find) {
-						mapCountInsert(assignPairs, buffer,0);
-						goto countLoop;
-				} else
-						++*find;
-		}
-
-		long count;		
-		mapCountKeys(assignPairs, NULL, &count);
-		const char *keys[count];
-		mapCountKeys(assignPairs, keys, NULL);
-
-		for(long k=0;k!=count;k++) {
-				
-		}
-		*/
-}
-void IRRemoveRepeatAssigns(graphNodeIR enter) {
-		removeFromDominatorTree(enter);
-
-		__auto_type allNodes = graphNodeIRAllNodes(enter);
-
-	strGraphNodeIRP toRemove = NULL;
-	for (long i = 0; i != strGraphNodeIRPSize(allNodes); i++) {
-		// If not a var,continue
-		if (!isVar(allNodes[i]))
-			continue;
-
-		// Check for assign
-		__auto_type outgoing = graphNodeIROutgoing(allNodes[i]);
-		__auto_type outgoingAssign = IRGetConnsOfType(outgoing, IR_CONN_DEST);
-		if (strGraphEdgeIRPSize(outgoingAssign) == 1) {
-			// Check if assigned to value
-			__auto_type out = graphEdgeIROutgoing(outgoingAssign[0]);
-			if (isVar(out)) {
-				// Compare if vars are equal
-				struct IRNodeValue *valIn, *valOut;
-				valIn = (void *)graphNodeIRValuePtr(allNodes[i]);
-				valOut = (void *)graphNodeIRValuePtr(out);
-
-				if (0 == IRVarCmp(&valIn->val.value.var, &valOut->val.value.var)) {
-					// Add first reference to variable(valIn) for removal
-					toRemove = strGraphNodeIRPAppendItem(toRemove, allNodes[i]);
-				}
-			}
-		}
-	}
-
-	//(Transparently) remove all items marked for removal
-	for (long i = 0; i != strGraphNodeIRPSize(toRemove); i++)
-		transparentKill(toRemove[i], 1);
-
-	// Remove removed
-	allNodes = strGraphNodeIRPSetDifference(allNodes, toRemove, (gnCmpType)ptrPtrCmp);
-
-	// Find duds(nodes that arent connected to conditionals or expressions)
-	strGraphNodeIRP duds = NULL;
-	for (long i = 0; i != strGraphNodeIRPSize(allNodes); i++) {
-		if (!isVar(allNodes[i]))
-			continue;
-
-		__auto_type incoming = graphNodeIRIncoming(allNodes[i]);
-		__auto_type outgoing = graphNodeIROutgoing(allNodes[i]);
-
-		// Check if exprssion incoming
-		int isUsedIn = 0;
-		for (long i = 0; i != strGraphEdgeIRPSize(incoming); i++) {
-			if (*graphEdgeIRValuePtr(incoming[i]) != IR_CONN_FLOW) {
-				isUsedIn = 1;
-				break;
-			}
-		}
-
-		// Check if expression outgoing,OR IF CONNECTED TO CONDTIONAL
-		int isUsedOut = 0;
-		for (long i = 0; i != strGraphEdgeIRPSize(outgoing); i++) {
-			if (*graphEdgeIRValuePtr(outgoing[i]) != IR_CONN_FLOW) {
-				isUsedOut = 1;
-				break;
-			}
-		}
-
-		// IF only flows incoimg/outgoing,node is useless to replace
-		if (!isUsedIn && !isUsedOut) {
-			duds = strGraphNodeIRPAppendItem(duds, allNodes[i]);
-		}
-	}
-
-	// Kill duds
-	for (long i = 0; i != strGraphNodeIRPSize(duds); i++) {
-		transparentKill(duds[i], 1);
-	}
-}
 static int IsInteger(struct object *obj) {
 	// Check if ptr
 	if (obj->type == TYPE_PTR || obj->type == TYPE_ARRAY)
@@ -822,39 +458,14 @@ struct interferencePair {
 	struct IRVar *var;
 	strIRVar inteferesWith;
 };
-static int isVarsChooseNode(const struct __graphNode *node, const struct interferencePair *pair) {
-	// Check if hit a choose node that "consumes" pair->var. Chooses mark the end
-	// of one version of a var and a transition to the next version
-	struct IRNode *value = graphNodeIRValuePtr((graphNodeIR)node);
-	if (value->type == IR_CHOOSE) {
-		struct IRNodeChoose *choose = (void *)value;
-		for (long i2 = 0; i2 != strGraphNodeIRPSize(choose->canidates); i2++) {
-			assert(isVar(choose->canidates[i2]));
-			struct IRNodeValue *val = (void *)graphNodeIRValuePtr(choose->canidates[i2]);
-			if (0 == IRVarCmp(&val->val.value.var, pair->var)) {
-				return 1;
-			}
+static int isVar(graphNodeIR node) {
+	if (graphNodeIRValuePtr(node)->type == IR_VALUE) {
+		// Is a variable
+		struct IRNodeValue *valOut = (void *)graphNodeIRValuePtr(node);
+		if (valOut->val.type == IR_VAL_VAR_REF) {
+			return 1;
 		}
 	}
-
-	return 0;
-}
-static int spillOrStoreAt(const struct __graphNode *node, const struct interferencePair *pair) {
-	// Check if hit a choose node that "consumes" pair->var. Chooses mark the end
-	// of one version of a var and a transition to the next version
-	struct IRNode *value = graphNodeIRValuePtr((graphNodeIR)node);
-	if (isVarsChooseNode(node, pair))
-		return 1;
-
-	// Check if hit a varaible that intereferes with pair->var
-	if (isVar((graphNodeIR)node)) {
-		strIRVar vars2 = pair->inteferesWith;
-		for (long i = 0; i != strIRVarSize(vars2); i++) {
-			struct IRNodeValue *val = (void *)graphNodeIRValuePtr((graphNodeIR)node);
-			return 0 == IRVarCmp(&val->val.value.var, vars2[i]);
-		}
-	}
-
 	return 0;
 }
 static int graphPathCmp(const strGraphEdgeIRP *a, const strGraphEdgeIRP *b) {
@@ -1183,74 +794,14 @@ void IRRegisterAllocate(graphNodeIR start, color2RegPredicate colorFunc, void *c
 	__varFiltPred = varFiltPred;
 	// SSA
 	__auto_type allNodes = graphNodeIRAllNodes(start);
-	removeChooseNodes(allNodes, start);
 	// debugShowGraphIR(start);
-	IRToSSA(start);
 	debugShowGraphIR(start);
 
 	strGraphNodeIRP allNodes2 CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRAllNodes(start);
-	strVarAliases refs CLEANUP(strVarAliasesDestroy)=IRCoalesce(allNodes2, start);
 	
-	strGraphNodeIRP visited CLEANUP(strGraphNodeIRPDestroy) = NULL;
-loop:
-	allNodes2 = strGraphNodeIRPSetDifference(allNodes2, visited, (gnCmpType)ptrPtrCmp);
-	visited = NULL;
-	for (long i = 0; i != strGraphNodeIRPSize(allNodes2); i++) {
-		visited = strGraphNodeIRPSortedInsert(visited, allNodes2[i], (gnCmpType)ptrPtrCmp);
-
-		if (graphNodeIRValuePtr(allNodes2[i])->type == IR_CHOOSE) {
-			// Can coalesce variables whoose choose nodes always point to same item
-			struct IRNodeChoose *choose = (void *)graphNodeIRValuePtr(allNodes2[i]);
-			__auto_type first = *getVar(choose->canidates[0]);
-			int allSame = 1;
-			for (long c = 1; c != strGraphNodeIRPSize(choose->canidates); c++) {
-				__auto_type can = *getVar(choose->canidates[c]);
-				if (0 != IRVarCmp(&first, &can))
-					allSame = 0;
-			}
-			if (allSame) {
-				transparentKill(allNodes2[i], 1);
-				allNodes2 = strGraphNodeIRPRemoveItem(allNodes2, allNodes2[i], (gnCmpType)ptrPtrCmp);
-				goto loop;
-			}
-
-			strGraphNodeIRP replaced CLEANUP(strGraphNodeIRPDestroy) = NULL;
-			IRSSAReplaceChooseWithAssigns(allNodes2[i], &replaced);
-
-			allNodes2 = strGraphNodeIRPSetDifference(allNodes2, replaced, (gnCmpType)ptrPtrCmp);
-			// debugShowGraphIR(start);
-			goto loop;
-		}
-	}
-
 	strGraphNodeIRPDestroy(&allNodes2);
 	allNodes2=graphNodeIRAllNodes(start);
-	for(long n=0;n!=strGraphNodeIRPSize(allNodes2);n++) {
-			struct IRNodeValue *val=(void*)graphNodeIRValuePtr(allNodes2[n]);
-			if(val->base.type!=IR_VALUE)
-					continue;
-			if(val->val.type!=IR_VAL_VAR_REF)
-					continue;
-			for(long blob=0;blob!=strVarAliasesSize(refs);blob++) {
-					__auto_type find=strVarSortedFind(refs[blob], *getVar(allNodes2[n]), IRVarCmp);
-					if(find) {
-							//Dont replace first occurance
-							if(0==IRVarCmp(&refs[blob][0], getVar(allNodes2[n])))
-									continue;
-							__auto_type replaceWith=IRCreateVarRef(refs[blob][0].var);
-							((struct IRNodeValue *)graphNodeIRValuePtr(replaceWith))->val.value.var.SSANum=refs[blob][0].SSANum;
-							replaceNodeWithExpr(allNodes2[n], replaceWith);
-							goto next;
-					}
-			}
-	next:;
-	}
-	for(long blob=0;blob!=strVarAliasesSize(refs);blob++)
-			strVarDestroy(&refs[blob]);
-	// Merge variables that can be merges
-	debugShowGraphIR(start);
 	allNodes = graphNodeIRAllNodes(start);
-	IRRemoveRepeatAssigns(start);
 	debugShowGraphIR(start);
 	
 	__auto_type intInterfere = IRInterferenceGraphFilter(start, NULL, filterIntVars);

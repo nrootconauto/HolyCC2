@@ -1,7 +1,6 @@
 #include <IR.h>
 #include <IRLiveness.h>
 #include <assert.h>
-#include <base64.h>
 #include <cleanup.h>
 //#define DEBUG_PRINT_ENABLE 1
 #include <basicBlocks.h>
@@ -60,7 +59,10 @@ static int filterVars(void *data, struct __graphNode *node) {
 	return 1;
 }
 static char *ptr2Str(const void *a) {
-	return base64Enc((void *)&a, sizeof(a));
+		long len=snprintf(NULL, 0, "%p", a);
+		char buffer[len+1];
+		sprintf(buffer, "%p", a);
+		return strcpy(malloc(len+1),buffer);
 }
 
 static void copyConnections(strGraphEdgeP in, strGraphEdgeP out) {

@@ -1,5 +1,4 @@
 #include <assert.h>
-#include <base64.h>
 #include <cleanup.h>
 #include <hashTable.h>
 #include <object.h>
@@ -42,7 +41,10 @@ static char *strClone(const char *str) {
 	return retVal;
 }
 static char *ptr2Str(const void *a) {
-	return base64Enc((void *)&a, sizeof(a));
+	long len =snprintf(NULL, 0, "%p", a);
+	char buffer[len+1];
+	sprintf(buffer, "%p", a);
+	return strClone(buffer);
 }
 /**
  * This function hashes an object,*it also assigns the hash to the object if it

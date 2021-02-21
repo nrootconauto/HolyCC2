@@ -1,6 +1,5 @@
 #include <IR.h>
 #include <assert.h>
-#include <base64.h>
 #include <cleanup.h>
 #include <exprParser.h>
 #include <stdarg.h>
@@ -39,10 +38,10 @@ int IRAttrGetPred(const void *key, const struct IRAttr *b) {
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
 static strChar ptr2Str(const void *a) {
-	__auto_type res = base64Enc((const char *)&a, sizeof(a));
-	__auto_type retVal = strCharAppendData(NULL, res, strlen(res) + 1);
-
-	return retVal;
+	long len =snprintf(NULL, 0, "%p", a);
+	char buffer[len+1];
+	sprintf(buffer, "%p", a);
+	return strCharAppendData(NULL, buffer, len+1);
 }
 static char *strClone(const char *text) {
 	char *retVal = malloc(strlen(text) + 1);
@@ -766,7 +765,7 @@ MAP_TYPE_DEF(int, LabelNum);
 MAP_TYPE_FUNCS(int, LabelNum);
 
 static char *IRValue2GraphVizLabel(struct IRValue *val) {
-	// Choose a label based on type
+		// Choose a label based on type
 	switch (val->type) {
 	case IR_VAL_FUNC: {
 		const char *name = val->value.func->name;
@@ -922,20 +921,6 @@ static char *IRCreateGraphVizNode(const struct __graphNode *node, mapGraphVizAtt
 		sprintf(buffer, format, val);
 
 		return strClone(buffer);
-	}
-	case IR_CHOOSE: {
-		makeGVDecisionNode(attrs);
-		strChar message CLEANUP(strCharDestroy) = NULL;
-		message = strCharAppendData(message, "CHOOSE", strlen("CHOOSE"));
-		struct IRNodeChoose *choose = (void *)graphNodeIRValuePtr(*graphNodeMappingValuePtr((graphNodeMapping)node));
-		for (long c = 0; c != strGraphNodeIRPSize(choose->canidates); c++) {
-			char *msg = IRValue2GraphVizLabel(&((struct IRNodeValue *)graphNodeIRValuePtr(choose->canidates[c]))->val);
-			message = strCharAppendItem(message, ',');
-			message = strCharAppendData(message, msg, strlen(msg));
-			free(msg);
-		}
-		message = strCharAppendItem(message, '\0');
-		return strClone(message);
 	}
 	case IR_COND_JUMP:
 		makeGVDecisionNode(attrs);
@@ -1354,31 +1339,6 @@ static graphNodeIR __cloneNode(ptrMapGraphNode mappings, graphNodeIR node, enum 
 		ptrMapGraphNodeAdd(mappings, node, newNode);
 
 		return newNode;
-	}
-	case IR_CHOOSE: {
-		__auto_type nodeValue = (struct IRNodeChoose *)graphNodeIRValuePtr(node);
-
-		struct IRNodeChoose choose;
-		choose.base.attrs = NULL;
-		choose.base.type = IR_CHOOSE;
-		choose.canidates = strGraphNodeIRPClone(nodeValue->canidates);
-		__auto_type retVal = GRAPHN_ALLOCATE(choose);
-
-		// Quit if we are at where we want to be
-		if (IR_CLONE_UP_TO) {
-			// Check if we are to stop at node
-			if (NULL != strGraphNodeIRPSortedFind((strGraphNodeIRP)data, node, (gnIRCmpType)ptrPtrCmp))
-				return retVal;
-		}
-
-		// Copy connections
-
-		__cloneNodeCopyConnections(mappings, node, retVal, mode, data);
-
-		// Register node
-		ptrMapGraphNodeAdd(mappings, node, retVal);
-
-		return retVal;
 	}
 	case IR_ADD:
 	case IR_VALUE:

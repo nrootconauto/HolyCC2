@@ -1,4 +1,3 @@
-#include <base64.h>
 #include <debugPrint.h>
 #include <hashTable.h>
 #include <string.h>
@@ -6,7 +5,10 @@ MAP_TYPE_DEF(char *, Str);
 MAP_TYPE_FUNCS(char *, Str);
 static mapStr ptrNames = NULL;
 static char *ptr2Str(const void *ptr) {
-	return base64Enc((void *)&ptr, sizeof(ptr));
+		long len=snprintf(NULL, 0, "%p", ptr);
+		char buffer[len+1];
+		snprintf(buffer, len+1, "%p", ptr);
+		return strcpy(malloc(len+1), buffer);
 }
 void initDebugPrint();
 void initDebugPrint() {

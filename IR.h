@@ -225,8 +225,6 @@ enum IRNodeType {
 	IR_EQ,
 	IR_NE,
 	//
-	IR_CHOOSE,
-	//
 	IR_COND_JUMP,
 	IR_JUMP_TAB,
 	//

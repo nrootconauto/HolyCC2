@@ -1,5 +1,4 @@
 #include <assert.h>
-#include <base64.h>
 #include <cleanup.h>
 #include <debugPrint.h>
 #include <escaper.h>
@@ -342,9 +341,7 @@ int __graphIsConnectedTo(const struct __graphNode *from, const struct __graphNod
 	}
 	return 0;
 }
-static char *ptr2Str(const void *a) {
-	return base64Enc((void *)&a, sizeof(a));
-}
+static char *ptr2Str(const void *a);
 PTR_MAP_DEF(GNMapping);
 PTR_MAP_FUNCS(struct __graphNode *, graphNodeMapping, GNMapping);
 static void ptrMapGNMappingDestroy2(ptrMapGNMapping *mapping) {
@@ -663,6 +660,12 @@ static char *strClone(const char *text) {
 	strcpy(retVal, text);
 
 	return retVal;
+}
+static char *ptr2Str(const void *ptr) {
+		long len =snprintf(NULL, 0, "%p", ptr);
+		char buffer[len+1];
+		sprintf(buffer, "%p", ptr);
+		return strClone(buffer);
 }
 struct graphVizEdge {
 	//

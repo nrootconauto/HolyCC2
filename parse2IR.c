@@ -1,6 +1,5 @@
 #include <IR.h>
 #include <assert.h>
-#include <base64.h>
 #include <cleanup.h>
 #include <exprParser.h>
 #include <hashTable.h>

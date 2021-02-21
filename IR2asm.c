@@ -897,6 +897,7 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	}
 	strGraphNodeIRPDestroy(&nodes);
 
+	debugShowGraphIR(start);
 	IRRemoveNeverFlows(start);
 	IRInsertImplicitTypecasts(start);
 	debugShowGraphIR(start);
@@ -1089,9 +1090,9 @@ void IRCompile(graphNodeIR start, int isFunc) {
 		asmAssign(bp, sp, ptrSize(),0);
 	}
 	// This computes calling information for the ABI
-	// debugShowGraphIR(start);
+	debugShowGraphIR(start);
 	IRComputeABIInfo(start);
-	// debugShowGraphIR(start);
+	debugShowGraphIR(start);
 
 	if(!isFunc) {
 			// Add to stack pointer to make room for locals
@@ -1102,6 +1103,7 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	}
 
 	{
+			debugShowGraphIR(start);
 			strGraphNodeIRP inserted CLEANUP(strGraphNodeIRPDestroy) = insertLabelsForAsm(regAllocedNodes);
 		inserted = strGraphNodeIRPSetUnion(nodes, inserted, (gnCmpType)ptrPtrCmp);
 		debugShowGraphIR(start);
@@ -2701,10 +2703,6 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(nodeDest(start));
 		assembleOpCmp(start, "NE");
 		return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
-	}
-	case IR_CHOOSE: {
-		fprintf(stderr, "Remove choose nodes with IRSSAReplaceChooseWithAssigns before calling me!\n");
-		assert(0);
 	}
 	case IR_COND_JUMP: {
 		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(start);
