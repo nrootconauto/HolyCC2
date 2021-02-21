@@ -1546,6 +1546,7 @@ static graphNodeIR assembleOpPtrArith(graphNodeIR start) {
 				struct objectArray *arr=(void*)aMode->valueType;
 				scale=objectSize(arr->type, NULL);
 		}
+		int sub=graphNodeIRValuePtr(start)->type==IR_SUB;
 		switch(scale) {
 		case 1:
 		case 2:
@@ -1580,9 +1581,13 @@ static graphNodeIR assembleOpPtrArith(graphNodeIR start) {
 						asmAssign(indexRegMode, bMode , ptrSize() , 0 );
 				AUTO_LOCK_MODE_REGS(indexRegMode);
 
-				__auto_type tmpReg=regForTypeExcludingConsumed(IRNodeType(out));
-				struct X86AddressingMode *tmpRegMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(tmpReg);
+				if(sub) {
+						strX86AddrMode negArgs CLEANUP(strX86AddrModeDestroy)=strX86AddrModeAppendItem(NULL, indexRegMode);
+						assembleInst("NEG", negArgs);
+				}
 				
+				__auto_type tmpReg=regForTypeExcludingConsumed(IRNodeType(out));
+				struct X86AddressingMode *tmpRegMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(tmpReg);				
 				pushReg(tmpReg);
 				strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 				leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeReg(tmpReg));
@@ -1590,7 +1595,13 @@ static graphNodeIR assembleOpPtrArith(graphNodeIR start) {
 				assembleInst("LEA", leaArgs);
 				asmAssign(oMode, tmpRegMode, ptrSize(), 0);
 				popReg(tmpReg);
-						
+
+				//Restore register to original value(if we didnt already push the old value which we will restored)
+				if(sub&&!pushIndex) {
+						strX86AddrMode negArgs CLEANUP(strX86AddrModeDestroy)=strX86AddrModeAppendItem(NULL, indexRegMode);
+						assembleInst("NEG", negArgs);
+				}
+
 				if(pushIndex)
 						popReg(indexReg);
 				if(pushBase)
@@ -1607,7 +1618,7 @@ static graphNodeIR assembleOpPtrArith(graphNodeIR start) {
 				
 				strX86AddrMode imul2Args CLEANUP(strX86AddrModeDestroy2)=NULL;
 				imul2Args=strX86AddrModeAppendItem(imul2Args, X86AddrModeReg(tmpReg));
-				imul2Args=strX86AddrModeAppendItem(imul2Args, X86AddrModeSint(scale));
+				imul2Args=strX86AddrModeAppendItem(imul2Args, X86AddrModeSint(scale*(sub?-1:1)));
 				assembleInst("IMUL2", imul2Args);
 				
 				strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
