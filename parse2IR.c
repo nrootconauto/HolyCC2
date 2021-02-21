@@ -113,8 +113,8 @@ static struct enterExit insSrcMapping(long start,long end,struct enterExit pair)
 		return pair;
 }
 static struct enterExit insSrcMappingsForBody(struct parserNode *node,struct enterExit pair) {
-		if(node->type==NODE_BINOP||node->type==NODE_UNOP)
-				insSrcMapping(node->pos.start, node->pos.end, pair);
+		if(node->type==NODE_BINOP||node->type==NODE_UNOP||node->type==NODE_FUNC_CALL||node->type==NODE_VAR_DECLS||node->type==NODE_VAR_DECL)
+				return insSrcMapping(node->pos.start, node->pos.end, pair);
 		return pair;
 }
 static struct IRGenScopeStack *IRGenScopePush(enum scopeType type) {
@@ -130,11 +130,10 @@ static void IRGenScopePop(enum scopeType type) {
 }
 
 static strChar ptr2Str(const void *a) {
-	__auto_type res = base64Enc((const char *)&a, sizeof(a));
-	__auto_type retVal = strCharAppendData(NULL, res, strlen(a) + 1);
-	free(res);
-
-	return retVal;
+		long len=snprintf(NULL, 0, "%p", a);
+		char buffer[len+1];
+		sprintf(buffer, "%p", a);
+		return strCharAppendData(NULL, buffer, len+1);
 }
 static strChar strClone(const char *str) {
 	strChar buffer = strCharResize(NULL, strlen(str) + 1);
@@ -901,7 +900,6 @@ static struct enterExit varDecl2IR(const struct parserNode *node) {
 					retVal.enter = IRStmtStart(dft);
 			}
 	}
-	retVal=insSrcMapping(node->pos.start, node->pos.end, retVal);
 	
 	return retVal;
 }
@@ -1350,7 +1348,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 				top = body.enter;
 			else
 				graphNodeIRConnect(bottom, body.enter, IR_CONN_FLOW); // Bottom is old exit
-
+			
 			bottom = body.exit;
 		}
 
