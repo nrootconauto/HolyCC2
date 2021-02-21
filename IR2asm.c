@@ -1537,14 +1537,19 @@ static graphNodeIR assembleOpPtrArith(graphNodeIR start) {
 		struct X86AddressingMode *aMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(a);
 		struct X86AddressingMode *bMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(b);
 		struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(out);
+	swapLoop:;
 		long scale=0;
 		if(aMode->valueType->type==TYPE_PTR) {
 				struct objectPtr *ptr=(void*)aMode->valueType;
 				scale=objectSize(ptr->type, NULL);
-		}
-		if(aMode->valueType->type==TYPE_ARRAY) {
+		} else if(aMode->valueType->type==TYPE_ARRAY) {
 				struct objectArray *arr=(void*)aMode->valueType;
 				scale=objectSize(arr->type, NULL);
+		} else {
+				__auto_type tmp=aMode;
+				aMode=bMode;
+				bMode=tmp;
+				goto swapLoop;
 		}
 		int sub=graphNodeIRValuePtr(start)->type==IR_SUB;
 		switch(scale) {

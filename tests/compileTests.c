@@ -520,7 +520,7 @@ void compileTests() {
 						"    assertEq(b[0][0],1);\n"
 						"    assertEq(b[0][1],2);\n"
 						"    I32i *c=&b[0][1];\n"
-						"    *(c-1)=3;\n"
+						"    *(-1+c)=3;\n"
 						"    assertEq(b[0][0],3);\n"
 						"}\n"
 						putY
