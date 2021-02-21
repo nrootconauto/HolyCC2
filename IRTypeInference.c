@@ -109,20 +109,22 @@ struct object *__IRNodeType(graphNodeIR node) {
 			struct IRNodeArrayDecl *decl=(void*)nodeVal;
 			return decl->itemType;
 	} else if (nodeVal->base.type == IR_VALUE) {
-			if(nodeVal->val.type==IR_VAL_FLT_LIT) {
+			if(nodeVal->val.type==IR_VAL_STR_LIT) {
+					return objectPtrCreate(&typeU8i);
+			} else if(nodeVal->val.type==IR_VAL_FLT_LIT) {
 					return &typeF64;
 			}else if (nodeVal->val.type == __IR_VAL_MEM_GLOBAL) {
-			return nodeVal->val.value.__global.symbol->type;
-		} else if (nodeVal->val.type == IR_VAL_REG) {
-			return nodeVal->val.value.reg.type;
-		} else if (nodeVal->val.type == IR_VAL_VAR_REF) {
-			return nodeVal->val.value.var.var->type;
-		} else if (nodeVal->val.type == __IR_VAL_MEM_FRAME) {
-			return nodeVal->val.value.__frame.type;
-		} else if (nodeVal->val.type == IR_VAL_FUNC) {
+					return nodeVal->val.value.__global.symbol->type;
+			} else if (nodeVal->val.type == IR_VAL_REG) {
+					return nodeVal->val.value.reg.type;
+			} else if (nodeVal->val.type == IR_VAL_VAR_REF) {
+					return nodeVal->val.value.var.var->type;
+			} else if (nodeVal->val.type == __IR_VAL_MEM_FRAME) {
+					return nodeVal->val.value.__frame.type;
+			} else if (nodeVal->val.type == IR_VAL_FUNC) {
 					return nodeVal->val.value.func->type;
 			}  else if (nodeVal->val.type == IR_VAL_INT_LIT) {
-			int dataSize2 = dataSize();
+					int dataSize2 = dataSize();
 		dataSizeLoop:;
 			switch (dataSize2) {
 			case 1:
@@ -169,7 +171,7 @@ struct object *__IRNodeType(graphNodeIR node) {
 	case IR_LT:
 	case IR_EQ:
 	case IR_NE:
-			return &typeBool;
+			return &typeU8i;
 	default:;
 	}
 	
@@ -209,6 +211,13 @@ struct object *__IRNodeType(graphNodeIR node) {
 			return mems->members[strObjectMemberSize(mems->members) - 1].type;
 		}
 		return aType;
+	} else if(graphNodeIRValuePtr(node)->type==IR_FUNC_CALL) {
+			struct IRNodeFuncCall *call=(void*)graphNodeIRValuePtr(node);
+			strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(node);
+			strGraphEdgeIRP func CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in,IR_CONN_FUNC);
+			__auto_type funcType=objectBaseType(IRNodeType(graphEdgeIRIncoming(func[0])));
+			assert(funcType->type==TYPE_FUNCTION);
+			return ((struct objectFunction*)funcType)->retType;
 	}
 	return NULL;
 }

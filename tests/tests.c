@@ -32,38 +32,6 @@ void asmEmitterTests();
 void compileTests();
 int main() {
 		init();
-		//SSATests();
-		//registerAllocatorTests();
 		compileTests();
-		//		asmEmitterTests();
-		/*
-				X86OpcodesTests();
-				parserTests();
-				basicBlockTests();
-				IEEE754Tests();
-				strTests();
-				preprocessorTests();
-				base64Tests();
-				graphTests();
-				graphDominanceTests();
-				llTests();
-				mapTests();
-				strTests();
-				subGraphTests();
-				lexerTests();
-				parserDiagTests();
-				topoSortTests();
-				LivenessTests();
-				//subExprElimTests();
-				//graphVizTests();
-				graphColoringTests();
-				ptrMapTests();
-				SSATests();
-				//IRFilterTests();
-				IRTypeInferenceTests();
-				constantPropigationTests();
-				frameLayoutTests();
-				parse2IRTests();
-		*/
-	return 0;
+		return 0;
 }

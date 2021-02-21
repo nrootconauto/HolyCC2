@@ -657,6 +657,7 @@ static graphNodeIR parserNode2Expr(const struct parserNode *node) {
 			struct IRNodeValue val;
 			val.base.attrs = NULL;
 			val.base.type = IR_VALUE;
+			val.val.type=IR_VAL_STR_LIT;
 			val.val.value.strLit = __vecAppendItem( NULL,  str->str.text, __vecSize(str->str.text));
 			__auto_type retVal = GRAPHN_ALLOCATE(val);
 			return retVal;

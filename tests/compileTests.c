@@ -503,7 +503,7 @@ void compileTests() {
 				free(asmF);	
 				free(source);
 				}*/
-		{
+		/*{
 				const char *text=
 						"U0 assertEq(I32i a,I32i b) {\n"
 						"    if(a!=b) {\n"
@@ -530,6 +530,30 @@ void compileTests() {
 				compileFile(source, asmF);				runTest(asmF,"y");
 				free(asmF);	
 				free(source);
+				}*/
+				{
+						const char *text=
+								"I32i StrNCmp(U8i *str1,U8i *str2,I32i n) {\n"
+								"    for(I32i c=0;c!=n;c=c+1) {\n"
+								"        if(str1[c]!=str2[c]) return str1[c]-str2[c];"
+								"    }\n"
+								"    return 0;"
+								"}\n"
+								"U0 assertEq(I32i a,I32i b) {\n"
+								"    if(a!=b) {\n"
+								"         asm {\n"
+								exitStr
+								"         }\n"
+								"    }\n"
+								"}\n"
+								"assertEq(StrNCmp(\"AB\",\"AB\",2),0);\n"
+								putY
+								exitStr;
+						char *source=text2File(text);
+						char *asmF=strDup(tmpnam(NULL));
+						compileFile(source, asmF);				runTest(asmF,"y");
+						free(asmF);	
+						free(source);
 				}
 		/*
 			*/

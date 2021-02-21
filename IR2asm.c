@@ -985,11 +985,12 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	case ARCH_X64_SYSV:;
 	}
 
-	debugShowGraphIR(start);
 	IRInsertNodesBetweenExprs(start, NULL, NULL);
-	IRRegisterAllocate(start, NULL, NULL, isNotNoreg, noregs);
+		debugShowGraphIR(start);
+		IRRegisterAllocate(start, NULL, NULL, isNotNoreg, noregs);
 
 	if(allocateX87fpuRegs) {
+debugShowGraphIR(start);
 			IRRegisterAllocateX87(start);
 			debugShowGraphIR(start);
 	}
@@ -1742,7 +1743,11 @@ static graphNodeIR assembleOpInt(graphNodeIR start, const char *opName) {
 	struct X86AddressingMode *bMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(b);
 	AUTO_LOCK_MODE_REGS(bMode);
 	struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(out);
+	AUTO_LOCK_MODE_REGS(oMode);
 	int hasReg = isReg(a) || isReg(b);
+	
+	if(0==strcmp(opName, "IMUl2"))
+			goto imul2;
 	if (hasReg && out) {
 		// Load a into out then OP DEST,SRC as DEST=DEST OP SRC if sizeof(DEST)==sizeof(a)
 		long oSize = objectSize(IRNodeType(out), NULL);
@@ -1774,6 +1779,8 @@ static graphNodeIR assembleOpInt(graphNodeIR start, const char *opName) {
 		opArgs = strX86AddrModeAppendItem(opArgs, X86AddrModeClone(bMode));
 		assembleInst(opName, opArgs);
 	} else if (out && !hasReg) {
+	//imul2 must take register as  first arguemnt(which happens here)
+	imul2:;
 		long oSize = objectSize(IRNodeType(out), NULL);
 		long aSize = objectSize(IRNodeType(a), NULL);
 		long bSize = objectSize(IRNodeType(b), NULL);

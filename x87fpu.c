@@ -111,6 +111,8 @@ static void exprRecur(graphNodeIR start,ptrMapRefCount refCounts,int parentIsFpu
 								X87FpuPopReg(varRef);
 						}
 				}
+				if(objectBaseType(IRNodeType(start))!=&typeF64)
+						return;
 				goto output;
 		} else if(graphNodeIRValuePtr(start)->type!=IR_VALUE) {
 				int isTypecastFromF64=0;
