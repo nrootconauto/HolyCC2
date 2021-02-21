@@ -1534,6 +1534,89 @@ static graphNodeIR assembleOpPtrArith(graphNodeIR start) {
 		struct X86AddressingMode *aMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(a);
 		struct X86AddressingMode *bMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(b);
 		struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(out);
+		if(graphNodeIRValuePtr(start)->type==IR_SUB) {
+				if(isPtrNode(a)&&isPtrNode(b)) {
+						//Is checking the distance in items between 2 pointers.
+						long scale=0;
+						if(aMode->valueType->type==TYPE_PTR) {
+								struct objectPtr *ptr=(void*)aMode->valueType;
+								scale=objectSize(ptr->type, NULL);
+						} else if(aMode->valueType->type==TYPE_ARRAY) {
+								struct objectArray *arr=(void*)aMode->valueType;
+								scale=objectSize(arr->type, NULL);
+						}
+						{
+								AUTO_LOCK_MODE_REGS(aMode);
+								AUTO_LOCK_MODE_REGS(bMode);
+								AUTO_LOCK_MODE_REGS(oMode);
+								__auto_type tmpReg=regForTypeExcludingConsumed(getTypeForSize(ptrSize()));
+								pushReg(tmpReg);
+								struct X86AddressingMode *tmpRegMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(tmpReg);
+								asmAssign(tmpRegMode, aMode, ptrSize(), 0);
+								strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+								addArgs=strX86AddrModeAppendItem(addArgs,X86AddrModeReg(tmpReg));
+								addArgs=strX86AddrModeAppendItem(addArgs,X86AddrModeClone(bMode));
+								assembleInst("SUB", addArgs);
+
+								long shift=3;
+								switch(scale) {
+								case 1:
+										asmAssign(oMode, tmpRegMode, ptrSize(), 0);
+										break;
+								case 2:
+										shift=1;
+										goto shift;
+								case 4:
+										shift=2;
+										goto shift;
+								case 8:
+										shift=3;
+										goto shift;
+								shift: {
+												strX86AddrMode sarArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+												sarArgs=strX86AddrModeAppendItem(sarArgs,X86AddrModeReg(tmpReg));
+												sarArgs=strX86AddrModeAppendItem(sarArgs,X86AddrModeSint(shift));
+												assembleInst("SAR",  sarArgs);
+												asmAssign(oMode, tmpRegMode, ptrSize(), 0);
+												break;
+										}
+								default: {
+										__auto_type rdx=subRegOfType(&regAMD64RDX, getTypeForSize(ptrSize()));
+										__auto_type rax=subRegOfType(&regAMD64RAX, getTypeForSize(ptrSize()));
+										//Make room for dummy value
+										pushReg(rdx);
+										pushReg(rdx);
+										pushReg(rax);
+										struct X86AddressingMode *raxMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(rax);
+										struct X86AddressingMode *scaleMode CLEANUP(X86AddrModeDestroy)=X86AddrModeSint(scale);
+										//rax=tmpReg
+										//tmpReg=scale
+										//IDIV tmpReg
+										//mov [ESP+2*ptrSize],rax
+										asmAssign(raxMode, tmpRegMode, ptrSize(), 0);
+										
+										strX86AddrMode idivArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+										idivArgs=strX86AddrModeAppendItem(idivArgs,X86AddrModeReg(tmpReg));
+										assembleInst("IDIV", idivArgs);
+
+										struct X86AddressingMode *dummyLoc CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(2*ptrSize()), objectPtrCreate(&typeU0));
+										asmAssign(dummyLoc, raxMode, ptrSize(), 0);
+										
+										popReg(rax);
+										popReg(rdx);
+
+										//Pop dummy location
+										popReg(tmpReg);
+										asmAssign(oMode, tmpRegMode, ptrSize(), 0);
+										break;
+								}
+								}
+								popReg(tmpReg);
+						}
+						return out;
+				}
+		}
+		
 	swapLoop:;
 		long scale=0;
 		if(aMode->valueType->type==TYPE_PTR) {
@@ -1722,18 +1805,19 @@ static graphNodeIR assembleOpIntLogical(graphNodeIR start, const char *suffix) {
 	return out;
 }
 static graphNodeIR assembleOpInt(graphNodeIR start, const char *opName) {
+		graphNodeIR a, b, out = nodeDest(start);
+		binopArgs(start, &a, &b);
 		switch(graphNodeIRValuePtr(start)->type) {
 		case IR_ADD:
 		case IR_SUB: {
+				
 				__auto_type  type=objectBaseType(IRNodeType(start));
-				if(type->type==TYPE_ARRAY||type->type==TYPE_PTR) {
+				if(type->type==TYPE_ARRAY||type->type==TYPE_PTR||(isPtrNode(a)&&isPtrNode(b))) {
 						return assembleOpPtrArith(start);
 				}
 		}
 		default:;
 		}
-		graphNodeIR a, b, out = nodeDest(start);
-	binopArgs(start, &a, &b);
 	struct X86AddressingMode *aMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(a);
 	AUTO_LOCK_MODE_REGS(aMode);
 	struct X86AddressingMode *bMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(b);

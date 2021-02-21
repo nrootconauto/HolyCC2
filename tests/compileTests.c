@@ -559,7 +559,9 @@ void compileTests() {
 								"    }\n"
 								"}\n"
 								"assertEq(StrNCmp(\"AB\",\"AB\",2),0);\n"
-								"putC('y');\n"
+								"I32i *a=0;\n"
+								"I32i *b=8;\n"
+								"if(b-a==2) putC('y');\n"
 								exitStr;
 						char *source=text2File(text);
 						char *asmF=strDup(tmpnam(NULL));
