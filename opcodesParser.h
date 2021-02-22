@@ -112,3 +112,19 @@ struct X86AddressingMode *X86AddrModeIndirLabel(const char *text, struct object 
 struct X86AddressingMode *X86AddrModeStr(const char *text,long len);
 struct X86AddressingMode *X86AddrModeGlblVar(struct parserVar *var);
 struct X86AddressingMode *X86AddrModeFunc(struct parserFunction *func);
+int opcodeTemplateArgAcceptsAddrMode(const struct opcodeTemplateArg *arg, const struct X86AddressingMode *mode);
+STR_TYPE_DEF(uint8_t, OpcodeBytes);
+STR_TYPE_FUNCS(uint8_t, OpcodeBytes);
+struct opcodeTemplate {
+	strOpcodeBytes bytes;
+	strOpcodeTemplateArg args;
+	char *name;
+	char *intelAlias;
+	unsigned int needsREX : 1;
+	unsigned int usesSTI : 1;
+	unsigned int notIn64mode : 1;
+	unsigned int addRegNum : 1;
+	unsigned int modRMReg : 1;
+	unsigned int modRMExt : 3;
+};
+long opcodeTemplateArgSize(struct opcodeTemplateArg arg);

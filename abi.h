@@ -6,6 +6,8 @@
 extern void *IR_ATTR_ABI_INFO;
 struct IRAttrABIInfo {
 		struct IRAttr base;
+		strRegP liveIn;
+		strRegP liveOut;
 		strRegP toPushPop;
 };
 void IR2ABI_i386(graphNodeIR start);

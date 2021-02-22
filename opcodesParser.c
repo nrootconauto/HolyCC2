@@ -10,26 +10,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <str.h>
-STR_TYPE_DEF(uint8_t, OpcodeBytes);
-STR_TYPE_FUNCS(uint8_t, OpcodeBytes);
 #define ALLOCATE(item)                                                                                                                                             \
 	({                                                                                                                                                               \
 		typeof(item) *ptr = malloc(sizeof(item));                                                                                                                      \
 		*ptr = item;                                                                                                                                                   \
 		ptr;                                                                                                                                                           \
 	})
-struct opcodeTemplate {
-	strOpcodeBytes bytes;
-	strOpcodeTemplateArg args;
-	char *name;
-	char *intelAlias;
-	unsigned int needsREX : 1;
-	unsigned int usesSTI : 1;
-	unsigned int notIn64mode : 1;
-	unsigned int addRegNum : 1;
-	unsigned int modRMReg : 1;
-	unsigned int modRMExt : 3;
-};
 const char *opcodeTemplateName(struct opcodeTemplate *template) {
 	return template->name;
 };
@@ -512,7 +498,7 @@ static int sizeMatchSigned(const struct X86AddressingMode *mode, long size) {
 	}
 	return 0;
 }
-static int templateAcceptsAddrMode(const struct opcodeTemplateArg *arg, const struct X86AddressingMode *mode) {
+int opcodeTemplateArgAcceptsAddrMode(const struct opcodeTemplateArg *arg, const struct X86AddressingMode *mode) {
 	switch (arg->type) {
 	case OPC_TEMPLATE_ARG_M16:
 		if (mode->type == X86ADDRMODE_MEM || mode->type == X86ADDRMODE_ITEM_ADDR) {
@@ -664,7 +650,7 @@ static int imcompatWithArgs(const strX86AddrMode args, struct opcodeTemplate **t
 	if (strOpcodeTemplateArgSize(template[0] -> args) != strX86AddrModeSize(args))
 		return 1;
 	for (long i = 0; i != strX86AddrModeSize(args); i++)
-		if (!templateAcceptsAddrMode(&template[0] -> args[i], args[i]))
+		if (!opcodeTemplateArgAcceptsAddrMode(&template[0] -> args[i], args[i]))
 			return 1;
 	return 0;
 }
@@ -736,7 +722,7 @@ struct sizeTypePair {
 	long size;
 	struct object *type;
 };
-static long templateOperandSize(struct opcodeTemplateArg arg) {
+long opcodeTemplateArgSize(struct opcodeTemplateArg arg) {
 	long operandSize;
 	switch (arg.type) {
 	case OPC_TEMPLATE_ARG_SREG:
@@ -793,9 +779,9 @@ static strOpcodeTemplate assumeTypes(strOpcodeTemplate templates, strX86AddrMode
 	long operandSize = -1;
 	for (long i = 0; i != strX86AddrModeSize(args); i++) {
 		// Only assume type if the templates can't agree on a size for args[o]
-		long firstSize = templateOperandSize(templates[0]->args[i]);
+		long firstSize = opcodeTemplateArgSize(templates[0]->args[i]);
 		for (long t = 1; t < strOpcodeTemplateSize(templates); t++) {
-			if (firstSize != templateOperandSize(templates[t]->args[i]))
+			if (firstSize != opcodeTemplateArgSize(templates[t]->args[i]))
 				goto ambiguous;
 		}
 		continue;
@@ -876,7 +862,7 @@ strOpcodeTemplate X86OpcodesByArgs(const char *name, strX86AddrMode args, int *a
 	strLong argSizes CLEANUP(strLongDestroy) = strLongResize(NULL, strX86AddrModeSize(args));
 	for (long t = 0; t != strOpcodeTemplateSize(unambigTemplates); t++) {
 		for (long a = 0; a != strOpcodeTemplateArgSize(unambigTemplates[t]->args); a++) {
-			long operandSize = templateOperandSize(unambigTemplates[t]->args[a]);
+			long operandSize = opcodeTemplateArgSize(unambigTemplates[t]->args[a]);
 			if(operandSize==-1)
 					continue;
 			if (t == 0)

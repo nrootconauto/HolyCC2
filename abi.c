@@ -208,7 +208,9 @@ static void findRegisterLiveness(graphNodeIR start) {
 		info.base.name = IR_ATTR_ABI_INFO;
 		info.base.destroy = IRAttrABIInfoDestroy;
 		info.toPushPop = conflicts;
-
+		info.liveIn=NULL;
+		info.liveOut=NULL;
+		
 		llIRAttr infoAttr = __llCreate(&info, sizeof(info));
 		call->base.attrs = llIRAttrInsert(call->base.attrs, infoAttr, IRAttrInsertPred);
 	}
