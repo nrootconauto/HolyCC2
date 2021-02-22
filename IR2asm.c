@@ -971,7 +971,6 @@ void asmAssign(struct X86AddressingMode *a, struct X86AddressingMode *b, long si
 		leaArgs1 = strX86AddrModeAppendItem(leaArgs1, X86AddrModeReg(storeA));
 		leaArgs1 = strX86AddrModeAppendItem(leaArgs1, X86AddrModeClone(a));
 		leaArgs1[1]->valueType = NULL;
-		assembleInst("LEA", leaArgs1);
 		assembleOpcode(NULL,"LEA",leaArgs1);
 		strX86AddrMode leaArgs2 CLEANUP(strX86AddrModeDestroy2) = NULL;
 		leaArgs2 = strX86AddrModeAppendItem(leaArgs2, X86AddrModeReg(storeB));
