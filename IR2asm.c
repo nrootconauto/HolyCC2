@@ -3067,7 +3067,10 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		}
 
 		//IF out of bounds of jump table,go to defualt
-		assembleOpCmp(start);
+		strX86AddrMode cmpArgs1 CLEANUP(strX86AddrModeDestroy2) = NULL;
+		cmpArgs1 = strX86AddrModeAppendItem(cmpArgs1, X86AddrModeClone(inMode));
+		cmpArgs1 = strX86AddrModeAppendItem(cmpArgs1, X86AddrModeSint(smallest));
+		assembleOpcode(NULL,"CMP", cmpArgs1);
 		
 		strX86AddrMode jmpDftArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
 		jmpDftArgs = strX86AddrModeAppendItem(jmpDftArgs, IRNode2AddrMode(dftNode));
