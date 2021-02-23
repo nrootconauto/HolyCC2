@@ -271,12 +271,16 @@ void IRInsertImplicitTypecasts(graphNodeIR start) {
 						}
 						
 						struct object *toType=IRNodeType(exprNodes[e]);
+
+						__auto_type exprType=graphNodeIRValuePtr(exprNodes[e])->type;
+						if(exprType==IR_ADDR_OF||exprType==IR_MEMBERS||exprType==IR_MEMBERS_ADDR_OF)
+								continue;
 						
 						//If an array decl,typecast to defuault value type
 						if(graphNodeIRValuePtr(exprNodes[e])->type==IR_ARRAY_DECL) {
 								toType=&typeI32i;
 						}
-
+						
 						//If is a compare type,typecast to first argument
 						switch(graphNodeIRValuePtr(exprNodes[e])->type) {
 						case IR_GT:
@@ -340,12 +344,16 @@ void IRInsertImplicitTypecasts(graphNodeIR start) {
 						}
 						
 						for(long i=0;i!=strGraphEdgeIRPSize(in);i++) {
-								__auto_type inNode=graphEdgeIRIncoming(in[i]);
-								if(toType==IRNodeType(inNode))
-										continue;
 								__auto_type edgeValue=*graphEdgeIRValuePtr(in[i]);
+								struct object *toType2=toType;
+								if(edgeValue==IR_CONN_ASSIGN_FROM_PTR)
+										toType2=objectPtrCreate(toType);
 								
-								__auto_type tc=IRCreateTypecast(inNode, IRNodeType(inNode), toType);
+								__auto_type inNode=graphEdgeIRIncoming(in[i]);
+								if(toType2==IRNodeType(inNode))
+										continue;
+								
+								__auto_type tc=IRCreateTypecast(inNode, IRNodeType(inNode), toType2);
 								graphNodeIRConnect(tc,exprNodes[e], edgeValue);
 								graphEdgeIRKill(inNode, exprNodes[e], NULL, NULL, NULL);
 						}

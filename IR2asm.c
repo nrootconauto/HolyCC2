@@ -188,7 +188,7 @@ void IR2AsmInit() {
  * These are the consumed registers for the current operation,doesn't
  * include registers for variables
  */
-static __thread strRegP consumedRegisters = NULL;
+static strRegP consumedRegisters = NULL;
 strChar uniqueLabel(const char *head) {
 	if (!head)
 		head = "";
@@ -499,14 +499,11 @@ static int ifInLive(const void *livenessInfo,const struct reg **r) {
 		for(long c=0;c!=strRegPSize(consumedRegisters);c++)
 				if(regConflict(consumedRegisters[c], (struct reg*)*r))
 						return 1;
+		if(!live)
+				return 0;
 		
 		for(long i=0;i!=strRegPSize(live->liveIn);i++) {
 				if(regConflict(live->liveIn[i], (struct reg*)*r))
-						return 1;
-		}
-
-		for(long o=0;o!=strRegPSize(live->liveOut);o++) {
-				if(regConflict(live->liveOut[o], (struct reg*)*r))
 						return 1;
 		}
 		
@@ -522,11 +519,10 @@ static strRegP deadRegsAtPoint(graphNodeIR atNode,struct object *type) {
 
 				regs=strRegPRemoveIf(regs, livenessInfo, ifInLive);
 		}
+		regs=strRegPRemoveIf(regs, NULL, ifInLive);
 		return regs;
 }
-static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode args) {		
-		long originalConsumedSize=strRegPSize(consumedRegisters);
-
+static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode args) {
 		strX86AddrMode toPushPop CLEANUP(strX86AddrModeDestroy2)=NULL;
 		strOpcodeTemplate opsByName CLEANUP(strOpcodeTemplateDestroy) = X86OpcodesByName(name);
 		strOpcodeTemplate ops CLEANUP(strOpcodeTemplateDestroy) = X86OpcodesByArgs(name, args, NULL);
@@ -796,8 +792,6 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 		
 		for(long p=strX86AddrModeSize(toPushPop)-1;p>=0;p--)
 				popMode(toPushPop[p]);
-		
-		assert(originalConsumedSize==strRegPSize(consumedRegisters));
 }
 
 static strGraphNodeIRP getFuncNodes(graphNodeIR startN) {
@@ -1005,6 +999,17 @@ void asmAssign(struct X86AddressingMode *a, struct X86AddressingMode *b, long si
 					}
 			}
 		}
+		if(args[0]->valueType) {
+				__auto_type base=objectBaseType(args[0]->valueType);
+				if(base->type==TYPE_CLASS||base->type==TYPE_UNION)
+						goto memcpy;
+		}
+		if(args[1]->valueType) {
+				__auto_type base=objectBaseType(args[1]->valueType);
+				if(base->type==TYPE_CLASS||base->type==TYPE_UNION)
+						goto memcpy;
+		}
+		
 		assembleOpcode(NULL,"MOV",args);
 		return;
 	} else {
@@ -1155,7 +1160,6 @@ callMemcpy : {
 }
 }
 void IRCompile(graphNodeIR start, int isFunc) {
-		debugShowGraphIR(start);
 	if (isFunc) {
 		struct IRNodeFuncStart *funcNode = (void *)graphNodeIRValuePtr(start);
 		X86EmitAsmLabel(funcNode->func->name);
@@ -1288,7 +1292,6 @@ void IRCompile(graphNodeIR start, int isFunc) {
 
 	if(allocateX87fpuRegs) {
 			IRRegisterAllocateX87(start);
-			debugShowGraphIR(start);
 	}
 	
 	strGraphNodeIRP regAllocedNodes CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRAllNodes(start);
@@ -2310,8 +2313,9 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			AUTO_LOCK_MODE_REGS(iMode);
 			if (iMode->type == X86ADDRMODE_MEM || iMode->type == X86ADDRMODE_ITEM_ADDR) {
 					strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
-					leaArgs=strX86AddrModeAppendItem(leaArgs, oMode);
-					leaArgs=strX86AddrModeAppendItem(leaArgs, iMode);
+					leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeClone(oMode));
+					leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeClone(iMode));
+					leaArgs[1]->valueType=NULL;
 					assembleOpcode(start, "LEA",  leaArgs);
 			} else {
 					fputs("IR_ADDR_OF needs an item that points to something", stderr);
@@ -2401,9 +2405,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			assert(strGraphEdgeIRPSize(out) == 1);
 			__auto_type outNode = graphEdgeIROutgoing(out[0]);
 		struct X86AddressingMode *aMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(inNode);
-		AUTO_LOCK_MODE_REGS(aMode);
 		struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(outNode);
-		AUTO_LOCK_MODE_REGS(oMode);
 		asmTypecastAssign(oMode, aMode,0);
 		return nextNodesToCompile(outNode);
 	}

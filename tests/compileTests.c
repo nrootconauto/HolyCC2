@@ -365,7 +365,7 @@ void compileTests() {
 				free(asmF);	
 				free(source);
 				}*/
-		{
+		/*{
 				const char * text=
 						"U0 assertEq(I32i a,I32i b) {\n"
 						"    if(a!=b) {\n"
@@ -430,7 +430,7 @@ void compileTests() {
 				runTest(asmF,"y");
 				free(asmF);	
 				free(source);
-				}
+				}*/
 		/*{
 				const char *text=
 						"{\n"
@@ -596,4 +596,65 @@ void compileTests() {
 						}*/
 		/*
 			*/
+		{
+				const char * text=
+						"class CTest {\n"
+						"     I32i a,b;\n"
+						"};\n"
+						"CTest CTestNew(I32i a,I32i b) {\n"
+						"    CTest retVal;retVal.a=a;retVal.b=b;\n"
+						"    return retVal;"
+						"};\n"
+						"U0 assertEq(I32i a,I32i b) {\n"
+						"    if(a!=b) {\n"
+						"         asm {\n"
+						exitStr
+						"         }\n"
+						"    }\n"
+						"}\n"
+						"{\n"
+						"    CTest tmp=CTestNew(1,2);\n"
+						"    assertEq(tmp.a,1);\n"
+						"    assertEq(tmp.b,2);\n"
+						"}\n"
+						putY
+						"asm {\n"
+						exitStr
+						"}\n";
+				char *source=text2File(text);
+				char *asmF=strDup(tmpnam(NULL));
+				compileFile(source, asmF);
+				runTest(asmF,"y");
+				free(asmF);	
+				free(source);
+				}
+		/*{
+				const char * text=
+						"U0 assertEq(I32i a,I32i b) {\n"
+						"    if(a!=b) {\n"
+						"         asm {\n"
+						exitStr
+						"         }\n"
+						"    }\n"
+						"}\n"
+						"{\n"
+						"    I32i v=1;\n"
+						"    I32i z=v+1;\n"
+						"    I32i x=v*z;\n"
+						"    I32i y=x*2;\n"
+						"    I32i w=x+z*y;\n"
+						"    I32i u=z+2;\n"
+						"    v=u+w+y;\n"
+						"}\n"
+						putY
+						"asm {\n"
+						exitStr
+						"}\n";
+				char *source=text2File(text);
+				char *asmF=strDup(tmpnam(NULL));
+				compileFile(source, asmF);
+				runTest(asmF,"y");
+				free(asmF);	
+				free(source);
+				}*/
 }

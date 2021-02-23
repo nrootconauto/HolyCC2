@@ -587,7 +587,12 @@ char *object2Str(struct object *obj) {
 		}
 		case TYPE_Bool:
 				return strClone("Bool");
-		case TYPE_CLASS:
+		case TYPE_CLASS: {
+				long len=snprintf(NULL, 0, "%s", obj->name);
+				char buffer[len+1];
+				sprintf(buffer, "%s", obj->name);
+				return strClone(buffer);
+		}
 		case TYPE_F64:
 				return strClone("F64");
 		case TYPE_FORWARD:
