@@ -489,7 +489,7 @@ static void __unconsumeRegFromModeDestroy(struct X86AddressingMode **mode) {
 	consumeRegFromMode(name);
 #define AUTO_LOCK_MODE_REGS(mode) __AUTO_LOCK_MODE_REGS(UNINAME, (mode))
 static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode args) {
-		strRegP toPushPop CLEANUP(strRegPDestroy)=NULL;
+		strX86AddrMode toPushPop CLEANUP(strX86AddrModeDestroy2)=NULL;
 		strOpcodeTemplate opsByName CLEANUP(strOpcodeTemplateDestroy) = X86OpcodesByName(name);
 		strOpcodeTemplate ops CLEANUP(strOpcodeTemplateDestroy) = X86OpcodesByArgs(name, args, NULL);
 		if(strOpcodeTemplateSize(ops)) {
@@ -500,9 +500,10 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 		// Cost is added if push/pop regiseter
 		// or if making a temporary variable to push/pop on the stack
 		//
-		strLong costPerTemplate CLEANUP(strLongDestroy)=NULL;
-		strLong stackSizeTemplate CLEANUP(strLongDestroy)=NULL;
-		strLong templateIsValid CLEANUP(strLongDestroy)=NULL;
+		long templateCount=strOpcodeTemplateSize(opsByName);
+		strLong costPerTemplate CLEANUP(strLongDestroy)=strLongResize(NULL, templateCount);
+		strLong stackSizeTemplate CLEANUP(strLongDestroy)=strLongResize(NULL, templateCount);
+		strLong templateIsValid CLEANUP(strLongDestroy)=strLongResize(NULL, templateCount);
 		for(long t=0;t!=strOpcodeTemplateSize(opsByName);t++) {
 				templateIsValid[t]=1;
 				costPerTemplate[t]=0;
@@ -558,7 +559,9 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 						}
 						case X86ADDRMODE_MEM: {
 								//Can be converted to register
-								long size=args[a]->value.reg->size;
+								long size=dataSize();
+								if(args[a]->valueType)
+										size=objectSize(args[a]->valueType, NULL);
 								switch(opsByName[t]->args[a].type) {
 								case OPC_TEMPLATE_ARG_R8:
 										costPerTemplate[t]++;
@@ -616,6 +619,9 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 		}
 		
 		assert(lowestValidI!=-1);
+
+		strLong argsToRestore CLEANUP(strLongDestroy)=NULL;
+		
 		strX86AddrMode args2 CLEANUP(strX86AddrModeDestroy2)=NULL;
 		long stackOffset=stackSizeTemplate[lowestValidI];
 		for(long a=0;a!=strOpcodeTemplateArgSize(opsByName[lowestValidI]->args);a++) {
@@ -636,11 +642,15 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 						case OPC_TEMPLATE_ARG_M32:
 						case OPC_TEMPLATE_ARG_M64:;
 								__auto_type reg=regForTypeExcludingConsumed(getTypeForSize(size));
+								consumeRegister(reg);
 								pushReg(reg);
-								toPushPop=strRegPAppendItem(toPushPop, reg);
-								args2=strX86AddrModeAppendItem(args2, X86AddrModeReg(reg));
+								__auto_type mode=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(stackOffset), getTypeForSize(size));
+								toPushPop=strX86AddrModeAppendItem(toPushPop, X86AddrModeReg(reg));
+								args2=strX86AddrModeAppendItem(args2, mode);
 								//Stack grows down
 								stackOffset-=size;
+
+								argsToRestore=strLongAppendItem(argsToRestore, a);
 								break;
 						case OPC_TEMPLATE_ARG_R8:
 						case OPC_TEMPLATE_ARG_RM8:
@@ -659,15 +669,28 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 				}
 				case X86ADDRMODE_MEM: {
 						//Can be converted to register
-						long size=args[a]->value.reg->size;
+						long size=dataSize();
+						if(args[a]->valueType)
+								size=objectSize(args[a]->valueType, NULL);
 						switch(opsByName[lowestValidI]->args[a].type) {
 						case OPC_TEMPLATE_ARG_R8:
 						case OPC_TEMPLATE_ARG_R16:
 						case OPC_TEMPLATE_ARG_R32:
-						case OPC_TEMPLATE_ARG_R64:
-								pushMode(args[a]);
-								args2=strX86AddrModeAppendItem(args2, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(stackOffset), args[a]->valueType));
+						case OPC_TEMPLATE_ARG_R64:;
+								__auto_type reg=regForTypeExcludingConsumed(getTypeForSize(size));
+								consumeRegister(reg);
+								//Push
+								toPushPop=strX86AddrModeAppendItem(toPushPop,X86AddrModeReg(reg));
+								__auto_type mode=X86AddrModeReg(reg);
+								pushMode(mode);
+
+								asmAssign(mode, args[a], size, ASM_ASSIGN_X87FPU_POP);
+
+								mode->valueType=getTypeForSize(size);
+								args2=strX86AddrModeAppendItem(args2, mode);
 								stackOffset-=size;
+								
+								argsToRestore=strLongAppendItem(argsToRestore, a);
 								break;
 						case OPC_TEMPLATE_ARG_M8:
 						case OPC_TEMPLATE_ARG_RM8:
@@ -691,11 +714,19 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 
 		assembleInst(name, args2);
 		
-		for(long p=0;p!=strRegPSize(toPushPop);p++)
-				popReg(toPushPop[p]);
-		
+		for(long a=0;a!=strLongSize(argsToRestore);a++) {
+				long i=argsToRestore[a];
+				asmAssign(args[i], args2[i],objectSize(args2[i]->valueType, NULL) , ASM_ASSIGN_X87FPU_POP);
+		}
+
 		for(long a=0;a!=strX86AddrModeSize(args);a++)
 				unconsumeRegFromMode(args[a]);
+		for(long a=0;a!=strX86AddrModeSize(args2);a++)
+				unconsumeRegFromMode(args2[a]);
+		
+		
+		for(long p=strX86AddrModeSize(toPushPop)-1;p>=0;p--)
+				popMode(toPushPop[p]);
 }
 
 static strGraphNodeIRP getFuncNodes(graphNodeIR startN) {
@@ -1931,7 +1962,7 @@ static graphNodeIR assembleOpInt(graphNodeIR start, const char *opName) {
 		struct X86AddressingMode *bMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(b);
 	struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(out);
 	AUTO_LOCK_MODE_REGS(oMode);
-	asmAssign(oMode, aMode, 0, 0);
+	asmTypecastAssign(oMode, aMode, 0);
 
 	strX86AddrMode args CLEANUP(strX86AddrModeDestroy2)=NULL;
 	args=strX86AddrModeAppendItem(args, X86AddrModeClone(oMode));
@@ -2970,11 +3001,10 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		struct X86AddressingMode *trueLab CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(trueNode);
 		struct X86AddressingMode *falseLab CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(falseNode);
 
-		AUTO_LOCK_MODE_REGS(inMode);
 		strX86AddrMode cmpArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
 		cmpArgs = strX86AddrModeAppendItem(cmpArgs, X86AddrModeClone(inMode));
 		cmpArgs = strX86AddrModeAppendItem(cmpArgs, X86AddrModeSint(0));
-		assembleOpCmp(start);
+		assembleOpcode(inNode,"CMP",cmpArgs);
 		
 		strX86AddrMode jmpTArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
 		jmpTArgs = strX86AddrModeAppendItem(jmpTArgs, X86AddrModeClone(trueLab));

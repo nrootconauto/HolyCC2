@@ -365,7 +365,6 @@ void compileTests() {
 				free(asmF);	
 				free(source);
 				}*/
-		/*
 		{
 				const char * text=
 						"U0 assertEq(I32i a,I32i b) {\n"
@@ -431,7 +430,7 @@ void compileTests() {
 				runTest(asmF,"y");
 				free(asmF);	
 				free(source);
-				}*/
+				}
 		/*{
 				const char *text=
 						"{\n"
@@ -531,7 +530,7 @@ void compileTests() {
 				free(asmF);	
 				free(source);
 				}*/
-				{
+		/*{
 						const char *text=
 								"I32i StrNCmp(U8i *str1,U8i *str2,I32i n) {\n"
 								"    for(I32i c=0;c!=n;c=c+1) {\n"
@@ -594,7 +593,7 @@ void compileTests() {
 						compileFile(source, asmF);				runTest(asmF,"hi");
 						free(asmF);	
 						free(source);
-				}
+						}*/
 		/*
 			*/
 }
