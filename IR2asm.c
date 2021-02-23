@@ -421,6 +421,7 @@ static int isFuncEnd(const struct __graphNode *node, graphNodeIR end) {
 }
 static void consumeRegister(struct reg *reg) {
 	consumedRegisters = strRegPSortedInsert(consumedRegisters, reg, (regCmpType)ptrPtrCmp);
+	consumedRegisters=strRegPUnique(consumedRegisters, (regCmpType)ptrPtrCmp, NULL);
 }
 static strRegP regsFromMode(struct X86AddressingMode *mode) {
 	if (mode->type == X86ADDRMODE_REG) {
@@ -458,7 +459,6 @@ static void consumeRegFromMode(struct X86AddressingMode *mode) {
 }
 static void uncomsumeRegister(struct reg *reg) {
 	__auto_type find = strRegPSortedFind(consumedRegisters, reg, (regCmpType)ptrPtrCmp);
-	assert(find);
 	strRegP tmp CLEANUP(strRegPDestroy) = strRegPAppendItem(NULL, reg);
 	consumedRegisters = strRegPSetDifference(consumedRegisters, tmp, (regCmpType)ptrPtrCmp);
 }
@@ -488,7 +488,45 @@ static void __unconsumeRegFromModeDestroy(struct X86AddressingMode **mode) {
 	struct X86AddressingMode *name CLEANUP(__unconsumeRegFromModeDestroy) = X86AddrModeClone(mode);                                                                  \
 	consumeRegFromMode(name);
 #define AUTO_LOCK_MODE_REGS(mode) __AUTO_LOCK_MODE_REGS(UNINAME, (mode))
-static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode args) {
+static int regConflictsWithOtherRegs(strRegP regs,struct reg* r) {
+		for(long R=0;R!=strRegPSize(regs);R++)
+				if(regConflict(regs[R], r))
+						return 1;
+		return 0;
+}
+static int ifInLive(const void *livenessInfo,const struct reg **r) {
+		const struct IRAttrABIInfo *live=livenessInfo;
+		for(long c=0;c!=strRegPSize(consumedRegisters);c++)
+				if(regConflict(consumedRegisters[c], (struct reg*)*r))
+						return 1;
+		
+		for(long i=0;i!=strRegPSize(live->liveIn);i++) {
+				if(regConflict(live->liveIn[i], (struct reg*)*r))
+						return 1;
+		}
+
+		for(long o=0;o!=strRegPSize(live->liveOut);o++) {
+				if(regConflict(live->liveOut[o], (struct reg*)*r))
+						return 1;
+		}
+		
+		return 0;
+}
+static strRegP deadRegsAtPoint(graphNodeIR atNode,struct object *type) {
+		strRegP regs=regGetForType(type);
+		struct IRAttrABIInfo *livenessInfo=NULL;
+		if(atNode) {
+				__auto_type find=llIRAttrFind(graphNodeIRValuePtr(atNode)->attrs ,  IR_ATTR_ABI_INFO,IRAttrGetPred);
+				if(find)
+						livenessInfo=(void*)llIRAttrValuePtr(find);
+
+				regs=strRegPRemoveIf(regs, livenessInfo, ifInLive);
+		}
+		return regs;
+}
+static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode args) {		
+		long originalConsumedSize=strRegPSize(consumedRegisters);
+
 		strX86AddrMode toPushPop CLEANUP(strX86AddrModeDestroy2)=NULL;
 		strOpcodeTemplate opsByName CLEANUP(strOpcodeTemplateDestroy) = X86OpcodesByName(name);
 		strOpcodeTemplate ops CLEANUP(strOpcodeTemplateDestroy) = X86OpcodesByArgs(name, args, NULL);
@@ -496,6 +534,11 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 				assembleInst(name, args);
 				return;
 		}
+
+		for(long a=0;a!=strX86AddrModeSize(args);a++) {
+				consumeRegFromMode(args[a]);
+		}
+
 		//
 		// Cost is added if push/pop regiseter
 		// or if making a temporary variable to push/pop on the stack
@@ -508,6 +551,8 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 				templateIsValid[t]=1;
 				costPerTemplate[t]=0;
 				stackSizeTemplate[t]=0;
+
+				strRegP consumedRegs CLEANUP(strRegPDestroy)=NULL;
 				for(long a=0;a!=strOpcodeTemplateArgSize(opsByName[t]->args);a++) {
 						switch(args[a]->type) {
 						case X86ADDRMODE_ITEM_ADDR:
@@ -562,31 +607,45 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 								long size=dataSize();
 								if(args[a]->valueType)
 										size=objectSize(args[a]->valueType, NULL);
+
+								//Get list of dead registers,if has an availble dead register,add to consumed
+								int pushPop=0;
+								strRegP deadRegs CLEANUP(strRegPDestroy)=deadRegsAtPoint(atNode, getTypeForSize(size));
+								if(strRegPSize(deadRegs)) {
+										consumeRegister(deadRegs[0]);
+										pushPop=1;
+										consumedRegs=strRegPSortedInsert(consumedRegs, deadRegs[0], (regCmpType)ptrPtrCmp); 
+								}
+								
 								switch(opsByName[t]->args[a].type) {
 								case OPC_TEMPLATE_ARG_R8:
 										costPerTemplate[t]++;
-										stackSizeTemplate[t]++;
+										if(pushPop)
+												stackSizeTemplate[t]++;
 								case OPC_TEMPLATE_ARG_M8:
 								case OPC_TEMPLATE_ARG_RM8:
 										if(size!=1) templateIsValid[t]=0;
 										break;
 								case OPC_TEMPLATE_ARG_R16:
 										costPerTemplate[t]++;
-										stackSizeTemplate[t]+=2;
+										if(pushPop)
+												stackSizeTemplate[t]+=2;
 								case OPC_TEMPLATE_ARG_M16:
 								case OPC_TEMPLATE_ARG_RM16:
 										if(size!=2) templateIsValid[t]=0;
 										break;
 								case OPC_TEMPLATE_ARG_R32:
 										costPerTemplate[t]++;
-										stackSizeTemplate[t]+=4;
+										if(pushPop)
+												stackSizeTemplate[t]+=4;
 								case OPC_TEMPLATE_ARG_M32:
 								case OPC_TEMPLATE_ARG_RM32:
 										if(size!=4) templateIsValid[t]=0;
 										break;
 								case OPC_TEMPLATE_ARG_R64:
 										costPerTemplate[t]++;
-										stackSizeTemplate[t]+=8;
+										if(pushPop)
+												stackSizeTemplate[t]+=8;
 								case OPC_TEMPLATE_ARG_M64:
 								case OPC_TEMPLATE_ARG_RM64:
 										if(size!=8) templateIsValid[t]=0;
@@ -599,6 +658,11 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 						case X86ADDRMODE_FLT:
 								assert(0);
 						}
+				}
+
+				//Unconsume hypothetical consumed registers
+				for(long c=0;c!=strRegPSize(consumedRegs);c++) {
+						uncomsumeRegister(consumedRegs[c]);
 				}
 		}
 		//Find index of lowest (valid) template
@@ -613,10 +677,6 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 				}else
 						continue;
 		}
-
-		for(long a=0;a!=strX86AddrModeSize(args);a++) {
-				consumeRegFromMode(args[a]);
-		}
 		
 		assert(lowestValidI!=-1);
 
@@ -624,6 +684,7 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 		
 		strX86AddrMode args2 CLEANUP(strX86AddrModeDestroy2)=NULL;
 		long stackOffset=stackSizeTemplate[lowestValidI];
+		
 		for(long a=0;a!=strOpcodeTemplateArgSize(opsByName[lowestValidI]->args);a++) {
 				switch(args[a]->type) {
 				case X86ADDRMODE_ITEM_ADDR:
@@ -641,11 +702,7 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 						case OPC_TEMPLATE_ARG_M16:				
 						case OPC_TEMPLATE_ARG_M32:
 						case OPC_TEMPLATE_ARG_M64:;
-								__auto_type reg=regForTypeExcludingConsumed(getTypeForSize(size));
-								consumeRegister(reg);
-								pushReg(reg);
 								__auto_type mode=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(stackOffset), getTypeForSize(size));
-								toPushPop=strX86AddrModeAppendItem(toPushPop, X86AddrModeReg(reg));
 								args2=strX86AddrModeAppendItem(args2, mode);
 								//Stack grows down
 								stackOffset-=size;
@@ -672,18 +729,31 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 						long size=dataSize();
 						if(args[a]->valueType)
 								size=objectSize(args[a]->valueType, NULL);
+
+						struct reg* reg=NULL;
+						int pushPop=0;
+						strRegP deadRegs CLEANUP(strRegPDestroy)=deadRegsAtPoint(atNode, getTypeForSize(size));
+						if(strRegPSize(deadRegs)) {
+								pushPop=1;
+								reg=deadRegs[0];
+						} else {
+								reg=regForTypeExcludingConsumed(getTypeForSize(size));
+						}
+
 						switch(opsByName[lowestValidI]->args[a].type) {
 						case OPC_TEMPLATE_ARG_R8:
 						case OPC_TEMPLATE_ARG_R16:
 						case OPC_TEMPLATE_ARG_R32:
 						case OPC_TEMPLATE_ARG_R64:;
-								__auto_type reg=regForTypeExcludingConsumed(getTypeForSize(size));
 								consumeRegister(reg);
-								//Push
-								toPushPop=strX86AddrModeAppendItem(toPushPop,X86AddrModeReg(reg));
 								__auto_type mode=X86AddrModeReg(reg);
-								pushMode(mode);
 
+								if(pushPop) {
+										//Push
+										toPushPop=strX86AddrModeAppendItem(toPushPop,X86AddrModeReg(reg));
+										pushMode(mode);
+								}
+								
 								asmAssign(mode, args[a], size, ASM_ASSIGN_X87FPU_POP);
 
 								mode->valueType=getTypeForSize(size);
@@ -711,7 +781,6 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 						assert(0);
 				}
 		}
-
 		assembleInst(name, args2);
 		
 		for(long a=0;a!=strLongSize(argsToRestore);a++) {
@@ -727,6 +796,8 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 		
 		for(long p=strX86AddrModeSize(toPushPop)-1;p>=0;p--)
 				popMode(toPushPop[p]);
+		
+		assert(originalConsumedSize==strRegPSize(consumedRegisters));
 }
 
 static strGraphNodeIRP getFuncNodes(graphNodeIR startN) {

@@ -16,3 +16,4 @@ strVar IRABIInsertLoadArgs(graphNodeIR start);
 void IRABIAsmPrologue(long frameSize);
 void IRABICall2Asm(graphNodeIR start);
 void IRABIReturn2Asm(graphNodeIR start,long frameSize);
+void findRegisterLiveness(graphNodeIR start);

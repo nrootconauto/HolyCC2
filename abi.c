@@ -12,6 +12,8 @@ static __thread char computedABIInfo = 0;
 void IRAttrABIInfoDestroy(struct IRAttr *a) {
 	struct IRAttrABIInfo *abi = (void *)a;
 	strRegPDestroy(&abi->toPushPop);
+	strRegPDestroy(&abi->liveIn);
+	strRegPDestroy(&abi->liveOut);
 }
 static void *IR_ATTR_OLD_REG_SLICE = "OLD_REG_SLICE";
 static void strX86AddrModeDestroy2(strX86AddrMode *str) {
@@ -134,7 +136,7 @@ mergeLoop:
 	return conflicts;
 }
 PTR_MAP_FUNCS(struct reg *, struct parserVar *, Reg2Var);
-static void findRegisterLiveness(graphNodeIR start) {
+void findRegisterLiveness(graphNodeIR start) {
 	strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRAllNodes(start);
 	// Replace Registers with variables and do liveness analysis on the variables
 	strRegP usedRegs CLEANUP(strRegPDestroy) = usedRegisters(allNodes);
@@ -177,9 +179,10 @@ static void findRegisterLiveness(graphNodeIR start) {
 	strGraphNodeIRLiveP livenessGraphs CLEANUP(strGraphNodeIRLivePDestroy) = IRInterferenceGraphFilter(start, &regVars, isSelectVariable);
 	for (long n = 0; n != strGraphNodeIRPSize(allNodes); n++) {
 		struct IRNodeFuncCall *call = (void *)graphNodeIRValuePtr(allNodes[n]);
-		if (call->base.type != IR_FUNC_CALL)
-			continue;
 		__auto_type attr = llIRAttrFind(call->base.attrs, IR_ATTR_BASIC_BLOCK, IRAttrGetPred);
+		if(!attr)
+				continue;
+		
 		assert(attr);
 		struct IRAttrBasicBlock *block = (void *)llIRAttrValuePtr(attr);
 
@@ -202,14 +205,28 @@ static void findRegisterLiveness(graphNodeIR start) {
 			}
 		}
 
+		strRegP inRegs =NULL;
+		for (long i = 0; i != strVarSize(inVars); i++) {
+				__auto_type iFind = *ptrMapVar2RegGet(var2Reg, inVars[i].var);
+				inRegs=strRegPSortedInsert(inRegs, iFind, (regCmpType)ptrPtrCmp);
+		}
+		inRegs=mergeConflictingRegs(inRegs);
+
+		strRegP outRegs =NULL;
+		for (long i = 0; i != strVarSize(outVars); i++) {
+				__auto_type oFind = *ptrMapVar2RegGet(var2Reg, outVars[i].var);
+				outRegs=strRegPSortedInsert(outRegs, oFind, (regCmpType)ptrPtrCmp);
+		}
+		outRegs=mergeConflictingRegs(outRegs);
+		
 		conflicts = mergeConflictingRegs(conflicts);
 
 		struct IRAttrABIInfo info;
 		info.base.name = IR_ATTR_ABI_INFO;
 		info.base.destroy = IRAttrABIInfoDestroy;
 		info.toPushPop = conflicts;
-		info.liveIn=NULL;
-		info.liveOut=NULL;
+		info.liveIn=inRegs;
+		info.liveOut=outRegs;
 		
 		llIRAttr infoAttr = __llCreate(&info, sizeof(info));
 		call->base.attrs = llIRAttrInsert(call->base.attrs, infoAttr, IRAttrInsertPred);
