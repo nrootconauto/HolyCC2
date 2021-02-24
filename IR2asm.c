@@ -1958,13 +1958,34 @@ static graphNodeIR assembleOpInt(graphNodeIR start, const char *opName) {
 		struct X86AddressingMode *aMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(a);
 		struct X86AddressingMode *bMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(b);
 	struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(out);
-	AUTO_LOCK_MODE_REGS(oMode);
-	asmTypecastAssign(oMode, aMode, 0);
+	int useTmp=0;
+	if(!addrModeConflict(aMode, oMode)&&!addrModeConflict(bMode, oMode)) {
+			asmTypecastAssign(oMode, aMode, 0);
+			
+			strX86AddrMode args CLEANUP(strX86AddrModeDestroy2)=NULL;
+			args=strX86AddrModeAppendItem(args, X86AddrModeClone(oMode));
+			args=strX86AddrModeAppendItem(args, X86AddrModeClone(bMode));
+			assembleOpcode(start, opName , args);
+	} {
+			useTmp=1;
+			//A mode's value with be loaded into a register if no others are avialable
+			//AUTO_LOCK_MODE_REGS(aMode);
+			AUTO_LOCK_MODE_REGS(bMode);
+			AUTO_LOCK_MODE_REGS(oMode);
+			__auto_type reg=regForTypeExcludingConsumed(aMode->valueType);
 
-	strX86AddrMode args CLEANUP(strX86AddrModeDestroy2)=NULL;
-	args=strX86AddrModeAppendItem(args, X86AddrModeClone(oMode));
-	args=strX86AddrModeAppendItem(args, X86AddrModeClone(bMode));
-	assembleOpcode(start, opName , args);
+			pushReg(reg);
+			struct X86AddressingMode *oMode2 CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(reg);
+			asmAssign(oMode2, aMode, objectSize(aMode->valueType,NULL), 0);
+			
+			strX86AddrMode args CLEANUP(strX86AddrModeDestroy2)=NULL;
+			args=strX86AddrModeAppendItem(args, X86AddrModeClone(oMode2));
+			args=strX86AddrModeAppendItem(args, X86AddrModeClone(bMode));
+			assembleOpcode(start, opName , args);
+
+			asmAssign(oMode ,oMode2, objectSize(aMode->valueType,NULL), 0);
+			popReg(reg);
+	}
 	return out;
 }
 static int interferesWithConsumedReg(struct reg *r) {
