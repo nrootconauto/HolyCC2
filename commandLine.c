@@ -87,8 +87,8 @@ static strStrChar assembleSources(strConstChar sources) {
 		strStrChar toAssemble=NULL;
 		for(long i=0;i!=strConstCharSize(sources);i++) {
 				init();
-				__auto_type dumpAsmTo=tmpnam(NULL);
-				toAssemble=strStrCharAppendItem(toAssemble, strCharDup(dumpAsmTo));
+				__auto_type dumpAsmTo=strCharDup(tmpnam(NULL));
+				toAssemble=strStrCharAppendItem(toAssemble,dumpAsmTo);
 				compileFile(sources[i], dumpAsmTo);
 		}
 		//Assemble the files 
@@ -151,11 +151,12 @@ void parseCommandLineArgs(int argc,const char **argv) {
 						fputs("Can't route sources and files to compile to a single output file.", stderr);
 						abort();
 				}
-				strStrChar toAssemble CLEANUP(strStrCharDestroy2)=assembleSources(sources);	
-				strChar linkCommand CLEANUP(strCharDestroy)=strCharDup("ld -o ");
+				strStrChar toAssemble CLEANUP(strStrCharDestroy2)=assembleSources(sources);
+				const char *commHeader="ld -o ";
+				strChar linkCommand CLEANUP(strCharDestroy)=strCharAppendData(NULL,commHeader,strlen(commHeader));
 				if(!outputFile)
 						outputFile="a.out";
-				linkCommand=strCharConcat(linkCommand, strCharDup(outputFile));
+				linkCommand=strCharAppendData(linkCommand, outputFile,strlen(outputFile));
 				for(long i=0;i!=strStrCharSize(toAssemble);i++) {
 						linkCommand=strCharAppendItem(linkCommand, ' ');
 						const char *fmt="%s.o";

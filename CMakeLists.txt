@@ -60,10 +60,12 @@ add_executable(hcc ${sources} "main.c")
 
 target_include_directories(holycc2Tests PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/ext/skinny_mutex)
 target_include_directories(hcc PRIVATE ${CMAKE_SOURCE_DIR} ${sources})
+target_link_libraries(hcc m)
+target_link_libraries(holycc2Tests m)
 
 if(ENABLE_ASAN)
   target_compile_options(holycc2Tests PRIVATE -g -fno-omit-frame-pointer -fsanitize=address)
-		target_compile_options(hcc PRIVATE -g -fno-omit-frame-pointer -fsanitize=address)
+  #target_compile_options(hcc PRIVATE -g -fno-omit-frame-pointer -fsanitize=address)
 endif()
 
 install(TARGETS hcc RUNTIME DESTINATION bin)
