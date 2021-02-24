@@ -483,7 +483,7 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start) {
 			} else {
 				struct X86AddressingMode *outMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(outNode);
 				struct X86AddressingMode *st0Mode CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86ST0);
-				asmAssign(outMode, st0Mode, 8,0);
+				asmAssign(outMode, st0Mode, 8,ASM_ASSIGN_X87FPU_POP);
 				goto end;
 			}
 		} else {				

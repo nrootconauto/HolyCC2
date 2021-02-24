@@ -664,7 +664,7 @@ void compileTests() {
 						"}\n"
 						"{\n"
 						"    F64 a=1.3,b=3.5;\n"
-						"    F64 c=Add(a,b);\n"
+						"    F64 c=Add(10.0,Add(a+0.2,b)+2.0);\n"
 						"}\n"
 						putY
 						"asm {\n"

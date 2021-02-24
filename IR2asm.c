@@ -357,9 +357,8 @@ static struct X86AddressingMode *__node2AddrMode(graphNodeIR start) {
 		case IR_VAL_FLT_LIT: {
 			struct X86AddressingMode *encoded CLEANUP(X86AddrModeDestroy) = X86AddrModeUint(IEEE754Encode(value->val.value.fltLit));
 			strChar fltLab CLEANUP(strCharDestroy) = uniqueLabel("FLT");
-			__auto_type lab = X86EmitAsmDU64(&encoded, 1);
-			lab->valueType = &typeF64;
-			return lab;
+			struct X86AddressingMode *lab CLEANUP(X86AddrModeDestroy) = X86EmitAsmDU64(&encoded, 1);
+			return X86AddrModeIndirLabel(lab->value.label, &typeF64);
 		}
 		}
 	} else if (graphNodeIRValuePtr(start)->type == IR_LABEL) {
@@ -709,6 +708,7 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 				case X86ADDRMODE_UINT:
 				case X86ADDRMODE_LABEL:
 				case X86ADDRMODE_STR: {
+						args2=strX86AddrModeAppendItem(args2, X86AddrModeClone(args[a]));
 						break;
 				}
 				case X86ADDRMODE_REG: {
@@ -936,8 +936,13 @@ void asmAssign(struct X86AddressingMode *a, struct X86AddressingMode *b, long si
 						if(isX87FltReg(b->value.reg)) {
 								strX86AddrMode fldArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 								fldArgs=strX86AddrModeAppendItem(fldArgs, X86AddrModeClone(b));
-								const char *op=(flags&ASM_ASSIGN_X87FPU_POP)?"FLDP":"FLD";
+								const char *op="FLD";
 								assembleOpcode(NULL,op,fldArgs);
+								if(flags&ASM_ASSIGN_X87FPU_POP) {
+										strX86AddrMode subArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+										subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeReg(&regX86ST0));
+										assembleOpcode(NULL, "FSTP", subArgs);
+								}
 						} else  {
 								pushMode(b);
 								strX86AddrMode fldArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
