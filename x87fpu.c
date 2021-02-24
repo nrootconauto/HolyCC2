@@ -152,7 +152,7 @@ static void exprRecur(graphNodeIR start,ptrMapRefCount refCounts,int parentIsFpu
 												nodeStack=strGraphNodeIRPPop(nodeStack, NULL);
 												continue;
 										}
-								}
+							}
 								//Assign value into register
 								__auto_type slice=pushedStXslice();
 								__auto_type st0=IRCreateRegRef( &slice);

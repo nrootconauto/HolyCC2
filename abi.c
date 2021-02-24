@@ -82,13 +82,28 @@ static void swapNode(graphNodeIR old, graphNodeIR with) {
 	}
 }
 static strRegP usedRegisters(strGraphNodeIRP nodes) {
-	strRegP retVal = NULL;
+		const struct reg *ignoreRegs[]={
+				&regX86ST0,
+				&regX86ST1,
+				&regX86ST2,
+				&regX86ST3,
+				&regX86ST4,
+				&regX86ST5,
+				&regX86ST6,
+				&regX86ST7,
+		};
+		long ignoreCnt=sizeof(ignoreRegs)/sizeof(*ignoreRegs);
+		qsort(ignoreRegs, ignoreCnt, sizeof(*ignoreRegs), ptrPtrCmp);
+
+		strRegP retVal = NULL;
 	for (long i = 0; i != strGraphNodeIRPSize(nodes); i++) {
 		struct IRNodeValue *value = (void *)graphNodeIRValuePtr(nodes[i]);
 		if (value->base.type == IR_VALUE)
 			if (value->val.type == IR_VAL_REG) {
-				__auto_type reg = value->val.value.reg.reg;
-				if (!strRegPSortedFind(retVal, reg, (regCmpType)ptrPtrCmp))
+					__auto_type reg = value->val.value.reg.reg;
+					if(bsearch(&reg, ignoreRegs, ignoreCnt, sizeof(struct reg*), ptrPtrCmp))
+							continue;
+					if (!strRegPSortedFind(retVal, reg, (regCmpType)ptrPtrCmp))
 					retVal = strRegPSortedInsert(retVal, reg, (regCmpType)ptrPtrCmp);
 			}
 	}
@@ -160,6 +175,8 @@ void findRegisterLiveness(graphNodeIR start) {
 		if (value->val.type != IR_VAL_REG)
 			continue;
 		__auto_type reg = value->val.value.reg.reg;
+		if(!ptrMapReg2VarGet(reg2Var, reg))
+				continue;
 		__auto_type newNode = IRCreateVarRef(*ptrMapReg2VarGet(reg2Var, reg));
 
 		struct IRATTRoldRegSlice newAttr;
@@ -389,6 +406,9 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start) {
 			addSP = strX86AddrModeAppendItem(addSP, X86AddrModeReg(stackPointer()));
 			addSP = strX86AddrModeAppendItem(addSP, X86AddrModeSint(aligned));
 			assembleInst("ADD", addSP);
+		} else if(type==&typeF64) {
+				struct X86AddressingMode *mode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(args[i]);
+				pushMode(mode);
 		} else {
 			strX86AddrMode pushArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
 			struct X86AddressingMode *mode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(args[i]);
@@ -622,7 +642,8 @@ static void IR_ABI_I386_SYSV_Return(graphNodeIR start,long frameSize) {
 				goto loadBasePtr;
 			} else {
 				struct X86AddressingMode *st0 CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86ST0);
-				asmTypecastAssign(NULL, mode,0);
+				st0->valueType=&typeF64;
+				asmTypecastAssign(st0, mode,0);
 				abiI386LoadPreservedRegs(frameSize);
 				goto loadBasePtr;
 			}

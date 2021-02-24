@@ -468,7 +468,7 @@ char *X86EmitAsmLabel(const char *name) {
 		return retVal;
 	}
 	char *retVal = malloc(strlen(name) + 1);
-	fprintf(codeTmpFile, "%s:\n", name);
+	fprintf(codeTmpFile, "$%s:\n", name);
 	strcpy(retVal, name);
 	return retVal;
 }

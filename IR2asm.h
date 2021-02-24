@@ -10,3 +10,8 @@ enum asmAssignFlags {
 };
 void asmAssign(struct X86AddressingMode *a, struct X86AddressingMode *b, long size,enum asmAssignFlags flags);
 void asmTypecastAssign(struct X86AddressingMode *outMode, struct X86AddressingMode *inMode,enum asmAssignFlags flags);
+strRegP deadRegsAtPoint(graphNodeIR atNode,struct object *type);
+struct reg *regForTypeExcludingConsumed(struct object *type);
+void consumeRegister(struct reg *reg) ;
+void unconsumeRegister(struct reg *reg);
+void pushMode(struct X86AddressingMode *mode);
