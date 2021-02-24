@@ -109,8 +109,9 @@ int stringParse(const struct __vec *new, long pos, long *end, struct parsedStrin
 				goto utfEncode;
 			}
 			}
-			currPtr++;
-			goto skip;
+			retValText=__vecAppendItem(retValText, &tmp, 1);
+			currPtr=++escape;
+			continue;
 		utfEncode : {
 			int width;
 			char buffer[4];

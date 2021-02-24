@@ -129,7 +129,7 @@ void parseCommandLineArgs(int argc,const char **argv) {
 
 		strConstChar sources CLEANUP(strConstCharDestroy)=NULL;
 		
-		for(int i=0;i!=argc;) {
+		for(int i=1;i!=argc;) {
 				__auto_type f=getFlag(argv[i]);
 				if(!f) {
 						sources=strConstCharAppendItem(sources, argv[i]);
@@ -179,6 +179,9 @@ void parseCommandLineArgs(int argc,const char **argv) {
 				linkCommand=strCharAppendItem(linkCommand, ' ');
 				linkCommand=strCharAppendData(linkCommand, toCompile[0], strlen(toCompile[0])+1);
 				system(linkCommand);
+		}
+		if(strConstCharSize(sources)==0) {
+				helpCallback(0, 0, NULL);
 		}
 		
 		mapFlagsDestroy(clFlagsShort, NULL);
