@@ -628,7 +628,7 @@ void compileTests() {
 				free(asmF);	
 				free(source);
 				}*/
-		/*{
+		{
 				const char * text=
 						"U0 assertEq(I32i a,I32i b) {\n"
 						"    if(a!=b) {\n"
@@ -656,8 +656,8 @@ void compileTests() {
 				runTest(asmF,"y");
 				free(asmF);	
 				free(source);
-				}*/
-				{
+				}
+		/*{
 				const char * text=
 						"F64 Add(F64 a,F64 b) {\n"
 						"    return a+b;"
@@ -676,5 +676,5 @@ void compileTests() {
 				runTest(asmF,"y");
 				free(asmF);	
 				free(source);
-				}
+				}*/
 }

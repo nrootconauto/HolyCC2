@@ -214,9 +214,9 @@ static strRegP consumedRegisters = NULL;
 strChar uniqueLabel(const char *head) {
 	if (!head)
 		head = "";
-	long count = snprintf(NULL, 0, "$%s_%li", head, ++labelsCount);
+	long count = snprintf(NULL, 0, "%s_%li$", head, ++labelsCount);
 	char buffer[count + 1];
-	sprintf(buffer, "$%s_%li", head, labelsCount);
+	sprintf(buffer, "%s_%li$", head, labelsCount);
 	return strCharAppendData(NULL, buffer, count + 1);
 }
 struct reg *regForTypeExcludingConsumed(struct object *type) {
@@ -752,10 +752,10 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 						int pushPop=0;
 						strRegP deadRegs CLEANUP(strRegPDestroy)=deadRegsAtPoint(atNode, getTypeForSize(size));
 						if(strRegPSize(deadRegs)) {
-								pushPop=1;
 								reg=deadRegs[0];
 						} else {
 								reg=regForTypeExcludingConsumed(getTypeForSize(size));
+								pushPop=1;
 						}
 
 						switch(opsByName[lowestValidI]->args[a].type) {
