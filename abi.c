@@ -409,44 +409,45 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start) {
 		} else if(type==&typeF64) {
 				struct X86AddressingMode *mode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(args[i]);
 				pushMode(mode);
+				stackSize+=8;
 		} else {
-			strX86AddrMode pushArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
-			struct X86AddressingMode *mode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(args[i]);
-			//
-			// EAX is trashed during the calling sequence,so retrieve EAX from the pushed registers if wants an EAX affecting register
-			//
-			int swapEaxWithStack = 0;
-			if (mode->type == X86ADDRMODE_REG)
-				if (regConflict(mode->value.reg, &regX86EAX)) {
-					swapEaxWithStack = 1;
+				strX86AddrMode pushArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
+				struct X86AddressingMode *mode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(args[i]);
+				//
+				// EAX is trashed during the calling sequence,so retrieve EAX from the pushed registers if wants an EAX affecting register
+				//
+				int swapEaxWithStack = 0;
+				if (mode->type == X86ADDRMODE_REG)
+						if (regConflict(mode->value.reg, &regX86EAX)) {
+								swapEaxWithStack = 1;
+						}
+				if (swapEaxWithStack) {
+						strX86AddrMode xchgArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
+						xchgArgs = strX86AddrModeAppendItem(xchgArgs, X86AddrModeReg(&regX86EAX));
+						xchgArgs =
+				    strX86AddrModeAppendItem(xchgArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(eaxOffset - stackSize), &typeU32i));
+						assembleInst("XCHG", xchgArgs);
 				}
-			if (swapEaxWithStack) {
-				strX86AddrMode xchgArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
-				xchgArgs = strX86AddrModeAppendItem(xchgArgs, X86AddrModeReg(&regX86EAX));
-				xchgArgs =
+
+				if (itemSize != 4) {
+						struct X86AddressingMode *eax CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86EAX);
+						eax->valueType=&typeI32i;
+						asmTypecastAssign(eax, mode,0);
+						pushArgs = strX86AddrModeAppendItem(pushArgs, X86AddrModeReg(&regX86EAX));
+				} else {
+						pushArgs = strX86AddrModeAppendItem(pushArgs, IRNode2AddrMode(args[i]));
+				}
+
+				if (swapEaxWithStack) {
+						strX86AddrMode xchgArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
+						xchgArgs = strX86AddrModeAppendItem(xchgArgs, X86AddrModeReg(&regX86EAX));
+						xchgArgs =
 				    strX86AddrModeAppendItem(xchgArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(eaxOffset - stackSize), &typeU32i));
-				assembleInst("XCHG", xchgArgs);
-			}
+						assembleInst("XCHG", xchgArgs);
+				}
 
-			if (itemSize != 4) {
-				struct X86AddressingMode *eax CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86EAX);
-				eax->valueType=&typeI32i;
-				asmTypecastAssign(eax, mode,0);
-				pushArgs = strX86AddrModeAppendItem(pushArgs, X86AddrModeReg(&regX86EAX));
-			} else {
-				pushArgs = strX86AddrModeAppendItem(pushArgs, IRNode2AddrMode(args[i]));
-			}
-
-			if (swapEaxWithStack) {
-				strX86AddrMode xchgArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
-				xchgArgs = strX86AddrModeAppendItem(xchgArgs, X86AddrModeReg(&regX86EAX));
-				xchgArgs =
-				    strX86AddrModeAppendItem(xchgArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(eaxOffset - stackSize), &typeU32i));
-				assembleInst("XCHG", xchgArgs);
-			}
-
-			assembleInst("PUSH", pushArgs);
-			stackSize += 4;
+				assembleInst("PUSH", pushArgs);
+				stackSize += 4;
 		}
 	}
 

@@ -690,6 +690,7 @@ struct X86AddressingMode *X86AddrModeIndirMem(uint64_t where, struct object *typ
 	retVal.value.m.value.sib.index = NULL;
 	retVal.value.m.value.sib.scale = 0;
 	retVal.value.m.value.sib.offset = NULL;
+	retVal.value.m.value.sib.offset2=0;
 	retVal.valueType = type;
 	return ALLOCATE(retVal);
 }
@@ -701,8 +702,14 @@ struct X86AddressingMode *X86AddrModeIndirReg(struct reg *where, struct object *
 	retVal.value.m.value.sib.index = NULL;
 	retVal.value.m.value.sib.scale = 1;
 	retVal.value.m.value.sib.offset = NULL;
+	retVal.value.m.value.sib.offset2=0;
 	retVal.valueType = type;
 	return ALLOCATE(retVal);
+}
+void X86AddrModeIndirSIBAddOffset(struct X86AddressingMode *addrMode,int32_t offset) {
+		assert(addrMode->type==X86ADDRMODE_MEM);
+		assert(addrMode->value.m.type==x86ADDR_INDIR_SIB);
+		addrMode->value.m.value.sib.offset2+=offset;
 }
 struct X86AddressingMode *X86AddrModeIndirSIB(long scale, struct X86AddressingMode *index, struct X86AddressingMode *base, struct X86AddressingMode *offset,
                                               struct object *type) {
@@ -713,6 +720,7 @@ struct X86AddressingMode *X86AddrModeIndirSIB(long scale, struct X86AddressingMo
 	retVal.value.m.value.sib.index = index;
 	retVal.value.m.value.sib.scale = scale;
 	retVal.value.m.value.sib.offset = offset;
+	retVal.value.m.value.sib.offset2=0;
 	retVal.valueType = type;
 	return ALLOCATE(retVal);
 }

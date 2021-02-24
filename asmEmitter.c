@@ -346,6 +346,18 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 			strChar offsetStr CLEANUP(strCharDestroy) = NULL;
 			if (args[i]->value.m.value.sib.offset)
 				offsetStr = emitMode(&args[i]->value.m.value.sib.offset, 0);
+
+			//Account for numerical offset2
+			if(args[i]->value.m.value.sib.offset2) {
+					long len=snprintf(NULL, 0, "%+li",  args[i]->value.m.value.sib.offset2);
+					char buffer[len+1];
+					sprintf(buffer,"%+li",args[i]->value.m.value.sib.offset2);
+					if(offsetStr==NULL)
+							offsetStr=strCharAppendItem(offsetStr, '\0');
+					offsetStr=strCharResize(offsetStr,strCharSize(offsetStr)+len);
+					strcat(offsetStr, buffer);
+			}
+			
 			strChar buffer CLEANUP(strCharDestroy) = NULL;
 			int insertAdd = 0;
 			if (indexStr && args[i]->value.m.value.sib.scale) {
@@ -362,8 +374,8 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 			if (baseStr) {
 				retVal = strCharAppendData(retVal, baseStr, strlen(baseStr));
 			}
-			if (args[i]->value.m.value.sib.offset) {
-				if (offsetStr[0] != '-')
+			if (args[i]->value.m.value.sib.offset||args[i]->value.m.value.sib.offset2) {
+				if (offsetStr[0] != '-'&&offsetStr[0] != '+')
 					retVal = strCharAppendItem(retVal, '+');
 				retVal = strCharConcat(retVal, offsetStr);
 				offsetStr = NULL; // Will be free'd,but has been free'd by concat

@@ -17,7 +17,8 @@ struct X86MemoryLoc {
 			struct X86AddressingMode *index;
 			struct X86AddressingMode *base;
 			int scale;
-			struct X86AddressingMode *offset;
+				struct X86AddressingMode *offset;
+				long offset2;
 		} sib;
 		struct X86AddressingMode *label;
 	} value;
@@ -128,3 +129,4 @@ struct opcodeTemplate {
 	unsigned int modRMExt : 3;
 };
 long opcodeTemplateArgSize(struct opcodeTemplateArg arg);
+void X86AddrModeIndirSIBAddOffset(struct X86AddressingMode *addrMode,int32_t offset);
