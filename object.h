@@ -80,16 +80,20 @@ struct objectForwardDeclaration {
 	enum holyCTypeKind type;
 };
 struct objectFuncArg {
-	struct object *type;
-	struct parserNode *name;
-	struct parserNode *dftVal;
+		struct object *type;
+		struct parserNode *name;
+		struct parserNode *dftVal;
+		struct parserVar *var;
 };
 STR_TYPE_DEF(struct objectFuncArg, FuncArg);
 STR_TYPE_FUNCS(struct objectFuncArg, FuncArg);
 struct objectFunction {
-	struct object base;
-	struct object *retType;
-	strFuncArg args;
+		struct object base;
+		struct object *retType;
+		strFuncArg args;
+		int hasVarLenArgs;
+		struct parserVar *argcVar;
+		struct parserVar *argvVar;
 };
 struct object;
 struct object *objectArrayCreate(struct object *baseType, struct parserNode *dim,void *dimIR);
@@ -102,7 +106,7 @@ void objectMemberAttrDestroy(struct objectMemberAttr *attr);
 long objectAlign(const struct object *type, int *success);
 struct object *objectForwardDeclarationCreate(const struct parserNode *name, enum holyCTypeKind type);
 struct object *objectByName(const char *name);
-struct object *objectFuncCreate(struct object *retType, strFuncArg args);
+struct object *objectFuncCreate(struct object *retType, strFuncArg args,int varLenArgs);
 
 extern struct object typeBool;
 extern struct object typeU0;

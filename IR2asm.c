@@ -1083,7 +1083,8 @@ void asmAssign(struct X86AddressingMode *a, struct X86AddressingMode *b, long si
 	}
 }
 void IRCompile(graphNodeIR start, int isFunc) {
-	if (isFunc) {
+		debugShowGraphIR(start);
+		if (isFunc) {
 		struct IRNodeFuncStart *funcNode = (void *)graphNodeIRValuePtr(start);
 		X86EmitAsmLabel(funcNode->func->name);
 	}

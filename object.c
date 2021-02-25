@@ -155,7 +155,9 @@ hashObject(struct object *obj, int *alreadyExists) {
 
 			argStr = strCharAppendData(argStr, buffer, strlen(buffer));
 		}
-
+		if(func->hasVarLenArgs)
+				argStr=strCharAppendData(argStr, ",...", 3);
+		
 		argStr = strCharAppendItem(argStr, '\0');
 		long len = snprintf(NULL, 0, "%s(*)(%s)", retType, argStr);
 		char buffer[len + 1];
@@ -554,12 +556,13 @@ objectByName(const char *name) {
  * This creates a function type.
  */
 struct object * /* The created function type.*/
-objectFuncCreate(struct object *retType, strFuncArg args) {
+objectFuncCreate(struct object *retType, strFuncArg args,int varLenArgs) {
 	struct objectFunction func;
 	func.base.name = NULL;
 	func.base.type = TYPE_FUNCTION;
 	func.args = strFuncArgAppendData(NULL, args, strFuncArgSize(args));
 	func.retType = retType;
+	func.hasVarLenArgs=varLenArgs;
 
 	void *retVal = malloc(sizeof(struct objectFunction));
 	memcpy(retVal, &func, sizeof(struct objectFunction));

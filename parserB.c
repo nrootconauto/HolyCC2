@@ -3,6 +3,7 @@
 #include <hashTable.h>
 #include <parserB.h>
 #include <string.h>
+#include <registers.h>
 struct symbol {
 	struct parserNode *node;
 	struct linkage link;
@@ -128,6 +129,46 @@ void leaveScope() {
 	assert(par);
 	currentScope = par;
 }
+void parserAddVarLenArgsVars2Func(struct parserVar **Argc,struct parserVar **Argv) {
+		{
+				const char *name="argc";
+				struct parserVar argc;
+				argc.type = dftValType();
+				argc.refs = NULL;
+				argc.isGlobal = 0;
+				argc.isNoreg = 0;
+				argc.isTmp=0;
+				argc.name=strcpy(malloc(strlen(name)+1), name);
+				__auto_type scope = llScopeValuePtr(currentScope);
+				__auto_type find = mapVarGet(scope->vars, argc.name);
+				if (find) {
+						// TODO whine about re-declaration
+				} else {
+						mapVarInsert(scope->vars, argc.name, argc);
+						if(Argc)
+								*Argc=mapVarGet(scope->vars, argc.name);
+				}
+		}
+		{
+				const char *name="argv";
+				struct parserVar argv;
+				argv.type = objectPtrCreate(dftValType());
+				argv.refs = NULL;
+				argv.isGlobal = 0;
+				argv.isNoreg = 0;
+				argv.isTmp=0;
+				argv.name=strcpy(malloc(strlen(name)+1), name);
+				__auto_type scope = llScopeValuePtr(currentScope);
+				__auto_type find = mapVarGet(scope->vars, argv.name);
+				if (find) {
+						// TODO whine about re-declaration
+				} else {
+						mapVarInsert(scope->vars, argv.name, argv);
+						if(Argv)
+								*Argv=mapVarGet(scope->vars, argv.name);
+				}
+		}
+}
 void parserAddVar(const struct parserNode *name, struct object *type) {
 	struct parserVar var;
 	var.type = type;
@@ -148,6 +189,18 @@ void parserAddVar(const struct parserNode *name, struct object *type) {
 	} else {
 		mapVarInsert(scope->vars, var.name, var);
 	}
+}
+struct parserVar *parserGetVarByText(const char *name) {
+	for (__auto_type scope = currentScope; scope != NULL; scope = llScopeValuePtr(scope)->parent) {
+		struct parserVar *find = mapVarGet(llScopeValuePtr(scope)->vars, name);
+		if (find) {
+			find->refs = strParserNodeAppendItem(find->refs, (struct parserNode *)name);
+			return find;
+		}
+	}
+	// TODO whine about not found.
+
+	return NULL;
 }
 struct parserVar *parserGetVar(const struct parserNode *name) {
 	assert(name->type == NODE_NAME);

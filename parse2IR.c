@@ -1152,13 +1152,29 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 		struct objectFunction *func = (void *)def->funcType;
 		for (long i = 0; i != strFuncArgSize(func->args); i++) {
 			__auto_type arg = IRCreateFuncArg(func->args[i].type, i);
-			struct parserNodeVarDecl *decl = (void *)def->args[i];
-			assert(decl->base.type == NODE_VAR_DECL);
-			__auto_type var = IRCreateVarRef(decl->var);
+			__auto_type var = IRCreateVarRef(func->args[i].var);
 			graphNodeIRConnect(currentNode, arg, IR_CONN_FLOW);
 			graphNodeIRConnect(arg, var, IR_CONN_DEST);
 
 			currentNode = var;
+		}
+
+		if(func->hasVarLenArgs) {
+				struct IRNode argc;
+				argc.attrs=NULL;
+				argc.type=IR_FUNC_VAARG_ARGC;
+				__auto_type argcNode=GRAPHN_ALLOCATE(argc);
+				graphNodeIRConnect(argcNode,IRCreateVarRef(func->argcVar), IR_CONN_DEST);
+				graphNodeIRConnect(currentNode, argcNode, IR_CONN_FLOW);
+				currentNode=argcNode;
+				
+				struct IRNode argv;
+				argv.attrs=NULL;
+				argv.type=IR_FUNC_VAARG_ARGC;
+				__auto_type argvNode=GRAPHN_ALLOCATE(argv);
+				graphNodeIRConnect(argcNode,IRCreateVarRef(func->argvVar), IR_CONN_DEST);
+				graphNodeIRConnect(currentNode, argvNode, IR_CONN_FLOW);
+				currentNode=argvNode;
 		}
 
 		// Compute body

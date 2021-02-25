@@ -346,7 +346,7 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start) {
 	assert(funcType->type == TYPE_FUNCTION);
 	struct objectFunction *func = (struct objectFunction *)funcType;
 	strGraphNodeIRP args = getFuncArgs(start);
-	assert(strGraphNodeIRPSize(args) == strFuncArgSize(func->args));
+	assert(strGraphNodeIRPSize(args) >= strFuncArgSize(func->args));
 
 	strRegP clobbered CLEANUP(strRegPDestroy) = strRegPClone(info->toPushPop);
 	// EAX is used as a scracth register here
@@ -392,8 +392,12 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start) {
 	strGraphEdgeIRP dst CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(out, IR_CONN_DEST);
 
 	long stackSizeBeforeArgs = stackSize;
+	long varLenArgListStart=0;
 	for (long i = strGraphNodeIRPSize(args) - 1; i >= 0; i--) {
-		__auto_type type = objectBaseType(IRNodeType(args[i]));
+			if(strFuncArgSize(func->args)-i==0)
+					varLenArgListStart=stackSize;
+			
+			__auto_type type = objectBaseType(IRNodeType(args[i]));
 		long itemSize = objectSize(type, NULL);
 		if (type->type == TYPE_CLASS || type->type == TYPE_UNION) {
 			struct X86AddressingMode *stack CLEANUP(X86AddrModeDestroy) = X86AddrModeIndirReg(stackPointer(), type);
@@ -449,6 +453,16 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start) {
 				assembleInst("PUSH", pushArgs);
 				stackSize += 4;
 		}
+	}
+
+	if(strFuncArgSize(func->args)<strGraphNodeIRPSize(args)) {
+			//
+			//HolyC specific,store I32 count in ECX
+			//
+			long words=(stackSize-varLenArgListStart)/dataSize();
+			struct X86AddressingMode *ecxMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86ECX);
+			struct X86AddressingMode *wordsCount CLEANUP(X86AddrModeDestroy)=X86AddrModeSint(words);
+			asmAssign(ecxMode, wordsCount, 4, 0);
 	}
 
 	//Structure pointer is last argument pushed

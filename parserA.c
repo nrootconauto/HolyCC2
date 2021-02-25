@@ -1224,6 +1224,7 @@ static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end, stru
 
 		strFuncArg args;
 		args = NULL;
+		int foundDotDotDot=0;
 		for (int firstRun = 1;; firstRun = 0) {
 			struct parserNode *r2;
 			r2 = expectOp(start, ")");
@@ -1242,6 +1243,18 @@ static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end, stru
 					start = llLexerItemNext(start);
 			}
 
+			struct parserNode *dotdotdot CLEANUP(parserNodeDestroy)=expectKeyword(start, "...");
+			if(dotdotdot) {
+					foundDotDotDot=1;
+					start=llLexerItemNext(start);
+					r2 = expectOp(start, ")");
+					if(!r2)
+							whineExpected(start, ")");
+					else
+							start=llLexerItemNext(start);
+					break;
+			}
+			
 			struct parserNodeVarDecl *argDecl = (void *)parseSingleVarDecl(start, &start);
 			if (argDecl == NULL)
 				goto fail;
@@ -1253,7 +1266,7 @@ static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end, stru
 
 			args = strFuncArgAppendItem(args, arg);
 		}
-		retValType = objectFuncCreate(baseType, args);
+		retValType = objectFuncCreate(baseType, args,foundDotDotDot);
 	} else {
 		getPtrsAndDims(start, &start, name, &ptrLevel, &dims);
 		retValType = baseType;
@@ -1591,7 +1604,7 @@ static void addDeclsToScope(struct parserNode *varDecls, struct linkage link) {
 		}
 	}
 }
-struct parserNode *parseScope(llLexerItem start, llLexerItem *end, strParserNode vars) {
+struct parserNode *parseScope(llLexerItem start, llLexerItem *end, struct objectFunction *func) {
 	struct parserNodeScope *oldScope = (void *)currentScope;
 
 	struct parserNodeScope *retVal = malloc(sizeof(struct parserNodeScope));
@@ -1610,9 +1623,16 @@ struct parserNode *parseScope(llLexerItem start, llLexerItem *end, strParserNode
 	if (lC) {
 		enterScope();
 
+		if(func)
+				if(func->hasVarLenArgs)
+						parserAddVarLenArgsVars2Func(&func->argcVar,&func->argvVar);
+		
 		// Add vars to scope
-		for (long i = 0; i != strParserNodeSize(vars); i++)
-			addDeclsToScope(vars[i], (struct linkage){LINKAGE_LOCAL, NULL});
+		if(func)
+				for (long i = 0; i != strFuncArgSize(func->args); i++) {
+						parserAddVar(func->args[i].name, func->args[i].type);
+						func->args[i].var=parserGetVarByText(((struct parserNodeName*)func->args[i].name)->text);
+				}
 
 		start = llLexerItemNext(start);
 
@@ -2813,6 +2833,7 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 		goto fail;
 	start = llLexerItemNext(start);
 
+	int foundDotDotDot=0;
 	for (int firstRun = 1;; firstRun = 0) {
 		rP = expectOp(start, ")");
 		if (rP) {
@@ -2828,6 +2849,18 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 				start = llLexerItemNext(start);
 		}
 
+		struct parserNode *dotdotdot CLEANUP(parserNodeDestroy)=expectKeyword(start, "...");
+		if(dotdotdot) {
+				foundDotDotDot=1;
+				start=llLexerItemNext(start);
+				rP = expectOp(start, ")");
+				if(!rP)
+						whineExpected(start, ")");
+				else
+						start=llLexerItemNext(start);
+				break;
+		}
+		
 		struct parserNode *decl = parseSingleVarDecl(start, &start);
 		if (decl)
 			args = strParserNodeAppendItem(args, decl);
@@ -2848,14 +2881,15 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 		arg.dftVal = decl->dftVal;
 		arg.name = decl->name;
 		arg.type = decl->type;
-
+		arg.var=NULL;
+		
 		// TODO whine on metadata
 
 		fargs = strFuncArgAppendItem(fargs, arg);
 	}
 
 	struct object *funcType;
-	funcType = objectFuncCreate(retType, fargs);
+	funcType = objectFuncCreate(retType, fargs,foundDotDotDot);
 
 	//
 	// Enter the function
@@ -2874,7 +2908,7 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 	//
 
 	struct parserNode *retVal = NULL;
-	__auto_type scope = parseScope(start, &start, args);
+	__auto_type scope = parseScope(start, &start, (struct objectFunction*)funcType);
 	if (!scope) {
 		// If no scope follows,is a forward declaration
 		__auto_type semi = expectKeyword(start, ";");
