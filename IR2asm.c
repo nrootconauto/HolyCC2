@@ -1672,13 +1672,13 @@ static void __typecastSignExt(graphNodeIR atNode,struct X86AddressingMode *outMo
 			assembleOpcode(atNode,"MOVSXD", movArgs);
 	}
 }
-static int addrModeConflict(struct X86AddressingMode *a, struct X86AddressingMode *b) {
-	strRegP aModeRegs CLEANUP(strRegPDestroy) = regsFromMode(a);
-	strRegP bModeRegs CLEANUP(strRegPDestroy) = regsFromMode(b);
-	for (long A = 0; A != strRegPSize(aModeRegs); A++)
-		for (long B = 0; B != strRegPSize(bModeRegs); B++)
-			if (regConflict(aModeRegs[A], bModeRegs[B]))
-				return 1;
+static int __ouputModeAffectsInput(struct X86AddressingMode *input, struct X86AddressingMode *out) {
+		if(out->type==X86ADDRMODE_REG) {
+				strRegP iModeRegs CLEANUP(strRegPDestroy) = regsFromMode(input);
+				for (long A = 0; A != strRegPSize(iModeRegs); A++)
+						if (regConflict(iModeRegs[A], out->value.reg))
+								return 1;
+		}
 	return 0;
 }
 static graphNodeIR assembleOpIntShift(graphNodeIR start, const char *op) {
@@ -1959,7 +1959,7 @@ static graphNodeIR assembleOpInt(graphNodeIR start, const char *opName) {
 		struct X86AddressingMode *bMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(b);
 	struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(out);
 	int useTmp=0;
-	if(!addrModeConflict(aMode, oMode)&&!addrModeConflict(bMode, oMode)) {
+	if(!__ouputModeAffectsInput(aMode, oMode)&&!__ouputModeAffectsInput(bMode, oMode)) {
 			asmTypecastAssign(oMode, aMode, 0);
 			
 			strX86AddrMode args CLEANUP(strX86AddrModeDestroy2)=NULL;
