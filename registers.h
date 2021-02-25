@@ -152,3 +152,4 @@ long ptrSize();
 struct reg *basePointer();
 struct reg *stackPointer();
 long dataSize();
+struct object *dftValType();

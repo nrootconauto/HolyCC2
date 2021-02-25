@@ -554,3 +554,13 @@ struct reg *basePointer() {
 struct reg *stackPointer() {
 	return ptrSize() == 4 ? &regX86ESP : &regAMD64RSP;
 }
+struct object *dftValType() {
+	switch (getCurrentArch()) {
+	case ARCH_TEST_SYSV:
+	case ARCH_X86_SYSV:
+		return &typeI32i;
+	case ARCH_X64_SYSV:
+		return &typeI64i;
+	}
+	assert(0);
+}

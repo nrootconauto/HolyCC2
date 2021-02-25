@@ -6,16 +6,6 @@
 #include <registers.h>
 #include <stdio.h>
 #include <stdlib.h>
-static struct object *dftValType() {
-	switch (getCurrentArch()) {
-	case ARCH_TEST_SYSV:
-	case ARCH_X86_SYSV:
-		return &typeI32i;
-	case ARCH_X64_SYSV:
-		return &typeI64i;
-	}
-	assert(0);
-}
 struct object *assignTypeToOp(const struct parserNode *node);
 static int isArith(const struct object *type) {
 		if (type==&typeBool||type == &typeU8i || type == &typeU16i || type == &typeU32i || type == &typeU64i || type == &typeI8i || type == &typeI16i || type == &typeI32i ||
