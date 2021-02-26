@@ -137,32 +137,9 @@ hashObject(struct object *obj, int *alreadyExists) {
 		goto end;
 	case TYPE_FUNCTION: {
 		struct objectFunction *func = (void *)obj;
-		__auto_type retType = hashObject(func->retType, NULL);
-
-		strChar argStr = NULL;
-		for (long i = 0; i != strFuncArgSize(func->args); i++) {
-			__auto_type dftValStr = ptr2Str(func->args[i].dftVal);
-
-			const char *argName = NULL;
-			struct parserNodeName *name = (void *)func->args[i].name;
-			if (name)
-				if (name->base.type == NODE_NAME)
-					argName = name->text;
-
-			long len = snprintf(NULL, 0, "%s %s=%s", hashObject(func->args[i].type, NULL), argName, dftValStr);
-			char buffer[len + 1];
-			sprintf(buffer, "%s %s=%s", hashObject(func->args[i].type, NULL), argName, dftValStr);
-
-			argStr = strCharAppendData(argStr, buffer, strlen(buffer));
-		}
-		if(func->hasVarLenArgs)
-				argStr=strCharAppendData(argStr, ",...", 3);
-		
-		argStr = strCharAppendItem(argStr, '\0');
-		long len = snprintf(NULL, 0, "%s(*)(%s)", retType, argStr);
-		char buffer[len + 1];
-		sprintf(buffer, "%s(*)(%s)", retType, argStr);
-
+		long len=snprintf(NULL, 0, "%p", func);
+		char buffer[len+1];
+		sprintf(buffer, "%p", func);
 		retVal = strClone(buffer);
 		goto end;
 	}

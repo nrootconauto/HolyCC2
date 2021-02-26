@@ -1934,3 +1934,15 @@ void IRRemoveNeverFlows(graphNodeIR node) {
 		for(long n=0;n!=strGraphNodeIRPSize(unacc);n++)
 				graphNodeIRKill(&unacc[n], (void(*)(void*))IRNodeDestroy, NULL);
 }
+graphNodeIR IRCreateFuncVaArgArgc() {
+		struct IRNode argc;
+		argc.attrs=NULL;
+		argc.type=IR_FUNC_VAARG_ARGC;
+		return GRAPHN_ALLOCATE(argc);
+}
+graphNodeIR IRCreateFuncVaArgArgv() {
+		struct IRNode argv;
+		argv.attrs=NULL;
+		argv.type=IR_FUNC_VAARG_ARGV;
+		return GRAPHN_ALLOCATE(argv);
+}
