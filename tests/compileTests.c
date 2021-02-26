@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <registers.h>
+#include <commandLine.h>
 static char *strDup(const char *text) {
 		char *retVal=malloc(strlen(text)+1);
 		return strcpy(retVal, text);
@@ -677,7 +678,7 @@ void compileTests() {
 				free(asmF);	
 				free(source);
 				}*/
-					{
+		/*{
 				const char * text=
 						"U0 OneTwoThree(...) {\n"
 						"    if(argc!=3) goto fail;\n"
@@ -701,5 +702,22 @@ void compileTests() {
 				runTest(asmF,"y");
 				free(asmF);	
 				free(source);
-				}
+				}*/
+		const char *argv[]={
+				"hcc",
+				"../HolyCTests/StrFmt.HC"
+		};
+		parseCommandLineArgs(2, argv);
+		system("./a.out >res.txt");
+		FILE *f=fopen("res.txt", "r");
+		fseek(f, 0, SEEK_END);
+		long end=ftell(f);
+		fseek(f, 0, SEEK_SET);
+		long start=ftell(f);
+		if(end==0)
+				return;
+		char buffer[end-start+1];
+		fread(buffer, end-start, 1, f);
+		buffer[end-start-1]='\0';
+		printf("%s\n", buffer);
 }

@@ -580,6 +580,61 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 								if(args[a]->valueType)
 										if(objectSize(args[a]->valueType,NULL)!=opcodeTemplateArgSize(opsByName[t]->args[a]))
 												templateIsValid[t]=0;
+
+								//Can be converted to memory or register
+								long size=dataSize();
+								if(args[a]->valueType)
+										size=objectSize(args[a]->valueType, NULL);
+
+								//Get list of dead registers,if has an availble dead register,add to consumed
+								int pushPop=1;
+								strRegP deadRegs CLEANUP(strRegPDestroy)=deadRegsAtPoint(atNode, getTypeForSize(size));
+								if(strRegPSize(deadRegs)) {
+										consumeRegister(deadRegs[0]);
+										pushPop=0;
+										consumedRegs=strRegPSortedInsert(consumedRegs, deadRegs[0], (regCmpType)ptrPtrCmp); 
+								}
+								
+								switch(opsByName[t]->args[a].type) {
+								case OPC_TEMPLATE_ARG_R8:
+								case OPC_TEMPLATE_ARG_RM8:
+										if(pushPop) {
+										case OPC_TEMPLATE_ARG_M8:
+												stackSizeTemplate[t]++;
+										}
+										costPerTemplate[t]++;
+										if(size!=1) templateIsValid[t]=0;
+										break;
+								case OPC_TEMPLATE_ARG_R16:
+								case OPC_TEMPLATE_ARG_RM16:
+										if(pushPop) {
+										case OPC_TEMPLATE_ARG_M16:
+												stackSizeTemplate[t]+=2;
+										}
+										costPerTemplate[t]++;
+										if(size!=2) templateIsValid[t]=0;
+										break;
+								case OPC_TEMPLATE_ARG_R32:
+								case OPC_TEMPLATE_ARG_RM32:
+										if(pushPop) {
+										case OPC_TEMPLATE_ARG_M32:
+												stackSizeTemplate[t]+=4;
+										}
+										costPerTemplate[t]++;
+										if(size!=4) templateIsValid[t]=0;
+										break;
+								case OPC_TEMPLATE_ARG_R64:
+								case OPC_TEMPLATE_ARG_RM64:
+										if(pushPop) {
+										case OPC_TEMPLATE_ARG_M64:
+												stackSizeTemplate[t]+=8;
+										}
+										costPerTemplate[t]++;
+										if(size!=8) templateIsValid[t]=0;
+										break;
+								default:
+										templateIsValid[t]=0;
+								}
 								break;
 						}
 						case X86ADDRMODE_REG: {
@@ -626,11 +681,11 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 										size=objectSize(args[a]->valueType, NULL);
 
 								//Get list of dead registers,if has an availble dead register,add to consumed
-								int pushPop=0;
+								int pushPop=1;
 								strRegP deadRegs CLEANUP(strRegPDestroy)=deadRegsAtPoint(atNode, getTypeForSize(size));
 								if(strRegPSize(deadRegs)) {
 										consumeRegister(deadRegs[0]);
-										pushPop=1;
+										pushPop=0;
 										consumedRegs=strRegPSortedInsert(consumedRegs, deadRegs[0], (regCmpType)ptrPtrCmp); 
 								}
 								
@@ -709,7 +764,62 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 				case X86ADDRMODE_UINT:
 				case X86ADDRMODE_LABEL:
 				case X86ADDRMODE_STR: {
-						args2=strX86AddrModeAppendItem(args2, X86AddrModeClone(args[a]));
+						if(args[a]->type==opsByName[lowestValidI]->args[a].type) {
+								args2=strX86AddrModeAppendItem(args2, X86AddrModeClone(args[a]));
+						} else {										
+								//Can be converted to memory or register
+								long size=dataSize();
+								if(args[a]->valueType)
+										size=objectSize(args[a]->valueType, NULL);
+
+								//Get list of dead registers,if has an availble dead register,add to consumed
+								struct reg* reg=NULL;
+								int pushPop=0;
+								strRegP deadRegs CLEANUP(strRegPDestroy)=deadRegsAtPoint(atNode, getTypeForSize(size));
+								if(strRegPSize(deadRegs)) {
+										reg=deadRegs[0];
+								} else {
+										reg=regForTypeExcludingConsumed(getTypeForSize(size));
+										pushPop=1;
+								}
+								
+								switch(opsByName[lowestValidI]->args[a].type) {
+								case OPC_TEMPLATE_ARG_R8:
+								case OPC_TEMPLATE_ARG_RM8:
+								case OPC_TEMPLATE_ARG_R16:
+								case OPC_TEMPLATE_ARG_RM16:
+								case OPC_TEMPLATE_ARG_R32:
+								case OPC_TEMPLATE_ARG_RM32:
+								case OPC_TEMPLATE_ARG_R64:
+								case OPC_TEMPLATE_ARG_RM64:;
+										__auto_type mode=X86AddrModeReg(reg);
+								if(pushPop) {
+										//Push
+										toPushPop=strX86AddrModeAppendItem(toPushPop,X86AddrModeReg(reg));
+										pushMode(mode);
+										stackOffset-=size;
+								}
+								asmAssign(mode, args[a], size, ASM_ASSIGN_X87FPU_POP);
+								mode->valueType=getTypeForSize(size);
+								args2=strX86AddrModeAppendItem(args2, mode);
+								break;
+								case OPC_TEMPLATE_ARG_M8:
+								case OPC_TEMPLATE_ARG_M16:
+								case OPC_TEMPLATE_ARG_M32:
+								case OPC_TEMPLATE_ARG_M64:; {
+										__auto_type mode=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(stackOffset), getTypeForSize(size));
+										pushMode(args[a]);
+										toPushPop=strX86AddrModeAppendItem(toPushPop, X86AddrModeClone(args[a]));
+										args2=strX86AddrModeAppendItem(args2, mode);
+										//Stack grows down
+										stackOffset-=size;
+										
+								}
+								break;
+								default:
+												abort();
+								}
+						}
 						break;
 				}
 				case X86ADDRMODE_REG: {
@@ -720,12 +830,14 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 						case OPC_TEMPLATE_ARG_M16:				
 						case OPC_TEMPLATE_ARG_M32:
 						case OPC_TEMPLATE_ARG_M64:;
+								argsToRestore=strLongAppendItem(argsToRestore, a);
 								__auto_type mode=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(stackOffset), getTypeForSize(size));
+								pushMode(args[a]);
+								toPushPop=strX86AddrModeAppendItem(toPushPop, X86AddrModeClone(args[a]));
 								args2=strX86AddrModeAppendItem(args2, mode);
 								//Stack grows down
 								stackOffset-=size;
 
-								argsToRestore=strLongAppendItem(argsToRestore, a);
 								break;
 						case OPC_TEMPLATE_ARG_R8:
 						case OPC_TEMPLATE_ARG_RM8:
@@ -757,7 +869,7 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 								reg=regForTypeExcludingConsumed(getTypeForSize(size));
 								pushPop=1;
 						}
-
+						
 						switch(opsByName[lowestValidI]->args[a].type) {
 						case OPC_TEMPLATE_ARG_R8:
 						case OPC_TEMPLATE_ARG_R16:
@@ -770,14 +882,13 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 										//Push
 										toPushPop=strX86AddrModeAppendItem(toPushPop,X86AddrModeReg(reg));
 										pushMode(mode);
+										stackOffset-=size;
 								}
 								
 								asmAssign(mode, args[a], size, ASM_ASSIGN_X87FPU_POP);
 
 								mode->valueType=getTypeForSize(size);
 								args2=strX86AddrModeAppendItem(args2, mode);
-								stackOffset-=size;
-								
 								argsToRestore=strLongAppendItem(argsToRestore, a);
 								break;
 						case OPC_TEMPLATE_ARG_M8:
@@ -800,17 +911,16 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 				}
 		}
 		assembleInst(name, args2);
-		
-		for(long a=0;a!=strLongSize(argsToRestore);a++) {
-				long i=argsToRestore[a];
-				asmAssign(args[i], args2[i],objectSize(args2[i]->valueType, NULL) , ASM_ASSIGN_X87FPU_POP);
-		}
 
 		for(long a=0;a!=strX86AddrModeSize(args);a++)
 				unconsumeRegFromMode(args[a]);
 		for(long a=0;a!=strX86AddrModeSize(args2);a++)
 				unconsumeRegFromMode(args2[a]);
-		
+
+		for(long a=0;a!=strLongSize(argsToRestore);a++) {
+				long i=argsToRestore[a];
+				asmAssign(args[i], args2[i],objectSize(args2[i]->valueType, NULL) , ASM_ASSIGN_X87FPU_POP);
+		}
 		
 		for(long p=strX86AddrModeSize(toPushPop)-1;p>=0;p--)
 				popMode(toPushPop[p]);
@@ -880,7 +990,7 @@ static strGraphNodeIRP insertLabelsForAsm(strGraphNodeIRP nodes) {
 			continue;
 		}
 		for (long i = 0; i != strGraphEdgeIRPSize(in); i++) {
-			switch (*graphEdgeIRValuePtr(in[0])) {
+			switch (*graphEdgeIRValuePtr(in[i])) {
 			case IR_CONN_CASE:
 			case IR_CONN_COND_TRUE:
 			case IR_CONN_COND_FALSE:
@@ -2630,7 +2740,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			movRaxArgs = strX86AddrModeAppendItem(movRaxArgs, X86AddrModeClone(aMode));
 			divArgs = strX86AddrModeAppendItem(divArgs, X86AddrModeClone(bMode));
 			assembleInst("MOV", movRaxArgs);
-			assembleInst(op, divArgs);
+			assembleOpcode(start,op, divArgs);
 			if (isDivOrMod) {
 				struct X86AddressingMode *al CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86AL);
 				asmAssign(outMode, al, 1,0);
@@ -2647,7 +2757,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			dxorArgs = strX86AddrModeAppendItem(dxorArgs, X86AddrModeReg(&regX86DX));
 			assembleInst("MOV", movRaxArgs);
 			assembleInst("XOR", dxorArgs);
-			assembleInst(op, divArgs);
+			assembleOpcode(start,op, divArgs);
 			if (isDivOrMod) {
 				struct X86AddressingMode *ax CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86AX);
 				asmAssign(outMode, ax, 1,0);
@@ -2664,7 +2774,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			dxorArgs = strX86AddrModeAppendItem(dxorArgs, X86AddrModeReg(&regX86EDX));
 			assembleInst("MOV", movRaxArgs);
 			assembleInst("XOR", dxorArgs);
-			assembleInst(op, divArgs);
+			assembleOpcode(start,op, divArgs);
 			if (isDivOrMod) {
 				struct X86AddressingMode *eax CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86EAX);
 				asmAssign(outMode, eax, 1,0);
@@ -2681,7 +2791,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			dxorArgs = strX86AddrModeAppendItem(dxorArgs, X86AddrModeReg(&regAMD64RDX));
 			assembleInst("MOV", movRaxArgs);
 			assembleInst("XOR", dxorArgs);
-			assembleInst(op, divArgs);
+			assembleOpcode(start,op, divArgs);
 			if (isDivOrMod) {
 				struct X86AddressingMode *rdx CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regAMD64RDX);
 				asmAssign(outMode, rdx, 1,0);

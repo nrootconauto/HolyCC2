@@ -3482,6 +3482,8 @@ static struct X86AddressingMode *addrModeFromParseTree(struct parserNode *node, 
 				goto fail;
 			if (base || index || offset)
 				goto fail;
+			if (success)
+					*success = 1;
 			struct X86AddressingMode retVal;
 			retVal.type = X86ADDRMODE_ITEM_ADDR;
 			retVal.valueType = valueType;
