@@ -628,7 +628,7 @@ void compileTests() {
 				free(asmF);	
 				free(source);
 				}*/
-		{
+		/*		{
 				const char * text=
 						"U0 assertEq(I32i a,I32i b) {\n"
 						"    if(a!=b) {\n"
@@ -656,7 +656,7 @@ void compileTests() {
 				runTest(asmF,"y");
 				free(asmF);	
 				free(source);
-				}
+				}*/
 		/*{
 				const char * text=
 						"F64 Add(F64 a,F64 b) {\n"
@@ -677,4 +677,29 @@ void compileTests() {
 				free(asmF);	
 				free(source);
 				}*/
+					{
+				const char * text=
+						"U0 OneTwoThree(...) {\n"
+						"    if(argc!=3) goto fail;\n"
+						"    if(argv[0]!=1) goto fail;\n"
+						"    if(argv[1]!=2) goto fail;\n"
+						"    if(argv[2]!=3) goto fail;\n"
+						"    return;"
+						"    fail:\n"
+						"    asm {\n"
+						exitStr
+						"   }\n"
+						"}\n"
+						"OneTwoThree(1,2,3);\n"
+						putY
+						"asm {\n"
+						exitStr
+						"}\n";
+				char *source=text2File(text);
+				char *asmF=strDup(tmpnam(NULL));
+				compileFile(source, asmF);
+				runTest(asmF,"y");
+				free(asmF);	
+				free(source);
+				}
 }

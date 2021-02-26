@@ -1161,14 +1161,16 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 
 		if(func->hasVarLenArgs) {
 				__auto_type argcNode=IRCreateFuncVaArgArgc();
-				graphNodeIRConnect(argcNode,IRCreateVarRef(func->argcVar), IR_CONN_DEST);
+				__auto_type argcVar=IRCreateVarRef(func->argcVar);
+				graphNodeIRConnect(argcNode,argcVar, IR_CONN_DEST);
 				graphNodeIRConnect(currentNode, argcNode, IR_CONN_FLOW);
-				currentNode=argcNode;
+				currentNode=argcVar;
 				
 				__auto_type argvNode=IRCreateFuncVaArgArgv();
-				graphNodeIRConnect(argcNode,IRCreateVarRef(func->argvVar), IR_CONN_DEST);
+				__auto_type argvVar=IRCreateVarRef(func->argvVar);
+				graphNodeIRConnect(argvNode,argvVar, IR_CONN_DEST);
 				graphNodeIRConnect(currentNode, argvNode, IR_CONN_FLOW);
-				currentNode=argvNode;
+				currentNode=argvVar;
 		}
 
 		// Compute body

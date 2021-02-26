@@ -399,7 +399,7 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 			return &typeI64i;
 		} else {
 			struct objectFunction *func = (void *)funcType;
-			if (strFuncArgSize(func->args) < strParserNodeSize(call->args)) {
+			if (!func->hasVarLenArgs&&strFuncArgSize(func->args) < strParserNodeSize(call->args)) {
 				// Error excess args
 				diagErrorStart(call->func->pos.start, call->func->pos.end);
 

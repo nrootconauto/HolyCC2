@@ -393,8 +393,9 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start) {
 
 	long stackSizeBeforeArgs = stackSize;
 	long varLenArgListStart=0;
+	long offset=0;
 	for (long i = strGraphNodeIRPSize(args) - 1; i >= 0; i--) {
-			if(strFuncArgSize(func->args)-i==0)
+			if(strFuncArgSize(func->args)-offset++==0)
 					varLenArgListStart=stackSize;
 			
 			__auto_type type = objectBaseType(IRNodeType(args[i]));
@@ -559,7 +560,7 @@ static graphNodeIR abiI386AddrModeNode(struct objectFunction *func, long argI) {
 			slice.type=objectPtrCreate(&typeI32i);
 			slice.widthInBits=32;
 			//Pointer arithmetic will add the index*4 !!!
-			return IRCreateBinop(IRCreateIntLit(offset/4),IRCreateRegRef(&slice),IR_ADD);
+			return IRCreateBinop(IRCreateIntLit(-offset/4),IRCreateRegRef(&slice),IR_ADD);
 	}
 	assert(argI < strFuncArgSize(func->args));
 	return NULL;
@@ -630,13 +631,16 @@ static strVar IR_ABI_I386_SYS_InsertLoadArgs(graphNodeIR start) {
 			slice.widthInBits=32;
 			__auto_type ref = IRCreateRegRef(&slice);
 			__auto_type varC=IRCreateVarRef(fType->argcVar);
-			graphNodeIRConnect(defineChain,ref,IR_CONN_FLOW);
+			if(defineChain)
+					graphNodeIRConnect(defineChain,ref,IR_CONN_FLOW);
+			if (!defineChainStart)
+					defineChainStart=ref;
 			graphNodeIRConnect(ref, varC, IR_CONN_DEST);
 			defineChain=varC;
 
 			__auto_type argv=abiI386AddrModeNode(fType,VA_ARG_LIST_ARGI);
 			__auto_type varV=IRCreateVarRef(fType->argvVar);
-			graphNodeIRConnect(defineChain,  IRStmtStart(varV),  IR_CONN_FLOW);
+			graphNodeIRConnect(defineChain,  IRStmtStart(argv),  IR_CONN_FLOW);
 			graphNodeIRConnect(argv,  varV,  IR_CONN_DEST); 
 			defineChain=varV;
 	}
@@ -659,9 +663,7 @@ static strVar IR_ABI_I386_SYS_InsertLoadArgs(graphNodeIR start) {
 	}
 
 	if (defineChainStart)
-		IRInsertAfter(start, defineChainStart, defineChain, IR_CONN_FLOW);
-
-	
+		IRInsertAfter(start, defineChainStart, defineChain, IR_CONN_FLOW);	
 	
 	for (long n = 0; n != strGraphNodeIRPSize(argNodes); n++) {
 		struct IRAttrFunc funcAttr;

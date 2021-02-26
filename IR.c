@@ -922,6 +922,10 @@ static char *IRCreateGraphVizNode(const struct __graphNode *node, mapGraphVizAtt
 
 		return strClone(buffer);
 	}
+	case IR_FUNC_VAARG_ARGC:
+			return strClone("ARGC");
+	case IR_FUNC_VAARG_ARGV:
+			return strClone("ARGV");
 	case IR_COND_JUMP:
 		makeGVDecisionNode(attrs);
 		return strClone("IF");
@@ -1282,6 +1286,7 @@ static graphNodeIR __cloneNode(ptrMapGraphNode mappings, graphNodeIR node, enum 
 
 	__auto_type ir = graphNodeIRValuePtr(node);
 	switch (ir->type) {
+			
 	case IR_ARRAY_DECL: {
 			struct IRNodeArrayDecl *arr=(void*)ir;
 			return GRAPHN_ALLOCATE(*arr);
@@ -1355,6 +1360,8 @@ static graphNodeIR __cloneNode(ptrMapGraphNode mappings, graphNodeIR node, enum 
 	case IR_GT:
 	case IR_INC:
 	case IR_LAND:
+	case IR_FUNC_VAARG_ARGC:
+	case IR_FUNC_VAARG_ARGV:
 	case IR_COND_JUMP:
 	case IR_FUNC_END:
 	case IR_FUNC_START:
