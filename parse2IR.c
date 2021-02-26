@@ -1430,6 +1430,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 		return (struct enterExit){firstNode, lastNode};
 	}
 	case NODE_CLASS_DEF:
+	case NODE_UNION_DEF:
 	case NODE_FUNC_FORWARD_DECL: {
 		__auto_type lab = IRCreateLabel();
 		return (struct enterExit){lab, lab};
@@ -1439,7 +1440,6 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 	case NODE_NAME:
 	case NODE_OP:
 	case NODE_UNOP:
-	case NODE_UNION_DEF:
 	case NODE_BINOP:
 	case NODE_FUNC_CALL:
 	case NODE_FUNC_REF:

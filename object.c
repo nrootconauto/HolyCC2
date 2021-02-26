@@ -363,7 +363,8 @@ objectUnionCreate(const struct parserNode *name /*Can be `NULL` for empty union.
 	
 	struct objectUnion *newUnion = malloc(sizeof(struct objectUnion));
 	newUnion->name = (struct parserNode *)name;
-	newUnion->base.type = TYPE_CLASS;
+	newUnion->base.type = TYPE_UNION;
+	newUnion->baseType=NULL;
 	newUnion->members = NULL;
 
 	long largestMemberAlign = 0;

@@ -1014,19 +1014,25 @@ struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end) {
 		struct parserNodeName *baseName = (void *)base;
 		baseType = objectByName(baseName->text);
 		foundType = baseType != NULL;
-	} else {
-		cls = parseClass(start, &start, 0);
-		if (cls != NULL) {
+	}
+	__auto_type backupStart=start;
+	cls = parseClass(start, &start, 0);
+	if(!cls)
+			start=backupStart;
+	if (cls != NULL) {
 			foundType = 1;
 
 			if (cls->type == NODE_CLASS_DEF) {
-				struct parserNodeClassDef *clsDef = (void *)cls;
-				baseType = clsDef->type;
+					struct parserNodeClassDef *clsDef = (void *)cls;
+					struct objectClass *cls=(void*)clsDef->type;
+					cls->baseType=baseType;
+					baseType = clsDef->type;
 			} else if (cls->type == NODE_UNION_DEF) {
-				struct parserNodeUnionDef *unDef = (void *)cls;
-				baseType = unDef->type;
+					struct parserNodeUnionDef *unDef = (void *)cls;
+					struct objectUnion *un=(void*)unDef->type;
+					un->baseType=baseType;
+					baseType = unDef->type;
 			}
-		}
 	}
 
 	if (foundType) {

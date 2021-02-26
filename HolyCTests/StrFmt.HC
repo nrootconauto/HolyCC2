@@ -1,3 +1,7 @@
+I32i union I32 {
+					U8i u8[4];
+					U16i u16[2];
+};
 U0 PutChr(U8i chr) {
 	asm {
 		IMPORT chr;
@@ -28,6 +32,11 @@ static U0 PrintI32i_10(I32i num) {
 																PutChr(buffer[c]);
 }
 PrintI32i_10(123);
+I32 test=0x11223344;
+PrintI32i_10(test.u8[0]);
+PrintI32i_10(test.u8[1]);
+PrintI32i_10(test.u8[2]);
+PrintI32i_10(test.u8[3]);
 MOV EAX,1
 MOV EBX,1
 INT 0x80
