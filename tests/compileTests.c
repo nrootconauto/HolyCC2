@@ -705,7 +705,7 @@ void compileTests() {
 				}*/
 		const char *argv[]={
 				"hcc",
-				"../HolyCTests/StrFmt.HC"
+				"/home/tc/projects/holycc2/HolyCTests/StrFmt.HC"
 		};
 		parseCommandLineArgs(2, argv);
 		system("./a.out >res.txt");

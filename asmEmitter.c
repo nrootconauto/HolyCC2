@@ -270,15 +270,15 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 			fprintf(stderr, "Cant find name for symbol\n");
 			assert(0);
 		}
-		long len = snprintf(NULL, 0, "[%s] ", name);
+		long len = snprintf(NULL, 0, "[$%s] ", name);
 		strChar retVal = strCharResize(NULL, len + 1);
-		sprintf(retVal, "[%s] ", name);
+		sprintf(retVal, "[$%s] ", name);
 		return retVal;
 	}
 	case X86ADDRMODE_LABEL: {
-		long len = snprintf(NULL, 0, "%s ", args[i]->value.label);
+		long len = snprintf(NULL, 0, "$%s ", args[i]->value.label);
 		strChar retVal = strCharResize(NULL, len + 1);
-		sprintf(retVal, "%s ", args[i]->value.label);
+		sprintf(retVal, "$%s ", args[i]->value.label);
 		return retVal;
 	}
 	case X86ADDRMODE_REG: {
@@ -454,7 +454,7 @@ void X86EmitAsmParserInst(struct parserNodeAsmInstX86 *inst) {
 	assert(!err);
 }
 void X86EmitAsmGlobalVar(struct parserVar *var) {
-	fprintf(initSymbolsTmpFile, "%s: resb %li\n", var->name, objectSize(var->type, NULL));
+	fprintf(initSymbolsTmpFile, "$%s: resb %li\n", var->name, objectSize(var->type, NULL));
 }
 void X86EmitAsmIncludeBinfile(const char *fileName) {
 	char *otherValids = " []{}\\|;:\"\'<>?,./`~!@#$%^&*()-_+=";
@@ -571,9 +571,9 @@ void X86EmitAsmComment(const char *text) {
 }
 struct X86AddressingMode *X86EmitAsmStrLit(const char *text,long size) {
 		strChar unes CLEANUP(strCharDestroy) = dumpStrLit(text,size);
-	long count = snprintf(NULL, 0, "$STR_%li", ++labelCount);
+	long count = snprintf(NULL, 0, "$TR_%li", ++labelCount);
 	char buffer[count + 1];
-	sprintf(buffer, "$STR_%li", labelCount);
+	sprintf(buffer, "STR_%li", labelCount);
 	fprintf(constsTmpFile, "%s: DB %s\n", buffer, unes);
 	return X86AddrModeLabel(buffer);
 }

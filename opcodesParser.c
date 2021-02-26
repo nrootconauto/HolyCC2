@@ -582,19 +582,19 @@ int opcodeTemplateArgAcceptsAddrMode(const struct opcodeTemplateArg *arg, const 
 	case OPC_TEMPLATE_ARG_SINT8:
 	case OPC_TEMPLATE_ARG_UINT8:
 		if (mode->type == X86ADDRMODE_SINT || mode->type == X86ADDRMODE_UINT) {
-			return sizeMatchUnsigned(mode, 1);
+			return sizeMatchSigned(mode, 1)||sizeMatchUnsigned(mode, 1);
 		} else
 			goto fail;
 	case OPC_TEMPLATE_ARG_UINT16:
 	case OPC_TEMPLATE_ARG_SINT16:
 		if (mode->type == X86ADDRMODE_SINT || mode->type == X86ADDRMODE_UINT) {
-			return sizeMatchUnsigned(mode, 2);
+				return sizeMatchSigned(mode, 2)||sizeMatchUnsigned(mode, 2);
 		} else
 			goto fail;
 	case OPC_TEMPLATE_ARG_SINT32:
 	case OPC_TEMPLATE_ARG_UINT32:
 		if (mode->type == X86ADDRMODE_SINT || mode->type == X86ADDRMODE_UINT) {
-			return sizeMatchUnsigned(mode, 4);
+			return sizeMatchSigned(mode, 4)||sizeMatchUnsigned(mode, 4);
 		}
 		if (ptrSize() == 4) {
 			return mode->type == X86ADDRMODE_LABEL || mode->type == X86ADDRMODE_ITEM_ADDR || mode->type == X86ADDRMODE_STR||mode->type == X86ADDRMODE_LABEL;
@@ -603,7 +603,7 @@ int opcodeTemplateArgAcceptsAddrMode(const struct opcodeTemplateArg *arg, const 
 	case OPC_TEMPLATE_ARG_SINT64:
 	case OPC_TEMPLATE_ARG_UINT64:
 		if (mode->type == X86ADDRMODE_SINT || mode->type == X86ADDRMODE_UINT) {
-			return sizeMatchUnsigned(mode, 8);
+			return sizeMatchSigned(mode, 8)||sizeMatchUnsigned(mode, 8);
 		}
 		if (ptrSize() == 8) {
 			return mode->type == X86ADDRMODE_LABEL || mode->type == X86ADDRMODE_ITEM_ADDR || mode->type == X86ADDRMODE_STR||mode->type == X86ADDRMODE_LABEL;

@@ -2077,7 +2077,7 @@ static graphNodeIR assembleOpInt(graphNodeIR start, const char *opName) {
 			args=strX86AddrModeAppendItem(args, X86AddrModeClone(oMode));
 			args=strX86AddrModeAppendItem(args, X86AddrModeClone(bMode));
 			assembleOpcode(start, opName , args);
-	} {
+	}else {
 			useTmp=1;
 			//A mode's value with be loaded into a register if no others are avialable
 			//AUTO_LOCK_MODE_REGS(aMode);

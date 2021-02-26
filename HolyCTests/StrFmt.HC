@@ -27,12 +27,15 @@ static U0 PrintI32i_10(I32i num) {
 										num/=10;
 										count-=1;
 										buffer[count]=digits[d];
+										PutChr(buffer[count]);
+										PutChr(10);
 							} while(num!=0);
 							for(I32i c=0;c!=count2;c++)
 																PutChr(buffer[c]);
 }
-PrintI32i_10(123);
+PrintI32i_10(123000);
 I32 test=0x11223344;
+PrintI32i_10(0x11223344);
 PrintI32i_10(test.u8[0]);
 PrintI32i_10(test.u8[1]);
 PrintI32i_10(test.u8[2]);
