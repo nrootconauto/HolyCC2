@@ -386,7 +386,7 @@ objectUnionCreate(const struct parserNode *name /*Can be `NULL` for empty union.
 			largestSize = size;
 
 		clone.name = strClone(clone.name);
-		newUnion->members = strObjectMemberAppendItem(newUnion->members, members[i]);
+		newUnion->members = strObjectMemberAppendItem(newUnion->members, clone);
 	}
 	largestSize += largestSize % largestMemberAlign;
 	newUnion->size = largestSize;

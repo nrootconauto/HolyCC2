@@ -2286,7 +2286,7 @@ static void storeMemberPtrInReg(struct reg *memReg, graphNodeIR sourceNode, strO
 		}
 		memRegMode->valueType = objectPtrCreate(members[m].type);
 		currentOffset += members[m].offset;
-		currentType = members[m].type;
+		currentType = objectBaseType(members[m].type);
 	}
 	if (currentOffset) {
 		strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
@@ -3437,8 +3437,12 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		storeMemberPtrInReg(memReg, graphEdgeIRIncoming(source[0]), mems->members);
 
 		X86AddrModeDestroy(&memRegMode);
-		memRegMode = X86AddrModeIndirReg(memReg, IRNodeType(start));
-
+		if(objectBaseType(IRNodeType(start))->type!=TYPE_ARRAY) 
+				memRegMode = X86AddrModeIndirReg(memReg, IRNodeType(start));
+		else {
+				memRegMode = X86AddrModeReg(memReg);
+				memRegMode->valueType=IRNodeType(start);
+		}
 		// Reserve a register for the member ptr
 		if (strGraphEdgeIRPSize(inAssn) == 1) {
 			struct X86AddressingMode *asnMode = IRNode2AddrMode(graphEdgeIRIncoming(inAssn[0]));
