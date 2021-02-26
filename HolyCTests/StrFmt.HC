@@ -10,11 +10,22 @@ U0 PutChr(U8i chr) {
 }
 static U0 PrintI32i_10(I32i num) {
 							U8i *digits="0123456789";
+							I32i count=0;
+							I32i num2=num;
+							do {
+										num2/=10;
+										count+=1;
+							} while(num2!=0);
+							U8i buffer[count];
+							I32i count2=count;
 							do {
 										I32i d=num%10;
-										PutChr(digits[d]);
 										num/=10;
+										count-=1;
+										buffer[count]=digits[d];
 							} while(num!=0);
+							for(I32i c=0;c!=count2;c++)
+																PutChr(buffer[c]);
 }
 PrintI32i_10(123);
 MOV EAX,1
