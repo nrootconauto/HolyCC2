@@ -30,16 +30,18 @@ void ropeDestroy(struct rope **r) {
 		free(r);
 }
 static struct rope *__ropeIndex(struct rope *r,long i,long *strI) {
+		if(!r->left&&!r->right) {
+				if(r->cCount<=i)
+						return NULL;
+				if(strI)
+						*strI=i;
+				return r;
+		}
 		if(ropeSize(r->left)<=i&&r->right) {
 				return __ropeIndex(r->right,i-ropeSize(r->left),strI);
 		} else if(r->left) {
 				return __ropeIndex(r->right,i,strI);
 		}
-		if(r->cCount<=i)
-				return NULL;
-		if(strI)
-				*strI=i;
-		return r;
 }
 static void __ropeDisconnect(struct rope *r) {
 		if(r->parent) {
@@ -100,12 +102,12 @@ struct rope *ropeFromText(const char *text) {
 				leaf.base.cCount=ROPE_LENGTH;
 				leaf.base.left=leaf.base.right=leaf.base.parent=NULL;
 				if(len-c>=ROPE_LENGTH) {
-						strncpy(leaf.text,text,ROPE_LENGTH);
+						strncpy(leaf.text,text+c,ROPE_LENGTH);
 						leaf.text[ROPE_LENGTH]='\0';
-						c+=len;
+						c+=ROPE_LENGTH;
 				} else {
-						strcpy(leaf.text,text);
-						break;
+						strcpy(leaf.text,text+c);
+						c=len;
 				}
 				retVal=ropeConcat(retVal, (struct rope*)ALLOCATE(leaf));
 		}
