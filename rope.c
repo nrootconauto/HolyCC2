@@ -27,7 +27,7 @@ void ropeDestroy(struct rope **r) {
 				ropeDestroy(&r[0]->left);
 		if(r[0]->right)
 				ropeDestroy(&r[0]->right);
-		free(r);
+		free(r[0]);
 }
 static struct rope *__ropeIndex(struct rope *r,long i,long *strI) {
 		if(!r->left&&!r->right) {
@@ -40,15 +40,16 @@ static struct rope *__ropeIndex(struct rope *r,long i,long *strI) {
 		if(ropeSize(r->left)<=i&&r->right) {
 				return __ropeIndex(r->right,i-ropeSize(r->left),strI);
 		} else if(r->left) {
-				return __ropeIndex(r->right,i,strI);
+				return __ropeIndex(r->left,i,strI);
 		}
+		return NULL;
 }
 static void __ropeDisconnect(struct rope *r) {
 		if(r->parent) {
-				if(r->left==r)
-						r->left=NULL;
-				if(r->right==r)
-						r->right=NULL;
+				if(r->parent->left==r)
+						r->parent->left=NULL;
+				if(r->parent->right==r)
+						r->parent->right=NULL;
 		}
 		r->parent=NULL;
 }
@@ -73,7 +74,8 @@ struct rope *ropeConcat(struct rope *a,struct rope *b) {
 						long bSize=bFirstNode->base.cCount;
 						long toMove=(aExtra<bSize)?aExtra:bSize;
 						strncpy(aLastNode->text+aLastNode->base.cCount, bFirstNode->text, toMove);
-						memmove(bFirstNode->text, bFirstNode->text+toMove, toMove);
+						aLastNode->base.cCount+=toMove;
+						memmove(bFirstNode->text, bFirstNode->text+toMove, bFirstNode->base.cCount-toMove);
 						bFirstNode->base.cCount-=toMove;
 
 						if(!bFirstNode->base.cCount) {
@@ -92,7 +94,13 @@ struct rope *ropeConcat(struct rope *a,struct rope *b) {
 		join.left=a;
 		join.right=b;
 		join.parent=NULL;
-		return ALLOCATE(join);
+		__auto_type retVal=ALLOCATE(join);
+		
+		if(a)
+				a->parent=retVal;
+		if(b)
+				b->parent=retVal;
+		return retVal;
 }
 struct rope *ropeFromText(const char *text) {
 		long len=strlen(text);
@@ -105,8 +113,10 @@ struct rope *ropeFromText(const char *text) {
 						strncpy(leaf.text,text+c,ROPE_LENGTH);
 						leaf.text[ROPE_LENGTH]='\0';
 						c+=ROPE_LENGTH;
+						leaf.base.cCount=ROPE_LENGTH;
 				} else {
 						strcpy(leaf.text,text+c);
+						leaf.base.cCount=len-c;
 						c=len;
 				}
 				retVal=ropeConcat(retVal, (struct rope*)ALLOCATE(leaf));
@@ -130,17 +140,19 @@ void ropeSplit(struct rope *r,long i,struct rope **a,struct rope **b) {
 
 		long strIndex;
 		__auto_type splitNode=(struct ropeLeaf*)__ropeIndex(r,i,&strIndex);
-		char extra[ROPE_LENGTH];
-		strcpy(extra, splitNode->text+strIndex);
 		
 		strRope disconnectedNodes CLEANUP(strRopeDestroy)=NULL;
 		if(strIndex==0) {
 				disconnectedNodes=strRopeAppendItem(disconnectedNodes, (struct rope*)splitNode);
+				__ropeDisconnect((struct rope*)splitNode);
 		} else {
+				splitNode->text[splitNode->base.cCount]='\0';
+				
+				disconnectedNodes=strRopeAppendItem(disconnectedNodes, ropeFromText(splitNode->text+strIndex));
+
 				splitNode->text[strIndex]='\0';
 				splitNode->base.cCount=strIndex;
 		}
-		__ropeDisconnect((struct rope*)splitNode);
 		
 		for(;;) {
 				__auto_type curr=__ropeIndex(r, i, NULL);
@@ -173,7 +185,10 @@ static strChar __ropeToText(struct rope *r) {
 }
 char *ropeToText(struct rope *r) {
 		strChar text CLEANUP(strCharDestroy)=__ropeToText(r);
-		return strcpy(malloc(strlen(text)+1), text);
+		long len=ropeSize(r);
+		char *retVal=strncpy(malloc(len+1), text,len);
+		retVal[len]='\0';
+		return retVal;
 }
 struct rope *ropeInsertText(struct rope *r,const char *text,long i) {
 		struct rope *a=r,*b;
