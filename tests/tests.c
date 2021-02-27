@@ -30,8 +30,10 @@ void basicBlockTests();
 void IEEE754Tests();
 void asmEmitterTests();
 void compileTests();
+void ropeTests();
 int main() {
 		init();
-		compileTests();
+		ropeTests();
+		//		compileTests();
 		return 0;
 }
