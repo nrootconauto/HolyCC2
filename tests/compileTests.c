@@ -703,6 +703,7 @@ void compileTests() {
 				free(asmF);	
 				free(source);
 				}*/
+/*
 		const char *argv[]={
 				"hcc",
 				"/home/tc/projects/holycc2/HolyCTests/StrFmt.HC"
@@ -720,4 +721,12 @@ void compileTests() {
 		fread(buffer, end-start, 1, f);
 		buffer[end-start-1]='\0';
 		printf("%s\n", buffer);
+*/
+				{
+						const char *argv[]={
+								"hcc",
+								"/home/tc/projects/holycc2/HolyCTests/IntPow.HC"
+						};
+						parseCommandLineArgs(2, argv);
+				}
 }

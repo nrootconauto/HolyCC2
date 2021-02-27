@@ -33,7 +33,7 @@ void compileTests();
 void ropeTests();
 int main() {
 		init();
-		ropeTests();
-		//		compileTests();
+		//ropeTests();
+		compileTests();
 		return 0;
 }

@@ -149,10 +149,38 @@ static int isKeyword(const struct __vec *new, long pos) {
 }
 STR_TYPE_DEF(char *, Str);
 STR_TYPE_FUNCS(char *, Str);
-const void *skipWhitespace(const struct __vec *text, long from) {
-	for (__auto_type ptr = (void *)text + from; ptr != (void *)text + __vecSize(text); ptr++)
-		if (!isblank(*(char *)ptr) && *(char *)ptr != '\n' && *(char *)ptr != '\r' && ptr != '\0')
-			return ptr;
+static char *skipComment(char *text, char *end) {
+		if(text+2<end) {
+				if(0==strncmp(text, "//", 2)) {
+						for(;text<end;text++) {
+								if(*text=='\n'||*text=='\r') {
+										text++;
+										break;
+								}
+						}
+				} else if(0==strncmp(text, "/*", 2)) {
+						for(;text<end;text++) {
+								if(text+2>=end)
+										break;
+								if(0==strncmp(text, "*/", 2)) {
+										text+=2;
+										break;
+								}
+						}
+				}
+		}
+		return text;
+}
+static const void *skipWhitespace(const struct __vec *text, long from) {
+		for (__auto_type ptr = (void *)text + from; ptr != (void *)text + __vecSize(text); ptr++) {
+		loop:
+				if(ptr!=skipComment(ptr, (char*)text+__vecSize(text))) {
+						ptr=skipComment(ptr, (char*)text+__vecSize(text));
+						goto loop;
+				}
+				if (!isblank(*(char *)ptr) && *(char *)ptr != '\n' && *(char *)ptr != '\r' && ptr != '\0')
+						return ptr;
+		}
 	return __vecSize(text) + (void *)text;
 }
 static struct __vec *intLex(const struct __vec *new, long pos, long *end, int *err) {

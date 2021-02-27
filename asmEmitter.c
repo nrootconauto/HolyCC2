@@ -218,8 +218,10 @@ static strChar parserNodeSymbolName(struct parserNode *node) {
 	case NODE_FUNC_REF:;
 		struct parserNodeFuncRef *ref = (void *)node;
 		return strClone(ref->func->name);
-	default:
-		assert(0);
+	case NODE_FUNC_DEF:;
+			struct parserNodeFuncDef *def = (void *)node;
+		return strClone(def->func->name);
+	default:;
 	}
 	return NULL;
 }
@@ -230,6 +232,8 @@ static void X86EmitSymbolTable() {
 	parserSymTableNames(keys, NULL);
 	for (long i = 0; i != count; i++) {
 		strChar name CLEANUP(strCharDestroy2) = parserNodeSymbolName(parserGetGlobalSym(keys[i]));
+		if(!name)
+				continue;
 		__auto_type link = parserGlobalSymLinkage(keys[i]);
 		if ((link->type & LINKAGE__EXTERN) || (link->type & LINKAGE__IMPORT)) {
 			fprintf(symbolsTmpFile, "EXTERN %s ; Appears as %s in src.\n", name, keys[i]);
@@ -588,6 +592,7 @@ static strChar file2Str(FILE *f) {
 }
 void X86EmitAsm2File(const char *name) {
 	FILE *fn = fopen(name, "w");
+	X86EmitSymbolTable();
 	fputs("global _start\n", symbolsTmpFile);
 	strChar symbols CLEANUP(strCharDestroy) = file2Str(symbolsTmpFile);
 	strChar code CLEANUP(strCharDestroy) = file2Str(codeTmpFile);

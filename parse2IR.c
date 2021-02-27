@@ -1252,12 +1252,17 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 		IRGenScopePop(0);
 
 		// Inc code
-		__auto_type inc = __parserNode2IRStmt(forStmt->inc);
-		graphNodeIRConnect(labNext, inc.enter, IR_CONN_FLOW);
-		retVal.exit = labExit;
-		// Connect increment to cond code
-		graphNodeIRConnect(inc.exit, condEnter, IR_CONN_FLOW);
-
+		if(forStmt->inc) {
+				__auto_type inc = __parserNode2IRStmt(forStmt->inc);
+				graphNodeIRConnect(labNext, inc.enter, IR_CONN_FLOW);
+				retVal.exit = labExit;
+				// Connect increment to cond code
+				graphNodeIRConnect(inc.exit, condEnter, IR_CONN_FLOW);
+		} else {
+				graphNodeIRConnect(labNext, condEnter, IR_CONN_FLOW);
+				retVal.exit = labExit;
+		}
+		
 		return retVal;
 	}
 	case NODE_IF: {
