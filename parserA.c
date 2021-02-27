@@ -1445,11 +1445,14 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end, int allowForw
 
 	struct parserNode *name2 = NULL;
 	if (cls || un) {
-		start = llLexerItemNext(start);
+			start = llLexerItemNext(start);
 
-		name2 = nameParse(start, NULL, &start);
-
-		struct parserNode *l = expectKeyword(start, "{");
+			name2 = nameParse(start, NULL, &start);
+			
+			//Create a forward declaration So the class can be referenced within the class
+			objectForwardDeclarationCreate(name2, (cls)?TYPE_CLASS:TYPE_UNION);
+			
+			struct parserNode *l = expectKeyword(start, "{");
 		if (l)
 			start = llLexerItemNext(start);
 		if (l == NULL) {
@@ -1531,30 +1534,11 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end, int allowForw
 		if (name2 != NULL) {
 			className = name2;
 		}
-
-		// Whine is type of same name already exists
-		int alreadyExists = 0;
-		if (objectByName(((struct parserNodeName *)name2)->text)) {
-			__auto_type name = ((struct parserNodeName *)name2);
-
-			diagErrorStart(name->base.pos.start, name->base.pos.end);
-			diagPushText("Type ");
-			diagPushQoutedText(name->base.pos.start, name->base.pos.end);
-			diagPushText("already exists!");
-			diagHighlight(name->base.pos.start, name->base.pos.end);
-			diagEndMsg();
-
-			referenceType(objectByName(name->text));
-
-			alreadyExists = 1;
-		}
-
-		if (!alreadyExists) {
-			if (cls) {
+		
+		if (cls) {
 				retValObj = objectClassCreate(className, members, strObjectMemberSize(members));
-			} else if (un) {
+		} else if (un) {
 				retValObj = objectUnionCreate(className, members, strObjectMemberSize(members));
-			}
 		}
 	}
 	if (cls) {

@@ -722,7 +722,7 @@ void compileTests() {
 		buffer[end-start-1]='\0';
 		printf("%s\n", buffer);
 */
-				{
+		/*{
 						const char *argv[]={
 								"hcc",
 								"-c",
@@ -731,5 +731,15 @@ void compileTests() {
 								"/tmp/IntPow.o"
 						};
 						parseCommandLineArgs(5, argv);
-				}
+						}*/
+		{
+						const char *argv[]={
+								"hcc",
+								"-c",
+								"/home/tc/projects/holycc2/HolyCRT/ExceptLin.HC",
+								"-o",
+								"/tmp/HCRT.o"
+						};
+						parseCommandLineArgs(5, argv);
+		}
 }

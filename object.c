@@ -122,9 +122,9 @@ hashObject(struct object *obj, int *alreadyExists) {
 			typeStr = "union";
 
 		struct parserNodeName *name = (void *)fwd->name;
-		long len = snprintf(NULL, 0, "FWD(%s):%s", typeStr, name->text);
+		long len = snprintf(NULL, 0, "%s", name->text);
 		char buffer[len + 1];
-		sprintf(buffer, "FWD(%s):%s", typeStr, name->text);
+		sprintf(buffer, "%s", name->text);
 
 		retVal = strClone(buffer);
 		goto end;
@@ -166,8 +166,17 @@ end:
 		*alreadyExists = 0;
 	if (NULL == mapObjectGet(objectRegistry, retVal)) {
 		mapObjectInsert(objectRegistry, retVal, obj);
-	} else if (alreadyExists)
-		*alreadyExists = 1;
+	} else  {
+			__auto_type find=*mapObjectGet(objectRegistry, retVal);
+			//Check if a forward declaration.
+			if(find->type!=TYPE_FORWARD) {
+					if (alreadyExists)
+							*alreadyExists = 1;
+			} else {
+					mapObjectRemove(objectRegistry, retVal,NULL);
+					goto end;
+			}
+	}
 
 	obj->name = retVal;
 	return obj->name;
