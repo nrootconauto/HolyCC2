@@ -43,7 +43,6 @@ static int nextFlagI(int argi,int argc,const char **argv) {
 		for(;i!=argc;i++) {
 				if(getFlag(argv[i]))
 						break;
-				return i;
 		}
 		return i;
 }
@@ -52,19 +51,19 @@ STR_TYPE_DEF(constChar, ConstChar);
 STR_TYPE_FUNCS(constChar, ConstChar);
 static strConstChar toCompile=NULL;
 static void compileCallback(int *argi,int argc,const char **argv) {
-		long end=nextFlagI(*argi,argc,argv);
-		for(long i=*argi;i!=end;i++)
+		long end=nextFlagI(*argi+1,argc,argv);
+		for(long i=*argi+1;i!=end;i++)
 				toCompile=strConstCharAppendItem(toCompile, argv[i]);
 		*argi=end;
 }
 static const char *outputFile=NULL;
 static void outputCallback(int *argi,int argc,const char **argv) {
-		long end=nextFlagI(*argi,argc,argv);
-		if(end!=*argi+1||outputFile) {
+		long end=nextFlagI(*argi+1,argc,argv);
+		if(end!=*argi+2||outputFile) {
 				fputs("Only one output file is allowed.\n", stderr);
 				abort();
 		}
-		outputFile=argv[*argi];
+		outputFile=argv[*argi+1];
 		*argi=end;
 }
 static void registerCLIFlag(struct commlFlag *f) {
@@ -146,11 +145,12 @@ void parseCommandLineArgs(int argc,const char **argv) {
 				}
 		}
 
-		if(sources) {
-				if(sources&&strConstCharSize(toCompile)&&outputFile) {
+		if(strConstCharSize(sources)||strConstCharSize(toCompile)) {
+				if(strConstCharSize(sources)&&strConstCharSize(toCompile)&&outputFile) {
 						fputs("Can't route sources and files to compile to a single output file.", stderr);
 						abort();
 				}
+				sources=strConstCharAppendData(sources, toCompile, strConstCharSize(toCompile));
 				strStrChar toAssemble CLEANUP(strStrCharDestroy2)=assembleSources(sources);
 				const char *commHeader="ld -o ";
 				strChar linkCommand CLEANUP(strCharDestroy)=strCharAppendData(NULL,commHeader,strlen(commHeader));
@@ -167,18 +167,6 @@ void parseCommandLineArgs(int argc,const char **argv) {
 						linkCommand=strCharAppendData(linkCommand, buffer, len);
 				}
 				linkCommand=strCharAppendItem(linkCommand, '\0');
-				system(linkCommand);
-		} else if(strConstCharSize(toCompile)==1) {
-				long len=snprintf(NULL, 0, "%s.o", toCompile[0]);
-				char dftOutFile[len+1];
-				sprintf(dftOutFile, "%s.o", toCompile[0]);
-				
-				strChar linkCommand CLEANUP(strCharDestroy)=strCharDup("ld -o ");
-				if(!outputFile)
-						outputFile=dftOutFile;
-				linkCommand=strCharConcat(linkCommand, strCharDup(outputFile));
-				linkCommand=strCharAppendItem(linkCommand, ' ');
-				linkCommand=strCharAppendData(linkCommand, toCompile[0], strlen(toCompile[0])+1);
 				system(linkCommand);
 		}
 		if(strConstCharSize(sources)==0) {

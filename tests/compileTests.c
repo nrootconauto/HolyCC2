@@ -725,8 +725,11 @@ void compileTests() {
 				{
 						const char *argv[]={
 								"hcc",
-								"/home/tc/projects/holycc2/HolyCTests/IntPow.HC"
+								"-c",
+								"/home/tc/projects/holycc2/HolyCTests/IntPow.HC",
+								"-o",
+								"/tmp/IntPow.o"
 						};
-						parseCommandLineArgs(2, argv);
+						parseCommandLineArgs(5, argv);
 				}
 }

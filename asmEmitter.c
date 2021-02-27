@@ -242,7 +242,7 @@ static void X86EmitSymbolTable() {
 			// Do nothing
 		} else if ((link->type & LINKAGE_EXTERN) || (link->type & LINKAGE_IMPORT)) {
 			fprintf(symbolsTmpFile, "EXTERN %s\n", name);
-		} else if ((link->type & LINKAGE_LOCAL)) {
+		} else if (!(link->type & LINKAGE_LOCAL)) {
 			fprintf(symbolsTmpFile, "GLOBAL %s\n", name);
 		}
 	}
@@ -593,7 +593,6 @@ static strChar file2Str(FILE *f) {
 void X86EmitAsm2File(const char *name) {
 	FILE *fn = fopen(name, "w");
 	X86EmitSymbolTable();
-	fputs("global _start\n", symbolsTmpFile);
 	strChar symbols CLEANUP(strCharDestroy) = file2Str(symbolsTmpFile);
 	strChar code CLEANUP(strCharDestroy) = file2Str(codeTmpFile);
 	strChar consts CLEANUP(strCharDestroy) = file2Str(constsTmpFile);
