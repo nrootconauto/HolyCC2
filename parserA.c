@@ -84,13 +84,13 @@ static void getStartEndPos(llLexerItem start, llLexerItem end, long *startP, lon
 	if (end == NULL)
 		endI = llLexerItemValuePtr(llLexerItemLast(start))->end;
 	else
-		endI = llLexerItemValuePtr(end)->end;
+		endI = llLexerItemValuePtr(end)->start;
 	startI = llLexerItemValuePtr(start)->start;
 
 	if (startP)
 		*startP = startI;
 	if (endP)
-		*endP = startI;
+		*endP = endI;
 }
 static void whineExpectedCondExpr(llLexerItem start, llLexerItem end, struct object *type) {
 	long startI, endI;
@@ -1110,6 +1110,10 @@ static llLexerItem findEndOfExpression(llLexerItem start, int stopAtComma) {
 			continue;
 		if (item->template == &floatTemplate)
 			continue;
+		if(item->template==&kwTemplate) {
+				if(0==strcmp(*(char**)lexerItemValuePtr(item),"sizeof"))
+						continue;
+		}
 		return start;
 	}
 

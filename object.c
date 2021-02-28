@@ -6,6 +6,7 @@
 #include <registers.h>
 #include <stdio.h>
 #include <string.h>
+#include <diagMsg.h>
 MAP_TYPE_DEF(struct object *, Object);
 MAP_TYPE_FUNCS(struct object *, Object);
 STR_TYPE_DEF(char, Char);
@@ -45,6 +46,22 @@ static char *ptr2Str(const void *a) {
 	char buffer[len+1];
 	sprintf(buffer, "%p", a);
 	return strClone(buffer);
+}
+static int objectIsReplacable(struct object *obj) {
+		switch(obj->type) {
+		case TYPE_ARRAY: {
+				struct objectArray *ptr=(void*)obj;
+				return objectIsReplacable(ptr->type);
+		}
+		case TYPE_FORWARD:
+				return 1;
+		case TYPE_PTR: {
+				struct objectPtr *ptr=(void*)obj;
+				return objectIsReplacable(ptr->type);
+		}
+default:
+		return 0;
+		}
 }
 /**
  * This function hashes an object,*it also assigns the hash to the object if it
@@ -114,13 +131,6 @@ hashObject(struct object *obj, int *alreadyExists) {
 	}
 	case TYPE_FORWARD: {
 		struct objectForwardDeclaration *fwd = (void *)obj;
-
-		const char *typeStr = NULL;
-		if (obj->type == TYPE_CLASS)
-			typeStr = "class";
-		else if (obj->type == TYPE_UNION)
-			typeStr = "union";
-
 		struct parserNodeName *name = (void *)fwd->name;
 		long len = snprintf(NULL, 0, "%s", name->text);
 		char buffer[len + 1];
@@ -129,9 +139,14 @@ hashObject(struct object *obj, int *alreadyExists) {
 		retVal = strClone(buffer);
 		goto end;
 	}
-	case TYPE_CLASS:
-		retVal = ptr2Str(obj);
-		goto end;
+	case TYPE_CLASS: {
+			struct objectClass *cls=(void*)obj;
+			if(!cls->name)
+					retVal = ptr2Str(obj);
+			else
+					retVal=object2Str(obj);
+			goto end;
+	}
 	case TYPE_F64:
 		retVal = strClone("F64");
 		goto end;
@@ -157,9 +172,14 @@ hashObject(struct object *obj, int *alreadyExists) {
 	case TYPE_U0:
 		retVal = strClone("U0");
 		goto end;
-	case TYPE_UNION:
-		retVal = ptr2Str(obj);
-		goto end;
+	case TYPE_UNION:{
+			struct objectUnion *cls=(void*)obj;
+			if(!cls->name)
+					retVal = ptr2Str(obj);
+			else
+					retVal=object2Str(obj);
+			goto end;
+	}
 	}
 end:
 	if (alreadyExists)
@@ -169,7 +189,7 @@ end:
 	} else  {
 			__auto_type find=*mapObjectGet(objectRegistry, retVal);
 			//Check if a forward declaration.
-			if(find->type!=TYPE_FORWARD) {
+			if(!objectIsReplacable(find)) {
 					if (alreadyExists)
 							*alreadyExists = 1;
 			} else {
@@ -346,15 +366,15 @@ objectClassCreate(const struct parserNode *name, const struct objectMember *memb
 	}
 	newClass->size = offset + offset % largestMemberAlign;
 
-	if (name) {
-		const char *name2 = ((struct parserNodeName *)name)->text;
-		if (NULL == mapObjectGet(objectRegistry, name2))
-			mapObjectInsert(objectRegistry, name2, (struct object *)newClass);
-		else
-			goto fail;
+	int alreadyExists;
+	hashObject((void *)newClass, &alreadyExists);
+	if(alreadyExists) {
+			diagErrorStart(name->pos.start, name->pos.end);
+			diagPushText("Object ");
+			diagPushQoutedText(name->pos.start, name->pos.end);
+			diagPushText(" already exists.");
+			diagEndMsg();
 	}
-
-	hashObject((void *)newClass, NULL);
 	
 	dontTreatArraysAsPtrs--;
 	return (struct object *)newClass;
@@ -401,15 +421,15 @@ objectUnionCreate(const struct parserNode *name /*Can be `NULL` for empty union.
 	newUnion->size = largestSize;
 	newUnion->align = largestMemberAlign;
 
-	if (name) {
-		const char *name2 = ((struct parserNodeName *)name)->text;
-		if (NULL == mapObjectGet(objectRegistry, name2))
-			mapObjectInsert(objectRegistry, name2, (struct object *)newUnion);
-		else
-			goto fail;
+	int alreadyExists;
+	hashObject((void *)newUnion, &alreadyExists);
+	if(alreadyExists) {
+			diagErrorStart(name->pos.start, name->pos.end);
+			diagPushText("Object ");
+			diagPushQoutedText(name->pos.start, name->pos.end);
+			diagPushText(" already exists.");
+			diagEndMsg();
 	}
-
-	hashObject((void *)newUnion, NULL);
 
 	dontTreatArraysAsPtrs--;
 	return (struct object *)newUnion;
@@ -578,10 +598,16 @@ char *object2Str(struct object *obj) {
 		case TYPE_Bool:
 				return strClone("Bool");
 		case TYPE_CLASS: {
-				long len=snprintf(NULL, 0, "%s", obj->name);
-				char buffer[len+1];
-				sprintf(buffer, "%s", obj->name);
-				return strClone(buffer);
+				struct objectClass *cls=(void*)obj;
+				if(cls->name) {
+						struct parserNodeName *nm=(void*)cls->name;
+						long len=snprintf(NULL, 0, "%s", nm->text);
+						char buffer[len+1];
+						sprintf(buffer, "%s", nm->text);
+						return strClone(buffer);
+				} else {
+						return ptr2Str(obj);
+				}
 		}
 		case TYPE_F64:
 				return strClone("F64");
@@ -603,7 +629,18 @@ char *object2Str(struct object *obj) {
 				return strClone("U32i");
 		case TYPE_U64i:
 				return strClone("U64i");
-		case TYPE_UNION:
+		case TYPE_UNION: {
+				struct objectUnion *cls=(void*)obj;
+				if(cls->name) {
+						struct parserNodeName *nm=(void*)cls->name;
+						long len=snprintf(NULL, 0, "%s", nm->text);
+						char buffer[len+1];
+						sprintf(buffer, "%s", nm->text);
+						return strClone(buffer);
+				} else {
+						return ptr2Str(obj);
+				}
+		}
 		case TYPE_U0:
 				return strClone("U0");
 		case TYPE_PTR: {

@@ -224,7 +224,7 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 				diagPushText("Type ");
 				diagPushText(aType->name);
 				diagPushText(" doesn't have member ");
-				diagPushQoutedText(access->base.pos.start, access->base.pos.end);
+				diagPushQoutedText(nm->base.pos.start, nm->base.pos.end);
 				diagPushText(".");
 				diagEndMsg();
 				goto fail;

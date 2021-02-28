@@ -174,33 +174,16 @@ static strLong fileLinesIndexes(FILE *file) {
 	fseek(file, 0, SEEK_SET);
 	long start = ftell(file);
 
-	// Reserve by "average" chars per line
-	strLong retVal = strLongReserve(NULL, (end - start) / 64);
-	retVal = strLongAppendItem(retVal, 0);
-
-	const long bufferSize = 1024;
-	char buffer[bufferSize + 1];
-	buffer[bufferSize] = '\0';
-	fseek(file, 0, SEEK_SET);
-	fread(buffer, 1, bufferSize, file);
-
-	long bufferOffset = 0;
-	long bufferFilePos = 0;
-	long find;
-	for (;;) {
-		long find = firstOf(buffer, bufferOffset, "\n\r");
-
-		if (find == -1) {
-			long len = fread(buffer, 1, bufferSize, file);
-
-			bufferFilePos += len;
-
-			if (len != bufferSize)
-				break;
-		} else {
-			retVal = strLongAppendItem(retVal, find + bufferFilePos + 1);
-			bufferOffset = find + 1;
-		}
+	strLong retVal=strLongAppendItem(NULL, 0);
+	int hitEndLine=0;
+	for(long c=0;c!=end-start;c++) {
+			char chr=fgetc(file);
+			if(chr=='\n'||chr=='\r') {
+					hitEndLine=1;
+			} else if(hitEndLine) {
+					retVal=strLongAppendItem(retVal, c);
+					hitEndLine=0;
+			}
 	}
 
 	return retVal;
