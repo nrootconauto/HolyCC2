@@ -3509,6 +3509,7 @@ static struct X86AddressingMode *addrModeFromParseTree(struct parserNode *node, 
 	else
 			retVal.value.m.value.sib.index=NULL;
 	retVal.value.m.value.sib.offset = offset;
+	retVal.value.m.value.sib.offset2=0;
 	retVal.value.m.value.sib.scale = scale;
 	retVal.valueType = valueType;
 	return ALLOCATE(retVal);

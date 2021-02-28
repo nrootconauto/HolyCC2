@@ -1891,6 +1891,8 @@ static int argEdgeSortPrec(graphEdgeIR edge) {
 		return 1;
 	case IR_CONN_DEST:
 		return 2;
+	case IR_CONN_ASSIGN_FROM_PTR:
+			return 2;
 	case IR_CONN_COND:
 		return 0;
 	case IR_CONN_FUNC_ARG_1 ... IR_CONN_FUNC_ARG_128: {
