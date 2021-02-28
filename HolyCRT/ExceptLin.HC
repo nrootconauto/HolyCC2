@@ -5,7 +5,7 @@ class HCRT_Except {
 	HCRT_Except *parent;
 };
 static I32i HCRT_ExceptSize=sizeof(HCRT_Except);
-extern U0 *malloc(I32i len);
+import U0 *malloc(I32i len);
 
 static I32i rEAX,rEBX,rECX,rEDX,rEBP,rESP,rESI,rEDI;
 static	I32i rFlags;
@@ -53,4 +53,9 @@ static HCRT_Except *HCRT_ExceptMAlloc() {
 								frame->parent=curExceptFrame;
 								curExceptFrame=frame;
 								return frame;
+}
+import U0 printf(U8i fmt,...);
+U0 main() {
+			printf("Hello World,%li\n",32);
+			return;
 }

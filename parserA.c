@@ -1726,13 +1726,16 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 	if (asmBlock)
 		return asmBlock;
 
-	__auto_type func = parseFunction(originalStart, end);
+	__auto_type funcStart=originalStart;
+	struct linkage link = getLinkage(originalStart, &funcStart);
+	__auto_type func = parseFunction(funcStart, end);
 	if (func) {
+			parserAddGlobalSym(func, link);
 		return func;
 	}
 
 	__auto_type start2 = originalStart;
-	struct linkage link = getLinkage(start2, &start2);
+	 link = getLinkage(start2, &start2);
 	__auto_type varDecls = parseVarDecls(start2, end);
 	if (varDecls) {
 		if (varDecls->type == NODE_VAR_DECL || varDecls->type == NODE_VAR_DECLS)
