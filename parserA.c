@@ -3064,6 +3064,9 @@ struct parserNode *parseAsmAddrModeSIB(llLexerItem start, llLexerItem *end) {
 			}
 	}
 	indir.mode=addrModeFromParseTree(indirExp, valueType, offsetMode, NULL);
+	indir.mode->value.m.segment=NULL;
+	if(segment)
+			indir.mode->value.m.segment=((struct parserNodeAsmReg*)segment)->reg;
 	parserNodeDestroy(&indirExp);
 	if (lB)
 		parserNodeDestroy(&lB);
@@ -3511,6 +3514,7 @@ static struct X86AddressingMode *addrModeFromParseTree(struct parserNode *node, 
 	retVal.value.m.value.sib.offset = offset;
 	retVal.value.m.value.sib.offset2=0;
 	retVal.value.m.value.sib.scale = scale;
+	retVal.value.m.segment=NULL;
 	retVal.valueType = valueType;
 	return ALLOCATE(retVal);
 fail:
@@ -3587,7 +3591,11 @@ static struct X86AddressingMode *x86ItemAddr(llLexerItem start, llLexerItem *end
 				((struct parserNodeVar *)currExprPart)->var->isNoreg = 1;
 				__auto_type clone=*(struct parserNodeVar *)currExprPart;
 				retVal=X86AddrModeItemAddrOf(ALLOCATE(clone), offset , (valueType)?valueType:assignTypeToOp(expr));
-		} else
+				
+				retVal->value.m.segment=NULL;
+				if(segment)
+						retVal->value.m.segment=((struct parserNodeAsmReg*)segment)->reg;
+		} else 
 				goto fail;
 
 		lB=expectOp(start, "]");
