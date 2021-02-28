@@ -126,3 +126,4 @@ int objectEqual(const struct object *a, const struct object *b);
 int objectIsCompat(const struct object *a, const struct object *b);
 struct object *objectBaseType(const struct object *obj);
 void initObjectRegistry();
+struct objectMember *objectMemberGet(struct object *aType,struct parserNodeName *nm);

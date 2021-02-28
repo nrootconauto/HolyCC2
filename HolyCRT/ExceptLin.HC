@@ -7,32 +7,30 @@ class HCRT_Except {
 static I32i HCRT_ExceptSize=sizeof(HCRT_Except);
 import U0 *malloc(I32i len);
 
-static I32i rEAX,rEBX,rECX,rEDX,rEBP,rESP,rESI,rEDI;
-static	I32i rFlags;
-static I32i rPC;
+
 static HCRT_Except *curExceptFrame;
+static HCRT_Except tmpExcept;
 asm {
 HCRT_ExceptStoreState::
-	IMPORT rEAX,rEBX,rECX,rEDX,rEBP,rESP,rESI,rEDI;
-	IMPORT rFlags,rPC;
+	IMPORT tmpExcept;
 
- MOV I32i [rEAX],EAX
+ MOV I32i [tmpExcept.rEAX],EAX
 	
  MOV EAX, [ESP] //Load old program pointer
-	MOV I32i [rPC],EAX
+	MOV I32i [tmpExcept.rPC],EAX
 	
 	PUSHFD
 	POP EAX
 
- MOV I32i [rFlags],EAX
-	MOV I32i [rEBX],EBX
-	MOV I32i [rECX],ECX
-	MOV I32i [rEDX],EDX
-	MOV I32i [rEBP],EBP
-	MOV I32i [rESI],ESI
-	MOV I32i [rEDI],EDI
+ MOV I32i [tmpExcept.rFlags],EAX
+	MOV I32i [tmpExcept.rEBX],EBX
+	MOV I32i [tmpExcept.rECX],ECX
+	MOV I32i [tmpExcept.rEDX],EDX
+	MOV I32i [tmpExcept.rEBP],EBP
+	MOV I32i [tmpExcept.rESI],ESI
+	MOV I32i [tmpExcept.rEDI],EDI
 	LEA EAX, 4[ESP]
-	MOV I32i [rEBP],EAX
+	MOV I32i [tmpExcept.rEBP],EAX
 	
 	RET
 };
@@ -40,16 +38,7 @@ extern U0 HCRT_ExceptStoreState();
 static HCRT_Except *HCRT_ExceptMAlloc() {
 							 HCRT_Except *frame=malloc(sizeof(HCRT_Except));
 								HCRT_ExceptStoreState();
-								frame->rEAX=rEAX;
-								frame->rEBX=rEBX;
-								frame->rECX=rECX;
-								frame->rEDX=rEDX;
-								frame->rEBP=rEBP;
-								frame->rESP=rESP;
-								frame->rESI=rESI;
-								frame->rEDI=rEDI;
-								frame->rFlags=rFlags;
-								frame->rPC=rPC;
+								*frame=tmpExcept;						
 								frame->parent=curExceptFrame;
 								curExceptFrame=frame;
 								return frame;

@@ -1,10 +1,10 @@
 #pragma once
 #include <lexer.h>
-#include <object.h>
+struct object;
 #include <str.h>
 enum parserNodeType {
 	NODE_ASM_REG,
-	NODE_ASM_ADDRMODE_SIB,
+	NODE_ASM_ADDRMODE,
 	NODE_ASM_LABEL,
 	NODE_ASM_LABEL_GLBL,
 	NODE_ASM_LABEL_LOCAL,
@@ -329,12 +329,9 @@ struct parserNodeAsmReg {
 	struct parserNode base;
 	struct reg *reg;
 };
-struct parserNodeAsmSIB {
+struct parserNodeAsmAddrMode {
 	struct parserNode base;
-	struct parserNode *expression;
-	struct parserNode *offset;
-	struct parserNode *segment;
-	struct object *type;
+		struct X86AddressingMode *mode;
 };
 struct parserNodeUse16 {
 	struct parserNode base;

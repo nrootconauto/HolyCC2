@@ -966,7 +966,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 	case NODE_CLASS_FORWARD_DECL:
 	case NODE_UNION_FORWARD_DECL:
 	case NODE_ASM_REG:
-	case NODE_ASM_ADDRMODE_SIB:
+	case NODE_ASM_ADDRMODE:
 		assert(0);
 	case NODE_LIT_FLT: {
 		struct parserNodeLitFlt *flt = (void *)node;

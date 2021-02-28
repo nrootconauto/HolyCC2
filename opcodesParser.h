@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <str.h>
 #include <parserA.h>
+#include <parserB.h>
 struct X86AddressingMode;
 struct X86MemoryLoc {
 	enum {
@@ -41,7 +42,10 @@ struct X86AddressingMode {
 		double flt;
 		struct reg *reg;
 		struct X86MemoryLoc m;
-		struct parserNode *itemAddr;
+			struct {
+					struct parserNode *item;
+					long offset;
+			} itemAddr;
 		char *label;
 		struct __vec *text;
 	} value;
@@ -55,7 +59,7 @@ struct X86AddressingMode *X86AddrModeIndirMem(uint64_t where, struct object *typ
 struct X86AddressingMode *X86AddrModeLabel(const char *name);
 struct X86AddressingMode *X86AddrModeIndirReg(struct reg *where, struct object *type);
 struct X86AddressingMode *X86AddrModeIndirSIB(long scale, struct X86AddressingMode *index, struct X86AddressingMode *base, struct X86AddressingMode *offset, struct object *type);
-struct X86AddressingMode *X86AddrModeItemAddrOf(struct parserNode *addrOf, struct object *type);
+struct X86AddressingMode *X86AddrModeItemAddrOf(struct parserNode *addrOf,long offset, struct object *type);
 struct opcodeTemplateArg {
 	enum {
 		OPC_TEMPLATE_ARG_REG,

@@ -722,3 +722,24 @@ int /*Non-0 if types are compatible. */ objectIsCompat(const struct object *a, c
 		return 1;
 	return isArith(a) && isArith(b);
 }
+struct objectMember *objectMemberGet(struct object *aType,struct parserNodeName *nm) {
+				struct objectMember *member = NULL;
+			if (aType->type == TYPE_CLASS) {
+				struct objectClass *cls = (void *)aType;
+				for (long m = 0; m != strObjectMemberSize(cls->members); m++) {
+					if (0 == strcmp(cls->members[m].name, nm->text)) {
+						member = &cls->members[m];
+						break;
+					}
+				}
+			} else if (aType->type == TYPE_UNION) {
+				struct objectUnion *un = (void *)aType;
+				for (long m = 0; m != strObjectMemberSize(un->members); m++) {
+					if (0 == strcmp(un->members[m].name, nm->text)) {
+						member = &un->members[m];
+						break;
+					}
+				}
+			}
+			return member;
+}

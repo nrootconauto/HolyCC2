@@ -892,10 +892,11 @@ struct X86AddressingMode *X86AddrModeFlt(double value) {
 	flt.value.flt = value;
 	return ALLOCATE(flt);
 }
-struct X86AddressingMode *X86AddrModeItemAddrOf(struct parserNode *item, struct object *type) {
+struct X86AddressingMode *X86AddrModeItemAddrOf(struct parserNode *item,long offset, struct object *type) {
 	struct X86AddressingMode mode;
 	mode.type = X86ADDRMODE_ITEM_ADDR;
-	mode.value.itemAddr = item;
+	mode.value.itemAddr.item = item;
+	mode.value.itemAddr.offset=offset;
 	mode.valueType = type;
 	return ALLOCATE(mode);
 }
@@ -991,7 +992,7 @@ struct X86AddressingMode *X86AddrModeIndirLabel(const char *text, struct object 
 }
 struct X86AddressingMode *X86AddrModeGlblVar(struct parserVar *var) {
 	assert(var->isGlobal);
-	return X86AddrModeItemAddrOf(parserGetGlobalSym(var->name), var->type);
+	return X86AddrModeItemAddrOf(parserGetGlobalSym(var->name), 0,var->type);
 }
 struct X86AddressingMode *X86AddrModeFunc(struct parserFunction *func) {
 	struct X86AddressingMode mode;

@@ -265,8 +265,8 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 	}
 	case X86ADDRMODE_ITEM_ADDR: {
 		// Check if a (local) vairable
-		if (args[i]->value.itemAddr->type == NODE_VAR) {
-			struct parserNodeVar *var = (void *)args[i]->value.itemAddr;
+		if (args[i]->value.itemAddr.item->type == NODE_VAR) {
+			struct parserNodeVar *var = (void *)args[i]->value.itemAddr.item;
 			__auto_type find = ptrMapFrameOffsetGet(localVarFrameOffsets, var->var);
 			if (find) {
 				struct X86AddressingMode *offset CLEANUP(X86AddrModeDestroy) =
@@ -274,15 +274,23 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 				return emitMode(&offset, 0);
 			}
 		}
-		strChar name CLEANUP(strCharDestroy) = parserNodeSymbolName(args[i]->value.itemAddr);
+		strChar name CLEANUP(strCharDestroy) = parserNodeSymbolName(args[i]->value.itemAddr.item);
 		if (!name) {
 			fprintf(stderr, "Cant find name for symbol\n");
 			assert(0);
 		}
-		long len = snprintf(NULL, 0, "[$%s] ", name);
-		strChar retVal = strCharResize(NULL, len + 1);
-		sprintf(retVal, "[$%s] ", name);
-		return retVal;
+		if(args[i]->value.itemAddr.offset) {
+				long offset=args[i]->value.itemAddr.offset;
+				long len = snprintf(NULL, 0, "[$%s+%li] ", name,offset);
+				strChar retVal = strCharResize(NULL, len + 1);
+				sprintf(retVal, "[$%s+%li] ", name,offset);
+				return retVal;
+		} else {
+				long len = snprintf(NULL, 0, "[$%s] ", name);
+				strChar retVal = strCharResize(NULL, len + 1);
+				sprintf(retVal, "[$%s] ", name);
+				return retVal;
+		}
 	}
 	case X86ADDRMODE_LABEL: {
 		long len = snprintf(NULL, 0, "$%s ", args[i]->value.label);

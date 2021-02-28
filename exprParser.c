@@ -229,24 +229,7 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 				diagEndMsg();
 				goto fail;
 			}
-			struct objectMember *member = NULL;
-			if (aType->type == TYPE_CLASS) {
-				struct objectClass *cls = (void *)aType;
-				for (long m = 0; m != strObjectMemberSize(cls->members); m++) {
-					if (0 == strcmp(cls->members[m].name, nm->text)) {
-						member = &cls->members[m];
-						break;
-					}
-				}
-			} else if (aType->type == TYPE_UNION) {
-				struct objectUnion *un = (void *)aType;
-				for (long m = 0; m != strObjectMemberSize(un->members); m++) {
-					if (0 == strcmp(un->members[m].name, nm->text)) {
-						member = &un->members[m];
-						break;
-					}
-				}
-			}
+			__auto_type member=objectMemberGet(aType,(void*)nm);
 			if (member == NULL)
 				goto failMember;
 
@@ -321,10 +304,9 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 			return unop->type;
 
 		__auto_type aType = assignTypeToOp(unop->a);
-		if (!isArith(aType)) {
+		
 			struct parserNodeOpTerm *op = (void *)unop->op;
-
-			//
+				//
 			// Check if "&" on function(which is valid),used for function ptr's
 			//
 			if (0 == strcmp(op->text, "*")) {
@@ -367,11 +349,9 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 				unop->type = &typeI64i;
 				return &typeI64i;
 			}
-		}
-
+			
 		// Promote,but...
 		// Dont promote if inc/dec
-		struct parserNodeOpTerm *op = (void *)unop->op;
 		if (!mapSetGet(incOps, op->text))
 			unop->a = promoteIfNeeded(unop->a, dftValType());
 
