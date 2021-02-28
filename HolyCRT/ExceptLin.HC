@@ -11,24 +11,6 @@ static I32i rEAX,rEBX,rECX,rEDX,rEBP,rESP,rESI,rEDI;
 static	I32i rFlags;
 static I32i rPC;
 static HCRT_Except *curExceptFrame;
-extern U0 HCRT_ExceptStoreState();
-static HCRT_Except *HCRT_ExceptMAlloc() {
-							 HCRT_Except *frame=malloc(sizeof(HCRT_Except));
-								HCRT_ExceptStoreState();
-								frame->rEAX=rEAX;
-								frame->rEBX=rEBX;
-								frame->rECX=rECX;
-								frame->rEDX=rEDX;
-								frame->rEBP=rEBP;
-								frame->rESP=rESP;
-								frame->rESI=rESI;
-								frame->rEDI=rEDI;
-								frame->rFlags=rFlags;
-								frame->rPC=rPC;
-								frame->parent=curExceptFrame;
-								curExceptFrame=frame;
-								return frame;
-}
 asm {
 HCRT_ExceptStoreState::
 	IMPORT rEAX,rEBX,rECX,rEDX,rEBP,rESP,rESI,rEDI;
@@ -49,8 +31,26 @@ HCRT_ExceptStoreState::
 	MOV I32i [rEBP],EBP
 	MOV I32i [rESI],ESI
 	MOV I32i [rEDI],EDI
-	LEA EAX,[ESP+4]
-	MOV I32i [rSBP],EAX
+	LEA EAX, 4[ESP]
+	MOV I32i [rEBP],EAX
 	
 	RET
 };
+extern U0 HCRT_ExceptStoreState();
+static HCRT_Except *HCRT_ExceptMAlloc() {
+							 HCRT_Except *frame=malloc(sizeof(HCRT_Except));
+								HCRT_ExceptStoreState();
+								frame->rEAX=rEAX;
+								frame->rEBX=rEBX;
+								frame->rECX=rECX;
+								frame->rEDX=rEDX;
+								frame->rEBP=rEBP;
+								frame->rESP=rESP;
+								frame->rESI=rESI;
+								frame->rEDI=rEDI;
+								frame->rFlags=rFlags;
+								frame->rPC=rPC;
+								frame->parent=curExceptFrame;
+								curExceptFrame=frame;
+								return frame;
+}
