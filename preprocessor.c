@@ -51,7 +51,7 @@ void *findNextLine(const struct __vec *text, long pos) {
 	return retVal;
 }
 static void *findSkipStringAndComments(const struct __vec *text, long pos, const void *data, void *(*findFunc)(const void *, const struct __vec *text, long pos)) {
-	__auto_type end = (void *)text + __vecSize(text);
+		__auto_type end = (void *)text + strlen((void*)text);
 loop:;
 	void *find = findFunc(data, text, pos);
 
@@ -109,7 +109,7 @@ static void *skipNonMacro(const struct __vec *text, long pos) {
 static void *wordFind(const void *a, const struct __vec *text, long pos) {
 	const mapDefineMacro map = (const mapDefineMacro)a;
 	__auto_type b = (void *)text + pos;
-	__auto_type textEnd = b + __vecSize(text);
+	__auto_type textEnd = (void *)text + __vecSize(text);
 
 	while (b != textEnd) {
 		// Check if charactor before is a word charactor,if so quit search

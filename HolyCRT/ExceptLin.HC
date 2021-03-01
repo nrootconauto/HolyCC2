@@ -69,6 +69,7 @@ static HCRT_Except *HCRT_ExceptMAlloc() {
 								curExceptFrame=frame;
 								return frame;
 }
+#define storeStore asm {CALL HCRT_ExceptRestoreState}
 import U0 printf(U8i fmt,...);
 U0 main() {
 			asm {
@@ -81,7 +82,7 @@ U0 main() {
 			};
 			I32i run=0;
 			I32i *dummy=&run;
-			HCRT_ExceptStoreState();
+			storeStore
 			if(run)
 				return;
 			printf("frame->EAX ,%li\n",curExceptFrame->rEAX);
