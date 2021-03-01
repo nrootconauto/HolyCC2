@@ -396,18 +396,20 @@ void diagPushText(const char *text) {
 	endAttrs(currentInst);
 }
 void diagPushQoutedText(long start, long end) {
-	assert(currentInst != NULL);
+		start=mapToSource(start, mappings, 1);
+		end=mapToSource(end, mappings, 1);
+		assert(currentInst != NULL);
 
-	setAttrs(currentInst, ATTR_BOLD, 0);
-
-	char buffer[end - start + 1];
-	buffer[end - start] = '\0';
-	fseek(currentInst->sourceFile, start, SEEK_SET);
-	fread(buffer, 1, end - start, currentInst->sourceFile);
-	fprintf(currentInst->dumpTo, "'%s'", buffer);
-
-	setAttrs(currentInst, ATTR_NORMAL, 0);
-	endAttrs(currentInst);
+		setAttrs(currentInst, ATTR_BOLD, 0);
+		
+		char buffer[end - start + 1];
+		buffer[end - start] = '\0';
+		fseek(currentInst->sourceFile, start, SEEK_SET);
+		fread(buffer, 1, end - start, currentInst->sourceFile);
+		fprintf(currentInst->dumpTo, "'%s'", buffer);
+		
+		setAttrs(currentInst, ATTR_NORMAL, 0);
+		endAttrs(currentInst);
 }
 void diagHighlight(long start, long end) {
 	assert(NULL != currentInst);
