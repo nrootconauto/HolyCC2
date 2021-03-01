@@ -1736,6 +1736,10 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 	if (brk)
 		return brk;
 
+	__auto_type try=parseTry(originalStart , end);
+	if(try)
+			return try;
+	
 	__auto_type asmBlock = parseAsm(originalStart, end);
 	if (asmBlock)
 		return asmBlock;
@@ -2396,16 +2400,7 @@ struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 			start = llLexerItemNext(start);
 			// Ensure doesn't already exist
 			struct parserNodeName *nameNode = (void *)name;
-			if (parserGetGlobalSym(nameNode->text)) {
-				diagErrorStart(name->pos.start, name->pos.end);
-				diagPushText("Redefinition of global exported label ");
-				diagPushQoutedText(name->pos.start, name->pos.end);
-				diagPushText(".");
-				diagEndMsg();
-				if (end)
-					*end = start;
-				return NULL;
-			} else {
+			{
 				if (end)
 					*end = start;
 				struct parserNodeLabelGlbl glbl;
@@ -2420,6 +2415,10 @@ struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 					diagPushText("Local labels must appear in asm statement.");
 					diagEndMsg();
 				}
+				struct linkage link;
+				link.fromSymbol=NULL;
+				link.type=LINKAGE_EXTERN;
+				parserAddGlobalSym(glblNode, link);
 				return glblNode;
 			}
 		}
@@ -3104,6 +3103,12 @@ void parserNodeDestroy(struct parserNode **node) {
 	if (!node[0])
 		return;
 	switch (node[0]->type) {
+	case NODE_TRY: {
+			struct parserNodeTry *try=(void*)node[0];
+			parserNodeDestroy(&try->body);
+			parserNodeDestroy(&try->catch);
+			break;
+	}
 	case NODE_ASM_ADDRMODE: {
 			struct parserNodeAsmAddrMode *addrMode=(void*)node[0];
 			X86AddrModeDestroy(&addrMode->mode);
@@ -3123,8 +3128,12 @@ void parserNodeDestroy(struct parserNode **node) {
 	}
 	case NODE_ASM_REG:
 		break;
+		case NODE_ASM_LABEL_GLBL: {
+				struct parserNodeLabelGlbl *lab=(void*)node[0];
+				parserNodeDestroy(&lab->name);
+				break;
+		}
 	case NODE_ASM_LABEL:
-	case NODE_ASM_LABEL_GLBL:
 	case NODE_ASM_LABEL_LOCAL: {
 		struct parserNodeLabel *lab = (void *)node[0];
 		parserNodeDestroy(&lab->name);
@@ -3132,7 +3141,8 @@ void parserNodeDestroy(struct parserNode **node) {
 	}
 	case NODE_ASM_IMPORT: {
 		struct parserNodeAsmImport *imp = (void *)node[0];
-		strParserNodeDestroy2(&imp->symbols);
+		//Symbols point to global symbols so dont free them
+		strParserNodeDestroy(&imp->symbols);
 		break;
 	}
 	case NODE_ASM_DU8:
@@ -4055,4 +4065,33 @@ struct parserNode *parseArrayLiteral(llLexerItem start, llLexerItem *end) {
 		if(end)
 				*end=start;
 		return retVal;
+}
+struct parserNode *parseTry(llLexerItem start, llLexerItem *end) {
+		__auto_type originalStart=start;
+		struct parserNode *try CLEANUP(parserNodeDestroy)=expectKeyword(start, "try");
+		if(!try)
+				return NULL;
+		start=llLexerItemNext(start);
+
+		struct parserNode *body=parseStatement(start, &start);
+		if(!body)
+				whineExpected(start, "body");
+		struct parserNode *catch CLEANUP(parserNodeDestroy)=expectKeyword(start, "catch");
+
+		if(!catch)
+				whineExpected(start, "catch");
+		start=llLexerItemNext(start);
+
+		struct parserNode *catchBlock=parseStatement(start, &start);
+		if(!catchBlock)
+				whineExpected(start, "body");
+		if(end)
+				*end=start;
+		
+		struct parserNodeTry node;
+		assignPosByLexerItems((void*)&node, originalStart, start);
+		node.base.type=NODE_TRY;
+		node.body=body;
+		node.catch=catchBlock;
+		return ALLOCATE(node);
 }

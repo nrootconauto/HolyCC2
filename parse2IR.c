@@ -8,6 +8,7 @@
 #include <parserA.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <setjmp.h>
 #include <preprocessor.h>
 typedef int (*gnIRCmpType)(const graphNodeIR *, const graphNodeIR *);
 typedef int (*pnCmpType)(const struct parserNode **, const struct parserNode **);
@@ -952,6 +953,14 @@ static void debugShowGraphIR(graphNodeIR enter) {
 
 	system(buffer);
 }
+static struct parserNode *includeHCRTFunc(const char *name) {
+		__auto_type sym= parserGetGlobalSym("HCRT_ExceptStoreState");
+		if(!sym) {
+				fprintf(stderr,"Include HCRT.o for \"%s\"\n", name);
+				abort();
+		}
+		return sym;
+}
 static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 	switch (node->type) {
 	case NODE_ARRAY_LITERAL: {
@@ -1205,6 +1214,46 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 		graphNodeIRConnect(body.exit, cond.enter, IR_CONN_FLOW);
 		__auto_type cJump = IRCreateCondJmp(cond.exit, body.enter, exitLabel);
 		return (struct enterExit){body.enter, exitLabel};
+	}
+	case NODE_TRY: {
+			struct parserNodeTry *try=(void*)node;
+			struct enterExit retVal;
+			// I32i run noreg=0;
+			// HCRT_ExceptStoreState();
+			// if(run==0) {
+			//     run=1
+			//     try-body
+			// } else {
+			//     catch-body
+			// }
+			//
+			__auto_type run=IRCreateVirtVar(&typeI8i);
+			run->isNoreg=1;
+			__auto_type runVar1=IRCreateVarRef(run);
+			graphNodeIRConnect(IRCreateIntLit(0), runVar1, IR_CONN_DEST);
+			retVal.enter=IRStmtStart(runVar1); 
+			
+			__auto_type store=includeHCRTFunc("HCRT_ExceptRestoreState");
+			__auto_type storeFunc=parserNode2Expr(store);
+			__auto_type call=IRCreateFuncCall(storeFunc, NULL);
+			graphNodeIRConnect(runVar1, call, IR_CONN_FLOW);
+
+			struct enterExit tryBody=__parserNode2IRNoStmt(try->body);
+			//Insert run=1 before body
+			__auto_type runRef2=IRCreateVarRef(run);
+			graphNodeIRConnect(IRCreateIntLit(1), runRef2, IR_CONN_DEST);
+			IRInsertBefore(tryBody.enter,IRStmtStart(runRef2), runRef2, IR_CONN_FLOW);
+			tryBody.enter=IRStmtStart(runRef2);
+			
+			struct enterExit catchBody=__parserNode2IRNoStmt(try->catch);
+			
+			__auto_type runRef3=IRCreateVarRef(run);
+			graphNodeIRConnect(call, runRef3, IR_CONN_FLOW);
+			IRCreateCondJmp(runRef3, tryBody.enter,  catchBody.enter);
+			
+			graphNodeIRConnect(tryBody.exit, catchBody.exit, IR_CONN_FLOW);
+			retVal.exit=catchBody.exit;
+			return retVal;
 	}
 	case NODE_FOR: {
 		struct enterExit retVal;

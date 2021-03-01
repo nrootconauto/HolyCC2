@@ -6,7 +6,7 @@ class HCRT_Except {
 };
 static I32i HCRT_ExceptSize=sizeof(HCRT_Except);
 import U0 *malloc(I32i len);
-
+import U0 free(U0 *ptr);
 
 static HCRT_Except *curExceptFrame;
 static HCRT_Except tmpExcept;
@@ -33,15 +33,15 @@ HCRT_ExceptStoreState::
 	LEA EAX, 4[ESP]
 	MOV I32i [tmpExcept.rESP],EAX
 	
-	CALL HCRT_ExceptMAlloc	
-	//
-	// Reserve 4 bytes after stack from caller to make room for return address for throwing exception
-	//
-	MOV EAX, [ESP]
-	PUSH EAX
-
+	CALL HCRT_ExceptMAlloc
 	RET
 };
+static HCRT_Except *HCRT_ExceptPop() {
+							tmpExcept=*curExceptFrame;
+							HCRT_Except *old=curExceptFrame;
+							curExceptFrame=curExceptFrame->parent;
+							free(old);
+}
 asm {
 HCRT_ExceptRestoreState::
 	IMPORT tmpExcept;
@@ -54,14 +54,8 @@ HCRT_ExceptRestoreState::
 	MOV EDI,I32i [tmpExcept.rEDI]
 	MOV EBP,I32i [tmpExcept.rEBP]
 	MOV ESP,I32i [tmpExcept.rESP]
-	//
-	// Eariler we made a spot with the return address(we pushed it) 
-	//
-	LEA ESP, -4[ESP]
-	RET
+	JMP I32i [tmpExcept.rPC]
 };
-extern U0 HCRT_ExceptRestoreState();
-extern U0 HCRT_ExceptStoreState();
 static HCRT_Except *HCRT_ExceptMAlloc() {
 							 HCRT_Except *frame=malloc(sizeof(HCRT_Except));
 								*frame=tmpExcept;						
@@ -69,9 +63,11 @@ static HCRT_Except *HCRT_ExceptMAlloc() {
 								curExceptFrame=frame;
 								return frame;
 }
-#define storeStore asm {CALL HCRT_ExceptRestoreState}
+#define storeStore asm {CALL HCRT_ExceptStoreState}
 import U0 printf(U8i fmt,...);
 U0 main() {
+			I32i run=0;
+			I32i *dummy=&run;
 			asm {
 							MOV EAX,1
 							MOV EBX,2
@@ -80,8 +76,6 @@ U0 main() {
 							MOV ESI,5
 							MOV EDI,6
 			};
-			I32i run=0;
-			I32i *dummy=&run;
 			storeStore
 			if(run)
 				return;

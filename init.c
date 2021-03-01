@@ -9,6 +9,7 @@
 #include <registers.h>
 #include <signal.h>
 #include <stdio.h>
+#include <compile.h>
 static void printBT(int sig) {
 	void *array[50];
 	int len = backtrace(array, 50);

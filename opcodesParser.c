@@ -564,8 +564,8 @@ int opcodeTemplateArgAcceptsAddrMode(const struct opcodeTemplateArg *arg, const 
 		} else
 			goto fail;
 	case OPC_TEMPLATE_ARG_REL16:
-		if (mode->type == X86ADDRMODE_REG) {
-			return sizeMatchUnsigned(mode, 2);
+		if (mode->type==X86ADDRMODE_LABEL) {
+			return 1;
 		} else
 			goto fail;
 	case OPC_TEMPLATE_ARG_SREG:
@@ -632,7 +632,7 @@ int opcodeTemplateArgAcceptsAddrMode(const struct opcodeTemplateArg *arg, const 
 	case OPC_TEMPLATE_ARG_REL8:
 		return mode->type == X86ADDRMODE_LABEL;
 	case OPC_TEMPLATE_ARG_REL32:
-		return mode->type == X86ADDRMODE_LABEL || mode->type == X86ADDRMODE_LABEL || mode->type == X86ADDRMODE_ITEM_ADDR;
+		return mode->type == X86ADDRMODE_LABEL ;
 		;
 	case OPC_TEMPLATE_ARG_STI:
 		if (mode->type == X86ADDRMODE_REG) {

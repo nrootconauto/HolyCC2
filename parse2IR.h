@@ -11,3 +11,4 @@ struct IRAttrLabelName {
 	struct IRAttr base;
 	char *name;
 };
+void initParse2IR();

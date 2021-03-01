@@ -44,6 +44,7 @@ enum parserNodeType {
 	NODE_DO,
 	NODE_WHILE,
 	NODE_FOR,
+	NODE_TRY,
 	NODE_VAR,
 	NODE_CASE,
 	NODE_DEFAULT,
@@ -380,6 +381,12 @@ struct parserNodeArrayLit {
 		struct parserNode base;
 		strParserNode items;
 };
+struct parserNodeTry {
+		struct parserNode base;
+		struct parserNode *body;
+		struct parserNode *catch;
+};
+struct parserNode *parseTry(llLexerItem start, llLexerItem *end);
 struct parserNode *parseExpression(llLexerItem start, llLexerItem end, llLexerItem *result);
 struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end);
 struct parserNode *parseClass(llLexerItem start, llLexerItem *end, int allowForwardDecl);
