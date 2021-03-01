@@ -173,86 +173,100 @@ static struct parserNode *expectOp(llLexerItem _item, const char *text) {
 static struct parserNode *nameParse(llLexerItem start, llLexerItem end, llLexerItem *result);
 static struct parserNode *parenRecur(llLexerItem start, llLexerItem end, llLexerItem *result);
 static struct parserNode *literalRecur(llLexerItem start, llLexerItem end, llLexerItem *result) {
-	if (result != NULL)
-		*result = start;
-
-	__auto_type item = llLexerItemValuePtr(start);
-	if (item->template == &floatTemplate) {
 		if (result != NULL)
-			*result = llLexerItemNext(start);
+				*result = start;
 
-		struct parserNodeLitFlt lit;
-		lit.base.type = NODE_LIT_FLT;
-		lit.value = ((struct lexerFloating *)lexerItemValuePtr(item))->value;
-		lit.base.pos.start = item->start;
-		lit.base.pos.end = item->end;
+		__auto_type item = llLexerItemValuePtr(start);
+		if (item->template == &floatTemplate) {
+				if (result != NULL)
+						*result = llLexerItemNext(start);
 
-		return ALLOCATE(lit);
-	} else if (item->template == &intTemplate) {
-		if (result != NULL)
-			*result = llLexerItemNext(start);
+				struct parserNodeLitFlt lit;
+				lit.base.type = NODE_LIT_FLT;
+				lit.value = ((struct lexerFloating *)lexerItemValuePtr(item))->value;
+				lit.base.pos.start = item->start;
+				lit.base.pos.end = item->end;
 
-		struct parserNodeLitInt lit;
-		lit.base.type = NODE_LIT_INT;
-		lit.value = *(struct lexerInt *)lexerItemValuePtr(item);
-		lit.base.pos.start = item->start;
-		lit.base.pos.end = item->end;
+				return ALLOCATE(lit);
+		} else if (item->template == &intTemplate) {
+				if (result != NULL)
+						*result = llLexerItemNext(start);
 
-		return ALLOCATE(lit);
-	} else if (item->template == &strTemplate) {
-		if (result != NULL)
-			*result = llLexerItemNext(start);
+				struct parserNodeLitInt lit;
+				lit.base.type = NODE_LIT_INT;
+				lit.value = *(struct lexerInt *)lexerItemValuePtr(item);
+				lit.base.pos.start = item->start;
+				lit.base.pos.end = item->end;
 
-		__auto_type str = *(struct parsedString *)lexerItemValuePtr(item);
-		struct parserNodeLitStr lit;
-		lit.base.type = NODE_LIT_STR;
-		lit.str=str;
-		//Clone the string,lexer item string will be free'd
-		lit.str.text=__vecAppendItem(NULL, lit.str.text, __vecSize(lit.str.text));
-		lit.base.pos.start = item->start;
-		lit.base.pos.end = item->end;
+				return ALLOCATE(lit);
+		} else if (item->template == &opTemplate) {
+				if(0==strcmp(*(char**)lexerItemValuePtr(item),"-")) {
+						start=llLexerItemNext(start);
+						struct parserNode *next CLEANUP(parserNodeDestroy)=literalRecur(start,end,result);
+						if(next->type==NODE_LIT_INT) {
+								struct parserNodeLitInt i=*(struct parserNodeLitInt*)next;
+								i.base.pos.start=item->start;
+								i.base.pos.end=next->pos.end;
+								i.base.type=NODE_LIT_INT;
+								i.value.value.sLong*=-1;
+								return ALLOCATE(i);
+						}
+				}
+		} else if (item->template == &strTemplate) {
+				if (result != NULL)
+						*result = llLexerItemNext(start);
+
+				__auto_type str = *(struct parsedString *)lexerItemValuePtr(item);
+				struct parserNodeLitStr lit;
+				lit.base.type = NODE_LIT_STR;
+				lit.str=str;
+				//Clone the string,lexer item string will be free'd
+				lit.str.text=__vecAppendItem(NULL, lit.str.text, __vecSize(lit.str.text));
+				lit.base.pos.start = item->start;
+				lit.base.pos.end = item->end;
 		
-		return ALLOCATE(lit);
-	} else if (item->template == &nameTemplate) {
-		__auto_type reg = parseAsmRegister(start, result);
-		if (reg)
-			return reg;
+				return ALLOCATE(lit);
+		} else if (item->template == &nameTemplate) {
+				__auto_type reg = parseAsmRegister(start, result);
+				if (reg)
+						return reg;
 
-		__auto_type name = nameParse(start, end, result);
-		// Look for var
-		__auto_type findVar = parserGetVar(name);
-		if (findVar) {
-			struct parserNodeVar var;
-			var.base.type = NODE_VAR;
-			var.var = findVar;
-			var.base.pos.start = name->pos.start;
-			var.base.pos.end = name->pos.end;
+				__auto_type name = nameParse(start, end, result);
+				// Look for var
+				__auto_type findVar = parserGetVar(name);
+				if (findVar) {
+						struct parserNodeVar var;
+						var.base.type = NODE_VAR;
+						var.var = findVar;
+						var.base.pos.start = name->pos.start;
+						var.base.pos.end = name->pos.end;
 
-			return ALLOCATE(var);
+						return ALLOCATE(var);
+				}
+
+				// Look for func
+				__auto_type findFunc = parserGetFunc(name);
+				if (findFunc) {
+						struct parserNodeFuncRef ref;
+						ref.base.pos.start = name->pos.start;
+						ref.base.pos.end = name->pos.end;
+						ref.base.type = NODE_FUNC_REF;
+						ref.func = findFunc;
+						ref.name = name;
+
+						return ALLOCATE(ref);
+				}
+
+				return name;
+		}  else if(allowsArrayLiterals) {
+				__auto_type arrLit=parseArrayLiteral(start ,result);
+				return arrLit;
+		} else {
+				return NULL;
 		}
 
-		// Look for func
-		__auto_type findFunc = parserGetFunc(name);
-		if (findFunc) {
-			struct parserNodeFuncRef ref;
-			ref.base.pos.start = name->pos.start;
-			ref.base.pos.end = name->pos.end;
-			ref.base.type = NODE_FUNC_REF;
-			ref.func = findFunc;
-			ref.name = name;
-
-			return ALLOCATE(ref);
-		}
-
-		return name;
-	}  else if(allowsArrayLiterals) {
-			__auto_type arrLit=parseArrayLiteral(start ,result);
-			return arrLit;
-	} else {
-			return NULL;
-	}
-
-	// TODO add float template.
+		// TODO add float template.
+		return NULL;
 }
 static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end, llLexerItem *result);
 static struct parserNode *prec1Recur(llLexerItem start, llLexerItem end, llLexerItem *result);
@@ -3027,10 +3041,10 @@ struct parserNode *parseAsmAddrModeSIB(llLexerItem start, llLexerItem *end) {
 		if (!start)
 			goto fail;
 	}
-	__auto_type disp = literalRecur(start, llLexerItemNext(start), NULL);
+
+	__auto_type disp = literalRecur(start, llLexerItemNext(start), &start);
 	if (disp) {
 		offset = disp;
-		start = llLexerItemNext(start);
 	}
 	lB = expectOp(start, "[");
 	if (lB == NULL) {

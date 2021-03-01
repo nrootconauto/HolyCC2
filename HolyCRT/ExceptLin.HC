@@ -10,6 +10,7 @@ import U0 *malloc(I32i len);
 
 static HCRT_Except *curExceptFrame;
 static HCRT_Except tmpExcept;
+static HCRT_Except *HCRT_ExceptMAlloc();
 asm {
 HCRT_ExceptStoreState::
 	IMPORT tmpExcept;
@@ -30,10 +31,36 @@ HCRT_ExceptStoreState::
 	MOV I32i [tmpExcept.rESI],ESI
 	MOV I32i [tmpExcept.rEDI],EDI
 	LEA EAX, 4[ESP]
-	MOV I32i [tmpExcept.rEBP],EAX
+	MOV I32i [tmpExcept.rESP],EAX
 	
+	CALL HCRT_ExceptMAlloc	
+	//
+	// Reserve 4 bytes after stack from caller to make room for return address for throwing exception
+	//
+	MOV EAX, [ESP]
+	PUSH EAX
+
 	RET
 };
+asm {
+HCRT_ExceptRestoreState::
+	IMPORT tmpExcept;
+
+ MOV EAX,I32i [tmpExcept.rEAX]
+	MOV EBX,I32i [tmpExcept.rEBX]
+	MOV ECX,I32i [tmpExcept.rECX]
+	MOV EDX,I32i [tmpExcept.rEDX]
+	MOV ESI,I32i [tmpExcept.rESI]
+	MOV EDI,I32i [tmpExcept.rEDI]
+	MOV EBP,I32i [tmpExcept.rEBP]
+	MOV ESP,I32i [tmpExcept.rESP]
+	//
+	// Eariler we made a spot with the return address(we pushed it) 
+	//
+	LEA ESP, -4[ESP]
+	RET
+};
+extern U0 HCRT_ExceptRestoreState();
 extern U0 HCRT_ExceptStoreState();
 static HCRT_Except *HCRT_ExceptMAlloc() {
 							 HCRT_Except *frame=malloc(sizeof(HCRT_Except));
@@ -52,13 +79,18 @@ U0 main() {
 							MOV ESI,5
 							MOV EDI,6
 			};
+			I32i run=0;
+			I32i *dummy=&run;
 			HCRT_ExceptStoreState();
-			HCRT_ExceptMAlloc();
+			if(run)
+				return;
 			printf("frame->EAX ,%li\n",curExceptFrame->rEAX);
 			printf("frame->EBX ,%li\n",curExceptFrame->rEBX);
 			printf("frame->ECX ,%li\n",curExceptFrame->rECX);
 			printf("frame->EDX ,%li\n",curExceptFrame->rEDX);
 			printf("frame->ESI ,%li\n",curExceptFrame->rESI);
 			printf("frame->EDI ,%li\n",curExceptFrame->rEDI);
+			run=1;
+			HCRT_ExceptRestoreState();
 			return;
 }

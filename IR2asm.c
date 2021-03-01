@@ -3404,7 +3404,6 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		if (strGraphEdgeIRPSize(inAsnFromPtr) == 1) {
 			struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = X86AddrModeIndirReg(regAddr, IRNodeType(start));
 			struct X86AddressingMode *iMode2 CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(graphEdgeIRIncoming(inAsnFromPtr[0]));
-			//iMode2->valueType=oMode->valueType;
 			asmTypecastAssign(oMode, iMode2,0);
 		}
 
@@ -3458,6 +3457,12 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		if (strGraphEdgeIRPSize(inAssn) == 1) {
 			struct X86AddressingMode *asnMode = IRNode2AddrMode(graphEdgeIRIncoming(inAssn[0]));
 			asmTypecastAssign(memRegMode, asnMode,0);
+		}
+
+		strGraphEdgeIRP inAsnFromPtr CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(in, IR_CONN_ASSIGN_FROM_PTR);
+		if (strGraphEdgeIRPSize(inAsnFromPtr) == 1) {
+			struct X86AddressingMode *iMode2 CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(graphEdgeIRIncoming(inAsnFromPtr[0]));
+			asmTypecastAssign(memRegMode, iMode2,0);
 		}
 
 		if (strGraphEdgeIRPSize(outAssn) == 1) {
