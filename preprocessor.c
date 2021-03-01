@@ -116,10 +116,10 @@ static void *wordFind(const void *a, const struct __vec *text, long pos) {
 		if (b != text) // Check if a start
 			if (isalnum(-1 [(char *)b]))
 				return NULL;
-		if (isalpha(*(char *)b)) {
+		if (isalnum(*(char *)b)) {
 			__auto_type original = b;
 			__auto_type end = original;
-			while (isalnum(*(char *)end) && end < textEnd)
+			while ((isalnum(*(char *)end)) && end < textEnd)
 				end++;
 
 			char buffer[end - original + 1];

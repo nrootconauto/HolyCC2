@@ -176,14 +176,17 @@ static strLong fileLinesIndexes(FILE *file) {
 
 	strLong retVal=strLongAppendItem(NULL, 0);
 	int hitEndLine=0;
+	char prevChr=0;
 	for(long c=0;c!=end-start;c++) {
 			char chr=fgetc(file);
-			if(chr=='\n'||chr=='\r') {
-					hitEndLine=1;
-			} else if(hitEndLine) {
+			if(hitEndLine) {
 					retVal=strLongAppendItem(retVal, c);
 					hitEndLine=0;
 			}
+			if((chr=='\n'||chr=='\r')) {
+					hitEndLine=1;
+			}
+			prevChr=chr;
 	}
 
 	return retVal;
@@ -266,7 +269,12 @@ static long goBeforeNewLine(FILE *fp, long where) {
 	return retVal - fileStart;
 }
 static void qouteLine(struct diagInst *inst, long start, long end, strDiagQoute qoutes) {
-	// Line end of line
+		// 1st insert is the initial source so ignore initial source
+	end = mapToSource(end, mappings, 1);
+		// 1st insert is the initial source so ignore initial source
+	start = mapToSource(start, mappings, 1);
+	
+		// Line end of line
 	long line, col;
 	__getLineCol(inst, end, &line, &col);
 	long lineEnd;
@@ -458,9 +466,9 @@ static void diagStateStart(long start, long end, enum diagState state, const cha
 	// 1st insert is the initial source so ignore initial source
 	long where = mapToSource(start, mappings, 1);
 
-	setAttrs(currentInst, color, ATTR_BOLD, 0);
+ 	setAttrs(currentInst, color, ATTR_BOLD, 0);
 	long ln, col;
-	__getLineCol(currentInst, start, &ln, &col);
+	__getLineCol(currentInst, where, &ln, &col);
 	fprintf(currentInst->dumpTo, "%s:%li,%li: ", currentInst->fileName, ln + 1, col + 1);
 	endAttrs(currentInst);
 
