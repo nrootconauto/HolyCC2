@@ -3688,6 +3688,7 @@ struct parserNode *parseAsmInstructionX86(llLexerItem start, llLexerItem *end) {
 						struct parserNodeAsmAddrMode mode;
 						mode.base.pos.start=0;
 						mode.base.pos.end=0;
+						mode.base.type=NODE_ASM_ADDRMODE;
 						mode.mode=args[a];
 						addrModeArgs[a]=ALLOCATE(mode);
 				}

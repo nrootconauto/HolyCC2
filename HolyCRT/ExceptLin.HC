@@ -37,7 +37,6 @@ HCRT_ExceptStoreState::
 extern U0 HCRT_ExceptStoreState();
 static HCRT_Except *HCRT_ExceptMAlloc() {
 							 HCRT_Except *frame=malloc(sizeof(HCRT_Except));
-								HCRT_ExceptStoreState();
 								*frame=tmpExcept;						
 								frame->parent=curExceptFrame;
 								curExceptFrame=frame;
@@ -45,6 +44,21 @@ static HCRT_Except *HCRT_ExceptMAlloc() {
 }
 import U0 printf(U8i fmt,...);
 U0 main() {
-			printf("Hello World,%li\n",32);
+			asm {
+							MOV EAX,1
+							MOV EBX,2
+							MOV ECX,3
+							MOV EDX,4
+							MOV ESI,5
+							MOV EDI,6
+			};
+			HCRT_ExceptStoreState();
+			HCRT_ExceptMAlloc();
+			printf("frame->EAX ,%li\n",curExceptFrame->rEAX);
+			printf("frame->EBX ,%li\n",curExceptFrame->rEBX);
+			printf("frame->ECX ,%li\n",curExceptFrame->rECX);
+			printf("frame->EDX ,%li\n",curExceptFrame->rEDX);
+			printf("frame->ESI ,%li\n",curExceptFrame->rESI);
+			printf("frame->EDI ,%li\n",curExceptFrame->rEDI);
 			return;
 }

@@ -1050,6 +1050,9 @@ static struct X86AddressingMode *__mem2SIB(struct X86AddressingMode *a) {
 						aSIB=X86AddrModeIndirSIB(0, NULL, X86AddrModeUint(a->value.m.value.mem), 0, a->valueType);
 				aSIB->value.m.segment=a->value.m.segment;
 				return aSIB;
+		} else if(a->type==X86ADDRMODE_REG) {
+				aSIB=X86AddrModeIndirSIB(0, NULL, X86AddrModeClone(a), NULL, a->valueType);
+				return aSIB;
 		} else {
 				fputs("Large assign must point to memory.", stderr);
 				abort();
@@ -3394,6 +3397,14 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		if (strGraphEdgeIRPSize(inAsn) == 1) {
 			struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = X86AddrModeIndirReg(regAddr, IRNodeType(start));
 			struct X86AddressingMode *iMode2 CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(graphEdgeIRIncoming(inAsn[0]));
+			asmTypecastAssign(oMode, iMode2,0);
+		}
+
+		strGraphEdgeIRP inAsnFromPtr CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(in, IR_CONN_ASSIGN_FROM_PTR);
+		if (strGraphEdgeIRPSize(inAsnFromPtr) == 1) {
+			struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = X86AddrModeIndirReg(regAddr, IRNodeType(start));
+			struct X86AddressingMode *iMode2 CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(graphEdgeIRIncoming(inAsnFromPtr[0]));
+			//iMode2->valueType=oMode->valueType;
 			asmTypecastAssign(oMode, iMode2,0);
 		}
 

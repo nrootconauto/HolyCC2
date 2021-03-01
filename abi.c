@@ -530,10 +530,18 @@ end:;
 	
 	// Now we are left with the spot we made eariler for return values,let's pop it(if not a structure,all int non-structs get stuffed in EAX)
 	if (!retsStruct && !retsFloat && retType != &typeU0) {
-		__auto_type outNode = graphEdgeIROutgoing(dst[0]);
-		strX86AddrMode outArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, IRNode2AddrMode(outNode));
-		assembleInst("POP", outArgs);
-		stackSize -= 4;
+			if(strGraphEdgeIRPSize(dst)) {
+					__auto_type outNode = graphEdgeIROutgoing(dst[0]);
+					strX86AddrMode outArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, IRNode2AddrMode(outNode));
+					assembleInst("POP", outArgs);
+					stackSize -= 4;
+			} else {
+					strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2)=NULL; 
+					addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeReg(stackPointer()));
+					addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeSint(4));
+					assembleInst("ADD", addArgs);
+					stackSize -= 4;
+			}
 	}
 	assert(stackSize == 0);
 }
