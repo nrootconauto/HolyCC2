@@ -86,6 +86,7 @@ graphNodeIR IRCreateFuncCall(graphNodeIR func, ...) {
 	}
 	va_end(args);
 
+	graphNodeIRConnect(func, retVal,IR_CONN_FUNC);
 	return retVal;
 }
 graphNodeIR IRCreateIntLit(int64_t lit) {

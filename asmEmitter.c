@@ -223,7 +223,8 @@ static strChar parserNodeSymbolName(struct parserNode *node) {
 		return strClone(def->func->name);
 	case NODE_FUNC_FORWARD_DECL: {
 			struct parserNodeFuncForwardDec *fwd = (void *)node;
-			return strClone(fwd->func->name);
+			__auto_type fu=fwd->func;
+			return strClone(fu->name);
 	}
 			
 	default:;

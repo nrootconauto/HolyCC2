@@ -3,6 +3,7 @@ class HCRT_Except {
 	I32i rFlags;
 	I32i rPC;
 	HCRT_Except *parent;
+	I32i msg;
 };
 static I32i HCRT_ExceptSize=sizeof(HCRT_Except);
 import U0 *malloc(I32i len);
@@ -63,29 +64,18 @@ static HCRT_Except *HCRT_ExceptMAlloc() {
 								curExceptFrame=frame;
 								return frame;
 }
-#define storeStore asm {CALL HCRT_ExceptStoreState}
+U0 throw(I32i msg) {
+			curExceptFrame->msg=msg;
+			HCRT_ExceptRestoreState();
+}
 import U0 printf(U8i fmt,...);
 U0 main() {
-			I32i run=0;
-			I32i *dummy=&run;
-			asm {
-							MOV EAX,1
-							MOV EBX,2
-							MOV ECX,3
-							MOV EDX,4
-							MOV ESI,5
-							MOV EDI,6
-			};
-			storeStore
-			if(run)
-				return;
-			printf("frame->EAX ,%li\n",curExceptFrame->rEAX);
-			printf("frame->EBX ,%li\n",curExceptFrame->rEBX);
-			printf("frame->ECX ,%li\n",curExceptFrame->rECX);
-			printf("frame->EDX ,%li\n",curExceptFrame->rEDX);
-			printf("frame->ESI ,%li\n",curExceptFrame->rESI);
-			printf("frame->EDI ,%li\n",curExceptFrame->rEDI);
-			run=1;
-			HCRT_ExceptRestoreState();
-			return;
+   I32i tst=123;
+   try {
+							throw('hi\n');
+			} catch {
+					printf("Hello World,%li\n",tst);
+			}
+			
+			return ;
 }

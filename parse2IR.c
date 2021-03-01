@@ -604,6 +604,17 @@ static graphNodeIR parserNode2Expr(const struct parserNode *node) {
 	switch (node->type) {
 	default:
 		return NULL;
+	case NODE_FUNC_FORWARD_DECL: {
+			struct parserNodeFuncForwardDec *fwd=(void*)node;
+			struct IRNodeValue val;
+		val.base.attrs = NULL;
+		val.base.type = IR_VALUE;
+		val.val.type = IR_VAL_FUNC;
+		val.val.value.func = fwd->func;
+
+		__auto_type retVal = GRAPHN_ALLOCATE(val);
+		return retVal;
+	}
 	case NODE_LIT_FLT: {
 			struct parserNodeLitFlt *flt=(void*)node;
 			return IRCreateFloat(flt->value);
@@ -1218,10 +1229,10 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 	case NODE_TRY: {
 			struct parserNodeTry *try=(void*)node;
 			struct enterExit retVal;
-			// I32i run noreg=0;
+			// I32i run noreg=1;
 			// HCRT_ExceptStoreState();
 			// if(run==0) {
-			//     run=1
+			//     run=0
 			//     try-body
 			// } else {
 			//     catch-body
@@ -1230,29 +1241,35 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 			__auto_type run=IRCreateVirtVar(&typeI8i);
 			run->isNoreg=1;
 			__auto_type runVar1=IRCreateVarRef(run);
-			graphNodeIRConnect(IRCreateIntLit(0), runVar1, IR_CONN_DEST);
+			graphNodeIRConnect(IRCreateIntLit(1), runVar1, IR_CONN_DEST);
 			retVal.enter=IRStmtStart(runVar1); 
-			
-			__auto_type store=includeHCRTFunc("HCRT_ExceptRestoreState");
-			__auto_type storeFunc=parserNode2Expr(store);
-			__auto_type call=IRCreateFuncCall(storeFunc, NULL);
-			graphNodeIRConnect(runVar1, call, IR_CONN_FLOW);
 
+			
+			struct IRNodeX86Inst inst;
+			inst.base.attrs=NULL;
+			inst.base.type=IR_X86_INST;
+			inst.name=strClone("CALL");
+			inst.args=strX86AddrModeAppendItem(NULL, X86AddrModeLabel("HCRT_ExceptStoreState"));
+			__auto_type instNode=GRAPHN_ALLOCATE(inst);
+			graphNodeIRConnect(runVar1, instNode, IR_CONN_FLOW);
+			
 			struct enterExit tryBody=__parserNode2IRNoStmt(try->body);
-			//Insert run=1 before body
+			//Insert run=0 before body
 			__auto_type runRef2=IRCreateVarRef(run);
-			graphNodeIRConnect(IRCreateIntLit(1), runRef2, IR_CONN_DEST);
+			graphNodeIRConnect(IRCreateIntLit(0), runRef2, IR_CONN_DEST);
 			IRInsertBefore(tryBody.enter,IRStmtStart(runRef2), runRef2, IR_CONN_FLOW);
 			tryBody.enter=IRStmtStart(runRef2);
 			
 			struct enterExit catchBody=__parserNode2IRNoStmt(try->catch);
 			
 			__auto_type runRef3=IRCreateVarRef(run);
-			graphNodeIRConnect(call, runRef3, IR_CONN_FLOW);
+			graphNodeIRConnect(instNode, runRef3, IR_CONN_FLOW);
 			IRCreateCondJmp(runRef3, tryBody.enter,  catchBody.enter);
 			
-			graphNodeIRConnect(tryBody.exit, catchBody.exit, IR_CONN_FLOW);
-			retVal.exit=catchBody.exit;
+			__auto_type lab=IRCreateLabel();
+			graphNodeIRConnect(tryBody.exit, lab, IR_CONN_FLOW);
+			graphNodeIRConnect(catchBody.exit, lab, IR_CONN_FLOW);
+			retVal.exit=lab;
 			return retVal;
 	}
 	case NODE_FOR: {

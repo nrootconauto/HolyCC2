@@ -58,6 +58,9 @@ static const char *keywords[] = {
     "USE64",
     //
     "sizeof",
+				//
+				"try",
+				"catch"
 };
 const char *operators[] = {
     "++",

@@ -4,6 +4,13 @@
 #include <parserB.h>
 #include <string.h>
 #include <registers.h>
+#define ALLOCATE(x)                                                                                                                                                \
+	({                                                                                                                                                               \
+		__auto_type len = sizeof(x);                                                                                                                                   \
+		void *$retVal = malloc(len);                                                                                                                                   \
+		memcpy($retVal, &x, len);                                                                                                                                      \
+		$retVal;                                                                                                                                                       \
+	})
 struct symbol {
 	struct parserNode *node;
 	struct linkage link;
@@ -37,6 +44,27 @@ strParserNode parserSymbolTableSyms() {
 	for (long i = 0; i != count; i++)
 		retVal[i] = mapSymbolGet(symbolTable, keys[i])->node;
 	return retVal;
+}
+/**
+	* Lesser items get replaced
+	*/
+static int shadowPrecedence(struct parserNode *node) {
+		switch(node->type) {
+		case NODE_ASM_LABEL_GLBL:
+				return -1;
+		case NODE_CLASS_FORWARD_DECL:
+		case NODE_UNION_FORWARD_DECL:
+		case NODE_FUNC_FORWARD_DECL:
+				return 1;
+		case NODE_VAR_DECL:
+		case NODE_FUNC_DEF:
+		case NODE_CLASS_DEF:
+		case NODE_UNION_DEF:
+				return 2;
+		default:
+				assert(0);
+				return 1;
+		}
 }
 static const char *getSymbolName(struct parserNode *node) {
 	switch (node->type) {
@@ -86,22 +114,29 @@ static const char *getSymbolName(struct parserNode *node) {
 	return NULL;
 }
 static void __addGlobalSymbol(struct parserNode *node, const char *name, struct linkage link) {
-	struct symbol toInsert;
-	toInsert.link = link, toInsert.node = node, toInsert.version = 0;
-	if (name) {
-		__auto_type find = mapSymbolGet(symbolTable, name);
-		if (find) {
-			// If we find a conflicting symbol,"version" the older symbol(give it a unique name).
-			long count = snprintf(NULL, 0, "%s_$%li", name, ++find->version);
-			char buffer[count + 1];
-			sprintf(buffer, "%s_$%li", name, find->version);
-			mapSymbolInsert(symbolTable, buffer, *find);
-			toInsert.version = find->version;
-			// Remove the current symbol(We backed it up as "name:VER")
-			mapSymbolRemove(symbolTable, name, NULL);
+		struct symbol toInsert;
+		toInsert.link = link, toInsert.node = node, toInsert.version = 0;
+		if (name) {
+				__auto_type find = mapSymbolGet(symbolTable, name);
+				if (find) {
+						long count = snprintf(NULL, 0, "%s_$%li", name, ++find->version);
+						char buffer[count + 1];
+						sprintf(buffer, "%s_$%li", name, find->version);
+						if(shadowPrecedence(node)>shadowPrecedence(find->node)) {
+								// If we find a conflicting symbol,"version" the older symbol(give it a unique name).
+								toInsert.version = find->version;
+								// Remove the current symbol(We backed it up as "name:VER")
+								mapSymbolRemove(symbolTable, name, NULL);
+								mapSymbolInsert(symbolTable, name, toInsert);
+								return;
+						} else {
+								toInsert.version = find->version;
+								mapSymbolInsert(symbolTable, buffer, toInsert);
+								return;
+						}
+				}
+				mapSymbolInsert(symbolTable, name, toInsert);
 		}
-		mapSymbolInsert(symbolTable, name, toInsert);
-	}
 }
 void parserAddGlobalSym(struct parserNode *node, struct linkage link) {
 	__auto_type name = getSymbolName(node);
@@ -246,8 +281,8 @@ struct parserFunction *parserGetFunc(const struct parserNode *name) {
 		if (!find)
 			continue;
 
-		find->refs = strParserNodeAppendItem(find->refs, (struct parserNode *)name);
-		return find;
+		find[0]->refs = strParserNodeAppendItem(find[0]->refs, (struct parserNode *)name);
+		return *find;
 	}
 	return NULL;
 }
@@ -257,7 +292,7 @@ void parserAddFunc(const struct parserNode *name, const struct object *type, str
 
 	__auto_type conflict = mapFuncGet(currentScopeFuncs, name2->text);
 	if (conflict) {
-		if (!conflict->isForwardDecl) {
+		if (!conflict[0]->isForwardDecl) {
 			// Whine about redeclaration
 			diagErrorStart(name2->base.pos.start, name2->base.pos.end);
 			char buffer[1024];
@@ -266,13 +301,13 @@ void parserAddFunc(const struct parserNode *name, const struct object *type, str
 			diagHighlight(name2->base.pos.start, name2->base.pos.end);
 			diagEndMsg();
 
-			__auto_type firstRef = conflict->refs[0];
+			__auto_type firstRef = conflict[0]->refs[0];
 			diagNoteStart(firstRef->pos.start, firstRef->pos.end);
 			diagPushText("Declared here:");
 			diagHighlight(firstRef->pos.start, firstRef->pos.end);
 			diagEndMsg();
-		} else if (conflict->isForwardDecl) {
-			if (!objectEqual(conflict->type, type)) {
+		} else if (conflict[0]->isForwardDecl) {
+			if (!objectEqual(conflict[0]->type, type)) {
 				// Whine about conflicting type
 				diagErrorStart(name2->base.pos.start, name2->base.pos.end);
 				diagPushText("Conflicting types for ");
@@ -280,12 +315,13 @@ void parserAddFunc(const struct parserNode *name, const struct object *type, str
 				diagPushText(".");
 				diagEndMsg();
 
-				__auto_type firstRef = conflict->refs[0];
+				__auto_type firstRef = conflict[0]->refs[0];
 				diagNoteStart(firstRef->pos.start, firstRef->pos.end);
 				diagPushText("Declared here:");
 				diagHighlight(firstRef->pos.start, firstRef->pos.end);
 				diagEndMsg();
 			}
+			mapFuncRemove(currentScopeFuncs, name2->text, NULL);
 		}
 	}
 
@@ -301,9 +337,9 @@ loop:;
 		dummy.parentFunction = NULL;
 		strcpy(dummy.name, name2->text);
 
-		mapFuncInsert(currentScopeFuncs, name2->text, dummy);
+		mapFuncInsert(currentScopeFuncs, name2->text, ALLOCATE(dummy));
 		goto loop;
 	}
 
-	find->refs = strParserNodeAppendItem(find->refs, (struct parserNode *)name);
+	find[0]->refs = strParserNodeAppendItem(find[0]->refs, (struct parserNode *)name);
 }
