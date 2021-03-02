@@ -884,7 +884,7 @@ static struct enterExit varDecl2IR(const struct parserNode *node) {
 					type=arr->type;
 			}
 			dims=strGraphNodeIRPReverse(dims);
-			__auto_type arr=IRCreateArrayDecl(decl->var, decl->type, dims);
+			__auto_type arr=IRCreateArrayDecl(((struct parserNodeVar*)decl->var)->var, decl->type, dims);
 			
 			//Assign initial value
 			if(decl->dftVal) {
@@ -898,13 +898,13 @@ static struct enterExit varDecl2IR(const struct parserNode *node) {
 					}
 					strLong currDim CLEANUP(strLongDestroy)=NULL;
 					graphNodeIR parent=arr;
-					__auto_type end=dumpArrayLiterals(&parent,decl->var,&currDim, depth, decl->dftVal);
+					__auto_type end=dumpArrayLiterals(&parent,((struct parserNodeVar*)decl->var)->var,&currDim, depth, decl->dftVal);
 					return (struct enterExit){IRStmtStart(arr),end};
 			}
 			
 			return (struct enterExit){IRStmtStart(arr),arr};
 	} else {
-			__auto_type varRef = IRCreateVarRef(decl->var);
+			__auto_type varRef = IRCreateVarRef(((struct parserNodeVar*)decl->var)->var);
 			retVal.enter = retVal.exit = varRef;
 			// Assign defualt value(if present)
 			if (decl->dftVal) {
@@ -917,37 +917,7 @@ static struct enterExit varDecl2IR(const struct parserNode *node) {
 	return retVal;
 }
 static struct enterExit __parserNode2IRStmt(const struct parserNode *node) {
-
-	// Create statement if node is an expression type.
-	/*
-	int inStatement = 0;
-struct enterExit stmtEnterExit;
-switch (node->type) {
-case NODE_COMMA_SEQ:
-case NODE_BINOP:
-case NODE_FUNC_CALL:
-case NODE_UNOP:
-case NODE_VAR:
-case NODE_LIT_INT:
-case NODE_LIT_STR:
-case NODE_ARRAY_ACCESS: {
-	inStatement = 1;
-	//stmtEnterExit.enter=enterStatement();
-}
-default:;
-}
-	*/
-
 	__auto_type retVal = __parserNode2IRNoStmt(node);
-
-	// Leave statement if in statement
-	/*
-	if (inStatement) {
-	  stmtEnterExit.exit=leaveStatement(retVal);
-	  return stmtEnterExit;
-	}
-	*/
-
 	return retVal;
 }
 const void *IR_ATTR_LABEL_NAME = "LABEL_NAME";

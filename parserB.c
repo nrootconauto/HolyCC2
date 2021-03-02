@@ -29,6 +29,13 @@ const struct linkage *parserGlobalSymLinkage(const char *name) {
 		return NULL;
 	return &find->link;
 }
+const char  *parserGetGlobalSymLinkageName(const char *name) {
+		__auto_type find = mapSymbolGet(symbolTable, name);
+		if(find)
+				if(find->link.fromSymbol)
+				return find->link.fromSymbol;
+		return name;
+}
 struct parserNode *parserGetGlobalSym(const char *name) {
 	__auto_type find = mapSymbolGet(symbolTable, name);
 	if (!find)
@@ -83,8 +90,8 @@ static const char *getSymbolName(struct parserNode *node) {
 		struct parserNodeName *name = (void *)lab->name;
 		return name->text;
 	}
-	case NODE_VAR_DECL: {
-		struct parserNodeVarDecl *var = (void *)node;
+	case NODE_VAR: {
+		struct parserNodeVar *var = (void *)node;
 		return var->var->name;
 	}
 	case NODE_FUNC_DEF: {

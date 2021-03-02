@@ -1596,19 +1596,29 @@ static void addDeclsToScope(struct parserNode *varDecls, struct linkage link) {
 	if (varDecls->type == NODE_VAR_DECL) {
 		struct parserNodeVarDecl *decl = (void *)varDecls;
 		parserAddVar(decl->name, decl->type);
-		decl->var = parserGetVar(decl->name);
-
+		struct parserNodeVar var;
+		var.base.pos=decl->name->pos;
+		var.base.type=NODE_VAR;
+		var.var=parserGetVar(decl->name);
+		struct parserNode *varNode=ALLOCATE(var);
+		decl->var=varNode;
+		
 		if (link.type != LINKAGE_LOCAL || isGlobalScope())
-			parserAddGlobalSym(varDecls, link);
+			parserAddGlobalSym(varNode, link);
 	} else if (varDecls->type == NODE_VAR_DECLS) {
 		struct parserNodeVarDecls *decls = (void *)varDecls;
 		for (long i = 0; i != strParserNodeSize(decls->decls); i++) {
 			struct parserNodeVarDecl *decl = (void *)decls->decls[i];
 			parserAddVar(decl->name, decl->type);
-			decl->var = parserGetVar(decl->name);
-
+			struct parserNodeVar var;
+			var.base.pos=decl->name->pos;
+			var.base.type=NODE_VAR;
+			var.var=parserGetVar(decl->name);
+			struct parserNode *varNode=ALLOCATE(var);
+			decl->var = varNode;
+			
 			if (link.type != LINKAGE_LOCAL || isGlobalScope())
-				parserAddGlobalSym((struct parserNode *)decl, link);
+				parserAddGlobalSym(varNode, link);
 		}
 	}
 }

@@ -212,19 +212,44 @@ static strChar getSizeStr(struct object *obj) {
 }
 static strChar parserNodeSymbolName(struct parserNode *node) {
 	switch (node->type) {
-	case NODE_VAR:;
+	case NODE_VAR: {
 		struct parserNodeVar *var = (void *)node;
+		__auto_type sym=parserGetGlobalSym(var->var->name);
+		if(sym)
+				if(sym->type==NODE_VAR){
+						struct parserNodeVar *var2=(void*)sym;
+						if(var2->var==var->var) 
+								return strClone(parserGetGlobalSymLinkageName(var->var->name));
+				}
 		return strClone(var->var->name);
-	case NODE_FUNC_REF:;
+	}
+	case NODE_FUNC_REF: {
 		struct parserNodeFuncRef *ref = (void *)node;
-		return strClone(ref->func->name);
-	case NODE_FUNC_DEF:;
-			struct parserNodeFuncDef *def = (void *)node;
-		return strClone(def->func->name);
-	case NODE_FUNC_FORWARD_DECL: {
-			struct parserNodeFuncForwardDec *fwd = (void *)node;
-			__auto_type fu=fwd->func;
-			return strClone(fu->name);
+		struct parserFunction *func=NULL;
+		func=ref->func;
+		if(0) {
+		case NODE_FUNC_DEF:;
+				struct parserNodeFuncDef *def = (void *)node;
+				func=def->func;
+		} else if (0) {
+		case NODE_FUNC_FORWARD_DECL:;
+				struct parserNodeFuncForwardDec *fwd = (void *)node;
+				func=fwd->func;
+		}
+		
+		__auto_type sym=parserGetGlobalSym(func->name);
+		if(sym) {
+				if(sym->type==NODE_FUNC_DEF) {
+						struct parserNodeFuncDef *func2=(void*)sym;
+						if(func==func2->func) 
+								return strClone(parserGetGlobalSymLinkageName(func->name));
+				} else if(sym->type==NODE_FUNC_FORWARD_DECL) {
+								struct parserNodeFuncForwardDec *func2=(void*)sym;
+						if(func==func2->func) 
+								return strClone(parserGetGlobalSymLinkageName(func->name));
+				}
+		}
+		return strClone(func->name);
 	}
 			
 	default:;

@@ -32,3 +32,4 @@ const struct linkage *parserGlobalSymLinkage(const char *name);
 void parserSymTableNames(const char **keys, long *count);
 void parserAddVarLenArgsVars2Func(struct parserVar **Argc,struct parserVar **Argv);
 struct parserVar *parserGetVarByText(const char *name);
+const char  *parserGetGlobalSymLinkageName(const char *name);

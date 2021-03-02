@@ -199,7 +199,7 @@ struct parserNodeVarDecl {
 	struct parserNode *name;
 	struct object *type;
 	struct parserNode *dftVal;
-	struct parserVar *var;
+	struct parserNode *var;
 	strParserNode metaData;
 };
 struct parserNodeVarDecls {
