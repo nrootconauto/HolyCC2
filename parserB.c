@@ -33,7 +33,7 @@ const char  *parserGetGlobalSymLinkageName(const char *name) {
 		__auto_type find = mapSymbolGet(symbolTable, name);
 		if(find)
 				if(find->link.fromSymbol)
-				return find->link.fromSymbol;
+						return find->link.fromSymbol;
 		return name;
 }
 struct parserNode *parserGetGlobalSym(const char *name) {

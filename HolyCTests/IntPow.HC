@@ -9,4 +9,5 @@ I32i PowerI32i(I32i base,I32i exp) {
 					}
 					return result;
 }
+
 I32i c=PowerI32i(3,8);

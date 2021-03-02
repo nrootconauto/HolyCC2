@@ -600,7 +600,7 @@ static struct enterExit __createSwitchCodeAfterBody(const struct parserNode *nod
 	retVal.exit = switchEndLabel;
 	return retVal;
 }
-static graphNodeIR parserNode2Expr(const struct parserNode *node) {
+graphNodeIR parserNode2Expr(const struct parserNode *node) {
 	switch (node->type) {
 	default:
 		return NULL;

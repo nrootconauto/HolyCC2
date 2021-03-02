@@ -12,3 +12,4 @@ struct IRAttrLabelName {
 	char *name;
 };
 void initParse2IR();
+graphNodeIR parserNode2Expr(const struct parserNode *node);

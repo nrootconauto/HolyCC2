@@ -3362,7 +3362,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		return nextNodesToCompile(start);
 	}
 	case IR_FUNC_CALL: {
-		IRABICall2Asm(start);
+		IRABIFuncNode2Asm(start);
 		return nextNodesToCompile(start);
 	}
 	case IR_FUNC_ARG: {
@@ -3498,7 +3498,14 @@ computeArgs:;
 	}
 	__IR2Asm(start);
 }
-
+static graphNodeIR includeHCRTFunc(const char *name) {
+		__auto_type sym= parserGetGlobalSym(name);
+		if(!sym) {
+				fprintf(stderr,"Include HCRT.HC for \"%s\"\n", name);
+				abort();
+		}
+		return parserNode2Expr(sym);
+}
 void IR2Asm(graphNodeIR start) {
 	strGraphNodeIRP next CLEANUP(strGraphNodeIRPDestroy) = NULL;
 	if (IREndOfExpr(start) != start) {

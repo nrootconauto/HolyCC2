@@ -14,6 +14,7 @@ void IR2ABI_i386(graphNodeIR start);
 void IRComputeABIInfo(graphNodeIR start);
 strVar IRABIInsertLoadArgs(graphNodeIR start);
 void IRABIAsmPrologue(long frameSize);
-void IRABICall2Asm(graphNodeIR start);
+void IRABICall2Asm(graphNodeIR start ,struct X86AddressingMode *funcMode,strX86AddrMode args,struct X86AddressingMode *outMode);
 void IRABIReturn2Asm(graphNodeIR start,long frameSize);
 void findRegisterLiveness(graphNodeIR start);
+void IRABIFuncNode2Asm(graphNodeIR start);
