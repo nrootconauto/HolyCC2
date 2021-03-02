@@ -327,7 +327,7 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 				__auto_type ptr = objectPtrCreate(aType);
 				unop->type = ptr;
 				return ptr;
-			} else {
+			} else if(!isArith(aType)) {
 				// Not a function pointer or arithmetic
 			invalidUnop:;
 

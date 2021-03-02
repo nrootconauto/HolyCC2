@@ -69,6 +69,16 @@ U0 throw(I32i msg) {
 			HCRT_ExceptRestoreState();
 }
 import U0 printf(U8i fmt,...);
+I32i PowerI32i(I32i base,I32i exp) {
+					I32i result=1;
+					for(;;) {
+													if(exp&1) result*=base;
+													exp>>=1;
+													if(!exp) break;
+														base*=base;
+					}
+					return result;
+}
 U0 main() {
    I32i tst=123;
    try {
