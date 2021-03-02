@@ -1155,7 +1155,7 @@ void asmAssign(struct X86AddressingMode *a, struct X86AddressingMode *b, long si
 									}
 							}
 					} else {
-							fputs("Can't assign  floating point into this\n", stderr);
+							fputs("Can't assign floating point into this\n", stderr);
 							abort();
 					}
 					return;
@@ -1211,6 +1211,10 @@ void asmAssign(struct X86AddressingMode *a, struct X86AddressingMode *b, long si
 					size-=chunk;
 			}
 	}
+}
+void asmAssignFromPtr(struct X86AddressingMode *a,struct X86AddressingMode *b,long size,enum asmAssignFlags flags) {
+		struct X86AddressingMode *sib CLEANUP(X86AddrModeDestroy)=__mem2SIB(b);
+		asmAssign(a, sib, size, flags);
 }
 void IRCompile(graphNodeIR start, int isFunc) {
 		debugShowGraphIR(start);
@@ -1717,17 +1721,8 @@ static void compileX87Expr(graphNodeIR node) {
 						if(graphNodeIRValuePtr(inNode)->type==IR_VALUE) {
 								struct X86AddressingMode *iMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(inNode);
 								struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(node);
-								AUTO_LOCK_MODE_REGS(iMode);
-								AUTO_LOCK_MODE_REGS(oMode);
-
-								__auto_type f64Ptr=objectPtrCreate(&typeF64);
-								__auto_type ptrReg=regForTypeExcludingConsumed(f64Ptr);
-								struct X86AddressingMode *regMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(ptrReg);
-								pushReg(ptrReg);
-								asmAssign(regMode, oMode, ptrSize(), 0);
-								struct X86AddressingMode *indirect CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirReg(ptrReg,f64Ptr);
-								asmAssign(oMode,  indirect, objectSize(IRNodeType(inNode), NULL) ,  ASM_ASSIGN_X87FPU_POP);
-								popReg(ptrReg);
+								
+								asmAssignFromPtr(oMode,  iMode, objectSize(IRNodeType(inNode), NULL) ,  ASM_ASSIGN_X87FPU_POP);
 						}
 				}
 
@@ -2359,6 +2354,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				popReg(r);
 			}
 		}
+			
 		return nextNodesToCompile(start);
 	}
 	case IR_ADD: {
@@ -2379,23 +2375,25 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 	}
 	case IR_ADDR_OF: {
 		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIROutgoing(start);
-		strGraphEdgeIRP dst CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(out, IR_CONN_DEST);
-		if (strGraphEdgeIRPSize(dst) == 1) {
-			strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(start);
-			strGraphEdgeIRP source CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(in, IR_CONN_SOURCE_A);
-			struct X86AddressingMode *iMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(graphEdgeIRIncoming(source[0]));
-			struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(graphEdgeIROutgoing(dst[0]));
-			AUTO_LOCK_MODE_REGS(iMode);
-			if (iMode->type == X86ADDRMODE_MEM || iMode->type == X86ADDRMODE_ITEM_ADDR) {
-					strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
-					leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeClone(oMode));
-					leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeClone(iMode));
-					leaArgs[1]->valueType=NULL;
-					assembleOpcode(start, "LEA",  leaArgs);
-			} else {
-					fputs("IR_ADDR_OF needs an item that points to something", stderr);
-					abort();
-			}
+		{
+				strGraphEdgeIRP dst CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(out, IR_CONN_DEST);
+				if (strGraphEdgeIRPSize(dst) == 1) {
+						strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(start);
+						strGraphEdgeIRP source CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(in, IR_CONN_SOURCE_A);
+						struct X86AddressingMode *iMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(graphEdgeIRIncoming(source[0]));
+						struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(graphEdgeIROutgoing(dst[0]));
+						AUTO_LOCK_MODE_REGS(iMode);
+						if (iMode->type == X86ADDRMODE_MEM || iMode->type == X86ADDRMODE_ITEM_ADDR) {
+								strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+								leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeClone(oMode));
+								leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeClone(iMode));
+								leaArgs[1]->valueType=NULL;
+								assembleOpcode(start, "LEA",  leaArgs);
+						} else {
+								fputs("IR_ADDR_OF needs an item that points to something", stderr);
+								abort();
+						}
+				}
 		}
 		return nextNodesToCompile(start);
 	}
@@ -3289,28 +3287,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		if (strGraphEdgeIRPSize(fromPtrAssigns) == 1) {
 			__auto_type incoming = graphEdgeIRIncoming(fromPtrAssigns[0]);
 			struct X86AddressingMode *inMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(incoming);
-			AUTO_LOCK_MODE_REGS(inMode);
-			struct reg *ppReg = NULL; // pushPop
-
-			struct X86AddressingMode *readFrom CLEANUP(X86AddrModeDestroy) = NULL;
-			if (inMode->type == X86ADDRMODE_REG) {
-				readFrom = X86AddrModeIndirReg(inMode->value.reg, IRNodeType(start));
-			} else {
-				ppReg = regForTypeExcludingConsumed(objectPtrCreate(&typeU0));
-				pushReg(ppReg);
-
-				strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
-				leaArgs = strX86AddrModeAppendItem(leaArgs, X86AddrModeReg(ppReg));
-				leaArgs = strX86AddrModeAppendItem(leaArgs, X86AddrModeClone(inMode));
-				leaArgs[1]->valueType = NULL;
-				assembleOpcode(start,"LEA", leaArgs);
-				readFrom = X86AddrModeIndirReg(ppReg, IRNodeType(start));
-			}
-
-			asmTypecastAssign(currMode, readFrom,0);
-
-			if (ppReg)
-				popReg(ppReg);
+			asmAssignFromPtr(currMode, inMode,objectSize(inMode->valueType, NULL),0);
 		}
 		return nextNodesToCompile(start);
 	}
@@ -3462,7 +3439,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		strGraphEdgeIRP inAsnFromPtr CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(in, IR_CONN_ASSIGN_FROM_PTR);
 		if (strGraphEdgeIRPSize(inAsnFromPtr) == 1) {
 			struct X86AddressingMode *iMode2 CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(graphEdgeIRIncoming(inAsnFromPtr[0]));
-			asmTypecastAssign(memRegMode, iMode2,0);
+			asmAssignFromPtr(memRegMode, iMode2,objectSize(memRegMode->valueType, NULL),0);
 		}
 
 		if (strGraphEdgeIRPSize(outAssn) == 1) {

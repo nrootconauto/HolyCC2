@@ -15,3 +15,4 @@ struct reg *regForTypeExcludingConsumed(struct object *type);
 void consumeRegister(struct reg *reg) ;
 void unconsumeRegister(struct reg *reg);
 void pushMode(struct X86AddressingMode *mode);
+void asmAssignFromPtr(struct X86AddressingMode *a,struct X86AddressingMode *b,long size,enum asmAssignFlags flags);
