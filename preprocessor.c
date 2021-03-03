@@ -570,6 +570,8 @@ static char *stringClone(const char *str) {
 	return retVal;
 }
 static FILE *includeFile(const char *fromFile,const char *_fileName, mapDefineMacro defines, struct __vec *textFollowingInclude, int *err) {
+		__auto_type oldCurrentFile=currentFile;
+		
 		char *fromFilePath=dirFromPath(fromFile, "");
 		char* dirName=dirFromPath(fromFile, _fileName);
 		char* fn=fnFromPath(_fileName);
@@ -644,6 +646,8 @@ static FILE *includeFile(const char *fromFile,const char *_fileName, mapDefineMa
 
 	fclose(readFrom);
 	free(fileName);
+	
+	currentFile=oldCurrentFile;
 	return retValFile;
 }
 static FILE *createPreprocessedFileLine(mapDefineMacro defines, struct __vec *text_, int *err) {
@@ -788,12 +792,12 @@ static struct fileMapping *innerMostFileMapping(strFileMappings mappings, long l
 
 		long offset = pos - mappings[i].fileOffset;
 		// Start must be closest
-		if (offset >= smallestOffsetStart || smallestOffsetStart == -1) {
+		if ((offset <= smallestOffsetStart || smallestOffsetStart == -1) &&offset>=0) {
 			smallestOffsetStart = offset;
 
 			// End must be closest
 			offset = mappings[i].fileEndOffset - pos;
-			if (offset <= smallestOffsetEnd || smallestOffsetEnd == -1) {
+			if ((offset <= smallestOffsetEnd || smallestOffsetEnd == -1) &&offset>=0) {
 				smallestOffsetEnd = offset;
 				largestIndex = i;
 			}
@@ -811,8 +815,7 @@ const char *fileNameFromPos(strFileMappings mappings, long pos) {
 
 		if (mappings[i].fileEndOffset > pos) {
 			upper = i;
-		} else
-			break;
+		}
 	}
 	if (lower == -1)
 		lower = strFileMappingsSize(mappings) - 1;

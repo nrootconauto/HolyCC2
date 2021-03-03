@@ -62,10 +62,12 @@ struct diagInst {
 	enum outputType diagType;
 	enum diagState state;
 	long stateStart, stateEnd;
-	FILE *dumpTo;
+		long mappingOffset;
+		FILE *dumpTo;
 	FILE *sourceFile;
 	char *fileName;
 	strDiagQoute stateQoutes;
+		long fileOffset;
 };
 MAP_TYPE_DEF(struct diagInst, Inst);
 MAP_TYPE_FUNCS(struct diagInst, Inst);
@@ -192,6 +194,7 @@ static strLong fileLinesIndexes(FILE *file) {
 	return retVal;
 }
 static void __getLineCol(struct diagInst *inst, long where, long *line, long *col) {
+		where-=inst->fileOffset;
 	long line2 = 0;
 	for (long i = 1; i != strLongSize(inst->lineStarts); i++) {
 		if (inst->lineStarts[i] <= where) {
@@ -270,9 +273,9 @@ static long goBeforeNewLine(FILE *fp, long where) {
 }
 static void qouteLine(struct diagInst *inst, long start, long end, strDiagQoute qoutes) {
 		// 1st insert is the initial source so ignore initial source
-	end = mapToSource(end, mappings, 1);
+	end = mapToSource(end, mappings, currentInst->mappingOffset);
 		// 1st insert is the initial source so ignore initial source
-	start = mapToSource(start, mappings, 1);
+	start = mapToSource(start, mappings, currentInst->mappingOffset);
 	
 		// Line end of line
 	long line, col;
@@ -396,11 +399,14 @@ void diagPushText(const char *text) {
 	endAttrs(currentInst);
 }
 void diagPushQoutedText(long start, long end) {
-		start=mapToSource(start, mappings, 1);
-		end=mapToSource(end, mappings, 1);
+		start=mapToSource(start, mappings, currentInst->mappingOffset);
+		end=mapToSource(end, mappings, currentInst->mappingOffset);
 		assert(currentInst != NULL);
 
 		setAttrs(currentInst, ATTR_BOLD, 0);
+
+		end-=currentInst->fileOffset;
+		start-=currentInst->fileOffset;
 		
 		char buffer[end - start + 1];
 		buffer[end - start] = '\0';
@@ -461,13 +467,12 @@ void diagEndMsg() {
 static void diagStateStart(long start, long end, enum diagState state, const char *text, enum textAttr color) {
 	currentInst = diagInstByPos(start);
 	assert(currentInst != NULL);
-
 	if (currentInst->state != DIAG_NONE)
-		diagEndMsg();
+			diagEndMsg();
 
-	// 1st insert is the initial source so ignore initial source
-	long where = mapToSource(start, mappings, 1);
-
+		// 1st insert is the initial source so ignore initial source
+	long where = mapToSource(start, mappings, currentInst->mappingOffset);
+	
  	setAttrs(currentInst, color, ATTR_BOLD, 0);
 	long ln, col;
 	__getLineCol(currentInst, where, &ln, &col);
@@ -514,8 +519,10 @@ void diagInstCreate(enum outputType type, const strFileMappings __fileMappings, 
 		retVal.state = DIAG_NONE;
 		retVal.stateQoutes = NULL;
 		retVal.sourceFile = file;
-
-		mapInstInsert(insts, fileName, retVal);
+		retVal.fileOffset=fileMappings[i].fileOffset;
+		retVal.mappingOffset=fileMappings[i].mappingIndexStart+1;
+		
+		mapInstInsert(insts, retVal.fileName, retVal);
 	}
 }
 static void diagInstDestroy(struct diagInst *inst) {

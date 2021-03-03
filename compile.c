@@ -58,17 +58,18 @@ static strParserNode parseFile(const char *fn,strFileMappings *fMappings2) {
 }
 void compileFile(const char *fn, const char *dumpTo) {
 			initParserData();
-			strParserNode dummy CLEANUP(strParserNodeDestroy2)=parseFile("/home/tc/projects/holycc2/HolyCRT/HCRT.HC",NULL);
-
+			strFileMappings fMappings0 CLEANUP(strFileMappingsDestroy) = NULL;
+			strParserNode dummy CLEANUP(strParserNodeDestroy2)=parseFile("/home/tc/projects/holycc2/HolyCRT/HCRT.HC",&fMappings0);
+			
 			strFileMappings fMappings CLEANUP(strFileMappingsDestroy) = NULL;
 			strParserNode stmts CLEANUP(strParserNodeDestroy2)=parseFile(fn,&fMappings);
 		if(dumpTo) {
 				IRGenInit(fMappings);
 				initIR();
-				X86EmitAsmInit();
 				struct enterExit ee = parserNodes2IR(stmts);
 				
 				IR2AsmInit();
+				X86EmitAsmInit();
 				X86EmitAsmLabel("_start");
 				IRCompile(ee.enter, 0);
 				X86EmitAsm2File(dumpTo);

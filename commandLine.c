@@ -4,6 +4,7 @@
 #include <string.h>
 #include <str.h>
 #include <cleanup.h>
+#include <assert.h>
 void init();
 //
 // argi,moves the argument index to adavance the consumed arguments
@@ -145,6 +146,12 @@ void parseCommandLineArgs(int argc,const char **argv) {
 				}
 		}
 
+		const char *hcrt="/home/tc/projects/holycc2/HolyCRT/HCRT.HC";
+		compileFile(hcrt, "/tmp/HCRT.s");
+		strConstChar hcrtSources CLEANUP(strConstCharDestroy)=strConstCharAppendItem(NULL, hcrt);
+		strStrChar toLink CLEANUP(strStrCharDestroy2)=assembleSources(hcrtSources);
+		assert(strStrCharSize(toLink)==1);
+		
 		if(strConstCharSize(sources)||strConstCharSize(toCompile)) {
 				if(strConstCharSize(sources)&&strConstCharSize(toCompile)&&outputFile) {
 						fputs("Can't route sources and files to compile to a single output file.", stderr);
@@ -157,6 +164,11 @@ void parseCommandLineArgs(int argc,const char **argv) {
 				if(!outputFile)
 						outputFile="a.out";
 				linkCommand=strCharAppendData(linkCommand, outputFile,strlen(outputFile));
+
+				//Link in hcrt
+				linkCommand=strCharAppendItem(linkCommand, ' ');
+				linkCommand=strCharAppendData(linkCommand, toLink[0], strlen(toLink[0]));
+				
 				for(long i=0;i!=strStrCharSize(toAssemble);i++) {
 						linkCommand=strCharAppendItem(linkCommand, ' ');
 						const char *fmt="%s.o";

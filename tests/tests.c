@@ -34,6 +34,6 @@ void ropeTests();
 int main() {
 		init();
 		//ropeTests();
-		compileTests();
+ 		compileTests();
 		return 0;
 }
