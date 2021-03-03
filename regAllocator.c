@@ -393,7 +393,7 @@ static int filterIntVars(graphNodeIR node, const void *data) {
 		return 0;
 	if (!IsInteger(IRValueGetType(&value->val)))
 		return 0;
-	if (value->val.value.var.addressedByPtr)
+	if (value->val.value.var.var->isRefedByPtr)
 		return 0;
 	if (value->val.value.var.var->isNoreg)
 		return 0;
@@ -410,7 +410,7 @@ static int filterFloatVars(graphNodeIR node, const void *data) {
 		return 0;
 	if (!isFloating(IRValueGetType(&value->val)))
 		return 0;
-	if (value->val.value.var.addressedByPtr)
+	if (value->val.value.var.var->isRefedByPtr)
 		return 0;
 	if (__varFiltPred)
 		if (!__varFiltPred(value->val.value.var.var, __varFilterData))

@@ -49,7 +49,7 @@ static int containsRegister(struct reg *par, struct reg *r) {
 	return 0;
 }
 static struct reg *__registerContainingBoth(struct reg *master, struct reg *a, struct reg *b) {
-	assert(a->masterReg == b->masterReg);
+		assert(a->masterReg == b->masterReg);
 	for (long c = 0; c != strRegSliceSize(master->affects); c++) {
 		if (containsRegister(master->affects[c].reg, a) && containsRegister(master->affects[c].reg, b))
 			return __registerContainingBoth(master->affects[c].reg, a, b);
@@ -587,7 +587,6 @@ static strVar IR_ABI_I386_SYS_InsertLoadArgs(graphNodeIR start) {
 	if (returnsStruct) {
 		struct IRVar ir;
 		ir.SSANum = 0;
-		ir.addressedByPtr = 0;
 		ir.var = IRCreateVirtVar(objectPtrCreate(fType->retType));
 		args[0] = ir;
 
@@ -603,7 +602,6 @@ static strVar IR_ABI_I386_SYS_InsertLoadArgs(graphNodeIR start) {
 	for (long v = 0; v != strVarSize(args); v++) {
 		struct IRVar ir;
 		ir.SSANum = 0;
-		ir.addressedByPtr = 0;
 		ir.var = fType->args[v].var;
 		args[v] = ir;
 

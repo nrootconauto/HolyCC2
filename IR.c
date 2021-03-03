@@ -154,12 +154,12 @@ graphNodeIR IRCreateStmtEnd(graphNodeIR start) {
 	__auto_type retVal = GRAPHN_ALLOCATE(end);
 	((struct IRNodeStatementStart *)graphNodeIRValuePtr(start))->end = retVal;
 	return retVal;
-}
-struct parserVar *IRCreateVirtVar(struct object *type) {
+}struct parserVar *IRCreateVirtVar(struct object *type) {
 	struct parserVar var;
 	var.name = NULL;
 	var.refs = NULL;
 	var.type = type;
+	var.isRefedByPtr=0;
 	var.isGlobal = 0;
 	var.isTmp=1;
 	__auto_type alloced = ALLOCATE(var);
@@ -211,8 +211,7 @@ loop:;
 	val.base.attrs = NULL;
 	val.base.type = IR_VALUE;
 	val.val.type = IR_VAL_VAR_REF;
-
-	val.val.value.var.addressedByPtr = 0;
+	
 	val.val.value.var.SSANum = 0;
 	val.val.value.var.var = var;
 
@@ -1775,42 +1774,6 @@ graphNodeIR IRCreatePtrRef(graphNodeIR ptr) {
 }
 STR_TYPE_DEF(struct IRVar, IRVar);
 STR_TYPE_FUNCS(struct IRVar, IRVar);
-void IRMarkPtrVars(graphNodeIR start) {
-	strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRAllNodes(start);
-	for (long i = 0; strGraphNodeIRPSize(allNodes); i++) {
-		__auto_type type = graphNodeIRValuePtr(allNodes[i])->type;
-		if (type == IR_ADDR_OF) {
-			strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(allNodes[i]);
-			strGraphEdgeIRP source CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(in, IR_CONN_SOURCE_A);
-			if (graphNodeIRValuePtr(graphEdgeIRIncoming(source[0]))) {
-				//
-				// Check if points to variable or member of variable
-				// If so mark it as not being able to be put in a register as it will need to exist in memory
-				//
-				graphNodeIR node = graphEdgeIRIncoming(source[0]);
-				for (;;) {
-					struct IRNode *nodeValue = graphNodeIRValuePtr(node);
-					if (nodeValue->type == IR_VALUE) {
-						struct IRNodeValue *val = (void *)nodeValue;
-						if (val->val.type == IR_VAL_VAR_REF) {
-							goto foundVariable;
-						}
-					} else if (nodeValue->type == IR_MEMBERS) {
-						strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(allNodes[i]);
-						strGraphEdgeIRP source CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(in, IR_CONN_SOURCE_A);
-						node = graphEdgeIRIncoming(source[0]);
-					}
-					continue;
-				foundVariable:;
-					struct IRNodeValue *value = (void *)nodeValue;
-					value->val.value.var.addressedByPtr = 0;
-				}
-			}
-
-			__auto_type start = IRStmtStart(allNodes[i]);
-		}
-	}
-}
 graphNodeIR IRCreateFloat(double value) {
 	struct IRNodeValue nv;
 	nv.base.attrs = NULL;

@@ -127,7 +127,7 @@ strFrameEntry IRComputeFrameLayout(graphNodeIR start, long *frameSize) {
 					if(!findRefs)
 							continue;
 
-					if(liveNode->ref.addressedByPtr) {
+					if(liveNode->ref.var->isRefedByPtr) {
 							struct IRVarRefsPair pair;
 							pair.refs=*findRefs;
 							pair.vars=strVarAppendItem(NULL, liveNode->ref);
@@ -179,7 +179,7 @@ strFrameEntry IRComputeFrameLayout(graphNodeIR start, long *frameSize) {
 	mapRefsPairDestroy(byColor, NULL);
 
 	allRefs=strIRVarRefsSetUnion(allRefs, ptrRefed, IRVarRefsCmp);	
-	while (strIRVarRefsSize(allRefs)) {
+	while (strIRVarRefsSize(allRefs))  {
 		assert(offset != LONG_MAX);
 		offset = pack(offset, LONG_MAX, &allRefs, &order);
 	}

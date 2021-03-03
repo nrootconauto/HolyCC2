@@ -305,7 +305,6 @@ struct IRValMemGlobal {
 	struct parserVar *symbol;
 };
 struct IRVar {
-	unsigned int addressedByPtr : 1;
 		struct parserVar *var;
 	long SSANum;
 };

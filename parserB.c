@@ -255,6 +255,7 @@ void parserAddVar(const struct parserNode *name, struct object *type) {
 	var.refs = strParserNodeAppendItem(NULL, (struct parserNode *)name);
 	var.isGlobal = (llScopeValuePtr(currentScope)->parent == NULL) ? 1 : 0;
 	var.isNoreg = 0;
+	var.isRefedByPtr=0;
 	var.isTmp=0;
 
 	assert(name->type == NODE_NAME);
