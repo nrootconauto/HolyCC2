@@ -48,6 +48,7 @@ list(APPEND sources "abi.c")
 list(APPEND sources "x87fpu.c")
 list(APPEND sources "commandLine.c")
 list(APPEND sources "rope.c")
+list(APPEND sources "filePath.c")
 
 set(tests "")
 list(APPEND tests "tests/compileTests.c")
