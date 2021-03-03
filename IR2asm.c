@@ -1314,8 +1314,10 @@ void IRCompile(graphNodeIR start, int isFunc) {
 			goto markAsNoreg;
 
 		if (strGraphNodeIRPSize(out) == 1) {
-			if (graphNodeIRValuePtr(out[0])->type == IR_ADDR_OF)
-				goto markAsNoreg;
+				if (graphNodeIRValuePtr(out[0])->type == IR_ADDR_OF||graphNodeIRValuePtr(out[0])->type == IR_MEMBERS_ADDR_OF) {
+						value->val.value.var.addressedByPtr=1;
+						goto markAsNoreg;
+				}
 
 			if (isPrimitiveType(objectBaseType(IRNodeType(nodes[i]))))
 				if (graphNodeIRValuePtr(out[0])->type == IR_MEMBERS)

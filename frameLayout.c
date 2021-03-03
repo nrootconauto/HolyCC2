@@ -114,6 +114,8 @@ strFrameEntry IRComputeFrameLayout(graphNodeIR start, long *frameSize) {
 		}
 	}
 
+	strIRVarRefs ptrRefed CLEANUP(strIRVarRefsDestroy)=NULL;
+	
 	strGraphNodeIRLiveP graphs CLEANUP(strGraphNodeIRLivePDestroy)=IRInterferenceGraphFilter(start, NULL, NULL);
 	strVertexColors graphColorings CLEANUP(strVertexColorsDestroy2)=NULL;
 	mapRefsPair byColor=mapRefsPairCreate();
@@ -124,6 +126,16 @@ strFrameEntry IRComputeFrameLayout(graphNodeIR start, long *frameSize) {
 					__auto_type findRefs=ptrMapVarRefsGet(refs,liveNode->ref.var);
 					if(!findRefs)
 							continue;
+
+					if(liveNode->ref.addressedByPtr) {
+							struct IRVarRefsPair pair;
+							pair.refs=*findRefs;
+							pair.vars=strVarAppendItem(NULL, liveNode->ref);
+							pair.largestAlign=objectAlign(liveNode->ref.var->type,NULL);
+							pair.largestSize=objectSize(liveNode->ref.var->type,NULL);
+							ptrRefed=strIRVarRefsSortedInsert(ptrRefed, ALLOCATE(pair), IRVarRefsCmp);
+							continue;
+					}
 					
 					char buffer[32];
 					sprintf(buffer, "%i", llVertexColorValuePtr(cur)->color);
@@ -165,8 +177,8 @@ strFrameEntry IRComputeFrameLayout(graphNodeIR start, long *frameSize) {
 	}
 
 	mapRefsPairDestroy(byColor, NULL);
-	
-	
+
+	allRefs=strIRVarRefsSetUnion(allRefs, ptrRefed, IRVarRefsCmp);	
 	while (strIRVarRefsSize(allRefs)) {
 		assert(offset != LONG_MAX);
 		offset = pack(offset, LONG_MAX, &allRefs, &order);
