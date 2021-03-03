@@ -69,23 +69,12 @@ U0 throw(I32i msg) {
 			HCRT_ExceptRestoreState();
 }
 import U0 printf(U8i fmt,...);
-I32i PowI32i(I32i base,I32i exp) {
-					I32i result=1;
-					for(;;) {
-													if(exp&1) result*=base;
-													exp>>=1;
-													if(!exp) break;
-														base*=base;
-					}
-					return result;
-}
 U0 main() {
-   F64 tst=3.0;
-   try {
-							throw('hi\n');
-			} catch {
-					printf("Hello World,%lf\n",tst`5.0);
-			}
-			
+			I32i a=1,b=2,c=3;
+			I32i *A=&a,*B=&b,*C=&c;
+			printf("%li",*A+*B+*C);
+			I32i d=1,e=2,f=3;
+			I32i *D=&d,*E=&e,*F=&f;
+			printf("%li",*D+*E+*F);
 			return ;
 }
