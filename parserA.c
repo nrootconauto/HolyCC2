@@ -2990,9 +2990,6 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 
 	parserAddFunc(name, funcType, retVal);
 
-	if (retVal && (link.type != LINKAGE_LOCAL || isGlobalScope()))
-		parserAddGlobalSym(retVal, link);
-
 	if (retVal->type == NODE_FUNC_DEF)
 		((struct parserNodeFuncDef *)retVal)->func = parserGetFunc(name);
 	else if (retVal->type == NODE_FUNC_FORWARD_DECL)

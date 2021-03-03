@@ -36,6 +36,44 @@ const char  *parserGetGlobalSymLinkageName(const char *name) {
 						return find->link.fromSymbol;
 		return name;
 }
+struct object *parserGlobalSymType(const char *name) {
+		__auto_type find = mapSymbolGet(symbolTable, name);
+		if(!find)
+				return NULL;
+		switch(find->node->type) {
+		case NODE_CLASS_DEF: {
+				struct parserNodeClassDef *def=(void*)find->node;
+				return def->type;
+		}
+		case NODE_CLASS_FORWARD_DECL:  {
+				struct parserNodeClassFwd *fwd=(void*)find->node;
+				return fwd->type;
+		}
+		case NODE_FUNC_DEF: {
+				struct parserNodeFuncDef *func=(void*)find->node;
+				return func->funcType;
+		}
+		case NODE_FUNC_FORWARD_DECL:  {
+				struct parserNodeFuncForwardDec *func=(void*)find->node;
+				return func->funcType;
+		}
+		case NODE_UNION_DEF: {
+				struct parserNodeUnionDef *un=(void*)find->node;
+				return un->type;
+		}
+		case NODE_UNION_FORWARD_DECL:  {
+				struct parserNodeUnionFwd *fwd=(void*)find->node;
+				return fwd->type;
+		}
+		case NODE_VAR: {
+				struct parserNodeVar *var=(void*)find->node;
+				return var->var->type;
+		}
+		default:
+				fputs("Symbol type not implemnted", stderr);
+				abort();
+		}
+}
 struct parserNode *parserGetGlobalSym(const char *name) {
 	__auto_type find = mapSymbolGet(symbolTable, name);
 	if (!find)

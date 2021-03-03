@@ -70,6 +70,29 @@ static void strX86AddrModeDestroy2(strX86AddrMode *str) {
 	strX86AddrModeDestroy(str);
 }
 static void pushReg(struct reg *r) {
+		const struct reg *fpu[]={
+				&regX86ST0,
+				&regX86ST1,
+				&regX86ST2,
+				&regX86ST3,
+				&regX86ST4,
+				&regX86ST5,
+				&regX86ST6,
+				&regX86ST7,
+		};
+		for(long i=0;i!=8;i++)
+				if(fpu[i]==r) {
+						strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
+						addArgs = strX86AddrModeAppendItem(addArgs, X86AddrModeReg(stackPointer()));
+						addArgs = strX86AddrModeAppendItem(addArgs, X86AddrModeSint(8));
+						assembleInst("SUB", addArgs);
+						
+						strX86AddrMode movArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
+						movArgs = strX86AddrModeAppendItem(movArgs, X86AddrModeIndirReg(stackPointer(),objectPtrCreate(&typeU0)));
+						movArgs[0]->valueType=&typeF64;
+						assembleInst("FSTP", movArgs);
+						return;
+				}
 	// Can't push 8-bit registers,so make room on the stack and assign
 	if (r->size == 1) {
 		strX86AddrMode subArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
@@ -78,7 +101,7 @@ static void pushReg(struct reg *r) {
 		assembleInst("SUB", subArgs);
 
 		strX86AddrMode movArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
-		movArgs = strX86AddrModeAppendItem(movArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(1), &typeU8i));
+		movArgs = strX86AddrModeAppendItem(movArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(0), &typeU8i));
 		movArgs = strX86AddrModeAppendItem(movArgs, X86AddrModeReg(r));
 		assembleInst("MOV", movArgs);
 		return;
@@ -101,7 +124,6 @@ static void pushReg(struct reg *r) {
 							subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeSint(8));
 							assembleInst("SUB", subArgs);
 
-
 							struct X86AddressingMode *aMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86ST0);
 							asmAssign(aMode, mode, 8, ASM_ASSIGN_X87FPU_POP);
 							struct X86AddressingMode *stackTop CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirReg(stackPointer(), &typeF64);
@@ -121,7 +143,7 @@ static void popReg(struct reg *r) {
 	if (r->size == 1) {
 		strX86AddrMode movArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
 		movArgs = strX86AddrModeAppendItem(movArgs, X86AddrModeReg(r));
-		movArgs = strX86AddrModeAppendItem(movArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(1), &typeU8i));
+		movArgs = strX86AddrModeAppendItem(movArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(0), &typeU8i));
 		assembleInst("MOV", movArgs);
 
 		strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
@@ -1549,6 +1571,7 @@ static void setCond(graphNodeIR atNode,const char *cond, struct X86AddressingMod
 		assembleOpcode(atNode,buffer,setccArgs);
 	}
 }
+static struct X86AddressingMode *includeHCRTFunc(const char *name);
 static void compileX87Expr(graphNodeIR node) {
 		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIROutgoing(node);
 		strGraphEdgeIRP dst CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(out, IR_CONN_DEST);
@@ -1629,10 +1652,16 @@ static void compileX87Expr(graphNodeIR node) {
 			return;
 		}
 		case IR_POW: {
-			// TODO
-				assert(0);
-			assembleInst("FMULP", NULL);
-			return;
+				struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86ST0);
+				oMode->valueType=&typeF64;
+				struct X86AddressingMode *powF64Mode CLEANUP(X86AddrModeDestroy)=includeHCRTFunc("PowF64");
+				graphNodeIR a,b;
+				binopArgs(node, &a, &b);
+				strX86AddrMode args CLEANUP(strX86AddrModeDestroy2)=NULL;
+				args=strX86AddrModeAppendItem(args, IRNode2AddrMode(a));
+				args=strX86AddrModeAppendItem(args, IRNode2AddrMode(b));
+				IRABICall2Asm(node, powF64Mode, args, oMode);
+				return;
 		}
 		case IR_GT: {
 				graphNodeIR a,b;
@@ -2827,8 +2856,27 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 	}
 	case IR_POW: {
-		// TODO
-		assert(0);
+			COMPILE_87_IFN;
+			graphNodeIR a,b,out=nodeDest(start);
+			binopArgs(start,&a,&b);
+			struct X86AddressingMode *aMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(a);
+			struct X86AddressingMode *bMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(b);
+			struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(out);
+			strX86AddrMode args CLEANUP(strX86AddrModeDestroy)=NULL;
+			args=strX86AddrModeAppendItem(args, aMode);
+			args=strX86AddrModeAppendItem(args, bMode);
+			switch(getCurrentArch()) {
+			case ARCH_TEST_SYSV:
+			case ARCH_X86_SYSV: {
+					struct X86AddressingMode *powMode CLEANUP(X86AddrModeDestroy)=includeHCRTFunc("PowI32i");
+					IRABICall2Asm(start, powMode, args, oMode);
+					break;
+			}
+			case ARCH_X64_SYSV:;
+					// TODO
+					assert(0);
+			};
+			return nextNodesToCompile(start);
 	}
 	case IR_LOR: {
 		COMPILE_87_IFN;
@@ -3475,13 +3523,16 @@ computeArgs:;
 	}
 	__IR2Asm(start);
 }
-static graphNodeIR includeHCRTFunc(const char *name) {
+static struct X86AddressingMode *includeHCRTFunc(const char *name) {
 		__auto_type sym= parserGetGlobalSym(name);
 		if(!sym) {
 				fprintf(stderr,"Include HCRT.HC for \"%s\"\n", name);
 				abort();
 		}
-		return parserNode2Expr(sym);
+		__auto_type name2=parserGetGlobalSymLinkageName(name);
+		__auto_type retVal=X86AddrModeLabel(name2);
+		retVal->valueType=parserGlobalSymType(name);
+		return retVal;
 }
 void IR2Asm(graphNodeIR start) {
 	strGraphNodeIRP next CLEANUP(strGraphNodeIRPDestroy) = NULL;

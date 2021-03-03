@@ -152,7 +152,7 @@ void parseCommandLineArgs(int argc,const char **argv) {
 				}
 				sources=strConstCharAppendData(sources, toCompile, strConstCharSize(toCompile));
 				strStrChar toAssemble CLEANUP(strStrCharDestroy2)=assembleSources(sources);
-				const char *commHeader="gcc -o ";
+				const char *commHeader="gcc -lm -o ";
 				strChar linkCommand CLEANUP(strCharDestroy)=strCharAppendData(NULL,commHeader,strlen(commHeader));
 				if(!outputFile)
 						outputFile="a.out";

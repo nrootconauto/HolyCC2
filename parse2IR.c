@@ -275,6 +275,8 @@ void initParse2IR() {
 	mapIRNodeTypeInsert(binop2IRType, "/", IR_DIV);
 	mapIRNodeTypeInsert(binop2IRType, "%", IR_MOD);
 	//
+	mapIRNodeTypeInsert(binop2IRType, "`", IR_POW);
+	//
 	mapIRNodeTypeInsert(binop2IRType, "<<", IR_LSHIFT);
 	mapIRNodeTypeInsert(binop2IRType, ">>", IR_RSHIFT);
 	//

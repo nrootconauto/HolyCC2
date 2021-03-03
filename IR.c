@@ -698,7 +698,7 @@ static strChar opToText(enum IRNodeType type) {
 	case IR_POS:
 		return strClone("+");
 	case IR_POW:
-		return strClone("`");
+		return strClone("POW");
 	case IR_ADD:
 		return strClone("+");
 	case IR_ADDR_OF:

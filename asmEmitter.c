@@ -554,9 +554,9 @@ static strChar dumpStrLit(const char *str,long len) {
 	return retVal;
 }
 struct X86AddressingMode *X86EmitAsmDU64(strX86AddrMode data, long len) {
-	long count = snprintf(NULL, 0, "$DU64_%li", ++labelCount);
+	long count = snprintf(NULL, 0, "DU64_%li", ++labelCount);
 	char buffer[count + 1];
-	sprintf(buffer, "$DU64_%li", labelCount);
+	sprintf(buffer, "DU64_%li", labelCount);
 	fprintf(constsTmpFile, "%s: DQ ", buffer);
 	for (long i = 0; i != len; i++) {
 		if (i != 0)
@@ -568,9 +568,9 @@ struct X86AddressingMode *X86EmitAsmDU64(strX86AddrMode data, long len) {
 	return X86AddrModeLabel(buffer);
 }
 struct X86AddressingMode *X86EmitAsmDU32(strX86AddrMode data, long len) {
-	long count = snprintf(NULL, 0, "$DU32_%li", ++labelCount);
+	long count = snprintf(NULL, 0, "DU32_%li", ++labelCount);
 	char buffer[count + 1];
-	sprintf(buffer, "$DU32_%li", labelCount);
+	sprintf(buffer, "DU32_%li", labelCount);
 	fprintf(constsTmpFile, "%s: DD ", buffer);
 	for (long i = 0; i != len; i++) {
 		if (i != 0)
@@ -582,9 +582,9 @@ struct X86AddressingMode *X86EmitAsmDU32(strX86AddrMode data, long len) {
 	return X86AddrModeLabel(buffer);
 }
 struct X86AddressingMode *X86EmitAsmDU16(strX86AddrMode data, long len) {
-	long count = snprintf(NULL, 0, "$DU16_%li", ++labelCount);
+	long count = snprintf(NULL, 0, "DU16_%li", ++labelCount);
 	char buffer[count + 1];
-	sprintf(buffer, "$DU16_%li", labelCount);
+	sprintf(buffer, "DU16_%li", labelCount);
 	fprintf(constsTmpFile, "%s: DW ", buffer);
 	for (long i = 0; i != len; i++) {
 		if (i != 0)
@@ -596,9 +596,9 @@ struct X86AddressingMode *X86EmitAsmDU16(strX86AddrMode data, long len) {
 	return X86AddrModeLabel(buffer);
 }
 struct X86AddressingMode *X86EmitAsmDU8(strX86AddrMode data, long len) {
-	long count = snprintf(NULL, 0, "$DU8_%li", ++labelCount);
+	long count = snprintf(NULL, 0, "DU8_%li", ++labelCount);
 	char buffer[count + 1];
-	sprintf(buffer, "$DU8_%li", labelCount);
+	sprintf(buffer, "DU8_%li", labelCount);
 	fprintf(constsTmpFile, "%s: DB ", buffer);
 	for (long i = 0; i != len; i++) {
 		if (i != 0)

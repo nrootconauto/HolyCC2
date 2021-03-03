@@ -397,7 +397,7 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start ,struct X86AddressingMode *f
 		if (type->type == TYPE_CLASS || type->type == TYPE_UNION) {
 			struct X86AddressingMode *stack CLEANUP(X86AddrModeDestroy) = X86AddrModeIndirReg(stackPointer(), type);
 			struct X86AddressingMode *val CLEANUP(X86AddrModeDestroy) = X86AddrModeClone(args[i]);
-			asmAssign(stack, val, itemSize,0);
+			asmTypecastAssign(stack, val,0);
 
 			// Must be aligned to 4 bytes
 			long aligned = itemSize / 4 * 4 + ((itemSize % 4) ? 4 : 0);
