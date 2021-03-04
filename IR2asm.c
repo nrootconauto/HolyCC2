@@ -2077,7 +2077,6 @@ static graphNodeIR assembleOpCmp(graphNodeIR start) {
 	struct X86AddressingMode *aMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(a);
 	struct X86AddressingMode *bMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(b);
 		struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(out);
-	assert(objectSize(aMode->valueType, NULL)==objectSize(bMode->valueType, NULL));
 	if(objectBaseType(aMode->valueType)==&typeF64) {
 			strX86AddrMode fcomiArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 			fcomiArgs=strX86AddrModeAppendItem(fcomiArgs, IRNode2AddrMode(a));

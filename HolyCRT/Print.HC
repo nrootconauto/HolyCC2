@@ -36,9 +36,9 @@ U32i ToUpper(U32i chr) {
 			}
 			return retVal;
 }
-extern U0 malloc(I32i size); 
+extern U0 *malloc(I32i size); 
 import U0 free(U0 *ptr);
-extern U0 realloc(U0 *ptr,I32i size);
+extern U0 *realloc(U0 *ptr,I32i size);
 U8i *I32_2Str(I32i value) {
 				I32i digits=0;
 				for(I32i value2=value;value2!=0;value2/=10) digits+=1;
