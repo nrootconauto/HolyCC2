@@ -1002,6 +1002,7 @@ static int frameEntryCmp(const void *a, const void *b) {
 	return IRVarCmp(&A->var, &B->var);
 }
 static void debugShowGraphIR(graphNodeIR enter) {
+		return;
 #if DEBUG_PRINT_ENABLE
 		const char *name = tmpnam(NULL);
 	__auto_type map = graphNodeCreateMapping(enter, 1);

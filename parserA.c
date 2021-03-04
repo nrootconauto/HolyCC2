@@ -4,6 +4,7 @@
 #include <parserA.h>
 #define DEBUG_PRINT_ENABLE 1
 #include <cleanup.h>
+#include <asmEmitter.h>
 #include <debugPrint.h>
 #include <diagMsg.h>
 #include <exprParser.h>
@@ -3554,7 +3555,11 @@ fail:
 	return X86AddrModeSint(-1);
 }
 struct X86AddressingMode *parserNode2X86AddrMode(struct parserNode *node) {
-		if(node->type==NODE_ASM_ADDRMODE) {
+		if(node->type==NODE_LIT_STR) {
+				struct parserNodeLitStr *str=(void*)node;
+				return X86EmitAsmStrLit((char*)str->str.text, __vecSize(str->str.text));
+		} else
+				if(node->type==NODE_ASM_ADDRMODE) {
 				struct parserNodeAsmAddrMode *addrMode=(void*)node;
 				return X86AddrModeClone(addrMode->mode);
 		} else if(node->type==NODE_LIT_INT) {

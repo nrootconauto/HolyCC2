@@ -151,6 +151,8 @@ void parseCommandLineArgs(int argc,const char **argv) {
 		strConstChar hcrtSources CLEANUP(strConstCharDestroy)=strConstCharAppendItem(NULL, hcrt);
 		strStrChar toLink CLEANUP(strStrCharDestroy2)=assembleSources(hcrtSources);
 		assert(strStrCharSize(toLink)==1);
+		toLink[0]=strCharAppendData(toLink[0], "\0\0\0", 3);
+		strcat(toLink[0], ".o");
 		
 		if(strConstCharSize(sources)||strConstCharSize(toCompile)) {
 				if(strConstCharSize(sources)&&strConstCharSize(toCompile)&&outputFile) {

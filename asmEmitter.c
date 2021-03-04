@@ -614,7 +614,7 @@ void X86EmitAsmComment(const char *text) {
 }
 struct X86AddressingMode *X86EmitAsmStrLit(const char *text,long size) {
 		strChar unes CLEANUP(strCharDestroy) = dumpStrLit(text,size);
-	long count = snprintf(NULL, 0, "$TR_%li", ++labelCount);
+	long count = snprintf(NULL, 0, "STR_%li", ++labelCount);
 	char buffer[count + 1];
 	sprintf(buffer, "STR_%li", labelCount);
 	fprintf(constsTmpFile, "%s: DB %s\n", buffer, unes);
