@@ -1002,7 +1002,6 @@ static int frameEntryCmp(const void *a, const void *b) {
 	return IRVarCmp(&A->var, &B->var);
 }
 static void debugShowGraphIR(graphNodeIR enter) {
-		return;
 #if DEBUG_PRINT_ENABLE
 		const char *name = tmpnam(NULL);
 	__auto_type map = graphNodeCreateMapping(enter, 1);
@@ -2346,20 +2345,16 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			const char *fmt=";;;   %s:%li:\"\"\"%s\"\"\"   ;;;";
 			__auto_type f=fopen(mapping->fn, "r");
 			fseek(f, mapping->start, SEEK_SET);
-			strChar lineText CLEANUP(strCharDestroy)=strCharReserve(NULL, mapping->len+1);
-			for(long c=0;c!=mapping->len;c++) {
-					char chr=fgetc(f);
-					if(chr=='\n'||chr=='\r')
-							break;
 
-					lineText=strCharAppendItem(lineText, chr);
-			}
-			lineText=strCharAppendItem(lineText, '\0');
-			fclose(f);
+			long len=diagDumpQoutedText(mapping->start,mapping->len+mapping->start,NULL);
+			char qouted[len+1];
+			qouted[len]='\0';
+			diagDumpQoutedText(mapping->start,mapping->len+mapping->start,qouted);
+			
 
-			long len=snprintf(NULL, 0, fmt, mapping->fn,line+1,lineText);
+			len=snprintf(NULL, 0, fmt, mapping->fn,line+1,qouted);
 			char buffer[len+1];
-			sprintf(buffer, fmt, mapping->fn,line+1,lineText);
+			sprintf(buffer, fmt, mapping->fn,line+1,qouted);
 
 			X86EmitAsmComment(buffer);
 			return nextNodesToCompile(start);	

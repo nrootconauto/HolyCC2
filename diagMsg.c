@@ -398,6 +398,21 @@ void diagPushText(const char *text) {
 	fprintf(currentInst->dumpTo, "%s", text);
 	endAttrs(currentInst);
 }
+long diagDumpQoutedText(long start,long end,char *buffer) {
+		__auto_type currentInst=diagInstByPos(start);
+		start=mapToSource(start, mappings, currentInst->mappingOffset);
+		end=mapToSource(end, mappings, currentInst->mappingOffset);
+
+		end-=currentInst->fileOffset;
+		start-=currentInst->fileOffset;
+
+		if(buffer) {
+				fseek(currentInst->sourceFile, start, SEEK_SET);
+				fread(buffer, end-start, 1, currentInst->sourceFile);
+		}
+		
+		return end-start;
+}
 void diagPushQoutedText(long start, long end) {
 		start=mapToSource(start, mappings, currentInst->mappingOffset);
 		end=mapToSource(end, mappings, currentInst->mappingOffset);

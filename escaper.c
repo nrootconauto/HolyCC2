@@ -5,7 +5,7 @@
 #include <string.h>
 // ENDS AT '"'
 char *escapeString(char *str) {
-	long retValCap = strlen(str) + 10;
+	long retValCap = strlen(str) + 256;
 	char *retVal = malloc(retValCap);
 	__auto_type where = retVal;
 
@@ -141,15 +141,13 @@ char *escapeString(char *str) {
 		else if (strchr(valids, *str) != NULL)
 			isValid = true;
 		if (!isValid) {
-			char temp[5];
+			char temp[32];
 			sprintf(temp, "%o", str[0]);
 			int len = strlen(temp);
-			memmove(temp + 3 - len, temp, len);
-			memset(temp, '0', 3 - len);
 			where[0] = '\\';
-			memcpy(where + 1, temp, 4);
+			memcpy(where + 1, temp, len);
 			str++;
-			where += 4;
+			where += len+1;
 			continue;
 		}
 		*where = *str;

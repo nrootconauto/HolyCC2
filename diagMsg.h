@@ -18,3 +18,4 @@ void diagErrorStart(long start, long end);
 int diagErrorCount();
 void diagInstCreate(enum outputType type, const strFileMappings fileMappings, const strTextModify mappings, const char *fileName, FILE *dumpToFile);
 void diagLineCol(const char *fn, long where, long *line, long *col);
+long diagDumpQoutedText(long start,long end,char *buffer);

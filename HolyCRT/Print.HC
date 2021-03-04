@@ -37,8 +37,8 @@ U32i ToUpper(U32i chr) {
 			return retVal;
 }
 extern U0 malloc(I32i size); 
-extern U0 free(I32i size);
-extern U0 realloc(I32i size);
+import U0 free(U0 *ptr);
+extern U0 realloc(U0 *ptr,I32i size);
 U8i *I32_2Str(I32i value) {
 				I32i digits=0;
 				for(I32i value2=value;value2!=0;value2/=10) digits+=1;
@@ -54,8 +54,8 @@ U0 Print(U8i *fmt,...) {
 			I32i chr=0;
 			I32i argi=0;
 			for(;fmt[chr]!='\0';chr=chr+1) {
-											if(fmt[chr]!='%')
-											continue;
+											if(fmt[chr]!='%') goto next;
+											
 											chr=chr+1;
 											
 											U8i sign=fmt[chr]=='-';
@@ -100,5 +100,6 @@ U0 Print(U8i *fmt,...) {
 																												case 'q':
 																												case 'Q':
 											}
+											next:
 			}
 }

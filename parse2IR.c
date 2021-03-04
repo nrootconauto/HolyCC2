@@ -488,7 +488,6 @@ static struct enterExit __createSwitchCodeAfterBody(const struct parserNode *nod
 
 		// Check if default
 		if (0 == strcmp(DFT_HASH_FORMAT, keys[i])) {
-			graphNodeIRConnect(tableNode, find, IR_CONN_DFT);
 			if (isSubCase)
 				goto insertJumpBackCode;
 			continue;

@@ -1,3 +1,4 @@
+#include <diagMsg.h>
 #include <IR.h>
 #include <assert.h>
 #include <cleanup.h>
@@ -900,13 +901,11 @@ static char *IRCreateGraphVizNode(const struct __graphNode *node, mapGraphVizAtt
 	switch (value->type) {
 	case IR_SOURCE_MAPPING: {
 			struct IRNodeSourceMapping *mapping=(void*)value;
-			FILE *f=fopen(mapping->fn, "r");
-			char buffer [mapping->len+1];
-			memset(buffer, 0, mapping->len+1);
-			fseek(f,mapping->start,SEEK_SET);
-			fread(buffer, mapping->len, 1, f);
+			long len=diagDumpQoutedText(mapping->start, mapping->start+mapping->len, NULL);
+			char buffer[len+1];
+			buffer[len]='\0';
+			diagDumpQoutedText(mapping->start, mapping->start+mapping->len, buffer);
 			__auto_type retVal=FROM_FORMAT("MAPPING:%s", buffer);
-			fclose(f);
 			return retVal ;
 	}
 	case IR_ARRAY_DECL: {

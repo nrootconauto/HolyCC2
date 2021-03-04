@@ -21,8 +21,8 @@ static strParserNode parseFile(const char *fn,strFileMappings *fMappings2) {
 		setArch(ARCH_X86_SYSV);
 		{
 				int err;
-				strFileMappings fMappings CLEANUP(strFileMappingsDestroy) = NULL;
-				strTextModify tMods CLEANUP(strTextModifyDestroy) = NULL;
+				strFileMappings fMappings  = NULL;
+				strTextModify tMods = NULL;
 				FILE *resultFile CLEANUP(fclose2) = createPreprocessedFile(fn, &tMods, &fMappings, &err);
 				if (err)
 						goto fail;
@@ -60,7 +60,7 @@ void compileFile(const char *fn, const char *dumpTo) {
 			initParserData();
 				X86EmitAsmInit();
 			
-			strFileMappings fMappings CLEANUP(strFileMappingsDestroy) = NULL;
+			strFileMappings fMappings = NULL;
 			strParserNode stmts CLEANUP(strParserNodeDestroy2)=parseFile(fn,&fMappings);
 		if(dumpTo) {
 				IRGenInit(fMappings);
