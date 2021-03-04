@@ -69,13 +69,3 @@ U0 throw(I32i msg) {
 			curExceptFrame->msg=msg;
 			HCRT_ExceptRestoreState();
 }
-import U0 printf(U8i fmt,...);
-U0 main() {
-			I32i a=1,b=2,c=3;
-			I32i *A=&a,*B=&b,*C=&c;
-			printf("%li",*A+*B+*C);
-			I32i d=1,e=2,f=3;
-			I32i *D=&d,*E=&e,*F=&f;
-			printf("%li",*D+*E+*F);
-			return ;
-}

@@ -401,6 +401,7 @@ void diagPushText(const char *text) {
 void diagPushQoutedText(long start, long end) {
 		start=mapToSource(start, mappings, currentInst->mappingOffset);
 		end=mapToSource(end, mappings, currentInst->mappingOffset);
+
 		assert(currentInst != NULL);
 
 		setAttrs(currentInst, ATTR_BOLD, 0);
@@ -520,7 +521,7 @@ void diagInstCreate(enum outputType type, const strFileMappings __fileMappings, 
 		retVal.stateQoutes = NULL;
 		retVal.sourceFile = file;
 		retVal.fileOffset=fileMappings[i].fileOffset;
-		retVal.mappingOffset=fileMappings[i].mappingIndexStart+1;
+		retVal.mappingOffset=fileMappings[i].mappingIndexStart;
 		
 		mapInstInsert(insts, retVal.fileName, retVal);
 	}

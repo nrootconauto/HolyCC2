@@ -1141,6 +1141,14 @@ static int64_t intLitValue(struct parserNode *lit) {
 		retVal = node->value.value.sLong;
 	else if (node->value.type == INT_ULONG)
 		retVal = node->value.value.uLong;
+	else if (node->base.type == NODE_LIT_STR) {
+			struct parserNodeLitStr *str=(void*)lit;
+			retVal=0;
+			for(long c=0;c!=__vecSize(str->str.text);c++) {
+					retVal<<=8;
+					retVal|=((char*)str->str.text)[c];
+			}
+	}
 	return retVal;
 }
 static int validateArrayDim(struct object *obj,struct parserNode *parent,strParserNode toValidate) {
@@ -1819,7 +1827,7 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 	}
 
 	start = originalStart;
-	__auto_type scope = parseScope(start, end, NULL);
+ 	__auto_type scope = parseScope(start, end, NULL);
 	if (scope) {
 		retVal = scope;
 		goto end;
@@ -2557,6 +2565,7 @@ static void whineCaseNoSwitch(const struct parserNode *kw, long start, long end)
 	diagHighlight(start, end);
 	diagEndMsg();
 }
+static int64_t intLitValue(struct parserNode *lit);
 struct parserNode *parseCase(llLexerItem start, llLexerItem *end) {
 	__auto_type originalStart = start;
 
@@ -2581,12 +2590,18 @@ struct parserNode *parseCase(llLexerItem start, llLexerItem *end) {
 		int gotInt = 0;
 		long caseValue = -1, caseValueUpper = -1;
 		if (start != NULL) {
-			if (llLexerItemValuePtr(start)->template == &intTemplate) {
-				gotInt = 1;
-				struct lexerInt *i = lexerItemValuePtr(llLexerItemValuePtr(start));
-				caseValue = i->value.sLong;
+				struct parserNode *lit CLEANUP(parserNodeDestroy)=literalRecur(start, NULL, &start);
+				if (lit) {
+						if(lit->type==NODE_LIT_INT)
+								gotInt = 1;
+						if(lit->type==NODE_LIT_STR)
+								if(((struct parserNodeLitStr*)lit)->str.isChar)
+										gotInt = 1;
 
-				start = llLexerItemNext(start);
+						caseValue = intLitValue(lit);
+
+						if(!gotInt)
+								whineExpected(start, "integer");
 			} else if (parent) {
 				caseValue = getNextCaseValue(parent);
 			}
@@ -2594,17 +2609,20 @@ struct parserNode *parseCase(llLexerItem start, llLexerItem *end) {
 
 		dotdotdot = expectKeyword(start, "...");
 		if (dotdotdot) {
-			start = llLexerItemNext(start);
-			if (start) {
-				if (llLexerItemValuePtr(start)->template == &intTemplate) {
-					struct lexerInt *i = lexerItemValuePtr(llLexerItemValuePtr(start));
-					caseValueUpper = i->value.sLong;
-
-					start = llLexerItemNext(start);
-				} else {
-					failed = 1;
-				}
-			}
+				start = llLexerItemNext(start);
+				struct parserNode *lit CLEANUP(parserNodeDestroy)=literalRecur(start, NULL, &start);
+				if(lit->type==NODE_LIT_INT)
+						gotInt = 1;
+				if(lit->type==NODE_LIT_STR)
+						if(((struct parserNodeLitStr*)lit)->str.isChar)
+								gotInt = 1;
+			
+				caseValueUpper = intLitValue(lit);
+			
+				if(!gotInt)
+						whineExpected(start, "integer");
+		} else {
+				failed = 1;
 		}
 
 		colon = expectKeyword(start, ":");
