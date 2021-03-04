@@ -1144,7 +1144,7 @@ static int64_t intLitValue(struct parserNode *lit) {
 	else if (node->base.type == NODE_LIT_STR) {
 			struct parserNodeLitStr *str=(void*)lit;
 			retVal=0;
-			for(long c=0;c!=__vecSize(str->str.text);c++) {
+			for(long c=__vecSize(str->str.text)-1;c>=0;c--) {
 					retVal<<=8;
 					retVal|=((char*)str->str.text)[c];
 			}

@@ -700,7 +700,7 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 										if(size!=8) templateIsValid[t]=0;
 										break;
 								default:
-										templateIsValid[t]=0;
+										templateIsValid[t]=1;
 								}
 								break;
 						}
@@ -1239,7 +1239,7 @@ void asmAssignFromPtr(struct X86AddressingMode *a,struct X86AddressingMode *b,lo
 		asmAssign(a, sib, size, flags);
 }
 void IRCompile(graphNodeIR start, int isFunc) {
-		debugShowGraphIR(start);
+		//debugShowGraphIR(start);
 		if (isFunc) {
 		struct IRNodeFuncStart *funcNode = (void *)graphNodeIRValuePtr(start);
 		X86EmitAsmLabel(funcNode->func->name);
@@ -3233,9 +3233,9 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			jmpTable[i] = IRNode2AddrMode(dftNode);
 		}
 		for (long i = 0; i != strIRTableRangeSize(ranges); i++) {
-			for (long j = ranges[i].start + smallest; j != 1+ranges[i].end + smallest; j++) {
-				X86AddrModeDestroy(&jmpTable[j]);
-				jmpTable[j] = IRNode2AddrMode(ranges[i].to);
+			for (long j = ranges[i].start; j != 1+ranges[i].end ; j++) {
+				X86AddrModeDestroy(&jmpTable[j-smallest]);
+				jmpTable[j-smallest] = IRNode2AddrMode(ranges[i].to);
 			}
 		}
 
@@ -3287,7 +3287,8 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		struct reg *indexReg = regForTypeExcludingConsumed((struct object *)getTypeForSize(ptrSize()));
 		pushReg(indexReg);
 		struct X86AddressingMode *indexRegMode CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(indexReg);
-		asmAssign(indexRegMode, inMode, ptrSize(), 0);
+		indexRegMode->valueType=&typeI32i;
+		asmTypecastAssign(indexRegMode, inMode, 0);
 		
 		//Add the offset of the input to b for the offset
 		strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
