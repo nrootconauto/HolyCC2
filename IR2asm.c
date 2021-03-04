@@ -2077,6 +2077,7 @@ static graphNodeIR assembleOpCmp(graphNodeIR start) {
 	struct X86AddressingMode *aMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(a);
 	struct X86AddressingMode *bMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(b);
 		struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(out);
+	
 	if(objectBaseType(aMode->valueType)==&typeF64) {
 			strX86AddrMode fcomiArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 			fcomiArgs=strX86AddrModeAppendItem(fcomiArgs, IRNode2AddrMode(a));
@@ -3288,6 +3289,12 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		struct X86AddressingMode *indexRegMode CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(indexReg);
 		indexRegMode->valueType=&typeI32i;
 		asmTypecastAssign(indexRegMode, inMode, 0);
+		
+
+		strX86AddrMode subArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+		subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeReg(indexReg));
+		subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeSint(smallest));
+		assembleOpcode(start, "SUB", subArgs);
 		
 		//Add the offset of the input to b for the offset
 		strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2) = NULL;

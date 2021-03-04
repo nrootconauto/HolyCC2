@@ -54,7 +54,7 @@ U0 Print(U8i *fmt,...) {
 			I32i chr=0;
 			I32i argi=0;
 			for(;fmt[chr]!='\0';chr=chr+1) {
-											if(fmt[chr]!='%') goto next;
+											if(fmt[chr]!='%') goto next2;
 											
 											chr=chr+1;
 											
@@ -100,6 +100,10 @@ U0 Print(U8i *fmt,...) {
 																												case 'q':
 																												case 'Q':
 											}
-											next:
+											next2:
 			}
+}
+I32i main() {
+					Print("%d\n",123);
+					return 1;
 }
