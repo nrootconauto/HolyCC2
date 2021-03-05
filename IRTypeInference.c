@@ -59,7 +59,7 @@ static struct object *getHigherType(struct object *a, struct object *b) {
 		return b;
 
 	a = objectBaseType(a);
-	a = objectBaseType(b);
+	b = objectBaseType(b);
 	;
 
 	const struct object *ranks[] = {

@@ -1120,7 +1120,7 @@ void asmAssign(struct X86AddressingMode *a, struct X86AddressingMode *b, long si
 								strX86AddrMode fldArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 								__auto_type bLoc=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(size), &typeF64);
 								fldArgs=strX86AddrModeAppendItem(fldArgs, bLoc);
-								const char *op=(flags&ASM_ASSIGN_X87FPU_POP)?"FILDP":"FILD";
+								const char *op="FILD";
 								assembleOpcode(NULL,op, fldArgs);
 								popMode(b);
 						}
