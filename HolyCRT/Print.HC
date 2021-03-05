@@ -1,4 +1,5 @@
 extern U0 printf(U8i *fmt,...);
+extern U0 puts(U8i *chr);
 extern I32i sscanf(U8i *fmt,...);
 #define NULL (0)
 static I32i Str2I32i(U8i *fmt,I32i *consumed) {
@@ -54,7 +55,10 @@ U0 Print(U8i *fmt,...) {
 			I32i chr=0;
 			I32i argi=0;
 			for(;fmt[chr]!='\0';chr=chr+1) {
-											if(fmt[chr]!='%') goto next2;
+											if(fmt[chr]!='%') {
+																													printf("%c",fmt[chr]);
+																													goto next2;
+																													}
 											
 											chr=chr+1;
 											
@@ -86,19 +90,19 @@ U0 Print(U8i *fmt,...) {
 											}
 
 											switch(fmt[chr]) {
-																												case 'n':
+																												case 'n': break;
 																												case 'd': {
 																																	U8i *text=I32_2Str(argv[argi]);
 																																	argi+=1;
 																																	printf("%s",text);
 																																	break;
 																												}
-																												case 'u':
+																												case 'u': break;
 																												case 'C': PutChars(ToUpper(argv[argi])); argi+=1; break;
 																												case 'c': PutChars(argv[argi]); argi+=1; break;
 																												case 'p': printf("%p",argv[argi]); argi+=1; break;
-																												case 'q':
-																												case 'Q':
+																												case 'q': break;
+																												case 'Q': break;
 											}
 											next2:
 			}

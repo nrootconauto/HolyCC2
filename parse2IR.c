@@ -1321,8 +1321,8 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 		retVal.enter = cond.enter;
 		graphNodeIRConnect(body.exit, endBranch, IR_CONN_FLOW);
 		if (ifNode->el) {
-			__auto_type elseBody = __parserNode2IRStmt(ifNode->body);
-			elseBody=insSrcMappingsForBody(ifNode->body, elseBody);
+			__auto_type elseBody = __parserNode2IRStmt(ifNode->el);
+			elseBody=insSrcMappingsForBody(ifNode->el, elseBody);
 			graphNodeIRConnect(fBranch, elseBody.enter, IR_CONN_FLOW);
 			graphNodeIRConnect(elseBody.exit, endBranch, IR_CONN_FLOW);
 		} else {
