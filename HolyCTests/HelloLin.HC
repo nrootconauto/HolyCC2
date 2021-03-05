@@ -1,13 +1,6 @@
-asm {
-				PUSHAD
-				MOV EAX,4
-				MOV EBX,1
-				MOV ECX,"Hello World\n"
-				MOV EDX,12
-				INT 0x80
-				POPAD
-
-				MOV	EAX,1
-				MOV EBX,1
-				INT 0x80
+extern U0 printf(U8i *fmt,...);
+I32i main() {
+					U0 (*ptr)(U8i *fmt,...)=&printf;
+					ptr("Hello World\n");
+					return 0;
 }

@@ -364,9 +364,10 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 			return call->type;
 
 		__auto_type funcType = assignTypeToOp(call->func);
-
-		// TODO add method support
+		if(funcType->type==TYPE_PTR)
+				funcType=((struct objectPtr*)funcType)->type;
 		if (funcType->type != TYPE_FUNCTION) {
+		nonCallable:
 			// Isn't callable
 			diagErrorStart(call->func->pos.start, call->func->pos.end);
 			char buffer[1024];

@@ -2416,6 +2416,8 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 								leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeClone(iMode));
 								leaArgs[1]->valueType=NULL;
 								assembleOpcode(start, "LEA",  leaArgs);
+						} else if(iMode->type==X86ADDRMODE_LABEL) {
+								asmTypecastAssign(oMode, iMode, ASM_ASSIGN_X87FPU_POP);
 						} else {
 								fputs("IR_ADDR_OF needs an item that points to something", stderr);
 								abort();

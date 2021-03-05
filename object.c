@@ -319,6 +319,9 @@ objectSize(const struct object *type, int *success) {
 	case TYPE_U64i: {
 		return 8;
 	}
+	case TYPE_FUNCTION: {
+			return ptrSize();
+	}
 	}
 	assert(0);
 	return 0;
@@ -614,7 +617,7 @@ char *object2Str(struct object *obj) {
 		case TYPE_FORWARD:
 		case TYPE_FUNCTION:
 		case TYPE_I8i:
-				return strClone("II8i");
+				return strClone("I8i");
 		case TYPE_I16i:
 				return strClone("I16i");
 		case TYPE_I32i:

@@ -58,8 +58,7 @@ U0 Print(U8i *fmt,...) {
 											if(fmt[chr]!='%') {
 																													printf("%c",fmt[chr]);
 																													goto next2;
-																													}
-											
+																													}		
 											chr=chr+1;
 											
 											U8i sign=fmt[chr]=='-';

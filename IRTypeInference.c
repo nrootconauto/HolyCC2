@@ -230,6 +230,8 @@ struct object *__IRNodeType(graphNodeIR node) {
 			strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(node);
 			strGraphEdgeIRP func CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in,IR_CONN_FUNC);
 			__auto_type funcType=objectBaseType(IRNodeType(graphEdgeIRIncoming(func[0])));
+			if(funcType->type==TYPE_PTR)
+					funcType=((struct objectPtr*)funcType)->type;
 			assert(funcType->type==TYPE_FUNCTION);
 			return ((struct objectFunction*)funcType)->retType;
 	}
