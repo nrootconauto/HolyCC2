@@ -1502,7 +1502,7 @@ void IRCompile(graphNodeIR start, int isFunc) {
 }
 static int isPtrType(struct object *obj) {
 	__auto_type type = objectBaseType(obj)->type;
-	return type == TYPE_PTR || type == TYPE_ARRAY;
+	return type == TYPE_PTR || type == TYPE_ARRAY||type==TYPE_FUNCTION;
 }
 
 static int isPtrNode(graphNodeIR start) {
@@ -3414,7 +3414,14 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		strGraphEdgeIRP dst CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(out, IR_CONN_DEST);
 		struct X86AddressingMode *iMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(graphEdgeIRIncoming(source[0]));
 		if(IRNodeType(start)->type==TYPE_ARRAY) {
-			struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(graphEdgeIROutgoing(dst[0]));				
+				struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(graphEdgeIROutgoing(dst[0]));				
+				asmTypecastAssign(oMode, iMode, 0);
+				return nextNodesToCompile(start);
+		}
+
+		//Dont derefence function pointer
+		if(IRNodeType(start)->type==TYPE_FUNCTION) {
+				struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(graphEdgeIROutgoing(dst[0]));
 				asmTypecastAssign(oMode, iMode, 0);
 				return nextNodesToCompile(start);
 		}

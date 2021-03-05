@@ -214,8 +214,9 @@ objectAlign(const struct object *type, int *success) {
 			struct objectArray *arr=(void*)type; 
 			return objectAlign(arr->type, success);
 	}
+case TYPE_FUNCTION:
+		return ptrSize();
 	case TYPE_FORWARD:
-	case TYPE_FUNCTION:
 	case TYPE_U0: {
 		return 0;
 	}
@@ -615,7 +616,27 @@ char *object2Str(struct object *obj) {
 		case TYPE_F64:
 				return strClone("F64");
 		case TYPE_FORWARD:
-		case TYPE_FUNCTION:
+		case TYPE_FUNCTION: {
+				struct objectFunction *func=(void*)obj;
+				char *retType=object2Str(func->retType);
+				long argc=strFuncArgSize(func-> args);
+				strChar argsStr CLEANUP(strCharDestroy)=NULL;
+				for(long a=0;a!=argc;a++) {
+						if(a)
+								argsStr=strCharAppendItem(argsStr, ',');
+						
+						char *typeStr=object2Str(func->args[a].type);
+						argsStr=strCharAppendData(argsStr, typeStr, strlen(typeStr));
+						free(typeStr);
+				}
+				argsStr=strCharAppendItem(argsStr, '\0');
+				
+				long len=snprintf(NULL, 0, "%s(%s)",retType,argsStr);
+				char buffer[len+1];
+				sprintf(buffer,"%s(%s)",retType,argsStr);
+				free(retType);
+				return strClone(buffer);
+		}
 		case TYPE_I8i:
 				return strClone("I8i");
 		case TYPE_I16i:
