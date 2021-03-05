@@ -26,17 +26,17 @@ static U0 __PrintF64(F64 f,F64 e,F64 p) {
 							}
 
 							F64 R=__PrintF64Shift(f,Max(0,e-p));
-							F64 S=__PrintF64Shift(1,Max(0,-(e-p)));
+							F64 S=__PrintF64Shift(1.0,Max(0,-(e-p)));
 							printf("%lf,%lf\n",R/S,value);
 
-							F64 mA=__PrintF64Shift(1,Max(0,e-p));
+							F64 mA=__PrintF64Shift(1.0,Max(0,e-p));
 							F64 mB=mA;
 
 							printf("%lf,%lf,%lf\n",mA/S,mB/S,2.0`(e-p));
-							if(floor(f)==__PrintF64Shift(1,p-1)) {
-																											mA=__PrintF64Shift(mA,1);
-																											R=__PrintF64Shift(R,1);
-																											S=__PrintF64Shift(S,1);
+							if(floor(f)==__PrintF64Shift(1.0,p-1)) {
+																											mA=__PrintF64Shift(mA,1.0);
+																											R=__PrintF64Shift(R,1.0);
+																											S=__PrintF64Shift(S,1.0);
 							}
 							I32i k=0;
 							while(R<ceil(S/10)) {

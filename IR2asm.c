@@ -838,13 +838,11 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 								case OPC_TEMPLATE_ARG_M16:
 								case OPC_TEMPLATE_ARG_M32:
 								case OPC_TEMPLATE_ARG_M64:; {
-										__auto_type mode=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(stackOffset), getTypeForSize(size));
-										pushMode(args[a]);
-										toPushPop=strX86AddrModeAppendItem(toPushPop, X86AddrModeClone(args[a]));
-										args2=strX86AddrModeAppendItem(args2, mode);
 										//Stack grows down
 										stackOffset-=size;
-										
+										__auto_type mode=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(stackOffset), getTypeForSize(size));
+										pushMode(args[a]);
+										args2=strX86AddrModeAppendItem(args2, mode);
 								}
 								break;
 								default:
@@ -862,13 +860,12 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 						case OPC_TEMPLATE_ARG_M32:
 						case OPC_TEMPLATE_ARG_M64:;
 								argsToRestore=strLongAppendItem(argsToRestore, a);
+								//Stack grows down
+								stackOffset-=size;
 								__auto_type mode=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(stackOffset), getTypeForSize(size));
 								pushMode(args[a]);
 								toPushPop=strX86AddrModeAppendItem(toPushPop, X86AddrModeClone(args[a]));
 								args2=strX86AddrModeAppendItem(args2, mode);
-								//Stack grows down
-								stackOffset-=size;
-
 								break;
 						case OPC_TEMPLATE_ARG_R8:
 						case OPC_TEMPLATE_ARG_RM8:
@@ -1133,8 +1130,8 @@ void asmAssign(struct X86AddressingMode *a, struct X86AddressingMode *b, long si
 						__auto_type mem= X86EmitAsmDU64(modes, 1);
 
 						strX86AddrMode fildArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
-						fildArgs=strX86AddrModeAppendItem(fildArgs, mem);
-						const char *op=(flags&ASM_ASSIGN_X87FPU_POP)?"FILDP":"FILD";
+						fildArgs=strX86AddrModeAppendItem(fildArgs, X86AddrModeIndirSIB(0,NULL, mem, NULL, dftValType()));
+						const char *op="FILD";
 						assembleOpcode(NULL,op, fildArgs);
 						return;
 				}
@@ -2356,7 +2353,8 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			char qouted[len+1];
 			qouted[len]='\0';
 			diagDumpQoutedText(mapping->start,mapping->len+mapping->start,qouted);
-			
+			if(strchr(qouted, '\n'))
+					*strchr(qouted, '\n')='\0';
 
 			len=snprintf(NULL, 0, fmt, mapping->fn,line+1,qouted);
 			char buffer[len+1];

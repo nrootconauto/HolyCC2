@@ -278,8 +278,6 @@ void IRInsertImplicitTypecasts(graphNodeIR start) {
 				strGraphNodeIRP exprNodes CLEANUP(strGraphNodeIRPDestroy)=IRStmtNodes(end);
 				for(long e=0;e!=strGraphNodeIRPSize(exprNodes);e++) {
 						strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=IREdgesByPrec(exprNodes[e]);
-						if(graphNodeIRValuePtr(exprNodes[e])->type==IR_FUNC_CALL)
-								continue;
 						if(graphNodeIRValuePtr(exprNodes[e])->type==IR_TYPECAST)
 								continue;
 						if(graphNodeIRValuePtr(exprNodes[e])->type==IR_DERREF) {
@@ -365,6 +363,35 @@ void IRInsertImplicitTypecasts(graphNodeIR start) {
 						}
 						default:
 										;
+						}
+
+						if(graphNodeIRValuePtr(exprNodes[e])->type==IR_FUNC_CALL) {
+								strGraphEdgeIRP inFunc CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_FUNC);
+								__auto_type funcType=IRNodeType(graphEdgeIRIncoming(inFunc[0]));
+								if(funcType->type==TYPE_PTR)
+										funcType=((struct objectPtr*)funcType)->type;
+								assert(funcType->type==TYPE_FUNCTION);
+								struct objectFunction *func=(void*)funcType;
+
+								long argi=0;
+								for(long i=0;i!=strGraphEdgeIRPSize(in);i++) {
+										__auto_type edgeValue=*graphEdgeIRValuePtr(in[i]);
+										if(edgeValue==IR_CONN_FUNC)
+												continue;
+
+										if(argi>=strFuncArgSize(func->args))
+												break;
+										
+										struct object *toType2=func->args[argi].type;		
+										__auto_type inNode=graphEdgeIRIncoming(in[i]);
+										if(toType2!=IRNodeType(inNode)) {
+												__auto_type tc=IRCreateTypecast(inNode, IRNodeType(inNode), toType2);
+												graphNodeIRConnect(tc,exprNodes[e], edgeValue);
+												graphEdgeIRKill(inNode, exprNodes[e], NULL, NULL, NULL);
+										}
+										argi++;
+								}
+								goto end;
 						}
 						
 						for(long i=0;i!=strGraphEdgeIRPSize(in);i++) {

@@ -106,6 +106,9 @@ static int isX87CmpOp(graphNodeIR node) {
 		}
 }
 static void exprRecur(graphNodeIR start,ptrMapRefCount refCounts,int parentIsFpuOp) {
+		if(graphNodeIRValuePtr(start)->type==IR_TYPECAST)
+				return;
+
 		int isFunc=graphNodeIRValuePtr(start)->type==IR_FUNC_CALL;
 		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=IREdgesByPrec(start);
 		if(isX87CmpOp(start))
