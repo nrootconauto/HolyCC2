@@ -1130,7 +1130,7 @@ void asmAssign(struct X86AddressingMode *a, struct X86AddressingMode *b, long si
 				case X86ADDRMODE_UINT:		{
 						strX86AddrMode  modes CLEANUP(strX86AddrModeDestroy2)=NULL;
 						modes=strX86AddrModeAppendItem(modes, X86AddrModeClone(b));
-						__auto_type mem= X86EmitAsmDU64(NULL, 1);
+						__auto_type mem= X86EmitAsmDU64(modes, 1);
 
 						strX86AddrMode fildArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 						fildArgs=strX86AddrModeAppendItem(fildArgs, mem);
@@ -1578,6 +1578,10 @@ static void compileX87Expr(graphNodeIR node) {
 		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIROutgoing(node);
 		strGraphEdgeIRP dst CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(out, IR_CONN_DEST);
 		switch (graphNodeIRValuePtr(node)->type) {
+		case IR_MOD: {
+				assembleOpcode(node, "FPREM", NULL);
+				return;
+		}
 		case IR_INC: {
 				strGraphEdgeIRP inArgs CLEANUP(strGraphEdgeIRPDestroy)=IREdgesByPrec(node);
 				__auto_type srcNode=graphEdgeIRIncoming(inArgs[0]);
@@ -1660,8 +1664,10 @@ static void compileX87Expr(graphNodeIR node) {
 				graphNodeIR a,b;
 				binopArgs(node, &a, &b);
 				strX86AddrMode args CLEANUP(strX86AddrModeDestroy2)=NULL;
-				args=strX86AddrModeAppendItem(args, IRNode2AddrMode(a));
-				args=strX86AddrModeAppendItem(args, IRNode2AddrMode(b));
+				args=strX86AddrModeAppendItem(args, X86AddrModeReg(&regX86ST0));
+				args=strX86AddrModeAppendItem(args, X86AddrModeReg(&regX86ST0));
+				args[0]->valueType=&typeF64;
+				args[1]->valueType=&typeF64;
 				IRABICall2Asm(node, powF64Mode, args, oMode);
 				return;
 		}

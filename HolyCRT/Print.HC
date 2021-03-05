@@ -2,111 +2,67 @@ extern U0 printf(U8i *fmt,...);
 extern U0 puts(U8i *chr);
 extern I32i sscanf(U8i *fmt,...);
 #define NULL (0)
-static I32i Str2I32i(U8i *fmt,I32i *consumed) {
-							I32i value=0;
-							I32i *original=fmt;
-							for(;;fmt=fmt+1) {
-															switch(*fmt) {
-																												default: goto b;
-																												case '0'...'9':
-																																	value*=10;
-																																	value+=*fmt-'0';
-																																	goto next;
-}
-															b: break;
-															next:
-							}
-							if(consumed) *consumed=fmt-original;
-							return value;
-}
-U0 PutChars(U32i chr) {
-			while(chr!=0) {
-																	printf("%c",chr&0xff);
-																	chr>>=8;
-			}
-}
-U32i ToUpper(U32i chr) {
-   U32i retVal=0;
-			while(chr!=0) {
-																	U8i letter=chr&0xff;
-																	if('a'<=letter<='z') letter+='A'-'a';
-																	retVal<<=8;
-																	retVal|=letter;
-																	
-																	chr>>=8;
-			}
-			return retVal;
-}
 extern U0 *malloc(I32i size); 
 import U0 free(U0 *ptr);
 extern U0 *realloc(U0 *ptr,I32i size);
-U8i *I32_2Str(I32i value) {
-				I32i digits=0;
-				for(I32i value2=value;value2!=0;value2/=10) digits+=1;
-				if(digits==0) digits=1;
 
-				U8i *retVal=malloc(digits+1);
-				retVal[digits]='\0';
-				for(I32i value2=value;value2!=0;value2/=10) retVal[digits-=1]=(value2%10)+'0';
-
-				return retVal;
+F64 Max(F64 a,F64 b)
+{
+		if(a>b)
+			return a;
+		return b;
 }
-U0 Print(U8i *fmt,...) {
-			I32i chr=0;
-			I32i argi=0;
-			for(;fmt[chr]!='\0';chr=chr+1) {
-											if(fmt[chr]!='%') {
-																													printf("%c",fmt[chr]);
-																													goto next2;
-																													}		
-											chr=chr+1;
-											
-											U8i sign=fmt[chr]=='-';
-											if(sign) chr=chr+1;
-											
-											I32i lPad=fmt[chr]=='0';
-											if(lPad) chr=chr+1;
+extern F64 floor(F64 f);
+extern F64 ceil(F64 f);
+static F64 __PrintF64Shift(F64 a, F64 b) {
+							return floor(a*2.0`b);
+}
+static U0 __PrintF64(F64 f,F64 e,F64 p) {
+							F64 value=f*2.0`(e-p);
+							if(value==0)
+							{
+								printf("0.0");
+								return ;
+							}
 
-											I32i consumed;
-											I32i padWidth=Str2I32i(&fmt[chr],&consumed);
-											chr+=consumed;
-											if(consumed) padWidth=0;
+							F64 R=__PrintF64Shift(f,Max(0,e-p));
+							F64 S=__PrintF64Shift(1,Max(0,-(e-p)));
+							printf("%lf,%lf\n",R/S,value);
 
-											I32i decimals=0;
-											if(fmt[chr]=='.') {
-																													chr=chr+1;
-																													I32i consumed;
-																													decimals=Str2I32i(&fmt[chr],&consumed);
-																													chr+=consumed;
-											}
+							F64 mA=__PrintF64Shift(1,Max(0,e-p));
+							F64 mB=mA;
 
-											I32i aux=1;
-											if(fmt[chr]=='h') {
-																													chr=chr+1;
-																													I32i consumed;
-																													aux=Str2I32i(&fmt[chr],&consumed);
-																													chr+=consumed;
-											}
-
-											switch(fmt[chr]) {
-																												case 'n': break;
-																												case 'd': {
-																																	U8i *text=I32_2Str(argv[argi]);
-																																	argi+=1;
-																																	printf("%s",text);
-																																	break;
-																												}
-																												case 'u': break;
-																												case 'C': PutChars(ToUpper(argv[argi])); argi+=1; break;
-																												case 'c': PutChars(argv[argi]); argi+=1; break;
-																												case 'p': printf("%p",argv[argi]); argi+=1; break;
-																												case 'q': break;
-																												case 'Q': break;
-											}
-											next2:
-			}
+							printf("%lf,%lf,%lf\n",mA/S,mB/S,2.0`(e-p));
+							if(floor(f)==__PrintF64Shift(1,p-1)) {
+																											mA=__PrintF64Shift(mA,1);
+																											R=__PrintF64Shift(R,1);
+																											S=__PrintF64Shift(S,1);
+							}
+							I32i k=0;
+							while(R<ceil(S/10)) {
+																											k-=1;
+																											R*=10.0;
+																											mA*=10.0;
+																											mB*=10.0;
+							}
+							while((2.0*R)+mA>=2.0*S) {
+																			k+=1;
+																			S*=10;
+							}
+							for(;;) {
+															k-=1;
+															F64 U=floor((R*10.0)/S);
+															R=(R*10)%S;
+															mA*=10.0;
+															mB*=10.0;
+															U8i low=2.0*R<mA;
+															U8i high=2.0*R>=(2*S)-mB;
+															if(!(!low&&!high))
+																break;
+															printf("%lf",U);
+							}
 }
 I32i main() {
-					Print("%d\n",123);
+					__PrintF64(123.0,0.0,0.0);
 					return 1;
 }

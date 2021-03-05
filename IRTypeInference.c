@@ -245,6 +245,24 @@ struct object *IRNodeType(graphNodeIR node) {
 	*getType(node) = type;
 	return type;
 }
+static int isF64CmpOp(graphNodeIR node) {
+		switch(graphNodeIRValuePtr(node)->type) {
+		case IR_GE:	
+		case IR_LE:
+		case IR_GT:
+		case IR_LT:
+		case IR_EQ:
+		case IR_NE: {
+				strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy)=IREdgesByPrec(node);
+				if(objectBaseType(IRNodeType(graphEdgeIRIncoming(incoming[0])))->type==TYPE_F64)
+						return 1;
+				if(objectBaseType(IRNodeType(graphEdgeIRIncoming(incoming[1])))->type==TYPE_F64)
+						return 1;
+		}
+				default:
+						return 0;
+		}
+}
 void IRInsertImplicitTypecasts(graphNodeIR start) {
 		strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);
 		strGraphNodeIRP visited CLEANUP(strGraphNodeIRPDestroy)=NULL;

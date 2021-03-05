@@ -87,10 +87,30 @@ static struct regSlice pushedStXslice() {
 		slice.widthInBits=80;
 		return slice;
 }
+static int isX87CmpOp(graphNodeIR node) {
+		switch(graphNodeIRValuePtr(node)->type) {
+		case IR_GE:	
+		case IR_LE:
+		case IR_GT:
+		case IR_LT:
+		case IR_EQ:
+		case IR_NE: {
+				strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy)=IREdgesByPrec(node);
+				if(IRNodeType(graphEdgeIRIncoming(incoming[0]))->type==TYPE_F64)
+						return 1;
+				if(IRNodeType(graphEdgeIRIncoming(incoming[1]))->type==TYPE_F64)
+						return 1;
+		}
+				default:
+						return 0;
+		}
+}
 static void exprRecur(graphNodeIR start,ptrMapRefCount refCounts,int parentIsFpuOp) {
 		int isFunc=graphNodeIRValuePtr(start)->type==IR_FUNC_CALL;
 		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=IREdgesByPrec(start);
-
+		if(isX87CmpOp(start))
+				in=strGraphEdgeIRPReverse(in);
+		
 		if(isFunc) {
 				for(long a=0;a!=strGraphEdgeIRPSize(in);a++) {
 						__auto_type node=graphEdgeIRIncoming(in[a]);
@@ -98,6 +118,9 @@ static void exprRecur(graphNodeIR start,ptrMapRefCount refCounts,int parentIsFpu
 						//epxrRecur may have modified incoming edges so recompute
 						strGraphEdgeIRPDestroy(&in);
 						in=IREdgesByPrec(start);
+						if(isX87CmpOp(start))
+								in=strGraphEdgeIRPReverse(in);
+						
 						node=graphEdgeIRIncoming(in[a]);
 						//Functions require all fpu registers be empty priror to entering them(SYSTEM-V i386),so store them in variables not registers
 						struct IRNodeValue *val=(void*)graphNodeIRValuePtr(node);
@@ -128,9 +151,11 @@ static void exprRecur(graphNodeIR start,ptrMapRefCount refCounts,int parentIsFpu
 				// If not a variable,assign into register
 				int isFpOp=0;
 				//Node may be a typecast to a F64,but the input(and operation) may not be floating point operation
-				if(objectBaseType(IRNodeType(start))==&typeF64&&!isTypecastFromF64)
+				if(objectBaseType(IRNodeType(start))==&typeF64&&!isTypecastFromF64) {
 						isFpOp=1;
-				else if(!isTypecastFromF64) 
+				} else if(isX87CmpOp(start)) {
+						isFpOp=1;
+				} else if(!isTypecastFromF64) 
 						return;
 				for(long i =0;i!=strGraphEdgeIRPSize(in);i++) {
 						__auto_type node=graphEdgeIRIncoming(in[i]);
@@ -228,6 +253,9 @@ static void exprRecur(graphNodeIR start,ptrMapRefCount refCounts,int parentIsFpu
 		}
 		return;
 	output:;
+		if(isX87CmpOp(start))
+				return;
+		
 		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(start);
 		strGraphEdgeIRP outDst1 CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(out, IR_CONN_DEST);
 		strGraphEdgeIRP outDst2 CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(out, IR_CONN_ASSIGN_FROM_PTR);
