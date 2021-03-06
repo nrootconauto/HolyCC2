@@ -1604,15 +1604,15 @@ static strX86AddrMode X87BinopArgs(graphNodeIR node,struct reg *a,struct reg *b)
 				retVal= strX86AddrModeAppendItem(retVal, X86AddrModeReg(b));
 				struct X86AddressingMode *aMode CLEANUP(X86AddrModeDestroy)=(void*)IRNode2AddrMode(sA);
 				struct X86AddressingMode *bMode CLEANUP(X86AddrModeDestroy)=(void*)IRNode2AddrMode(sB);
-				if(a==&regX86ST1) {
+				if(a==&regX86ST0) {
 						__auto_type tmp=aMode;
 						aMode=bMode;
 						bMode=tmp;
 				}
-				retVal[0]->valueType=&typeF64;
-				retVal[1]->valueType=&typeF64;
-				asmTypecastAssign(retVal[0], aMode, ASM_ASSIGN_X87FPU_POP);
-				asmTypecastAssign(retVal[1], bMode, ASM_ASSIGN_X87FPU_POP);
+				struct X86AddressingMode *st0 CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86ST0);
+				st0->valueType=&typeF64;
+				asmTypecastAssign(st0, aMode, 0);
+				asmTypecastAssign(st0, bMode, 0);
 				return retVal;
 }
 static void X87StoreResult(graphNodeIR node) {
@@ -1699,7 +1699,7 @@ static void compileX87Expr(graphNodeIR node) {
 				oMode->valueType=&typeF64;
 				struct X86AddressingMode *powF64Mode CLEANUP(X86AddrModeDestroy)=includeHCRTFunc("PowF64");
 
-				X87BinopArgs(node, &regX86ST0, &regX86ST1);
+				X87BinopArgs(node, &regX86ST1, &regX86ST0);
 				
 				strX86AddrMode args CLEANUP(strX86AddrModeDestroy2)=NULL;
 				args=strX86AddrModeAppendItem(args, X86AddrModeReg(&regX86ST0));
@@ -2108,11 +2108,10 @@ static graphNodeIR assembleOpCmp(graphNodeIR start) {
 		struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(out);
 	
 	if(objectBaseType(aMode->valueType)==&typeF64) {
-			strX86AddrMode fcomiArgs CLEANUP(strX86AddrModeDestroy2)=X87BinopArgs(start,&regX86ST1,&regX86ST0);
+			strX86AddrMode fcomiArgs CLEANUP(strX86AddrModeDestroy2)=X87BinopArgs(start,&regX86ST0,&regX86ST1);
 			//
 			// FCOMI takes ST(0) first always
 			//
-			fcomiArgs=strX86AddrModeReverse(fcomiArgs);
 			assembleOpcode(start, "FCOMIP", fcomiArgs);
 			X87PopFPU();
 	} else {
@@ -3024,29 +3023,36 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		// CMP aMode,0
 		// JE emd
 		// CMP bMode,0
-		// MOV outMode,0
 		// JE end
 		// MOV outMode,1
+		// JUMP 
 		// end:
+		// MOV outMode,0
+		// final:
 		struct X86AddressingMode *zero CLEANUP(X86AddrModeDestroy) = X86AddrModeSint(0);
 		struct X86AddressingMode *one CLEANUP(X86AddrModeDestroy) = X86AddrModeSint(1);
 		strX86AddrMode cmpAArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeClone(aMode));
 		cmpAArgs = strX86AddrModeAppendItem(cmpAArgs, X86AddrModeSint(0));
 		assembleOpcode(start,"CMP", cmpAArgs);
 
-		strChar endLabel CLEANUP(strCharDestroy) = uniqueLabel("XOR");
+		strChar endLabel CLEANUP(strCharDestroy) = uniqueLabel("AND");
+		strChar finalLabel CLEANUP(strCharDestroy) = uniqueLabel("AND_FINAL");
 		strX86AddrMode jmpeArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeLabel(endLabel));
 		assembleOpcode(start,"JE", jmpeArgs);
 
-		strX86AddrMode cmpBArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeClone(aMode));
+		strX86AddrMode cmpBArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeClone(bMode));
 		cmpBArgs = strX86AddrModeAppendItem(cmpBArgs, X86AddrModeSint(0));
 		assembleOpcode(start,"CMP", cmpBArgs);
-		asmAssign(outMode, zero, objectSize(IRNodeType(outNode), NULL),0);
 		assembleOpcode(start,"JE", jmpeArgs);
 
 		asmAssign(outMode, one, objectSize(IRNodeType(outNode), NULL),0);
-
+		strX86AddrMode jmpFinal CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeLabel(finalLabel));
+		assembleOpcode(start, "JMP", jmpFinal);
+		
 		X86EmitAsmLabel(endLabel);
+		asmAssign(outMode, zero, objectSize(IRNodeType(outNode), NULL),0);
+		X86EmitAsmLabel(finalLabel);
+
 		return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 	}
 	case IR_LNOT: {
@@ -3062,9 +3068,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		struct X86AddressingMode *zero CLEANUP(X86AddrModeDestroy) = X86AddrModeSint(0);
 		struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(outNode);
 		struct X86AddressingMode *iMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(inNode);
-
-		asmAssign(oMode, zero, objectSize(IRNodeType(outNode), NULL),0);
-
+		
 		strX86AddrMode cmpArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeClone(iMode));
 		cmpArgs=strX86AddrModeAppendItem(cmpArgs, X86AddrModeSint(0));
 		assembleOpcode(start,"CMP", cmpArgs);

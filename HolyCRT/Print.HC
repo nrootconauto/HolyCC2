@@ -32,7 +32,7 @@ static U0 __PrintF64(F64 f,F64 e,F64 p) {
 							F64 mA=__PrintF64Shift(1.0,Max(0,e-p));
 							F64 mB=mA;
 
-							printf("%lf,%lf,%lf\n",mA/S,mB/S,2.0`(e-p));
+							//printf("%lf,%lf,%lf\n",mA/S,mB/S,2.0`(e-p));
 							if(floor(f)==__PrintF64Shift(1.0,p-1)) {
 																											mA=__PrintF64Shift(mA,1.0);
 																											R=__PrintF64Shift(R,1.0);
@@ -44,12 +44,12 @@ static U0 __PrintF64(F64 f,F64 e,F64 p) {
 																											R*=10.0;
 																											mA*=10.0;
 																											mB*=10.0;
-																											printf("%lf,%lf,%lf\n",R,mA,mB);
+																											//printf("%lf,%lf,%lf\n",R,mA,mB);
 							}
 							while((2.0*R)+mA>=2.0*S) {
 																			k+=1;
 																			S*=10;
-																			printf("%lf,%lf,%li\n",R,S,k);
+																			//printf("%lf,%lf,%li\n",R,S,k);
 							}
 							for(;;) {
 															k-=1;
@@ -59,9 +59,10 @@ static U0 __PrintF64(F64 f,F64 e,F64 p) {
 															mB*=10.0;
 															U8i low=2.0*R<mA;
 															U8i high=2.0*R>=(2*S)-mB;
-															if(!(!low&&!high))
-																break;
+															
 															printf("%lf",U);
+															if(!(!low&&!high))
+																	break;
 							}
 }
 I32i main() {
