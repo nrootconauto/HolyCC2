@@ -1092,6 +1092,7 @@ static struct X86AddressingMode *__mem2SIB(struct X86AddressingMode *a) {
 		}
 		return NULL;
 }
+static int isFltType(struct object *obj);
 void asmAssign(struct X86AddressingMode *a, struct X86AddressingMode *b, long size,enum asmAssignFlags flags) {
 		if(size==8)
 				printf("");
@@ -1202,6 +1203,15 @@ void asmAssign(struct X86AddressingMode *a, struct X86AddressingMode *b, long si
 		args = strX86AddrModeAppendItem(args, a);
 		args = strX86AddrModeAppendItem(args, b);
 	}
+
+	if(a->valueType&&b->valueType)
+	if(isFltType(a->valueType)&&isFltType(b->valueType)) {
+			struct X86AddressingMode *st0Mode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86ST0);
+			asmAssign(st0Mode, b, 8, flags);
+			asmAssign(a, st0Mode, 8, ASM_ASSIGN_X87FPU_POP);
+			return;
+	}
+	
 	if (size == 1 || size == 2 || size == 4 || size == 8) {
 		if (a->type == X86ADDRMODE_MEM) {
 			if (b->type == X86ADDRMODE_MEM) {

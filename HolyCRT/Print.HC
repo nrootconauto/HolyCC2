@@ -60,7 +60,7 @@ static U0 __PrintF64(F64 f,F64 e,F64 p) {
 															U8i low=2.0*R<mA;
 															U8i high=2.0*R>=(2*S)-mB;
 															
-															printf("%lf",U);
+															printf("%lf\n",U);
 															if(!(!low&&!high))
 																	break;
 							}
