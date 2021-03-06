@@ -174,18 +174,25 @@ static void exprRecur(graphNodeIR start,ptrMapRefCount refCounts,int parentIsFpu
 										__auto_type var=value->val.value.var.var;
 										if(var->isTmp&&*ptrMapRefCountGet(refCounts, var)==1) {
 												strGraphNodeIRP toReplace CLEANUP(strGraphNodeIRPDestroy)=strGraphNodeIRPAppendItem(NULL, node);
+												/*
 												__auto_type slice=pushedStXslice();
 												__auto_type st0=IRCreateRegRef( &slice);
 												graphIRReplaceNodes(toReplace, st0, NULL, (void(*)(void*))IRNodeDestroy);
 												nodeStack=strGraphNodeIRPPop(nodeStack, NULL);
+												*/												
 												continue;
 										}
 							}
 								//Assign value into register
+								/*
 								__auto_type slice=pushedStXslice();
 								__auto_type st0=IRCreateRegRef( &slice);
 								IRInsertAfter(node, st0, st0, IR_CONN_DEST);
 								nodeStack=strGraphNodeIRPPop(nodeStack, NULL);
+								*/
+								__auto_type varRef=IRCreateVarRef(IRCreateVirtVar(&typeF64));
+								IRInsertAfter(node, varRef, varRef, IR_CONN_DEST);
+								X87FpuPopReg(varRef);
 						}
 				}
 
@@ -272,9 +279,17 @@ static void exprRecur(graphNodeIR start,ptrMapRefCount refCounts,int parentIsFpu
 						goto insertSt0;
 				return ;
 		insertSt0: {
+						/*
 						__auto_type slice=pushedStXslice();
 						__auto_type st0=IRCreateRegRef(&slice);
-						IRInsertAfter(start, st0, st0, IR_CONN_DEST);			
+						IRInsertAfter(start, st0, st0, IR_CONN_DEST);
+						*/
+
+						/*
+						__auto_type varRef=IRCreateVarRef(IRCreateVirtVar(&typeF64));
+						IRInsertAfter(start, varRef, varRef, IR_CONN_DEST);
+						X87FpuPopReg(varRef);
+						*/
 				}
 		}
 }

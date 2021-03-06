@@ -44,10 +44,12 @@ static U0 __PrintF64(F64 f,F64 e,F64 p) {
 																											R*=10.0;
 																											mA*=10.0;
 																											mB*=10.0;
+																											printf("%lf,%lf,%lf\n",R,mA,mB);
 							}
 							while((2.0*R)+mA>=2.0*S) {
 																			k+=1;
 																			S*=10;
+																			printf("%lf,%lf,%li\n",R,S,k);
 							}
 							for(;;) {
 															k-=1;
