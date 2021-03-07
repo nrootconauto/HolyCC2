@@ -25,11 +25,11 @@ static U0 __PrintF64(F64 f,F64 e,F64 p) {
 								return ;
 							}
 
-							F64 R=__PrintF64Shift(f,Max(0,e-p));
-							F64 S=__PrintF64Shift(1.0,Max(0,-(e-p)));
+							F64 R=__PrintF64Shift(f,Max(0.0,e-p));
+							F64 S=__PrintF64Shift(1.0,Max(0.0,-(e-p)));
 							printf("%lf,%lf\n",R/S,value);
 
-							F64 mA=__PrintF64Shift(1.0,Max(0,e-p));
+							F64 mA=__PrintF64Shift(1.0,Max(0.0,e-p));
 							F64 mB=mA;
 
 							//printf("%lf,%lf,%lf\n",mA/S,mB/S,2.0`(e-p));
@@ -86,6 +86,7 @@ static U0 __callPrintF64(F64 f) {
 							//0x1FFFFF is 21 bits wide
 							buffer.b&=0x1fffff;
 							F64 base=fild64(buffer);
+							exp-=1023;
 							__PrintF64(base,exp(F64),52.0);
 }
 I32i main() {

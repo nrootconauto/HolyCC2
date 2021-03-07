@@ -2301,9 +2301,11 @@ void asmTypecastAssign(struct X86AddressingMode *outMode, struct X86AddressingMo
 				asmAssign(outMode, inMode, iSize,0);
 			}
 		} else if (isFltType(outMode->valueType)) {
-				const char *op=isFltType(inMode->valueType)?"FLD":"FILD";
-				strX86AddrMode fildArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeClone(inMode));
-				assembleOpcode(NULL, op, fildArgs);
+				if(inMode->type==X86ADDRMODE_REG&&isFltType(inMode->valueType)) {} else {
+						const char *op=isFltType(inMode->valueType)?"FLD":"FILD";
+						strX86AddrMode fildArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeClone(inMode));
+						assembleOpcode(NULL, op, fildArgs);
+				}
 				struct X86AddressingMode *st0Mode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86ST0);
 				asmAssign(outMode, st0Mode, 8, ASM_ASSIGN_X87FPU_POP);
 		} else if(objectBaseType(outMode->valueType)==&typeBool) {

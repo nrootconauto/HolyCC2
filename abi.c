@@ -395,16 +395,23 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start ,struct X86AddressingMode *f
 			__auto_type type = objectBaseType(args[i]->valueType);
 		long itemSize = objectSize(type, NULL);
 		if (type->type == TYPE_CLASS || type->type == TYPE_UNION) {
-			struct X86AddressingMode *stack CLEANUP(X86AddrModeDestroy) = X86AddrModeIndirReg(stackPointer(), type);
+				struct X86AddressingMode *eaxMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86EAX);
+				struct X86AddressingMode *stackPtr CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(stackPointer());
+				asmAssign(eaxMode, stackPtr, ptrSize(), ASM_ASSIGN_X87FPU_POP);
+				
+				struct X86AddressingMode *top CLEANUP(X86AddrModeDestroy) = X86AddrModeIndirSIB(0,NULL,NULL,X86AddrModeReg(&regX86EAX), type);
+				X86AddrModeIndirSIBAddOffset(top, -itemSize);
 			struct X86AddressingMode *val CLEANUP(X86AddrModeDestroy) = X86AddrModeClone(args[i]);
-			asmTypecastAssign(stack, val,0);
+			asmTypecastAssign(top, val,0);
 
 			// Must be aligned to 4 bytes
 			long aligned = itemSize / 4 * 4 + ((itemSize % 4) ? 4 : 0);
 			strX86AddrMode addSP CLEANUP(strX86AddrModeDestroy2) = NULL;
 			addSP = strX86AddrModeAppendItem(addSP, X86AddrModeReg(stackPointer()));
 			addSP = strX86AddrModeAppendItem(addSP, X86AddrModeSint(aligned));
-			assembleInst("ADD", addSP);
+			assembleInst("SUB", addSP);
+
+			stackSize+=aligned;
 		} else if(type==&typeF64) {
 				struct X86AddressingMode *mode CLEANUP(X86AddrModeDestroy)=X86AddrModeClone(args[i]);
 				pushMode(mode);
