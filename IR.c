@@ -1704,6 +1704,8 @@ static void __IRInsertNodesBetweenExprs(graphNodeIR expr, ptrMapAffectedNodes af
 			__auto_type type = graphNodeIRValuePtr(expr)->type;
 			if (type == IR_DERREF)
 				;
+			else if(type==IR_MEMBERS)
+					;
 			else
 				continue;
 		}

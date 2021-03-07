@@ -381,7 +381,7 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start ,struct X86AddressingMode *f
 			eaxOffset = stackSize;
 
 		strX86AddrMode r CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeReg(clobbered[p]));
-		assembleInst("PUSH", r);
+		pushMode(r[0]);
 		stackSize += clobbered[p]->size;
 	}
 
@@ -515,7 +515,7 @@ end:;
 			eaxOffset = stackSize;
 
 		strX86AddrMode r CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeReg(clobbered[p]));
-		assembleInst("POP", r);
+		popMode(r[0]);
 		stackSize -= clobbered[p]->size;
 	}
 	

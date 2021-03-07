@@ -65,7 +65,30 @@ static U0 __PrintF64(F64 f,F64 e,F64 p) {
 																	break;
 							}
 }
+class I64Pair {
+						U32i a,b;
+};
+F64 fild64(I64Pair pair) {
+				asm {
+								IMPORT pair;
+								FILD U64[pair]
+								LEAVE
+								RET
+				}
+}
+static U0 __callPrintF64(F64 f) {
+							I64Pair buffer;
+							F64 *ptr=&buffer;
+							*(ptr)=f;
+							//0x7FF is 11 bits wide 
+							I32i exp=0x7ff&(buffer.b>>(64-1-11-32));
+							buffer.b|=1<<(52-32);
+							//0x1FFFFF is 21 bits wide
+							buffer.b&=0x1fffff;
+							F64 base=fild64(buffer);
+							__PrintF64(base,exp(F64),52.0);
+}
 I32i main() {
-					__PrintF64(123.0,0.0,0.0);
+					__callPrintF64(123.0);
 					return 1;
 }
