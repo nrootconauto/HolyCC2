@@ -630,7 +630,7 @@ static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end, llLexer
 
 	llLexerItem result2;
 	struct parserNode *head = parenRecur(start, end, &result2);
-	if (head == NULL)
+ 	if (head == NULL)
 		return NULL;
 	const char *binops[] = {".", "->"};
 	const char *unops[] = {"--", "++"};
@@ -678,82 +678,88 @@ static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end, llLexer
 			}
 		}
 
-		// Check for typecast before func call
-		struct parserNode *lP = expectOp(result2, "(");
-		if (lP) {
-			llLexerItem end2 = findOtherSide(result2, NULL);
-			if (end2) {
-				__auto_type item = llLexerItemValuePtr(llLexerItemNext(result2));
-				if (item->template == &nameTemplate) {
-					__auto_type baseType = objectByName((char *)lexerItemValuePtr(item));
-					if (baseType != NULL) {
-						strParserNode dims;
-						long ptrLevel;
-						struct parserNode *name;
-						llLexerItem end3;
+		if(head) {
+				// Check for typecast before func call
+				struct parserNode *lP CLEANUP(parserNodeDestroy)  = expectOp(result2, "(");
+				if (lP) {
+						llLexerItem end2 = findOtherSide(result2, NULL);
+						if (end2) {
+								__auto_type item = llLexerItemValuePtr(llLexerItemNext(result2));
+								if (item->template == &nameTemplate) {
+										__auto_type baseType = objectByName((char *)lexerItemValuePtr(item));
+										if (baseType != NULL) {
+												strParserNode dims;
+												long ptrLevel;
+												struct parserNode *name;
+												llLexerItem end3;
 
-						struct parserNode *dft;
-						strParserNode metas = NULL;
-						__auto_type type = parseVarDeclTail(start, &end3, baseType, &name, &dft, &metas);
-						result2 = end2;
+												struct parserNode *dft;
+												strParserNode metas = NULL;
+												__auto_type type = parseVarDeclTail(llLexerItemNext(llLexerItemNext(result2)), &end3, baseType, &name, &dft, &metas);
+												result2 = end2;
 
-						// Create type
+												// Create type
 
-						struct parserNodeTypeCast cast;
-						cast.base.type = NODE_TYPE_CAST;
-						cast.exp = head;
-						cast.type = type;
-						cast.base.pos.start = lP->pos.start;
-						cast.base.pos.end = llLexerItemValuePtr(end2)->end;
+												struct parserNodeTypeCast cast;
+												cast.base.type = NODE_TYPE_CAST;
+												cast.exp = head;
+												cast.type = type;
+												cast.base.pos.start = lP->pos.start;
+												cast.base.pos.end = llLexerItemValuePtr(end2)->end;
 
-						head = ALLOCATE(cast);
+												head = ALLOCATE(cast);
 
-						// Move past ")"
-						result2 = llLexerItemNext(end2);
-						goto loop1;
-					}
+												// Move past ")"
+												result2 = llLexerItemNext(end2);
+												goto loop1;
+										}
+								}
+						}
 				}
-			}
 		}
 		int success;
 		long startP, endP;
-		__auto_type funcCallArgs = pairOperator("(", ")", result2, end, &result2, &success, &startP, &endP);
-		if (success) {
-			struct parserNodeFuncCall newNode;
-			newNode.base.type = NODE_FUNC_CALL;
-			newNode.func = head;
-			newNode.args = NULL;
-			newNode.base.pos.start = startP;
-			newNode.base.pos.end = endP;
-			newNode.type = NULL;
+		if(head) {
+				__auto_type funcCallArgs = pairOperator("(", ")", result2, end, &result2, &success, &startP, &endP);
+				if (success) {
+						struct parserNodeFuncCall newNode;
+						newNode.base.type = NODE_FUNC_CALL;
+						newNode.func = head;
+						newNode.args = NULL;
+						newNode.base.pos.start = startP;
+						newNode.base.pos.end = endP;
+						newNode.type = NULL;
 
-			if (funcCallArgs != NULL) {
-				if (funcCallArgs->type == NODE_COMMA_SEQ) {
-					struct parserNodeCommaSeq *seq = (void *)funcCallArgs;
-					for (long i = 0; i != strParserNodeSize(seq->items); i++)
-						newNode.args = strParserNodeAppendItem(newNode.args, seq->items[i]);
-				} else if (funcCallArgs != NULL) {
-					newNode.args = strParserNodeAppendItem(newNode.args, funcCallArgs);
+						if (funcCallArgs != NULL) {
+								if (funcCallArgs->type == NODE_COMMA_SEQ) {
+										struct parserNodeCommaSeq *seq = (void *)funcCallArgs;
+										for (long i = 0; i != strParserNodeSize(seq->items); i++)
+												newNode.args = strParserNodeAppendItem(newNode.args, seq->items[i]);
+								} else if (funcCallArgs != NULL) {
+										newNode.args = strParserNodeAppendItem(newNode.args, funcCallArgs);
+								}
+						}
+
+						head = ALLOCATE(newNode);
+						goto loop1;
 				}
-			}
-
-			head = ALLOCATE(newNode);
-			goto loop1;
 		}
 		__auto_type oldResult2 = result2;
-		__auto_type array = pairOperator("[", "]", result2, end, &result2, &success, &startP, &endP);
-		if (success) {
-			struct parserNodeArrayAccess access;
-			access.exp = head;
-			access.base.type = NODE_ARRAY_ACCESS;
-			access.index = array;
-			access.base.pos.start = startP;
-			access.base.pos.end = endP;
-			access.type = NULL;
+		if(head) {
+				__auto_type array = pairOperator("[", "]", result2, end, &result2, &success, &startP, &endP);
+				if (success) {
+						struct parserNodeArrayAccess access;
+						access.exp = head;
+						access.base.type = NODE_ARRAY_ACCESS;
+						access.index = array;
+						access.base.pos.start = startP;
+						access.base.pos.end = endP;
+						access.type = NULL;
 
-			head = ALLOCATE(access);
+						head = ALLOCATE(access);
 
-			goto loop1;
+						goto loop1;
+				}
 		}
 
 		// Nothing found

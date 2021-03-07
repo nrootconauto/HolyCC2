@@ -78,8 +78,7 @@ F64 fild64(I64Pair pair) {
 }
 static U0 __callPrintF64(F64 f) {
 							I64Pair buffer;
-							F64 *ptr=&buffer;
-							*(ptr)=f;
+							*((&buffer)(F64*))=f;
 							//0x7FF is 11 bits wide 
 							I32i exp=0x7ff&(buffer.b>>(64-1-11-32));
 							buffer.b|=1<<(52-32);
