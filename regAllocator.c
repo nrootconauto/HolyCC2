@@ -947,6 +947,25 @@ void IRRegisterAllocate(graphNodeIR start, color2RegPredicate colorFunc, void *c
 
 		// Replce spill nodes with spill/load
 		replaceVarsWithSpillOrLoad(spillNodes, start);
+
+		//Assert no adjacent conflicts 
+		for(long n=0;n!=strGraphNodeIRPSize(allColorNodes);n++) {
+				if(strGraphNodeIRLivePSortedFind(spillNodes, allColorNodes[n], (gnCmpType)ptrPtrCmp))
+						continue;
+				strGraphNodeIRLiveP adj CLEANUP(strGraphNodeIRLivePDestroy)=graphNodeIROutgoingNodes(allColorNodes[n]);
+				for(long a=0;a!=strGraphNodeIRPSize(adj);a++) {
+						if(allColorNodes[n]==adj[a])
+								continue;
+						__auto_type curReg=ptrMapregSliceGet(regsByLivenessNode ,  allColorNodes[n]);
+						__auto_type aReg=ptrMapregSliceGet(regsByLivenessNode ,  adj[a]);
+						
+						if(!aReg)
+								continue;
+						if(regSliceConflict(curReg, aReg))
+								debugPrintInterferenceGraph(interfere, regsByLivenessNode);
+						assert(!regSliceConflict(curReg, aReg));
+				}
+		}
 	}
 
 	//	removeDeadExpresions(start, liveVars);
