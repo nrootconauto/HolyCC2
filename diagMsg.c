@@ -503,6 +503,7 @@ static void diagStateStart(long start, long end, enum diagState state, const cha
 	currentInst->stateStart = start;
 	currentInst->stateEnd = end;
 }
+
 void diagErrorStart(long start, long end) {
 	errCount++;
 	diagStateStart(start, end, DIAG_ERR, "error", FG_COLOR_RED);

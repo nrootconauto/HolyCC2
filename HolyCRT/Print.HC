@@ -17,7 +17,8 @@ extern F64 ceil(F64 f);
 static F64 __PrintF64Shift(F64 a, F64 b) {
 							return floor(a*2.0`b);
 }
-static U0 __PrintF64(F64 f,F64 e,F64 p) {
+_import  log10 F64 Log10(F64 num);
+static U0 __PrintF64(F64 f,F64 e,F64 p,I32i digits) {
 							F64 value=f*2.0`(e-p);
 							if(value==0)
 							{
@@ -51,19 +52,30 @@ static U0 __PrintF64(F64 f,F64 e,F64 p) {
 																			S*=10;
 																			//printf("%lf,%lf,%li\n",R,S,k);
 							}
-							for(;;) {
+							for(I32i firstRun=1;;) {
 															k-=1;
 															F64 U=floor((R*10.0)/S);
-															R=(R*10)%S;
+															R=(R*10.0)%S;
 															mA*=10.0;
 															mB*=10.0;
-															U8i low=2.0*R<mA;
-															U8i high=2.0*R>=(2*S)-mB;
+
+															printf("S:%lf\n",S);
+															printf("R:%lf\n",R);
+															printf("mA:%lf\n",mA);
 															
-															printf("%lf\n",U);
-															if(!(!low&&!high))
-																	break;
+															if(firstRun) {
+																												printf("%lf\n",U);
+																												printf(".\n");
+																												firstRun=0;
+															} else {
+																	printf("%lf\n",U);
+															}
+
+
+															if((digits-=1)<0)
+																break;
 							}
+							printf("e%lf\n",floor(Log10(value)));
 }
 class I64Pair {
 						U32i a,b;
@@ -76,7 +88,7 @@ F64 fild64(I64Pair pair) {
 								RET
 				}
 }
-static U0 __callPrintF64(F64 f) {
+static U0 __callPrintF64(F64 f,I32i digits) {
 							I64Pair buffer;
 							*((&buffer)(F64*))=f;
 							//0x7FF is 11 bits wide 
@@ -86,9 +98,9 @@ static U0 __callPrintF64(F64 f) {
 							buffer.b&=0x1fffff;
 							F64 base=fild64(buffer);
 							exp-=1023;
-							__PrintF64(base,exp(F64),52.0);
+							__PrintF64(base,exp(F64),52.0,digits);
 }
 I32i main() {
-					__callPrintF64(123.0);
+					__callPrintF64(123.0,2);
 					return 1;
 }

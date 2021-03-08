@@ -1000,7 +1000,8 @@ struct X86AddressingMode *X86AddrModeFunc(struct parserFunction *func) {
 	mode.valueType = func->type;
 	// Use name if global,else name mangle
 	if (func->parentFunction == NULL) {
-		mode.value.label = strcpy(malloc(strlen(func->name) + 1), func->name);
+			__auto_type name=parserGetGlobalSymLinkageName(func->name);
+			mode.value.label = strcpy(malloc(strlen(name) + 1), name);
 	} else {
 	loop:;
 		__auto_type find = ptrMapAsmFuncNameGet(asmFuncNames, func);

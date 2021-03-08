@@ -1260,7 +1260,10 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 				__auto_type init = __parserNode2IRStmt(forStmt->init);
 				init=insSrcMapping(forStmt->init->pos.start, forStmt->init->pos.end, init);
 				retVal.enter = init.enter;
+				__auto_type initExit=IRCreateLabel();
 				current=init.exit;
+				graphNodeIRConnect(current, initExit, IR_CONN_FLOW);
+				current=initExit;
 		}
 		__auto_type trueLab = IRCreateLabel();
 		graphNodeIR condEnter;

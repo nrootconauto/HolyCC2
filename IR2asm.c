@@ -335,7 +335,8 @@ static struct X86AddressingMode *__node2AddrMode(graphNodeIR start) {
 			}
 		}
 		case __IR_VAL_MEM_GLOBAL: {
-			struct X86AddressingMode *mode = X86AddrModeIndirLabel(value->val.value.__global.symbol->name, value->val.value.__global.symbol->type);
+				__auto_type name=parserGetGlobalSymLinkageName(value->val.value.__global.symbol->name);
+			struct X86AddressingMode *mode = X86AddrModeIndirLabel(name, value->val.value.__global.symbol->type);
 			return mode;
 		}
 		case __IR_VAL_LABEL: {
@@ -1028,6 +1029,9 @@ static strGraphNodeIRP insertLabelsForAsm(strGraphNodeIRP nodes) {
 	insertLabelsForAsmCalled = 1;
 	for (long i = 0; i != strGraphNodeIRPSize(nodes); i++) {
 		__auto_type node = nodes[i];
+		if(graphNodeIRValuePtr(node)->type==IR_LABEL)
+				continue;
+		
 		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(node);
 		strGraphEdgeIRP inFlow CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(in, IR_CONN_FLOW);
 		if (strGraphEdgeIRPSize(inFlow) > 1) {
@@ -1278,7 +1282,7 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	{
 		strGraphNodeIRP removed CLEANUP(strGraphNodeIRPDestroy) = removeNeedlessLabels(start);
 		nodes = strGraphNodeIRPSetDifference(nodes, removed, (gnCmpType)ptrPtrCmp);
-	}
+		}
 
 	strGraphNodeIRP funcsWithin CLEANUP(strGraphNodeIRPDestroy) = NULL;
 	// Get list of function nodes,then we remove them from the main
@@ -1647,6 +1651,7 @@ static void compileX87Expr(graphNodeIR node) {
 				strX86AddrMode faddpArgs CLEANUP(strX86AddrModeDestroy2)=X87BinopArgs(node,&regX86ST0,&regX86ST1);
 				assembleOpcode(node, "FPREM", NULL);
 				X87StoreResult(node);
+				X87PopFPU();
 				return;
 		}
 		case IR_INC: {
