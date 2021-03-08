@@ -338,7 +338,7 @@ static int conflictPairCmp(const struct conflictPair *a, const struct conflictPa
 }
 STR_TYPE_DEF(struct conflictPair, ConflictPair);
 STR_TYPE_FUNCS(struct conflictPair, ConflictPair);
-static strConflictPair recolorAdjacentNodes(ptrMapregSlice node2RegSlice, graphNodeIRLive node) {
+static strConflictPair recolorAdjacentNodes(ptrMapregSlice node2RegSlice, graphNodeIRLive node,double(*nodeWeight)(struct IRVar*,void*),void *nodeWeightData) {
 	__auto_type allNodes = graphNodeIRLiveAllNodes(node);
 
 	strConflictPair conflicts = NULL;
@@ -374,11 +374,20 @@ static strConflictPair recolorAdjacentNodes(ptrMapregSlice node2RegSlice, graphN
 
 				// Check if exists,if so dont insert
 				if (NULL == strConflictPairSortedFind(conflicts, pair, conflictPairCmp)) {
-					double aWeight = interfereMetric(1.1, allNodes[i]); // TODO implememnt cost
-					double bWeight = interfereMetric(1.1, outgoingNodes[i2]);
-					pair.aWeight = aWeight;
-					pair.bWeight = bWeight;
-
+						__auto_type iVar=&graphNodeIRLiveValuePtr(allNodes[i])->ref;
+						__auto_type i2Var=&graphNodeIRLiveValuePtr(outgoingNodes[i2])->ref;
+						double aWeight=1.1;
+						double bWeight=1.1;
+						if(nodeWeight) {
+								aWeight=nodeWeight(iVar,nodeWeightData);
+								bWeight=nodeWeight(i2Var,nodeWeightData);
+						}
+						
+						aWeight= interfereMetric(aWeight, allNodes[i]); 
+					 bWeight= interfereMetric(bWeight, outgoingNodes[i2]);
+						pair.aWeight = aWeight;
+						pair.bWeight = bWeight;
+						
 					conflicts = strConflictPairSortedInsert(conflicts, pair, conflictPairCmp);
 				}
 			}
@@ -866,7 +875,7 @@ void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,v
 
 		// Get conflicts and spill nodes
 		strGraphNodeIRLiveP spillNodes CLEANUP(strGraphNodeIRPDestroy) = NULL;
-		strConflictPair conflicts CLEANUP(strConflictPairDestroy) = recolorAdjacentNodes(regsByLivenessNode, allColorNodes[0]);
+		strConflictPair conflicts CLEANUP(strConflictPairDestroy) = recolorAdjacentNodes(regsByLivenessNode, allColorNodes[0],nodeWeight,nodeWeightData);
 
 		// Sort conflicts by minimum spill metric
 		strConflictPair conflictsSortedByWeight CLEANUP(strConflictPairDestroy) = strConflictPairClone(conflicts);

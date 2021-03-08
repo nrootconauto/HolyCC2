@@ -1266,6 +1266,46 @@ void asmAssignFromPtr(struct X86AddressingMode *a,struct X86AddressingMode *b,lo
 		struct X86AddressingMode *sib CLEANUP(X86AddrModeDestroy)=__mem2SIB(b);
 		asmAssign(a, sib, size, flags);
 }
+struct IRVar2WeightAssoc {
+		double weight;
+		struct IRVar var;
+};
+STR_TYPE_DEF(struct IRVar2WeightAssoc,IRVar2WeightAssoc);
+STR_TYPE_FUNCS(struct IRVar2WeightAssoc,IRVar2WeightAssoc);
+static int IRVar2WeightAssocCmp(const struct IRVar2WeightAssoc *a,const struct IRVar2WeightAssoc *b) {
+		return IRVarCmp(&a->var, &b->var);
+}
+static double __var2Weight(struct IRVar *var,void *data) {
+		strIRVar2WeightAssoc assoc=data;
+		struct IRVar2WeightAssoc dummy;
+		dummy.var=*var;
+		__auto_type find=strIRVar2WeightAssocSortedFind(assoc, dummy, IRVar2WeightAssocCmp);
+		assert(find);
+		return find->weight;
+}
+static strIRVar2WeightAssoc computeVarWeights(graphNodeIR start) {
+		strIRVar2WeightAssoc retVal=NULL;
+
+		strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);
+		for(long n=0;n!=strGraphNodeIRPSize(allNodes);n++) {
+				if(graphNodeIRValuePtr(allNodes[n])->type==IR_VALUE) {
+						struct IRNodeValue *val=(void*)graphNodeIRValuePtr(allNodes[n]);
+						if(val->val.type!=IR_VAL_VAR_REF)
+								continue;
+				registerLoop:;
+						struct IRVar2WeightAssoc dummy;
+						dummy.var=val->val.value.var;
+						__auto_type find=strIRVar2WeightAssocSortedFind(retVal, dummy, IRVar2WeightAssocCmp);
+						if(!find) {
+								dummy.weight=0;
+								retVal=strIRVar2WeightAssocSortedInsert(retVal, dummy, IRVar2WeightAssocCmp);
+								goto registerLoop;
+						}
+						find->weight+=1.0;
+				}
+		}
+		return retVal;
+}
 void IRCompile(graphNodeIR start, int isFunc) {
 		//debugShowGraphIR(start);
 		if (isFunc) {
@@ -1398,7 +1438,9 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	}
 
 	IRInsertNodesBetweenExprs(start, NULL, NULL);
-		IRRegisterAllocate(start, NULL, NULL, isNotNoreg, noregs);
+
+	strIRVar2WeightAssoc weights CLEANUP(strIRVar2WeightAssocDestroy)=computeVarWeights(start);
+	IRRegisterAllocate(start, __var2Weight, weights, isNotNoreg, noregs);
 
 	if(allocateX87fpuRegs) {
 			IRRegisterAllocateX87(start);
