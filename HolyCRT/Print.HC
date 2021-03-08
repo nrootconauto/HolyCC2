@@ -1,3 +1,4 @@
+
 extern U0 printf(U8i *fmt,...);
 extern U0 puts(U8i *chr);
 extern I32i sscanf(U8i *fmt,...);
@@ -18,6 +19,7 @@ static F64 __PrintF64Shift(F64 a, F64 b) {
 							return floor(a*2.0`b);
 }
 _import  log10 F64 Log10(F64 num);
+//http://kurtstephens.com/files/p372-steele.pdf
 static U0 __PrintF64(F64 f,F64 e,F64 p,I32i digits) {
 							F64 value=f*2.0`(e-p);
 							if(value==0)
@@ -55,27 +57,43 @@ static U0 __PrintF64(F64 f,F64 e,F64 p,I32i digits) {
 							for(I32i firstRun=1;;) {
 															k-=1;
 															F64 U=floor((R*10.0)/S);
-															R=(R*10.0)%S;
+															R=(R*10)%S;
 															mA*=10.0;
 															mB*=10.0;
-
-															printf("S:%lf\n",S);
-															printf("R:%lf\n",R);
-															printf("mA:%lf\n",mA);
 															
-															if(firstRun) {
-																												printf("%lf\n",U);
-																												printf(".\n");
-																												firstRun=0;
-															} else {
-																	printf("%lf\n",U);
-															}
-
-
 															if((digits-=1)<0)
 																break;
+
+
+																U8i low=2.0*R<mA;
+																U8i high=2.0*R>=(2*S)-mB;
+																if(!(!low&&!high)) {
+																																			if(low&&!high) {printf("%li",U(I32i));}
+																																			else if(!low&&high) {printf("%li",(U+1.0)(I32i));}
+																																			else if(low&&high) {
+																																								if(2*R>=S)
+																																										printf("%li",(U+1.0)(I32i));
+																																									else
+																																										printf("%li",U(I32i));
+																																									
+																																			}
+																																			break;
+																																			}																																		
+																																			
+
+																if(firstRun) {
+																												printf("%li",U(I32i));printf(".");
+																												firstRun=0;
+																												} else {
+																														printf("%li",U(I32i));
+																												}
+
+															
 							}
-							printf("e%lf\n",floor(Log10(value)));
+
+							while((digits-=1)>=0)
+																													printf("%li",0);
+							printf("e%li\n",floor(Log10(value))(I32i));
 }
 class I64Pair {
 						U32i a,b;
@@ -101,6 +119,6 @@ static U0 __callPrintF64(F64 f,I32i digits) {
 							__PrintF64(base,exp(F64),52.0,digits);
 }
 I32i main() {
-					__callPrintF64(123.0,2);
+					__callPrintF64(0.123,6);
 					return 1;
 }

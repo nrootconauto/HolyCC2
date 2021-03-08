@@ -1167,9 +1167,9 @@ void asmAssign(struct X86AddressingMode *a, struct X86AddressingMode *b, long si
 							} else {
 									pushMode(a);
 									strX86AddrMode fistArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
-									struct X86AddressingMode *aLoc CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(size), &typeF64);
+									struct X86AddressingMode *aLoc CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), NULL, getTypeForSize(size));
 									fistArgs=strX86AddrModeAppendItem(fistArgs, X86AddrModeClone(aLoc));
-									const char *op=(flags&ASM_ASSIGN_X87FPU_POP)?"FISTP":"FIST";
+									const char *op=(flags&ASM_ASSIGN_X87FPU_POP)?"FISTP":"FISTP";
 									assembleOpcode(NULL,op, fistArgs);
 									popMode(a);
 							}
@@ -1181,7 +1181,7 @@ void asmAssign(struct X86AddressingMode *a, struct X86AddressingMode *b, long si
 							} else {
 									//Ensure destination is 16/32/64 bits
 									if(objectSize(a->valueType, NULL)>1) {
-											const char *op=(flags&ASM_ASSIGN_X87FPU_POP)?"FISTP":"FIST";
+											const char *op=(flags&ASM_ASSIGN_X87FPU_POP)?"FISTP":"FISTP";
 											strX86AddrMode fistArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeClone(a));
 											assembleOpcode(NULL,op, fistArgs);
 									}  else {
@@ -1198,6 +1198,13 @@ void asmAssign(struct X86AddressingMode *a, struct X86AddressingMode *b, long si
 							fputs("Can't assign floating point into this\n", stderr);
 							abort();
 					}
+					return;
+			}
+	} else if(b->valueType) {
+			if(isFltType(b->valueType)) {
+					struct X86AddressingMode *st0Mode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86ST0);
+					asmAssign(st0Mode, b, 8, flags);
+					asmAssign(a, st0Mode, size, 0);
 					return;
 			}
 	}
@@ -2282,6 +2289,10 @@ void asmTypecastAssign(struct X86AddressingMode *outMode, struct X86AddressingMo
 	case X86ADDRMODE_REG: {
 		// If destination is bigger than source,sign extend if dest is signed
 		if (isPtrType(outMode->valueType) || isIntType(outMode->valueType)) {
+				if(isFltType(inMode->valueType)) {
+						asmAssign(outMode, inMode,  objectSize(outMode->valueType, NULL), flags);
+						return;
+				}
 			long iSize = objectSize(inMode->valueType, NULL);
 			long oSize = objectSize(outMode->valueType, NULL);
 			if (oSize > iSize) {
