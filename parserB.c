@@ -218,6 +218,7 @@ void parserAddVarLenArgsVars2Func(struct parserVar **Argc,struct parserVar **Arg
 				argc.isGlobal = 0;
 				argc.isNoreg = 0;
 				argc.isTmp=0;
+				argc.inReg=NULL;
 				argc.name=strcpy(malloc(strlen(name)+1), name);
 				__auto_type scope = llScopeValuePtr(currentScope);
 				__auto_type find = mapVarGet(scope->vars, argc.name);
@@ -237,6 +238,7 @@ void parserAddVarLenArgsVars2Func(struct parserVar **Argc,struct parserVar **Arg
 				argv.isGlobal = 0;
 				argv.isNoreg = 0;
 				argv.isTmp=0;
+				argv.inReg=NULL;
 				argv.name=strcpy(malloc(strlen(name)+1), name);
 				__auto_type scope = llScopeValuePtr(currentScope);
 				__auto_type find = mapVarGet(scope->vars, argv.name);
@@ -249,14 +251,15 @@ void parserAddVarLenArgsVars2Func(struct parserVar **Argc,struct parserVar **Arg
 				}
 		}
 }
-void parserAddVar(const struct parserNode *name, struct object *type) {
+void parserAddVar(const struct parserNode *name, struct object *type,struct reg *inReg,int isNoReg) {
 	struct parserVar var;
 	var.type = type;
 	var.refs = strParserNodeAppendItem(NULL, (struct parserNode *)name);
 	var.isGlobal = (llScopeValuePtr(currentScope)->parent == NULL) ? 1 : 0;
-	var.isNoreg = 0;
+	var.isNoreg = isNoReg;
 	var.isRefedByPtr=0;
 	var.isTmp=0;
+	var.inReg=inReg;
 
 	assert(name->type == NODE_NAME);
 	struct parserNodeName *name2 = (void *)name;

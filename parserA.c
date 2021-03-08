@@ -548,7 +548,7 @@ end:
 	return exp;
 }
 static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end, struct object *baseType, struct parserNode **name, struct parserNode **dftVal,
-                                       strParserNode *metaDatas);
+                                       strParserNode *metaDatas,struct reg **inReg,int *isNoReg);
 static struct parserNode *expectKeyword(llLexerItem __item, const char *text) {
 	if (__item == NULL)
 		return NULL;
@@ -588,7 +588,7 @@ static struct parserNode *parseSizeof(llLexerItem start, llLexerItem end, llLexe
 		__auto_type type = objectByName(((struct parserNodeName *)nm)->text);
 		if (type) {
 			start = llLexerItemNext(start);
-			type = parseVarDeclTail(start, &start, type, NULL, NULL, NULL);
+			type = parseVarDeclTail(start, &start, type, NULL, NULL, NULL,NULL,NULL);
 			struct parserNodeSizeofType node;
 			node.base.type = NODE_SIZEOF_TYPE;
 			node.type = type;
@@ -695,7 +695,7 @@ static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end, llLexer
 
 												struct parserNode *dft;
 												strParserNode metas = NULL;
-												__auto_type type = parseVarDeclTail(llLexerItemNext(llLexerItemNext(result2)), &end3, baseType, &name, &dft, &metas);
+												__auto_type type = parseVarDeclTail(llLexerItemNext(llLexerItemNext(result2)), &end3, baseType, &name, &dft, &metas,NULL,NULL);
 												result2 = end2;
 
 												// Create type
@@ -963,7 +963,40 @@ static struct linkage getLinkage(llLexerItem start, llLexerItem *result) {
 	return (struct linkage){LINKAGE_LOCAL, NULL};
 	;
 }
-static void getPtrsAndDims(llLexerItem start, llLexerItem *end, struct parserNode **name, long *ptrLevel, strParserNode *dims) {
+static void regNoreg(llLexerItem start, llLexerItem *end,struct reg **inReg,int *isNoReg) {
+		if(isNoReg)
+				*isNoReg=0;
+		if(inReg)
+				*inReg=NULL;
+		
+		struct parserNode *kw CLEANUP(parserNodeDestroy)=expectKeyword(start, "noreg");
+		if(kw) {
+				start=llLexerItemNext(start);
+				if(isNoReg)
+						*isNoReg=1;
+				if(end)
+						*end=start;
+				return ;		
+		}
+
+		kw =expectKeyword(start, "noreg");
+if(kw) {
+				start=llLexerItemNext(start);
+				struct parserNode *r CLEANUP(parserNodeDestroy) =parseAsmRegister(start, &start);
+				if(r) {
+						struct parserNodeAsmReg *reg=(void*)r;
+						if(inReg)
+								*inReg=reg->reg;
+				}
+				if(end)
+						*end=start;
+				return ;		
+		}
+		
+		if(end)
+				*end=start;
+}
+static void getPtrsAndDims(llLexerItem start, llLexerItem *end, struct parserNode **name, long *ptrLevel, strParserNode *dims,struct reg **inReg,int *isNoReg) {
 	long ptrLevel2 = 0;
 	for (; start != NULL; start = llLexerItemNext(start)) {
 		__auto_type op = expectOp(start, "*");
@@ -973,6 +1006,7 @@ static void getPtrsAndDims(llLexerItem start, llLexerItem *end, struct parserNod
 			break;
 	}
 
+	regNoreg(start, &start, inReg, isNoReg);
 	__auto_type name2 = nameParse(start, NULL, &start);
 
 	strParserNode dims2 = NULL;
@@ -997,8 +1031,6 @@ static void getPtrsAndDims(llLexerItem start, llLexerItem *end, struct parserNod
 	if (end != NULL)
 		*end = start;
 }
-static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end, struct object *baseType, struct parserNode **name, struct parserNode **dftVal,
-                                       strParserNode *metaDatas);
 struct parserNode *parseSingleVarDecl(llLexerItem start, llLexerItem *end) {
 	__auto_type originalStart = start;
 	struct parserNode *base;
@@ -1011,8 +1043,12 @@ struct parserNode *parseSingleVarDecl(llLexerItem start, llLexerItem *end) {
 
 		struct parserNodeVarDecl decl;
 		decl.base.type = NODE_VAR_DECL;
-		decl.type = parseVarDeclTail(start, end, baseType, &decl.name, &decl.dftVal, &decl.metaData);
-
+		struct reg *inReg;
+		int isNoReg;
+		decl.type = parseVarDeclTail(start, end, baseType, &decl.name, &decl.dftVal, &decl.metaData,&inReg,&isNoReg);
+		decl.inReg=inReg;
+		decl.isNoReg=isNoReg;
+		
 		if (end)
 			assignPosByLexerItems((struct parserNode *)&decl, originalStart, *end);
 		else
@@ -1073,7 +1109,12 @@ struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end) {
 			struct parserNodeVarDecl decl;
 			decl.base.type = NODE_VAR_DECL;
 			__auto_type originalStart=start;
-			decl.type = parseVarDeclTail(start, &start, baseType, &decl.name, &decl.dftVal, &decl.metaData);
+			
+			struct reg *inReg=NULL;
+			int isNoReg=0;
+			decl.type = parseVarDeclTail(start, &start, baseType, &decl.name, &decl.dftVal, &decl.metaData,&inReg,&isNoReg);
+			decl.inReg=inReg;
+			decl.isNoReg=isNoReg;
 			assignPosByLexerItems((struct parserNode*)&decl, originalStart, start);
 			if (!decl.name) {
 				struct parserNode *alloced = ALLOCATE(decl);
@@ -1224,7 +1265,7 @@ static int validateArrayDim(struct object *obj,struct parserNode *parent,strPars
 		return 0;
 }
 static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end, struct object *baseType, struct parserNode **name, struct parserNode **dftVal,
-                                       strParserNode *metaDatas) {
+                                       strParserNode *metaDatas,struct reg **inReg,int *isNoReg) {
 	int failed = 0;
 
 	if (metaDatas != NULL)
@@ -1241,7 +1282,7 @@ static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end, stru
 	if (funcPtrLeft != NULL) {
 		start = llLexerItemNext(start);
 
-		getPtrsAndDims(start, &start, name, &ptrLevel, &dims);
+		getPtrsAndDims(start, &start, name, &ptrLevel, &dims,inReg,isNoReg);
 
 		__auto_type r = expectOp(start, ")");
 		if (r == NULL) {
@@ -1307,7 +1348,7 @@ static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end, stru
 		}
 		retValType = objectFuncCreate(baseType, args,foundDotDotDot);
 	} else {
-		getPtrsAndDims(start, &start, name, &ptrLevel, &dims);
+			getPtrsAndDims(start, &start, name, &ptrLevel, &dims,inReg,isNoReg);
 		retValType = baseType;
 	}
 
@@ -1610,7 +1651,7 @@ end:
 static void addDeclsToScope(struct parserNode *varDecls, struct linkage link) {
 	if (varDecls->type == NODE_VAR_DECL) {
 		struct parserNodeVarDecl *decl = (void *)varDecls;
-		parserAddVar(decl->name, decl->type);
+		parserAddVar(decl->name, decl->type,decl->inReg,decl->isNoReg);
 		struct parserNodeVar var;
 		var.base.pos=decl->name->pos;
 		var.base.type=NODE_VAR;
@@ -1624,7 +1665,7 @@ static void addDeclsToScope(struct parserNode *varDecls, struct linkage link) {
 		struct parserNodeVarDecls *decls = (void *)varDecls;
 		for (long i = 0; i != strParserNodeSize(decls->decls); i++) {
 			struct parserNodeVarDecl *decl = (void *)decls->decls[i];
-			parserAddVar(decl->name, decl->type);
+			parserAddVar(decl->name, decl->type,decl->inReg,decl->isNoReg);
 			struct parserNodeVar var;
 			var.base.pos=decl->name->pos;
 			var.base.type=NODE_VAR;
@@ -1663,7 +1704,7 @@ struct parserNode *parseScope(llLexerItem start, llLexerItem *end, struct object
 		// Add vars to scope
 		if(func)
 				for (long i = 0; i != strFuncArgSize(func->args); i++) {
-						parserAddVar(func->args[i].name, func->args[i].type);
+						parserAddVar(func->args[i].name, func->args[i].type,NULL,0);
 						func->args[i].var=parserGetVarByText(((struct parserNodeName*)func->args[i].name)->text);
 				}
 

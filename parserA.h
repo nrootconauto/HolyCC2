@@ -88,6 +88,7 @@ struct parserVar {
 	char *name;
 	struct object *type;
 	strParserNode refs;
+		struct reg *inReg;
 		unsigned int isGlobal : 1;
 		unsigned int isNoreg : 1;
 		unsigned int isRefedByPtr:1;
@@ -200,7 +201,9 @@ struct parserNodeVarDecl {
 	struct parserNode *name;
 	struct object *type;
 	struct parserNode *dftVal;
-	struct parserNode *var;
+		struct reg *inReg;
+		unsigned int isNoReg:1;
+		struct parserNode *var;
 	strParserNode metaData;
 };
 struct parserNodeVarDecls {

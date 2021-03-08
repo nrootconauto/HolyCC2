@@ -163,6 +163,8 @@ graphNodeIR IRCreateStmtEnd(graphNodeIR start) {
 	var.isRefedByPtr=0;
 	var.isGlobal = 0;
 	var.isTmp=1;
+	var.inReg=NULL;
+	var.isNoreg=0;
 	__auto_type alloced = ALLOCATE(var);
 
 	return alloced;

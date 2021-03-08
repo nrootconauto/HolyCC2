@@ -18,7 +18,7 @@ LL_TYPE_FUNCS(struct scope, Scope);
 void variableDestroy(struct parserVar *var);
 void enterScope();
 void leaveScope();
-void parserAddVar(const struct parserNode *name, struct object *type);
+void parserAddVar(const struct parserNode *name, struct object *type,struct reg *inReg,int isNoReg);
 struct parserVar *parserGetVar(const struct parserNode *name);
 struct parserFunction *parserGetFunc(const struct parserNode *name);
 void parserAddFunc(const struct parserNode *name, const struct object *type, struct parserNode *func);

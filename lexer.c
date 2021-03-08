@@ -60,7 +60,10 @@ static const char *keywords[] = {
     "sizeof",
 				//
 				"try",
-				"catch"
+				"catch",
+				//
+				"noreg",
+				"reg"
 };
 const char *operators[] = {
     "++",

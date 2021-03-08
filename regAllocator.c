@@ -806,6 +806,7 @@ static void strGraphNodeIRLivePDestroy2(strGraphNodeIRLiveP *str) {
 static void llVertexColorsDestroy2(llVertexColor *colors) {
 		llVertexColorDestroy( colors,NULL);
 }
+typedef int (*removeIfPred)(const void *, const struct conflictPair *);
 void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,void *data),void *nodeWeightData, int (*varFiltPred)(const struct parserVar *, const void *),
                         const void *varFiltData) {
 	__varFilterData = varFiltData;
@@ -865,7 +866,15 @@ void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,v
 			regsForType = strRegPRemoveItem(regsForType, &regX86ST0, (regCmpType)ptrPtrCmp);
 			regsForType = strRegPRemoveItem(regsForType, &regX86ST1, (regCmpType)ptrPtrCmp);
 
-			__auto_type slice = color2Reg(adj, regsForType, allColorNodes[i], llVertexColorGet(vertexColors, allColorNodes[i])->color, NULL, strIntSize(colors), colors);
+			struct regSlice slice ;
+			if(!value.value.var.var->inReg) {
+					slice=color2Reg(adj, regsForType, allColorNodes[i], llVertexColorGet(vertexColors, allColorNodes[i])->color, NULL, strIntSize(colors), colors);
+			} else {
+					struct regSlice slice;
+					slice.reg = value.value.var.var->inReg;
+					slice.offset = 0;
+					slice.widthInBits = slice.reg->size * 8;
+			}
 
 			// Insert find
 			ptrMapregSliceAdd(regsByLivenessNode, allColorNodes[i], slice);
@@ -876,11 +885,21 @@ void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,v
 		// Get conflicts and spill nodes
 		strGraphNodeIRLiveP spillNodes CLEANUP(strGraphNodeIRPDestroy) = NULL;
 		strConflictPair conflicts CLEANUP(strConflictPairDestroy) = recolorAdjacentNodes(regsByLivenessNode, allColorNodes[0],nodeWeight,nodeWeightData);
-
+		
 		// Sort conflicts by minimum spill metric
 		strConflictPair conflictsSortedByWeight CLEANUP(strConflictPairDestroy) = strConflictPairClone(conflicts);
 		qsort(conflictsSortedByWeight, strConflictPairSize(conflicts), sizeof(*conflicts), conflictPairWeightCmp);
 
+		// Find noreg nodes and remove them from conflicts and mark them as spill.
+		for(long n=0;n!=strGraphNodeIRLivePSize(allColorNodes);n++) {
+				__auto_type node=allColorNodes[n];
+				if(graphNodeIRLiveValuePtr(node)->ref.var->isNoreg) {
+						conflicts = strConflictPairRemoveIf(conflicts, node, (removeIfPred)conflictPairContains);
+						conflictsSortedByWeight = strConflictPairRemoveIf(conflictsSortedByWeight, node, (removeIfPred)conflictPairContains);
+						spillNodes=strGraphNodeIRLivePSortedInsert(spillNodes, node, (gnCmpType)ptrPtrCmp);
+				}
+		}
+		
 		//
 		// Choose spill Nodes:
 		//
@@ -934,7 +953,7 @@ void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,v
 
 			// Remove all references to spilled node in conflicts and
 			// conflictsSortedByWeight
-			typedef int (*removeIfPred)(const void *, const struct conflictPair *);
+			
 			__auto_type node = lowestConflictNode;
 
 			conflicts = strConflictPairRemoveIf(conflicts, node, (removeIfPred)conflictPairContains);
