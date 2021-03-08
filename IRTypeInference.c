@@ -282,7 +282,6 @@ void IRInsertImplicitTypecasts(graphNodeIR start) {
 				if(graphNodeIRValuePtr(exprNodes[e])->type==IR_FUNC_CALL) {
 								strGraphEdgeIRP inFunc CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_FUNC);
 								struct IRNodeValue *inFuncVal=(void*)graphNodeIRValuePtr(graphEdgeIRIncoming(inFunc[0]));
-								printf("%s\n",inFuncVal->val.value.func->name);
 								
 								__auto_type funcType=IRNodeType(graphEdgeIRIncoming(inFunc[0]));
 								if(funcType->type==TYPE_PTR)

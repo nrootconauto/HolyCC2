@@ -816,7 +816,6 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 								strRegP deadRegs CLEANUP(strRegPDestroy)=deadRegsAtPoint(atNode, getTypeForSize(size));
 								if(strRegPSize(deadRegs)) {
 										reg=deadRegs[0];
-										printf("%s,%s\n",name,reg->name);
 								} else {
 										reg=regForTypeExcludingConsumed(getTypeForSize(size));
 										pushPop=1;
@@ -901,7 +900,6 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 						strRegP deadRegs CLEANUP(strRegPDestroy)=deadRegsAtPoint(atNode, getTypeForSize(size));
 						if(strRegPSize(deadRegs)) {
 								reg=deadRegs[0];
-								printf("%s,%s\n",name,reg->name);
 						} else {
 								reg=regForTypeExcludingConsumed(getTypeForSize(size));
 								pushPop=1;
@@ -1098,8 +1096,6 @@ static struct X86AddressingMode *__mem2SIB(struct X86AddressingMode *a) {
 }
 static int isFltType(struct object *obj);
 void asmAssign(struct X86AddressingMode *a, struct X86AddressingMode *b, long size,enum asmAssignFlags flags) {
-		if(size==8)
-				printf("");
 		if (a->type == X86ADDRMODE_REG) {
 		if (isX87FltReg(a->value.reg)) {
 				switch(b->type) {
