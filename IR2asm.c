@@ -2325,28 +2325,40 @@ void asmTypecastAssign(struct X86AddressingMode *outMode, struct X86AddressingMo
 			} else if (iSize > oSize) {
 				struct X86AddressingMode *mode CLEANUP(X86AddrModeDestroy) = demoteAddrMode(inMode, outMode->valueType);
 				if (!mode) {
-					// Cant demote current mode,so use RAX register as accumatior(which can be demoted)
+						AUTO_LOCK_MODE_REGS(outMode);
+						AUTO_LOCK_MODE_REGS(inMode);
+						__auto_type reg=regForTypeExcludingConsumed(inMode->valueType);
+						// Cant demote current mode,so use RAX register as accumatior(which can be demoted)
 					struct X86AddressingMode *rax CLEANUP(X86AddrModeDestroy) = NULL;
 					switch (getCurrentArch()) {
 					case ARCH_X64_SYSV:
-						rax = X86AddrModeReg(&regAMD64RAX);
+						rax = X86AddrModeReg(reg);
 						break;
 					case ARCH_X86_SYSV:
 					case ARCH_TEST_SYSV:
-						rax = X86AddrModeReg(&regX86EAX);
+						rax = X86AddrModeReg(reg);
 						break;
 					}
 					struct X86AddressingMode *demoted2Out CLEANUP(X86AddrModeDestroy) = demoteAddrMode(rax, outMode->valueType);
-					struct X86AddressingMode *demoted2In CLEANUP(X86AddrModeDestroy) = demoteAddrMode(rax, inMode->valueType);
+					struct X86AddressingMode *demoted2In CLEANUP(X86AddrModeDestroy) = X86AddrModeClone(rax);
 
-					pushMode(demoted2Out);
-
+					
 					struct X86AddressingMode *zero CLEANUP(X86AddrModeDestroy) = X86AddrModeSint(0);
-					asmAssign(demoted2Out, zero, objectSize(outMode->valueType, NULL),0);
-					asmAssign(demoted2In, inMode, objectSize(inMode->valueType, NULL),0);
-					asmAssign(outMode, demoted2Out, objectSize(outMode->valueType, NULL),0);
-
-					popMode(demoted2Out);
+					if(demoted2Out) {
+							pushMode(demoted2In);
+							asmAssign(demoted2In, inMode, objectSize(inMode->valueType, NULL),0);
+							asmAssign(outMode, demoted2Out, objectSize(outMode->valueType, NULL),0);
+							popMode(demoted2In);
+					} else {
+							//Will never be RAX if cant be demoted,so use rax as a tmp reg
+							struct X86AddressingMode *rax CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regAMD64RAX);
+							struct X86AddressingMode *demoted2In CLEANUP(X86AddrModeDestroy) = demoteAddrMode(rax, inMode->valueType);
+							struct X86AddressingMode *demoted2Out CLEANUP(X86AddrModeDestroy) = demoteAddrMode(rax, outMode->valueType);
+							pushMode(demoted2In);
+							asmAssign(demoted2In, inMode, objectSize(inMode->valueType, NULL),0);
+							asmAssign(outMode, demoted2Out, objectSize(outMode->valueType, NULL),0);
+							popMode(demoted2In);
+					}
 				} else {
 					asmAssign(outMode, mode, objectSize(outMode->valueType, NULL),0);
 				}

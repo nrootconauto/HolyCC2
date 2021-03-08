@@ -225,7 +225,7 @@ static struct __vec *intLex(const struct __vec *new, long pos, long *end, int *e
 			__auto_type startAt = (void *)new + pos;
 			__auto_type slice = __vecAppendItem(NULL, startAt, (void *)New - (void *)startAt);
 			slice=__vecAppendItem(slice,"\0",1);
-			sscanf((char *)slice, "%lx", &valueU);
+			sscanf((char *)slice, "%llx", &valueU);
 
 			goto dumpU;
 		} else if (*New >= 0 && *New <= '7') {
@@ -244,7 +244,7 @@ static struct __vec *intLex(const struct __vec *new, long pos, long *end, int *e
 			__auto_type startAt = (void *)new + pos;
 			__auto_type slice = __vecAppendItem(NULL, startAt, (void *)New - (void *)startAt);
 			slice=__vecAppendItem(slice,"\0",1);
-			sscanf((char *)slice, "%lo", &valueU);
+			sscanf((char *)slice, "%llo", &valueU);
 
 			goto dumpU;
 		} else if (*New == 'b' || *New == 'B') {
@@ -277,7 +277,7 @@ static struct __vec *intLex(const struct __vec *new, long pos, long *end, int *e
 		__auto_type slice = __vecAppendItem(NULL, New, alnumCount + 1);
 		((char *)slice)[alnumCount] = '\0';
 
-		sscanf((char *)slice, "%lu", &valueU);
+		sscanf((char *)slice, "%llu", &valueU);
 
 		New += alnumCount;
 		goto dumpU;
