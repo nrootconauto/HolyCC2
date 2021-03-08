@@ -5,6 +5,7 @@
 #include <graphColoring.h>
 #define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
+#include <regAllocator.h>
 static __thread const void *__varFilterData = NULL;
 static __thread int (*__varFiltPred)(const struct parserVar *, const void *);
 static char *ptr2Str(const void *a) {
@@ -787,27 +788,29 @@ static void ptrMapGraphNodeDestroy2(ptrMapGraphNode *node) {
 static void mapRegSliceDestroy2(ptrMapregSlice *toDestroy) {
 	ptrMapregSliceDestroy(*toDestroy, NULL);
 }
-
-void IRRegisterAllocate(graphNodeIR start, color2RegPredicate colorFunc, void *colorData, int (*varFiltPred)(const struct parserVar *, const void *),
+static void strGraphNodeIRLivePDestroy2(strGraphNodeIRLiveP *str) {
+		for(long g=0;g!=strGraphNodeIRLivePSize(*str);g++) {
+				graphNodeIRKillGraph(&str[0][g], NULL, NULL);
+		}
+		strGraphNodeIRLivePDestroy(str);
+}
+static void llVertexColorsDestroy2(llVertexColor *colors) {
+		llVertexColorDestroy( colors,NULL);
+}
+void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,void *data),void *nodeWeightData, int (*varFiltPred)(const struct parserVar *, const void *),
                         const void *varFiltData) {
 	__varFilterData = varFiltData;
 	__varFiltPred = varFiltPred;
 	// SSA
-	__auto_type allNodes = graphNodeIRAllNodes(start);
 	strGraphNodeIRP allNodes2 CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRAllNodes(start);
-	strGraphNodeIRPDestroy(&allNodes2);
-	allNodes2=graphNodeIRAllNodes(start);
 	
-	__auto_type intInterfere = IRInterferenceGraphFilter(start, NULL, filterIntVars);
+	strGraphNodeIRLiveP intInterfere CLEANUP(strGraphNodeIRLivePDestroy2) = IRInterferenceGraphFilter(start, NULL, filterIntVars);
 
 	__auto_type floatInterfere = NULL;
 	// IRInterferenceGraphFilter(start, filterFloatVars, NULL);
 
-	// Compute int and flaoting interfernce seperatly
-	strGraphNodeIRLiveP spillNodes = NULL;
-
-	strIRVar liveVars = NULL;
-	strGraphNodeIRLiveP interferes = strGraphNodeIRLivePClone(intInterfere);
+	strIRVar liveVars CLEANUP(strIRVarDestroy) = NULL;
+	strGraphNodeIRLiveP interferes CLEANUP(strGraphNodeIRLivePDestroy) = strGraphNodeIRLivePClone(intInterfere);
 	interferes = strGraphNodeIRLivePConcat(interferes, strGraphNodeIRLivePClone(floatInterfere));
 	for (long i = 0; i != strGraphNodeIRLivePSize(interferes); i++) {
 		__auto_type interfere = interferes[i];
@@ -816,15 +819,13 @@ void IRRegisterAllocate(graphNodeIR start, color2RegPredicate colorFunc, void *c
 
 		// debugPrintInterferenceGraph(interferes[i], regsByLivenessNode);
 
-		__auto_type vertexColors = graphColor(interfere);
+		llVertexColor vertexColors CLEANUP(llVertexColorsDestroy2) = graphColor(interfere);
 
-		__auto_type allNodes = graphNodeIRAllNodes(start);
-
-		__auto_type colors = getColorList(vertexColors);
+		strInt colors CLEANUP(strIntDestroy) = getColorList(vertexColors);
 
 		// Choose registers
 
-		__auto_type allColorNodes = graphNodeIRLiveAllNodes(interfere);
+		strGraphNodeIRLiveP allColorNodes CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRLiveAllNodes(interfere);
 		for (long i = 0; i != strGraphNodeIRLivePSize(allColorNodes); i++) {
 			// Get adjacent items
 			__auto_type outgoing = graphNodeIRLiveOutgoingNodes(allColorNodes[i]);
@@ -864,11 +865,11 @@ void IRRegisterAllocate(graphNodeIR start, color2RegPredicate colorFunc, void *c
 		// debugPrintInterferenceGraph(interferes[i], regsByLivenessNode);
 
 		// Get conflicts and spill nodes
-		strGraphNodeIRLiveP spillNodes = NULL;
-		__auto_type conflicts = recolorAdjacentNodes(regsByLivenessNode, allColorNodes[0]);
+		strGraphNodeIRLiveP spillNodes CLEANUP(strGraphNodeIRPDestroy) = NULL;
+		strConflictPair conflicts CLEANUP(strConflictPairDestroy) = recolorAdjacentNodes(regsByLivenessNode, allColorNodes[0]);
 
 		// Sort conflicts by minimum spill metric
-		__auto_type conflictsSortedByWeight = strConflictPairClone(conflicts);
+		strConflictPair conflictsSortedByWeight CLEANUP(strConflictPairDestroy) = strConflictPairClone(conflicts);
 		qsort(conflictsSortedByWeight, strConflictPairSize(conflicts), sizeof(*conflicts), conflictPairWeightCmp);
 
 		//
@@ -888,7 +889,7 @@ void IRRegisterAllocate(graphNodeIR start, color2RegPredicate colorFunc, void *c
 			// is no change
 			//
 			for (;;) {
-				strConflictPair clone = strConflictPairClone(conflictsWithFirst);
+					strConflictPair clone CLEANUP(strConflictPairDestroy) = strConflictPairClone(conflictsWithFirst);
 
 				long oldSize = strConflictPairSize(conflictsWithFirst);
 				// union
