@@ -16,6 +16,64 @@ static char *text2File(const char *text) {
 		fclose(f);
 		return name;
 }
+static void registerInterfereTestX86() {
+		setArch(ARCH_X86_SYSV);
+		struct reg *a[]={&regX86EAX,&regX86AX,&regX86AH,&regX86AL};
+		for(long r=0;r!=2;r++)
+				for(long r2=0;r2!=2;r2++)
+						assert(regConflict(a[r], a[r2]));
+		assert(!regConflict(a[2], a[3]));
+		for(long r=0;r!=2;r++)
+				for(long r2=2;r2!=4;r2++)
+						assert(regConflict(a[r], a[r2]));
+		
+		struct reg *b[]={&regX86EBX,&regX86BX,&regX86BH,&regX86BL};
+		for(long r=0;r!=2;r++)
+				for(long r2=0;r2!=2;r2++)
+						assert(regConflict(b[r], b[r2]));
+		assert(!regConflict(b[2], b[3]));
+		for(long r=0;r!=2;r++)
+				for(long r2=2;r2!=4;r2++)
+						assert(regConflict(b[r], b[r2]));
+		
+			struct reg *c[]={&regX86ECX,&regX86CX,&regX86CH,&regX86CL};
+			for(long r=0;r!=2;r++)
+				for(long r2=0;r2!=2;r2++)
+						assert(regConflict(c[r], c[r2]));
+			assert(!regConflict(c[2], c[3]));
+		for(long r=0;r!=2;r++)
+				for(long r2=2;r2!=4;r2++)
+						assert(regConflict(c[r], c[r2]));
+			
+		struct reg *d[]={&regX86EDX,&regX86DX,&regX86DH,&regX86DL};
+			for(long r=0;r!=2;r++)
+				for(long r2=0;r2!=2;r2++)
+						assert(regConflict(d[r], d[r2]));
+			assert(!regConflict(d[2], d[3]));
+			for(long r=0;r!=2;r++)
+					for(long r2=2;r2!=4;r2++)
+							assert(regConflict(d[r], d[r2]));
+
+			struct reg *sp[]={&regX86ESP,&regX86SP};
+			for(long r=0;r!=2;r++)
+					for(long r2=0;r2!=2;r2++)
+							assert(regConflict(sp[r], sp[r2]));
+			
+			struct reg *bp[]={&regX86EBP,&regX86BP};
+			for(long r=0;r!=2;r++)
+					for(long r2=0;r2!=2;r2++)
+							assert(regConflict(bp[r], bp[r2]));
+
+			struct reg *si[]={&regX86ESI,&regX86SI};
+			for(long r=0;r!=2;r++)
+					for(long r2=0;r2!=2;r2++)
+							assert(regConflict(si[r], si[r2]));
+			
+			struct reg *di[]={&regX86EDI,&regX86DI};
+			for(long r=0;r!=2;r++)
+					for(long r2=0;r2!=2;r2++)
+							assert(regConflict(di[r], di[r2]));
+}
 static void runTest(const char *asmFile,const char *expected) {
 		const char *commandText=
 				"yasm -g dwarf2 -f elf -o /tmp/hccTest.o %s "
@@ -732,6 +790,7 @@ void compileTests() {
 						};
 						parseCommandLineArgs(5, argv);
 						}*/
+		registerInterfereTestX86();
 		{
 						const char *argv[]={
 								"hcc",
