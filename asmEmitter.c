@@ -518,11 +518,11 @@ char *X86EmitAsmLabel(const char *name) {
 		char buffer[count + 1];
 		sprintf(buffer, "LBL_%li$", labelCount);
 		fprintf(codeTmpFile, "%s:\n", buffer);
-		char *retVal = malloc(count + 1);
+		char *retVal = calloc(count + 1,1);
 		strcpy(retVal, buffer);
 		return retVal;
 	}
-	char *retVal = malloc(strlen(name) + 1);
+	char *retVal = calloc(strlen(name) + 1,1);
 	fprintf(codeTmpFile, "$%s:\n", name);
 	strcpy(retVal, name);
 	return retVal;

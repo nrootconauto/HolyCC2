@@ -38,11 +38,11 @@ char *fnFromPath(const char *path) {
 char *dirFromPath(const char *cwd,const char *_path) {
 		char *path CLEANUP(free2)=NULL;
 		if(!pathIsAbsolute(_path)) {
-				path=malloc(strlen(cwd)+strlen(_path)+1);
+				path=calloc(strlen(cwd)+strlen(_path)+1,1);
 				strcpy(path, cwd);
 				strcat(path, _path);
 		} else {
-				path=malloc(strlen(_path)+1);
+				path=calloc(strlen(_path)+1,1);
 				strcpy(path, _path);
 		}
 		char *retVal=calloc(strlen(path)+1, 1);

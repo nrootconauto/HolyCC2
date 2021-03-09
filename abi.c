@@ -121,7 +121,7 @@ static int isSelectVariable(graphNodeIR node, const void *data) {
 	return 0;
 }
 static char *strDup(const char *txt) {
-	return strcpy(malloc(strlen(txt) + 1), txt);
+		return strcpy(calloc(strlen(txt) + 1,1), txt);
 }
 #define ARRAY_SIZE(array) (sizeof(array) / sizeof(*array))
 PTR_MAP_FUNCS(struct parserVar *, struct reg *, Var2Reg);
@@ -431,7 +431,7 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start ,struct X86AddressingMode *f
 						strX86AddrMode xchgArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
 						xchgArgs = strX86AddrModeAppendItem(xchgArgs, X86AddrModeReg(&regX86EAX));
 						xchgArgs =
-				    strX86AddrModeAppendItem(xchgArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(-(eaxOffset - stackSize)), &typeU32i));
+				    strX86AddrModeAppendItem(xchgArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(-(eaxOffset - stackSize)-4), &typeU32i));
 						assembleInst("XCHG", xchgArgs);
 				}
 
@@ -451,7 +451,7 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start ,struct X86AddressingMode *f
 						strX86AddrMode xchgArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
 						xchgArgs = strX86AddrModeAppendItem(xchgArgs, X86AddrModeReg(&regX86EAX));
 						xchgArgs =
-				    strX86AddrModeAppendItem(xchgArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(-(eaxOffset - stackSize)), &typeU32i));
+				    strX86AddrModeAppendItem(xchgArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(-(eaxOffset - stackSize)-4), &typeU32i));
 						assembleInst("XCHG", xchgArgs);
 				}
 		}

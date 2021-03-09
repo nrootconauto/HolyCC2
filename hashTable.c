@@ -176,7 +176,7 @@ void __mapDestroy(struct __map *map, void (*kill)(void *)) {
 	free(map);
 }
 struct __map *__mapCreate() {
-	struct __map *retVal = malloc(sizeof(struct __map));
+		struct __map *retVal = calloc(sizeof(struct __map),1);
 	retVal->bucketSizes = strIntResize(NULL, 8);
 	retVal->buckets = strLLPResize(NULL, 8);
 	for (int i = 0; i != 8; i++) {

@@ -44,6 +44,7 @@ U0 testRegsI32i() {
 			printf("%li\n",(a^^b)==0);
 }
 U0 testRegsI16i() {
+printf("16\n");
 			I16i reg AX a=10;
 			I16i reg DX b=3;
 			printf("%li\n",a`b==1000);

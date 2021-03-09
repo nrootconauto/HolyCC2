@@ -12,7 +12,7 @@
 #include <str.h>
 #define ALLOCATE(item)                                                                                                                                             \
 	({                                                                                                                                                               \
-		typeof(item) *ptr = malloc(sizeof(item));                                                                                                                      \
+			typeof(item) *ptr = calloc(sizeof(item),1);																											\
 		*ptr = item;                                                                                                                                                   \
 		ptr;                                                                                                                                                           \
 	})
@@ -145,7 +145,7 @@ static void opLexerItemDestroy(struct opLexerItem **item) {
 }
 static struct opLexerItem *lexItem(strChar text, long *pos, const char **keywords, long kwCount) {
 	*pos = skipWhitespace(text, *pos);
-	struct opLexerItem *item = malloc(sizeof(struct opLexerItem));
+	struct opLexerItem *item = calloc(sizeof(struct opLexerItem),1);
 	if (lexStr(text, pos, &item->value.str)) {
 		item->type = OP_LEXER_STR;
 		return item;
@@ -170,10 +170,10 @@ static struct opcodeTemplate opcodeTemplateClone(struct opcodeTemplate from) {
 	struct opcodeTemplate retVal = from;
 	retVal.bytes = strOpcodeBytesClone(from.bytes);
 	retVal.args = strOpcodeTemplateArgClone(from.args);
-	retVal.name = malloc(strlen(from.name) + 1);
+	retVal.name = calloc(strlen(from.name) + 1,1);
 	strcpy(retVal.name, from.name);
 	if (from.intelAlias) {
-		retVal.intelAlias = malloc(strlen(from.intelAlias) + 1);
+			retVal.intelAlias = calloc(strlen(from.intelAlias) + 1,1);
 		strcpy(retVal.intelAlias, from.intelAlias);
 	} else
 		retVal.intelAlias = NULL;
@@ -244,7 +244,7 @@ void parseOpcodeFile() {
 		assert(item);
 		if (item->type == OP_LEXER_KW) {
 			if (0 == strcmp(item->value.kw, "OPCODE")) {
-				struct opLexerItem *name CLEANUP(opLexerItemDestroy) = malloc(sizeof(struct opLexerItem));
+					struct opLexerItem *name CLEANUP(opLexerItemDestroy) = calloc(sizeof(struct opLexerItem),1);
 				struct opLexerItem *intelAlias CLEANUP(opLexerItemDestroy) = NULL;
 				name->type = OP_LEXER_WORD;
 				pos = skipWhitespace(text, pos);
@@ -273,23 +273,23 @@ void parseOpcodeFile() {
 					if (item->type == OP_LEXER_KW) {
 						struct opcodeTemplate template;
 						memset(&template, 0, sizeof(template));
-						template.name = malloc(strlen(name->value.name) + 1);
+						template.name = calloc(strlen(name->value.name) + 1,1);
 						strcpy(template.name, name->value.name);
 						template.intelAlias = NULL;
 						if (intelAlias) {
 							// intelName can be string or name
 							if (intelAlias->type == OP_LEXER_WORD) {
-								template.intelAlias = malloc(strlen(intelAlias->value.name) + 1);
+									template.intelAlias = calloc(strlen(intelAlias->value.name) + 1,1);
 								strcpy(template.intelAlias, intelAlias->value.name);
 							} else if (intelAlias->type == OP_LEXER_STR) {
-								template.intelAlias = malloc(strlen(intelAlias->value.str) + 1);
+									template.intelAlias = calloc(strlen(intelAlias->value.str) + 1,1);
 								strcpy(template.intelAlias, intelAlias->value.str);
 							} else {
 								assert(intelAlias->type == OP_LEXER_STR || intelAlias->type == OP_LEXER_WORD);
 							}
 						} else {
 							// Use defualt TOS name
-							template.intelAlias = malloc(strlen(name->value.name) + 1);
+								template.intelAlias = calloc(strlen(name->value.name) + 1,1);
 							strcpy(template.intelAlias, name->value.name);
 						}
 						template.bytes = NULL;
@@ -904,7 +904,7 @@ struct X86AddressingMode *X86AddrModeLabel(const char *name) {
 	struct X86AddressingMode mode;
 	mode.type = X86ADDRMODE_LABEL;
 	mode.valueType = NULL;
-	mode.value.label = malloc(strlen(name) + 1);
+	mode.value.label = calloc(strlen(name) + 1,1);
 	strcpy(mode.value.label, name);
 	return ALLOCATE(mode);
 }
@@ -937,7 +937,7 @@ struct X86AddressingMode *X86AddrModeClone(struct X86AddressingMode *mode) {
 		return ALLOCATE((*mode));
 	case X86ADDRMODE_LABEL:;
 		__auto_type retVal = *mode;
-		retVal.value.label = malloc(strlen(mode->value.label) + 1);
+		retVal.value.label = calloc(strlen(mode->value.label) + 1,1);
 		strcpy(retVal.value.label, mode->value.label);
 		return ALLOCATE(retVal);
 	}
@@ -1001,19 +1001,19 @@ struct X86AddressingMode *X86AddrModeFunc(struct parserFunction *func) {
 	// Use name if global,else name mangle
 	if (func->parentFunction == NULL) {
 			__auto_type name=parserGetGlobalSymLinkageName(func->name);
-			mode.value.label = strcpy(malloc(strlen(name) + 1), name);
+			mode.value.label = strcpy(calloc(strlen(name) + 1,1), name);
 	} else {
 	loop:;
 		__auto_type find = ptrMapAsmFuncNameGet(asmFuncNames, func);
 		if (find) {
-			mode.value.label = strcpy(malloc(strlen(*find) + 1), *find);
+				mode.value.label = strcpy(calloc(strlen(*find) + 1,1), *find);
 		} else {
 			const char *fmt = "$lam_%s";
 			long cnt = snprintf(NULL, 0, fmt, func->name);
 			char buffer[cnt + 1];
 			sprintf(buffer, fmt, func->name);
 
-			char *newName = strcpy(malloc(strlen(buffer) + 1), buffer);
+			char *newName = strcpy(calloc(strlen(buffer) + 1,1), buffer);
 			ptrMapAsmFuncNameAdd(asmFuncNames, func, newName);
 			goto loop;
 		}

@@ -30,7 +30,7 @@ static int ptrCompare(const void *a, const void *b) {
 	return *A - *B;
 }
 struct __graphNode *__graphNodeCreate(void *value, long itemSize, int version) {
-	struct __graphNode *retVal = malloc(sizeof(struct __graphNode) + itemSize);
+		struct __graphNode *retVal = calloc(sizeof(struct __graphNode) + itemSize,1);
 	memcpy((void *)retVal + sizeof(struct __graphNode), value, itemSize);
 	retVal->incoming = NULL;
 	retVal->outgoing = NULL;
@@ -274,9 +274,9 @@ struct __graphEdge *__graphNodeConnect(struct __graphNode *a, struct __graphNode
 	//
 	struct __graphEdge *newEdgeNode = NULL;
 	if (data == NULL) {
-		newEdgeNode = malloc(sizeof(struct __graphEdge));
+			newEdgeNode = calloc(sizeof(struct __graphEdge),1);
 	} else {
-		newEdgeNode = malloc(sizeof(struct __graphEdge) + itemSize);
+			newEdgeNode = calloc(sizeof(struct __graphEdge) + itemSize,1);
 		memcpy(newEdgeNode + 1, data, itemSize);
 	}
 
@@ -656,7 +656,7 @@ static strChar ptr2GraphVizName(const void *a) {
 	return strCharAppendData(NULL, buffer, strlen(buffer) + 1);
 }
 static char *strClone(const char *text) {
-	char *retVal = malloc(strlen(text) + 1);
+		char *retVal = calloc(strlen(text) + 1,1);
 	strcpy(retVal, text);
 
 	return retVal;

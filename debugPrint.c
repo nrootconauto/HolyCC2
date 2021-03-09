@@ -8,14 +8,14 @@ static char *ptr2Str(const void *ptr) {
 		long len=snprintf(NULL, 0, "%p", ptr);
 		char buffer[len+1];
 		snprintf(buffer, len+1, "%p", ptr);
-		return strcpy(malloc(len+1), buffer);
+		return strcpy(calloc(len+1,1), buffer);
 }
 void initDebugPrint();
 void initDebugPrint() {
 	ptrNames = mapStrCreate();
 }
 static char *strClone(const char *str) {
-	char *retVal = malloc(strlen(str) + 1);
+		char *retVal = calloc(strlen(str) + 1,1);
 	strcpy(retVal, str);
 
 	return retVal;

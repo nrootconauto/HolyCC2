@@ -565,7 +565,7 @@ static void concatFile(FILE *a, FILE *b) {
 	fclose(b);
 }
 static char *stringClone(const char *str) {
-	char *retVal = malloc(strlen(str) + 1);
+		char *retVal = calloc(strlen(str) + 1,1);
 	strcpy(retVal, str);
 	return retVal;
 }

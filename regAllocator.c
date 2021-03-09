@@ -13,7 +13,7 @@ static char *ptr2Str(const void *a) {
 		long len=snprintf(NULL, 0, "%p", a);
 		char buffer[len+1];
 		sprintf(buffer, "%p", a);
-		return strcpy(malloc(len+1),buffer);
+		return strcpy(calloc(len+1,1),buffer);
 }
 static int IRVarCmp2(const struct IRVar **a, const struct IRVar **b) {
 	return IRVarCmp(*a, *b);
@@ -26,20 +26,20 @@ static char *var2Str(graphNodeIR var) {
 	if (value->val.value.var.var->name) {
 		char buffer[1024];
 		sprintf(buffer, "%s-%li", value->val.value.var.var->name, value->val.value.var.SSANum);
-		char *retVal = malloc(strlen(buffer) + 1);
+		char *retVal = calloc(strlen(buffer) + 1,1);
 		strcpy(retVal, buffer);
 		return retVal;
 	} else {
 		char buffer[1024];
 		sprintf(buffer, "%p-%li", value->val.value.var.var, value->val.value.var.SSANum);
-		char *retVal = malloc(strlen(buffer) + 1);
+		char *retVal = calloc(strlen(buffer) + 1,1);
 		strcpy(retVal, buffer);
 		return retVal;
 	}
 	return NULL;
 }
 static char *strClone(const char *text) {
-	char *retVal = malloc(strlen(text) + 1);
+		char *retVal = calloc(strlen(text) + 1,1);
 	strcpy(retVal, text);
 
 	return retVal;

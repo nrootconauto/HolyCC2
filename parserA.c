@@ -52,7 +52,7 @@ void __initParserA() {
 }
 static strParserNode switchStack = NULL;
 static char *strCopy(const char *text) {
-	char *retVal = malloc(strlen(text) + 1);
+		char *retVal = calloc(strlen(text) + 1,1);
 	strcpy(retVal, text);
 
 	return retVal;
@@ -60,7 +60,7 @@ static char *strCopy(const char *text) {
 #define ALLOCATE(x)                                                                                                                                                \
 	({                                                                                                                                                               \
 		__auto_type len = sizeof(x);                                                                                                                                   \
-		void *$retVal = malloc(len);                                                                                                                                   \
+		void *$retVal = calloc(len,1);																																									\
 		memcpy($retVal, &x, len);                                                                                                                                      \
 		$retVal;                                                                                                                                                       \
 	})
@@ -75,7 +75,7 @@ static char *strClone(const char *str) {
 	if (!str)
 		return NULL;
 	__auto_type len = strlen(str);
-	char *retVal = malloc(len + 1);
+	char *retVal = calloc(len + 1,1);
 	strcpy(retVal, str);
 	return retVal;
 }
@@ -1681,7 +1681,7 @@ static void addDeclsToScope(struct parserNode *varDecls, struct linkage link) {
 struct parserNode *parseScope(llLexerItem start, llLexerItem *end, struct objectFunction *func) {
 	struct parserNodeScope *oldScope = (void *)currentScope;
 
-	struct parserNodeScope *retVal = malloc(sizeof(struct parserNodeScope));
+	struct parserNodeScope *retVal = calloc(sizeof(struct parserNodeScope),1);
 	retVal->base.pos.start = -1;
 	retVal->base.pos.end = -1;
 	retVal->base.type = NODE_SCOPE;

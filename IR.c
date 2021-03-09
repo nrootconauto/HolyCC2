@@ -14,7 +14,7 @@ typedef int (*geMapCmpType)(const graphEdgeMapping *, const graphEdgeMapping *);
 typedef int (*gnMapCmpType)(const graphNodeMapping *, const graphNodeMapping *);
 #define ALLOCATE(x)                                                                                                                                                \
 	({                                                                                                                                                               \
-		typeof(&x) ptr = malloc(sizeof(x));                                                                                                                            \
+			typeof(&x) ptr = calloc(sizeof(x),1);																																	\
 		memcpy(ptr, &x, sizeof(x));                                                                                                                                    \
 		ptr;                                                                                                                                                           \
 	})
@@ -45,7 +45,7 @@ static strChar ptr2Str(const void *a) {
 	return strCharAppendData(NULL, buffer, len+1);
 }
 static char *strClone(const char *text) {
-	char *retVal = malloc(strlen(text) + 1);
+		char *retVal = calloc(strlen(text) + 1,1);
 	strcpy(retVal, text);
 
 	return retVal;
@@ -164,7 +164,7 @@ graphNodeIR IRCreateStmtEnd(graphNodeIR start) {
 	var.isGlobal = 0;
 	var.isTmp=1;
 	var.inReg=NULL;
-	var.isNoreg=0;
+	var.isNoreg =0;
 	__auto_type alloced = ALLOCATE(var);
 
 	return alloced;

@@ -16,13 +16,13 @@ static char *var2Str(graphNodeIR node) {
 	else
 		sprintf(buffer, "%p-%li", val->val.value.var.var, val->val.value.var.SSANum);
 
-	return strcpy(malloc(strlen(buffer) + 1), buffer);
+	return strcpy(calloc(strlen(buffer) + 1,1), buffer);
 }
 typedef int (*gnCmpType)(const graphNodeMapping *, const graphNodeMapping *);
 typedef int (*varRefCmpType)(const struct IRVar **, const struct IRVar **);
 #define ALLOCATE(x)                                                                                                                                                \
 	({                                                                                                                                                               \
-		typeof(x) *ptr = malloc(sizeof(x));                                                                                                                            \
+			typeof(x) *ptr = calloc(sizeof(x),1);																																	\
 		*ptr = x;                                                                                                                                                      \
 		ptr;                                                                                                                                                           \
 	})

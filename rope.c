@@ -2,7 +2,7 @@
 #include <str.h>
 #include <cleanup.h>
 #include <stdlib.h>
-#define ALLOCATE(x) ({typeof(x)* ptr=malloc(sizeof(x));*ptr=x;ptr;})
+#define ALLOCATE(x) ({typeof(x)* ptr=calloc(sizeof(x),1);*ptr=x;ptr;})
 #define ROPE_LENGTH 4
 struct rope {
 		struct rope *left,*right,*parent;
@@ -186,7 +186,7 @@ static strChar __ropeToText(struct rope *r) {
 char *ropeToText(struct rope *r) {
 		strChar text CLEANUP(strCharDestroy)=__ropeToText(r);
 		long len=ropeSize(r);
-		char *retVal=strncpy(malloc(len+1), text,len);
+		char *retVal=strncpy(calloc(len+1,1), text,len);
 		retVal[len]='\0';
 		return retVal;
 }

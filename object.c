@@ -37,7 +37,7 @@ struct object *objectBaseType(const struct object *obj) {
 /* This function clones a string. */
 static char *strClone(const char *str) {
 	__auto_type len = strlen(str);
-	char *retVal = malloc(len + 1);
+	char *retVal = calloc(len + 1,1);
 	strcpy(retVal, str);
 	return retVal;
 }
@@ -334,7 +334,7 @@ struct object * /*This created class.*/
 objectClassCreate(const struct parserNode *name, const struct objectMember *members, long count) {
 		dontTreatArraysAsPtrs++;
 
-		struct objectClass *newClass = malloc(sizeof(struct objectClass));
+		struct objectClass *newClass = calloc(sizeof(struct objectClass),1);
 	newClass->name = (struct parserNode *)name;
 	newClass->base.type = TYPE_CLASS;
 	newClass->base.name = NULL;
@@ -394,7 +394,7 @@ objectUnionCreate(const struct parserNode *name /*Can be `NULL` for empty union.
 	int success;
 	dontTreatArraysAsPtrs++;
 	
-	struct objectUnion *newUnion = malloc(sizeof(struct objectUnion));
+	struct objectUnion *newUnion = calloc(sizeof(struct objectUnion),1);
 	newUnion->name = (struct parserNode *)name;
 	newUnion->base.type = TYPE_UNION;
 	newUnion->baseType=NULL;
@@ -448,7 +448,7 @@ struct object * /* The newly created type.*/
 objectPtrCreate(struct object *baseType) {
 	// Check if item is in registry prior to making a new one
 
-	struct objectPtr *ptr = malloc(sizeof(struct objectPtr));
+		struct objectPtr *ptr = calloc(sizeof(struct objectPtr),1);
 	ptr->base.type = TYPE_PTR;
 	ptr->type = baseType;
 	ptr->base.name = NULL;
@@ -463,7 +463,7 @@ objectPtrCreate(struct object *baseType) {
  */
 struct object * /*Array type.*/
 objectArrayCreate(struct object *baseType, struct parserNode *dim,void *dimIR) {
-	struct objectArray *array = malloc(sizeof(struct objectArray));
+		struct objectArray *array = calloc(sizeof(struct objectArray),1);
 	array->base.type = TYPE_ARRAY;
 	array->base.name = NULL;
 	array->dim = dim;
@@ -480,7 +480,7 @@ objectArrayCreate(struct object *baseType, struct parserNode *dim,void *dimIR) {
  */
 struct object * /*This returns a forward declaration.*/
 objectForwardDeclarationCreate(const struct parserNode *name, enum holyCTypeKind type /* See `TYPE_CLASS`/`TYPE_UNION`.*/) {
-	struct objectForwardDeclaration *retVal = malloc(sizeof(struct objectForwardDeclaration));
+		struct objectForwardDeclaration *retVal = calloc(sizeof(struct objectForwardDeclaration),1);
 	retVal->base.type = TYPE_FORWARD;
 	retVal->base.name = NULL;
 	retVal->name = (struct parserNode *)name;
@@ -575,7 +575,7 @@ objectFuncCreate(struct object *retType, strFuncArg args,int varLenArgs) {
 	func.retType = retType;
 	func.hasVarLenArgs=varLenArgs;
 
-	void *retVal = malloc(sizeof(struct objectFunction));
+	void *retVal = calloc(sizeof(struct objectFunction),1);
 	memcpy(retVal, &func, sizeof(struct objectFunction));
 
 	int alreadyExists;

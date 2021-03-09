@@ -17,7 +17,7 @@ static long *__vecSizePtr(const struct __vec *vec) {
 }
 struct __vec *__vecResize(struct __vec *a, long size) {
 	if (a == NULL) {
-		a = malloc(2 * sizeof(long) + size);
+			a = calloc(2 * sizeof(long) + size,1);
 		memset(a, 0, 2 * sizeof(long));
 		if (a == NULL)
 			return NULL;
@@ -59,7 +59,7 @@ struct __vec *__vecConcat(struct __vec *a, const struct __vec *b) {
 }
 struct __vec *__vecReserve(struct __vec *a, long capacity) {
 	if (a == NULL) {
-		a = malloc(2 * sizeof(long));
+			a = calloc(2 * sizeof(long),1);
 		memset(a, 0, 2 * sizeof(long));
 		if (a == NULL)
 			return NULL;

@@ -119,7 +119,7 @@ struct __ptrMap *__ptrMapCreate() {
 
 	__ptrMapRehash(&retVal, 4, 0);
 
-	struct __ptrMap *alloced = malloc(sizeof(retVal));
+	struct __ptrMap *alloced = calloc(sizeof(retVal),1);
 	*alloced = retVal;
 
 	return alloced;

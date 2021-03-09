@@ -280,7 +280,7 @@ static int isReg(graphNodeIR node) {
 }
 #define ALLOCATE(val)                                                                                                                                              \
 	({                                                                                                                                                               \
-		typeof(val) *r = malloc(sizeof(val));                                                                                                                          \
+		typeof(val) *r = calloc(sizeof(val));                                                                                                                          \
 		*r = val;                                                                                                                                                      \
 		r;                                                                                                                                                             \
 	})
@@ -346,7 +346,7 @@ static struct X86AddressingMode *__node2AddrMode(graphNodeIR start) {
 				name = *ptrMapLabelNamesGet(asmLabelNames, label);
 			} else {
 				long count = snprintf(NULL, 0, "LBL%li", ++labelsCount);
-				char *name2 = malloc(count + 1);
+				char *name2 = calloc(count + 1,1);
 				sprintf(name2, "LBL%li", labelsCount);
 				ptrMapLabelNamesAdd(asmLabelNames, label, strClone(name2));
 				name = name2;
@@ -1012,7 +1012,7 @@ static int frameEntryCmp(const void *a, const void *b) {
 	return IRVarCmp(&A->var, &B->var);
 }
 static void debugShowGraphIR(graphNodeIR enter) {
-		return ;
+		return;
 #if DEBUG_PRINT_ENABLE
 		const char *name = tmpnam(NULL);
 	__auto_type map = graphNodeCreateMapping(enter, 1);
@@ -1912,9 +1912,9 @@ static void __typecastSignExt(graphNodeIR atNode,struct X86AddressingMode *outMo
 	movArgs = strX86AddrModeAppendItem(movArgs, X86AddrModeClone(outMode));
 	movArgs = strX86AddrModeAppendItem(movArgs, X86AddrModeClone(inMode));
 	if (oSize == 8 && iSize == 4) {
-			assembleOpcode(atNode,"MOVSX", movArgs);
-	} else {
 			assembleOpcode(atNode,"MOVSXD", movArgs);
+	} else {
+			assembleOpcode(atNode,"MOVSX", movArgs);
 	}
 }
 static int __ouputModeAffectsInput(struct X86AddressingMode *input, struct X86AddressingMode *out) {
@@ -3079,7 +3079,6 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		binopArgs(start, &a, &b);
 		struct X86AddressingMode *aMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(a);
 		struct X86AddressingMode *bMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(b);
-		// MOV outMode,0
 		// CMP aMode,0
 		// SETNE outMode
 		// CMP bMode,0
@@ -3088,7 +3087,6 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		// end:
 		struct X86AddressingMode *zero CLEANUP(X86AddrModeDestroy) = X86AddrModeSint(0);
 		struct X86AddressingMode *one CLEANUP(X86AddrModeDestroy) = X86AddrModeSint(1);
-		asmAssign(outMode, zero, objectSize(IRNodeType(start), NULL),0);
 
 		strX86AddrMode cmpAArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeClone(aMode));
 		cmpAArgs = strX86AddrModeAppendItem(cmpAArgs, X86AddrModeSint(0));

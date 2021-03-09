@@ -126,7 +126,7 @@ static struct object *promotionType(const struct object *a, const struct object 
 static struct parserNode *promoteIfNeeded(struct parserNode *node, struct object *toType) {
 		/*
 				if (assignTypeToOp(node) != toType) {
-				struct parserNodeTypeCast *cast = malloc(sizeof(struct parserNodeTypeCast));
+				struct parserNodeTypeCast *cast = calloc(sizeof(struct parserNodeTypeCast));
 				cast->base.type = NODE_TYPE_CAST;
 				cast->exp = node;
 				cast->type = toType;

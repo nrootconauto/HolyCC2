@@ -11,7 +11,7 @@ typedef int (*gnCmpType)(const graphNodeMapping *, const graphNodeMapping *);
 typedef int (*varRefCmpType)(const struct IRVar **, const struct IRVar **);
 #define ALLOCATE(x)                                                                                                                                                \
 	({                                                                                                                                                               \
-		typeof(x) *ptr = malloc(sizeof(x));                                                                                                                            \
+		typeof(x) *ptr = calloc(sizeof(x));                                                                                                                            \
 		*ptr = x;                                                                                                                                                      \
 		ptr;                                                                                                                                                           \
 	})
@@ -19,13 +19,13 @@ static char *__var2Str(struct IRVar var) {
 	if (var.var->name) {
 		char buffer[1024];
 		sprintf(buffer, "%s-%li", var.var->name, var.SSANum);
-		char *retVal = malloc(strlen(buffer) + 1);
+		char *retVal = calloc(strlen(buffer) + 1,1);
 		strcpy(retVal, buffer);
 		return retVal;
 	} else {
 		char buffer[1024];
 		sprintf(buffer, "%p-%li", var.var, var.SSANum);
-		char *retVal = malloc(strlen(buffer) + 1);
+		char *retVal = calloc(strlen(buffer) + 1,1);
 		strcpy(retVal, buffer);
 		return retVal;
 	}
@@ -62,7 +62,7 @@ static char *ptr2Str(const void *a) {
 		long len=snprintf(NULL, 0, "%p", a);
 		char buffer[len+1];
 		sprintf(buffer, "%p", a);
-		return strcpy(malloc(len+1),buffer);
+		return strcpy(calloc(len+1,1),buffer);
 }
 
 static void copyConnections(strGraphEdgeP in, strGraphEdgeP out) {
@@ -234,7 +234,7 @@ graphNodeIRLive IRInterferenceGraph(graphNodeIR start) {
 	return IRInterferenceGraphFilter(start, NULL, NULL)[0];
 }
 static char *strDup(const char *text) {
-	return strcpy(malloc(strlen(text) + 1), text);
+		return strcpy(calloc(strlen(text) + 1,1), text);
 }
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);

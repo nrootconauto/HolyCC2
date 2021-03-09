@@ -6,7 +6,7 @@
 // ENDS AT '"'
 char *escapeString(char *str) {
 	long retValCap = strlen(str) + 256;
-	char *retVal = malloc(retValCap);
+	char *retVal = calloc(retValCap,1);
 	__auto_type where = retVal;
 
 	while (*str != 0) {

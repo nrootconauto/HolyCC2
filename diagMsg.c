@@ -8,7 +8,7 @@
 #include <str.h>
 static char *strClone(const char *text) {
 	long len = strlen(text);
-	char *retVal = malloc(len + 1);
+	char *retVal = calloc(len + 1,1);
 	strcpy(retVal, text);
 
 	return retVal;

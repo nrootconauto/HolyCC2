@@ -27,7 +27,7 @@ MAP_TYPE_DEF(enum IRNodeType, IRNodeType);
 MAP_TYPE_FUNCS(enum IRNodeType, IRNodeType);
 #define ALLOCATE(x)                                                                                                                                                \
 	({                                                                                                                                                               \
-		typeof(&x) ptr = malloc(sizeof(x));                                                                                                                            \
+			typeof(&x) ptr = calloc(sizeof(x),1);																																	\
 		memcpy(ptr, &x, sizeof(x));                                                                                                                                    \
 		ptr;                                                                                                                                                           \
 	})
@@ -985,7 +985,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 		import.base.type = IR_ASM_IMPORT;
 		struct parserNodeLitStr *lit = (void *)bf->fn;
 		assert(lit->base.type == NODE_LIT_STR);
-		import.fileName = malloc(__vecSize(lit->str.text) + 1);
+		import.fileName = calloc(__vecSize(lit->str.text) + 1,1);
 		strcpy(import.fileName, (char*)lit->str.text);
 		__auto_type gn = GRAPHN_ALLOCATE(import);
 		__auto_type pair=(struct enterExit){gn, gn};
@@ -1009,7 +1009,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 			assert(0);
 		struct parserNodeDUX *du = (void *)node;
 		__auto_type count = __vecSize(du->bytes) / itemSize;
-		void *clone = malloc(count * itemSize);
+		void *clone = calloc(count * itemSize,1);
 		memcpy(clone, du->bytes, count * itemSize);
 		graphNodeIR gn;
 		if (node->type == NODE_ASM_DU8) {
@@ -1056,7 +1056,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 		inst2.base.attrs = NULL;
 		inst2.base.type = IR_X86_INST;
 		inst2.args = addrModes;
-		inst2.name = malloc(strlen(nm->text) + 1);
+		inst2.name = calloc(strlen(nm->text) + 1,1);
 		strcpy(inst2.name, nm->text);
 		__auto_type node = GRAPHN_ALLOCATE(inst2);
 		return (struct enterExit){node, node};
@@ -1352,7 +1352,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 		struct IRAttrLabelName attr;
 		attr.base.name = (void *)IR_ATTR_LABEL_NAME;
 		attr.base.destroy = IRAttrLabelNameDestroy;
-		attr.name = malloc(strlen(name->text) + 1);
+		attr.name = calloc(strlen(name->text) + 1,1);
 		strcpy(attr.name, name->text);
 		IRAttrReplace(lab, __llCreate(&attr, sizeof(attr)));
 
@@ -1390,7 +1390,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 		struct IRAttrLabelName attr;
 		attr.base.name = (void *)IR_ATTR_LABEL_NAME;
 		attr.base.destroy = IRAttrLabelNameDestroy;
-		attr.name = malloc(strlen(name->text) + 1);
+		attr.name = calloc(strlen(name->text) + 1,1);
 		strcpy(attr.name, name->text);
 		IRAttrReplace(lab, __llCreate(&attr, sizeof(attr)));
 

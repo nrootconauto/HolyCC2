@@ -7,7 +7,7 @@
 #define ALLOCATE(x)                                                                                                                                                \
 	({                                                                                                                                                               \
 		__auto_type len = sizeof(x);                                                                                                                                   \
-		void *$retVal = malloc(len);                                                                                                                                   \
+		void *$retVal = calloc(len,1);																																									\
 		memcpy($retVal, &x, len);                                                                                                                                      \
 		$retVal;                                                                                                                                                       \
 	})
@@ -219,7 +219,7 @@ void parserAddVarLenArgsVars2Func(struct parserVar **Argc,struct parserVar **Arg
 				argc.isNoreg = 0;
 				argc.isTmp=0;
 				argc.inReg=NULL;
-				argc.name=strcpy(malloc(strlen(name)+1), name);
+				argc.name=strcpy(calloc(strlen(name)+1,1), name);
 				__auto_type scope = llScopeValuePtr(currentScope);
 				__auto_type find = mapVarGet(scope->vars, argc.name);
 				if (find) {
@@ -239,7 +239,7 @@ void parserAddVarLenArgsVars2Func(struct parserVar **Argc,struct parserVar **Arg
 				argv.isNoreg = 0;
 				argv.isTmp=0;
 				argv.inReg=NULL;
-				argv.name=strcpy(malloc(strlen(name)+1), name);
+				argv.name=strcpy(calloc(strlen(name)+1,1), name);
 				__auto_type scope = llScopeValuePtr(currentScope);
 				__auto_type find = mapVarGet(scope->vars, argv.name);
 				if (find) {
@@ -263,7 +263,7 @@ void parserAddVar(const struct parserNode *name, struct object *type,struct reg 
 
 	assert(name->type == NODE_NAME);
 	struct parserNodeName *name2 = (void *)name;
-	var.name = malloc(strlen(name2->text) + 1);
+	var.name = calloc(strlen(name2->text) + 1,1);
 	strcpy(var.name, name2->text);
 
 	__auto_type scope = llScopeValuePtr(currentScope);
@@ -382,7 +382,7 @@ loop:;
 		dummy.refs = NULL;
 		dummy.type = (struct object *)type;
 		dummy.node = func;
-		dummy.name = malloc(strlen(name2->text) + 1);
+		dummy.name = calloc(strlen(name2->text) + 1,1);
 		dummy.parentFunction = NULL;
 		strcpy(dummy.name, name2->text);
 

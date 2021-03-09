@@ -11,7 +11,7 @@
 #define ALLOCATE(x)                                                                                                                                                \
 	({                                                                                                                                                               \
 		__auto_type len = sizeof(x);                                                                                                                                   \
-		void *$retVal = malloc(len);                                                                                                                                   \
+		void *$retVal = calloc(len,1);																																									\
 		memcpy($retVal, &x, len);                                                                                                                                      \
 		$retVal;                                                                                                                                                       \
 	})

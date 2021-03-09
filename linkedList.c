@@ -81,7 +81,7 @@ struct __ll *__llInsert(struct __ll *from, struct __ll *newItem, int (*pred)(con
 	return newItem;
 }
 struct __ll *__llCreate(const void *item, long size) {
-	struct __ll *retVal = malloc(sizeof(struct __ll) + size);
+		struct __ll *retVal = calloc(sizeof(struct __ll) + size,1);
 	retVal->next = NULL;
 	retVal->prev = NULL;
 	memcpy((void *)retVal + sizeof(struct __ll), item, size);
