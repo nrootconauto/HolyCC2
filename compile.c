@@ -12,8 +12,8 @@ static void fclose2(FILE **f) {
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
 static void strParserNodeDestroy2(strParserNode *str) {
-	for (long s = 0; s != strParserNodeSize(*str); s++)
-		parserNodeDestroy(&str[0][s]);
+		for (long s = 0; s != strParserNodeSize(*str); s++)
+				;//parserNodeDestroy(&str[0][s]);
 	strParserNodeDestroy(str);
 }
 
@@ -57,7 +57,6 @@ static strParserNode parseFile(const char *fn,strFileMappings *fMappings2) {
 		return NULL;
 }
 void compileFile(const char *fn, const char *dumpTo) {
-			initParserData();
 				X86EmitAsmInit();
 			
 			strFileMappings fMappings = NULL;

@@ -86,7 +86,6 @@ static strChar strCharDup(const char *text) {
 static strStrChar assembleSources(strConstChar sources) {
 		strStrChar toAssemble=NULL;
 		for(long i=0;i!=strConstCharSize(sources);i++) {
-				init();
 				__auto_type dumpAsmTo=strCharDup(tmpnam(NULL));
 				toAssemble=strStrCharAppendItem(toAssemble,dumpAsmTo);
 				compileFile(sources[i], dumpAsmTo);
@@ -103,6 +102,7 @@ static strStrChar assembleSources(strConstChar sources) {
 		return toAssemble;
 } 
 void parseCommandLineArgs(int argc,const char **argv) {
+		init();
 		clFlagsLong=mapFlagsCreate();
 		clFlagsShort=mapFlagsCreate();
 		struct commlFlag help={
@@ -145,9 +145,8 @@ void parseCommandLineArgs(int argc,const char **argv) {
 						abort();
 				}
 		}
-
+		
 		const char *hcrt="/home/tc/projects/holycc2/HolyCRT/HCRT.HC";
-		compileFile(hcrt, "/tmp/HCRT.s");
 		strConstChar hcrtSources CLEANUP(strConstCharDestroy)=strConstCharAppendItem(NULL, hcrt);
 		strStrChar toLink CLEANUP(strStrCharDestroy2)=assembleSources(hcrtSources);
 		assert(strStrCharSize(toLink)==1);

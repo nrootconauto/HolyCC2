@@ -870,10 +870,10 @@ void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,v
 			if(!value.value.var.var->inReg) {
 					slice=color2Reg(adj, regsForType, allColorNodes[i], llVertexColorGet(vertexColors, allColorNodes[i])->color, NULL, strIntSize(colors), colors);
 			} else {
-					struct regSlice slice;
 					slice.reg = value.value.var.var->inReg;
 					slice.offset = 0;
 					slice.widthInBits = slice.reg->size * 8;
+					slice.type=value.value.var.var->type;
 			}
 
 			// Insert find

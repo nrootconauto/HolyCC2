@@ -979,7 +979,7 @@ static void regNoreg(llLexerItem start, llLexerItem *end,struct reg **inReg,int 
 				return ;		
 		}
 
-		kw =expectKeyword(start, "noreg");
+		kw =expectKeyword(start, "reg");
 if(kw) {
 				start=llLexerItemNext(start);
 				struct parserNode *r CLEANUP(parserNodeDestroy) =parseAsmRegister(start, &start);

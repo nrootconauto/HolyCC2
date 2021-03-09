@@ -615,7 +615,9 @@ char *object2Str(struct object *obj) {
 		}
 		case TYPE_F64:
 				return strClone("F64");
-		case TYPE_FORWARD:
+		case TYPE_FORWARD: {
+				return strClone("FWD");
+		}
 		case TYPE_FUNCTION: {
 				struct objectFunction *func=(void*)obj;
 				char *retType=object2Str(func->retType);

@@ -1,3 +1,1 @@
-I32i _main() {
-					return 0;
-}
+extern U0 printf(U8i *fmt,...);
