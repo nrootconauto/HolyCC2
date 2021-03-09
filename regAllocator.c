@@ -6,6 +6,7 @@
 #define DEBUG_PRINT_ENABLE 1
 #include <debugPrint.h>
 #include <regAllocator.h>
+#include <math.h>
 static __thread const void *__varFilterData = NULL;
 static __thread int (*__varFiltPred)(const struct parserVar *, const void *);
 static char *ptr2Str(const void *a) {
@@ -382,6 +383,11 @@ static strConflictPair recolorAdjacentNodes(ptrMapregSlice node2RegSlice, graphN
 								aWeight=nodeWeight(iVar,nodeWeightData);
 								bWeight=nodeWeight(i2Var,nodeWeightData);
 						}
+
+						if(iVar->var->inReg)
+								aWeight=INFINITY;
+						if(i2Var->var->inReg)
+								bWeight=INFINITY;
 						
 						aWeight= interfereMetric(aWeight, allNodes[i]); 
 					 bWeight= interfereMetric(bWeight, outgoingNodes[i2]);

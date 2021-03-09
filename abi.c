@@ -431,7 +431,7 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start ,struct X86AddressingMode *f
 						strX86AddrMode xchgArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
 						xchgArgs = strX86AddrModeAppendItem(xchgArgs, X86AddrModeReg(&regX86EAX));
 						xchgArgs =
-				    strX86AddrModeAppendItem(xchgArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(eaxOffset - stackSize), &typeU32i));
+				    strX86AddrModeAppendItem(xchgArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(-(eaxOffset - stackSize)), &typeU32i));
 						assembleInst("XCHG", xchgArgs);
 				}
 
@@ -443,17 +443,17 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start ,struct X86AddressingMode *f
 				} else {
 						pushArgs = strX86AddrModeAppendItem(pushArgs, X86AddrModeClone(args[i]));
 				}
-
+				
+				assembleInst("PUSH", pushArgs);
+				stackSize += 4;
+				
 				if (swapEaxWithStack) {
 						strX86AddrMode xchgArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
 						xchgArgs = strX86AddrModeAppendItem(xchgArgs, X86AddrModeReg(&regX86EAX));
 						xchgArgs =
-				    strX86AddrModeAppendItem(xchgArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(eaxOffset - stackSize), &typeU32i));
+				    strX86AddrModeAppendItem(xchgArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(-(eaxOffset - stackSize)), &typeU32i));
 						assembleInst("XCHG", xchgArgs);
 				}
-
-				assembleInst("PUSH", pushArgs);
-				stackSize += 4;
 		}
 	}
 
