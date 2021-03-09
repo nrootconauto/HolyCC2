@@ -705,7 +705,7 @@ static FILE *createPreprocessedFileLine(mapDefineMacro defines, struct __vec *te
 
 			struct textModify destroy;
 			destroy.where = where + lineStart;
-			destroy.len = endPos - where + lineStart;
+			destroy.len = endPos - where;
 			destroy.type = MODIFY_REMOVE;
 			sourceMappings = strTextModifyAppendItem(sourceMappings, destroy);
 
