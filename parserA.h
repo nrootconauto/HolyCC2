@@ -85,10 +85,11 @@ STR_TYPE_FUNCS(struct parserNode *, ParserNode);
 struct parserNode;
 struct parserVar *parserVariableClone(struct parserVar *var);
 struct parserVar {
-	char *name;
-	struct object *type;
-	strParserNode refs;
+		char *name;
+		struct object *type;
+		strParserNode refs;
 		struct reg *inReg;
+		long refCount;
 		unsigned int isGlobal : 1;
 		unsigned int isNoreg : 1;
 		unsigned int isRefedByPtr:1;

@@ -63,7 +63,7 @@ static char *interfereNode2Label(const struct __graphNode *node, mapGraphVizAttr
 	__auto_type dummy = IRCreateVarRef(var->var);
 	((struct IRNodeValue *)graphNodeIRValuePtr(dummy))->val.value.var.SSANum = var->SSANum;
 	char *name = var2Str(dummy);
-	graphNodeIRKill(&dummy, NULL, NULL);
+	graphNodeIRKill(&dummy, (void(*)(void*))IRNodeDestroy, NULL);
 
 	if (name)
 		name = name;
@@ -113,7 +113,7 @@ static void transparentKill(graphNodeIR node, int preserveEdgeValue) {
 			graphNodeIRConnect(graphEdgeIRIncoming(incoming[i1]), graphEdgeIROutgoing(outgoing[i2]),
 			                   (preserveEdgeValue) ? *graphEdgeIRValuePtr(incoming[i1]) : IR_CONN_FLOW);
 
-	graphNodeIRKill(&node, NULL, NULL);
+	graphNodeIRKill(&node, (void(*)(void*))IRNodeDestroy, NULL);
 }
 static int noIncomingPred(const void *data, const graphNodeIR *node) {
 	strGraphEdgeIRP incoming = graphNodeIRIncoming(*node);
@@ -136,7 +136,7 @@ static void replaceNodeWithExpr(graphNodeIR node, graphNodeIR valueSink) {
 	for (long i1 = 0; i1 != strGraphEdgeIRPSize(outgoing); i1++)
 		graphNodeIRConnect(valueSink, graphEdgeIROutgoing(outgoing[i1]), *graphEdgeIRValuePtr(outgoing[i1]));
 
-	graphNodeIRKill(&node, NULL, NULL);
+	graphNodeIRKill(&node, (void(*)(void*))IRNodeDestroy, NULL);
 }
 static int gnIRVarCmp(const graphNodeIR *a, const graphNodeIR *b) {
 	__auto_type A = (struct IRNodeValue *)graphNodeIRValuePtr(*a);

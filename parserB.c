@@ -218,6 +218,7 @@ void parserAddVarLenArgsVars2Func(struct parserVar **Argc,struct parserVar **Arg
 				argc.isGlobal = 0;
 				argc.isNoreg = 0;
 				argc.isTmp=0;
+				argc.refCount=0;
 				argc.inReg=NULL;
 				argc.name=strcpy(calloc(strlen(name)+1,1), name);
 				__auto_type scope = llScopeValuePtr(currentScope);
@@ -238,6 +239,7 @@ void parserAddVarLenArgsVars2Func(struct parserVar **Argc,struct parserVar **Arg
 				argv.isGlobal = 0;
 				argv.isNoreg = 0;
 				argv.isTmp=0;
+				argv.refCount=0;
 				argv.inReg=NULL;
 				argv.name=strcpy(calloc(strlen(name)+1,1), name);
 				__auto_type scope = llScopeValuePtr(currentScope);
@@ -260,7 +262,8 @@ void parserAddVar(const struct parserNode *name, struct object *type,struct reg 
 	var.isRefedByPtr=0;
 	var.isTmp=0;
 	var.inReg=inReg;
-
+	var.refCount=0;
+	
 	assert(name->type == NODE_NAME);
 	struct parserNodeName *name2 = (void *)name;
 	var.name = calloc(strlen(name2->text) + 1,1);

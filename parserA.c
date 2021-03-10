@@ -241,7 +241,8 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end, llLex
 						var.var = findVar;
 						var.base.pos.start = name->pos.start;
 						var.base.pos.end = name->pos.end;
-
+						findVar->refCount++;
+						
 						return ALLOCATE(var);
 				}
 
@@ -1656,6 +1657,7 @@ static void addDeclsToScope(struct parserNode *varDecls, struct linkage link) {
 		var.base.pos=decl->name->pos;
 		var.base.type=NODE_VAR;
 		var.var=parserGetVar(decl->name);
+		var.var->refCount++;
 		struct parserNode *varNode=ALLOCATE(var);
 		decl->var=varNode;
 		
@@ -1670,6 +1672,7 @@ static void addDeclsToScope(struct parserNode *varDecls, struct linkage link) {
 			var.base.pos=decl->name->pos;
 			var.base.type=NODE_VAR;
 			var.var=parserGetVar(decl->name);
+			var.var->refCount++;
 			struct parserNode *varNode=ALLOCATE(var);
 			decl->var = varNode;
 			
@@ -3381,6 +3384,8 @@ void parserNodeDestroy(struct parserNode **node) {
 	}
 	case NODE_VAR: {
 		struct parserNodeVar *var = (void *)node[0];
+		//parserVar's are reference counted
+		variableDestroy(var->var);
 		break;
 	}
 	case NODE_CASE: {
@@ -4032,6 +4037,7 @@ struct parserNode *parseAsm(llLexerItem start, llLexerItem *end) {
 						var.var = findVar;
 						find = ALLOCATE(var);
 						var.var->isNoreg = 1;
+						var.var->refCount++;
 						goto importFindLoop;
 					}
 				} else
@@ -4171,4 +4177,11 @@ struct parserNode *parseTry(llLexerItem start, llLexerItem *end) {
 		node.body=body;
 		node.catch=catchBlock;
 		return ALLOCATE(node);
+}
+void variableDestroy(struct parserVar *var) {
+		if(--var->refCount<=0) {
+				free(var->name);
+				strParserNodeDestroy(&var->refs);
+				free(var);
+		}
 }
