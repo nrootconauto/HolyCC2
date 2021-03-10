@@ -237,9 +237,9 @@ void parserAddVarLenArgsVars2Func(struct parserVar **Argc,struct parserVar **Arg
 				if (find) {
 						// TODO whine about re-declaration
 				} else {
-						mapVarInsert(scope->vars, argc.name, argc);
+						mapVarInsert(scope->vars, argc.name, ALLOCATE(argc));
 						if(Argc)
-								*Argc=mapVarGet(scope->vars, argc.name);
+								*Argc=*mapVarGet(scope->vars, argc.name);
 				}
 		}
 		{
@@ -258,9 +258,9 @@ void parserAddVarLenArgsVars2Func(struct parserVar **Argc,struct parserVar **Arg
 				if (find) {
 						// TODO whine about re-declaration
 				} else {
-						mapVarInsert(scope->vars, argv.name, argv);
+						mapVarInsert(scope->vars, argv.name, ALLOCATE(argv));
 						if(Argv)
-								*Argv=mapVarGet(scope->vars, argv.name);
+								*Argv=*mapVarGet(scope->vars, argv.name);
 				}
 		}
 }
@@ -285,15 +285,15 @@ void parserAddVar(const struct parserNode *name, struct object *type,struct reg 
 	if (find) {
 		// TODO whine about re-declaration
 	} else {
-		mapVarInsert(scope->vars, var.name, var);
+			mapVarInsert(scope->vars, var.name, ALLOCATE(var));
 	}
 }
 struct parserVar *parserGetVarByText(const char *name) {
 	for (__auto_type scope = currentScope; scope != NULL; scope = llScopeValuePtr(scope)->parent) {
-		struct parserVar *find = mapVarGet(llScopeValuePtr(scope)->vars, name);
+		struct parserVar **find = mapVarGet(llScopeValuePtr(scope)->vars, name);
 		if (find) {
-			find->refs = strParserNodeAppendItem(find->refs, (struct parserNode *)name);
-			return find;
+			find[0]->refs = strParserNodeAppendItem(find[0]->refs, (struct parserNode *)name);
+			return find[0];
 		}
 	}
 	// TODO whine about not found.
@@ -305,10 +305,10 @@ struct parserVar *parserGetVar(const struct parserNode *name) {
 	const struct parserNodeName *name2 = (void *)name;
 
 	for (__auto_type scope = currentScope; scope != NULL; scope = llScopeValuePtr(scope)->parent) {
-		struct parserVar *find = mapVarGet(llScopeValuePtr(scope)->vars, name2->text);
+		struct parserVar **find = mapVarGet(llScopeValuePtr(scope)->vars, name2->text);
 		if (find) {
-			find->refs = strParserNodeAppendItem(find->refs, (struct parserNode *)name);
-			return find;
+			find[0]->refs = strParserNodeAppendItem(find[0]->refs, (struct parserNode *)name);
+			return find[0];
 		}
 	}
 	// TODO whine about not found.

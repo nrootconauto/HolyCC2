@@ -3,8 +3,8 @@
 #include <linkedList.h>
 #include <parserA.h>
 struct scope;
-MAP_TYPE_DEF(struct variable, Var);
-MAP_TYPE_FUNCS(struct parserVar, Var);
+MAP_TYPE_DEF(struct parserVar *, Var);
+MAP_TYPE_FUNCS(struct parserVar *, Var);
 MAP_TYPE_DEF(struct parserFunction*, Func);
 MAP_TYPE_FUNCS(struct parserFunction*, Func);
 LL_TYPE_DEF(struct scope, Scope);

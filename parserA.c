@@ -2891,8 +2891,7 @@ struct linkage linkageClone(struct linkage from) {
 }
 struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 	__auto_type originalStart = start;
-	struct linkage link = getLinkage(start, &start);
-	struct parserNode *name = nameParse(start, NULL, &start);
+	struct parserNode *name CLEANUP(parserNodeDestroy)= nameParse(start, NULL, &start);
 	if (!name)
 		return NULL;
 
@@ -2911,17 +2910,15 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 		ptrLevel++, start = llLexerItemNext(start);
 	}
 
-	name = nameParse(start, NULL, &start);
-	if (!name)
+	struct parserNode *name2 CLEANUP(parserNodeDestroy) = nameParse(start, NULL, &start);
+	if (!name2)
 		return NULL;
 
-	struct parserNode *lP = NULL, *rP = NULL;
-	struct parserNode *toKill[] = {lP, rP};
+	struct parserNode *lP CLEANUP(parserNodeDestroy)= NULL, *rP CLEANUP(parserNodeDestroy) = NULL;
 	strParserNode args = NULL;
-	long count = sizeof(toKill) / sizeof(*toKill);
 	lP = expectOp(start, "(");
 	if (!lP)
-		goto fail;
+			return NULL;
 	start = llLexerItemNext(start);
 
 	int foundDotDotDot=0;
@@ -2973,6 +2970,11 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 		arg.name = decl->name;
 		arg.type = decl->type;
 		arg.var=NULL;
+
+		//Mark used members as NULL to prevent from being destroyed
+		decl->dftVal=NULL;
+		decl->name=NULL;
+		
 		
 		// TODO whine on metadata
 
@@ -2987,7 +2989,7 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 	//
 	struct currentFunctionInfo info;
 	info.retTypeBegin = nm->base.pos.start;
-	info.retTypeEnd = name->pos.start;
+	info.retTypeEnd = name2->pos.start;
 	info.retType = retType;
 	info.insideFunctions = NULL;
 	currentFuncsStack = strFuncInfoStackAppendItem(currentFuncsStack, info);
@@ -2999,7 +3001,7 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 	//
 
 	struct parserNode *retVal = NULL;
-	__auto_type scope = parseScope(start, &start, (struct objectFunction*)funcType);
+	struct parserNode *scope CLEANUP(parserNodeDestroy) = parseScope(start, &start, (struct objectFunction*)funcType);
 	if (!scope) {
 		// If no scope follows,is a forward declaration
 		__auto_type semi = expectKeyword(start, ";");
@@ -3011,8 +3013,8 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 		struct parserNodeFuncForwardDec forward;
 		forward.base.type = NODE_FUNC_FORWARD_DECL;
 		forward.funcType = funcType;
-		forward.name = name;
-
+		forward.name = name2;
+		
 		retVal = ALLOCATE(forward);
 	} else {
 		// Has a function body
@@ -3020,10 +3022,11 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 		func.base.type = NODE_FUNC_DEF;
 		func.bodyScope = scope;
 		func.funcType = funcType;
-		func.name = name;
+		func.name = name2;
 		func.args = args;
 
 		retVal = ALLOCATE(func);
+		scope=NULL; //Mark for non-deleteion
 	}
 
 	// Assign parent function to functions within function
@@ -3059,12 +3062,16 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 	else
 		assignPosByLexerItems(retVal, originalStart, NULL);
 
-	parserAddFunc(name, funcType, retVal);
-
+	parserAddFunc(name2, funcType, retVal);
+	
+	
 	if (retVal->type == NODE_FUNC_DEF)
-		((struct parserNodeFuncDef *)retVal)->func = parserGetFunc(name);
+		((struct parserNodeFuncDef *)retVal)->func = parserGetFunc(name2);
 	else if (retVal->type == NODE_FUNC_FORWARD_DECL)
-		((struct parserNodeFuncForwardDec *)retVal)->func = parserGetFunc(name);
+		((struct parserNodeFuncForwardDec *)retVal)->func = parserGetFunc(name2);
+	name=NULL; //Mark as no kill
+	name2=NULL; //Mark as no destroy
+	
 	return retVal;
 fail:
 	return NULL;

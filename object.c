@@ -338,7 +338,6 @@ objectClassCreate(const struct parserNode *name, const struct objectMember *memb
 	newClass->name = (struct parserNode *)name;
 	newClass->base.type = TYPE_CLASS;
 	newClass->base.name = NULL;
-	newClass->methods = NULL;
 	newClass->members = NULL;
 	newClass->baseType = NULL;
 	
@@ -574,7 +573,9 @@ objectFuncCreate(struct object *retType, strFuncArg args,int varLenArgs) {
 	func.args = strFuncArgAppendData(NULL, args, strFuncArgSize(args));
 	func.retType = retType;
 	func.hasVarLenArgs=varLenArgs;
-
+	func.argcVar=NULL;
+	func.argvVar=NULL;
+	
 	void *retVal = calloc(sizeof(struct objectFunction),1);
 	memcpy(retVal, &func, sizeof(struct objectFunction));
 
@@ -768,4 +769,105 @@ struct objectMember *objectMemberGet(struct object *aType,struct parserNodeName 
 				}
 			}
 			return member;
+}
+
+static void strObjectMemberAttrDestroy2(strObjectMemberAttr *attrs) {
+		for(long a=0;a!=strObjectMemberAttrSize(*attrs);a++) {
+				free(attrs[0][a].name);
+				parserNodeDestroy(&attrs[0][a].value);
+		}
+		strObjectMemberAttrDestroy(attrs);
+}
+static void strObjectMemberDestroy2(strObjectMember *mems) {
+		for(long m=0;m!=strObjectMemberSize(*mems);m++) {
+				free(mems[0][m].name);
+				strObjectMemberAttrDestroy2(&mems[0][m].attrs);
+		}
+		strObjectMemberDestroy(mems);
+}
+static void strFuncArgDestroy2(strFuncArg *args) {
+		for(long a=0;a!=strFuncArgSize(*args);a++) {
+				parserNodeDestroy(&args[0][a].dftVal);
+				parserNodeDestroy(&args[0][a].name);
+				if(args[0][a].var)
+						variableDestroy(args[0][a].var);
+		}
+		strFuncArgDestroy(args);
+}
+static void objectDestroy(struct object **obj) {
+		switch(obj[0]->type) {
+		case TYPE_UNION:  {
+				struct objectUnion *un=(void*)obj[0];
+				strObjectMemberDestroy2(&un->members);
+				parserNodeDestroy(&un->name);
+				break;
+		}
+		case TYPE_ARRAY: {
+				struct objectArray *arr=(void*)obj[0];
+				parserNodeDestroy(&arr->dim);
+				break;
+		}
+		case TYPE_Bool:  {
+				break;
+		}
+		case TYPE_CLASS:  {
+				struct objectClass *cls=(void*)obj[0];
+				strObjectMemberDestroy2(&cls->members);
+				parserNodeDestroy(&cls->name);
+				break;
+		}
+		case TYPE_PTR:
+		case TYPE_I16i:
+		case TYPE_I32i:
+		case TYPE_I64i:
+		case TYPE_I8i:
+		case TYPE_F64:
+		case TYPE_U0:
+		case TYPE_U8i:
+		case TYPE_U16i:
+		case TYPE_U32i:
+		case TYPE_U64i:
+				break;
+		case TYPE_FORWARD: {
+				struct objectForwardDeclaration *fwd=(void*)obj[0];
+				parserNodeDestroy(&fwd->name);
+				break;
+		}
+		case TYPE_FUNCTION: {
+				struct objectFunction *func=(void*)obj[0];
+				if(func->argcVar) variableDestroy(func->argcVar);
+				if(func->argvVar) variableDestroy(func->argvVar);
+				strFuncArgDestroy2(&func->args);
+				break;
+		}
+		}
+		free(obj[0]->name);
+
+		const struct object *dontFree[]={
+				&typeU0,
+				&typeBool,
+				&typeI8i,
+				&typeI16i,
+				&typeI32i,
+				&typeI64i,
+				&typeU8i,
+				&typeU16i,
+				&typeU32i,
+				&typeU64i,
+				&typeF64,
+		};
+		for(long d=0;d!=sizeof(dontFree)/sizeof(*dontFree);d++)
+				if(dontFree[d]==*obj)
+						return;
+		free(*obj);
+}
+static __attribute__((destructor)) void deinit() {
+		long count;
+		mapObjectKeys(objectRegistry, NULL, &count);
+		const char *keys[count];
+		mapObjectKeys(objectRegistry, keys, &count);
+		for(long o=0;o!=count;o++) {
+				objectDestroy(mapObjectGet(objectRegistry, keys[o]));
+		}
+		mapObjectDestroy(objectRegistry, NULL);
 }

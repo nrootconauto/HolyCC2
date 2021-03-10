@@ -41,18 +41,11 @@ struct object {
 	enum holyCTypeKind type;
 	char *name;
 };
-struct objectMethod {
-	struct parserNode *name;
-	struct object *type;
-};
-LL_TYPE_DEF(struct objectMethod, Method);
-LL_TYPE_FUNCS(struct objectMethod, Method);
 struct objectClass {
 	struct object base;
 	struct object *baseType;
 	struct parserNode *name;
 	strObjectMember members;
-	llMethod methods;
 	long align;
 	long size;
 };
@@ -120,7 +113,6 @@ extern struct object typeI32i;
 extern struct object typeI64i;
 extern struct object typeF64;
 
-void strFuncArgDestroy2(strFuncArg *args);
 char *object2Str(struct object *obj);
 int objectEqual(const struct object *a, const struct object *b);
 int objectIsCompat(const struct object *a, const struct object *b);
