@@ -131,6 +131,6 @@ U0 testRegsI8i() {
 I32i main() {
 					testRegsI32i();
 					testRegsI16i();
-					//testRegsI8i();
+					testRegsI8i();
 					return 0;
 }

@@ -2769,7 +2769,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 							pushMode(axMode);
 							pushMode(aMode);
 							pushMode(bMode);
-							asmTypecastAssign(alMode, bMode ,  ASM_ASSIGN_X87FPU_POP);
+							asmTypecastAssign(alMode, aMode ,  ASM_ASSIGN_X87FPU_POP);
 							strX86AddrMode imulArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 							imulArgs=strX86AddrModeAppendItem(imulArgs, X86AddrModeIndirReg(stackPointer(), &typeI8i));
 							assembleOpcode(start, "IMUL", imulArgs);
