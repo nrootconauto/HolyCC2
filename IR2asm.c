@@ -2943,24 +2943,31 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 
 
 		//We will pop them into rax/rdx
-		pushMode(bMode);
-		pushMode(aMode);
 		switch (objectSize(IRNodeType(start), NULL)) {
-		case 1:
-				popReg(&regX86AX);
-				divArgs = strX86AddrModeAppendItem(divArgs, X86AddrModeIndirReg(stackPointer(), &typeI8i));
+		case 1: {
+				//Dummy Value
+				pushMode(bMode);
+				struct X86AddressingMode *axMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86AX);
+				axMode->valueType=&typeI16i;
+				asmTypecastAssign(axMode, aMode, ASM_ASSIGN_X87FPU_POP);
+				divArgs = strX86AddrModeAppendItem(divArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(1), &typeI8i));
 				assembleOpcode(start,op, divArgs);
-				//Dummy pop
-				popReg(&regX86AX);
-			if (isDivOrMod) {
-				struct X86AddressingMode *al CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86AL);
-				asmAssign(outMode, al, 1,0);
-			} else {
-				struct X86AddressingMode *ah CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86AH);
-				asmAssign(outMode, ah, 1,0);
-			}
-			break;
+
+				strX86AddrMode incArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeReg(stackPointer()));
+				assembleOpcode(start, "INC",incArgs);
+				
+				if (isDivOrMod) {
+						struct X86AddressingMode *al CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86AL);
+						asmAssign(outMode, al, 1,0);
+				} else {
+						struct X86AddressingMode *ah CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86AH);
+						asmAssign(outMode, ah, 1,0);
+				}
+				break;
+		}
 		case 2:
+				pushMode(bMode);
+				pushMode(aMode);
 				popReg(&regX86AX);
 				divArgs = strX86AddrModeAppendItem(divArgs, X86AddrModeIndirReg(stackPointer(), &typeI16i));
 			dxorArgs = strX86AddrModeAppendItem(dxorArgs, X86AddrModeReg(&regX86DX));
@@ -2978,6 +2985,8 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			}
 			break;
 		case 4:
+				pushMode(bMode);
+				pushMode(aMode);
 				popReg(&regX86EAX);
 				divArgs = strX86AddrModeAppendItem(divArgs, X86AddrModeIndirReg(stackPointer(), &typeI32i));
 			dxorArgs = strX86AddrModeAppendItem(dxorArgs, X86AddrModeReg(&regX86EDX));
@@ -2995,6 +3004,8 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			}
 			break;
 		case 8:
+				pushMode(bMode);
+				pushMode(aMode);
 				popReg(&regAMD64RAX);
 			divArgs = strX86AddrModeAppendItem(divArgs, X86AddrModeIndirReg(stackPointer(), &typeI64i));
 			dxorArgs = strX86AddrModeAppendItem(dxorArgs, X86AddrModeReg(&regAMD64RDX));
