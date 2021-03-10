@@ -135,8 +135,12 @@ U0 testRegsCast() {
 			I8i reg CL reg16;
 }*/
 I32i main() {
+try {
+				throw(1);
+				} catch {
 					testRegsI32i();
 					testRegsI16i();
 					testRegsI8i();
+					}
 					return 0;
 }

@@ -4022,13 +4022,10 @@ struct parserNode *parseAsm(llLexerItem start, llLexerItem *end) {
 						diagPushText(" wasn't found.");
 						diagEndMsg();
 					} else {
+							findVar->isNoreg=1;
 					}
 				} else
 					mapParserSymbolInsert(asmImports, name2->text, find);
-				// Mark as noreg if imported
-				if (find->var) {
-					find->var->isNoreg = 1;
-				}
 			}
 			struct parserNodeAsmImport import;
 			import.base.type = NODE_ASM_IMPORT;
