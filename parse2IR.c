@@ -13,12 +13,7 @@
 typedef int (*gnIRCmpType)(const graphNodeIR *, const graphNodeIR *);
 typedef int (*pnCmpType)(const struct parserNode **, const struct parserNode **);
 static int ptrPtrCmp(const void *a, const void *b) {
-	if (*(void **)a > *(void **)b)
-		return 1;
-	else if (*(void **)a < *(void **)b)
-		return -1;
-	else
-		return 0;
+		return *(void**)a-*(void**)b;
 }
 static struct enterExit __parserNode2IRStmt(const struct parserNode *node);
 STR_TYPE_DEF(char, Char);

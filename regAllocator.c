@@ -103,12 +103,7 @@ STR_TYPE_DEF(struct IRVar *, IRVar);
 STR_TYPE_FUNCS(struct IRVar *, IRVar);
 typedef int (*gnCmpType)(const graphNodeIR *, const graphNodeIR *);
 static int ptrPtrCmp(const void *a, const void *b) {
-	if (*(void **)a > *(void **)b)
-		return 1;
-	else if (*(void **)a < *(void **)b)
-		return -1;
-	else
-		return 0;
+		return *(void**)a-*(void**)b;
 }
 static void transparentKill(graphNodeIR node, int preserveEdgeValue) {
 	__auto_type incoming = graphNodeIRIncoming(node);
@@ -586,7 +581,7 @@ static int nodeEqual(const graphNodeIR *a, const graphNodeIR *b) {
 typedef int (*regCmpType)(const struct reg **, const struct reg **);
 typedef struct regSlice (*color2RegPredicate)(strRegSlice adjacent, strRegP avail, graphNodeIRLive live, int color, const void *data, long colorCount,
                                               const int *colors);
-static struct regSlice color2Reg(strRegSlice adjacent, strRegP avail, graphNodeIRLive live, int color, const void *data, long colorCount, const int *colors) {
+static struct regSlice color2Reg(strRegSlice adjacent, strRegP avail, graphNodeIRLive live, int color, const void *data, long colorCount) {
 	__auto_type avail2 = strRegPClone(avail);
 	strRegP adjRegs = NULL;
 	for (long i = 0; i != strRegSliceSize(adjacent); i++) {
@@ -598,11 +593,8 @@ static struct regSlice color2Reg(strRegSlice adjacent, strRegP avail, graphNodeI
 		avail2 = strRegPClone(avail);
 	}
 
-	int *find = bsearch(&color, colors, colorCount, sizeof(int), (int (*)(const void *, const void *))intCmp);
-	assert(find);
-
 	struct regSlice slice;
-	slice.reg = avail2[*find % strRegPSize(avail2)];
+	slice.reg = avail2[color % strRegPSize(avail2)];
 	slice.offset = 0;
 	slice.widthInBits = slice.reg->size * 8;
 	struct IRValue dummy;
@@ -835,9 +827,9 @@ void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,v
 
 		// debugPrintInterferenceGraph(interferes[i], regsByLivenessNode);
 
-		llVertexColor vertexColors CLEANUP(llVertexColorsDestroy2) = graphColor(interfere);
+		//llVertexColor vertexColors CLEANUP(llVertexColorsDestroy2) = graphColor(interfere);
 
-		strInt colors CLEANUP(strIntDestroy) = getColorList(vertexColors);
+		//strInt colors CLEANUP(strIntDestroy) = getColorList(vertexColors);
 
 		// Choose registers
 
@@ -874,7 +866,7 @@ void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,v
 
 			struct regSlice slice ;
 			if(!value.value.var.var->inReg) {
-					slice=color2Reg(adj, regsForType, allColorNodes[i], llVertexColorGet(vertexColors, allColorNodes[i])->color, NULL, strIntSize(colors), colors);
+					slice=color2Reg(adj, regsForType, allColorNodes[i], rand(), NULL, strGraphNodeIRLivePSize(allColorNodes));
 			} else {
 					slice.reg = value.value.var.var->inReg;
 					slice.offset = 0;

@@ -232,12 +232,7 @@ graphNodeIR IRCreateValueFromLabel(graphNodeIR lab) {
 	return GRAPHN_ALLOCATE(lab);
 }
 static int ptrPtrCmp(const void *a, const void *b) {
-	if (*(void **)a > *(void **)b)
-		return 1;
-	else if (*(void **)a < *(void **)b)
-		return -1;
-	else
-		return 0;
+		return *(void**)a-*(void**)b;
 }
 strGraphNodeP IRStatementNodes(const graphNodeIR stmtStart, const graphNodeIR stmtEnd) {
 	//

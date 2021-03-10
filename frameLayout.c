@@ -16,11 +16,7 @@
 		$retVal;                                                                                                                                                       \
 	})
 static int ptrPtrCmp(const void *a, const void *b) {
-	if (*(void **)a > *(void **)b)
-		return 1;
-	else if (*(void **)a < *(void **)b)
-		return -1;
-	return 0;
+		return *(void**)a-*(void**)b;
 }
 typedef int (*gnCmpType)(const graphNodeIRLive *, const graphNodeIRLive *);
 static int isGlobal(graphNodeIR node, const void *data) {

@@ -10,12 +10,7 @@ struct IRAttrNodeType {
 };
 typedef int(*gnCmpType)(const graphNodeIR *,const graphNodeIR *);
 static int ptrPtrCmp(const void *a, const void *b) {
-	if (*(void **)a > *(void **)b)
-		return 1;
-	else if (*(void **)a < *(void **)b)
-		return -1;
-	else
-		return 0;
+		return *(void**)a-*(void**)b;
 }
 static struct object **getType(graphNodeIR node) {
 loop:;

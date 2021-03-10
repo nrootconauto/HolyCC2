@@ -18,12 +18,7 @@ static long __ptrMapHash(const struct __ptrMap *map, const void *ptr) {
 	return (((unsigned long)ptr >> 3u) / 3u) % strLLSize(map->buckets);
 }
 static int ptrPtrCmp(const void *a, const void *b) {
-	if (*(void **)a > *(void **)b)
-		return 1;
-	else if (*(void **)a < *(void **)b)
-		return -1;
-	else
-		return 0;
+		return *(void**)a-*(void**)b;
 }
 static int llPtrInsertPred(const void *a, const void *b) {
 	return ptrPtrCmp(a, b);
