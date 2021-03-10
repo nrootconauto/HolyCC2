@@ -14,6 +14,18 @@ struct scope {
 	llScope subScopes;
 	llScope parent;
 };
+struct parserSymbol {
+		char *fn;
+		long ln,col;
+		struct object *type;
+		char *name;
+		struct linkage link;
+		long version;
+		long shadowPrec;
+		struct parserVar *var;
+};
+STR_TYPE_DEF(struct parserSymbol *,ParserSymbol);
+STR_TYPE_FUNCS(struct parserSymbol *,ParserSymbol);
 LL_TYPE_FUNCS(struct scope, Scope);
 void variableDestroy(struct parserVar *var);
 void enterScope();
@@ -25,9 +37,9 @@ void parserAddFunc(const struct parserNode *name, const struct object *type, str
 
 void initParserData();
 void killParserData();
-struct parserNode *parserGetGlobalSym(const char *name);
+struct parserSymbol *parserGetGlobalSym(const char *name);
 void parserAddGlobalSym(struct parserNode *node, struct linkage link);
-strParserNode parserSymbolTableSyms();
+strParserSymbol parserSymbolTableSyms();
 const struct linkage *parserGlobalSymLinkage(const char *name);
 void parserSymTableNames(const char **keys, long *count);
 void parserAddVarLenArgsVars2Func(struct parserVar **Argc,struct parserVar **Argv);

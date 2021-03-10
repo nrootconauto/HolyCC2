@@ -56,7 +56,8 @@ graphNodeIR IRCreateSpillLoad(struct IRVar *var) {
 	spill.base.type = IR_SPILL_LOAD;
 	spill.item.type = IR_VAL_VAR_REF;
 	spill.item.value.var = *var;
-
+	var->var->refCount++;
+			
 	return GRAPHN_ALLOCATE(spill);
 }
 graphNodeIR IRCreateRegRef(const struct regSlice *slice) {
@@ -165,6 +166,7 @@ graphNodeIR IRCreateStmtEnd(graphNodeIR start) {
 	var.isTmp=1;
 	var.inReg=NULL;
 	var.isNoreg =0;
+	var.refCount=0;
 	__auto_type alloced = ALLOCATE(var);
 
 	return alloced;
@@ -197,7 +199,8 @@ strGraphNodeIRP IRVarRefs(struct parserVar *var, long *SSANum) {
 	return strGraphNodeIRPRemoveIf(clone, SSANum, (int (*)(const void *, const graphNodeIR *))isNotOfSSANum);
 }
 graphNodeIR IRCreateVarRef(struct parserVar *var) {
-loop:;
+		var->refCount++;
+	loop:;
 	__auto_type find = ptrMapIRVarRefsGet(IRVars, var);
 	if (!find) {
 		struct IRVar ref;
@@ -445,7 +448,7 @@ static void transparentKill(graphNodeIR node) {
 		for (long i2 = 0; i2 != strGraphEdgeIRPSize(outgoing); i2++)
 			graphNodeIRConnect(graphEdgeIRIncoming(incoming[i1]), graphEdgeIROutgoing(outgoing[i2]), IR_CONN_FLOW);
 
-	graphNodeIRKill(&node, NULL, NULL);
+	graphNodeIRKill(&node, (void(*)(void*))IRNodeDestroy, NULL);
 }
 void IRRemoveNeedlessLabels(graphNodeIR start) {
 	strGraphNodeIRP all CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRAllNodes(start);
@@ -1804,6 +1807,7 @@ void IRNodeDestroy(struct IRNode *node) {
 		struct IRNodeValue *valueNode = (void *)node;
 		if (valueNode->val.type == IR_VAL_VAR_REF) {
 			__auto_type find = ptrMapIRVarRefsGet(IRVars, valueNode->val.value.var.var);
+			variableDestroy(valueNode->val.value.var.var);
 			assert(find);
 			for (long i = 0; i != strGraphNodeIRPSize(find->refs); i++) {
 				if (graphNodeIRValuePtr(find->refs[i]) == node) {

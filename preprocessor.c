@@ -19,6 +19,7 @@ MAP_TYPE_FUNCS(struct defineMacro, DefineMacro);
 static __thread long lineStart;
 static __thread strTextModify sourceMappings = NULL;
 static __thread strFileMappings allFileMappings = NULL;
+__thread strFileMappings currentFileMappings;
 static __thread const char *currentFile=NULL;
 static FILE *createPreprocessedFileLine(mapDefineMacro defines, struct __vec *text_, int *err);
 static void expandDefinesInRange(struct __vec **retVal, mapDefineMacro defines, long where, long end, int *expanded, int *err);
@@ -776,6 +777,8 @@ returnLabel:
 		if (*err)
 			return NULL;
 
+	if(fileMappings)
+			currentFileMappings=*fileMappings;
 	return preprocessedSource;
 }
 //

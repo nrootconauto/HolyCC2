@@ -930,14 +930,6 @@ static void debugShowGraphIR(graphNodeIR enter) {
 
 	system(buffer);
 }
-static struct parserNode *includeHCRTFunc(const char *name) {
-		__auto_type sym= parserGetGlobalSym("HCRT_ExceptStoreState");
-		if(!sym) {
-				fprintf(stderr,"Include HCRT.o for \"%s\"\n", name);
-				abort();
-		}
-		return sym;
-}
 static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 	switch (node->type) {
 	case NODE_ARRAY_LITERAL: {

@@ -20,3 +20,4 @@ STR_TYPE_DEF(struct fileMapping, FileMappings);
 STR_TYPE_FUNCS(struct fileMapping, FileMappings);
 FILE *createPreprocessedFile(const char *fileName, strTextModify *mappings, strFileMappings *fileMappings, int *err);
 const char *fileNameFromPos(const strFileMappings mappings, long pos);
+extern __thread  strFileMappings currentFileMappings;

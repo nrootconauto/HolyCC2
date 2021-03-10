@@ -34,6 +34,7 @@ struct X86AddressingMode {
 		X86ADDRMODE_MEM,
 		X86ADDRMODE_LABEL,
 		X86ADDRMODE_ITEM_ADDR,
+		X86ADDRMODE_VAR_ADDR,
 		X86ADDRMODE_STR,
 	} type;
 	union {
@@ -43,14 +44,19 @@ struct X86AddressingMode {
 		struct reg *reg;
 		struct X86MemoryLoc m;
 			struct {
-					struct parserNode *item;
+					char *item;
 					long offset;
 			} itemAddr;
+			struct {
+					struct parserVar *var;
+					long offset;
+			} varAddr;
 		char *label;
 		struct __vec *text;
 	} value;
 	struct object *valueType;
 };
+struct X86AddressingMode *X86AddrModeVar(struct parserVar *var,long offset);
 struct X86AddressingMode *X86AddrModeFlt(double value);
 struct X86AddressingMode *X86AddrModeUint(uint64_t imm);
 struct X86AddressingMode *X86AddrModeSint(int64_t imm);
@@ -59,7 +65,7 @@ struct X86AddressingMode *X86AddrModeIndirMem(uint64_t where, struct object *typ
 struct X86AddressingMode *X86AddrModeLabel(const char *name);
 struct X86AddressingMode *X86AddrModeIndirReg(struct reg *where, struct object *type);
 struct X86AddressingMode *X86AddrModeIndirSIB(long scale, struct X86AddressingMode *index, struct X86AddressingMode *base, struct X86AddressingMode *offset, struct object *type);
-struct X86AddressingMode *X86AddrModeItemAddrOf(struct parserNode *addrOf,long offset, struct object *type);
+struct X86AddressingMode *X86AddrModeItemAddrOf(struct parserSymbol *item,long offset, struct object *type);
 struct opcodeTemplateArg {
 	enum {
 		OPC_TEMPLATE_ARG_REG,

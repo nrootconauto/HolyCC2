@@ -603,6 +603,7 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 				strRegP consumedRegs CLEANUP(strRegPDestroy)=NULL;
 				for(long a=0;a!=strOpcodeTemplateArgSize(opsByName[t]->args);a++) {
 						switch(args[a]->type) {
+						case X86ADDRMODE_VAR_ADDR:
 						case X86ADDRMODE_ITEM_ADDR:
 						case X86ADDRMODE_SINT:
 						case X86ADDRMODE_UINT:
@@ -794,6 +795,7 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 		
 		for(long a=0;a!=strOpcodeTemplateArgSize(opsByName[lowestValidI]->args);a++) {
 				switch(args[a]->type) {
+				case X86ADDRMODE_VAR_ADDR:
 				case X86ADDRMODE_ITEM_ADDR:
 				case X86ADDRMODE_SINT:
 				case X86ADDRMODE_UINT:
@@ -1107,6 +1109,7 @@ void asmAssign(struct X86AddressingMode *a, struct X86AddressingMode *b, long si
 						fputs("Can't assign this into floating point.\n", stderr);
 						abort();
 				}
+				case X86ADDRMODE_VAR_ADDR:
 				case X86ADDRMODE_ITEM_ADDR:
 				case X86ADDRMODE_LABEL:
 				case X86ADDRMODE_MEM: {
@@ -1610,6 +1613,7 @@ static struct X86AddressingMode *demoteAddrMode(struct X86AddressingMode *addr, 
 	case X86ADDRMODE_MEM:
 	case X86ADDRMODE_SINT:
 	case X86ADDRMODE_UINT:
+	case X86ADDRMODE_VAR_ADDR:
 		mode->valueType = type;
 		break;
 	}
@@ -2282,6 +2286,7 @@ void asmTypecastAssign(struct X86AddressingMode *outMode, struct X86AddressingMo
 			assert(0);
 		return;
 	}
+	case X86ADDRMODE_VAR_ADDR:
 	case X86ADDRMODE_MEM:
 	case X86ADDRMODE_LABEL:
 	case X86ADDRMODE_ITEM_ADDR:
@@ -2940,7 +2945,6 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 
 		const char *op = typeIsSigned(IRNodeType(start)) ? "IDIV" : "DIV";
 		int isDivOrMod = graphNodeIRValuePtr(start)->type == IR_DIV;
-
 
 		//We will pop them into rax/rdx
 		switch (objectSize(IRNodeType(start), NULL)) {
@@ -3731,7 +3735,7 @@ static struct X86AddressingMode *includeHCRTFunc(const char *name) {
 		}
 		__auto_type name2=parserGetGlobalSymLinkageName(name);
 		__auto_type retVal=X86AddrModeLabel(name2);
-		retVal->valueType=parserGlobalSymType(name);
+		retVal->valueType=sym->type;
 		return retVal;
 }
 void IR2Asm(graphNodeIR start) {

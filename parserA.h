@@ -353,9 +353,10 @@ struct parserNodeAsmOrg {
 	struct parserNode base;
 	uint64_t org;
 };
+struct parserSymbol;
+STR_TYPE_DEF(struct parserSymbol*,ParserSymbol);
 struct parserNodeAsmImport {
 	struct parserNode base;
-	strParserNode symbols;
 };
 /* USE16/32/64
  */

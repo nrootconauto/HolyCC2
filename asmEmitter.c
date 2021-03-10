@@ -210,59 +210,13 @@ static strChar getSizeStr(struct object *obj) {
 		return NULL;
 	}
 }
-static strChar parserNodeSymbolName(struct parserNode *node) {
-	switch (node->type) {
-	case NODE_VAR: {
-		struct parserNodeVar *var = (void *)node;
-		__auto_type sym=parserGetGlobalSym(var->var->name);
-		if(sym)
-				if(sym->type==NODE_VAR){
-						struct parserNodeVar *var2=(void*)sym;
-						if(var2->var==var->var) 
-								return strClone(parserGetGlobalSymLinkageName(var->var->name));
-				}
-		return strClone(var->var->name);
-	}
-	case NODE_FUNC_REF: {
-		struct parserNodeFuncRef *ref = (void *)node;
-		struct parserFunction *func=NULL;
-		func=ref->func;
-		if(0) {
-		case NODE_FUNC_DEF:;
-				struct parserNodeFuncDef *def = (void *)node;
-				func=def->func;
-		} else if (0) {
-		case NODE_FUNC_FORWARD_DECL:;
-				struct parserNodeFuncForwardDec *fwd = (void *)node;
-				func=fwd->func;
-		}
-		
-		__auto_type sym=parserGetGlobalSym(func->name);
-		if(sym) {
-				if(sym->type==NODE_FUNC_DEF) {
-						struct parserNodeFuncDef *func2=(void*)sym;
-						if(func==func2->func) 
-								return strClone(parserGetGlobalSymLinkageName(func->name));
-				} else if(sym->type==NODE_FUNC_FORWARD_DECL) {
-								struct parserNodeFuncForwardDec *func2=(void*)sym;
-						if(func==func2->func) 
-								return strClone(parserGetGlobalSymLinkageName(func->name));
-				}
-		}
-		return strClone(func->name);
-	}
-			
-	default:;
-	}
-	return NULL;
-}
 static void X86EmitSymbolTable() {
 	long count;
 	parserSymTableNames(NULL, &count);
 	const char *keys[count];
 	parserSymTableNames(keys, NULL);
 	for (long i = 0; i != count; i++) {
-		strChar name CLEANUP(strCharDestroy2) = parserNodeSymbolName(parserGetGlobalSym(keys[i]));
+		strChar name CLEANUP(strCharDestroy2) = strClone(parserGetGlobalSymLinkageName(keys[i]));
 		if(!name)
 				continue;
 		__auto_type link = parserGlobalSymLinkage(keys[i]);
@@ -289,18 +243,31 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 		assert(0);
 		break;
 	}
-	case X86ADDRMODE_ITEM_ADDR: {
-		// Check if a (local) vairable
-		if (args[i]->value.itemAddr.item->type == NODE_VAR) {
-			struct parserNodeVar *var = (void *)args[i]->value.itemAddr.item;
-			__auto_type find = ptrMapFrameOffsetGet(localVarFrameOffsets, var->var);
+	case X86ADDRMODE_VAR_ADDR: {
+			__auto_type find = ptrMapFrameOffsetGet(localVarFrameOffsets, args[i]->value.varAddr.var);
 			if (find) {
 				struct X86AddressingMode *offset CLEANUP(X86AddrModeDestroy) =
-				    X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer()), X86AddrModeSint(-*find), var->var->type);
+				    X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer()), X86AddrModeSint(-*find), args[i]->value.varAddr.var->type);
 				return emitMode(&offset, 0);
+			} else {
+					strChar name CLEANUP(strCharDestroy) = strClone(parserGetGlobalSymLinkageName(args[i]->value.varAddr.var->name));
+					if(args[i]->value.itemAddr.offset) {
+							long offset=args[i]->value.itemAddr.offset;
+							long len = snprintf(NULL, 0, "[$%s+%li] ", name,offset);
+							strChar retVal = strCharResize(NULL, len + 1);
+							sprintf(retVal, "[$%s+%li] ", name,offset);
+							return retVal;
+					} else {
+							long len = snprintf(NULL, 0, "[$%s] ", name);
+							strChar retVal = strCharResize(NULL, len + 1);
+							sprintf(retVal, "[$%s] ", name);
+							return retVal;
+					}
 			}
-		}
-		strChar name CLEANUP(strCharDestroy) = parserNodeSymbolName(args[i]->value.itemAddr.item);
+			break;
+	}
+	case X86ADDRMODE_ITEM_ADDR: {
+			strChar name CLEANUP(strCharDestroy) = strClone(parserGetGlobalSymLinkageName(args[i]->value.itemAddr.item));
 		if (!name) {
 			fprintf(stderr, "Cant find name for symbol\n");
 			assert(0);

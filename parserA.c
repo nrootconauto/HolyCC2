@@ -22,7 +22,9 @@ static __thread mapParserNode localLabels = NULL;
 static __thread mapParserNode labels = NULL;
 static __thread mapParserNodes labelReferences = NULL;
 static __thread int isAsmMode = 0;
-static __thread mapParserNode asmImports = NULL;
+MAP_TYPE_DEF(struct parserSymbol*,ParserSymbol);
+MAP_TYPE_FUNCS(struct parserSymbol*,ParserSymbol);
+static __thread mapParserSymbol asmImports = NULL;
 static __thread int allowsArrayLiterals = 0;
 static int isGlobalScope() {
 	return currentScope == NULL;
@@ -3217,8 +3219,6 @@ void parserNodeDestroy(struct parserNode **node) {
 	}
 	case NODE_ASM_IMPORT: {
 		struct parserNodeAsmImport *imp = (void *)node[0];
-		//Symbols point to global symbols so dont free them
-		strParserNodeDestroy(&imp->symbols);
 		break;
 	}
 	case NODE_ASM_DU8:
@@ -3496,10 +3496,8 @@ static uint64_t uintLitValue(struct parserNode *lit) {
 static struct X86AddressingMode *sibOffset2Addrmode(struct parserNode *node) {
 	if (node->type == NODE_NAME) {
 		struct parserNodeName *name = (void *)node;
-		__auto_type find = mapParserNodeGet(asmImports, name->text);
+		__auto_type find = mapParserSymbolGet(asmImports, name->text);
 		if (find) {
-			if (find[0]->type == NODE_VAR)
-				((struct parserNodeVar *)*find)->var->isNoreg = 1;
 			return X86AddrModeItemAddrOf(*find, 0,NULL);
 		}
 		addLabelRef((struct parserNode *)node, name->text);
@@ -3591,12 +3589,7 @@ static struct X86AddressingMode *addrModeFromParseTree(struct parserNode *node, 
 				goto fail;
 			if (success)
 					*success = 1;
-			struct X86AddressingMode retVal;
-			retVal.type = X86ADDRMODE_ITEM_ADDR;
-			retVal.valueType = valueType;
-			retVal.value.itemAddr.item = top;
-			retVal.value.itemAddr.offset=0;
-			return ALLOCATE(retVal);
+			return X86AddrModeVar(((struct parserNodeVar*)top)->var, 0);
 		} else
 			goto fail;
 	}
@@ -3695,9 +3688,8 @@ static struct X86AddressingMode *x86ItemAddr(llLexerItem start, llLexerItem *end
 				goto loop;
 		} else if(currExprPart->type==NODE_VAR) {
 				((struct parserNodeVar *)currExprPart)->var->isNoreg = 1;
-				__auto_type clone=*(struct parserNodeVar *)currExprPart;
-				retVal=X86AddrModeItemAddrOf(ALLOCATE(clone), offset , (valueType)?valueType:assignTypeToOp(expr));
-				
+				retVal=X86AddrModeVar(((struct parserNodeVar*)currExprPart)->var, offset);
+				retVal->valueType=(valueType)?valueType:assignTypeToOp(expr);
 				retVal->value.m.segment=NULL;
 				if(segment)
 						retVal->value.m.segment=((struct parserNodeAsmReg*)segment)->reg;
@@ -4001,7 +3993,6 @@ struct parserNode *parseAsm(llLexerItem start, llLexerItem *end) {
 		if (import) {
 			__auto_type originalStart = start;
 			start = llLexerItemNext(start);
-			strParserNode symbols = NULL;
 			for (int firstRun = 1; start; firstRun = 0) {
 				struct parserNode *semi CLEANUP(parserNodeDestroy) = expectKeyword(start, ";");
 				if (semi)
@@ -4031,27 +4022,16 @@ struct parserNode *parseAsm(llLexerItem start, llLexerItem *end) {
 						diagPushText(" wasn't found.");
 						diagEndMsg();
 					} else {
-						struct parserNodeVar var;
-						getStartEndPos(start, start, &var.base.pos.start, &var.base.pos.end);
-						var.base.type = NODE_VAR;
-						var.var = findVar;
-						find = ALLOCATE(var);
-						var.var->isNoreg = 1;
-						var.var->refCount++;
-						goto importFindLoop;
 					}
 				} else
-					mapParserNodeInsert(asmImports, name2->text, find);
+					mapParserSymbolInsert(asmImports, name2->text, find);
 				// Mark as noreg if imported
-				if (find->type == NODE_VAR) {
-					struct parserNodeVar *var = (void *)find;
-					var->var->isNoreg = 1;
+				if (find->var) {
+					find->var->isNoreg = 1;
 				}
-				symbols = strParserNodeAppendItem(symbols, find);
 			}
 			struct parserNodeAsmImport import;
 			import.base.type = NODE_ASM_IMPORT;
-			import.symbols = symbols;
 			getStartEndPos(originalStart, start, &import.base.pos.start, &import.base.pos.end);
 			start = llLexerItemNext(start);
 			body = strParserNodeAppendItem(body, ALLOCATE(import));

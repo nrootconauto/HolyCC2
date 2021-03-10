@@ -869,13 +869,24 @@ struct X86AddressingMode *X86AddrModeFlt(double value) {
 	flt.value.flt = value;
 	return ALLOCATE(flt);
 }
-struct X86AddressingMode *X86AddrModeItemAddrOf(struct parserNode *item,long offset, struct object *type) {
+struct X86AddressingMode *X86AddrModeItemAddrOf(struct parserSymbol *item,long offset, struct object *type) {
 	struct X86AddressingMode mode;
 	mode.type = X86ADDRMODE_ITEM_ADDR;
-	mode.value.itemAddr.item = item;
+	const char *name=parserGetGlobalSymLinkageName(item->name);
+	mode.value.itemAddr.item = strcpy(calloc(strlen(name)+1, 1), name);
 	mode.value.itemAddr.offset=offset;
 	mode.valueType = type;
 	return ALLOCATE(mode);
+}
+struct X86AddressingMode *X86AddrModeVar(struct parserVar *var,long offset) {
+		struct X86AddressingMode mode;
+		mode.type=X86ADDRMODE_VAR_ADDR;
+		mode.value.varAddr.offset=0;
+		mode.value.varAddr.var=var;
+		mode.valueType=var->type;
+		
+		var->refCount++;
+		return ALLOCATE(mode);
 }
 struct X86AddressingMode *X86AddrModeLabel(const char *name) {
 	struct X86AddressingMode mode;
@@ -887,6 +898,11 @@ struct X86AddressingMode *X86AddrModeLabel(const char *name) {
 }
 struct X86AddressingMode *X86AddrModeClone(struct X86AddressingMode *mode) {
 	switch (mode->type) {
+	case X86ADDRMODE_VAR_ADDR: {
+			__auto_type clone=*mode;
+			clone.value.varAddr.var->refCount++;
+			return ALLOCATE(clone);
+	}
 	case X86ADDRMODE_STR: {
 		__auto_type clone = *mode;
 		clone.value.text = __vecAppendItem(NULL, mode->value.text, __vecSize(mode->value.text));
@@ -924,6 +940,10 @@ void X86AddrModeDestroy(struct X86AddressingMode **mode) {
 		return;
 
 	switch (mode[0]->type) {
+	case X86ADDRMODE_VAR_ADDR: {
+			variableDestroy(mode[0]->value.varAddr.var);
+			break;
+	}
 	case X86ADDRMODE_STR:
 		free(mode[0]->value.text);
 		break;

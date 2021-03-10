@@ -128,6 +128,12 @@ U0 testRegsI8i() {
 			printf("%li\n",(a||b)==0);
 			printf("%li\n",(a^^b)==0);
 }
+/*
+U0 testRegsCast() {
+			I32i reg EAX reg32;
+			I16i reg BX reg16;
+			I8i reg CL reg16;
+}*/
 I32i main() {
 					testRegsI32i();
 					testRegsI16i();
