@@ -596,11 +596,8 @@ static struct regSlice color2Reg(strRegSlice adjacent, strRegP avail, graphNodeI
 	struct regSlice slice;
 	slice.reg = avail2[color % strRegPSize(avail2)];
 	slice.offset = 0;
-	slice.widthInBits = slice.reg->size * 8;
-	struct IRValue dummy;
-	dummy.type = IR_VAL_VAR_REF;
-	dummy.value.var = graphNodeIRLiveValuePtr(live)->ref;
-	slice.type = IRValueGetType(&dummy);
+	slice.widthInBits = slice.reg->size * 8;;
+	slice.type = graphNodeIRLiveValuePtr(live)->ref.var->type;
 
 	return slice;
 }
@@ -669,7 +666,7 @@ static void replaceVarsWithSpillOrLoad(strGraphNodeIRLiveP spillNodes, strGraphN
 	}
 	*allNodes=strGraphNodeIRPSetDifference(*allNodes, removed, (gnCmpType)ptrPtrCmp);
 }
-static void replaceVarsWithRegisters(ptrMapregSlice map, strGraphNodeIRLiveP allLiveNodes, graphNodeIR enter,strGraphNodeIRP *allNodes) {
+static void replaceVarsWithRegisters(ptrMapregSlice map, strGraphNodeIRLiveP allLiveNodes,strGraphNodeIRP *allNodes) {
 	//
 	// Create an associative array to turn variables into live nodes
 	//
@@ -973,7 +970,7 @@ void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,v
 		}
 
 		// Replace with registers
-		replaceVarsWithRegisters(regsByLivenessNode, allColorNodes, start,&allNodes2);
+		replaceVarsWithRegisters(regsByLivenessNode, allColorNodes,&allNodes2);
 
 		// Replce spill nodes with spill/load
 		replaceVarsWithSpillOrLoad(spillNodes, &allNodes2);

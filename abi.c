@@ -439,9 +439,8 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start ,struct X86AddressingMode *f
 				} else {
 						pushArgs = strX86AddrModeAppendItem(pushArgs, X86AddrModeClone(args[i]));
 				}
-				
-				assembleInst("PUSH", pushArgs);
-				stackSize += 4;
+				stackSize+=4;
+				pushMode(pushArgs[0]);
 				
 				if (swapEaxWithStack) {
 						strX86AddrMode xchgArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
@@ -526,7 +525,7 @@ end:;
 	if (!retsStruct && !retsFloat && retType != &typeU0) {
 			if(outMode) {
 					strX86AddrMode outArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeClone(outMode));
-					assembleInst("POP", outArgs);
+					popMode(outArgs[0]);
 					stackSize -= 4;
 			} else {
 					strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2)=NULL; 

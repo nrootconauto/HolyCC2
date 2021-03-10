@@ -86,11 +86,10 @@ U0 testRegsI16i() {
 			printf("%li\n",(a||b)==0);
 			printf("%li\n",(a^^b)==0);
 }
-/*
 U0 testRegsI8i() {
 			printf("I8i\n");
-			I32i reg AH a=2;
-			I32i reg AL b=4;
+			I8i reg AH a=2;
+			I8i reg AL b=4;
 			printf("%li\n",a`b==16);
 			printf("%li\n",a<<b==32);
 			printf("%li\n",a>>b==0);
@@ -129,7 +128,6 @@ U0 testRegsI8i() {
 			printf("%li\n",(a||b)==0);
 			printf("%li\n",(a^^b)==0);
 }
-*/
 I32i main() {
 					testRegsI32i();
 					testRegsI16i();

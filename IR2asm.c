@@ -394,7 +394,7 @@ struct X86AddressingMode *IRNode2AddrMode(graphNodeIR start) {
 	struct IRNode *node = graphNodeIRValuePtr(start);
 	__auto_type find = llIRAttrFind(node->attrs, IR_ATTR_ADDR_MODE, IRAttrGetPred);
 	if (find)
-		return X86AddrModeClone(((struct IRAttrAddrMode *)llIRAttrValuePtr(find))->mode);
+			return X86AddrModeClone(((struct IRAttrAddrMode *)llIRAttrValuePtr(find))->mode);
 
 	__auto_type retVal = __node2AddrMode(start);
 	if (!retVal->valueType)
@@ -701,7 +701,7 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 										if(size!=8) templateIsValid[t]=0;
 										break;
 								default:
-										templateIsValid[t]=1;
+										templateIsValid[t]=0;
 								}
 								break;
 						}
@@ -881,6 +881,11 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 						case OPC_TEMPLATE_ARG_RM64:
 								args2=strX86AddrModeAppendItem(args2, X86AddrModeClone(args[a]));
 								break;
+						case OPC_TEMPLATE_ARG_REG: {
+								assert(args[a]->type==X86ADDRMODE_REG);
+								args2=strX86AddrModeAppendItem(args2,X86AddrModeClone(args[a]));
+								break;
+						}
 						default:
 								assert(0);
 						}
@@ -2747,14 +2752,37 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 
 		graphNodeIR a, b;
 		binopArgs(start, &a, &b);
+		
+		struct X86AddressingMode *aMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(a);
+		struct X86AddressingMode *bMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(b);
+		struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(nodeDest(start));
+		
 		// Are assumed to be same type if valid IR graph
-
 		if (isIntNode(a) || isPtrNode(a)) {
 			if (typeIsSigned(IRNodeType(a))) {
-				assembleOpInt(start, "IMUL2");
+					if(objectSize(IRNodeType(start), NULL)==1) {
+							struct X86AddressingMode *axMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86AX);
+							struct X86AddressingMode *alMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86AL);
+							alMode->valueType=&typeI8i;
+							axMode->valueType=&typeI16i;
+							pushMode(alMode); //Dummy location for return value
+							pushMode(axMode);
+							pushMode(aMode);
+							pushMode(bMode);
+							asmTypecastAssign(alMode, bMode ,  ASM_ASSIGN_X87FPU_POP);
+							strX86AddrMode imulArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+							imulArgs=strX86AddrModeAppendItem(imulArgs, X86AddrModeIndirReg(stackPointer(), &typeI8i));
+							assembleOpcode(start, "IMUL", imulArgs);
+
+							struct X86AddressingMode *dummyLoc CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(1+1+2), &typeI8i);
+							asmTypecastAssign(dummyLoc, alMode, ASM_ASSIGN_X87FPU_POP);
+							popMode(bMode);
+							popMode(aMode);
+							popMode(axMode);
+							popMode(oMode);
+					} else
+							assembleOpInt(start, "IMUL2");
 			} else {
-				struct X86AddressingMode *aMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(a);
-				struct X86AddressingMode *bMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(b);
 				//
 				// RAX is assigned into by the first operand,so if the second operand if RAX,swap the order of a and b
 				//
@@ -2898,9 +2926,9 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			break;
 		}
 		if (ppRAX)
-			assembleInst("PUSH", ppRAX), consumeRegFromMode(ppRAX[0]);
+				pushMode(ppRAX[0]), consumeRegFromMode(ppRAX[0]);
 		if (ppRDX)
-			assembleInst("PUSH", ppRDX), consumeRegFromMode(ppRDX[0]);
+			pushMode(ppRDX[0]), consumeRegFromMode(ppRDX[0]);
 		strX86AddrMode movRaxArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
 		strX86AddrMode dxorArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
 		strX86AddrMode divArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
@@ -2986,9 +3014,9 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		}
 		
 		if (ppRDX)
-			assembleInst("POP", ppRDX), unconsumeRegFromMode(ppRDX[0]);
+				popMode(ppRDX[0]), unconsumeRegFromMode(ppRDX[0]);
 		if (ppRAX)
-			assembleInst("POP", ppRAX), unconsumeRegFromMode(ppRAX[0]);
+			popMode(ppRAX[0]), unconsumeRegFromMode(ppRAX[0]);
 		return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 	}
 	case IR_POW: {
