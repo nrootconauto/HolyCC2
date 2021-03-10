@@ -285,10 +285,10 @@ void IRComputeABIInfo(graphNodeIR start) {
 	computedABIInfo = 1;
 }
 static void assembleInst(const char *name, strX86AddrMode args) {
-	strOpcodeTemplate ops CLEANUP(strOpcodeTemplateDestroy) = X86OpcodesByArgs(name, args, NULL);
-	assert(strOpcodeTemplateSize(ops));
-	int err;
-	X86EmitAsmInst(ops[0], args, &err);
+		__auto_type template = X86OpcodeByArgs(name, args);
+		assert(template);
+		int err;
+	X86EmitAsmInst(template, args, &err);
 	assert(!err);
 }
 static void pushReg(struct reg *r) {
@@ -431,7 +431,7 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start ,struct X86AddressingMode *f
 						strX86AddrMode xchgArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
 						xchgArgs = strX86AddrModeAppendItem(xchgArgs, X86AddrModeReg(&regX86EAX));
 						xchgArgs =
-				    strX86AddrModeAppendItem(xchgArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(-(eaxOffset - stackSize)-4), &typeU32i));
+				    strX86AddrModeAppendItem(xchgArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer()), X86AddrModeSint(-(eaxOffset - stackSize)-4), &typeU32i)); 
 						assembleInst("XCHG", xchgArgs);
 				}
 

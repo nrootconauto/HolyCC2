@@ -53,10 +53,10 @@ static __thread ptrMapCompiledNodes compiledNodes;
 static __thread int insertLabelsForAsmCalled = 0;
 static __thread long frameSize=0;
 static void assembleInst(const char *name, strX86AddrMode args) {
-	strOpcodeTemplate ops CLEANUP(strOpcodeTemplateDestroy) = X86OpcodesByArgs(name, args, NULL);
- 	assert(strOpcodeTemplateSize(ops));
+	__auto_type template  = X86OpcodeByArgs(name, args);
+ 	assert(template);
 	int err;
-	X86EmitAsmInst(ops[0], args, &err);
+	X86EmitAsmInst(template, args, &err);
 	assert(!err);
 }
 STR_TYPE_DEF(long,Long);
@@ -582,8 +582,8 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 		long originalSize=strRegPSize(consumedRegisters);
 		strX86AddrMode toPushPop CLEANUP(strX86AddrModeDestroy2)=NULL;
 		strOpcodeTemplate opsByName CLEANUP(strOpcodeTemplateDestroy) = X86OpcodesByName(name);
-		strOpcodeTemplate ops CLEANUP(strOpcodeTemplateDestroy) = X86OpcodesByArgs(name, args, NULL);
-		if(strOpcodeTemplateSize(ops)) {
+		__auto_type template = X86OpcodeByArgs(name, args);
+		if(template) {
 				assembleInst(name, args);
 				return;
 		}
@@ -774,6 +774,8 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 				for(long c=0;c!=strRegPSize(consumedRegs);c++) {
 						unconsumeRegister(consumedRegs[c]);
 				}
+				if(templateIsValid[t])
+						break;
 		}
 		//Find index of lowest (valid) template
 		long lowestValidI=-1;
@@ -1562,9 +1564,9 @@ void IRCompile(graphNodeIR start, int isFunc) {
 		inserted = strGraphNodeIRPSetUnion(nodes, inserted, (gnCmpType)ptrPtrCmp);
 		debugShowGraphIR(start);
 	}
-	
-	IR2Asm(start);
 
+	IR2Asm(start);
+	
 	ptrMapFrameOffsetDestroy(localVarFrameOffsets, NULL);
 	//"Pop" the old frame layout
 	localVarFrameOffsets = oldOffsets;

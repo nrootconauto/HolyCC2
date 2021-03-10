@@ -490,10 +490,10 @@ void X86EmitAsmParserInst(struct parserNodeAsmInstX86 *inst) {
 	strX86AddrMode args CLEANUP(strX86AddrModeDestroy);
 	for (long i = 0; i != strParserNodeSize(inst->args); i++)
 		args = strX86AddrModeAppendItem(args, parserNode2X86AddrMode(inst->args[i]));
-	strOpcodeTemplate templates CLEANUP(strOpcodeTemplateDestroy) = X86OpcodesByArgs(name->text, args, NULL);
-	assert(strOpcodeTemplateSize(templates) != 0);
+	struct opcodeTemplate *template = X86OpcodeByArgs(name->text, args);
+	assert(template);
 	int err;
-	X86EmitAsmInst(templates[0], args, &err);
+	X86EmitAsmInst(template, args, &err);
 	assert(!err);
 }
 void X86EmitAsmGlobalVar(struct parserVar *var) {
@@ -642,6 +642,6 @@ void X86EmitAsm2File(const char *name) {
 	fwrite(consts, strCharSize(consts), 1, fn);
 	fprintf(fn, "SECTION .bss\n");
 	fwrite(initSyms, strCharSize(initSyms), 1, fn);
-	
+	 
 	fclose(fn);
 }

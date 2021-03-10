@@ -106,7 +106,7 @@ void parseOpcodeFile();
 struct opcodeTemplate;
 STR_TYPE_DEF(struct opcodeTemplate *, OpcodeTemplate);
 STR_TYPE_FUNCS(struct opcodeTemplate *, OpcodeTemplate);
-strOpcodeTemplate X86OpcodesByArgs(const char *name, strX86AddrMode args, int *ambiguous);
+struct opcodeTemplate *X86OpcodeByArgs(const char *name, strX86AddrMode args);
 const char *opcodeTemplateName(struct opcodeTemplate *template);
 strOpcodeTemplate X86OpcodesByName(const char *name);
 long X86OpcodesArgCount(const char *name);

@@ -654,12 +654,14 @@ static int imcompatWithArgs(const strX86AddrMode args, struct opcodeTemplate **t
 			return 1;
 	return 0;
 }
-static strOpcodeTemplate __X86OpcodesByArgs(const char *name, strX86AddrMode args) {
+static struct opcodeTemplate *__X86OpcodesByArgs(const char *name, strX86AddrMode args) {
 	__auto_type list = mapOpcodeTemplatesGet(opcodes, name);
 	if (!list)
 		return NULL;
-	__auto_type retVal = strOpcodeTemplateClone(*list);
-	return strOpcodeTemplateRemoveIf(retVal, args, (int (*)(const void *, const struct opcodeTemplate **))imcompatWithArgs);
+	for(long i=0;i!=strOpcodeTemplateSize(*list);i++)
+			if(!imcompatWithArgs(args, &list[0][i]))
+					return list[0][i];
+	return NULL;
 }
 struct X86AddressingMode *X86AddrModeUint(uint64_t imm) {
 	struct X86AddressingMode retVal;
@@ -782,7 +784,7 @@ long opcodeTemplateArgSize(struct opcodeTemplateArg arg) {
 	}
 	return operandSize;
 }
-static strOpcodeTemplate assumeTypes(strOpcodeTemplate templates, strX86AddrMode args) {
+static struct opcodeTemplate *assumeTypes(strOpcodeTemplate templates, strX86AddrMode args) {
 	strLong ambigArgs CLEANUP(strLongDestroy) = NULL;
 	long operandSize = -1;
 	for (long i = 0; i != strX86AddrModeSize(args); i++) {
@@ -854,35 +856,10 @@ long X86OpcodesArgCount(const char *name) {
 		return 0;
 	return strOpcodeTemplateArgSize(find[0][0]->args);
 }
-strOpcodeTemplate X86OpcodesByArgs(const char *name, strX86AddrMode args, int *ambiguous) {
-	if (ambiguous)
-		*ambiguous = 0;
-	strOpcodeTemplate templates CLEANUP(strOpcodeTemplateDestroy) = __X86OpcodesByArgs(name, args);
-	if (strOpcodeTemplateSize(templates) == 0)
-		return NULL;
-	strOpcodeTemplate unambigTemplates CLEANUP(strOpcodeTemplateDestroy) = assumeTypes(templates, args);
-	if (!unambigTemplates) {
-		if (ambiguous)
-			*ambiguous = 1;
-		return NULL;
-	}
-	// Check if remaining templates are ambigious
-	strLong argSizes CLEANUP(strLongDestroy) = strLongResize(NULL, strX86AddrModeSize(args));
-	for (long t = 0; t != strOpcodeTemplateSize(unambigTemplates); t++) {
-		for (long a = 0; a != strOpcodeTemplateArgSize(unambigTemplates[t]->args); a++) {
-			long operandSize = opcodeTemplateArgSize(unambigTemplates[t]->args[a]);
-			if(operandSize==-1)
-					continue;
-			if (t == 0)
-				argSizes[a] = operandSize;
-			else if (argSizes[a] != operandSize)
-				goto fail;
-		}
-	}
-	return strOpcodeTemplateClone(unambigTemplates);
-fail:
-	if (ambiguous)
-		*ambiguous = 1;
+struct opcodeTemplate *X86OpcodeByArgs(const char *name, strX86AddrMode args) {
+	__auto_type find= __X86OpcodesByArgs(name, args);
+	if(find)
+			return find;
 	return NULL;
 }
 struct X86AddressingMode *X86AddrModeFlt(double value) {

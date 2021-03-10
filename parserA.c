@@ -3766,8 +3766,8 @@ struct parserNode *parseAsmInstructionX86(llLexerItem start, llLexerItem *end) {
 				diagEndMsg();
 				break;
 			}
-			int ambiguous;
-			strOpcodeTemplate valids CLEANUP(strOpcodeTemplateDestroy) = X86OpcodesByArgs(nameText, args, &ambiguous);
+			int ambiguous=0;
+			struct opcodeTemplate *valid  = X86OpcodeByArgs(nameText, args);
 			if (end)
 				*end = start;
 			if (ambiguous) {
@@ -3776,7 +3776,7 @@ struct parserNode *parseAsmInstructionX86(llLexerItem start, llLexerItem *end) {
 				diagPushQoutedText(name->pos.start, name->pos.end);
 				diagPushText(".");
 				diagEndMsg();
-			} else if (!strOpcodeTemplateSize(valids)) {
+			} else if (!valid) {
 				diagErrorStart(name->pos.start, name->pos.end);
 				diagPushText("Invalid arguments for opcode ");
 				diagPushQoutedText(name->pos.start, name->pos.end);
