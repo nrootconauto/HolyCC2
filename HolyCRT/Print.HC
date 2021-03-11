@@ -119,10 +119,10 @@ static U0 __callPrintF64(F64 f,I32i digits) {
 							__PrintF64(base,exp(F64),52.0,digits);
 }
 U8i *StrChr(U8i *str,U8i chr) {
-				while(*str!='\0') {
+				 do {
 																						if(*str==chr) return str;
 																						str+=1;
-				}
+				} while(*str!='\0');
 				return NULL;
 }
 I32i ToUpper(I32i Chr) {
@@ -138,7 +138,7 @@ I32i ToUpper(I32i Chr) {
 					}
 					return retVal;
 }
-_extern putc U0 PutC(U8i chr);
+_extern putchar U0 PutC(U8i chr);
 I32i Str2I32i(U8i *str,U8i **end=NULL) {
 					I32i retVal=0;
 					loop:

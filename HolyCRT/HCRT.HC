@@ -158,5 +158,6 @@ try {
 					testRegsI8i();
 					testRegsCast();
 					}
+					Print("Hello World\n");
 					return 0;
 }
