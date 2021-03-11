@@ -128,12 +128,27 @@ U0 testRegsI8i() {
 			printf("%li\n",(a||b)==0);
 			printf("%li\n",(a^^b)==0);
 }
-/*
 U0 testRegsCast() {
-			I32i reg EAX reg32;
-			I16i reg BX reg16;
-			I8i reg CL reg16;
-}*/
+			I32i reg EAX reg32=1;
+			I16i reg BX reg16=1;
+			I8i reg CL reg8=1;
+			do {
+						I32i tmp32=reg16(I32i);
+						printf("16->32 %li\n",tmp32==1);
+						tmp32=reg8(I32i);
+						printf("8->32 %li\n",tmp32==1);
+
+						I16i tmp16=reg32(I32i);
+						printf("32->16 %li\n",tmp16==1);
+						tmp16=reg8(I16i);
+						printf("8->16 %li\n",tmp16==1);
+
+						I8i tmp8=reg32(I8i);
+						printf("32->8 %li\n",tmp8==1);
+						tmp8=reg16(I8i);
+						printf("16->8 %li\n",tmp8==1);
+						} while(0);
+}
 I32i main() {
 try {
 				throw(1);
@@ -141,6 +156,7 @@ try {
 					testRegsI32i();
 					testRegsI16i();
 					testRegsI8i();
+					testRegsCast();
 					}
 					return 0;
 }
