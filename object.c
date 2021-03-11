@@ -11,6 +11,7 @@ MAP_TYPE_DEF(struct object *, Object);
 MAP_TYPE_FUNCS(struct object *, Object);
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
+static void objectDestroy(struct object **obj);
 static mapObject objectRegistry = NULL;
 /**
 	* This is uses to treat arrays as pointers when addressing array size outside of a class/union
@@ -193,7 +194,12 @@ end:
 					if (alreadyExists)
 							*alreadyExists = 1;
 			} else {
+					__auto_type old=*mapObjectGet(objectRegistry, retVal);
 					mapObjectRemove(objectRegistry, retVal,NULL);
+					long len=snprintf(NULL, 0, "$_%p",  old);
+					char buffer[len+1];
+					sprintf(buffer,  "$_%p",  old);
+					mapObjectInsert(objectRegistry, buffer, old);
 					goto end;
 			}
 	}
@@ -859,7 +865,7 @@ static void objectDestroy(struct object **obj) {
 		for(long d=0;d!=sizeof(dontFree)/sizeof(*dontFree);d++)
 				if(dontFree[d]==*obj)
 						return;
-		free(*obj);
+ 		free(*obj);
 }
 static __attribute__((destructor)) void deinit() {
 		long count;

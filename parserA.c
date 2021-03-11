@@ -1512,7 +1512,7 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end, int allowForw
 
 	struct object *baseType = NULL;
 	if (baseName != NULL) {
-		struct parserNodeName *name2 = (void *)baseName;
+			struct parserNodeName *name2 = (void *)baseName;
 		baseType = objectByName(name2->text);
 		if (baseType == NULL)
 			goto end;
@@ -1520,6 +1520,7 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end, int allowForw
 	cls = expectKeyword(start, "class");
 	un = expectKeyword(start, "union");
 
+	__auto_type name2Pos=llLexerItemNext(start);
 	struct parserNode *name2 = NULL;
 	if (cls || un) {
 			start = llLexerItemNext(start);
@@ -1527,7 +1528,7 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end, int allowForw
 			name2 = nameParse(start, NULL, &start);
 			
 			//Create a forward declaration So the class can be referenced within the class
-			objectForwardDeclarationCreate(name2, (cls)?TYPE_CLASS:TYPE_UNION);
+			objectForwardDeclarationCreate(nameParse(name2Pos, NULL, NULL), (cls)?TYPE_CLASS:TYPE_UNION);
 			
 			struct parserNode *l = expectKeyword(start, "{");
 		if (l)
@@ -1544,7 +1545,7 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end, int allowForw
 				__auto_type type = objectByName(name->text);
 				struct object *forwardType = NULL;
 				if (NULL == type) {
-					forwardType = objectForwardDeclarationCreate(name2, (cls != NULL) ? TYPE_CLASS : TYPE_UNION);
+					forwardType = objectForwardDeclarationCreate(nameParse(name2Pos, NULL, NULL), (cls != NULL) ? TYPE_CLASS : TYPE_UNION);
 				} else if (cls) {
 					if (type->type != TYPE_CLASS)
 						goto incompat;
@@ -1572,13 +1573,13 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end, int allowForw
 				if (cls) {
 					struct parserNodeClassFwd fwd;
 					fwd.base.type = NODE_CLASS_FORWARD_DECL;
-					fwd.name = name2;
+					fwd.name = nameParse(name2Pos, NULL, NULL);
 					fwd.type = forwardType;
 					retVal = ALLOCATE(fwd);
 				} else if (un) {
 					struct parserNodeUnionFwd fwd;
 					fwd.base.type = NODE_UNION_FORWARD_DECL;
-					fwd.name = name2;
+					fwd.name = nameParse(name2Pos, NULL, NULL);;
 					fwd.type = forwardType;
 					retVal = ALLOCATE(fwd);
 				}
@@ -1622,7 +1623,7 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end, int allowForw
 		struct parserNodeClassDef def;
 		// retValObj is NULL if forward decl
 		def.base.type = (retValObj) ? NODE_CLASS_DEF : NODE_CLASS_FORWARD_DECL;
-		def.name = name2;
+		def.name = nameParse(name2Pos, NULL, NULL);
 		def.type = retValObj;
 		;
 
@@ -1631,7 +1632,7 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end, int allowForw
 		struct parserNodeUnionDef def;
 		// retValObj is NULL if forward decl
 		def.base.type = (retValObj) ? NODE_UNION_DEF : NODE_UNION_FORWARD_DECL;
-		def.name = name2;
+		def.name = nameParse(name2Pos, NULL, NULL);
 		def.type = retValObj;
 
 		retVal = ALLOCATE(def);
@@ -3069,7 +3070,6 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 		((struct parserNodeFuncDef *)retVal)->func = parserGetFunc(name2);
 	else if (retVal->type == NODE_FUNC_FORWARD_DECL)
 		((struct parserNodeFuncForwardDec *)retVal)->func = parserGetFunc(name2);
-	name=NULL; //Mark as no kill
 	name2=NULL; //Mark as no destroy
 	
 	return retVal;
