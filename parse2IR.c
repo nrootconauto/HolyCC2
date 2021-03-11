@@ -918,8 +918,8 @@ static struct enterExit __parserNode2IRStmt(const struct parserNode *node) {
 }
 const void *IR_ATTR_LABEL_NAME = "LABEL_NAME";
 static void IRAttrLabelNameDestroy(struct IRAttr *attr) {
-	struct IRAttrLabelName *nm = (void *)attr;
-	free(nm);
+		struct IRAttrLabelName *nm = (void *)attr;
+	free(nm->name);
 }
 static void debugShowGraphIR(graphNodeIR enter) {
 		const char *name = tmpnam(NULL);

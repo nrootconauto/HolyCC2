@@ -204,6 +204,7 @@ end:
 			}
 	}
 
+	free(obj->name);
 	obj->name = retVal;
 	return obj->name;
 }
@@ -460,8 +461,12 @@ objectPtrCreate(struct object *baseType) {
 
 	int alreadyExists;
 	__auto_type hash = hashObject((void *)ptr, &alreadyExists);
-
-	return *mapObjectGet(objectRegistry, hash);
+	if(alreadyExists) {
+			__auto_type retVal=*mapObjectGet(objectRegistry, hash);
+			objectDestroy((struct object**)&ptr);
+			return retVal;
+	}
+	return  *mapObjectGet(objectRegistry, hash);
 }
 /**
  * This creates an array type. parserA.h defines `struct parserNode`.
@@ -576,7 +581,7 @@ objectFuncCreate(struct object *retType, strFuncArg args,int varLenArgs) {
 	struct objectFunction func;
 	func.base.name = NULL;
 	func.base.type = TYPE_FUNCTION;
-	func.args = strFuncArgAppendData(NULL, args, strFuncArgSize(args));
+ func.args = strFuncArgAppendData(NULL, args, strFuncArgSize(args));
 	func.retType = retType;
 	func.hasVarLenArgs=varLenArgs;
 	func.argcVar=NULL;
@@ -865,7 +870,7 @@ static void objectDestroy(struct object **obj) {
 		for(long d=0;d!=sizeof(dontFree)/sizeof(*dontFree);d++)
 				if(dontFree[d]==*obj)
 						return;
- 		free(*obj);
+		free(*obj);
 }
 static __attribute__((destructor)) void deinit() {
 		long count;
