@@ -494,7 +494,7 @@ static strPNPair tailBinop(llLexerItem start, llLexerItem end, llLexerItem *resu
 		if (find == NULL)
 			goto fail;
 
-		struct pnPair pair = {op, find};
+		struct pnPair pair = {refNode(op), find};
 		retVal = strPNPairAppendItem(retVal, pair);
 	}
 
@@ -569,7 +569,7 @@ end:
 	if (r && endP)
 		*endP = r->pos.end;
 
-	return exp;
+	return refNode(exp);
 }
 static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end, struct object *baseType, struct parserNode **name, struct parserNode **dftVal,
                                        strParserNode *metaDatas,struct reg **inReg,int *isNoReg);
@@ -1181,7 +1181,7 @@ struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end) {
 
 			return ALLOCATE(retVal);
 		} else {
-			return cls;
+				return refNode(cls);
 		}
 	}
 fail:
@@ -1467,7 +1467,7 @@ fail:
 static strObjectMember parseMembers(llLexerItem start, llLexerItem *end) {
 		struct parserNode *decls CLEANUP(parserNodeDestroy) = parseVarDecls(start, &start);
 	if (decls != NULL) {
-			strParserNode decls2 CLEANUP(strParserNodeDestroy2)= NULL;
+			strParserNode decls2 CLEANUP(strParserNodeDestroy)= NULL;
 		if (decls->type == NODE_VAR_DECL) {
 			decls2 = strParserNodeAppendItem(decls2, decls);
 		} else if (decls->type == NODE_VAR_DECLS) {
@@ -1511,7 +1511,7 @@ static strObjectMember parseMembers(llLexerItem start, llLexerItem *end) {
 
 		if (end != NULL)
 			*end = start;
-		return members;
+		return strObjectMemberClone(members);
 	}
 	if (end != NULL)
 		*end = start;
@@ -1657,9 +1657,9 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end, int allowForw
 		}
 		
 		if (cls) {
-				retValObj = objectClassCreate(className, members, strObjectMemberSize(members));
+				retValObj = objectClassCreate(refNode(className), members, strObjectMemberSize(members));
 		} else if (un) {
-				retValObj = objectUnionCreate(className, members, strObjectMemberSize(members));
+				retValObj = objectUnionCreate(refNode(className), members, strObjectMemberSize(members));
 		}
 	}
 	if (cls) {
@@ -1667,7 +1667,7 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end, int allowForw
 		def.base.refCount=1;
 		// retValObj is NULL if forward decl
 		def.base.type = (retValObj) ? NODE_CLASS_DEF : NODE_CLASS_FORWARD_DECL;
-		def.name = nameParse(name2Pos, NULL, NULL);
+		def.name = refNode(name2);
 		def.type = retValObj;
 
 		retVal = ALLOCATE(def);
@@ -1676,7 +1676,7 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end, int allowForw
 		def.base.refCount=1;
 		// retValObj is NULL if forward decl
 		def.base.type = (retValObj) ? NODE_UNION_DEF : NODE_UNION_FORWARD_DECL;
-		def.name = nameParse(name2Pos, NULL, NULL);
+		def.name = refNode(name2);
 		def.type = retValObj;
 
 		retVal = ALLOCATE(def);
@@ -2057,8 +2057,8 @@ struct parserNode *parseWhile(llLexerItem start, llLexerItem *end) {
 		currentLoop = (struct parserNode *)retVal;
 		body = parseStatement(start, &start);
 
-		retVal->body = body;
-		retVal->cond = cond;
+		retVal->body = refNode(body);
+		retVal->cond = refNode(cond);
 		if (end)
 			assignPosByLexerItems((struct parserNode *)retVal, originalStart, *end);
 		else
@@ -2126,16 +2126,16 @@ struct parserNode *parseFor(llLexerItem start, llLexerItem *end) {
 		forStmt.base.refCount=1;
 		forStmt.base.type = NODE_FOR;
 		forStmt.body = NULL;
-		forStmt.cond = cond;
-		forStmt.init = init;
-		forStmt.inc = inc;
+		forStmt.cond = refNode(cond);
+		forStmt.init = refNode(init);
+		forStmt.inc = refNode(inc);
 
 		retVal = ALLOCATE(forStmt);
 		//"Push" loop
 		currentLoop = retVal;
 		body = parseStatement(start, &start);
 
-		((struct parserNodeFor *)retVal)->body = body;
+		((struct parserNodeFor *)retVal)->body = refNode(body);
 		if (end)
 			assignPosByLexerItems(retVal, originalStart, *end);
 		else
@@ -3255,13 +3255,7 @@ struct parserNode *parseAsmAddrModeSIB(llLexerItem start, llLexerItem *end) {
 	indir.mode->value.m.segment=NULL;
 	if(segment)
 			indir.mode->value.m.segment=((struct parserNodeAsmReg*)segment)->reg;
-	parserNodeDestroy(&indirExp);
-	if (lB)
-		parserNodeDestroy(&lB);
-	if (rB)
-		parserNodeDestroy(&rB);
-	if (colon)
-		parserNodeDestroy(&colon);
+	
 	return ALLOCATE(indir);
 fail:;
 	return NULL;
