@@ -1705,7 +1705,6 @@ static void addDeclsToScope(struct parserNode *varDecls, struct linkage link) {
 		var.base.pos=decl->name->pos;
 		var.base.type=NODE_VAR;
 		var.var=parserGetVar(decl->name);
-		var.var->refCount++;
 		struct parserNode *varNode=ALLOCATE(var);
 		decl->var=varNode;
 		
@@ -1721,7 +1720,6 @@ static void addDeclsToScope(struct parserNode *varDecls, struct linkage link) {
 			var.base.pos=decl->name->pos;
 			var.base.type=NODE_VAR;
 			var.var=parserGetVar(decl->name);
-			var.var->refCount++;
 			struct parserNode *varNode=ALLOCATE(var);
 			decl->var = varNode;
 			
@@ -2350,7 +2348,7 @@ struct parserNode *parseSwitch(llLexerItem start, llLexerItem *end) {
  struct parserNode *rP  CLEANUP(parserNodeDestroy)= NULL;
 	struct parserNode *exp CLEANUP(parserNodeDestroy) = NULL;
  struct parserNode *body CLEANUP(parserNodeDestroy) = NULL;
-	struct parserNode *retVal CLEANUP(parserNodeDestroy) = NULL;
+	struct parserNode *retVal  = NULL;
 
 	kw = expectKeyword(start, "switch");
 	int success = 0;
@@ -2477,7 +2475,7 @@ static void __parserMapLabels2Refs(int failOnNotFound) {
 }
 struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 		struct parserNode *colon1  CLEANUP(parserNodeDestroy)= NULL;
-		struct parserNode *retVal CLEANUP(parserNodeDestroy) = NULL;
+		struct parserNode *retVal  = NULL;
 	__auto_type originalStart = start;
 	struct parserNode *atAt CLEANUP(parserNodeDestroy) = expectKeyword(start, "@@");
 	if (atAt) {
@@ -2510,7 +2508,6 @@ struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 			diagPushQoutedText(name->pos.start, name->pos.end);
 			diagPushText(".");
 			diagEndMsg();
-			parserNodeDestroy(&name);
 			return NULL;
 		} else {
 			struct parserNodeLabelLocal local;

@@ -509,7 +509,7 @@ static void killLexerData(void *item) {
 void llLexerItemDestroy2(llLexerItem *item) {
 	llLexerItemDestroy(item, killLexerData);
 }
-llLexerItem lexText(const struct __vec *text, int *err) {
+llLexerItem lexText(const struct __vec *text, long *errAt,int *err) {
 	llLexerItem retVal = NULL;
 	int err2;
 
@@ -570,6 +570,8 @@ llLexerItem lexText(const struct __vec *text, int *err) {
 	return llLexerItemFirst(retVal);
 fail : {
 	llLexerItemDestroy2(&retVal);
+	if(errAt)
+			*errAt=pos;
 	if (err != NULL)
 		*err = 1;
 

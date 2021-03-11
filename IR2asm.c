@@ -23,7 +23,7 @@
 #include <x87fpu.h>
 #define DEBUG_PRINT_ENABLE 1
 static void *IR_ATTR_ADDR_MODE = "ADDR_MODE";
-struct IRAttrAddrMode {
+struct IRAttrAddrMode { 
 	struct IRAttr base;
 	struct X86AddressingMode *mode;
 };

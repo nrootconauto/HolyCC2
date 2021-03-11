@@ -273,7 +273,7 @@ void parserAddVar(const struct parserNode *name, struct object *type,struct reg 
 	var.isRefedByPtr=0;
 	var.isTmp=0;
 	var.inReg=inReg;
-	var.refCount=0;
+	var.refCount=1;
 	
 	assert(name->type == NODE_NAME);
 	struct parserNodeName *name2 = (void *)name;

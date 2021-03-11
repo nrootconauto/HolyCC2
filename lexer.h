@@ -39,7 +39,7 @@ extern struct lexerItemTemplate nameTemplate;
 extern struct lexerItemTemplate opTemplate;
 extern struct lexerItemTemplate kwTemplate;
 
-llLexerItem lexText(const struct __vec *text, int *err);
+llLexerItem lexText(const struct __vec *text, long *errAt, int *err);
 void *lexerItemValuePtr(struct lexerItem *item);
 void initTemplates();
 void llLexerItemDestroy2(llLexerItem *item);

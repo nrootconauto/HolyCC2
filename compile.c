@@ -35,12 +35,17 @@ static strParserNode parseFile(const char *fn,strFileMappings *fMappings2) {
 				fread(fText, end - start, 1, resultFile);
 				fText[end - start] = '\0';
 
-				llLexerItem items CLEANUP(llLexerItemDestroy2) = lexText((struct __vec *)fText, &err);
-				if (err)
-						goto fail;
+				long atPos;
+				llLexerItem items CLEANUP(llLexerItemDestroy2) = lexText((struct __vec *)fText, &atPos,&err);
 
 				diagInstCreate(DIAG_ANSI_TERM, fMappings, tMods, fn, stderr);
-
+				if (err) {
+						diagErrorStart(atPos, atPos+1);
+						diagPushText("Lexical error.");
+						diagEndMsg();
+						goto fail;
+				}
+				
 				strParserNode stmts  = NULL;
 				while (items)
 						stmts = strParserNodeAppendItem(stmts, parseStatement(items, &items));

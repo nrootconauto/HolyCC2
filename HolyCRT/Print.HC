@@ -118,3 +118,122 @@ static U0 __callPrintF64(F64 f,I32i digits) {
 							exp-=1023;
 							__PrintF64(base,exp(F64),52.0,digits);
 }
+U8i *StrChr(U8i *str,U8i chr) {
+				while(*str!='\0') {
+																						if(*str==chr) return str;
+																						str+=1;
+				}
+				return NULL;
+}
+I32i ToUpper(I32i Chr) {
+					I32i retVal=0;
+					while(Chr!=0) {
+																			I8i chr=Chr&0xff;
+																if('z'>=chr&&chr>='a') {
+																																							chr-='a';
+																																							chr+='A';
+																}
+																retVal<<=8;
+																retVal|=chr;
+					}
+					return retVal;
+}
+_extern putc U0 PutC(U8i chr);
+I32i Str2I32i(U8i *str,U8i **end=NULL) {
+					I32i retVal=0;
+					loop:
+					switch(*str) {
+														case '0'...'9':
+														retVal*=10;
+														retVal+=*str-'0';
+														goto loop;
+														default:
+														break;
+					}
+
+					if(end) *end=str;
+					return retVal;
+}
+U0 __PrintI32i(I32i value,I32i base,U8i *Digits) {
+			I32i digits=0;
+			I32i value2=value;
+			do {
+						digits+=1;
+						value/=base;
+			} while(value!=0);
+			value=value2;
+			
+			U8i buffer[digits];
+			I32i bufferSize=digits;
+			do {
+						digits-=1;
+						buffer[digits]=value%base+Digits;
+						value/=base;
+			} while(value!=0);
+
+			for(I32i c=0;c!=bufferSize;c+=1)
+												PutC(buffer[c]);
+}
+U0 Print(U8i *fmt,...) {
+			U8i *str=fmt;
+			I32i argi=0;
+			for(;;) {
+											U8i *where=StrChr(str,'%');
+											if(where==NULL) {
+																											for(;*str!='\0';str+=1) PutC(*str);
+																											break;
+											}
+											for(;str!=where;str+=1) PutC(*str);
+											I8i signFlag=0;
+											if(*str=='-') {
+																									signFlag=1;
+																									str+=1;
+											}
+											I8i zeroFlag=0;
+											if(*str=='-') {
+																									zeroFlag=1;
+																									str+=1;
+											}
+											I32i width=Str2I32i(str,&str);
+											I32i decimals=0;
+											if(*str=='.') {
+																								decimals=Str2I32i(str,&str);
+											}
+											//
+											// TODO implement flags and aux.
+											//
+											switch(*str) {
+																								case 'n': {
+																													__callPrintF64(&argv[argi],decimals);
+																													argi+=2;
+																													break;
+																								}
+																								case 'C': {
+																													PutC(ToUpper(argv[argi]));
+																													argi+=1;
+																													break;
+																								}
+																								case 'c': {
+																													PutC(argv[argi]);
+																													argi+=1;
+																													break;
+																								}
+																								case 'i': {
+																													__PrintI32i(argv[argi],10,"0123456789");
+																													argi+=1;
+																													break;
+																								}
+																								case 'x': {
+																													__PrintI32i(argv[argi],16,"0123456789abcdef");
+																													argi+=1;
+																													break;
+																								}
+																								case 'p':
+																								case 'X': {
+																													__PrintI32i(argv[argi],16,"0123456789ABCDEF");
+																													argi+=1;
+																													break;
+																								}
+											}
+			}
+}
