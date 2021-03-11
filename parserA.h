@@ -111,6 +111,7 @@ struct parserSourcePos {
 struct parserNode {
 	enum parserNodeType type;
 	struct parserSourcePos pos;
+		long refCount;
 };
 struct parserNodeSizeofType {
 		struct parserNode base;
