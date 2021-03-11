@@ -523,19 +523,19 @@ int opcodeTemplateArgAcceptsAddrMode(const struct opcodeTemplateArg *arg, const 
 		} else
 			goto fail;
 	case OPC_TEMPLATE_ARG_MOFFS16:
-		if (mode->type == X86ADDRMODE_MEM) {
+		if (mode->type == X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_MEM) {
 			int64_t value = mode->value.m.value.mem;
 			return INT16_MIN <= value && INT16_MAX >= value;
 		} else
 			goto fail;
 	case OPC_TEMPLATE_ARG_MOFFS32:
-		if (mode->type == X86ADDRMODE_MEM) {
+		if (mode->type == X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_MEM) {
 			int64_t value = mode->value.m.value.mem;
 			return INT32_MIN <= value && INT32_MAX >= value;
 		} else
 			goto fail;
 	case OPC_TEMPLATE_ARG_MOFFS8:
-		if (mode->type == X86ADDRMODE_MEM) {
+		if (mode->type == X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_MEM) {
 			int64_t value = mode->value.m.value.mem;
 			return INT8_MIN <= value && INT8_MAX >= value;
 		} else

@@ -229,7 +229,7 @@ void parserAddVarLenArgsVars2Func(struct parserVar **Argc,struct parserVar **Arg
 				argc.isGlobal = 0;
 				argc.isNoreg = 0;
 				argc.isTmp=0;
-				argc.refCount=0;
+				argc.refCount=1;
 				argc.inReg=NULL;
 				argc.name=strcpy(calloc(strlen(name)+1,1), name);
 				__auto_type scope = llScopeValuePtr(currentScope);
@@ -250,7 +250,7 @@ void parserAddVarLenArgsVars2Func(struct parserVar **Argc,struct parserVar **Arg
 				argv.isGlobal = 0;
 				argv.isNoreg = 0;
 				argv.isTmp=0;
-				argv.refCount=0;
+				argv.refCount=1;
 				argv.inReg=NULL;
 				argv.name=strcpy(calloc(strlen(name)+1,1), name);
 				__auto_type scope = llScopeValuePtr(currentScope);
