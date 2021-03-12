@@ -679,11 +679,11 @@ struct X86AddressingMode *X86AddrModeSint(int64_t imm) {
 	retVal.valueType = NULL;
 	return ALLOCATE(retVal);
 }
-struct X86AddressingMode *X86AddrModeReg(struct reg *reg) {
+struct X86AddressingMode *X86AddrModeReg(struct reg *reg,struct object *valueType) {
 	struct X86AddressingMode retVal;
 	retVal.type = X86ADDRMODE_REG;
 	retVal.value.reg = reg;
-	retVal.valueType = NULL;
+	retVal.valueType = valueType;
 	return ALLOCATE(retVal);
 }
 struct X86AddressingMode *X86AddrModeIndirMem(uint64_t where, struct object *type) {
@@ -702,7 +702,7 @@ struct X86AddressingMode *X86AddrModeIndirReg(struct reg *where, struct object *
 	struct X86AddressingMode retVal;
 	retVal.type = X86ADDRMODE_MEM;
 	retVal.value.m.type = x86ADDR_INDIR_SIB;
-	retVal.value.m.value.sib.base = X86AddrModeReg(where);
+	retVal.value.m.value.sib.base = X86AddrModeReg(where,(dataSize()==4)?&typeI32i:&typeI64i);
 	retVal.value.m.value.sib.index = NULL;
 	retVal.value.m.value.sib.scale = 1;
 	retVal.value.m.value.sib.offset = NULL;

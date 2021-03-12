@@ -3681,11 +3681,11 @@ static struct X86AddressingMode *addrModeFromParseTree(struct parserNode *node, 
 	retVal.type = X86ADDRMODE_MEM;
 	retVal.value.m.type = x86ADDR_INDIR_SIB;
 	if(base)
-			retVal.value.m.value.sib.base = X86AddrModeReg(base);
+			retVal.value.m.value.sib.base = X86AddrModeReg(base,NULL);
 	else
 			retVal.value.m.value.sib.base=NULL;
 	if(index)
-			retVal.value.m.value.sib.index = X86AddrModeReg(index);
+			retVal.value.m.value.sib.index = X86AddrModeReg(index,NULL);
 	else
 			retVal.value.m.value.sib.index=NULL;
 	retVal.value.m.value.sib.offset = offset;
@@ -3715,7 +3715,7 @@ struct X86AddressingMode *parserNode2X86AddrMode(struct parserNode *node) {
 			 			return X86AddrModeUint(i->value.value.uLong);
 		} else if(node->type==NODE_ASM_REG) {
 				struct parserNodeAsmReg *r=(void*)node;
-				return X86AddrModeReg(r->reg);
+				return X86AddrModeReg(r->reg,NULL);
 		}
 		abort();
 }

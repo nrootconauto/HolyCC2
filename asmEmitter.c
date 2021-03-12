@@ -247,7 +247,7 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 			__auto_type find = ptrMapFrameOffsetGet(localVarFrameOffsets, args[i]->value.varAddr.var);
 			if (find) {
 				struct X86AddressingMode *offset CLEANUP(X86AddrModeDestroy) =
-				    X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer()), X86AddrModeSint(-*find), args[i]->value.varAddr.var->type);
+						X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer(),objectPtrCreate(&typeU0)), X86AddrModeSint(-*find), args[i]->value.varAddr.var->type);
 				return emitMode(&offset, 0);
 			} else {
 					strChar name CLEANUP(strCharDestroy) = strClone(parserGetGlobalSymLinkageName(args[i]->value.varAddr.var->name));

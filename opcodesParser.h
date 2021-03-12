@@ -59,8 +59,7 @@ struct X86AddressingMode {
 struct X86AddressingMode *X86AddrModeVar(struct parserVar *var,long offset);
 struct X86AddressingMode *X86AddrModeFlt(double value);
 struct X86AddressingMode *X86AddrModeUint(uint64_t imm);
-struct X86AddressingMode *X86AddrModeSint(int64_t imm);
-struct X86AddressingMode *X86AddrModeReg(struct reg *reg);
+struct X86AddressingMode *X86AddrModeSint(int64_t imm);struct X86AddressingMode *X86AddrModeReg(struct reg *reg,struct object *valueType);
 struct X86AddressingMode *X86AddrModeIndirMem(uint64_t where, struct object *type);
 struct X86AddressingMode *X86AddrModeLabel(const char *name);
 struct X86AddressingMode *X86AddrModeIndirReg(struct reg *where, struct object *type);
