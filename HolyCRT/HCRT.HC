@@ -147,7 +147,11 @@ U0 testRegsCast() {
 						printf("32->8 %li\n",tmp8==1);
 						tmp8=reg16(I8i);
 						printf("16->8 %li\n",tmp8==1);
-						} while(0);
+
+						printf("8->F64 %li\n",tmp8(F64)==1.0);
+						printf("16->F64 %li\n",tmp16(F64)==1.0);
+						printf("32->F64 %li\n",tmp32(F64)==1.0);
+} while(0);
 }
 I32i main() {
 try {
@@ -158,6 +162,6 @@ try {
 					testRegsI8i();
 					testRegsCast();
 					}
-					Print("Hello World,%.3n\n",1.123);
+					Print("Hello World,%.6n\n",100.123);
 					return 0;
 }

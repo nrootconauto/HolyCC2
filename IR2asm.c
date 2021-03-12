@@ -2394,9 +2394,18 @@ void asmTypecastAssign(struct X86AddressingMode *outMode, struct X86AddressingMo
 			}
 		} else if (isFltType(outMode->valueType)) {
 				if(inMode->type==X86ADDRMODE_REG&&isFltType(inMode->valueType)) {} else {
-						const char *op=isFltType(inMode->valueType)?"FLD":"FILD";
-						strX86AddrMode fildArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeClone(inMode));
-						assembleOpcode(NULL, op, fildArgs);
+						long size=objectSize(inMode->valueType, NULL);
+						if(size==2||size==4||size==8) {
+								const char *op=isFltType(inMode->valueType)?"FLD":"FILD";
+								strX86AddrMode fildArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeClone(inMode));
+								assembleOpcode(NULL, op, fildArgs);
+						} else {
+								pushReg(&regX86AX);
+								struct X86AddressingMode *axMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86AX, &typeI16i);
+								asmTypecastAssign(axMode, inMode , ASM_ASSIGN_X87FPU_POP);
+								asmTypecastAssign(outMode, axMode, flags);
+								popReg(&regX86AX);
+						}
 				}
 				struct X86AddressingMode *st0Mode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86ST0,&typeF64);
 				asmAssign(outMode, st0Mode, 8, ASM_ASSIGN_X87FPU_POP);
