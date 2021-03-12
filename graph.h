@@ -1,7 +1,7 @@
-#include <hashTable.h>
-#include <linkedList.h>
+#include "hashTable.h"
+#include "linkedList.h"
 #include <stdio.h>
-#include <str.h>
+#include "str.h"
 #pragma once
 struct __graphNode;
 struct __graphEdge;

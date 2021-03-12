@@ -27,7 +27,6 @@ list(APPEND sources "diagMsg.c")
 list(APPEND sources "exprParser.c")
 list(APPEND sources "parse2IR.c")
 list(APPEND sources "IR.c")
-list(APPEND sources "intExponet.c")
 list(APPEND sources "IRLiveness.c")
 list(APPEND sources "debugPrint.c")
 list(APPEND sources "escaper.c")
@@ -58,8 +57,7 @@ list(APPEND tests "tests/compileTests.c")
 add_executable(holycc2Tests ${sources} ${tests})
 add_executable(hcc ${sources} "main.c")
 
-target_include_directories(holycc2Tests PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/ext/skinny_mutex)
-target_include_directories(hcc PRIVATE ${CMAKE_SOURCE_DIR} ${sources})
+
 target_link_libraries(hcc m)
 target_link_libraries(holycc2Tests m)
 

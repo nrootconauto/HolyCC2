@@ -1,9 +1,9 @@
-#include <registers.h>
+#include "registers.h"
 #include <assert.h>
-#include <asmEmitter.h>
-#include <cleanup.h>
-#include <IR.h>
-#include <ptrMap.h>
+#include "asmEmitter.h"
+#include "cleanup.h"
+#include "IR.h"
+#include "ptrMap.h"
 void *IR_ATTR_X87FPU_POP_AT="X87_POP";
 static __thread strRegP fpuRegsInUse=NULL;
 static __thread strGraphNodeIRP nodeStack=NULL;

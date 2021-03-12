@@ -1,10 +1,10 @@
-#include <compile.h>
+#include "../compile.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <registers.h>
-#include <commandLine.h>
+#include "../registers.h"
+#include "../commandLine.h"
 static char *strDup(const char *text) {
 		char *retVal=malloc(strlen(text)+1);
 		return strcpy(retVal, text);

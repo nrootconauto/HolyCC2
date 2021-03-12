@@ -1,6 +1,6 @@
-#include <debugPrint.h>
-#include <hashTable.h>
-#include <string.h>
+#include "debugPrint.h"
+#include "hashTable.h"
+#include "string.h"
 MAP_TYPE_DEF(char *, Str);
 MAP_TYPE_FUNCS(char *, Str);
 static mapStr ptrNames = NULL;

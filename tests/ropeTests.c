@@ -1,4 +1,4 @@
-#include <rope.h>
+#include "../rope.h"
 #include <string.h>
 #include <assert.h>
 void ropeTests() {

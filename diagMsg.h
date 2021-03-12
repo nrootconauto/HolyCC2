@@ -1,6 +1,6 @@
-#include <preprocessor.h>
+#include "preprocessor.h"
 #include <stdio.h>
-#include <textMapper.h>
+#include "textMapper.h"
 enum outputType {
 	DIAG_ANSI_TERM,
 	DIAG_DOL_DOC,

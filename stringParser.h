@@ -1,5 +1,5 @@
 #pragma once
-#include <str.h>
+#include "str.h"
 struct parsedString {
 	struct __vec *text;
 	int isChar : 1;

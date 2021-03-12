@@ -1,17 +1,17 @@
 #include <assert.h>
-#include <lexer.h>
-#include <object.h>
-#include <parserA.h>
+#include "lexer.h"
+#include "object.h"
+#include "parserA.h"
 #define DEBUG_PRINT_ENABLE 1
-#include <cleanup.h>
-#include <asmEmitter.h>
-#include <debugPrint.h>
-#include <diagMsg.h>
-#include <exprParser.h>
-#include <hashTable.h>
-#include <opcodesParser.h>
-#include <parserB.h>
-#include <registers.h>
+#include "cleanup.h"
+#include "asmEmitter.h"
+#include "debugPrint.h"
+#include "diagMsg.h"
+#include "exprParser.h"
+#include "hashTable.h"
+#include "opcodesParser.h"
+#include "parserB.h"
+#include "registers.h"
 static void strParserNodeDestroy2(strParserNode *str) {
 	for (long s = 0; s != strParserNodeSize(*str); s++)
 		parserNodeDestroy(&str[0][s]);

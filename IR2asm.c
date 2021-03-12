@@ -1,26 +1,26 @@
 #include <limits.h>
-#include <IR.h>
-#include <diagMsg.h>
-#include <IR2asm.h>
-#include <IRTypeInference.h>
-#include <X86AsmSharedVars.h>
-#include <abi.h>
-#include <asmEmitter.h>
+#include "IR.h"
+#include "diagMsg.h"
+#include "IR2asm.h"
+#include "IRTypeInference.h"
+#include "X86AsmSharedVars.h"
+#include "abi.h"
+#include "asmEmitter.h"
 #include <assert.h>
-#include <cleanup.h>
+#include "cleanup.h"
 #include <ctype.h>
-#include <frameLayout.h>
-#include <hashTable.h>
-#include <ieee754.h>
-#include <parse2IR.h>
-#include <parserA.h>
-#include <parserB.h>
-#include <ptrMap.h>
-#include <regAllocator.h>
-#include <registers.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <x87fpu.h>
+#include "frameLayout.h"
+#include "hashTable.h"
+#include "ieee754.h"
+#include "parse2IR.h"
+#include "parserA.h"
+#include "parserB.h"
+#include "ptrMap.h"
+#include "regAllocator.h"
+#include "registers.h"
+#include "stdarg.h"
+#include "stdio.h"
+#include "x87fpu.h"
 #define DEBUG_PRINT_ENABLE 1
 static void *IR_ATTR_ADDR_MODE = "ADDR_MODE";
 struct IRAttrAddrMode { 

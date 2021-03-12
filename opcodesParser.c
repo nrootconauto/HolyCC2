@@ -1,15 +1,15 @@
-#include <X86AsmSharedVars.h>
+#include "X86AsmSharedVars.h"
 #include <assert.h>
-#include <cleanup.h>
+#include "cleanup.h"
 #include <ctype.h>
-#include <hashTable.h>
-#include <opcodesParser.h>
-#include <parserA.h>
-#include <parserB.h>
-#include <registers.h>
+#include "hashTable.h"
+#include "opcodesParser.h"
+#include "parserA.h"
+#include "parserB.h"
+#include "registers.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <str.h>
+#include "str.h"
 #define ALLOCATE(item)                                                                                                                                             \
 	({                                                                                                                                                               \
 			typeof(item) *ptr = calloc(sizeof(item),1);																											\

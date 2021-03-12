@@ -1,14 +1,14 @@
 #include <assert.h>
-#include <cleanup.h>
+#include "cleanup.h"
 #include <ctype.h>
-#include <hashTable.h>
-#include <preprocessor.h>
+#include "hashTable.h"
+#include "preprocessor.h"
 #include <stdio.h>
-#include <str.h>
+#include "str.h"
 #include <string.h>
-#include <stringParser.h>
+#include "stringParser.h"
 #include <unistd.h>
-#include <filePath.h>
+#include "filePath.h"
 // TODO implement exe,if,ifdef,ifndef
 static void fileDestroy(FILE **file) {
 	fclose(*file);

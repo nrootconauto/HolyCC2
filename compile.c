@@ -1,11 +1,11 @@
-#include <IR2asm.h>
-#include <asmEmitter.h>
-#include <cleanup.h>
-#include <diagMsg.h>
-#include <parse2IR.h>
-#include <parserA.h>
-#include <parserB.h>
-#include <preprocessor.h>
+#include "IR2asm.h"
+#include "asmEmitter.h"
+#include "cleanup.h"
+#include "diagMsg.h"
+#include "parse2IR.h"
+#include "parserA.h"
+#include "parserB.h"
+#include "preprocessor.h"
 static void fclose2(FILE **f) {
 	fclose(*f);
 }

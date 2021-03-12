@@ -1,13 +1,13 @@
 #pragma once
-#include <graph.h>
-#include <hashTable.h>
-#include <lexer.h>
-#include <linkedList.h>
-#include <opcodesParser.h>
-#include <parserA.h>
-#include <ptrMap.h>
-#include <registers.h>
-#include <str.h>
+#include "graph.h"
+#include "hashTable.h"
+#include "lexer.h"
+#include "linkedList.h"
+#include "opcodesParser.h"
+#include "parserA.h"
+#include "ptrMap.h"
+#include "registers.h"
+#include "str.h"
 enum IRFlag {
 	IR_FLAG_EQZ,
 	IR_FLAG_NEQZ,

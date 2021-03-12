@@ -1,7 +1,7 @@
 #pragma once
-#include <hashTable.h>
-#include <linkedList.h>
-#include <parserA.h>
+#include "hashTable.h"
+#include "linkedList.h"
+#include "parserA.h"
 struct scope;
 MAP_TYPE_DEF(struct parserVar *, Var);
 MAP_TYPE_FUNCS(struct parserVar *, Var);

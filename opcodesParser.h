@@ -1,8 +1,8 @@
 #pragma once
 #include <stdint.h>
-#include <str.h>
-#include <parserA.h>
-#include <parserB.h>
+#include "str.h"
+#include "parserA.h"
+#include "parserB.h"
 struct X86AddressingMode;
 struct X86MemoryLoc {
 	enum {

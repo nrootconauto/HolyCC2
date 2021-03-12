@@ -1,6 +1,6 @@
-#include <IR.h>
-#include <parserA.h>
-#include <preprocessor.h>
+#include "IR.h"
+#include "parserA.h"
+#include "preprocessor.h"
 struct enterExit {
 	graphNodeIR enter, exit;
 };

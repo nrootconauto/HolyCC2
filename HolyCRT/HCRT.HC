@@ -158,6 +158,6 @@ try {
 					testRegsI8i();
 					testRegsCast();
 					}
-					Print("Hello World\n");
+					Print("Hello World,%.3n\n",1.123);
 					return 0;
 }

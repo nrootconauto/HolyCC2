@@ -1,10 +1,10 @@
-#include <IR.h>
-#include <IRLiveness.h>
+#include "IR.h"
+#include "IRLiveness.h"
 #include <assert.h>
-#include <cleanup.h>
+#include "cleanup.h"
 //#define DEBUG_PRINT_ENABLE 1
-#include <basicBlocks.h>
-#include <debugPrint.h>
+#include "basicBlocks.h"
+#include "debugPrint.h"
 #include <stdio.h>
 void *IR_ATTR_BASIC_BLOCK = "BASIC_BLOCK";
 typedef int (*gnCmpType)(const graphNodeMapping *, const graphNodeMapping *);

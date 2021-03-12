@@ -1,5 +1,5 @@
 #pragma once
-#include <str.h>
+#include "str.h"
 enum textModifyType {
 	MODIFY_INSERT,
 	MODIFY_REMOVE,

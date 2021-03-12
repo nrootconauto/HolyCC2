@@ -1,7 +1,7 @@
 #pragma once
 #include <stdio.h>
-#include <str.h>
-#include <textMapper.h>
+#include "str.h"
+#include "textMapper.h"
 struct includeMacro {
 	struct __vec *fileName;
 };

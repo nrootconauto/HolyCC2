@@ -1,6 +1,6 @@
-#include <rope.h>
-#include <str.h>
-#include <cleanup.h>
+#include "rope.h"
+#include "str.h"
+#include "cleanup.h"
 #include <stdlib.h>
 #define ALLOCATE(x) ({typeof(x)* ptr=calloc(sizeof(x),1);*ptr=x;ptr;})
 #define ROPE_LENGTH 4

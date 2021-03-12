@@ -1,7 +1,7 @@
 #include <assert.h>
-#include <cleanup.h>
-#include <object.h>
-#include <registers.h>
+#include "cleanup.h"
+#include "object.h"
+#include "registers.h"
 #include <stdarg.h>
 #include <stdlib.h>
 struct reg regX86AL;

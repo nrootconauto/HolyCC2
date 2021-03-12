@@ -1,9 +1,9 @@
 #include <stdio.h>
-#include <compile.h>
-#include <hashTable.h>
+#include "compile.h"
+#include "hashTable.h"
 #include <string.h>
-#include <str.h>
-#include <cleanup.h>
+#include "str.h"
+#include "cleanup.h"
 #include <assert.h>
 void init();
 //

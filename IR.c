@@ -1,12 +1,12 @@
-#include <diagMsg.h>
-#include <IR.h>
+#include "diagMsg.h"
+#include "IR.h"
 #include <assert.h>
-#include <cleanup.h>
-#include <exprParser.h>
+#include "cleanup.h"
+#include "exprParser.h"
 #include <stdarg.h>
 #include <stdint.h>
-#include <IRTypeInference.h>
-#include <ieee754.h>
+#include "IRTypeInference.h"
+#include "ieee754.h"
 void *IR_ATTR_VARIABLE = "IS_VARIABLE";
 typedef int (*gnIRCmpType)(const graphNodeIR *, const graphNodeIR *);
 typedef int (*geIRCmpType)(const graphEdgeIR *, const graphEdgeIR *);
@@ -1680,7 +1680,7 @@ graphNodeIR IRCreateMemberAccess(graphNodeIR input, const char *name) {
 	graphNodeIRConnect(input, memNode, IR_CONN_SOURCE_A);
 	return memNode;
 }
-#include <IRFilter.h>
+#include "IRFilter.h"
 static int isNotExprEdge(const void *data, const graphEdgeIR *edge) {
 	return !IRIsExprEdge(*graphEdgeIRValuePtr(*edge));
 }

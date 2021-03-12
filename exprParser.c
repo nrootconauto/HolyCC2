@@ -1,9 +1,9 @@
 #include <assert.h>
-#include <diagMsg.h>
-#include <hashTable.h>
-#include <parserA.h>
-#include <parserB.h>
-#include <registers.h>
+#include "diagMsg.h"
+#include "hashTable.h"
+#include "parserA.h"
+#include "parserB.h"
+#include "registers.h"
 #include <stdio.h>
 #include <stdlib.h>
 struct object *assignTypeToOp(const struct parserNode *node);

@@ -1,8 +1,8 @@
 #include <assert.h>
-#include <hashTable.h>
-#include <linkedList.h>
+#include "hashTable.h"
+#include "linkedList.h"
 #include <stdio.h>
-#include <str.h>
+#include "str.h"
 #include <string.h>
 STR_TYPE_DEF(int, Int);
 STR_TYPE_FUNCS(int, Int);

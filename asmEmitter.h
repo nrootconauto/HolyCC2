@@ -1,8 +1,8 @@
 #pragma once
-#include <opcodesParser.h>
-#include <parserA.h>
+#include "opcodesParser.h"
+#include "parserA.h"
 #include <stdio.h>
-#include <frameLayout.h>
+#include "frameLayout.h"
 void X86EmitAsmInst(struct opcodeTemplate *template, strX86AddrMode args, int *err);
 void X86EmitAsmParserInst(struct parserNodeAsmInstX86 *inst);
 void X86EmitAsmInit();

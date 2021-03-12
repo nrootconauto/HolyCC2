@@ -1,13 +1,13 @@
 #include <assert.h>
-#include <cleanup.h>
-#include <debugPrint.h>
-#include <escaper.h>
-#include <graph.h>
-#include <hashTable.h>
-#include <ptrMap.h>
+#include "cleanup.h"
+#include "debugPrint.h"
+#include "escaper.h"
+#include "graph.h"
+#include "hashTable.h"
+#include "ptrMap.h"
 #include <stdbool.h>
 #include <stdlib.h>
-#include <str.h>
+#include "str.h"
 typedef int (*geCmpType)(const struct __graphEdge **, const struct __graphEdge **);
 typedef int (*gnCmpType)(const struct __graphNode **, const struct __graphNode **);
 struct __graphNode;

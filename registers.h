@@ -1,6 +1,6 @@
 #pragma once
-#include <object.h>
-#include <str.h>
+#include "object.h"
+#include "str.h"
 struct reg;
 STR_TYPE_DEF(struct reg *, RegP);
 STR_TYPE_FUNCS(struct reg *, RegP);

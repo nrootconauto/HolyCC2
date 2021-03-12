@@ -1,11 +1,11 @@
 #include <assert.h>
-#include <diagMsg.h>
-#include <hashTable.h>
-#include <parserA.h>
+#include "diagMsg.h"
+#include "hashTable.h"
+#include "parserA.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <str.h>
+#include "str.h"
 static char *strClone(const char *text) {
 	long len = strlen(text);
 	char *retVal = calloc(len + 1,1);
@@ -73,10 +73,10 @@ MAP_TYPE_DEF(struct diagInst, Inst);
 MAP_TYPE_FUNCS(struct diagInst, Inst);
 static mapInst insts = NULL;
 // TODO implement file mappings
-__thread static strFileMappings fileMappings;
-__thread static strTextModify mappings;
-__thread static struct diagInst *currentInst = NULL;
-__thread static int errCount = 0;
+static __thread strFileMappings fileMappings;
+static __thread strTextModify mappings;
+static __thread struct diagInst *currentInst = NULL;
+static __thread int errCount = 0;
 static struct diagInst *diagInstByPos(long where) {
 	if (where == diagInputSize()) {
 		if (where - 1 >= 0) {

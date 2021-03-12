@@ -1,7 +1,7 @@
 #pragma once
-#include <linkedList.h>
-#include <str.h>
-#include <parserA.h>
+#include "linkedList.h"
+#include "str.h"
+#include "parserA.h"
 enum holyCTypeKind {
 	TYPE_Bool,
 	TYPE_U0,

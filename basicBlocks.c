@@ -1,9 +1,9 @@
-#include <IR.h>
-#include <IRLiveness.h>
+#include "IR.h"
+#include "IRLiveness.h"
 #include <assert.h>
-#include <cleanup.h>
+#include "cleanup.h"
 //#define DEBUG_PRINT_ENABLE 1
-#include <debugPrint.h>
+#include "debugPrint.h"
 static char *var2Str(graphNodeIR node) {
 	char buffer[1024];
 	struct IRNodeValue *val = (void *)graphNodeIRValuePtr(node);

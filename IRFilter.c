@@ -1,5 +1,5 @@
-#include <IR.h>
-#include <cleanup.h>
+#include "IR.h"
+#include "cleanup.h"
 static int isFlowNode(enum IRConnType type) {
 	switch (type) {
 	case IR_CONN_FLOW:

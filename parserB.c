@@ -1,10 +1,10 @@
 #include <assert.h>
-#include <diagMsg.h>
-#include <hashTable.h>
-#include <parserB.h>
-#include <string.h>
-#include <registers.h>
-#include <preprocessor.h>
+#include "diagMsg.h"
+#include "hashTable.h"
+#include "parserB.h"
+#include "string.h"
+#include "registers.h"
+#include "preprocessor.h"
 #define ALLOCATE(x)																																																					\
 	({                                                                                                                                                               \
 		__auto_type len = sizeof(x);                                                                                                                                   \

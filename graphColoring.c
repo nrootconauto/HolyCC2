@@ -1,6 +1,6 @@
-#include <cleanup.h>
-#include <debugPrint.h>
-#include <graphColoring.h>
+#include "cleanup.h"
+#include "debugPrint.h"
+#include "graphColoring.h"
 //
 // http://supertech.csail.mit.edu/papers/HasenplaughKaSc14.pdf figure 8
 //

@@ -1,6 +1,6 @@
 #pragma once
-#include <graph.h>
-#include <linkedList.h>
+#include "graph.h"
+#include "linkedList.h"
 struct vertexColoring {
 	struct __graphNode *node;
 	int color;

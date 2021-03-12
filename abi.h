@@ -1,8 +1,8 @@
-#include <IR.h>
-#include <registers.h>
-#include <opcodesParser.h>
-#include <asmEmitter.h>
-#include <basicBlocks.h>
+#include "IR.h"
+#include "registers.h"
+#include "opcodesParser.h"
+#include "asmEmitter.h"
+#include "basicBlocks.h"
 extern void *IR_ATTR_ABI_INFO;
 struct IRAttrABIInfo {
 		struct IRAttr base;

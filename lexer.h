@@ -1,8 +1,8 @@
 #pragma once
-#include <linkedList.h>
+#include "linkedList.h"
 #include <stdint.h>
-#include <str.h>
-#include <stringParser.h>
+#include "str.h"
+#include "stringParser.h"
 struct lexer;
 enum intType {
 	INT_ULONG,

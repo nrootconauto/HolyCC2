@@ -1,8 +1,8 @@
-#include <IR.h>
+#include "IR.h"
 #include <assert.h>
-#include <cleanup.h>
-#include <ptrMap.h>
-#include <registers.h>
+#include "cleanup.h"
+#include "ptrMap.h"
+#include "registers.h"
 static void *IR_ATTR_NODE_TYPE = "NODE_TYPE";
 struct IRAttrNodeType {
 	struct IRAttr base;

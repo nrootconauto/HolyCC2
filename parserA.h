@@ -1,7 +1,7 @@
 #pragma once
-#include <lexer.h>
+#include "lexer.h"
 struct object;
-#include <str.h>
+#include "str.h"
 enum parserNodeType {
 	NODE_ASM_REG,
 	NODE_ASM_ADDRMODE,

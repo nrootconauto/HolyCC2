@@ -1,5 +1,5 @@
 #include <ctype.h>
-#include <lexer.h>
+#include "lexer.h"
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>

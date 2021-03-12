@@ -1,12 +1,12 @@
 #include <assert.h>
-#include <cleanup.h>
-#include <hashTable.h>
-#include <object.h>
-#include <parserA.h>
-#include <registers.h>
+#include "cleanup.h"
+#include "hashTable.h"
+#include "object.h"
+#include "parserA.h"
+#include "registers.h"
 #include <stdio.h>
 #include <string.h>
-#include <diagMsg.h>
+#include "diagMsg.h"
 MAP_TYPE_DEF(struct object *, Object);
 MAP_TYPE_FUNCS(struct object *, Object);
 STR_TYPE_DEF(char, Char);

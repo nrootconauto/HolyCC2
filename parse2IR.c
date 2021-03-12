@@ -1,15 +1,15 @@
-#include <IR.h>
+#include "IR.h"
 #include <assert.h>
-#include <cleanup.h>
-#include <exprParser.h>
-#include <hashTable.h>
-#include <linkedList.h>
-#include <parse2IR.h>
-#include <parserA.h>
+#include "cleanup.h"
+#include "exprParser.h"
+#include "hashTable.h"
+#include "linkedList.h"
+#include "parse2IR.h"
+#include "parserA.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <setjmp.h>
-#include <preprocessor.h>
+#include "preprocessor.h"
 typedef int (*gnIRCmpType)(const graphNodeIR *, const graphNodeIR *);
 typedef int (*pnCmpType)(const struct parserNode **, const struct parserNode **);
 static int ptrPtrCmp(const void *a, const void *b) {

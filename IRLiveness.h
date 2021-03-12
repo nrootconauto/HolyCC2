@@ -1,7 +1,7 @@
 #pragma once
-#include <IR.h>
-#include <basicBlocks.h>
-#include <ptrMap.h>
+#include "IR.h"
+#include "basicBlocks.h"
+#include "ptrMap.h"
 struct IRVarLiveness {
 	struct IRVar ref;
 };

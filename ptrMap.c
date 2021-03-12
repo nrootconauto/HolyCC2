@@ -1,7 +1,7 @@
-#include <linkedList.h>
-#include <ptrMap.h>
+#include "linkedList.h"
+#include "ptrMap.h"
 #include <stdlib.h>
-#include <str.h>
+#include "str.h"
 STR_TYPE_DEF(struct __ll *, LL);
 STR_TYPE_FUNCS(struct __ll *, LL);
 STR_TYPE_DEF(long, Long);
