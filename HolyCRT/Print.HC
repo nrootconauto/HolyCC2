@@ -146,6 +146,7 @@ I32i Str2I32i(U8i *str,U8i **end=NULL) {
 														case '0'...'9':
 														retVal*=10;
 														retVal+=*str-'0';
+														str+=1;
 														goto loop;
 														default:
 														break;
@@ -184,6 +185,7 @@ U0 Print(U8i *fmt,...) {
 																											break;
 											}
 											for(;str!=where;str+=1) PutC(*str);
+											str+=1;
 											I8i signFlag=0;
 											if(*str=='-') {
 																									signFlag=1;
@@ -197,6 +199,7 @@ U0 Print(U8i *fmt,...) {
 											I32i width=Str2I32i(str,&str);
 											I32i decimals=0;
 											if(*str=='.') {
+																									str+=1;
 																								decimals=Str2I32i(str,&str);
 											}
 											//
@@ -204,7 +207,9 @@ U0 Print(U8i *fmt,...) {
 											//
 											switch(*str) {
 																								case 'n': {
-																													__callPrintF64(&argv[argi],decimals);
+																													F64 *tmp=(&argv[argi])(F64);
+																													F64 val=*tmp;
+																													__callPrintF64(val,decimals);
 																													argi+=2;
 																													break;
 																								}

@@ -84,8 +84,7 @@ void pushReg(struct reg *r) {
 						assembleInst("SUB", addArgs);
 						
 						strX86AddrMode movArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
-						movArgs = strX86AddrModeAppendItem(movArgs, X86AddrModeIndirReg(stackPointer(),objectPtrCreate(&typeU0)));
-						movArgs[0]->valueType=&typeF64;
+						movArgs = strX86AddrModeAppendItem(movArgs, X86AddrModeIndirReg(stackPointer(),&typeF64));
 						assembleInst("FSTP", movArgs);
 						return;
 				}
@@ -122,7 +121,7 @@ void pushReg(struct reg *r) {
 
 							struct X86AddressingMode *aMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86ST0,&typeF64);
 							asmAssign(aMode, mode, 8, ASM_ASSIGN_X87FPU_POP);
-							struct X86AddressingMode *stackTop CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirReg(stackPointer(),getTypeForSize(ptrSize()));
+							struct X86AddressingMode *stackTop CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirReg(stackPointer(),&typeF64);
 							asmAssign(stackTop, aMode, 8, ASM_ASSIGN_X87FPU_POP);
 							return;
 					}
@@ -362,7 +361,7 @@ static struct X86AddressingMode *__node2AddrMode(graphNodeIR start) {
 			return X86AddrModeLabel(name);
 		}
 		case IR_VAL_REG: {
-				return X86AddrModeReg(value->val.value.reg.reg,getTypeForSize(value->val.value.reg.reg->size));
+				return X86AddrModeReg(value->val.value.reg.reg,IRNodeType(start));
 		}
 		case IR_VAL_VAR_REF: {
 			fprintf(stderr, "CONVERT VARIABLE REFERENCES TO FRAME ADDRESSES!!!");
@@ -1625,6 +1624,7 @@ static struct X86AddressingMode *demoteAddrMode(struct X86AddressingMode *addr, 
 		if (!subReg)
 			return NULL;
 		mode->value.reg = subReg;
+		mode->valueType=type;
 		break;
 	}
 	case X86ADDRMODE_STR:
