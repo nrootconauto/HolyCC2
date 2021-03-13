@@ -3886,7 +3886,7 @@ static struct X86AddressingMode *includeHCRTFunc(const char *name) {
 		return retVal;
 }
 void IR2Asm(graphNodeIR start) {
-	strGraphNodeIRP next CLEANUP(strGraphNodeIRPDestroy) = NULL;
+		strGraphNodeIRP __next;
 	if (IREndOfExpr(start) != start) {
 		// Start of statement can be label,so compile label first(__IR2Asm only compiles node once)
 		__auto_type exprStart = IRStmtStart(start);
@@ -3894,12 +3894,16 @@ void IR2Asm(graphNodeIR start) {
 			__IR2Asm(exprStart);
 
 		__IR2AsmExpr(IREndOfExpr(start));
-		next = graphNodeIROutgoingNodes(IREndOfExpr(start));
+		__next = graphNodeIROutgoingNodes(IREndOfExpr(start));
 	} else {
-		next = __IR2Asm(start);
+		__next = __IR2Asm(start);
 	}
-	next = strGraphNodeIRPUnique(next, (gnCmpType)ptrPtrCmp, NULL);
+		graphNodeIR next[strGraphNodeIRPSize(__next)];
+		__next = strGraphNodeIRPUnique(__next, (gnCmpType)ptrPtrCmp, NULL);
+		long len=strGraphNodeIRPSize(__next);
+		memcpy(next, __next, len*sizeof(*next));
+		strGraphNodeIRPDestroy(&__next);
 
-	for (long n = 0; n != strGraphNodeIRPSize(next); n++)
+	for (long n = 0; n != len; n++)
 		IR2Asm(next[n]);
 }

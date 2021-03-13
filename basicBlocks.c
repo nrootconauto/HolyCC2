@@ -100,7 +100,7 @@ static int isExprNodeOrNotVisited(const struct __graphNode *node, const struct _
 	return isExprEdge(edgeVal);
 }
 static strGraphNodeMappingP visitAllAdjExprTo(graphNodeMapping node) {
-	strGraphNodeMappingP visited = strGraphNodeMappingPAppendItem(NULL, node);
+		strGraphNodeMappingP visited = strGraphNodeMappingPAppendItem(NULL, node);
 
 	for (;;) {
 	loop:;
@@ -197,7 +197,7 @@ static void bbFromExpr(graphNodeIR start, strBasicBlock *results, int (*varFilte
 		// Check for do-later
 		//  expr nodes stops at incoming assigns so continue search upwards
 		if (*graphNodeMappingValuePtr(start) != node) {
-			strGraphEdgeIRP incoming = graphNodeIRIncoming(node);
+			strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(node);
 			strGraphEdgeIRP incomingAssigns CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(incoming, IR_CONN_DEST);
 			if (strGraphEdgeIRPSize(incomingAssigns))
 				bbFromExpr(exprNodes[i2], results, varFilter, data);
@@ -210,7 +210,7 @@ static void bbFromExpr(graphNodeIR start, strBasicBlock *results, int (*varFilte
 					continue;
 
 			// Check if node is asssigned to,or only read from
-			strGraphEdgeIRP incoming = graphNodeIRIncoming(node);
+			strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(node);
 			strGraphEdgeIRP incomingAssigns CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(incoming, IR_CONN_DEST);
 			if (strGraphEdgeIRPSize(incomingAssigns)) {
 				//
@@ -251,7 +251,7 @@ strBasicBlock IRGetBasicBlocksFromExpr(graphNodeIR dontDestroy, ptrMapBlockMetaN
                                        const void *data, int (*varFilter)(graphNodeIR var, const void *data)) {
 	varFilterPred = varFilter;
 	varFilterData = (void *)data;
-	strGraphNodeMappingP nodes = visitAllAdjExprTo(start);
+	strGraphNodeMappingP nodes CLEANUP(strGraphNodeMappingPDestroy)  = visitAllAdjExprTo(start);
 	if (nodes == NULL)
 		return NULL;
 
@@ -260,9 +260,9 @@ strBasicBlock IRGetBasicBlocksFromExpr(graphNodeIR dontDestroy, ptrMapBlockMetaN
 	// Find "sinks" that dont end with assigns and dont lead to any more
 	// expression edges
 	//
-	strGraphNodeMappingP sinks = NULL;
+	strGraphNodeMappingP sinks CLEANUP(strGraphNodeMappingPDestroy) = NULL;
 	for (long i = 0; i != strGraphNodeMappingPSize(nodes); i++) {
-		strGraphEdgeIRP outgoing = NULL;
+			strGraphEdgeIRP outgoing CLEANUP(strGraphEdgeIRPDestroy) = NULL;
 		outgoing = graphNodeMappingOutgoing(*graphNodeMappingValuePtr(nodes[i]));
 
 		// Check if all outgoing edgesdont belong to expressions
@@ -288,7 +288,7 @@ strBasicBlock IRGetBasicBlocksFromExpr(graphNodeIR dontDestroy, ptrMapBlockMetaN
 	//
 
 	// Concat assign nodes with sinks
-	__auto_type oldSinks = strGraphNodeMappingPClone(sinks);
+	strGraphNodeMappingP oldSinks CLEANUP(strGraphNodeMappingPDestroy) = strGraphNodeMappingPClone(sinks);
 	strGraphNodeMappingP startFroms CLEANUP(strGraphNodeMappingPDestroy) = strGraphNodeMappingPClone(sinks);
 
 	for (long i = 0; i != strGraphNodeMappingPSize(startFroms); i++) {

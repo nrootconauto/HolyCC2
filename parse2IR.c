@@ -127,6 +127,17 @@ static struct IRGenScopeStack *IRGenScopePush(enum scopeType type) {
 static void IRGenScopePop(enum scopeType type) {
 	struct IRGenScopeStack top;
 	currentGen->scopes = strScopeStackPop(currentGen->scopes, &top);
+	switch(top.type) {
+	case SCOPE_TYPE_FUNC:
+	case SCOPE_TYPE_LOOP:
+	case SCOPE_TYPE_SCOPE:
+	case SCOPE_TYPE_SUB_SWIT:
+			break;
+	case SCOPE_TYPE_SWIT:
+			ptrMapGNIRByParserNodeDestroy(top.value.swit.subSwitchsByParserNode,  NULL);
+			ptrMapEnterExitByParserNodeDestroy(top.value.swit.subSwitchEnterCodeByParserNode,  NULL);
+			mapIRCaseDestroy(top.value.swit.casesByRange,NULL);
+	}
 }
 
 static strChar ptr2Str(const void *a) {
@@ -161,7 +172,7 @@ static strChar caseHash(const struct parserNode *cs) {
 // Attaches all entry nodes to a start node
 //
 static int visitNotVisitedOperand(const struct __graphNode *node, const struct __graphEdge *ed, const void *data) {
-	strGraphNodeIRP visited = (void *)data;
+		strGraphNodeIRP visited = (void *)data;
 
 	// Only visit operand /dest operand
 	__auto_type edType = *graphEdgeIRValuePtr((void *)ed);
@@ -322,7 +333,6 @@ static void deinit() {
 	mapIRNodeTypeDestroy(assign2IRType, NULL);
 	mapIRNodeTypeDestroy(binop2IRType, NULL);
 }
-// TODO optomize
 static void IRCondJump(graphNodeIR cond, struct enterExit successLabel, struct enterExit failLabel) {
 	struct IRNodeCondJump jump;
 	jump.base.type = IR_COND_JUMP;
@@ -387,7 +397,7 @@ static struct enterExit __createSwitchCodeAfterBody(const struct parserNode *nod
 
 	// Exit enter
 	struct parserNodeSwitch *swit = (void *)node;
-	strParserNode cases = NULL;
+	strParserNode cases CLEANUP(strParserNodeDestroy) = NULL;
 	getCases(swit->caseSubcases, &cases, &dft);
 	__auto_type cond = __parserNode2IRStmt(swit->exp);
 	cond=insSrcMapping(swit->exp->pos.start, swit->exp->pos.end, cond);
@@ -417,9 +427,8 @@ static struct enterExit __createSwitchCodeAfterBody(const struct parserNode *nod
 	}
 
 	// Collect list of sub-switchs
-	ptrMapGNsByParserNode casesBySubSwitch = ptrMapGNsByParserNodeCreate(); // DEL
 	ptrMapParserNodeByGN subSwitchsByIRPtr = ptrMapParserNodeByGNCreate();
-	strGraphNodeIRP subs = NULL;
+	strGraphNodeIRP subs CLEANUP(strGraphNodeIRPDestroy) = NULL;
 	struct parserNode *dftSubswitch = NULL;
 	for (long i = 0; i != strParserNodeSize(cases); i++) {
 		// If defualt,mark defualt as belonging to sub-switch
@@ -590,10 +599,6 @@ static struct enterExit __createSwitchCodeAfterBody(const struct parserNode *nod
 
 	graphNodeIRConnect(tableNode, *dftNode, IR_CONN_DFT);
 	
-	// Kill switch scope data
-	mapIRCaseDestroy(newScope->value.swit.casesByRange, NULL);
-	ptrMapGNIRByParserNodeDestroy(newScope->value.swit.subSwitchEnterCodeByParserNode, NULL);
-	ptrMapGNIRByParserNodeDestroy(newScope->value.swit.subSwitchsByParserNode, NULL);
 	// Pop scope
 	IRGenScopePop(SCOPE_TYPE_SWIT);
 
