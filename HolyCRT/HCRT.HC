@@ -176,6 +176,11 @@ U0 testRegsCast() {
 						printf("8->F64 %li\n",tmp8(F64)==1.0);
 						printf("16->F64 %li\n",tmp16(F64)==1.0);
 						printf("32->F64 %li\n",tmp32(F64)==1.0);
+
+						F64 f=2.3;
+						printf("F64->8 %li\n",f(I8i)==2);
+						printf("F64->16 %li\n",f(I16i)==2);
+						printf("F64->32 %li\n",f(I32i)==2);
 } while(0);
 }
 I32i main() {

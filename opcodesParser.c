@@ -669,14 +669,14 @@ struct X86AddressingMode *X86AddrModeUint(uint64_t imm) {
 	struct X86AddressingMode retVal;
 	retVal.type = X86ADDRMODE_UINT;
 	retVal.value.uint = imm;
-	retVal.valueType = NULL;
+	retVal.valueType = (dataSize()==4)?&typeI32i:&typeI64i;
 	return ALLOCATE(retVal);
 }
 struct X86AddressingMode *X86AddrModeSint(int64_t imm) {
 	struct X86AddressingMode retVal;
 	retVal.type = X86ADDRMODE_SINT;
 	retVal.value.sint = imm;
-	retVal.valueType = NULL;
+	retVal.valueType = (dataSize()==4)?&typeI32i:&typeI64i;
 	return ALLOCATE(retVal);
 }
 struct X86AddressingMode *X86AddrModeReg(struct reg *reg,struct object *valueType) {

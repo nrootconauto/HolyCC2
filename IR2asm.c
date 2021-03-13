@@ -1201,13 +1201,32 @@ void asmAssign(struct X86AddressingMode *a, struct X86AddressingMode *b, long si
 							if(isX87FltReg(a->value.reg)) {
 									assert(0);
 							} else {
-									pushMode(a);
-									strX86AddrMode fistArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
-									struct X86AddressingMode *aLoc CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())), NULL, getTypeForSize(size));
-									fistArgs=strX86AddrModeAppendItem(fistArgs, X86AddrModeClone(aLoc));
-									const char *op=(flags&ASM_ASSIGN_X87FPU_POP)?"FISTP":"FISTP";
-									assembleOpcode(NULL,op, fistArgs);
-									popMode(a);
+									long size=objectSize(a->valueType, NULL);
+									if(size==2||size==4||size==8) {
+											pushMode(a);
+											strX86AddrMode fistArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+											struct X86AddressingMode *aLoc CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())), NULL, getTypeForSize(size));
+											fistArgs=strX86AddrModeAppendItem(fistArgs, X86AddrModeClone(aLoc));
+											const char *op=(flags&ASM_ASSIGN_X87FPU_POP)?"FISTP":"FISTP";
+											assembleOpcode(NULL,op, fistArgs);
+											popMode(a);
+									} else {
+											struct X86AddressingMode *mode CLEANUP(X86AddrModeDestroy)=X86AddrModeSint(0);
+											pushMode(mode);
+
+											strX86AddrMode fistArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+											fistArgs=strX86AddrModeAppendItem(fistArgs, X86AddrModeIndirReg(stackPointer(), getTypeForSize(dataSize())));
+											assembleOpcode(NULL,"FISTP", fistArgs);
+
+											struct X86AddressingMode *top CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirReg(stackPointer(), a->valueType);
+											asmTypecastAssign(a, top, ASM_ASSIGN_X87FPU_POP);
+											
+											// "Pop"
+											strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+											addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeReg(stackPointer(), &typeI32i));
+											addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeSint(dataSize()));
+											assembleInst("ADD", addArgs);
+									}
 							}
 					} else if(a->type==X86ADDRMODE_ITEM_ADDR||a->type==X86ADDRMODE_MEM) {
 							if(objectBaseType(a->valueType)==&typeF64) {
@@ -1610,8 +1629,6 @@ void IRCompile(graphNodeIR start, int isFunc) {
 		inserted = strGraphNodeIRPSetUnion(nodes, inserted, (gnCmpType)ptrPtrCmp);
 	}
 	
-	if(!isFunc)
-			debugShowGraphIR(start);
 	IR2Asm(start);
 	
 	X86EmitAsmLeaveFunc(NULL);
