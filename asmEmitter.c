@@ -17,6 +17,7 @@ PTR_MAP_FUNCS(struct reg *, strChar, RegName);
 MAP_TYPE_DEF(char *, SymAsmName);
 MAP_TYPE_FUNCS(char *, SymAsmName);
 #define DFT_CACHE_DIR "/tmp/"
+static __thread long startCodeCount=0;
 static __thread struct asmFileSet {
 		FILE *constsTmpFile;
 		FILE *symbolsTmpFile;
@@ -603,6 +604,13 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 				free(escaped);
 		}
 		fclose(writeTo);
+}
+void X86EmitAsmEnterFileStartCode() {
+		const char *fmt="__init$%li";
+		long len=snprintf(NULL, 0, fmt,++startCodeCount);
+		char name[len+1];
+		snprintf(name, len+1, fmt, startCodeCount);
+		X86EmitAsmEnterFunc(name);
 }
 void X86EmitAsmEnterFunc(const char *funcName) {
 		struct asmFileSet *set=calloc(sizeof(struct asmFileSet), 1);

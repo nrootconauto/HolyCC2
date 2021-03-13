@@ -1,4 +1,3 @@
-
 extern U0 printf(U8i *fmt,...);
 extern U0 puts(U8i *chr);
 extern I32i sscanf(U8i *fmt,...);
@@ -240,5 +239,6 @@ U0 Print(U8i *fmt,...) {
 																													break;
 																								}
 											}
+											str+=1;
 			}
 }

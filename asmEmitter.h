@@ -18,3 +18,4 @@ void X86EmitAsmGlobalVar(struct parserVar *var);
 void X86EmitAsmComment(const char *text);
 void X86EmitAsmLeaveFunc(const char *cacheDir);
 void X86EmitAsmEnterFunc(const char *funcName);
+void X86EmitAsmEnterFileStartCode();

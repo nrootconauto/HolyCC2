@@ -2,6 +2,31 @@ _import pow F64 PowF64(F64 b,F64 e);
 #include "IntPow.HC"
 #include "ExceptLin.HC"
 #include "Print.HC"
+static I32i foo() {
+							Print("1\n");
+							return 1;
+}
+U0 testNoDest() {
+			Print("No-Dest\n");
+			I32i a=10;
+			I32i b=3;
+			(foo()+a)`(b+b);
+			(foo()+a)<<(b+b);
+			(foo()+a)>>(b+b);
+			(foo()+a)*(b+b);
+			(foo()+a)/(b+b);
+			(foo()+a)%(b+b);
+			(foo()+a)^(b+b);
+			(foo()+a)|(b+b);
+			+(foo()+a);
+			-(foo()+a);
+			(foo()+a)<(b+b);
+			(foo()+a)>(b+b);
+			(foo()+a)>=(b+b);
+			(foo()+a)<=(b+b);
+			(foo()+a)==(b+b);
+			(foo()+a)==(b+b);
+}
 U0 testRegsI32i() {
 			printf("I32i\n");
 			I32i reg EAX a=10;
@@ -154,6 +179,7 @@ U0 testRegsCast() {
 } while(0);
 }
 I32i main() {
+										Print("Hello World,%.6n\n",100.123);
 try {
 				throw(1);
 				} catch {
@@ -161,7 +187,7 @@ try {
 					testRegsI16i();
 					testRegsI8i();
 					testRegsCast();
+					testNoDest();
 					}
-					Print("Hello World,%.6n\n",100.123);
 					return 0;
 }
