@@ -61,10 +61,14 @@ static int untilWriteOut(const struct __graphNode *node, const struct __graphEdg
 
 	return 1;
 }
-
 static int ptrPtrCmp(const void *a, const void *b) {
-		return *(void**)a-*(void**)b;
+		if(*(void**)a>*(void**)b)
+				return 1;
+		else if(*(void**)a<*(void**)b)
+				return -1;
+		return 0;
 }
+
 static int isVarNode(const struct IRNode *irNode) {
 	if (irNode->type == IR_VALUE) {
 		struct IRNodeValue *val = (void *)irNode;

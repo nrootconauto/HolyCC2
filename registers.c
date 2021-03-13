@@ -62,7 +62,11 @@ struct reg regX86FS;
 struct reg regX86GS;
 
 static int ptrPtrCmp(const void *a, const void *b) {
-		return *(void**)a-*(void**)b;
+		if(*(void**)a>*(void**)b)
+				return 1;
+		else if(*(void**)a<*(void**)b)
+				return -1;
+		return 0;
 }
 typedef int (*regPCmpType)(const struct reg **, const struct reg **);
 struct regSlice createRegSlice(const struct reg *reg, int offset, int width) {

@@ -19,13 +19,13 @@ struct vertexInfo {
 LL_TYPE_DEF(struct vertexPriority, Data);
 LL_TYPE_FUNCS(struct vertexInfo, Data);
 static int ptrPtrCmp(const void *a, const void *b) {
-	if (*(void **)a > *(void **)b)
-		return 1;
-	else if (*(void **)a < *(void **)b)
-		return -1;
-	else
+		if(*(void**)a>*(void**)b)
+				return 1;
+		else if(*(void**)a<*(void**)b)
+				return -1;
 		return 0;
 }
+
 static int llVertexColorInsertCmp(const struct vertexColoring *a, const struct vertexColoring *b) {
 	const struct vertexColoring *A = a, *B = b;
 	return ptrPtrCmp(&A->node, &B->node);

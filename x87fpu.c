@@ -11,7 +11,11 @@ typedef int (*regCmpType)(const struct reg **, const struct reg **);
 typedef int (*gnCmpType)(const graphNodeIR *, const graphNodeIR*);
 PTR_MAP_FUNCS(struct parserVar*, long, RefCount);
 static int ptrPtrCmp(const void *a, const void *b) {
-		return *(void**)a-*(void**)b;
+		if(*(void**)a>*(void**)b)
+				return 1;
+		else if(*(void**)a<*(void**)b)
+				return -1;
+		return 0;
 }
 struct reg *X87FpuPushReg() {
 		long cur=strRegPSize(fpuRegsInUse);

@@ -34,8 +34,13 @@ static void IRAttrAddrModeDestroy(struct IRAttr *attr) {
 typedef int (*regCmpType)(const struct reg **, const struct reg **);
 typedef int (*gnCmpType)(const graphNodeIR *, const graphNodeIR *);
 static int ptrPtrCmp(const void *a, const void *b) {
-		return *(void**)a-*(void**)b;
+		if(*(void**)a>*(void**)b)
+				return 1;
+		else if(*(void**)a<*(void**)b)
+				return -1;
+		return 0;
 }
+
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
 PTR_MAP_FUNCS(graphNodeIR, strChar, LabelNames);

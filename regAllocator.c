@@ -103,7 +103,11 @@ STR_TYPE_DEF(struct IRVar *, IRVar);
 STR_TYPE_FUNCS(struct IRVar *, IRVar);
 typedef int (*gnCmpType)(const graphNodeIR *, const graphNodeIR *);
 static int ptrPtrCmp(const void *a, const void *b) {
-		return *(void**)a-*(void**)b;
+		if(*(void**)a>*(void**)b)
+				return 1;
+		else if(*(void**)a<*(void**)b)
+				return -1;
+		return 0;
 }
 static void transparentKill(graphNodeIR node, int preserveEdgeValue) {
 	__auto_type incoming = graphNodeIRIncoming(node);

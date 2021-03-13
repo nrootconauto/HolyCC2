@@ -27,7 +27,11 @@ struct __graphNode {
 };
 static int ptrCompare(const void *a, const void *b) {
 	const void **A = (const void **)a, **B = (const void **)b;
-	return *A - *B;
+	if(*A > *B)
+			return 1;
+	else if(*A<*B)
+			return -1;
+	return 0;
 }
 struct __graphNode *__graphNodeCreate(void *value, long itemSize, int version) {
 		struct __graphNode *retVal = calloc(sizeof(struct __graphNode) + itemSize,1);
@@ -50,7 +54,7 @@ STR_TYPE_DEF(long, Long);
 STR_TYPE_FUNCS(long, Long);
 static void __graphNodeVisitDirPred(struct __graphNode *node, void *data, int(pred)(const struct __graphNode *, const struct __graphEdge *, const void *),
                                     void (*visit)(struct __graphNode *, void *), enum dir d) {
-	strGraphNodeP visited CLEANUP(strGraphNodePDestroy);
+		strGraphNodeP visited CLEANUP(strGraphNodePDestroy);
 	visited = NULL;
 	strGraphNodeP toVisit CLEANUP(strGraphNodePDestroy);
 	toVisit = NULL;
@@ -261,7 +265,7 @@ loop:;
 			goto loop;
 	}
 
-	return strGraphNodePAppendData(NULL, (void *)visited, strGraphNodePSize(visited));
+	return visited;
 }
 
 void __graphKillAll(struct __graphNode *start, void (*killFunc)(void *), void (*killEdge)(void *)) {

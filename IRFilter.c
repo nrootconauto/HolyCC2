@@ -47,7 +47,11 @@ static void strGraphPathDestroy2(strGraphPath *path) {
 	strGraphPathDestroy(path);
 }
 static int ptrPtrCmp(const void *a, const void *b) {
-		return *(void**)a-*(void**)b;
+		if(*(void**)a>*(void**)b)
+				return 1;
+		else if(*(void**)a<*(void**)b)
+				return -1;
+		return 0;
 }
 struct assocPairIR2Mapping {
 	graphNodeIR ir;

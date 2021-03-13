@@ -44,7 +44,11 @@ struct IRAttrFunc {
 };
 typedef int (*gnCmpType)(const graphNodeMapping *, const graphNodeMapping *);
 static int ptrPtrCmp(const void *a, const void *b) {
-		return *(void**)a-*(void**)b;
+		if(*(void**)a>*(void**)b)
+				return 1;
+		else if(*(void**)a<*(void**)b)
+				return -1;
+		return 0;
 }
 typedef int (*regCmpType)(const struct reg **, const struct reg **);
 typedef int (*varCmpType)(const struct parserVar **, const struct parserVar **);
