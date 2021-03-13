@@ -16,13 +16,19 @@ PTR_MAP_FUNCS(struct parserNode *, strChar, LabelNames);
 PTR_MAP_FUNCS(struct reg *, strChar, RegName);
 MAP_TYPE_DEF(char *, SymAsmName);
 MAP_TYPE_FUNCS(char *, SymAsmName);
-static __thread mapSymAsmName asmNames;
-static __thread long labelCount = 0;
-static __thread ptrMapLabelNames labelsByParserNode = NULL;
-static __thread FILE *constsTmpFile = NULL;
-static __thread FILE *symbolsTmpFile = NULL;
-static __thread FILE *initSymbolsTmpFile = NULL;
-static __thread FILE *codeTmpFile = NULL;
+#define DFT_CACHE_DIR "/tmp/"
+static __thread struct asmFileSet {
+		FILE *constsTmpFile;
+		FILE *symbolsTmpFile;
+		FILE *initSymbolsTmpFile;
+		FILE *codeTmpFile;
+		long labelCount;
+		strChar funcName;
+		struct asmFileSet *parent;
+} *currentFileSet=NULL;
+MAP_TYPE_DEF(strChar,FuncFiles);
+MAP_TYPE_FUNCS(strChar,FuncFiles);
+static __thread mapFuncFiles funcFiles=NULL;
 static ptrMapRegName regNames;
 static void strCharDestroy2(strChar *str) {
 	strCharDestroy(str);
@@ -146,26 +152,7 @@ __attribute__((constructor)) static void init() {
 	ptrMapRegNameAdd(regNames, &regX86GS, strClone("GS"));
 }
 void X86EmitAsmInit() {
-	labelCount = 0;
-	ptrMapLabelNamesDestroy(labelsByParserNode, (void (*)(void *))strCharDestroy2);
-	mapSymAsmNameDestroy(asmNames, (void (*)(void *))strCharDestroy2);
-	asmNames = mapSymAsmNameCreate();
-	labelsByParserNode = ptrMapLabelNamesCreate();
-	if (constsTmpFile != NULL)
-		fclose(constsTmpFile);
-	constsTmpFile = tmpfile();
-
-	if (symbolsTmpFile != NULL)
-		fclose(symbolsTmpFile);
-	symbolsTmpFile = tmpfile();
-
-	if (codeTmpFile != NULL)
-		fclose(codeTmpFile);
-	codeTmpFile = tmpfile();
-
-	if (initSymbolsTmpFile != NULL)
-			fclose(initSymbolsTmpFile);
-	initSymbolsTmpFile=tmpfile();
+		funcFiles=mapFuncFilesCreate();
 }
 static strChar int64ToStr(int64_t value) {
 	strChar retVal = NULL;
@@ -210,7 +197,7 @@ static strChar getSizeStr(struct object *obj) {
 		return NULL;
 	}
 }
-static void X86EmitSymbolTable() {
+static void X86EmitSymbolTable(FILE *dumpTo) {
 	long count;
 	parserSymTableNames(NULL, &count);
 	const char *keys[count];
@@ -221,14 +208,13 @@ static void X86EmitSymbolTable() {
 				continue;
 		__auto_type link = parserGlobalSymLinkage(keys[i]);
 		if ((link->type & LINKAGE__EXTERN) || (link->type & LINKAGE__IMPORT)) {
-			fprintf(symbolsTmpFile, "EXTERN %s ; Appears as %s in src.\n", name, keys[i]);
-			mapSymAsmNameInsert(asmNames, keys[i], strClone(link->fromSymbol));
+			fprintf(dumpTo, "EXTERN %s ; Appears as %s in src.\n", name, keys[i]);
 		} else if ((link->type & LINKAGE_STATIC)) {
 			// Do nothing
 		} else if ((link->type & LINKAGE_EXTERN) || (link->type & LINKAGE_IMPORT)) {
-			fprintf(symbolsTmpFile, "EXTERN %s\n", name);
+			fprintf(dumpTo, "EXTERN %s\n", name);
 		} else if (!(link->type & LINKAGE_LOCAL)) {
-			fprintf(symbolsTmpFile, "GLOBAL %s\n", name);
+			fprintf(dumpTo, "GLOBAL %s\n", name);
 		}
 	}
 }
@@ -437,14 +423,14 @@ void X86EmitAsmInst(struct opcodeTemplate *template, strX86AddrMode args, int *e
 	//
 	// Use intelAlias to use intel name/instruction
 	//
-	fprintf(codeTmpFile, "%s ", opcodeTemplateIntelAlias(template));
+	fprintf(currentFileSet->codeTmpFile, "%s ", opcodeTemplateIntelAlias(template));
 	for (long i = 0; i != strX86AddrModeSize(args); i++) {
 		if (i != 0)
-			fputc(',', codeTmpFile);
+			fputc(',', currentFileSet->codeTmpFile);
 		strChar mode CLEANUP(strCharDestroy) = emitMode(args, i);
-		fputs(mode, codeTmpFile);
+		fputs(mode, currentFileSet->codeTmpFile);
 	}
-	fputc('\n', codeTmpFile);
+	fputc('\n', currentFileSet->codeTmpFile);
 	if (err)
 		*err = 0;
 	return;
@@ -464,33 +450,33 @@ void X86EmitAsmParserInst(struct parserNodeAsmInstX86 *inst) {
 	assert(!err);
 }
 void X86EmitAsmGlobalVar(struct parserVar *var) {
-	fprintf(initSymbolsTmpFile, "$%s: resb %li\n", var->name, objectSize(var->type, NULL));
+	fprintf(currentFileSet->initSymbolsTmpFile, "$%s: resb %li\n", var->name, objectSize(var->type, NULL));
 }
 void X86EmitAsmIncludeBinfile(const char *fileName) {
 	char *otherValids = " []{}\\|;:\"\'<>?,./`~!@#$%^&*()-_+=";
-	fprintf(codeTmpFile, "incbin \"");
+	fprintf(currentFileSet->codeTmpFile, "incbin \"");
 	long len = strlen(fileName);
 	for (long c = 0; c != len; c++) { // C++,not a fan
 		if (fileName[c] != '\"') {
-			fputc(fileName[c], codeTmpFile);
+			fputc(fileName[c], currentFileSet->codeTmpFile);
 		} else {
-			fputs("\"", codeTmpFile);
+			fputs("\"", currentFileSet->codeTmpFile);
 		}
 	}
-	fprintf(codeTmpFile, "\"\n");
+	fprintf(currentFileSet->codeTmpFile, "\"\n");
 }
 char *X86EmitAsmLabel(const char *name) {
 	if (!name) {
-		long count = snprintf(NULL, 0, "LBL_%li$", ++labelCount);
+			long count = snprintf(NULL, 0, "%s_LBL_%li$",currentFileSet->funcName, ++currentFileSet->labelCount);
 		char buffer[count + 1];
-		sprintf(buffer, "LBL_%li$", labelCount);
-		fprintf(codeTmpFile, "%s:\n", buffer);
+		sprintf(buffer, "%s_LBL_%li$", currentFileSet->funcName,currentFileSet->labelCount);
+		fprintf(currentFileSet->codeTmpFile, "%s:\n", buffer);
 		char *retVal = calloc(count + 1,1);
 		strcpy(retVal, buffer);
 		return retVal;
 	}
 	char *retVal = calloc(strlen(name) + 1,1);
-	fprintf(codeTmpFile, "$%s:\n", name);
+	fprintf(currentFileSet->codeTmpFile, "$%s:\n", name);
 	strcpy(retVal, name);
 	return retVal;
 }
@@ -521,70 +507,70 @@ static strChar dumpStrLit(const char *str,long len) {
 	return retVal;
 }
 struct X86AddressingMode *X86EmitAsmDU64(strX86AddrMode data, long len) {
-	long count = snprintf(NULL, 0, "DU64_%li", ++labelCount);
+		long count = snprintf(NULL, 0, "%s_DU64_%li",currentFileSet->funcName, ++currentFileSet->labelCount);
 	char buffer[count + 1];
-	sprintf(buffer, "DU64_%li", labelCount);
-	fprintf(constsTmpFile, "%s: DQ ", buffer);
+	sprintf(buffer, "%s_DU64_%li", currentFileSet->funcName,currentFileSet->labelCount);
+	fprintf(currentFileSet->constsTmpFile, "%s: DQ ", buffer);
 	for (long i = 0; i != len; i++) {
 		if (i != 0)
-			fputc(',', constsTmpFile);
+			fputc(',', currentFileSet->constsTmpFile);
 		strChar text CLEANUP(strCharDestroy) = emitMode(data, i);
-		fprintf(constsTmpFile, "%s", text);
+		fprintf(currentFileSet->constsTmpFile, "%s", text);
 	}
-	fprintf(constsTmpFile, "\n");
+	fprintf(currentFileSet->constsTmpFile, "\n");
 	return X86AddrModeLabel(buffer);
 }
 struct X86AddressingMode *X86EmitAsmDU32(strX86AddrMode data, long len) {
-	long count = snprintf(NULL, 0, "DU32_%li", ++labelCount);
+		long count = snprintf(NULL, 0, "%s_DU32_%li",currentFileSet->funcName, ++currentFileSet->labelCount);
 	char buffer[count + 1];
-	sprintf(buffer, "DU32_%li", labelCount);
-	fprintf(constsTmpFile, "%s: DD ", buffer);
+	sprintf(buffer, "%s_DU32_%li", currentFileSet->funcName,currentFileSet->labelCount);
+	fprintf(currentFileSet->constsTmpFile, "%s: DD ", buffer);
 	for (long i = 0; i != len; i++) {
 		if (i != 0)
-			fputc(',', constsTmpFile);
+			fputc(',', currentFileSet->constsTmpFile);
 		strChar text CLEANUP(strCharDestroy) = emitMode(data, i);
-		fprintf(constsTmpFile, "%s", text);
+		fprintf(currentFileSet->constsTmpFile, "%s", text);
 	}
-	fprintf(constsTmpFile, "\n");
+	fprintf(currentFileSet->constsTmpFile, "\n");
 	return X86AddrModeLabel(buffer);
 }
 struct X86AddressingMode *X86EmitAsmDU16(strX86AddrMode data, long len) {
-	long count = snprintf(NULL, 0, "DU16_%li", ++labelCount);
+		long count = snprintf(NULL, 0, "%s_DU16_%li", currentFileSet->funcName,++currentFileSet->labelCount);
 	char buffer[count + 1];
-	sprintf(buffer, "DU16_%li", labelCount);
-	fprintf(constsTmpFile, "%s: DW ", buffer);
+	sprintf(buffer, "%s_DU16_%li", currentFileSet->funcName,currentFileSet->labelCount);
+	fprintf(currentFileSet->constsTmpFile, "%s: DW ", buffer);
 	for (long i = 0; i != len; i++) {
 		if (i != 0)
-			fputc(',', constsTmpFile);
+			fputc(',', currentFileSet->constsTmpFile);
 		strChar text CLEANUP(strCharDestroy) = emitMode(data, i);
-		fprintf(constsTmpFile, "%s", text);
+		fprintf(currentFileSet->constsTmpFile, "%s", text);
 	}
-	fprintf(constsTmpFile, "\n");
+	fprintf(currentFileSet->constsTmpFile, "\n");
 	return X86AddrModeLabel(buffer);
 }
 struct X86AddressingMode *X86EmitAsmDU8(strX86AddrMode data, long len) {
-	long count = snprintf(NULL, 0, "DU8_%li", ++labelCount);
+		long count = snprintf(NULL, 0, "%s_DU8_%li",currentFileSet->funcName, ++currentFileSet->labelCount);
 	char buffer[count + 1];
-	sprintf(buffer, "DU8_%li", labelCount);
-	fprintf(constsTmpFile, "%s: DB ", buffer);
+	sprintf(buffer, "%s_DU8_%li", currentFileSet->funcName,currentFileSet->labelCount);
+	fprintf(currentFileSet->constsTmpFile, "%s: DB ", buffer);
 	for (long i = 0; i != len; i++) {
 		if (i != 0)
-			fputc(',', constsTmpFile);
+			fputc(',', currentFileSet->constsTmpFile);
 		strChar text CLEANUP(strCharDestroy) = emitMode(data, i);
-		fprintf(constsTmpFile, "%s", text);
+		fprintf(currentFileSet->constsTmpFile, "%s", text);
 	}
-	fprintf(constsTmpFile, "\n");
+	fprintf(currentFileSet->constsTmpFile, "\n");
 	return X86AddrModeLabel(buffer);
 }
 void X86EmitAsmComment(const char *text) {
-		fprintf(codeTmpFile, " ;%s\n", text);
+		fprintf(currentFileSet->codeTmpFile, " ;%s\n", text);
 }
 struct X86AddressingMode *X86EmitAsmStrLit(const char *text,long size) {
 		strChar unes CLEANUP(strCharDestroy) = dumpStrLit(text,size);
-	long count = snprintf(NULL, 0, "STR_%li", ++labelCount);
+		long count = snprintf(NULL, 0, "%s_STR_%li",currentFileSet->funcName, ++currentFileSet->labelCount);
 	char buffer[count + 1];
-	sprintf(buffer, "STR_%li", labelCount);
-	fprintf(constsTmpFile, "%s: DB %s\n", buffer, unes);
+	sprintf(buffer, "%s_STR_%li", currentFileSet->funcName,currentFileSet->labelCount);
+	fprintf(currentFileSet->constsTmpFile, "%s: DB %s\n", buffer, unes);
 	return X86AddrModeLabel(buffer);
 }
 static strChar file2Str(FILE *f) {
@@ -596,19 +582,70 @@ static strChar file2Str(FILE *f) {
 	fread(retVal, end - start, 1, f);
 	return retVal;
 }
-void X86EmitAsm2File(const char *name) {
-	FILE *fn = fopen(name, "w");
-	X86EmitSymbolTable();
-	strChar symbols CLEANUP(strCharDestroy) = file2Str(symbolsTmpFile);
-	strChar code CLEANUP(strCharDestroy) = file2Str(codeTmpFile);
-	strChar consts CLEANUP(strCharDestroy) = file2Str(constsTmpFile);
-	strChar initSyms CLEANUP(strCharDestroy) = file2Str(initSymbolsTmpFile);
-	fwrite(symbols, strCharSize(symbols), 1, fn);
-	fwrite(code, strCharSize(code), 1, fn);
-	fprintf(fn, "SECTION .data\n");
-	fwrite(consts, strCharSize(consts), 1, fn);
-	fprintf(fn, "SECTION .bss\n");
-	fwrite(initSyms, strCharSize(initSyms), 1, fn);
-	 
-	fclose(fn);
+#include "escaper.h"
+void X86EmitAsm2File(const char *name,const char *cacheDir) {
+		long fCount;
+		mapFuncFilesKeys(funcFiles, NULL, &fCount);
+		const char *funcs[fCount];
+		mapFuncFilesKeys(funcFiles, funcs, &fCount);
+		
+		FILE *writeTo=fopen(name, "w");
+		X86EmitSymbolTable(writeTo);
+		cacheDir=(!cacheDir)?DFT_CACHE_DIR:cacheDir;
+		for(long f=0;f!=fCount;f++) {
+				const char *fmt="%s/%s.s";
+				long len=snprintf(NULL, 0, fmt, cacheDir,funcs[f]);
+				char buffer[len+1];
+				sprintf(buffer,  fmt,  cacheDir,funcs[f]);
+
+				char *escaped=escapeString(buffer);
+				fprintf(writeTo, "%%include \"%s\"\n", escaped);
+				free(escaped);
+		}
+		fclose(writeTo);
+}
+void X86EmitAsmEnterFunc(const char *funcName) {
+		struct asmFileSet *set=calloc(sizeof(struct asmFileSet), 1);
+		set->codeTmpFile=tmpfile();
+		set->constsTmpFile=tmpfile();
+		set->initSymbolsTmpFile=tmpfile();
+		set->labelCount=0;
+		set->parent=currentFileSet;
+		set->symbolsTmpFile=tmpfile();
+		set->funcName=strClone(funcName);
+		currentFileSet=set;
+}
+void X86EmitAsmLeaveFunc(const char *cacheDir) {
+		cacheDir=(!cacheDir)?DFT_CACHE_DIR:cacheDir;
+		const char *fmt="%s/%s.s";
+		long len=snprintf(NULL, 0,fmt , cacheDir,currentFileSet->funcName); 
+		char name[len+1];
+		snprintf(name, len+1, fmt, cacheDir,currentFileSet->funcName);
+		
+		FILE *fn = fopen(name, "w");
+		strChar symbols CLEANUP(strCharDestroy) = file2Str(currentFileSet->symbolsTmpFile);
+		strChar code CLEANUP(strCharDestroy) = file2Str(currentFileSet->codeTmpFile);
+		strChar consts CLEANUP(strCharDestroy) = file2Str(currentFileSet->constsTmpFile);
+		strChar initSyms CLEANUP(strCharDestroy) = file2Str(currentFileSet->initSymbolsTmpFile);
+		fwrite(symbols, strCharSize(symbols), 1, fn);
+		fprintf(fn, "SECTION .text\n");
+		fprintf(fn, "%s:", currentFileSet->funcName);
+		fwrite(code, strCharSize(code), 1, fn);
+		fprintf(fn, "SECTION .data\n");
+		fwrite(consts, strCharSize(consts), 1, fn);
+		fprintf(fn, "SECTION .bss\n");
+		fwrite(initSyms, strCharSize(initSyms), 1, fn);
+		fclose(fn);
+
+		mapFuncFilesInsert(funcFiles, currentFileSet->funcName,  strClone(name));
+		
+		fclose(currentFileSet->codeTmpFile);
+		fclose(currentFileSet->constsTmpFile);
+		strCharDestroy(&currentFileSet->funcName);
+		fclose(currentFileSet->initSymbolsTmpFile);
+		fclose(currentFileSet->symbolsTmpFile);
+		
+		__auto_type old=currentFileSet->parent;
+		free(currentFileSet);
+		currentFileSet=old;
 }

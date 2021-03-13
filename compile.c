@@ -72,9 +72,8 @@ void compileFile(const char *fn, const char *dumpTo) {
 				struct enterExit ee = parserNodes2IR(stmts);
 				
 				IR2AsmInit();
-				X86EmitAsmLabel("_start");
 				IRCompile(ee.enter, 0);
-				X86EmitAsm2File(dumpTo);
+				X86EmitAsm2File(dumpTo,NULL);
 		return;
 	}
 fail:
