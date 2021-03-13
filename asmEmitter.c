@@ -10,13 +10,13 @@
 #include "ptrMap.h"
 #include "registers.h"
 #include <stdio.h>
+#include "cacheDir.h"
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
 PTR_MAP_FUNCS(struct parserNode *, strChar, LabelNames);
 PTR_MAP_FUNCS(struct reg *, strChar, RegName);
 MAP_TYPE_DEF(char *, SymAsmName);
 MAP_TYPE_FUNCS(char *, SymAsmName);
-#define DFT_CACHE_DIR "/tmp/"
 static __thread long startCodeCount=0;
 static __thread struct asmFileSet {
 		FILE *constsTmpFile;
@@ -592,7 +592,7 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 		
 		FILE *writeTo=fopen(name, "w");
 		X86EmitSymbolTable(writeTo);
-		cacheDir=(!cacheDir)?DFT_CACHE_DIR:cacheDir;
+		cacheDir=(!cacheDir)?cacheDirLocation:cacheDir;
 		for(long f=0;f!=fCount;f++) {
 				const char *fmt="%s/%s.s";
 				long len=snprintf(NULL, 0, fmt, cacheDir,funcs[f]);
@@ -624,7 +624,7 @@ void X86EmitAsmEnterFunc(const char *funcName) {
 		currentFileSet=set;
 }
 void X86EmitAsmLeaveFunc(const char *cacheDir) {
-		cacheDir=(!cacheDir)?DFT_CACHE_DIR:cacheDir;
+		cacheDir=(!cacheDir)?cacheDirLocation:cacheDir;
 		const char *fmt="%s/%s.s";
 		long len=snprintf(NULL, 0,fmt , cacheDir,currentFileSet->funcName); 
 		char name[len+1];

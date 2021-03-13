@@ -311,6 +311,8 @@ struct parserNodeFuncDef {
 	struct parserNode *name;
 	struct parserFunction *func;
 	struct parserNode *bodyScope;
+		llLexerItem __cacheStartToken;
+		llLexerItem __cacheEndToken;
 };
 struct parserNodeFuncRef {
 	struct parserNode base;

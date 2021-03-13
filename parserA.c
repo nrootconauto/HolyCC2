@@ -3110,7 +3110,8 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 		func.funcType = funcType;
 		func.name = refNode(name2);
 		func.args = args;
-
+		func.__cacheEndToken=start;
+		func.__cacheStartToken=originalStart;
 		retVal = ALLOCATE(func);
 		scope=NULL; //Mark for non-deleteion
 	}
