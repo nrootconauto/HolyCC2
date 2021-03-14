@@ -477,7 +477,7 @@ char *X86EmitAsmLabel(const char *name) {
 		return retVal;
 	}
 	char *retVal = calloc(strlen(name) + 1,1);
-	fprintf(currentFileSet->codeTmpFile, "$%s:\n", name);
+	fprintf(currentFileSet->codeTmpFile, "$%s_%s:\n", currentFileSet->funcName,name);
 	strcpy(retVal, name);
 	return retVal;
 }

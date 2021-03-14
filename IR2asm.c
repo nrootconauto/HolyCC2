@@ -421,7 +421,8 @@ static struct X86AddressingMode *__node2AddrMode(graphNodeIR start) {
 		}
 		}
 	} else if (graphNodeIRValuePtr(start)->type == IR_LABEL) {
-		return X86AddrModeLabel(getLabelName(start));
+			__auto_type lab=getLabelName(start);
+			return X86AddrModeLabel(lab);
 	} else {
 		fprintf(stderr, "Accessing member requires pointer source.\n");
 		abort();
@@ -1382,6 +1383,7 @@ static strIRVar2WeightAssoc computeVarWeights(graphNodeIR start) {
 }
 void IRCompile(graphNodeIR start, int isFunc) {
 		//debugShowGraphIR(start);
+		IR2AsmInit();
 		if (isFunc) {
 				struct IRNodeFuncStart *funcNode = (void *)graphNodeIRValuePtr(start);
 				X86EmitAsmEnterFunc(funcNode->func->name);
@@ -1634,6 +1636,7 @@ void IRCompile(graphNodeIR start, int isFunc) {
 			inserted = strGraphNodeIRPSetUnion(inserted,nodes, (gnCmpType)ptrPtrCmp);
 	}
 	
+	//debugShowGraphIR(start);
 	IR2Asm(start);
 	
 	X86EmitAsmLeaveFunc(NULL);
@@ -3894,13 +3897,15 @@ void IR2Asm(graphNodeIR start) {
 			__IR2Asm(exprStart);
 
 		__IR2AsmExpr(IREndOfExpr(start));
-		__next = graphNodeIROutgoingNodes(IREndOfExpr(start));
+		__next = nextNodesToCompile(IREndOfExpr(start));
 	} else {
 		__next = __IR2Asm(start);
 	}
 		graphNodeIR next[strGraphNodeIRPSize(__next)];
-		__next = strGraphNodeIRPUnique(__next, (gnCmpType)ptrPtrCmp, NULL);
 		long len=strGraphNodeIRPSize(__next);
+		qsort(__next, len, sizeof(*__next), ptrPtrCmp);
+		__next = strGraphNodeIRPUnique(__next, (gnCmpType)ptrPtrCmp, NULL);
+		len=strGraphNodeIRPSize(__next);
 		memcpy(next, __next, len*sizeof(*next));
 		strGraphNodeIRPDestroy(&__next);
 
