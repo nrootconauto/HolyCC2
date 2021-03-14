@@ -4,6 +4,7 @@
 #include "escaper.h"
 #include "cacheDir.h"
 #include <unistd.h>
+#include "sourceHash.h"
 static void printSInt(FILE *dumpTo,int64_t value,int base,const char *chars) {
 		if(value<0) {
 				fputc('-', dumpTo);
@@ -66,7 +67,7 @@ static void copy(FILE *out,FILE *in) {
 		for(long c=0;c!=size;c++)
 				fputc(fgetc(in),out);
 }
-long hashSource(llLexerItem start,llLexerItem end,const char *name,long *fileExists) {
+long hashSource(llLexerItem start,llLexerItem end,const char *name,long *fileExists,char **fileName,long *nameLen) {
 		if(fileExists)
 				*fileExists=0;
 		
@@ -133,11 +134,17 @@ long hashSource(llLexerItem start,llLexerItem end,const char *name,long *fileExi
 		long retVal=hash(f);
 		
 		const char *fmt="%s/%s.%li.s";
+		long len=snprintf(NULL, 0, fmt, cacheDirLocation,name,retVal);
+		char buffer[len+1];
+		sprintf(buffer, fmt, cacheDirLocation,name,retVal);
+		
+		if(fileName)
+				strcpy(*fileName, buffer);
+		if(nameLen)
+				*nameLen=strlen(buffer);
+		
 		{
-				long len=snprintf(NULL, 0, fmt, cacheDirLocation,name,retVal);
-				char buffer[len+1];
-				sprintf(buffer, fmt, cacheDirLocation,name,retVal);
-				if(0!=access(buffer,F_OK)) {
+				if(0==access(buffer,F_OK)) {
 						//Check if files are the same
 						FILE *existing=fopen(buffer, "r");
 						long existingSize=fileSize(existing);

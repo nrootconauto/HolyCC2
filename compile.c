@@ -8,6 +8,7 @@
 #include "preprocessor.h"
 #include "cacheDir.h"
 #include "filePath.h"
+#include "sourceHash.h"
 static void fclose2(FILE **f) {
 	fclose(*f);
 }
@@ -48,8 +49,11 @@ static strParserNode parseFile(const char *fn,strFileMappings *fMappings2) {
 				}
 				
 				strParserNode stmts  = NULL;
-				while (items)
-						stmts = strParserNodeAppendItem(stmts, parseStatement(items, &items));
+				while (items) {
+						__auto_type s=parseStatement(items, &items);
+						if(!s) continue;
+						stmts = strParserNodeAppendItem(stmts, s);
+				}
 				if (diagErrorCount())
 						goto fail;
 
@@ -66,6 +70,40 @@ void compileFile(const char *fn, const char *dumpTo) {
 		X86EmitAsmInit();
 			strFileMappings fMappings = NULL;
 			strParserNode stmts CLEANUP(strParserNodeDestroy2)=parseFile(fn,&fMappings);
+
+			//
+			// Look for cached functions
+			//
+			for(long n=0;n!=strParserNodeSize(stmts);n++) {
+					if(stmts[n]->type!=NODE_FUNC_DEF) {
+							continue;
+					}
+					struct parserNodeFuncDef *def=(void*)stmts[n];
+					struct parserNodeName *nm=(void*)def->name;
+					if(!nm)
+							continue;
+					long existsInCache=0;
+					long hashedFileSize=0;
+					hashSource(def->__cacheStartToken, def->__cacheEndToken, nm->text, &existsInCache,NULL,&hashedFileSize);
+					if(existsInCache) {
+							char fnBuffer[hashedFileSize+1];
+							hashSource(def->__cacheStartToken, def->__cacheEndToken, nm->text, &existsInCache,(char**)fnBuffer,&hashedFileSize);
+
+							int existsInCache;
+							X86EmitAsmAddCachedFuncIfExists(nm->text, &existsInCache);
+
+							if(existsInCache) {
+									//Remove current node  from statements
+									parserNodeDestroy(&stmts[n]);
+									long len=strParserNodeSize(stmts);
+									memmove(&stmts[n], &stmts[n+1], sizeof(*stmts)*(len-n-1));
+									stmts=strParserNodePop(stmts, NULL);
+									n--;
+							}
+							continue;
+					}
+			}
+			
 		if(dumpTo) {
 				IRGenInit(fMappings);
 				initIR();

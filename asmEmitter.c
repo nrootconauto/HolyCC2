@@ -11,6 +11,7 @@
 #include "registers.h"
 #include <stdio.h>
 #include "cacheDir.h"
+#include <unistd.h>
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
 PTR_MAP_FUNCS(struct parserNode *, strChar, LabelNames);
@@ -588,6 +589,19 @@ static strChar file2Str(FILE *f) {
 	return retVal;
 }
 #include "escaper.h"
+void X86EmitAsmAddCachedFuncIfExists(const char *funcName,int *success) {
+		//
+		long len=snprintf(NULL, 0, "%s/%s.s", cacheDirLocation,funcName);
+		char buffer[len+1];
+		sprintf(buffer, "%s/%s.s", cacheDirLocation,funcName);
+
+		if(0==access(buffer, F_OK)) {
+				mapFuncFilesInsert(funcFiles, funcName, strClone(buffer));
+				if(success) *success=1;
+		}  else {
+				if(success) *success=0;
+		}
+}
 void X86EmitAsm2File(const char *name,const char *cacheDir) {
 		long fCount;
 		mapFuncFilesKeys(funcFiles, NULL, &fCount);
@@ -598,10 +612,11 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 		X86EmitSymbolTable(writeTo);
 		cacheDir=(!cacheDir)?cacheDirLocation:cacheDir;
 		for(long f=0;f!=fCount;f++) {
-				const char *fmt="%s/%s.s";
-				long len=snprintf(NULL, 0, fmt, cacheDir,funcs[f]);
+				char *fn=*mapFuncFilesGet(funcFiles, funcs[f]);
+				const char *fmt="%s";
+				long len=snprintf(NULL, 0, fmt, fn);
 				char buffer[len+1];
-				sprintf(buffer,  fmt,  cacheDir,funcs[f]);
+				sprintf(buffer,  fmt,  fn);
 
 				char *escaped=escapeString(buffer);
 				fprintf(writeTo, "%%include \"%s\"\n", escaped);
