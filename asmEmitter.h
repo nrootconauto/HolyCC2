@@ -19,3 +19,4 @@ void X86EmitAsmComment(const char *text);
 void X86EmitAsmLeaveFunc(const char *cacheDir);
 void X86EmitAsmEnterFunc(const char *funcName);
 void X86EmitAsmEnterFileStartCode();
+char *X86EmitAsmUniqueLabName(const char *head);

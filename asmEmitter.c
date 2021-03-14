@@ -477,7 +477,7 @@ char *X86EmitAsmLabel(const char *name) {
 		return retVal;
 	}
 	char *retVal = calloc(strlen(name) + 1,1);
-	fprintf(currentFileSet->codeTmpFile, "$%s_%s:\n", currentFileSet->funcName,name);
+	fprintf(currentFileSet->codeTmpFile, "$%s:\n", name);
 	strcpy(retVal, name);
 	return retVal;
 }
@@ -656,4 +656,13 @@ void X86EmitAsmLeaveFunc(const char *cacheDir) {
 		__auto_type old=currentFileSet->parent;
 		free(currentFileSet);
 		currentFileSet=old;
+}
+char *X86EmitAsmUniqueLabName(const char *head) {
+		const char *fmt="%s_%s_%li$";
+		if (!head)
+		head = "";
+		long count = snprintf(NULL, 0, fmt, currentFileSet->funcName, head, ++currentFileSet->labelCount);
+	char buffer[count + 1];
+	sprintf(buffer, fmt, currentFileSet->funcName,head, currentFileSet->labelCount);
+	return strcpy(calloc(count+1, 1), buffer);
 }

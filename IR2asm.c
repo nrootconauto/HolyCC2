@@ -263,14 +263,6 @@ void IR2AsmInit() {
  * include registers for variables
  */
 static strRegP consumedRegisters = NULL;
-strChar uniqueLabel(const char *head) {
-	if (!head)
-		head = "";
-	long count = snprintf(NULL, 0, "%s_%li$", head, ++labelsCount);
-	char buffer[count + 1];
-	sprintf(buffer, "%s_%li$", head, labelsCount);
-	return strCharAppendData(NULL, buffer, count + 1);
-}
 struct reg *regForTypeExcludingConsumed(struct object *type) {
 	strRegP regs CLEANUP(strRegPDestroy) = regGetForType(type);
 	for (long i = 0; i != strRegPSize(regs); i++) {
@@ -342,6 +334,9 @@ static strChar unescapeString(const char *str) {
 	}
 	return retVal;
 }
+static void inline freeCharP(char **str) {
+		free(*str);
+}
 static const char *getLabelName(graphNodeIR node) {
 loop:;
 	__auto_type existing = ptrMapLabelNamesGet(asmLabelNames, node);
@@ -354,7 +349,8 @@ loop:;
 		struct IRAttrLabelName *name = (void *)llIRAttrValuePtr(find);
 		ptrMapLabelNamesAdd(asmLabelNames, node, strClone(name->name));
 	} else {
-		ptrMapLabelNamesAdd(asmLabelNames, node, uniqueLabel(""));
+			char *name CLEANUP(freeCharP)=X86EmitAsmUniqueLabName("");
+			ptrMapLabelNamesAdd(asmLabelNames, node, strClone(name));
 	}
 	goto loop;
 }
@@ -408,14 +404,12 @@ static struct X86AddressingMode *__node2AddrMode(graphNodeIR start) {
 			}
 		}
 		case IR_VAL_STR_LIT: {
-			strChar strLab CLEANUP(strCharDestroy) = uniqueLabel("STR");
 			__auto_type lab = X86EmitAsmStrLit((char*)value->val.value.strLit,__vecSize(value->val.value.strLit));
 			lab->valueType = objectPtrCreate(&typeU8i);
 			return lab;
 		}
 		case IR_VAL_FLT_LIT: {
 			struct X86AddressingMode *encoded CLEANUP(X86AddrModeDestroy) = X86AddrModeUint(IEEE754Encode(value->val.value.fltLit));
-			strChar fltLab CLEANUP(strCharDestroy) = uniqueLabel("FLT");
 			struct X86AddressingMode *lab CLEANUP(X86AddrModeDestroy) = X86EmitAsmDU64(&encoded, 1);
 			return X86AddrModeIndirLabel(lab->value.label, &typeF64);
 		}
@@ -1700,8 +1694,8 @@ static void setCond(graphNodeIR atNode,const char *cond, struct X86AddressingMod
 	// Not all modes can be demoted
 	if (!oMode2) {
 		char buffer[32];
-		strChar t CLEANUP(strCharDestroy) = uniqueLabel(NULL);
-		strChar end CLEANUP(strCharDestroy) = uniqueLabel(NULL);
+		char *t CLEANUP(freeCharP) = X86EmitAsmUniqueLabName(NULL);
+		char *end CLEANUP(freeCharP) = X86EmitAsmUniqueLabName(NULL);
 		sprintf(buffer, "J%s", cond);
 		strX86AddrMode tLab CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeLabel(t));
 		strX86AddrMode endLab CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeLabel(end));
@@ -3187,14 +3181,14 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		// next2:
 		// MOV out,0
 		// end:
-		strChar endLab CLEANUP(strCharDestroy) = uniqueLabel("LOR");
+		char *endLab CLEANUP(freeCharP) = X86EmitAsmUniqueLabName("LOR");
 		struct X86AddressingMode *one CLEANUP(X86AddrModeDestroy) = X86AddrModeSint(1);
 		for (int i = 0; i != 2; i++) {
 			strX86AddrMode cmpArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeClone(i ? aMode : bMode));
 			cmpArgs = strX86AddrModeAppendItem(cmpArgs, X86AddrModeSint(0));
 			assembleOpcode(start,"CMP", cmpArgs);
 
-			strChar nextLab CLEANUP(strCharDestroy) = uniqueLabel("LOR");
+			char *nextLab CLEANUP(freeCharP) = X86EmitAsmUniqueLabName("LOR");
 			strX86AddrMode jneArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeLabel(nextLab));
 			assembleOpcode(start,"JE", jneArgs);
 			asmAssign(outMode, one, objectSize(IRNodeType(start), NULL),0);
@@ -3249,7 +3243,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		cmpBArgs = strX86AddrModeAppendItem(cmpBArgs, X86AddrModeSint(0));
 		assembleOpcode(start,"CMP", cmpBArgs);
 
-		strChar endLabel CLEANUP(strCharDestroy) = uniqueLabel("XOR");
+		char *endLabel CLEANUP(freeCharP) = X86EmitAsmUniqueLabName("XOR");
 		strX86AddrMode jmpeArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeLabel(endLabel));
 		assembleOpcode(start,"JE", jmpeArgs);
 
@@ -3287,8 +3281,8 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		cmpAArgs = strX86AddrModeAppendItem(cmpAArgs, X86AddrModeSint(0));
 		assembleOpcode(start,"CMP", cmpAArgs);
 
-		strChar endLabel CLEANUP(strCharDestroy) = uniqueLabel("AND");
-		strChar finalLabel CLEANUP(strCharDestroy) = uniqueLabel("AND_FINAL");
+		char *endLabel CLEANUP(freeCharP) = X86EmitAsmUniqueLabName("AND");
+		char *finalLabel CLEANUP(freeCharP) = X86EmitAsmUniqueLabName("AND_FINAL");
 		strX86AddrMode jmpeArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeLabel(endLabel));
 		assembleOpcode(start,"JE", jmpeArgs);
 
