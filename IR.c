@@ -503,13 +503,13 @@ void IRRemoveDeadExpression(graphNodeIR end, strGraphNodeP *removed) {
 		*removed = starts;
 }
 graphNodeIR IRStmtStart(graphNodeIR node) {
-	strGraphNodeIRP starts = strGraphNodeIRPAppendItem(NULL, node);
+		strGraphNodeIRP starts CLEANUP(strGraphNodeIRPDestroy) = strGraphNodeIRPAppendItem(NULL, node);
 	graphNodeIRVisitBackward(node, &starts, exprEdgePred, addNode2List);
 
-	strGraphNodeIRP tops = NULL;
+	strGraphNodeIRP tops CLEANUP(strGraphNodeIRPDestroy)= NULL;
 	// Find a top-level node that has node connections that constirute a statement
 	for (long i = 0; i != strGraphNodeIRPSize(starts); i++) {
-		strGraphNodeIRP starts2 = NULL;
+		strGraphNodeIRP starts2 CLEANUP(strGraphNodeIRPDestroy) = NULL;
 		graphNodeIRVisitBackward(starts[i], &starts2, exprEdgePred, addNode2List);
 
 		if (starts2 == NULL)
@@ -526,12 +526,12 @@ graphNodeIR IRStmtStart(graphNodeIR node) {
 
 	// Check if all statements have a common start
 	__auto_type first = tops[0];
-	strGraphNodeIRP firstIncoming = graphNodeIRIncomingNodes(first);
+	strGraphNodeIRP firstIncoming CLEANUP(strGraphNodeIRPDestroy) =  graphNodeIRIncomingNodes(first);
 	for (long i = 1; i != len; i++) {
-		__auto_type iIncoming = graphNodeIRIncomingNodes(first);
+		strGraphNodeIRP iIncoming CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRIncomingNodes(first);
 
 		// Ensure there is no difference between the incoming nodes
-		__auto_type diff = strGraphNodeIRPSetDifference(strGraphNodeIRPClone(firstIncoming), iIncoming, (gnIRCmpType)ptrPtrCmp);
+		strGraphNodeIRP diff CLEANUP(strGraphNodeIRPDestroy) = strGraphNodeIRPSetDifference(strGraphNodeIRPClone(firstIncoming), iIncoming, (gnIRCmpType)ptrPtrCmp);
 		if (0 != strGraphNodeIRPSize(diff)) {
 			fprintf(stderr, "Dear programmer,all nodes of expression should share a "
 			                "common start.\n");
@@ -546,7 +546,7 @@ graphNodeIR IRStmtStart(graphNodeIR node) {
 	// Otherwise route all incoming "traffic" through a label
 	__auto_type label = IRCreateLabel();
 	for (long i = 0; i != len; i++) {
-		__auto_type incoming = graphNodeIRIncoming(tops[i]);
+			strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(tops[i]);
 		// Connect incoming to node
 		for (long i2 = 0; i2 != strGraphEdgeIRPSize(incoming); i2++)
 			graphNodeIRConnect(label, tops[i], *graphEdgeIRValuePtr(incoming[i2]));
