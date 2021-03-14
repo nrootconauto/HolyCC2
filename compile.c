@@ -6,6 +6,8 @@
 #include "parserA.h"
 #include "parserB.h"
 #include "preprocessor.h"
+#include "cacheDir.h"
+#include "filePath.h"
 static void fclose2(FILE **f) {
 	fclose(*f);
 }
@@ -16,7 +18,6 @@ static void strParserNodeDestroy2(strParserNode *str) {
 				;//parserNodeDestroy(&str[0][s]);
 	strParserNodeDestroy(str);
 }
-
 static strParserNode parseFile(const char *fn,strFileMappings *fMappings2) {
 		setArch(ARCH_X86_SYSV);
 		{
@@ -62,8 +63,7 @@ static strParserNode parseFile(const char *fn,strFileMappings *fMappings2) {
 		return NULL;
 }
 void compileFile(const char *fn, const char *dumpTo) {
-				X86EmitAsmInit();
-			
+		X86EmitAsmInit();
 			strFileMappings fMappings = NULL;
 			strParserNode stmts CLEANUP(strParserNodeDestroy2)=parseFile(fn,&fMappings);
 		if(dumpTo) {

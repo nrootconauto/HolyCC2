@@ -17,7 +17,9 @@ PTR_MAP_FUNCS(struct parserNode *, strChar, LabelNames);
 PTR_MAP_FUNCS(struct reg *, strChar, RegName);
 MAP_TYPE_DEF(char *, SymAsmName);
 MAP_TYPE_FUNCS(char *, SymAsmName);
-static __thread long startCodeCount=0;
+STR_TYPE_DEF(strChar, StartCodeName);
+STR_TYPE_FUNCS(strChar, StartCodeName);
+static __thread strStartCodeName initCodeNames=NULL;
 static __thread struct asmFileSet {
 		FILE *constsTmpFile;
 		FILE *symbolsTmpFile;
@@ -154,6 +156,8 @@ __attribute__((constructor)) static void init() {
 }
 void X86EmitAsmInit() {
 		funcFiles=mapFuncFilesCreate();
+		strStartCodeNameDestroy(&initCodeNames);
+		initCodeNames=NULL;
 }
 static strChar int64ToStr(int64_t value) {
 	strChar retVal = NULL;
@@ -603,14 +607,40 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 				fprintf(writeTo, "%%include \"%s\"\n", escaped);
 				free(escaped);
 		}
+
+		
+		switch(getCurrentArch()) {
+		case ARCH_TEST_SYSV:
+		case ARCH_X86_SYSV:
+				fprintf(writeTo, "SECTION .init_array\n");
+				fprintf(writeTo, "DD ");
+				for(long i=0;i!=strStartCodeNameSize(initCodeNames);i++) {
+						if(i) fputc(',', writeTo);
+						fprintf(writeTo, "%s",initCodeNames[i]);
+				}
+		break;
+		case ARCH_X64_SYSV:
+				fprintf(writeTo, "SECTION .init_array\n");
+				fprintf(writeTo, "DQ ");
+				for(long i=0;i!=strStartCodeNameSize(initCodeNames);i++) {
+						if(i) fputc(',', writeTo);
+						fprintf(writeTo, "%s ",initCodeNames[i]);
+				}
+				break;
+		}
+		
 		fclose(writeTo);
 }
 void X86EmitAsmEnterFileStartCode() {
+		long count=strStartCodeNameSize(initCodeNames);
+		long r=rand();
 		const char *fmt="__init$%li";
-		long len=snprintf(NULL, 0, fmt,++startCodeCount);
+		long len=snprintf(NULL, 0, fmt,count+r);
 		char name[len+1];
-		snprintf(name, len+1, fmt, startCodeCount);
+		snprintf(name, len+1, fmt, count+r);
 		X86EmitAsmEnterFunc(name);
+
+		initCodeNames=strStartCodeNameAppendItem(initCodeNames, strClone(name));
 }
 void X86EmitAsmEnterFunc(const char *funcName) {
 		struct asmFileSet *set=calloc(sizeof(struct asmFileSet), 1);
@@ -643,6 +673,7 @@ void X86EmitAsmLeaveFunc(const char *cacheDir) {
 		fwrite(consts, strCharSize(consts), 1, fn);
 		fprintf(fn, "SECTION .bss\n");
 		fwrite(initSyms, strCharSize(initSyms), 1, fn);
+
 		fclose(fn);
 
 		mapFuncFilesInsert(funcFiles, currentFileSet->funcName,  strClone(name));

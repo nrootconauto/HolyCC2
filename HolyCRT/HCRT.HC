@@ -184,7 +184,6 @@ U0 testRegsCast() {
 } while(0);
 }
 I32i main() {
-										Print("Hello World,%.6n\n",100.123);
 try {
 				throw(1);
 				} catch {
@@ -193,6 +192,9 @@ try {
 					testRegsI8i();
 					testRegsCast();
 					testNoDest();
+					Print("Hello World,%.6n\n",100.123);
+
 					}
 					return 0;
 }
+//Print("Hello World,%.6n\n",100.123);

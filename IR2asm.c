@@ -251,6 +251,7 @@ static strGraphNodeIRP removeNeedlessLabels(graphNodeIR start) {
 
 	return removed;
 }
+//TODO free old
 void IR2AsmInit() {
 	labelsCount = 0;
 	asmFuncNames = ptrMapFuncNamesCreate();
@@ -1561,7 +1562,8 @@ void IRCompile(graphNodeIR start, int isFunc) {
 				continue;
 			if (ir->val.value.var.var->isGlobal)
 				continue;
-
+			noregs=strPVarRemoveItem(noregs, ir->val.value.var.var, (PVarCmpType)ptrPtrCmp); 
+			
 			__auto_type find = ptrMapFrameOffsetGet(localVarFrameOffsets, ir->val.value.var.var);
 			assert(find);
 			removed = strGraphNodeIRPSortedInsert(removed, regAllocedNodes[n], (gnCmpType)ptrPtrCmp);
@@ -1606,24 +1608,10 @@ void IRCompile(graphNodeIR start, int isFunc) {
 			X86EmitAsmGlobalVar(noregs[p]);
 		}
 
-	if (isFunc) {
-		IRABIAsmPrologue(frameSize);
-	} else {
-		// Make EBP equal to ESP
-			struct X86AddressingMode *bp = X86AddrModeReg(basePointer(),getTypeForSize(ptrSize()));
-			struct X86AddressingMode *sp = X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize()));
-		asmAssign(bp, sp, ptrSize(),0);
-	}
+	
+	IRABIAsmPrologue(frameSize);
 	// This computes calling information for the ABI
 	IRComputeABIInfo(start);
-
-	if(!isFunc) {
-			// Add to stack pointer to make room for locals
-			strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
-			addArgs = strX86AddrModeAppendItem(addArgs, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())));
-			addArgs = strX86AddrModeAppendItem(addArgs, X86AddrModeSint(frameSize));
-			assembleInst("SUB", addArgs);
-	}
 
 	{
 			strGraphNodeIRP inserted CLEANUP(strGraphNodeIRPDestroy) = insertLabelsForAsm(regAllocedNodes);
@@ -1632,6 +1620,9 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	
 	//debugShowGraphIR(start);
 	IR2Asm(start);
+
+	if(!isFunc)
+			IRABIReturn2Asm(NULL, frameSize);
 	
 	X86EmitAsmLeaveFunc(NULL);
 	

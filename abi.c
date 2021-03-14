@@ -672,6 +672,12 @@ static void abiI386LoadPreservedRegs(long frameSize) {
 		popReg(&regX86EBX);
 }
 static void IR_ABI_I386_SYSV_Return(graphNodeIR start,long frameSize) {
+		if(!start) {
+				abiI386LoadPreservedRegs(frameSize);
+				assembleInst("LEAVE", NULL);
+				assembleInst("RET", NULL);
+				return;
+		}
 	strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(start);
 	strGraphEdgeIRP inSource CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(in, IR_CONN_SOURCE_A);
 	if (strGraphEdgeIRPSize(inSource) != 0) {

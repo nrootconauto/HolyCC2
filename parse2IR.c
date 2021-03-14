@@ -961,8 +961,25 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 		return (struct enterExit){gn, gn};
 	}
 	case NODE_ASM: {
+			//If in global scope jump across asm body
+			int jumpAcross= strScopeStackSize(currentGen->scopes)==0;
 		// These are used to samwich local nodes between them
-		__auto_type enterLab = IRCreateLabel();
+		graphNodeIR enterLab = NULL;
+
+		long len=snprintf(NULL, 0, "skipAsmBlk$%p", node);
+		char jumpAcrossName[len+1];
+		sprintf(jumpAcrossName, "skipAsmBlk$%p", node);
+		if(jumpAcross) {
+				struct IRNodeX86Inst inst2;
+				inst2.base.attrs=NULL;
+				inst2.base.type=IR_X86_INST;
+				inst2.args=strX86AddrModeAppendItem(NULL, X86AddrModeLabel(jumpAcrossName));
+				inst2.name="JMP";
+				enterLab=GRAPHN_ALLOCATE(inst2);
+		} else {
+				enterLab=IRCreateLabel();
+		}
+		
 		graphNodeIR current = enterLab;
 		struct parserNodeAsm *Asm = (void *)node;
 		for (long i = 0; i != strParserNodeSize(Asm->body); i++) {
@@ -970,7 +987,18 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 			graphNodeIRConnect(current, pair.enter, IR_CONN_FLOW);
 			current = pair.exit;
 		}
-		__auto_type exitLab = IRCreateLabel();
+		
+		graphNodeIR exitLab;
+		if(jumpAcross) {
+				exitLab=IRCreateLabel();
+				struct IRAttrLabelName nameAttr;
+				nameAttr.base.destroy=IRAttrLabelNameDestroy;
+				nameAttr.base.name=(void*)IR_ATTR_LABEL_NAME;
+				nameAttr.name=strcpy(calloc(len+1, 1), jumpAcrossName);
+				IRAttrReplace(exitLab, __llCreate(&nameAttr, sizeof(nameAttr)));
+		} else {
+				exitLab=IRCreateLabel();
+		}
 		graphNodeIRConnect(current, exitLab, IR_CONN_FLOW);
 		return (struct enterExit){enterLab, exitLab};
 	}
