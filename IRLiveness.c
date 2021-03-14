@@ -203,15 +203,16 @@ static char *printMappedNode(struct __graphNode *node) {
 	return ptr2Str(node);
 }
 static strGraphNodeMappingP sortNodes(graphNodeMapping node) {
-	strGraphNodeMappingP order = NULL;
-	strGraphNodeMappingP visited = NULL;
+	strGraphNodeMappingP order  = NULL;
+	strGraphNodeMappingP visited CLEANUP(strGraphNodeMappingPDestroy) = NULL;
 
 	__visitForwardOrdered(&order, &visited, node);
 
 	return order;
 }
 static void killNode(void *ptr) {
-	__graphNodeKill(*(struct __graphNode **)ptr, NULL, NULL);
+		struct blockMetaNode *Ptr=ptr;
+	__graphNodeKill(Ptr->node, NULL, NULL);
 }
 struct varRefNodePair {
 	struct IRVar ref;
@@ -282,7 +283,7 @@ strGraphNodeIRLiveP __IRInterferenceGraphFilter(graphNodeMapping start, const vo
 	// consumed nodes then repeating
 	//
 	strGraphNodeMappingP visited = NULL;
-	__auto_type allMappedNodes = graphNodeMappingAllNodes(start);
+	strGraphNodeMappingP allMappedNodes CLEANUP(strGraphNodeMappingPDestroy) = graphNodeMappingAllNodes(start);
 	__auto_type mappedClone = start;
 	for (;;) {
 	loop:;
@@ -316,7 +317,7 @@ strGraphNodeIRLiveP __IRInterferenceGraphFilter(graphNodeMapping start, const vo
 	//
 	// Found basic blocks,so filter out all non-metablock notes(in metaNodes)
 	//
-	__auto_type allMappedNodes2 = graphNodeMappingAllNodes(mappedClone);
+	strGraphNodeMappingP allMappedNodes2 CLEANUP(strGraphNodeMappingPDestroy) = graphNodeMappingAllNodes(mappedClone);
 	for (long i = 0; i != strGraphNodeMappingPSize(allMappedNodes2); i++) {
 		// Dont destroy if start node
 		if (allMappedNodes2[i] == mappedClone)
@@ -364,8 +365,8 @@ strGraphNodeIRLiveP __IRInterferenceGraphFilter(graphNodeMapping start, const vo
 			if (!find)
 				continue;
 
-			__auto_type oldIns = strVarClone(find->block->in);
-			__auto_type oldOuts = strVarClone(find->block->out);
+			strVar  oldIns CLEANUP(strVarDestroy) = strVarClone(find->block->in);
+			strVar oldOuts CLEANUP(strVarDestroy) = strVarClone(find->block->out);
 
 #if DEBUG_PRINT_ENABLE
 			DEBUG_PRINT("=======(%s)=======", ptr2Str(find->node));
@@ -376,14 +377,14 @@ strGraphNodeIRLiveP __IRInterferenceGraphFilter(graphNodeMapping start, const vo
 #endif
 
 			// read[n] Union (out[n]-define[n])
-			__auto_type newIns = strVarClone(find->block->read);
-			__auto_type diff = strVarSetDifference(strVarClone(find->block->out), find->block->define, IRVarCmp);
+			strVar newIns = strVarClone(find->block->read);
+			strVar diff CLEANUP(strVarDestroy) = strVarSetDifference(strVarClone(find->block->out), find->block->define, IRVarCmp);
 			newIns = strVarSetUnion(newIns, diff, IRVarCmp);
 			newIns = strVarUnique(newIns, IRVarCmp, NULL);
 
 			// Union of successors insert
 			strVar newOuts = NULL;
-			__auto_type succs = graphNodeMappingOutgoingNodes(forwards[i]);
+			strGraphNodeMappingP succs CLEANUP(strGraphNodeMappingPDestroy) = graphNodeMappingOutgoingNodes(forwards[i]);
 			for (long i = 0; i != strGraphNodeMappingPSize(succs); i++) {
 				__auto_type find2 = ptrMapBlockMetaNodeGet(metaNodes, succs[i]);
 
@@ -402,6 +403,8 @@ strGraphNodeIRLiveP __IRInterferenceGraphFilter(graphNodeMapping start, const vo
 			printVars(newOuts);
 #endif
 			// Destroy old ins/outs then re-assign with new ones
+			strVarDestroy(&find->block->in);
+			strVarDestroy(&find->block->out);
 			find->block->in = newIns;
 			find->block->out = newOuts;
 
@@ -429,12 +432,11 @@ strGraphNodeIRLiveP __IRInterferenceGraphFilter(graphNodeMapping start, const vo
 	//
 	// Create interference graph
 	//
-	strGraphNodeIRLiveP retVal = NULL;
+	strGraphNodeIRLiveP retVal CLEANUP(strGraphNodeIRLivePDestroy) = NULL;
 	strVarRefNodePair assocArray = NULL;
 	for (long i = 0; i != strGraphNodePSize(forwards); i++) {
 		// Find meta node
 		__auto_type find = ptrMapBlockMetaNodeGet(metaNodes, forwards[i]);
-
 		// Could be start node
 		if (!find)
 			continue;
@@ -579,12 +581,14 @@ strGraphNodeIRLiveP __IRInterferenceGraphFilter(graphNodeMapping start, const vo
 
 		// Filter out all accessible nodes from retVal,then we look for the next
 		// graph
-		__auto_type asscesibleNodes = graphNodeIRLiveAllNodes(retVal[0]);
+		strGraphNodeIRLiveP asscesibleNodes CLEANUP(strGraphNodeIRLivePDestroy) = graphNodeIRLiveAllNodes(retVal[0]);
 		retVal = strGraphNodeIRLivePSetDifference(retVal, asscesibleNodes, (gnCmpType)ptrPtrCmp);
 	}
 	return allGraphs;
 }
 strGraphNodeIRLiveP IRInterferenceGraphFilter(graphNodeIR start, const void *data, int (*varFilter)(graphNodeIR node, const void *data)) {
-	__auto_type mappedClone = graphNodeCreateMapping(start, 0);
-	return __IRInterferenceGraphFilter(mappedClone, data, varFilter);
+	graphNodeMapping mappedClone  = graphNodeCreateMapping(start, 0);
+	__auto_type retVal= __IRInterferenceGraphFilter(mappedClone, data, varFilter);
+	graphNodeMappingKillGraph(&mappedClone, NULL, NULL);
+	return retVal;
 }

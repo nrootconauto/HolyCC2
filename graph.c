@@ -204,7 +204,7 @@ static int llpredAlwaysTrue(const void *a, const void *b) {
 void __graphNodeKill(struct __graphNode *node, void (*killNode)(void *item), void (*killEdge)(void *item)) {
 //
 loop:;
-	strGraphEdgeP connectionPtrs = NULL;
+		strGraphEdgeP connectionPtrs CLEANUP(strGraphEdgePDestroy) = NULL;
 	for (int i = 0; i != 2; i++) {
 		__auto_type connections = (i == 0) ? node->outgoing : node->incoming;
 		connectionPtrs = strGraphEdgePSetUnion(connectionPtrs, connections, (geCmpType)ptrCompare);

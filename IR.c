@@ -1511,22 +1511,22 @@ graphNodeIR IREndOfExpr(graphNodeIR node) {
 	}
 	for (;;) {
 	loop:;
-		strGraphEdgeIRP outgoing;
-		outgoing = graphNodeIROutgoing(node);
-		for (long i = 0; i != strGraphEdgeIRPSize(outgoing); i++) {
-			if (IRIsExprEdge(*graphEdgeIRValuePtr(outgoing[i]))) {
-				__auto_type node2 = graphEdgeIROutgoing(outgoing[i]);
-				// Ensure end is not a conditional jump or jump table
-				switch (graphNodeIRValuePtr(node2)->type) {
-				case IR_COND_JUMP:
-				case IR_JUMP_TAB:
-				case IR_FUNC_RETURN:
-					goto end;
-				default:;
-				}
-				node = node2;
-				goto loop;
-			}
+			strGraphEdgeIRP outgoing CLEANUP(strGraphEdgeIRPDestroy);
+			outgoing = graphNodeIROutgoing(node);
+			for (long i = 0; i != strGraphEdgeIRPSize(outgoing); i++) {
+					if (IRIsExprEdge(*graphEdgeIRValuePtr(outgoing[i]))) {
+							__auto_type node2 = graphEdgeIROutgoing(outgoing[i]);
+							// Ensure end is not a conditional jump or jump table
+							switch (graphNodeIRValuePtr(node2)->type) {
+							case IR_COND_JUMP:
+							case IR_JUMP_TAB:
+							case IR_FUNC_RETURN:
+									goto end;
+							default:;
+							}
+							node = node2;
+							goto loop;
+							}
 		}
 	end:
 		// No expression edges so is end of expression

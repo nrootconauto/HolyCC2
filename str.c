@@ -26,6 +26,7 @@ struct __vec *__vecResize(struct __vec *a, long size) {
 	}
 	//
 	if (size == 0) {
+			__vecDestroy(&a);
 		return NULL;
 	}
 	//
@@ -68,6 +69,7 @@ struct __vec *__vecReserve(struct __vec *a, long capacity) {
 	}
 	//
 	if (capacity == 0) {
+			__vecDestroy(&a);
 		return NULL;
 	}
 	//
@@ -258,12 +260,14 @@ struct __vec *__vecSetUnion(struct __vec *a, struct __vec *b, long itemSize, int
 			memmove(r, s2, e2 - s2);
 			r += e2 - s2;
 
+			__vecDestroy(&a);
 			return __vecResize(retVal, r - (void *)retVal);
 		}
 		if (s2 == e2) {
 			memmove(r, s1, e1 - s1);
 			r += e1 - s1;
 
+			__vecDestroy(&a);
 			return __vecResize(retVal, r - (void *)retVal);
 		}
 		if (pred(s2, s1) > 0) {

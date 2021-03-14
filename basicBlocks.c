@@ -125,7 +125,8 @@ static strGraphNodeMappingP visitAllAdjExprTo(graphNodeMapping node) {
 	// present by defualt
 	if (1 == strGraphNodeMappingPSize(visited))
 		if (visited[0] == node) {
-			return NULL;
+				strGraphNodeMappingPDestroy(&visited);
+				return NULL;
 		}
 
 	return visited;
@@ -359,7 +360,7 @@ strBasicBlock IRGetBasicBlocksFromExpr(graphNodeIR dontDestroy, ptrMapBlockMetaN
 	return retVal;
 }
 static void basicBlockDestroy(struct basicBlock *bb) {
-	if (0 >= bb->refCount--) {
+	if (0 >= --bb->refCount) {
 		strVarDestroy(&bb->define);
 		strVarDestroy(&bb->in);
 		strVarDestroy(&bb->out);

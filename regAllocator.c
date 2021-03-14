@@ -912,7 +912,7 @@ void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,v
 		//
 		for (; 0 != strConflictPairSize(conflicts);) {
 			// Get a list of items that conflict with conflicts[0]
-			__auto_type conflictsWithFirst = conflictPairFindAffects(conflicts[0].a, conflicts);
+				strConflictPair conflictsWithFirst CLEANUP(strConflictPairDestroy) = conflictPairFindAffects(conflicts[0].a, conflicts);
 
 			//
 			// Do a set union of all items that conflict with each other untill there
@@ -924,8 +924,11 @@ void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,v
 				long oldSize = strConflictPairSize(conflictsWithFirst);
 				// union
 				for (long i = 0; i != strConflictPairSize(clone); i++) {
-					conflictsWithFirst = strConflictPairSetUnion(conflictPairFindAffects(clone[i].a, conflicts), conflictsWithFirst, conflictPairCmp);
-					conflictsWithFirst = strConflictPairSetUnion(conflictPairFindAffects(clone[i].b, conflicts), conflictsWithFirst, conflictPairCmp);
+					__auto_type conflictsWithFirst1 = strConflictPairSetUnion(conflictPairFindAffects(clone[i].a, conflicts), conflictsWithFirst, conflictPairCmp);
+					strConflictPairDestroy(&conflictsWithFirst);
+					__auto_type conflictsWithFirst2 = strConflictPairSetUnion(conflictPairFindAffects(clone[i].b, conflicts), conflictsWithFirst1, conflictPairCmp);
+					strConflictPairDestroy(&conflictsWithFirst1);
+					conflictsWithFirst=conflictsWithFirst2;
 				}
 
 				// Break if no change
