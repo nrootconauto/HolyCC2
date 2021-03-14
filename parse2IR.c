@@ -605,10 +605,50 @@ static struct enterExit __createSwitchCodeAfterBody(const struct parserNode *nod
 	retVal.exit = switchEndLabel;
 	return retVal;
 }
+static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node);
 graphNodeIR parserNode2Expr(const struct parserNode *node) {
 	switch (node->type) {
 	default:
 		return NULL;
+		case NODE_RANGES: {
+			struct parserNodeRanges *ranges=(void*)node;
+			
+			struct parserVar *prevVar=NULL;
+			graphNodeIR last=NULL;
+			for(long e=0;e<strParserNodeSize(ranges->exprs);e++) {
+					if(e==0) {
+							__auto_type eeA=__parserNode2IRNoStmt(ranges->exprs[e]);
+							__auto_type virtVar=IRCreateVirtVar(IRNodeType(eeA.exit));
+							__auto_type virtVarRef=IRCreateVarRef(virtVar);
+							IRCreateAssign(eeA.exit, virtVarRef);
+							prevVar=virtVar;
+							last=virtVarRef;
+							continue;
+					}
+					
+					__auto_type eeB=__parserNode2IRNoStmt(ranges->exprs[e]);
+					__auto_type virtVar2=IRCreateVirtVar(IRNodeType(eeB.exit));
+					__auto_type virtVarRef2=IRCreateVarRef(virtVar2);
+					IRCreateAssign(eeB.exit, virtVarRef2);
+					
+					struct parserNodeOpTerm *op=(void*)ranges->ops[e-1];
+					graphNodeIR connectTo=NULL;
+					if(e==1) {
+							connectTo=last;
+					} else connectTo=IRCreateVarRef(prevVar);
+					__auto_type cmp=IRCreateBinop(connectTo, virtVarRef2,*mapIRNodeTypeGet(binop2IRType, op->text));
+					prevVar=virtVar2;
+
+					//First run is "skipped" to create first expression
+					if(e==1)
+							last=cmp;
+					else
+							last=IRCreateBinop(last, cmp, IR_LAND);
+			}
+
+			//debugShowGraphIR(last);
+			return last;
+	}
 	case NODE_FUNC_FORWARD_DECL: {
 			struct parserNodeFuncForwardDec *fwd=(void*)node;
 			struct IRNodeValue val;
@@ -939,6 +979,8 @@ static void debugShowGraphIR(graphNodeIR enter) {
 
 	system(buffer);
 }
+STR_TYPE_DEF(struct parserVar*,ParserVar);
+STR_TYPE_FUNCS(struct parserVar*,ParserVar);
 static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 	switch (node->type) {
 	case NODE_ARRAY_LITERAL: {

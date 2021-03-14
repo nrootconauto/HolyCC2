@@ -1422,7 +1422,6 @@ void IRCompile(graphNodeIR start, int isFunc) {
 		funcsWithin = strGraphNodeIRPSortedInsert(funcsWithin, nodes[n], (gnCmpType)ptrPtrCmp);
 	}
 	strGraphNodeIRPDestroy(&nodes);
-
 	IRRemoveNeverFlows(start);
 	IRInsertImplicitTypecasts(start);
 	
@@ -1630,13 +1629,11 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	//"Pop" the old frame layout
 	localVarFrameOffsets = oldOffsets;
 	frameSize=oldFrameSize;
-
-
 	
 	for (long f = 0; f != strGraphNodeIRPSize(funcsWithin); f++) {
 		IRCompile(funcsWithin[f], 1);
 	}
-	graphNodeIRKillGraph(&start, (void(*)(void*))IRNodeDestroy, NULL);
+	//graphNodeIRKillGraph(&start, (void(*)(void*))IRNodeDestroy, NULL);
 }
 static int isPtrType(struct object *obj) {
 	__auto_type type = objectBaseType(obj)->type;

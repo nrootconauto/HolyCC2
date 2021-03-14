@@ -61,6 +61,7 @@ enum parserNodeType {
 	NODE_GOTO,
 	NODE_SIZEOF_TYPE,
 	NODE_SIZEOF_EXP,
+	NODE_RANGES,
 	/**
 	 * extern,import,_extern,_import,public
 	 */
@@ -394,6 +395,11 @@ struct parserNodeTry {
 		struct parserNode base;
 		struct parserNode *body;
 		struct parserNode *catch;
+};
+struct parserNodeRanges {
+		struct parserNode base;
+		strParserNode exprs;
+		strParserNode ops;
 };
 struct parserNode *parseTry(llLexerItem start, llLexerItem *end);
 struct parserNode *parseExpression(llLexerItem start, llLexerItem end, llLexerItem *result);

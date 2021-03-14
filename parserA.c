@@ -947,13 +947,63 @@ LEFT_ASSOC_OP(prec12, prec11Recur, "||");
 LEFT_ASSOC_OP(prec11, prec10Recur, "^^");
 LEFT_ASSOC_OP(prec10, prec9Recur, "&&");
 LEFT_ASSOC_OP(prec9, prec8Recur, "==", "!=");
-LEFT_ASSOC_OP(prec8, prec7Recur, ">", "<", ">=", "<=");
+//LEFT_ASSOC_OP(prec8, prec7Recur, ">", "<", ">=", "<=");
 LEFT_ASSOC_OP(prec7, prec6Recur, "+", "-");
 LEFT_ASSOC_OP(prec6, prec5Recur, "|");
 LEFT_ASSOC_OP(prec5, prec4Recur, "^");
 LEFT_ASSOC_OP(prec4, prec3Recur, "&");
 LEFT_ASSOC_OP(prec3, prec2Recur, "*", "%", "/");
 LEFT_ASSOC_OP(prec2, prec1Recur, "`", "<<", ">>");
+static struct parserNode *prec8Recur(llLexerItem start,llLexerItem end,llLexerItem *result) {
+		__auto_type originalStart=start;
+		__auto_type curExpr=prec7Recur(start, end, &start);
+		const char *rangeOps[]={
+				">", "<", ">=", "<="
+		};
+		long count=sizeof(rangeOps)/sizeof(*rangeOps);
+		struct parserNodeRanges ranges;
+		ranges.base.refCount=1;
+		ranges.base.type=NODE_RANGES;
+		ranges.exprs=NULL;
+		ranges.ops=NULL;
+		for(long firstRun=1;;firstRun=0) {
+				struct parserNode *op CLEANUP(parserNodeDestroy)=NULL;
+				for(long o=0;o!=count;o++) {
+						op=expectOp(start, rangeOps[o]);
+						if(op) {
+								start=llLexerItemNext(start);
+								break;
+						}
+				}
+				
+				if(firstRun&&!op) {
+						if(result)
+								*result=start;
+						return curExpr;
+				}
+
+				ranges.exprs=strParserNodeAppendItem(ranges.exprs, curExpr);
+				if(!op)
+						break;
+				
+				ranges.ops=strParserNodeAppendItem(ranges.ops, refNode(op));
+
+				curExpr=prec7Recur(start, end, &start);
+				if(!curExpr) goto fail;
+		}
+		if(result)
+				*result=start;
+
+		assignPosByLexerItems((struct parserNode*)&ranges,originalStart,start);
+		return ALLOCATE(ranges);
+	fail:
+		if(result)
+				*result=start;
+		
+		strParserNodeDestroy2(&ranges.exprs);
+		strParserNodeDestroy2(&ranges.ops);
+		return NULL;
+}
 
 struct linkagePair {
 	typeof(((struct linkage *)NULL)->type) link;
@@ -3264,6 +3314,12 @@ void parserNodeDestroy(struct parserNode **node) {
 	if(--node[0]->refCount>0)
 			return;
 	switch (node[0]->type) {
+	case NODE_RANGES: {
+			struct parserNodeRanges *ranges=(void*)node[0];
+			strParserNodeDestroy2(&ranges->exprs);
+			strParserNodeDestroy2(&ranges->ops);
+			break;
+	}
 	case NODE_TRY: {
 			struct parserNodeTry *try=(void*)node[0];
 			parserNodeDestroy(&try->body);
