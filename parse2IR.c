@@ -85,7 +85,7 @@ void IRGenInstDestroy(struct IRGenInst *inst) {
 	strScopeStackDestroy(&inst->scopes);
 	free(inst);
 }
-
+static __thread int funcDepth=0;
 static __thread struct IRGenInst *currentGen = NULL;
 static __thread strGraphNodeIRP currentStatement = NULL;
 static __thread ptrMapGNIRByParserNode labelsByPN = NULL;
@@ -962,7 +962,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 	}
 	case NODE_ASM: {
 			//If in global scope jump across asm body
-			int jumpAcross= strScopeStackSize(currentGen->scopes)==0;
+			int jumpAcross= funcDepth==0;
 		// These are used to samwich local nodes between them
 		graphNodeIR enterLab = NULL;
 
@@ -1154,6 +1154,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 		return insSrcMapping(node->pos.start,node->pos.end,(struct enterExit){retVal, retVal});
 	};
 	case NODE_FUNC_DEF: {
+			funcDepth++;
 		struct parserNodeFuncDef *def = (void *)node;
 		struct IRNodeFuncStart start;
 		start.base.attrs = NULL;
@@ -1201,6 +1202,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 
 		graphNodeIRConnect(body.exit, endNode, IR_CONN_FLOW);
 
+		funcDepth--;
 		return (struct enterExit){startNode, endNode};
 	}
 	case NODE_DO: {
