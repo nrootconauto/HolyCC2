@@ -197,6 +197,8 @@ try {
 					testNoDest();
 					testRange();
 					}
+
+					"Hello Wolrd:%.6n\n",100.23;
 					return 0;
 }
-Print("Hello World,%.6n\n",100.123);
+Print("Hello World,%d\n",100);

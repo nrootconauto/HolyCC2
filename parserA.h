@@ -51,6 +51,7 @@ enum parserNodeType {
 	NODE_SWITCH,
 	NODE_SUBSWITCH,
 	NODE_LABEL,
+	NODE_PRINT,
 	NODE_TYPE_CAST,
 	NODE_ARRAY_ACCESS,
 	NODE_FUNC_DEF,
@@ -401,6 +402,11 @@ struct parserNodeRanges {
 		strParserNode exprs;
 		strParserNode ops;
 };
+struct parserNodePrint {
+		struct parserNode base;
+		struct parserNode *strLit;
+		strParserNode args; 
+};
 struct parserNode *parseTry(llLexerItem start, llLexerItem *end);
 struct parserNode *parseExpression(llLexerItem start, llLexerItem end, llLexerItem *result);
 struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end);
@@ -419,6 +425,7 @@ struct parserNode *parseReturn(llLexerItem start, llLexerItem *end);
 struct parserNode *parseGoto(llLexerItem start, llLexerItem *end);
 struct parserNode *parseBreak(llLexerItem item, llLexerItem *end);
 struct parserNode *parseAsmRegister(llLexerItem start, llLexerItem *end);
+struct parserNode *parsePrint(llLexerItem start,llLexerItem end,llLexerItem *result);
 void parserNodeDestroy(struct parserNode **node);
 struct parserNode *parseAsmInstructionX86(llLexerItem start, llLexerItem *end);
 void __initParserA();

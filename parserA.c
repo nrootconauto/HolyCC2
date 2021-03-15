@@ -219,15 +219,16 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end, llLex
 				if(0==strcmp(*(char**)lexerItemValuePtr(item),"-")) {
 						start=llLexerItemNext(start);
 						struct parserNode *next CLEANUP(parserNodeDestroy)=literalRecur(start,end,result);
-						if(next->type==NODE_LIT_INT) {
-								struct parserNodeLitInt i=*(struct parserNodeLitInt*)next;
-								i.base.refCount=1;
-								i.base.pos.start=item->start;
-								i.base.pos.end=next->pos.end;
-								i.base.type=NODE_LIT_INT;
-								i.value.value.sLong*=-1;
-								return ALLOCATE(i);
-						}
+						if(next)
+								if(next->type==NODE_LIT_INT) {
+										struct parserNodeLitInt i=*(struct parserNodeLitInt*)next;
+										i.base.refCount=1;
+										i.base.pos.start=item->start;
+										i.base.pos.end=next->pos.end;
+										i.base.type=NODE_LIT_INT;
+										i.value.value.sLong*=-1;
+										return ALLOCATE(i);
+								}
 				}
 		} else if (item->template == &strTemplate) {
 				if (result != NULL)
@@ -947,7 +948,6 @@ LEFT_ASSOC_OP(prec12, prec11Recur, "||");
 LEFT_ASSOC_OP(prec11, prec10Recur, "^^");
 LEFT_ASSOC_OP(prec10, prec9Recur, "&&");
 LEFT_ASSOC_OP(prec9, prec8Recur, "==", "!=");
-//LEFT_ASSOC_OP(prec8, prec7Recur, ">", "<", ">=", "<=");
 LEFT_ASSOC_OP(prec7, prec6Recur, "+", "-");
 LEFT_ASSOC_OP(prec6, prec5Recur, "|");
 LEFT_ASSOC_OP(prec5, prec4Recur, "^");
@@ -1009,6 +1009,35 @@ struct linkagePair {
 	typeof(((struct linkage *)NULL)->type) link;
 	const char *text;
 };
+struct parserNode *parsePrint(llLexerItem start,llLexerItem end,llLexerItem *result) {
+		struct parserNode *str CLEANUP(parserNodeDestroy)=literalRecur(start, end, &start);
+		if(!str)
+				return NULL;
+		if(str->type!=NODE_LIT_STR)
+				return NULL;
+		struct parserNodePrint print;
+		print.args=NULL;
+		print.base.refCount=1;
+		print.base.type=NODE_PRINT;
+		print.strLit=refNode(str);
+		for(;;) {
+				struct parserNode *op CLEANUP(parserNodeDestroy)=expectOp(start, ",");
+				if(!op)
+						break;
+				start=llLexerItemNext(start);
+				//Ignore comma
+				struct parserNode *expr=prec13Recur(start, end, &start);
+				if(!expr) break;
+				print.args=strParserNodeAppendItem(print.args, expr);
+		}
+		struct parserNode *semi CLEANUP(parserNodeDestroy)=expectKeyword(start, ";");
+		if(!semi) whineExpected(start, ";");
+		else start=llLexerItemNext(start);
+
+		if(result) *result=start;
+		__auto_type retVal=ALLOCATE(print);
+		return retVal;
+}
 static struct linkage getLinkage(llLexerItem start, llLexerItem *result) {
 	if (result != NULL)
 		*result = start;
@@ -1885,6 +1914,13 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 
 	__auto_type originalStart = start;
 
+	__auto_type print=parsePrint(start, NULL, &start);
+	if(print) {
+			if(end)
+					*end=start;
+			return print;
+	}
+	
 	__auto_type opcode = parseAsmInstructionX86(start, &start);
 	if (opcode) {
 		if (end != NULL)
@@ -3314,6 +3350,12 @@ void parserNodeDestroy(struct parserNode **node) {
 	if(--node[0]->refCount>0)
 			return;
 	switch (node[0]->type) {
+	case NODE_PRINT: {
+			struct parserNodePrint *prn=(void*)node[0];
+			parserNodeDestroy(&prn->strLit);
+			strParserNodeDestroy2(&prn->args);
+			break;
+	}
 	case NODE_RANGES: {
 			struct parserNodeRanges *ranges=(void*)node[0];
 			strParserNodeDestroy2(&ranges->exprs);

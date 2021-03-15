@@ -46,3 +46,4 @@ void parserAddVarLenArgsVars2Func(struct parserVar **Argc,struct parserVar **Arg
 struct parserVar *parserGetVarByText(const char *name);
 const char  *parserGetGlobalSymLinkageName(const char *name);
 struct object *parserGlobalSymType(const char *name);
+struct parserFunction *parserGetFuncByName(const char *name);

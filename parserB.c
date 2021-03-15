@@ -333,13 +333,23 @@ void initParserData() {
 	enterScope();
 	symbolTable = mapSymbolCreate();
 }
-
 struct parserFunction *parserGetFunc(const struct parserNode *name) {
 	struct parserNodeName *name2 = (void *)name;
 	assert(name2->base.type == NODE_NAME);
 
 	for (llScope scope = currentScope; scope != NULL; scope = llScopeValuePtr(scope)->parent) {
 		__auto_type find = mapFuncGet(llScopeValuePtr(scope)->funcs, name2->text);
+		if (!find)
+			continue;
+
+		find[0]->refs = strParserNodeAppendItem(find[0]->refs, (struct parserNode *)name);
+		return *find;
+	}
+	return NULL;
+}
+struct parserFunction *parserGetFuncByName(const char *name) {
+	for (llScope scope = currentScope; scope != NULL; scope = llScopeValuePtr(scope)->parent) {
+		__auto_type find = mapFuncGet(llScopeValuePtr(scope)->funcs, name);
 		if (!find)
 			continue;
 

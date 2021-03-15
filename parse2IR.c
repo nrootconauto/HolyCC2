@@ -981,6 +981,31 @@ STR_TYPE_DEF(struct parserVar*,ParserVar);
 STR_TYPE_FUNCS(struct parserVar*,ParserVar);
 static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 	switch (node->type) {
+	case NODE_PRINT: {
+			__auto_type sym=parserGetGlobalSym("Print");
+			if(!sym) {
+					fprintf(stderr, "Include HCRT for Print");
+					abort();
+			}
+			
+			struct IRNodeValue value;
+			value.base.attrs=NULL;
+			value.base.type=IR_VALUE;
+			value.val.type=IR_VAL_FUNC;
+			value.val.value.func= parserGetFuncByName("Print");
+			__auto_type printFunc=GRAPHN_ALLOCATE(value);
+			
+			struct parserNodePrint *pri=(void*)node;
+			strGraphNodeIRP args CLEANUP(strGraphNodeIRPDestroy)=NULL;
+			args=strGraphNodeIRPAppendItem(args,parserNode2Expr(pri->strLit));
+			for(long a=0;a!=strParserNodeSize(pri->args);a++)
+					args=strGraphNodeIRPAppendItem(args, parserNode2Expr(pri->args[a]));
+			
+			__auto_type funcCall=IRCreateFuncCall(printFunc, NULL);
+			for(long a=0;a!=strGraphNodeIRPSize(args);a++)
+					graphNodeIRConnect(args[a], funcCall, IR_CONN_FUNC_ARG_1+a);
+			return (struct enterExit){IRStmtStart(funcCall),funcCall};
+	}
 	case NODE_RANGES: {
 			__auto_type cmp=parserNode2Expr(node);
 			__auto_type retVal=(struct enterExit){IRStmtStart(cmp),cmp};
