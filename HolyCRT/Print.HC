@@ -167,7 +167,7 @@ U0 __PrintI32i(I32i value,I32i base,U8i *Digits) {
 			I32i bufferSize=digits;
 			do {
 						digits-=1;
-						buffer[digits]=value%base+Digits;
+						buffer[digits]=Digits[value%base];
 						value/=base;
 			} while(value!=0);
 
@@ -222,7 +222,7 @@ U0 Print(U8i *fmt,...) {
 																													argi+=1;
 																													break;
 																								}
-																								case 'i': {
+																								case 'd': {
 																													__PrintI32i(argv[argi],10,"0123456789");
 																													argi+=1;
 																													break;

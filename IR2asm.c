@@ -3064,8 +3064,6 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			dxorArgs = strX86AddrModeAppendItem(dxorArgs, X86AddrModeReg(&regX86DX,&typeI16i));;
 			assembleInst("XOR", dxorArgs);
 			assembleOpcode(start,op, divArgs);
-			//Dummy pop
-				popReg(&regX86AX);
 			if (isDivOrMod) {
 				struct X86AddressingMode *ax CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86AX,&typeI16i);
 				asmAssign(outMode, ax, 1,0);
@@ -3073,6 +3071,8 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				struct X86AddressingMode *dx CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86DX,&typeI16i);
 				asmAssign(outMode, dx, 1,0);
 			}
+			//Dummy pop
+			popReg(&regX86AX);
 			break;
 		case 4:
 				pushMode(bMode);
@@ -3083,8 +3083,6 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				dxorArgs = strX86AddrModeAppendItem(dxorArgs, X86AddrModeReg(&regX86EDX,&typeI32i));
 			assembleInst("XOR", dxorArgs);
 			assembleOpcode(start,op, divArgs);
-			//Dummy pop
-			popReg(&regX86EAX);
 			if (isDivOrMod) {
 				struct X86AddressingMode *eax CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86EAX,&typeI32i);
 				asmAssign(outMode, eax, 1,0);
@@ -3092,6 +3090,9 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				struct X86AddressingMode *edx CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86EDX,&typeI32i);
 				asmAssign(outMode, edx, 1,0);
 			}
+			//Dummy pop
+			popReg(&regX86EAX);
+
 			break;
 		case 8:
 				pushMode(bMode);
@@ -3102,8 +3103,6 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			dxorArgs = strX86AddrModeAppendItem(dxorArgs, X86AddrModeReg(&regAMD64RDX,&typeI64i));
 			assembleInst("XOR", dxorArgs);
 			assembleOpcode(start,op, divArgs);
-			//Dummy pop
-			popReg(&regAMD64RAX);
 			if (isDivOrMod) {
 				struct X86AddressingMode *rdx CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regAMD64RDX,&typeI64i);
 				asmAssign(outMode, rdx, 1,0);
@@ -3111,6 +3110,8 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				struct X86AddressingMode *rax CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regAMD64RAX,&typeI64i);
 				asmAssign(outMode, rax, 1,0);
 			}
+			//Dummy pop
+			popReg(&regAMD64RAX);
 			break;
 		}
 		

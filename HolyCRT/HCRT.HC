@@ -201,4 +201,4 @@ try {
 					"Hello Wolrd:%.6n\n",100.23;
 					return 0;
 }
-Print("Hello World,%d\n",100);
+Print("Hello World,%d\n",123);
