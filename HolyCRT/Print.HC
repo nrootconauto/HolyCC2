@@ -29,7 +29,7 @@ static U0 __PrintF64(F64 f,F64 e,F64 p,I32i digits) {
 
 							F64 R=__PrintF64Shift(f,Max(0.0,e-p));
 							F64 S=__PrintF64Shift(1.0,Max(0.0,-(e-p)));
-							printf("%lf,%lf\n",R/S,value);
+							//printf("%lf,%lf\n",R/S,value);
 
 							F64 mA=__PrintF64Shift(1.0,Max(0.0,e-p));
 							F64 mB=mA;
@@ -92,12 +92,12 @@ static U0 __PrintF64(F64 f,F64 e,F64 p,I32i digits) {
 
 							while((digits-=1)>=0)
 																													printf("%li",0);
-							printf("e%li\n",floor(Log10(value))(I32i));
+							printf("e%li",floor(Log10(value))(I32i));
 }
 class I64Pair {
 						U32i a,b;
 };
-F64 fild64(I64Pair pair) {
+static F64 fild64(I64Pair pair) {
 				asm {
 								IMPORT pair;
 								FILD U64[pair]
@@ -123,6 +123,13 @@ U8i *StrChr(U8i *str,U8i chr) {
 																						str+=1;
 				} while(*str!='\0');
 				return NULL;
+}
+I32i StrLen(U8i *str) {
+					I32i len=0;
+				 for(;*str!='\0';str+=1) {
+																							len+=1;
+					}
+				return len;
 }
 I32i ToUpper(I32i Chr) {
 					I32i retVal=0;
@@ -154,7 +161,7 @@ I32i Str2I32i(U8i *str,U8i **end=NULL) {
 					if(end) *end=str;
 					return retVal;
 }
-U0 __PrintI32i(I32i value,I32i base,U8i *Digits) {
+static U0 __PrintI32i(I32i value,I32i base,U8i *Digits) {
 			I32i digits=0;
 			I32i value2=value;
 			do {
@@ -173,6 +180,95 @@ U0 __PrintI32i(I32i value,I32i base,U8i *Digits) {
 
 			for(I32i c=0;c!=bufferSize;c+=1)
 												PutC(buffer[c]);
+}
+static U8i *__UnescapeStr(U8i *str) {
+							I32i resSize=1;
+							I32i len=StrLen(str);
+							I32i run=0;
+
+							U8i *retVal;
+							loop2:
+							I32i retValLen=0;
+							for(I32i chr=0;chr!=len;chr+=1) {
+																switch(str[chr]) {
+																																	case '\n':
+																																						if(run) {
+																																														retVal[retValLen]='\\';
+																																														retVal[retValLen+1]='n';
+																																														}
+																																						retValLen+=2;
+																																						break;
+																																	case '\'':
+																																						if(run) {
+																																														retVal[retValLen]='\\';
+																																														retVal[retValLen+1]='\'';
+																																														}
+																																						retValLen+=2;
+																																						break;
+																																	case '\"':
+																																						if(run) {
+																																														retVal[retValLen]='\\';
+																																														retVal[retValLen+1]='\"';
+																																														}
+																																						retValLen+=2;
+																																						break;
+																																	case '\e':
+																																						if(run) {
+																																														retVal[retValLen]='\\';
+																																														retVal[retValLen+1]='e';
+																																														}
+																																						retValLen+=2;
+																																						break;
+																																	case '\f':
+																																						if(run) {
+																																														retVal[retValLen]='\\';
+																																														retVal[retValLen+1]='f';
+																																														}
+																																						retValLen+=2;
+																																						break;
+																																	case '\r':
+																																						if(run) {
+																																														retVal[retValLen]='\\';
+																																														retVal[retValLen+1]='r';
+																																														}
+																																						retValLen+=2;
+																																						break;
+																																	case '\t':
+																																						if(run) {
+																																														retVal[retValLen]='\\';
+																																														retVal[retValLen+1]='t';
+																																														}
+																																						retValLen+=2;
+																																						break;
+																																	case '\v':
+																																						if(run) {
+																																														retVal[retValLen]='\\';
+																																														retVal[retValLen+1]='v';
+																																														}
+																																						retValLen+=2;
+																																						break;
+																																	case '\\':
+																																						if(run) {
+																																														retVal[retValLen]='\\';
+																																														retVal[retValLen+1]='\\';
+																																														}
+																																						retValLen+=2;
+																																						break;
+																																						default:
+																																						if(run) {
+																																														retVal[retValLen]=str[chr];
+																																														}
+																																						retValLen+=1;
+																																						break;
+																}
+							}
+							if(!run) {
+																run=1;
+																retVal=malloc(retValLen+1);
+																retVal[retValLen]='\0';
+																goto loop2;
+							}
+							return retVal;
 }
 U0 Print(U8i *fmt,...) {
 			U8i *str=fmt;

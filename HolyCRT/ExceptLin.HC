@@ -7,6 +7,7 @@ class HCRT_Except {
 };
 static I32i HCRT_ExceptSize=sizeof(HCRT_Except);
 import U0 *malloc(I32i len);
+import U0 *realloc(U0 *ptr,I32i len);
 import U0 free(U0 *ptr);
 
 static HCRT_Except *curExceptFrame;
