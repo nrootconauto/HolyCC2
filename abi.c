@@ -439,7 +439,7 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start ,struct X86AddressingMode *f
 			//
 			//HolyC specific,store I32 count in ECX
 			//
-			long words=(stackSize-varLenArgListStart)/dataSize();
+			long words=(varLenArgListStart-stackSizeBeforeArgs)/dataSize();
 			struct X86AddressingMode *ecxMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86ECX,&typeI32i);
 			struct X86AddressingMode *wordsCount CLEANUP(X86AddrModeDestroy)=X86AddrModeSint(words);
 			asmAssign(ecxMode, wordsCount, 4, 0);

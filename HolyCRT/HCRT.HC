@@ -183,6 +183,9 @@ U0 testRegsCast() {
 						printf("F64->32 %li\n",f(I32i)==2);
 } while(0);
 }
+U0 testRange() {
+			printf("3>2>1>0:%li\n",3>2>1>0);
+}
 I32i main() {
 try {
 				throw(1);
@@ -192,6 +195,7 @@ try {
 					testRegsI8i();
 					testRegsCast();
 					testNoDest();
+					testRange();
 					}
 					return 0;
 }

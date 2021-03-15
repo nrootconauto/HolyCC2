@@ -617,19 +617,19 @@ graphNodeIR parserNode2Expr(const struct parserNode *node) {
 			graphNodeIR last=NULL;
 			for(long e=0;e<strParserNodeSize(ranges->exprs);e++) {
 					if(e==0) {
-							__auto_type eeA=__parserNode2IRNoStmt(ranges->exprs[e]);
-							__auto_type virtVar=IRCreateVirtVar(IRNodeType(eeA.exit));
+							__auto_type eeA=parserNode2Expr(ranges->exprs[e]);
+							__auto_type virtVar=IRCreateVirtVar(IRNodeType(eeA));
 							__auto_type virtVarRef=IRCreateVarRef(virtVar);
-							IRCreateAssign(eeA.exit, virtVarRef);
+							IRCreateAssign(eeA, virtVarRef);
 							prevVar=virtVar;
 							last=virtVarRef;
 							continue;
 					}
 					
-					__auto_type eeB=__parserNode2IRNoStmt(ranges->exprs[e]);
-					__auto_type virtVar2=IRCreateVirtVar(IRNodeType(eeB.exit));
+					__auto_type eeB=parserNode2Expr(ranges->exprs[e]);
+					__auto_type virtVar2=IRCreateVirtVar(IRNodeType(eeB));
 					__auto_type virtVarRef2=IRCreateVarRef(virtVar2);
-					IRCreateAssign(eeB.exit, virtVarRef2);
+					IRCreateAssign(eeB, virtVarRef2);
 					
 					struct parserNodeOpTerm *op=(void*)ranges->ops[e-1];
 					graphNodeIR connectTo=NULL;
@@ -645,8 +645,6 @@ graphNodeIR parserNode2Expr(const struct parserNode *node) {
 					else
 							last=IRCreateBinop(last, cmp, IR_LAND);
 			}
-
-			//debugShowGraphIR(last);
 			return last;
 	}
 	case NODE_FUNC_FORWARD_DECL: {
@@ -983,6 +981,11 @@ STR_TYPE_DEF(struct parserVar*,ParserVar);
 STR_TYPE_FUNCS(struct parserVar*,ParserVar);
 static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 	switch (node->type) {
+	case NODE_RANGES: {
+			__auto_type cmp=parserNode2Expr(node);
+			__auto_type retVal=(struct enterExit){IRStmtStart(cmp),cmp};
+			return retVal;
+	}
 	case NODE_ARRAY_LITERAL: {
 			__auto_type lab=IRCreateLabel();
 			fputs("Array literals must be in initializer\n", stderr);
