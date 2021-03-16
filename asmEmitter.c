@@ -20,6 +20,8 @@ MAP_TYPE_DEF(char *, SymAsmName);
 MAP_TYPE_FUNCS(char *, SymAsmName);
 STR_TYPE_DEF(strChar, StartCodeName);
 STR_TYPE_FUNCS(strChar, StartCodeName);
+#define OBJECT_OFFSET_FMT "%s$%s_Offset"
+#define OBJECT_SIZE_FMT "%s$_Size"
 static __thread strStartCodeName initCodeNames=NULL;
 static __thread struct asmFileSet {
 		FILE *constsTmpFile;
@@ -203,6 +205,65 @@ static strChar getSizeStr(struct object *obj) {
 		return NULL;
 	}
 }
+static char *offsetName(struct objectMember *mem) {
+		char *name=object2Str(mem->belongsTo);
+		long len=snprintf(NULL, 0,"%%define " OBJECT_OFFSET_FMT " %li",name,mem->name,mem->offset);
+		char buffer[len+1];
+		sprintf(buffer,"%%define " OBJECT_OFFSET_FMT " %li",name,mem->name,mem->offset);
+		free(name);
+
+		return strcpy(calloc(len+1, 1), buffer);
+}
+static char *sizeofName(struct object *type) {
+		char *name=object2Str(type);
+		long len=snprintf(NULL, 0,"%%define " OBJECT_SIZE_FMT " %li",name,  objectSize(type ,NULL));
+		char buffer[len+1];
+		sprintf(buffer,"%%define " OBJECT_SIZE_FMT " %li",name,  objectSize(type ,NULL));
+		free(name);
+
+		return strcpy(calloc(len+1, 1), buffer);
+}
+/*
+	* Emits member offsets/size macros
+	*/
+static void X86EmitClassMetaData(FILE *dumpTo) {
+		long count;
+		parserSymTableNames(NULL, &count);
+		const char *keys[count];
+		parserSymTableNames(keys, NULL);
+		for(long k=0;k!=count;k++) {
+				__auto_type sym=parserGetGlobalSym(keys[count]);
+				//Look for classes/unions,(not varaibles with  class/union types)
+				if(sym->var!=NULL)
+						continue;
+				if(sym->type->type==TYPE_CLASS) {
+						__auto_type cls=(struct objectClass*)sym->type;
+						char *typeName=object2Str(sym->type);
+						for(long m=0;m!=strObjectMemberSize(cls->members);m++) {
+								char *ofNam=offsetName(&cls->members[m]);
+								fprintf(dumpTo, "%s", ofNam);
+								free(ofNam);
+						}
+
+						char *szof=sizeofName(sym->type);
+						fprintf(dumpTo,"%s\n",szof);
+						free(typeName);
+				} else if(sym->type->type==TYPE_UNION) {
+						__auto_type un=(struct objectUnion*)sym->type;
+						char *typeName=object2Str(sym->type);
+						for(long m=0;m!=strObjectMemberSize(un->members);m++) {
+								char *ofNam=offsetName(&un->members[m]);
+								fprintf(dumpTo, "%s", ofNam);
+								free(ofNam);
+						}
+						
+						char *szof=sizeofName(sym->type);
+						fprintf(dumpTo,"%s\n",szof);
+						free(typeName);
+				} else
+						continue;
+		}
+}
 static void X86EmitSymbolTable(FILE *dumpTo) {
 	long count;
 	parserSymTableNames(NULL, &count);
@@ -226,6 +287,13 @@ static void X86EmitSymbolTable(FILE *dumpTo) {
 }
 static strChar emitMode(struct X86AddressingMode **args, long i) {
 	switch (args[i]->type) {
+	case X86ADDRMODE_SIZEOF: {
+			char *szofStr=sizeofName(args[i]->value.objSizeof);
+			__auto_type retVal=strClone(szofStr);
+			free(szofStr);
+			return retVal;
+			break;
+	}
 	case X86ADDRMODE_STR: {
 			struct X86AddressingMode *stred CLEANUP(X86AddrModeDestroy) = X86EmitAsmStrLit((char*)args[i]->value.text,__vecSize(args[i]->value.text));
 		return emitMode(&stred, 0);
@@ -264,18 +332,28 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 			fprintf(stderr, "Cant find name for symbol\n");
 			assert(0);
 		}
+		strChar offsetStr CLEANUP(strCharDestroy)=NULL;
+		__auto_type members=args[i]->value.varAddr.memberOffsets;
+		for(long m=0;m!=strObjectMemberPSize(members);m++) {
+				char *memNam=offsetName(members[m]);
+				long len=snprintf(NULL,0, "+%s",memNam);
+				char buffer[len+1];
+				sprintf(buffer, "+%s",memNam);
+				free(memNam);
+				
+				offsetStr=strCharConcat(offsetStr, strClone(buffer));
+		}
 		if(args[i]->value.itemAddr.offset) {
 				long offset=args[i]->value.itemAddr.offset;
-				long len = snprintf(NULL, 0, "[$%s+%li] ", name,offset);
-				strChar retVal = strCharResize(NULL, len + 1);
-				sprintf(retVal, "[$%s+%li] ", name,offset);
-				return retVal;
-		} else {
-				long len = snprintf(NULL, 0, "[$%s] ", name);
-				strChar retVal = strCharResize(NULL, len + 1);
-				sprintf(retVal, "[$%s] ", name);
-				return retVal;
+				long len=snprintf(NULL, 0, "%+li", offset);
+				strChar tmp = strCharResize(NULL, len + 1);
+				offsetStr=tmp;
 		}
+		
+		long len = snprintf(NULL, 0, "[$%s%s] ", name,offsetStr);
+		strChar retVal = strCharResize(NULL, len + 1);
+		sprintf(retVal, "[$%s%s] ", name,offsetStr);
+		return retVal; 
 	}
 	case X86ADDRMODE_LABEL: {
 		long len = snprintf(NULL, 0, "$%s ", args[i]->value.label);
@@ -358,6 +436,17 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 							offsetStr=strCharAppendItem(offsetStr, '\0');
 					offsetStr=strCharResize(offsetStr,strCharSize(offsetStr)+len);
 					strcat(offsetStr, buffer);
+			}
+
+			__auto_type members=args[i]->value.m.value.sib.memberOffsets;
+			for(long m=0;m!=strObjectMemberPSize(members);m++) {
+					char *memNam=offsetName(members[m]);
+					long len=snprintf(NULL,0, "+%s",memNam);
+					char buffer[len+1];
+					sprintf(buffer, "+%s",memNam);
+					free(memNam);
+
+					offsetStr=strCharConcat(offsetStr, strClone(buffer));
 			}
 			
 			strChar buffer CLEANUP(strCharDestroy) = NULL;
@@ -609,6 +698,7 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 		mapFuncFilesKeys(funcFiles, funcs, &fCount);
 		
 		FILE *writeTo=fopen(name, "w");
+		X86EmitClassMetaData(writeTo);
 		X86EmitSymbolTable(writeTo);
 		cacheDir=(!cacheDir)?cacheDirLocation:cacheDir;
 		for(long f=0;f!=fCount;f++) {

@@ -459,6 +459,7 @@ static int sizeMatchUnsigned(const struct X86AddressingMode *mode, long size) {
 		if (mode->valueType)
 			return objectSize(mode->valueType, NULL) == size;
 		return 1;
+	case X86ADDRMODE_SIZEOF:
 	case X86ADDRMODE_LABEL:
 		return 1;
 	}
@@ -495,6 +496,7 @@ static int sizeMatchSigned(const struct X86AddressingMode *mode, long size) {
 		if (mode->valueType)
 			return objectSize(mode->valueType, NULL) == size;
 		return 1;
+	case X86ADDRMODE_SIZEOF:
 	case X86ADDRMODE_LABEL:
 		return 1;
 	}
@@ -695,6 +697,7 @@ struct X86AddressingMode *X86AddrModeIndirMem(uint64_t where, struct object *typ
 	retVal.value.m.value.sib.scale = 0;
 	retVal.value.m.value.sib.offset = NULL;
 	retVal.value.m.value.sib.offset2=0;
+	retVal.value.m.value.sib.memberOffsets=NULL;
 	retVal.valueType = type;
 	return ALLOCATE(retVal);
 }
@@ -706,6 +709,7 @@ struct X86AddressingMode *X86AddrModeIndirReg(struct reg *where, struct object *
 	retVal.value.m.value.sib.index = NULL;
 	retVal.value.m.value.sib.scale = 1;
 	retVal.value.m.value.sib.offset = NULL;
+	retVal.value.m.value.sib.memberOffsets=NULL;
 	retVal.value.m.value.sib.offset2=0;
 	retVal.valueType = type;
 	return ALLOCATE(retVal);
@@ -714,6 +718,9 @@ void X86AddrModeIndirSIBAddOffset(struct X86AddressingMode *addrMode,int32_t off
 		assert(addrMode->type==X86ADDRMODE_MEM);
 		assert(addrMode->value.m.type==x86ADDR_INDIR_SIB);
 		addrMode->value.m.value.sib.offset2+=offset;
+}
+void X86AddrModeIndirSIBAddMemberOffset(struct X86AddressingMode *addrMode,struct objectMember *mem)  {
+		addrMode->value.m.value.sib.memberOffsets=strObjectMemberPAppendItem(addrMode->value.m.value.sib.memberOffsets, mem);
 }
 struct X86AddressingMode *X86AddrModeIndirSIB(long scale, struct X86AddressingMode *index, struct X86AddressingMode *base, struct X86AddressingMode *offset,
                                               struct object *type) {
@@ -886,6 +893,7 @@ struct X86AddressingMode *X86AddrModeVar(struct parserVar *var,long offset) {
 		mode.value.varAddr.offset=offset;
 		mode.value.varAddr.var=var;
 		mode.valueType=var->type;
+		mode.value.varAddr.memberOffsets=NULL;
 		
 		var->refCount++;
 		return ALLOCATE(mode);
@@ -900,6 +908,10 @@ struct X86AddressingMode *X86AddrModeLabel(const char *name) {
 }
 struct X86AddressingMode *X86AddrModeClone(struct X86AddressingMode *mode) {
 	switch (mode->type) {
+	case X86ADDRMODE_SIZEOF: {
+			__auto_type clone=*mode;
+			return ALLOCATE(clone);
+	}
 	case X86ADDRMODE_VAR_ADDR: {
 			__auto_type clone=*mode;
 			clone.value.varAddr.var->refCount++;
@@ -949,6 +961,7 @@ void X86AddrModeDestroy(struct X86AddressingMode **mode) {
 	case X86ADDRMODE_STR:
 		free(mode[0]->value.text);
 		break;
+	case X86ADDRMODE_SIZEOF:
 	case X86ADDRMODE_UINT:
 	case X86ADDRMODE_SINT:
 	case X86ADDRMODE_REG:
@@ -966,6 +979,8 @@ void X86AddrModeDestroy(struct X86AddressingMode **mode) {
 				X86AddrModeDestroy(&mode[0]->value.m.value.sib.base);
 			if (mode[0]->value.m.value.sib.index)
 				X86AddrModeDestroy(&mode[0]->value.m.value.sib.index);
+			if(mode[0]->value.m.value.sib.memberOffsets)
+					strObjectMemberPDestroy(&mode[0]->value.m.value.sib.memberOffsets);
 		}
 		if (mode[0]->value.m.type == x86ADDR_INDIR_LABEL)
 			X86AddrModeDestroy(&mode[0]->value.m.value.label);
@@ -1018,4 +1033,11 @@ struct X86AddressingMode *X86AddrModeFunc(struct parserFunction *func) {
 		}
 	}
 	return ALLOCATE(mode);
+}
+struct X86AddressingMode *X86AddrModeSizeofObj(struct object *type) {
+		struct X86AddressingMode mode;
+		mode.type=X86ADDRMODE_SIZEOF;
+		mode.value.objSizeof=type;
+		mode.valueType=dftValType();
+		return ALLOCATE(mode);
 }

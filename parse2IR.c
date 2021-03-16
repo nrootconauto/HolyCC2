@@ -664,13 +664,11 @@ graphNodeIR parserNode2Expr(const struct parserNode *node) {
 	}
 	case NODE_SIZEOF_EXP: {
 		struct parserNodeSizeofExp *exp = (void *)node;
-		__auto_type size = IRCreateIntLit(objectSize(assignTypeToOp(exp->exp), NULL));
-		return size;
+		return IRCreateSizeof(assignTypeToOp(exp->exp));
 	}
 	case NODE_SIZEOF_TYPE: {
 		struct parserNodeSizeofType *t = (void *)node;
-		__auto_type size = IRCreateIntLit(objectSize(t->type, NULL));
-		return size;
+		return IRCreateSizeof(t->type);
 	}
 	case NODE_VAR: {
 		struct parserNodeVar *var = (void *)node;

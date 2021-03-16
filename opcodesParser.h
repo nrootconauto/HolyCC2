@@ -3,6 +3,7 @@
 #include "str.h"
 #include "parserA.h"
 #include "parserB.h"
+#include "object.h"
 struct X86AddressingMode;
 struct X86MemoryLoc {
 	enum {
@@ -15,11 +16,12 @@ struct X86MemoryLoc {
 		uint64_t mem;
 		struct reg *indirReg;
 		struct {
-			struct X86AddressingMode *index;
-			struct X86AddressingMode *base;
-			int scale;
+				struct X86AddressingMode *index;
+				struct X86AddressingMode *base;
+				int scale;
 				struct X86AddressingMode *offset;
 				long offset2;
+				strObjectMemberP memberOffsets;
 		} sib;
 		struct X86AddressingMode *label;
 	} value;
@@ -27,22 +29,24 @@ struct X86MemoryLoc {
 };
 struct X86AddressingMode {
 	enum {
-		X86ADDRMODE_REG,
-		X86ADDRMODE_SINT,
-		X86ADDRMODE_UINT,
-		X86ADDRMODE_FLT,
-		X86ADDRMODE_MEM,
-		X86ADDRMODE_LABEL,
-		X86ADDRMODE_ITEM_ADDR,
-		X86ADDRMODE_VAR_ADDR,
-		X86ADDRMODE_STR,
+			X86ADDRMODE_REG,
+			X86ADDRMODE_SINT,
+			X86ADDRMODE_UINT,
+			X86ADDRMODE_FLT,
+			X86ADDRMODE_MEM,
+			X86ADDRMODE_LABEL,
+			X86ADDRMODE_ITEM_ADDR,
+			X86ADDRMODE_VAR_ADDR,
+			X86ADDRMODE_STR,
+			X86ADDRMODE_SIZEOF,
 	} type;
 	union {
-		uint64_t uint;
-		int64_t sint;
-		double flt;
-		struct reg *reg;
-		struct X86MemoryLoc m;
+			struct object *objSizeof;
+			uint64_t uint;
+			int64_t sint;
+			double flt;
+			struct reg *reg;
+			struct X86MemoryLoc m;
 			struct {
 					char *item;
 					long offset;
@@ -50,11 +54,12 @@ struct X86AddressingMode {
 			struct {
 					struct parserVar *var;
 					long offset;
+					strObjectMemberP memberOffsets;
 			} varAddr;
-		char *label;
-		struct __vec *text;
+			char *label;
+			struct __vec *text;
 	} value;
-	struct object *valueType;
+		struct object *valueType;
 };
 struct X86AddressingMode *X86AddrModeVar(struct parserVar *var,long offset);
 struct X86AddressingMode *X86AddrModeFlt(double value);
@@ -65,6 +70,7 @@ struct X86AddressingMode *X86AddrModeLabel(const char *name);
 struct X86AddressingMode *X86AddrModeIndirReg(struct reg *where, struct object *type);
 struct X86AddressingMode *X86AddrModeIndirSIB(long scale, struct X86AddressingMode *index, struct X86AddressingMode *base, struct X86AddressingMode *offset, struct object *type);
 struct X86AddressingMode *X86AddrModeItemAddrOf(struct parserSymbol *item,long offset, struct object *type);
+struct X86AddressingMode *X86AddrModeSizeofObj(struct object *type);
 struct opcodeTemplateArg {
 	enum {
 		OPC_TEMPLATE_ARG_REG,
@@ -139,3 +145,4 @@ struct opcodeTemplate {
 };
 long opcodeTemplateArgSize(struct opcodeTemplateArg arg);
 void X86AddrModeIndirSIBAddOffset(struct X86AddressingMode *addrMode,int32_t offset);
+void X86AddrModeIndirSIBAddMemberOffset(struct X86AddressingMode *addrMode,struct objectMember *mem);

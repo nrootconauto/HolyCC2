@@ -30,13 +30,16 @@ STR_TYPE_FUNCS(struct objectMemberAttr, ObjectMemberAttr);
 
 struct object;
 struct objectMember {
-	struct object *type;
-	char *name;
-	strObjectMemberAttr attrs;
-	long offset;
+		struct object *type;
+		char *name;
+		strObjectMemberAttr attrs;
+		long offset;
+		struct object *belongsTo;
 };
 STR_TYPE_DEF(struct objectMember, ObjectMember);
 STR_TYPE_FUNCS(struct objectMember, ObjectMember);
+STR_TYPE_DEF(struct objectMember *, ObjectMemberP);
+STR_TYPE_FUNCS(struct objectMember *, ObjectMemberP);
 struct object {
 	enum holyCTypeKind type;
 	char *name;

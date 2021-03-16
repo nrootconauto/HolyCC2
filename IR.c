@@ -69,6 +69,13 @@ graphNodeIR IRCreateRegRef(const struct regSlice *slice) {
 
 	return GRAPHN_ALLOCATE(val);
 }
+graphNodeIR IRCreateSizeof(struct object *obj) {
+		struct IRNodeSizeof sizof;
+		sizof.base.attrs=NULL;
+		sizof.base.type=IR_SIZEOF;
+		sizof.type=obj;
+		return GRAPHN_ALLOCATE(sizof);
+}
 graphNodeIR IRCreateFuncCall(graphNodeIR func, ...) {
 	struct IRNodeFuncCall call;
 	call.base.attrs = NULL;

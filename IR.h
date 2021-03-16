@@ -185,7 +185,9 @@ enum IRConnType {
 	IR_CONN_FUNC_ARG_128,
 };
 enum IRNodeType {
-	IR_TYPECAST,
+		IR_SIZEOF,
+		//
+		IR_TYPECAST,
 	//
 	IR_STATEMENT_START,
 	IR_STATEMENT_END,
@@ -324,6 +326,10 @@ struct IRValue {
 		struct __vec *strLit;
 		graphNodeIR memLabel;
 	} value;
+};
+struct IRNodeSizeof {
+		struct IRNode base;
+		struct object *type;
 };
 struct IRNodeArrayDecl {
 		struct IRNode base;
@@ -564,3 +570,4 @@ graphNodeIR IRCreateSourceMapping(const char *fileName,long start,long len);
 void IRRemoveNeverFlows(graphNodeIR node);
 graphNodeIR IRCreateFuncVaArgArgv();
 graphNodeIR IRCreateFuncVaArgArgc();
+graphNodeIR IRCreateSizeof(struct object *obj);

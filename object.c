@@ -369,7 +369,9 @@ objectClassCreate(const struct parserNode *name, const struct objectMember *memb
 			goto fail;
 
 		newClass->members = strObjectMemberAppendItem(newClass->members, members[i]);
-		newClass->members[strObjectMemberSize(newClass->members) - 1].offset = offset;
+		long index=strObjectMemberSize(newClass->members) - 1;
+		newClass->members[index].offset = offset;
+		newClass->members[index].belongsTo=(struct object*)newClass;
 		offset += objectSize(members[i].type, &success);
 		if (!success)
 			goto fail;
@@ -426,6 +428,8 @@ objectUnionCreate(const struct parserNode *name /*Can be `NULL` for empty union.
 
 		clone.name = strClone(clone.name);
 		newUnion->members = strObjectMemberAppendItem(newUnion->members, clone);
+		long index=strObjectMemberSize(newUnion->members)-1;
+		newUnion->members[index].belongsTo=(struct object*)newUnion;
 	}
 	largestSize += largestSize % largestMemberAlign;
 	newUnion->size = largestSize;

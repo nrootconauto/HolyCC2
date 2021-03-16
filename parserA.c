@@ -3776,23 +3776,7 @@ static struct X86AddressingMode *addrModeFromParseTree(struct parserNode *node, 
 	}
 	if (success)
 		*success = 1;
-	struct X86AddressingMode retVal;
-	retVal.type = X86ADDRMODE_MEM;
-	retVal.value.m.type = x86ADDR_INDIR_SIB;
-	if(base)
-			retVal.value.m.value.sib.base = X86AddrModeReg(base,NULL);
-	else
-			retVal.value.m.value.sib.base=NULL;
-	if(index)
-			retVal.value.m.value.sib.index = X86AddrModeReg(index,NULL);
-	else
-			retVal.value.m.value.sib.index=NULL;
-	retVal.value.m.value.sib.offset = offset;
-	retVal.value.m.value.sib.offset2=0;
-	retVal.value.m.value.sib.scale = scale;
-	retVal.value.m.segment=NULL;
-	retVal.valueType = valueType;
-	return ALLOCATE(retVal);
+	return X86AddrModeIndirSIB(scale, X86AddrModeReg(index, NULL), X86AddrModeReg(base,NULL) , offset, valueType);
 fail:
 	if (success)
 		*success = 0;
@@ -3838,6 +3822,7 @@ static struct X86AddressingMode *x86ItemAddr(llLexerItem start, llLexerItem *end
 
 		struct parserNode *expr CLEANUP(parserNodeDestroy)= parseExpression(start, NULL,&start);
 		long offset=0;
+		strObjectMemberP members CLEANUP(strObjectMemberPDestroy)=NULL;
 		struct parserNode *currExprPart=expr;
 		struct X86AddressingMode *retVal=NULL;
 	loop:
@@ -3862,7 +3847,7 @@ static struct X86AddressingMode *x86ItemAddr(llLexerItem start, llLexerItem *end
 						diagEndMsg();
 						goto fail;
 				} else {
-						offset+=member->offset;
+						members=strObjectMemberPAppendItem(members, member);
 				}
 				
 				currExprPart=access->exp;
@@ -3870,6 +3855,7 @@ static struct X86AddressingMode *x86ItemAddr(llLexerItem start, llLexerItem *end
 		} else if(currExprPart->type==NODE_VAR) {
 				((struct parserNodeVar *)currExprPart)->var->isNoreg = 1;
 				retVal=X86AddrModeVar(((struct parserNodeVar*)currExprPart)->var, offset);
+				retVal->value.varAddr.memberOffsets=strObjectMemberPClone(members);
 				retVal->valueType=(valueType)?valueType:assignTypeToOp(expr);
 				retVal->value.m.segment=NULL;
 				if(segment)
