@@ -1,6 +1,7 @@
 _import pow F64 PowF64(F64 b,F64 e);
 #include "IntPow.HC"
 #include "ExceptLin.HC"
+#include "String.HC"
 #include "Print.HC"
 static I32i foo() {
 							Print("1\n");
@@ -200,7 +201,7 @@ try {
 					testRange();
 					}
 
-					"Hello Wolrd:%.6n\n",100.23;
+					"Hello Wolrd:%.6n\n",Str2F64("123.5000",NULL);
 					return 0;
 }
 Print("Hello World,%d\n",123);
