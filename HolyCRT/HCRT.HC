@@ -201,7 +201,7 @@ try {
 					testRange();
 					}
 
-					"Hello Wolrd:%.6n\n",Str2F64("125.5e32",NULL);
+					"Hello Wolrd:%.6n\n",Str2F64("225.5e10",NULL);
 					return 0;
 }
 Print("Hello World,%d\n",123);

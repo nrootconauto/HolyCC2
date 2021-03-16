@@ -185,6 +185,8 @@ static void bbFromExpr(graphNodeIR start, strBasicBlock *results, int (*varFilte
 	struct basicBlock block;
 	block.nodes = NULL;
 	block.read = NULL;
+	block.in=NULL;
+	block.out=NULL;
 	block.define = NULL;
 
 	// Find read variable refs
@@ -205,11 +207,7 @@ static void bbFromExpr(graphNodeIR start, strBasicBlock *results, int (*varFilte
 		}
 
 		if (isVarNode(irNode)) {
-			// If filter predicate provided,filter it out
-			if (varFilter)
-				if (!varFilter(*graphNodeMappingValuePtr(exprNodes[i2]), data))
-					continue;
-
+			
 			// Check if node is asssigned to,or only read from
 			strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(node);
 			strGraphEdgeIRP incomingAssigns CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(incoming, IR_CONN_DEST);
@@ -219,29 +217,46 @@ static void bbFromExpr(graphNodeIR start, strBasicBlock *results, int (*varFilte
 				// otherwise mark for do later
 				//
 				if (*graphNodeMappingValuePtr(start) == node) {
-					struct IRNode *irNode = (void *)graphNodeIRValuePtr(node);
-					struct IRNodeValue *val = (void *)irNode;
-					block.define = strVarSortedInsert(block.define, val->val.value.var, IRVarCmp);
+						// If filter predicate provided,filter it out
+						if (varFilter) {
+								if (!varFilter(*graphNodeMappingValuePtr(exprNodes[i2]), data)) {
+								} else  {
+								defineLab:;
+										struct IRNode *irNode = (void *)graphNodeIRValuePtr(node);
+										struct IRNodeValue *val = (void *)irNode;
+										block.define = strVarSortedInsert(block.define, val->val.value.var, IRVarCmp);
 
 #if DEBUG_PRINT_ENABLE
-					DEBUG_PRINT("Writing to %s\n", var2Str(*graphNodeMappingValuePtr(exprNodes[i2])));
+										DEBUG_PRINT("Writing to %s\n", var2Str(*graphNodeMappingValuePtr(exprNodes[i2])));
 #endif
-					block.nodes = strGraphNodeIRPSortedInsert(block.nodes, exprNodes[i2], (gnCmpType)ptrPtrCmp);
+								}
+						} else {
+								goto defineLab;
+						}
+						block.nodes = strGraphNodeIRPSortedInsert(block.nodes, exprNodes[i2], (gnCmpType)ptrPtrCmp);
 				} else {
 					goto registerRead;
 				}
 			} else {
 			registerRead:;
-				struct IRNodeValue *var = (void *)irNode;
-				block.read = strVarSortedInsert(block.read, var->val.value.var, IRVarCmp);
-
+					if (varFilter) {
+							if (!varFilter(*graphNodeMappingValuePtr(exprNodes[i2]), data)) {
+							} else { 
+							readLab:;
+									struct IRNodeValue *var = (void *)irNode;
+									block.read = strVarSortedInsert(block.read, var->val.value.var, IRVarCmp);
+									
 #if DEBUG_PRINT_ENABLE
-				DEBUG_PRINT("Reading from %s\n", var2Str(*graphNodeMappingValuePtr(exprNodes[i2])));
+									DEBUG_PRINT("Reading from %s\n", var2Str(*graphNodeMappingValuePtr(exprNodes[i2])));
 #endif
-				block.nodes = strGraphNodeIRPSortedInsert(block.nodes, exprNodes[i2], (gnCmpType)ptrPtrCmp);
+							}
+					}  else {
+							goto readLab;
+					}
+					block.nodes = strGraphNodeIRPSortedInsert(block.nodes, exprNodes[i2], (gnCmpType)ptrPtrCmp);
 			}
 		} else
-			block.nodes = strGraphNodeIRPSortedInsert(block.nodes, exprNodes[i2], (gnCmpType)ptrPtrCmp);
+				block.nodes = strGraphNodeIRPSortedInsert(block.nodes, exprNodes[i2], (gnCmpType)ptrPtrCmp);
 	}
 
 	*results = strBasicBlockAppendItem(*results, ALLOCATE(block));

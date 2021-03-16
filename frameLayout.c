@@ -31,6 +31,7 @@ static int isGlobal(graphNodeIR node, const void *data) {
 
 	return 0;
 }
+
 struct IRVarRefsPair {
 		long largestSize;
 		long largestAlign;
@@ -38,6 +39,12 @@ struct IRVarRefsPair {
 		strVar vars;
 		long offset;
 };
+static void IRVarRefsPairDestroy(void **item) {
+		struct IRVarRefsPair *pair=*item;
+		strGraphNodeIRPDestroy(&pair->refs);
+		strVarDestroy(&pair->vars);
+		free(item);
+}
 STR_TYPE_DEF(struct IRVarRefsPair*, IRVarRefs);
 STR_TYPE_FUNCS(struct IRVarRefsPair*, IRVarRefs);
 static int IRVarRefsCmp(const struct IRVarRefsPair **a, const struct IRVarRefsPair **b) {
@@ -89,10 +96,21 @@ static void strVertexColorsDestroy2(strVertexColors *str) {
 				llVertexColorDestroy(&str[0][l], NULL);
 		strVertexColorsDestroy(str);
 }
+static int namedVarFilter(graphNodeIR node,const void *data) {
+		struct IRNodeValue *val=(void*)graphNodeIRValuePtr(node);
+		if(val->base.type==IR_VALUE) {
+				strVar Data=(void*)data;
+				if(strVarSortedFind(Data, val->val.value.var ,IRVarCmp))
+						return 0;
+		}
+		return 1;
+}
 strFrameEntry IRComputeFrameLayout(graphNodeIR start, long *frameSize) {
 	strFrameEntry retVal = NULL;
 	long currentOffset = 0;
 
+	//Dont group named items(for debugging purposes)
+	strVar namedItems CLEANUP(strVarDestroy)=NULL;
 	// Find list of frame address
 	ptrMapVarRefs refs=ptrMapVarRefsCreate();
 	strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRAllNodes(start);
@@ -104,6 +122,7 @@ strFrameEntry IRComputeFrameLayout(graphNodeIR start, long *frameSize) {
 			continue;
 		if (isGlobal(allNodes[n], NULL))
 			continue;
+				
 	loop:;
 		__auto_type find = ptrMapVarRefsGet(refs, val->val.value.var.var);
 		if (find) {
@@ -112,11 +131,14 @@ strFrameEntry IRComputeFrameLayout(graphNodeIR start, long *frameSize) {
 				ptrMapVarRefsAdd(refs,val->val.value.var.var, NULL);
 				goto loop;
 		}
+
+		if(val->val.value.var.var->name)
+				namedItems=strVarSortedInsert(namedItems, val->val.value.var, IRVarCmp);
 	}
 
 	strIRVarRefs ptrRefed CLEANUP(strIRVarRefsDestroy)=NULL;
 	
-	strGraphNodeIRLiveP graphs CLEANUP(strGraphNodeIRLivePDestroy)=IRInterferenceGraphFilter(start, NULL, NULL);
+	strGraphNodeIRLiveP graphs CLEANUP(strGraphNodeIRLivePDestroy)=IRInterferenceGraphFilter(start, namedItems, namedVarFilter);
 	strVertexColors graphColorings CLEANUP(strVertexColorsDestroy2)=NULL;
 	mapRefsPair byColor=mapRefsPairCreate();
 	for(long g=0;g!=strGraphNodeIRLivePSize(graphs);g++) {
@@ -176,6 +198,16 @@ strFrameEntry IRComputeFrameLayout(graphNodeIR start, long *frameSize) {
 			allRefs=strIRVarRefsSortedInsert(allRefs, *mapRefsPairGet(byColor, keys[k]),IRVarRefsCmp);
 	}
 
+	//Insert the named items who are not globbed.
+	for(long n=0;n!=strVarSize(namedItems);n++) {
+			struct IRVarRefsPair pair;
+			pair.largestSize=objectSize(namedItems[n].var->type, NULL);
+			pair.largestAlign=objectAlign(namedItems[n].var->type, NULL);
+			pair.refs=NULL; //Not used
+			pair.vars=strVarAppendItem(NULL, namedItems[n]);
+			allRefs=strIRVarRefsSortedInsert(allRefs, ALLOCATE(pair), IRVarRefsCmp);
+	}
+	
 	mapRefsPairDestroy(byColor, NULL);
 
 	allRefs=strIRVarRefsSetUnion(allRefs, ptrRefed, IRVarRefsCmp);	
@@ -193,6 +225,9 @@ strFrameEntry IRComputeFrameLayout(graphNodeIR start, long *frameSize) {
 			}
 	}
 
+	for(long r=0;r!=strIRVarRefsSize(allRefs);r++)
+			IRVarRefsPairDestroy((void**)&allRefs[r]);
+	
 	if (frameSize)
 		*frameSize = currentOffset;
 	return retVal;
