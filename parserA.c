@@ -3776,7 +3776,11 @@ static struct X86AddressingMode *addrModeFromParseTree(struct parserNode *node, 
 	}
 	if (success)
 		*success = 1;
-	return X86AddrModeIndirSIB(scale, X86AddrModeReg(index, NULL), X86AddrModeReg(base,NULL) , offset, valueType);
+	struct X86AddressingMode *indexMode=NULL;
+	if(index) indexMode=X86AddrModeReg(index, NULL);
+	struct X86AddressingMode *baseMode=NULL;
+	if(base) baseMode=X86AddrModeReg(base, NULL);
+	return X86AddrModeIndirSIB(scale,indexMode, baseMode , offset, valueType);
 fail:
 	if (success)
 		*success = 0;

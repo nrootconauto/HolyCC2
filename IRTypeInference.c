@@ -94,8 +94,12 @@ struct object *__IRNodeType(graphNodeIR node) {
 		if (NULL != *getType(node))
 				return *getType(node);
 
+		
+		
 	struct IRNodeValue *nodeVal = (void *)graphNodeIRValuePtr(node);
-	if(nodeVal->base.type==IR_FUNC_VAARG_ARGC) {
+	if(nodeVal->base.type==IR_SIZEOF) {
+			return dftValType();
+	} else if(nodeVal->base.type==IR_FUNC_VAARG_ARGC) {
 			return dftValType();
 	} if(nodeVal->base.type==IR_FUNC_VAARG_ARGV) {
 			return objectPtrCreate(dftValType());

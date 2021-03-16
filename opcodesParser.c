@@ -732,6 +732,7 @@ struct X86AddressingMode *X86AddrModeIndirSIB(long scale, struct X86AddressingMo
 	retVal.value.m.value.sib.scale = scale;
 	retVal.value.m.value.sib.offset = offset;
 	retVal.value.m.value.sib.offset2=0;
+	retVal.value.m.value.sib.memberOffsets=NULL;
 	retVal.valueType = type;
 	return ALLOCATE(retVal);
 }

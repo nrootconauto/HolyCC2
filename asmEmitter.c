@@ -176,6 +176,8 @@ static strChar int64ToStr(int64_t value) {
 	} while (value != 0);
 	if (wasNegative)
 		retVal = strCharConcat(retVal, strCharAppendItem(NULL, '-'));
+	else
+			retVal = strCharConcat(retVal, strCharAppendItem(NULL, '+'));
 	return strCharAppendItem(strCharReverse(retVal), '\0');
 }
 static strChar uint64ToStr(uint64_t value) {
@@ -185,8 +187,8 @@ static strChar uint64ToStr(uint64_t value) {
 		retVal = strCharAppendItem(retVal, digits[value % 10]);
 		value /= 10;
 	} while (value != 0);
+	retVal = strCharConcat(retVal, strCharAppendItem(NULL, '+'));
 	return strCharAppendItem(strCharReverse(retVal), '\0');
-	;
 }
 static strChar getSizeStr(struct object *obj) {
 	if (!obj)
@@ -207,18 +209,18 @@ static strChar getSizeStr(struct object *obj) {
 }
 static char *offsetName(struct objectMember *mem) {
 		char *name=object2Str(mem->belongsTo);
-		long len=snprintf(NULL, 0,"%%define " OBJECT_OFFSET_FMT " %li",name,mem->name,mem->offset);
+		long len=snprintf(NULL, 0,OBJECT_OFFSET_FMT,name,mem->name);
 		char buffer[len+1];
-		sprintf(buffer,"%%define " OBJECT_OFFSET_FMT " %li",name,mem->name,mem->offset);
+		sprintf(buffer, OBJECT_OFFSET_FMT,name,mem->name);
 		free(name);
 
 		return strcpy(calloc(len+1, 1), buffer);
 }
 static char *sizeofName(struct object *type) {
 		char *name=object2Str(type);
-		long len=snprintf(NULL, 0,"%%define " OBJECT_SIZE_FMT " %li",name,  objectSize(type ,NULL));
+		long len=snprintf(NULL, 0,OBJECT_SIZE_FMT,name);
 		char buffer[len+1];
-		sprintf(buffer,"%%define " OBJECT_SIZE_FMT " %li",name,  objectSize(type ,NULL));
+		sprintf(buffer,OBJECT_SIZE_FMT,name);
 		free(name);
 
 		return strcpy(calloc(len+1, 1), buffer);
@@ -232,7 +234,7 @@ static void X86EmitClassMetaData(FILE *dumpTo) {
 		const char *keys[count];
 		parserSymTableNames(keys, NULL);
 		for(long k=0;k!=count;k++) {
-				__auto_type sym=parserGetGlobalSym(keys[count]);
+				__auto_type sym=parserGetGlobalSym(keys[k]);
 				//Look for classes/unions,(not varaibles with  class/union types)
 				if(sym->var!=NULL)
 						continue;
@@ -241,24 +243,24 @@ static void X86EmitClassMetaData(FILE *dumpTo) {
 						char *typeName=object2Str(sym->type);
 						for(long m=0;m!=strObjectMemberSize(cls->members);m++) {
 								char *ofNam=offsetName(&cls->members[m]);
-								fprintf(dumpTo, "%s", ofNam);
+								fprintf(dumpTo, "%%define %s %li\n", ofNam,cls->members[m].offset);
 								free(ofNam);
 						}
 
 						char *szof=sizeofName(sym->type);
-						fprintf(dumpTo,"%s\n",szof);
+						fprintf(dumpTo,"%%define %s %li\n",szof,objectSize(sym->type, NULL));
 						free(typeName);
 				} else if(sym->type->type==TYPE_UNION) {
 						__auto_type un=(struct objectUnion*)sym->type;
 						char *typeName=object2Str(sym->type);
 						for(long m=0;m!=strObjectMemberSize(un->members);m++) {
 								char *ofNam=offsetName(&un->members[m]);
-								fprintf(dumpTo, "%s", ofNam);
+								fprintf(dumpTo, "%%define %s %li\n", ofNam,un->members[m].offset);
 								free(ofNam);
 						}
 						
 						char *szof=sizeofName(sym->type);
-						fprintf(dumpTo,"%s\n",szof);
+						fprintf(dumpTo,"%%define %s %li\n",szof,objectSize(sym->type, NULL));
 						free(typeName);
 				} else
 						continue;
@@ -308,19 +310,36 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 			if (find) {
 				struct X86AddressingMode *offset CLEANUP(X86AddrModeDestroy) =
 						X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer(),objectPtrCreate(&typeU0)), X86AddrModeSint(-*find), args[i]->value.varAddr.var->type);
+
+				__auto_type members=args[i]->value.varAddr.memberOffsets;
+				for(long m=0;m!=strObjectMemberPSize(members);m++)
+						X86AddrModeIndirSIBAddMemberOffset(offset, members[m]);
+				
 				return emitMode(&offset, 0);
 			} else {
 					strChar name CLEANUP(strCharDestroy) = strClone(parserGetGlobalSymLinkageName(args[i]->value.varAddr.var->name));
+
+					strChar offsetStr CLEANUP(strCharDestroy)=NULL;
+					__auto_type members=args[i]->value.varAddr.memberOffsets;
+					for(long m=0;m!=strObjectMemberPSize(members);m++) {
+							char *memNam=offsetName(members[m]);
+							long len=snprintf(NULL,0, "+%s",memNam);
+							char buffer[len+1];
+							sprintf(buffer, "+%s",memNam);
+							free(memNam);
+							
+							offsetStr=strCharConcat(offsetStr, strClone(buffer));
+					}
 					if(args[i]->value.itemAddr.offset) {
 							long offset=args[i]->value.itemAddr.offset;
-							long len = snprintf(NULL, 0, "[$%s+%li] ", name,offset);
+							long len = snprintf(NULL, 0, "[$%s%s%+li] ", name,offsetStr,offset);
 							strChar retVal = strCharResize(NULL, len + 1);
-							sprintf(retVal, "[$%s+%li] ", name,offset);
+							sprintf(retVal, "[$%s%s%+li] ", name,offsetStr,offset);
 							return retVal;
 					} else {
-							long len = snprintf(NULL, 0, "[$%s] ", name);
+							long len = snprintf(NULL, 0, "[$%s%s] ", name,offsetStr);
 							strChar retVal = strCharResize(NULL, len + 1);
-							sprintf(retVal, "[$%s] ", name);
+							sprintf(retVal, "[$%s%s] ", name,offsetStr);
 							return retVal;
 					}
 			}
@@ -333,16 +352,6 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 			assert(0);
 		}
 		strChar offsetStr CLEANUP(strCharDestroy)=NULL;
-		__auto_type members=args[i]->value.varAddr.memberOffsets;
-		for(long m=0;m!=strObjectMemberPSize(members);m++) {
-				char *memNam=offsetName(members[m]);
-				long len=snprintf(NULL,0, "+%s",memNam);
-				char buffer[len+1];
-				sprintf(buffer, "+%s",memNam);
-				free(memNam);
-				
-				offsetStr=strCharConcat(offsetStr, strClone(buffer));
-		}
 		if(args[i]->value.itemAddr.offset) {
 				long offset=args[i]->value.itemAddr.offset;
 				long len=snprintf(NULL, 0, "%+li", offset);
@@ -465,12 +474,7 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 			if (baseStr) {
 				retVal = strCharAppendData(retVal, baseStr, strlen(baseStr));
 			}
-			if (args[i]->value.m.value.sib.offset||args[i]->value.m.value.sib.offset2) {
-				if (offsetStr[0] != '-'&&offsetStr[0] != '+')
-					retVal = strCharAppendItem(retVal, '+');
-				retVal = strCharConcat(retVal, offsetStr);
-				offsetStr = NULL; // Will be free'd,but has been free'd by concat
-			}
+			retVal = strCharConcat(retVal, offsetStr);
 			retVal = strCharAppendItem(retVal, '\0');
 			if (args[i]->valueType) {
 				strChar typeStr CLEANUP(strCharDestroy) = getSizeStr(args[i]->valueType);

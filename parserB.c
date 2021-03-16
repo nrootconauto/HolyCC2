@@ -161,11 +161,15 @@ static void parserSymbolDestroy(struct parserSymbol **sym) {
 		free(*sym);
 }
 static void __addGlobalSymbol(struct parserNode *node, const char *name, struct linkage link) {
+		struct parserVar *var=NULL;
+		if(node->type==NODE_VAR)
+				var=((struct parserNodeVar*)node)->var;
 		struct parserSymbol toInsert;
 		toInsert.type = symbolType(node);
 		toInsert.name=strcpy(calloc(strlen(name)+1,1), name);
 		toInsert.link=linkageClone(link);
 		toInsert.version=0;
+		toInsert.var=var;
 		toInsert.shadowPrec=shadowPrecedence(node);
 		const char *fn=fileNameFromPos(currentFileMappings, node->pos.start);
 		toInsert.fn=strcpy(calloc(strlen(fn)+1,1), fn);
