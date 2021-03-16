@@ -3088,7 +3088,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				asmAssign(outMode, dx, 1,0);
 			}
 			//Dummy pop
-			popReg(&regX86AX);
+			popMode(bMode);
 			break;
 		case 4:
 				pushMode(bMode);
@@ -3107,7 +3107,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				asmAssign(outMode, edx, 1,0);
 			}
 			//Dummy pop
-			popReg(&regX86EAX);
+			popMode(bMode);
 
 			break;
 		case 8:
@@ -3127,7 +3127,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				asmAssign(outMode, rax, 1,0);
 			}
 			//Dummy pop
-			popReg(&regAMD64RAX);
+			popMode(bMode);
 			break;
 		}
 		
