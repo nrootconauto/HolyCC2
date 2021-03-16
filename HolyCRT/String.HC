@@ -66,9 +66,12 @@ F64 Str2F64(U8i *str,U8i **end=NULL) {
 																														break;
 
 																														case 'e':
+																														chr+=1;
 																														if(expPresent) goto fail;
 																														expPresent=1;
-																														exp=Str2I32i(&str[chr],&str);
+																														U8i *endPtr;
+																														exp+=Str2I32i(&str[chr],&endPtr);
+																														chr=endPtr-str;
 																														goto end;
 
 																														default:
@@ -76,6 +79,7 @@ F64 Str2F64(U8i *str,U8i **end=NULL) {
  												}
 				}
 				end:
+				if(end) *end=chr;
 				current*=10.0`(exp)(F64);
 				return current;
 
