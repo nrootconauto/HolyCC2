@@ -3,6 +3,7 @@ _import pow F64 PowF64(F64 b,F64 e);
 #include "ExceptLin.HC"
 #include "String.HC"
 #include "Print.HC"
+#include "JSON.HC"
 static I32i foo() {
 							Print("1\n");
 							return 1;

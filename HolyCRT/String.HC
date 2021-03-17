@@ -31,6 +31,7 @@ I32i Str2I32i(U8i *str,U8i **end=NULL) {
 					I32i mult=1;
 					if(*str=='-') {
 																			mult=-1;
+																			str+=1;
 					}
 					loop:
 					switch(*str) {

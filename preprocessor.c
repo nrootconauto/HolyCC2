@@ -15,7 +15,7 @@ static void fileDestroy(FILE **file) {
 }
 MAP_TYPE_DEF(struct defineMacro, DefineMacro);
 MAP_TYPE_FUNCS(struct defineMacro, DefineMacro);
-;
+
 static __thread long lineStart;
 static __thread strTextModify sourceMappings = NULL;
 static __thread strFileMappings allFileMappings = NULL;
@@ -109,6 +109,9 @@ static void *chrFind(const void *a, const struct __vec *b, long pos) {
 static void *skipNonMacro(const struct __vec *text, long pos) {
 	return findSkipStringAndComments(text, pos, "#", chrFind);
 }
+static int isAlnum(char a) {
+		return isalnum(a)||a=='_';
+}
 static void *wordFind(const void *a, const struct __vec *text, long pos) {
 	const mapDefineMacro map = (const mapDefineMacro)a;
 	__auto_type b = (void *)text + pos;
@@ -117,12 +120,12 @@ static void *wordFind(const void *a, const struct __vec *text, long pos) {
 	while (b != textEnd) {
 		// Check if charactor before is a word charactor,if so quit search
 		if (b != text) // Check if a start
-			if (isalnum(-1 [(char *)b]))
+			if (isAlnum(-1 [(char *)b]))
 				return NULL;
-		if (isalnum(*(char *)b)) {
+		if (isAlnum(*(char *)b)) {
 			__auto_type original = b;
 			__auto_type end = original;
-			while ((isalnum(*(char *)end)) && end < textEnd)
+			while ((isAlnum(*(char *)end)) && end < textEnd)
 				end++;
 
 			char buffer[end - original + 1];
@@ -135,12 +138,12 @@ static void *wordFind(const void *a, const struct __vec *text, long pos) {
 	next:
 		// Skip word then look for next word
 		while (b < textEnd)
-			if (isalnum(*(char *)b))
+			if (isAlnum(*(char *)b))
 				b++;
 			else
 				break;
 		while (b < textEnd)
-			if (!isalnum(*(char *)b))
+			if (!isAlnum(*(char *)b))
 				b++;
 			else
 				break;
@@ -185,7 +188,7 @@ static int expectMacroAndSkip(const char *macroText, struct __vec **text, FILE *
 		return 0;
 
 	if (pos + len < __vecSize(*text))
-		if (isalnum((pos + len)[*(const char **)text]))
+		if (isAlnum((pos + len)[*(const char **)text]))
 			return 0;
 
 	if (end != NULL)
@@ -240,7 +243,7 @@ static int defineMacroLex(struct __vec **text_, FILE **prependLinesTo, mapDefine
 	pos = skipWhitespace(text, pos) - (void *)text;
 
 	int len = 0;
-	while (isalnum((pos + len)[(char *)text]))
+	while ((pos + len)[(char *)text]=='_'||isAlnum((pos + len)[(char *)text]))
 		len++;
 
 	if (isdigit(pos[(char *)text]))
@@ -372,7 +375,7 @@ static void expandDefinesInRangeRecur(struct __vec **retVal, mapDefineMacro defi
 		} else {
 			// Get replacement text
 			__auto_type alnumCount = 0;
-			for (__auto_type i = nextReplacement; isalnum(*(char *)i); i++, alnumCount++)
+			for (__auto_type i = nextReplacement; isAlnum(*(char *)i); i++, alnumCount++)
 				;
 			struct __vec *slice CLEANUP(__vecDestroy);
 			slice = __vecAppendItem(NULL, nextReplacement, alnumCount);
@@ -483,7 +486,7 @@ static void expandNextWord(struct __vec **retVal, FILE **prependLinesTo, mapDefi
 	if (find < macroFind) {
 		long endPos = find - *(void **)retVal;
 		for (; endPos < __vecSize(*retVal); endPos++)
-			if (!isalnum(endPos[*(char **)retVal]))
+				if (!(isAlnum(endPos[*(char **)retVal])||endPos[*(char **)retVal]=='_'))
 				break;
 
 		expandDefinesInRange(retVal, defines, where, endPos, expanded, err);
