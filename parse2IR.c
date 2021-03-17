@@ -605,6 +605,7 @@ static struct enterExit __createSwitchCodeAfterBody(const struct parserNode *nod
 	retVal.exit = switchEndLabel;
 	return retVal;
 }
+static void debugShowGraphIR(graphNodeIR enter);
 static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node);
 graphNodeIR parserNode2Expr(const struct parserNode *node) {
 	switch (node->type) {
@@ -789,7 +790,7 @@ graphNodeIR parserNode2Expr(const struct parserNode *node) {
 			retVal = IRCreateAssign(IRCreateBinop(aVal, bVal, *assign), parserNode2Expr(binop->a));
 			return retVal;
 		} else if (0 == strcmp(op->text, "=")) {
-			return IRCreateAssign(bVal, aVal);
+				return IRCreateAssign(bVal, aVal);
 		}
 
 		assert(0);
@@ -1018,8 +1019,6 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 	case NODE_SIZEOF_EXP:
 	case NODE_SIZEOF_TYPE:
 	case NODE_LINKAGE:
-	case NODE_CLASS_FORWARD_DECL:
-	case NODE_UNION_FORWARD_DECL:
 	case NODE_ASM_REG:
 	case NODE_ASM_ADDRMODE:
 		assert(0);
@@ -1506,6 +1505,11 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 			bottom = body.exit;
 		}
 
+		//Empty scope
+		if(top==NULL&&bottom==NULL) {
+				bottom=top=IRCreateLabel();
+		}
+		
 		return (struct enterExit){top, bottom};
 	}
 	case NODE_SUBSWITCH: {
@@ -1570,6 +1574,8 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 	}
 	case NODE_CLASS_DEF:
 	case NODE_UNION_DEF:
+	case NODE_CLASS_FORWARD_DECL:
+	case NODE_UNION_FORWARD_DECL:
 	case NODE_FUNC_FORWARD_DECL: {
 		__auto_type lab = IRCreateLabel();
 		return (struct enterExit){lab, lab};

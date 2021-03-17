@@ -44,7 +44,9 @@ static JsonNode *JsonNodeArrCreate(JsonNode *prev,I32i len,JsonNode **nodes) {
 							value.par=NULL;
 							value.next=NULL;
 							value.type=JSON_SINT;
-							value.val.flt=flt;
+							value.val.arr=malloc(sizeof(JsonNode*)*(len+1));
+							while(len-=1>=0)
+								value.val.arr[len]=nodes[len];
 							JsonNode *retval=malloc(sizeof(value));
 							*retval=value;
 							return retval;
@@ -59,7 +61,7 @@ static U8i *JsonParseString(U8i *str,U8i **end) {
 							U8i startChr=*str;
 							I32i run=0;
 							I32i index=-1;
-							loop:
+							loop3:
 							if(run) index+=1;
 							index+=1;
 							str+=1;
@@ -69,7 +71,7 @@ static U8i *JsonParseString(U8i *str,U8i **end) {
 																						switch(*str) {
 																						case 'e': {
 																											toAddChr='\e';
-																											break
+																											break;
 																						}
 																							case 'n': {
 																												toAddChr='\n';
@@ -103,13 +105,13 @@ static U8i *JsonParseString(U8i *str,U8i **end) {
 																						str+=1;
 							} else if(*str==startChr) {
 									if(!run) {
-											str=malloc(str-originalStr+1);
-											str[str-originalStr]=0;
+											retVal=malloc(str-originalStr+1);
+											retVal[str-originalStr]=0;
 											run=1;
-											start=originalStart;
-											goto loop;
+											str=originalStr;
+											goto loop3;
 									} else {
-											goto end;
+											goto end3;
 									}
 							} else {
 									toAddChr=*str;
@@ -118,8 +120,8 @@ static U8i *JsonParseString(U8i *str,U8i **end) {
 							if(run) {
 															retVal[index]=toAddChr;
 							}
-							goto loop;
-							end:
+							goto loop3;
+							end3:
 							
 							return retVal; 							
 }
@@ -145,9 +147,9 @@ static JsonNode *ParseJsonBody(U8i *str,U8i **end) {
 									if(fltEnd!=chrI||intEnd!=chrI) {
 																																								//Use largest item
 																																								if(fltEnd>intEnd) {
-																																																										prevNode=jsonNodeFltCreate(prevNode,flt);
+																																																										prevNode=JsonNodeFltCreate(prevNode,flt);
 																																								} else {
-																																								                  prevNode=jsonNodeIntCreate(prevNode,int);
+																																								                  prevNode=JsonNodeIntCreate(prevNode,int);
 																																										}
 									} else {
 											

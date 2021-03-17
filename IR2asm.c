@@ -3816,7 +3816,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		}
 
 		// Assign the memReg with pointer to source
-		struct reg *memReg = regForTypeExcludingConsumed(IRNodeType(start));
+		struct reg *memReg = regForTypeExcludingConsumed(objectPtrCreate(IRNodeType(start)));
 		pushReg(memReg);
 
 		// Load the address of the source arg into register

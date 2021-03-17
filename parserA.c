@@ -1646,7 +1646,7 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end, int allowForw
 			start = llLexerItemNext(start);
 
 			name2 = nameParse(start, NULL, &start);
-			
+
 			//Create a forward declaration So the class can be referenced within the class
 			objectForwardDeclarationCreate(refNode(name2), (cls)?TYPE_CLASS:TYPE_UNION);
 			
@@ -1666,15 +1666,15 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end, int allowForw
 				struct object *forwardType = NULL;
 				if (NULL == type) {
 					forwardType = objectForwardDeclarationCreate(refNode(name2), (cls != NULL) ? TYPE_CLASS : TYPE_UNION);
-				} else if (cls) {
+				} else if (cls&&type->type!=TYPE_FORWARD) {
 					if (type->type != TYPE_CLASS)
 						goto incompat;
-				} else if (un) {
+				} else if (un&&type->type!=TYPE_FORWARD) {
 					if (type->type != TYPE_UNION)
 						goto incompat;
 				} else if (type->type == TYPE_FORWARD) {
 					struct objectForwardDeclaration *f = (void *)type;
-					if (f->type != (cls != NULL) ? TYPE_CLASS : TYPE_UNION)
+					if (f->type != ((cls != NULL) ? TYPE_CLASS : TYPE_UNION))
 						goto incompat;
 					forwardType = type;
 				} else {
@@ -1708,7 +1708,7 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end, int allowForw
 			}
 			goto end;
 		}
-
+		
 		strObjectMember members = NULL;
 		int findOtherSide = 0;
 		for (int firstRun = 1;; firstRun = 0) {
@@ -1764,7 +1764,7 @@ end:
 	if (end != NULL)
 		*end = start;
 	if (retVal && (link.type != LINKAGE_LOCAL || isGlobalScope())) {
-		parserAddGlobalSym(retVal, link);
+			parserAddGlobalSym(retVal, link);
 	}
 
 	if (retVal) {
@@ -1808,8 +1808,13 @@ static void addDeclsToScope(struct parserNode *varDecls, struct linkage link) {
 	}
 }
 struct parserNode *parseScope(llLexerItem start, llLexerItem *end, struct objectFunction *func) {
-	struct parserNodeScope *oldScope = (void *)currentScope;
-
+		struct parserNodeScope *oldScope = (void *)currentScope;
+		struct parserNode *lC CLEANUP(parserNodeDestroy)=NULL;
+		struct parserNode *rC CLEANUP(parserNodeDestroy)= NULL;
+		lC = expectKeyword(start, "{");
+		if(!lC)
+				return NULL;
+	
 	struct parserNodeScope *retVal = calloc(sizeof(struct parserNodeScope),1);
 	retVal->base.refCount=1;
 	retVal->base.pos.start = -1;
@@ -1819,12 +1824,7 @@ struct parserNode *parseScope(llLexerItem start, llLexerItem *end, struct object
 	// Enter new scope
 	currentScope = (void *)retVal;
 
-	__auto_type originalStart = start;
-
-	struct parserNode *lC CLEANUP(parserNodeDestroy)=NULL;
- struct parserNode *rC CLEANUP(parserNodeDestroy)= NULL;
-	lC = expectKeyword(start, "{");
-
+	__auto_type originalStart = start;	
 	if (lC) {
 		enterScope();
 
@@ -1869,18 +1869,13 @@ struct parserNode *parseScope(llLexerItem start, llLexerItem *end, struct object
 	if (end != NULL)
 		*end = start;
 
-	if (retVal->stmts != NULL) {
-		if (end)
+	if (end)
 			assignPosByLexerItems((struct parserNode *)retVal, originalStart, *end);
-		else
+	else
 			assignPosByLexerItems((struct parserNode *)retVal, originalStart, NULL);
-
-		currentScope = (void *)oldScope;
-		return (void *)retVal;
-	}
-
+	
 	currentScope = (void *)oldScope;
-	return NULL;
+	return (void *)retVal;
 }
 static void getSubswitchStartCode(struct parserNodeSubSwitch *sub) {
 	strParserNode *nodes = &sub->body;
@@ -3382,7 +3377,7 @@ void parserNodeDestroy(struct parserNode **node) {
 		break;
 	case NODE_SIZEOF_EXP: {
 		struct parserNodeSizeofExp *sz = (void *)node;
-		parserNodeDestroy(&sz->exp);
+		//parserNodeDestroy(&sz->exp);
 		break;
 	}
 	case NODE_ASM_REG:

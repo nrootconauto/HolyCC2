@@ -91,11 +91,6 @@ static int intUnsignedExceeds(struct IRValue *value, uint64_t high) {
 }
 struct object *IRNodeType(graphNodeIR node);
 struct object *__IRNodeType(graphNodeIR node) {
-		if (NULL != *getType(node))
-				return *getType(node);
-
-		
-		
 	struct IRNodeValue *nodeVal = (void *)graphNodeIRValuePtr(node);
 	if(nodeVal->base.type==IR_SIZEOF) {
 			return dftValType();
