@@ -3187,7 +3187,7 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 
 		struct parserNodeFuncForwardDec forward;
 		forward.base.refCount=1;
-		forward.base.type = NODE_FUNC_FORWARD_DECL;
+		forward.base.type  = NODE_FUNC_FORWARD_DECL;
 		forward.funcType = funcType;
 		forward.name = refNode(name2);
 		

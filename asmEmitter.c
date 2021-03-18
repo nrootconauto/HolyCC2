@@ -39,6 +39,9 @@ static ptrMapRegName regNames;
 static void strCharDestroy2(strChar *str) {
 	strCharDestroy(str);
 }
+static void free2(char **str) {
+		free(*str);
+}
 static strChar strClone(const char *text) {
 	__auto_type retVal = strCharAppendData(NULL, text, strlen(text) + 1);
 	strcpy(retVal, text);
@@ -207,23 +210,53 @@ static strChar getSizeStr(struct object *obj) {
 		return NULL;
 	}
 }
-static char *offsetName(struct objectMember *mem) {
-		char *name=object2Str(mem->belongsTo);
-		long len=snprintf(NULL, 0,OBJECT_OFFSET_FMT,name,mem->name);
+static char *fromFmt(const char *fmt,...) {
+		va_list list,list2;
+		va_start(list, fmt);
+		va_copy(list2, list);
+		long len=vsnprintf(NULL, 0, fmt, list);
 		char buffer[len+1];
-		sprintf(buffer, OBJECT_OFFSET_FMT,name,mem->name);
-		free(name);
+		vprintf(buffer, list2);
+		char *retVal=strcpy(calloc( len+1, 1),buffer);
+		va_end(list);
+		va_end(list2);
 
-		return strcpy(calloc(len+1, 1), buffer);
+		return retVal;
+}
+static char *offsetName(struct objectMember *mem) {
+		char *name CLEANUP(free2)=object2Str(mem->belongsTo);
+		__auto_type retVal=fromFmt(OBJECT_OFFSET_FMT,name,mem->name);
+		return retVal;
 }
 static char *sizeofName(struct object *type) {
-		char *name=object2Str(type);
-		long len=snprintf(NULL, 0,OBJECT_SIZE_FMT,name);
-		char buffer[len+1];
-		sprintf(buffer,OBJECT_SIZE_FMT,name);
-		free(name);
+		if(type->type==TYPE_PTR) {
+				return fromFmt("%+li",ptrSize());
+		} else if(type->type==TYPE_ARRAY) {
+				if(!objectArrayIsConstSz(type))
+						return fromFmt("%+li",ptrSize());
 
-		return strcpy(calloc(len+1, 1), buffer);
+				long dimCount;
+				objectArrayDimValues(type, &dimCount, NULL);
+
+				struct object *baseType=type;
+				for(;baseType->type==TYPE_ARRAY;baseType=((struct objectArray*)baseType)->type);
+				
+				char *name CLEANUP(free2)=sizeofName(baseType);
+				long dimVals[dimCount];
+				objectArrayDimValues(type, NULL,dimVals);
+
+				strChar times CLEANUP(strCharDestroy)=strClone(name);
+				for(long d=0;d!=dimCount;d++) {
+						char *mult=fromFmt("*%+li", dimVals[d]);
+						times=strCharAppendData(times, mult, strlen(mult));
+						free(mult);
+				}
+				times=strCharAppendItem(times, '\0');
+
+				return strcpy(calloc(strCharSize(times), 1), times);
+		}
+		char *name CLEANUP(free2)=object2Str(type);
+		return  fromFmt(OBJECT_SIZE_FMT,name);
 }
 /*
 	* Emits member offsets/size macros
@@ -242,26 +275,22 @@ static void X86EmitClassMetaData(FILE *dumpTo) {
 						__auto_type cls=(struct objectClass*)sym->type;
 						char *typeName=object2Str(sym->type);
 						for(long m=0;m!=strObjectMemberSize(cls->members);m++) {
-								char *ofNam=offsetName(&cls->members[m]);
+								char *ofNam CLEANUP(free2)=offsetName(&cls->members[m]);
 								fprintf(dumpTo, "%%define %s %li\n", ofNam,cls->members[m].offset);
-								free(ofNam);
 						}
 
-						char *szof=sizeofName(sym->type);
+						char *szof CLEANUP(free2)=sizeofName(sym->type);
 						fprintf(dumpTo,"%%define %s %li\n",szof,objectSize(sym->type, NULL));
-						free(typeName);
 				} else if(sym->type->type==TYPE_UNION) {
 						__auto_type un=(struct objectUnion*)sym->type;
-						char *typeName=object2Str(sym->type);
+						char *typeName CLEANUP(free2)=object2Str(sym->type);
 						for(long m=0;m!=strObjectMemberSize(un->members);m++) {
-								char *ofNam=offsetName(&un->members[m]);
+								char *ofNam CLEANUP(free2)=offsetName(&un->members[m]);
 								fprintf(dumpTo, "%%define %s %li\n", ofNam,un->members[m].offset);
-								free(ofNam);
 						}
 						
 						char *szof=sizeofName(sym->type);
 						fprintf(dumpTo,"%%define %s %li\n",szof,objectSize(sym->type, NULL));
-						free(typeName);
 				} else
 						continue;
 		}
@@ -290,10 +319,8 @@ static void X86EmitSymbolTable(FILE *dumpTo) {
 static strChar emitMode(struct X86AddressingMode **args, long i) {
 	switch (args[i]->type) {
 	case X86ADDRMODE_SIZEOF: {
-			char *szofStr=sizeofName(args[i]->value.objSizeof);
-			__auto_type retVal=strClone(szofStr);
-			free(szofStr);
-			return retVal;
+			char *szofStr CLEANUP(free2)=sizeofName(args[i]->value.objSizeof);
+			return  strClone(szofStr);
 			break;
 	}
 	case X86ADDRMODE_STR: {
@@ -322,25 +349,19 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 					strChar offsetStr CLEANUP(strCharDestroy)=NULL;
 					__auto_type members=args[i]->value.varAddr.memberOffsets;
 					for(long m=0;m!=strObjectMemberPSize(members);m++) {
-							char *memNam=offsetName(members[m]);
-							long len=snprintf(NULL,0, "+%s",memNam);
-							char buffer[len+1];
-							sprintf(buffer, "+%s",memNam);
-							free(memNam);
-							
-							offsetStr=strCharConcat(offsetStr, strClone(buffer));
+							char *memNam CLEANUP(free2)=offsetName(members[m]);
+							char *buffer CLEANUP(free2)=fromFmt("+%s",memNam);
+							offsetStr=strCharAppendData(offsetStr, buffer,strlen(buffer));
 					}
+					offsetStr=strCharAppendItem(offsetStr, '\0');
+					
 					if(args[i]->value.itemAddr.offset) {
 							long offset=args[i]->value.itemAddr.offset;
-							long len = snprintf(NULL, 0, "[$%s%s%+li] ", name,offsetStr,offset);
-							strChar retVal = strCharResize(NULL, len + 1);
-							sprintf(retVal, "[$%s%s%+li] ", name,offsetStr,offset);
-							return retVal;
+							char *buffer CLEANUP(free2)=fromFmt("[$%s%s%+li] ", name,offsetStr,offset);
+							return strClone(buffer);
 					} else {
-							long len = snprintf(NULL, 0, "[$%s%s] ", name,offsetStr);
-							strChar retVal = strCharResize(NULL, len + 1);
-							sprintf(retVal, "[$%s%s] ", name,offsetStr);
-							return retVal;
+							char *buffer CLEANUP(free2) = fromFmt( "[$%s%s] ", name,offsetStr);
+							return strClone(buffer);
 					}
 			}
 			break;
@@ -354,29 +375,22 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 		strChar offsetStr CLEANUP(strCharDestroy)=NULL;
 		if(args[i]->value.itemAddr.offset) {
 				long offset=args[i]->value.itemAddr.offset;
-				long len=snprintf(NULL, 0, "%+li", offset);
-				strChar tmp = strCharResize(NULL, len + 1);
-				offsetStr=tmp;
+				char *buffer CLEANUP(free2)=fromFmt("%+li", offset);
+				offsetStr=strClone(buffer);
 		}
 		
-		long len = snprintf(NULL, 0, "[$%s%s] ", name,offsetStr);
-		strChar retVal = strCharResize(NULL, len + 1);
-		sprintf(retVal, "[$%s%s] ", name,offsetStr);
-		return retVal; 
+		char *buffer CLEANUP(free2)=fromFmt( "[$%s%s] ", name,offsetStr);
+		return strClone(buffer); 
 	}
 	case X86ADDRMODE_LABEL: {
-		long len = snprintf(NULL, 0, "$%s ", args[i]->value.label);
-		strChar retVal = strCharResize(NULL, len + 1);
-		sprintf(retVal, "$%s ", args[i]->value.label);
-		return retVal;
+			char *buffer CLEANUP(free2)=fromFmt("$%s ", args[i]->value.label);
+		return strClone(buffer);
 	}
 	case X86ADDRMODE_REG: {
 		__auto_type find = ptrMapRegNameGet(regNames, args[i]->value.reg);
 		assert(find);
-		long len = snprintf(NULL, 0, "%s ", *find);
-		strChar retVal = strCharResize(NULL, len + 1);
-		sprintf(retVal, "%s ", *find);
-		return retVal;
+		char *buffer CLEANUP(free2)=fromFmt( "%s ", *find);
+		return strClone(buffer);
 	}
 	case X86ADDRMODE_SINT: {
 		return int64ToStr(args[i]->value.sint);
@@ -393,10 +407,8 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 				assert(0);
 			}
 			strChar labelStr CLEANUP(strCharDestroy) = emitMode(&args[i]->value.m.value.label, 0);
-			long len = snprintf(NULL, 0, " %s [%s] ", sizeStr, labelStr);
-			strChar retVal = strCharResize(NULL, len + 1);
-			sprintf(retVal, " %s [%s] ", sizeStr, labelStr);
-			return retVal;
+			char *buffer CLEANUP(free2)= fromFmt( " %s [%s] ", sizeStr, labelStr);
+			return buffer;
 		}
 		case x86ADDR_INDIR_REG: {
 			__auto_type reg = ptrMapRegNameGet(regNames, args[i]->value.m.value.indirReg);
@@ -406,15 +418,11 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 					fprintf(stderr, "That's one gaint register(%s)\n", *reg);
 					assert(0);
 				}
-				long len = snprintf(NULL, 0, " %s [%s] ", sizeStr, *reg);
-				strChar retVal = strCharResize(NULL, len + 1);
-				sprintf(retVal, " %s [%s] ", sizeStr, *reg);
-				return retVal;
+				char *buffer CLEANUP(free2)=fromFmt(" %s [%s] ", sizeStr, *reg);
+				return strClone(buffer);
 			} else {
-				long len = snprintf(NULL, 0, "[%s] ", *reg);
-				strChar retVal = strCharResize(NULL, len + 1);
-				sprintf(retVal, "[%s] ", *reg);
-				return retVal;
+					char * buffer CLEANUP(free2) = fromFmt("[%s] ", *reg);
+				return strClone(buffer);
 			}
 			break;
 		}
@@ -438,23 +446,17 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 
 			//Account for numerical offset2
 			if(args[i]->value.m.value.sib.offset2) {
-					long len=snprintf(NULL, 0, "%+li",  args[i]->value.m.value.sib.offset2);
-					char buffer[len+1];
-					sprintf(buffer,"%+li",args[i]->value.m.value.sib.offset2);
+					char *buffer CLEANUP(free2)=fromFmt("%+li",args[i]->value.m.value.sib.offset2);
 					if(offsetStr==NULL)
 							offsetStr=strCharAppendItem(offsetStr, '\0');
-					offsetStr=strCharResize(offsetStr,strCharSize(offsetStr)+len);
+					offsetStr=strCharResize(offsetStr,strCharSize(offsetStr)+strlen(buffer)+1);
 					strcat(offsetStr, buffer);
 			}
 
 			__auto_type members=args[i]->value.m.value.sib.memberOffsets;
 			for(long m=0;m!=strObjectMemberPSize(members);m++) {
 					char *memNam=offsetName(members[m]);
-					long len=snprintf(NULL,0, "+%s",memNam);
-					char buffer[len+1];
-					sprintf(buffer, "+%s",memNam);
-					free(memNam);
-
+					char *buffer CLEANUP(free2)=fromFmt( "+%s",memNam);
 					offsetStr=strCharConcat(offsetStr, strClone(buffer));
 			}
 			
@@ -478,15 +480,11 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 			retVal = strCharAppendItem(retVal, '\0');
 			if (args[i]->valueType) {
 				strChar typeStr CLEANUP(strCharDestroy) = getSizeStr(args[i]->valueType);
-				long len = snprintf(NULL, 0, "%s [%s] ", typeStr, retVal);
-				strChar retVal2 = strCharResize(NULL, len + 1);
-				sprintf(retVal2, "%s [%s] ", typeStr, retVal);
-				return retVal2;
+				char *buffer CLEANUP(free2)= fromFmt( "%s [%s] ", typeStr, retVal);
+				return strClone(buffer);
 			} else {
-				long len = snprintf(NULL, 0, "[%s] ", retVal);
-				strChar retVal2 = strCharResize(NULL, len + 1);
-				sprintf(retVal2, "[%s] ", retVal);
-				return retVal2;
+					char *buffer CLEANUP(free2)=fromFmt( "[%s] ", retVal);
+					return strClone(buffer);
 			}
 			break;
 		}
@@ -498,16 +496,12 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 					fprintf(stderr, "The size being addressed is weirder than a black rain frog.\n");
 					assert(0);
 				}
-				long len = snprintf(NULL, 0, "%s [%s] ", sizeStr, addrStr);
-				strChar retVal2 = strCharResize(NULL, len + 1);
-				sprintf(retVal2, "%s [%s] ", sizeStr, addrStr);
-				return retVal2;
+				char *buffer CLEANUP(free2)=fromFmt("%s [%s] ", sizeStr, addrStr);
+				return strClone(buffer);
 			} else {
 				strChar addrStr CLEANUP(strCharDestroy) = uint64ToStr(args[i]->value.m.value.mem);
-				long len = snprintf(NULL, 0, "[%s] ", addrStr);
-				strChar retVal2 = strCharResize(NULL, len + 1);
-				sprintf(retVal2, "[%s] ", addrStr);
-				return retVal2;
+				char *buffer CLEANUP(free2)=fromFmt( "[%s] ", addrStr);
+				return strClone(buffer);
 			}
 			break;
 		}
@@ -566,11 +560,9 @@ void X86EmitAsmIncludeBinfile(const char *fileName) {
 }
 char *X86EmitAsmLabel(const char *name) {
 	if (!name) {
-			long count = snprintf(NULL, 0, "%s_LBL_%li$",currentFileSet->funcName, ++currentFileSet->labelCount);
-		char buffer[count + 1];
-		sprintf(buffer, "%s_LBL_%li$", currentFileSet->funcName,currentFileSet->labelCount);
+		char *buffer CLEANUP(free2)=fromFmt( "%s_LBL_%li$", currentFileSet->funcName,currentFileSet->labelCount);
 		fprintf(currentFileSet->codeTmpFile, "%s:\n", buffer);
-		char *retVal = calloc(count + 1,1);
+		char *retVal = calloc(strlen(buffer) + 1,1);
 		strcpy(retVal, buffer);
 		return retVal;
 	}
@@ -595,9 +587,7 @@ static strChar dumpStrLit(const char *str,long len) {
 				retVal = strCharAppendItem(retVal, str[i]);
 				retVal = strCharAppendItem(retVal, '\'');
 			} else {
-				long count = snprintf(NULL, 0, "0x%02x", ((uint8_t *)str)[i]);
-				char buffer[count + 1];
-				sprintf(buffer, "0x%02x", ((uint8_t *)str)[i]);
+				char *buffer CLEANUP(free2)=fromFmt("0x%02x", ((uint8_t *)str)[i]);
 				retVal = strCharAppendData(retVal, buffer, strlen(buffer));
 			}
 		}
@@ -606,9 +596,7 @@ static strChar dumpStrLit(const char *str,long len) {
 	return retVal;
 }
 struct X86AddressingMode *X86EmitAsmDU64(strX86AddrMode data, long len) {
-		long count = snprintf(NULL, 0, "%s_DU64_%li",currentFileSet->funcName, ++currentFileSet->labelCount);
-	char buffer[count + 1];
-	sprintf(buffer, "%s_DU64_%li", currentFileSet->funcName,currentFileSet->labelCount);
+		char *buffer CLEANUP(free2)=fromFmt("%s_DU64_%li", currentFileSet->funcName,currentFileSet->labelCount);
 	fprintf(currentFileSet->constsTmpFile, "%s: DQ ", buffer);
 	for (long i = 0; i != len; i++) {
 		if (i != 0)
@@ -620,9 +608,7 @@ struct X86AddressingMode *X86EmitAsmDU64(strX86AddrMode data, long len) {
 	return X86AddrModeLabel(buffer);
 }
 struct X86AddressingMode *X86EmitAsmDU32(strX86AddrMode data, long len) {
-		long count = snprintf(NULL, 0, "%s_DU32_%li",currentFileSet->funcName, ++currentFileSet->labelCount);
-	char buffer[count + 1];
-	sprintf(buffer, "%s_DU32_%li", currentFileSet->funcName,currentFileSet->labelCount);
+	char *buffer CLEANUP(free2)=fromFmt("%s_DU32_%li", currentFileSet->funcName,currentFileSet->labelCount);
 	fprintf(currentFileSet->constsTmpFile, "%s: DD ", buffer);
 	for (long i = 0; i != len; i++) {
 		if (i != 0)
@@ -634,9 +620,7 @@ struct X86AddressingMode *X86EmitAsmDU32(strX86AddrMode data, long len) {
 	return X86AddrModeLabel(buffer);
 }
 struct X86AddressingMode *X86EmitAsmDU16(strX86AddrMode data, long len) {
-		long count = snprintf(NULL, 0, "%s_DU16_%li", currentFileSet->funcName,++currentFileSet->labelCount);
-	char buffer[count + 1];
-	sprintf(buffer, "%s_DU16_%li", currentFileSet->funcName,currentFileSet->labelCount);
+	char *buffer CLEANUP(free2)=fromFmt("%s_DU16_%li", currentFileSet->funcName,currentFileSet->labelCount);
 	fprintf(currentFileSet->constsTmpFile, "%s: DW ", buffer);
 	for (long i = 0; i != len; i++) {
 		if (i != 0)
@@ -648,9 +632,7 @@ struct X86AddressingMode *X86EmitAsmDU16(strX86AddrMode data, long len) {
 	return X86AddrModeLabel(buffer);
 }
 struct X86AddressingMode *X86EmitAsmDU8(strX86AddrMode data, long len) {
-		long count = snprintf(NULL, 0, "%s_DU8_%li",currentFileSet->funcName, ++currentFileSet->labelCount);
-	char buffer[count + 1];
-	sprintf(buffer, "%s_DU8_%li", currentFileSet->funcName,currentFileSet->labelCount);
+	char *buffer CLEANUP(free2)=fromFmt("%s_DU8_%li", currentFileSet->funcName,currentFileSet->labelCount);
 	fprintf(currentFileSet->constsTmpFile, "%s: DB ", buffer);
 	for (long i = 0; i != len; i++) {
 		if (i != 0)
@@ -666,9 +648,7 @@ void X86EmitAsmComment(const char *text) {
 }
 struct X86AddressingMode *X86EmitAsmStrLit(const char *text,long size) {
 		strChar unes CLEANUP(strCharDestroy) = dumpStrLit(text,size);
-		long count = snprintf(NULL, 0, "%s_STR_%li",currentFileSet->funcName, ++currentFileSet->labelCount);
-	char buffer[count + 1];
-	sprintf(buffer, "%s_STR_%li", currentFileSet->funcName,currentFileSet->labelCount);
+		char *buffer CLEANUP(free2)=fromFmt( "%s_STR_%li", currentFileSet->funcName,currentFileSet->labelCount);
 	fprintf(currentFileSet->constsTmpFile, "%s: DB %s\n", buffer, unes);
 	return X86AddrModeLabel(buffer);
 }
@@ -684,9 +664,7 @@ static strChar file2Str(FILE *f) {
 #include "escaper.h"
 void X86EmitAsmAddCachedFuncIfExists(const char *funcName,int *success) {
 		//
-		long len=snprintf(NULL, 0, "%s/%s.s", cacheDirLocation,funcName);
-		char buffer[len+1];
-		sprintf(buffer, "%s/%s.s", cacheDirLocation,funcName);
+		char *buffer CLEANUP(free2) =fromFmt("%s/%s.s", cacheDirLocation,funcName);
 
 		if(0==access(buffer, F_OK)) {
 				mapFuncFilesInsert(funcFiles, funcName, strClone(buffer));
@@ -708,10 +686,8 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 		for(long f=0;f!=fCount;f++) {
 				char *fn=*mapFuncFilesGet(funcFiles, funcs[f]);
 				const char *fmt="%s";
-				long len=snprintf(NULL, 0, fmt, fn);
-				char buffer[len+1];
-				sprintf(buffer,  fmt,  fn);
-
+				char *buffer CLEANUP(free2)=fromFmt(fmt, fn);
+				
 				char *escaped=escapeString(buffer);
 				fprintf(writeTo, "%%include \"%s\"\n", escaped);
 				free(escaped);
@@ -744,11 +720,9 @@ void X86EmitAsmEnterFileStartCode() {
 		long count=strStartCodeNameSize(initCodeNames);
 		long r=rand();
 		const char *fmt="__init$%li";
-		long len=snprintf(NULL, 0, fmt,count+r);
-		char name[len+1];
-		snprintf(name, len+1, fmt, count+r);
+		char *name CLEANUP(free2)=fromFmt(fmt,r);
+		
 		X86EmitAsmEnterFunc(name);
-
 		initCodeNames=strStartCodeNameAppendItem(initCodeNames, strClone(name));
 }
 void X86EmitAsmEnterFunc(const char *funcName) {
@@ -765,9 +739,7 @@ void X86EmitAsmEnterFunc(const char *funcName) {
 void X86EmitAsmLeaveFunc(const char *cacheDir) {
 		cacheDir=(!cacheDir)?cacheDirLocation:cacheDir;
 		const char *fmt="%s/%s.s";
-		long len=snprintf(NULL, 0,fmt , cacheDir,currentFileSet->funcName); 
-		char name[len+1];
-		snprintf(name, len+1, fmt, cacheDir,currentFileSet->funcName);
+		char *name CLEANUP(free2)=fromFmt(fmt, cacheDir,currentFileSet->funcName);
 		
 		FILE *fn = fopen(name, "w");
 		strChar symbols CLEANUP(strCharDestroy) = file2Str(currentFileSet->symbolsTmpFile);
@@ -801,8 +773,5 @@ char *X86EmitAsmUniqueLabName(const char *head) {
 		const char *fmt="%s_%s_%li$";
 		if (!head)
 		head = "";
-		long count = snprintf(NULL, 0, fmt, currentFileSet->funcName, head, ++currentFileSet->labelCount);
-	char buffer[count + 1];
-	sprintf(buffer, fmt, currentFileSet->funcName,head, currentFileSet->labelCount);
-	return strcpy(calloc(count+1, 1), buffer);
+		return fromFmt(fmt, currentFileSet->funcName,head, ++currentFileSet->labelCount);
 }

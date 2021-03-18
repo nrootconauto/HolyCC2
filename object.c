@@ -258,6 +258,37 @@ case TYPE_FUNCTION:
 	}
 	}
 }
+void objectArrayDimValues(struct object *type,long *dimCount,long *values) {
+		struct objectArray *arr=(void*)type;
+		long dimCount2=0;
+		for(;arr->base.type==TYPE_ARRAY;arr=(struct objectArray*)arr->type) {
+				if(values) {
+						if(arr->dim->type==NODE_LIT_INT) 
+								values[dimCount2]=((struct parserNodeLitInt*)arr->dim)->value.value.sLong;
+						else
+								values[dimCount2]=-1;
+				}
+				dimCount2++;
+		}
+		if(dimCount) *dimCount=dimCount2;
+}
+long objectArrayIsConstSz(struct object *type) {
+		assert(type->type==TYPE_ARRAY);
+			//
+			// If cant detirmine size and is a variable length array,just return pointer size;
+			//
+			struct objectArray *arr=(void*)type;
+			long currentSize=1;
+			for(;arr->base.type==TYPE_ARRAY;arr=(struct objectArray*)arr->type) {
+					if(!arr->dim) {
+					arrayAmbig:
+							return 0;
+					}
+					if(arr->dim->type!=NODE_LIT_INT)
+							goto arrayAmbig;
+			}
+			return 1;
+}
 /**
  * This gets the size of an object.
  */
@@ -271,24 +302,14 @@ objectSize(const struct object *type, int *success) {
 			if (success != NULL)
 			*success = 1;
 
-			if(!dontTreatArraysAsPtrs)
+			//if(!dontTreatArraysAsPtrs)
+			//return ptrSize();
+			if(!objectArrayIsConstSz((struct object*)type))
 					return ptrSize();
 			
-			
-			//
-			// If cant detirmine size and is a variable length array,just return pointer size;
-			//
 			struct objectArray *arr=(void*)type;
 			long currentSize=1;
 			for(;arr->base.type==TYPE_ARRAY;arr=(struct objectArray*)arr->type) {
-					if(!arr->dim) {
-					arrayAmbig:
-							if(success)
-									*success=0;
-							return -1;
-					}
-					if(arr->dim->type!=NODE_LIT_INT)
-							goto arrayAmbig;
 					struct parserNodeLitInt *i=(void*)arr->dim;
 					currentSize*=(i->value.type==INT_SLONG)?i->value.value.sLong:i->value.value.uLong;
 			}
