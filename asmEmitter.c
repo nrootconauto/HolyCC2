@@ -216,7 +216,7 @@ static char *fromFmt(const char *fmt,...) {
 		va_copy(list2, list);
 		long len=vsnprintf(NULL, 0, fmt, list);
 		char buffer[len+1];
-		vprintf(buffer, list2);
+		vsprintf(buffer,fmt, list2);
 		char *retVal=strcpy(calloc( len+1, 1),buffer);
 		va_end(list);
 		va_end(list2);
@@ -408,7 +408,7 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 			}
 			strChar labelStr CLEANUP(strCharDestroy) = emitMode(&args[i]->value.m.value.label, 0);
 			char *buffer CLEANUP(free2)= fromFmt( " %s [%s] ", sizeStr, labelStr);
-			return buffer;
+			return strClone(buffer);
 		}
 		case x86ADDR_INDIR_REG: {
 			__auto_type reg = ptrMapRegNameGet(regNames, args[i]->value.m.value.indirReg);
@@ -560,7 +560,7 @@ void X86EmitAsmIncludeBinfile(const char *fileName) {
 }
 char *X86EmitAsmLabel(const char *name) {
 	if (!name) {
-		char *buffer CLEANUP(free2)=fromFmt( "%s_LBL_%li$", currentFileSet->funcName,currentFileSet->labelCount);
+		char *buffer CLEANUP(free2)=fromFmt( "%s_LBL_%li$", currentFileSet->funcName,++currentFileSet->labelCount);
 		fprintf(currentFileSet->codeTmpFile, "%s:\n", buffer);
 		char *retVal = calloc(strlen(buffer) + 1,1);
 		strcpy(retVal, buffer);
@@ -596,7 +596,7 @@ static strChar dumpStrLit(const char *str,long len) {
 	return retVal;
 }
 struct X86AddressingMode *X86EmitAsmDU64(strX86AddrMode data, long len) {
-		char *buffer CLEANUP(free2)=fromFmt("%s_DU64_%li", currentFileSet->funcName,currentFileSet->labelCount);
+		char *buffer CLEANUP(free2)=fromFmt("%s_DU64_%li", currentFileSet->funcName,++currentFileSet->labelCount);
 	fprintf(currentFileSet->constsTmpFile, "%s: DQ ", buffer);
 	for (long i = 0; i != len; i++) {
 		if (i != 0)
@@ -608,7 +608,7 @@ struct X86AddressingMode *X86EmitAsmDU64(strX86AddrMode data, long len) {
 	return X86AddrModeLabel(buffer);
 }
 struct X86AddressingMode *X86EmitAsmDU32(strX86AddrMode data, long len) {
-	char *buffer CLEANUP(free2)=fromFmt("%s_DU32_%li", currentFileSet->funcName,currentFileSet->labelCount);
+	char *buffer CLEANUP(free2)=fromFmt("%s_DU32_%li", currentFileSet->funcName,++currentFileSet->labelCount);
 	fprintf(currentFileSet->constsTmpFile, "%s: DD ", buffer);
 	for (long i = 0; i != len; i++) {
 		if (i != 0)
@@ -620,7 +620,7 @@ struct X86AddressingMode *X86EmitAsmDU32(strX86AddrMode data, long len) {
 	return X86AddrModeLabel(buffer);
 }
 struct X86AddressingMode *X86EmitAsmDU16(strX86AddrMode data, long len) {
-	char *buffer CLEANUP(free2)=fromFmt("%s_DU16_%li", currentFileSet->funcName,currentFileSet->labelCount);
+	char *buffer CLEANUP(free2)=fromFmt("%s_DU16_%li", currentFileSet->funcName,++currentFileSet->labelCount);
 	fprintf(currentFileSet->constsTmpFile, "%s: DW ", buffer);
 	for (long i = 0; i != len; i++) {
 		if (i != 0)
@@ -632,7 +632,7 @@ struct X86AddressingMode *X86EmitAsmDU16(strX86AddrMode data, long len) {
 	return X86AddrModeLabel(buffer);
 }
 struct X86AddressingMode *X86EmitAsmDU8(strX86AddrMode data, long len) {
-	char *buffer CLEANUP(free2)=fromFmt("%s_DU8_%li", currentFileSet->funcName,currentFileSet->labelCount);
+	char *buffer CLEANUP(free2)=fromFmt("%s_DU8_%li", currentFileSet->funcName,++currentFileSet->labelCount);
 	fprintf(currentFileSet->constsTmpFile, "%s: DB ", buffer);
 	for (long i = 0; i != len; i++) {
 		if (i != 0)
@@ -648,7 +648,7 @@ void X86EmitAsmComment(const char *text) {
 }
 struct X86AddressingMode *X86EmitAsmStrLit(const char *text,long size) {
 		strChar unes CLEANUP(strCharDestroy) = dumpStrLit(text,size);
-		char *buffer CLEANUP(free2)=fromFmt( "%s_STR_%li", currentFileSet->funcName,currentFileSet->labelCount);
+		char *buffer CLEANUP(free2)=fromFmt( "%s_STR_%li", currentFileSet->funcName,++currentFileSet->labelCount);
 	fprintf(currentFileSet->constsTmpFile, "%s: DB %s\n", buffer, unes);
 	return X86AddrModeLabel(buffer);
 }
