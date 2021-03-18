@@ -263,6 +263,7 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 				int aPtr=(objectBaseType(aType)->type==TYPE_PTR);
 				int bPtr=(objectBaseType(bType)->type==TYPE_PTR);
 				if(aPtr&&bPtr) {
+						/*
 						if(objectBaseType(aType)!=objectBaseType(bType)) {
 								diagWarnStart(binop->base.pos.start, binop->base.pos.end);
 								diagPushText("Pointer type mismatch with operator");
@@ -270,6 +271,7 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 								diagPushText(".");
 								diagEndMsg();
 						}
+						*/
 				}
 				
 			// Dont promote left value on assign

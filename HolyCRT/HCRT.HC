@@ -31,7 +31,7 @@ U0 testNoDest() {
 }
 U0 testRegsI32i() {
 			printf("I32i\n");
-			I32i reg EAX a=10;
+			I32i reg EBX a=10;
 			I32i reg EDX b=3;
 			printf("%li\n",a`b==1000);
 			printf("%li\n",a<<b==80);
@@ -73,8 +73,8 @@ U0 testRegsI32i() {
 }
 U0 testRegsI16i() {
 			printf("I16i\n");
-			I16i reg AX a=10;
-			I16i reg DX b=3;
+			I16i reg DX a=10;
+			I16i reg BX b=3;
 			printf("%li\n",a`b==1000);
 			printf("%li\n",a<<b==80);
 			printf("%li\n",a>>b==1);
@@ -115,8 +115,8 @@ U0 testRegsI16i() {
 }
 U0 testRegsI8i() {
 			printf("I8i\n");
-			I8i reg AH a=2;
-			I8i reg AL b=4;
+			I8i reg DH a=2;
+			I8i reg DL b=4;
 			printf("%li\n",a`b==16);
 			printf("%li\n",a<<b==32);
 			printf("%li\n",a>>b==0);
@@ -156,7 +156,7 @@ U0 testRegsI8i() {
 			printf("%li\n",(a^^b)==0);
 }
 U0 testRegsCast() {
-			I32i reg EAX reg32=1;
+			I32i reg EDX reg32=1;
 			I16i reg BX reg16=1;
 			I8i reg CL reg8=1;
 			do {
@@ -192,7 +192,6 @@ I32i main() {
 					I32i end;
 					ParserJsonLiteral("123",0,NULL,&end);
 					printf("%li\n",end);
-					return 0;
 					U8i *str=__UnescapeStr("Hello World\n");
 					printf("%s\n",str);
 try {
@@ -206,7 +205,7 @@ try {
 					testRange();
 					}
 
-					"Hello Wolrd:%.6n\n",Str2F64("225.5e10",NULL);
+					"Hello Wolrd:%.6n\n",1534543.500;
 					return 0;
 }
 Print("Hello World,%d\n",123);
