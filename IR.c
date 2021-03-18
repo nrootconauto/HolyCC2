@@ -140,11 +140,22 @@ graphNodeIR IRCreateBinop(graphNodeIR a, graphNodeIR b, enum IRNodeType type) {
 
 	return retVal;
 }
+graphNodeIR IRCreateGlobalLabel(const char *name) {
+	struct IRNodeLabel lab;
+	lab.base.attrs = NULL;
+	lab.base.type = IR_LABEL;
+	lab.isLocal=0;
+	lab.name=strcpy(calloc(strlen(name)+1, 1), name);
+	
+	return GRAPHN_ALLOCATE(lab);
+}
 graphNodeIR IRCreateLabel() {
 	struct IRNodeLabel lab;
 	lab.base.attrs = NULL;
 	lab.base.type = IR_LABEL;
-
+	lab.isLocal=1;
+	lab.name=NULL;
+	
 	return GRAPHN_ALLOCATE(lab);
 }
 graphNodeIR IRCreateStmtStart() {
@@ -1814,7 +1825,10 @@ void IRNodeDestroy(struct IRNode *node) {
 			attrValue->destroy(attrValue);
 		}
 	}
-	if (node->type == IR_VALUE) {
+	if(node->type==IR_LABEL) {
+			struct IRNodeLabel *lab=(void*)node;
+			if(lab->name) free(lab->name);
+	} else if (node->type == IR_VALUE) {
 		struct IRNodeValue *valueNode = (void *)node;
 		if (valueNode->val.type == IR_VAL_VAR_REF) {
 			__auto_type find = ptrMapIRVarRefsGet(IRVars, valueNode->val.value.var.var);

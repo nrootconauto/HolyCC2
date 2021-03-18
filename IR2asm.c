@@ -217,9 +217,10 @@ static strGraphNodeIRP removeNeedlessLabels(graphNodeIR start) {
 		__auto_type val = graphNodeIRValuePtr(allNodes[i]);
 		if (val->type != IR_LABEL)
 			continue;
-		
-		// Dont remove if named
-		if (llIRAttrFind(val->attrs, IR_ATTR_LABEL_NAME, IRAttrGetPred))
+
+		struct IRNodeLabel *lab=(void*)val;
+		// Dont remove if named and global
+		if (!lab->isLocal&&lab->name)
 			continue;
 
 		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(allNodes[i]);
@@ -345,10 +346,9 @@ loop:;
 		return *existing;
 
 	__auto_type nv = graphNodeIRValuePtr(node);
-	__auto_type find = llIRAttrFind(nv->attrs, IR_ATTR_LABEL_NAME, IRAttrGetPred);
-	if (find) {
-		struct IRAttrLabelName *name = (void *)llIRAttrValuePtr(find);
-		ptrMapLabelNamesAdd(asmLabelNames, node, strClone(name->name));
+	struct IRNodeLabel *lab=(void*)nv;
+	if (!lab->isLocal&&lab->name) {
+		ptrMapLabelNamesAdd(asmLabelNames, node, strClone(lab->name));
 	} else {
 			char *name CLEANUP(freeCharP)=X86EmitAsmUniqueLabName("");
 			ptrMapLabelNamesAdd(asmLabelNames, node, strClone(name));

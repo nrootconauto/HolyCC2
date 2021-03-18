@@ -72,7 +72,7 @@ static U8i *JsonParseString(U8i *str,U8i **end) {
 							U8i startChr=*str;
 							I32i run=0;
 							I32i index=-1;
-							loop3:
+							loop:
 							if(run) index+=1;
 							str+=1;
 							U8i toAddChr=0;
@@ -121,9 +121,9 @@ static U8i *JsonParseString(U8i *str,U8i **end) {
 											if(end) *end=str+1;
 
 											str=originalStr;
-											goto loop3;
+											goto loop;
 									} else {
-											goto end3;
+											goto end;
 									}
 							} else {
 									toAddChr=*str;
@@ -132,8 +132,8 @@ static U8i *JsonParseString(U8i *str,U8i **end) {
 							if(run) {
 															retVal[index]=toAddChr;
 							}
-							goto loop3;
-							end3:
+							goto loop;
+							end:
 							
 							return retVal; 							
 }

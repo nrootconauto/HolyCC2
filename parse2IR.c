@@ -962,11 +962,6 @@ static struct enterExit __parserNode2IRStmt(const struct parserNode *node) {
 	__auto_type retVal = __parserNode2IRNoStmt(node);
 	return retVal;
 }
-const void *IR_ATTR_LABEL_NAME = "LABEL_NAME";
-static void IRAttrLabelNameDestroy(struct IRAttr *attr) {
-		struct IRAttrLabelName *nm = (void *)attr;
-	free(nm->name);
-}
 static void debugShowGraphIR(graphNodeIR enter) {
 		const char *name = tmpnam(NULL);
 	__auto_type map = graphNodeCreateMapping(enter, 1);
@@ -1057,12 +1052,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 		
 		graphNodeIR exitLab;
 		if(jumpAcross) {
-				exitLab=IRCreateLabel();
-				struct IRAttrLabelName nameAttr;
-				nameAttr.base.destroy=IRAttrLabelNameDestroy;
-				nameAttr.base.name=(void*)IR_ATTR_LABEL_NAME;
-				nameAttr.name=strcpy(calloc(len+1, 1), jumpAcrossName);
-				IRAttrReplace(exitLab, __llCreate(&nameAttr, sizeof(nameAttr)));
+				exitLab=IRCreateGlobalLabel(jumpAcrossName);
 		} else {
 				exitLab=IRCreateLabel();
 		}
@@ -1339,12 +1329,10 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 	case NODE_FOR: {
 		struct enterExit retVal;
 
-		struct IRNodeLabel lab;
-		lab.base.type = IR_LABEL;
-		lab.base.attrs = NULL;
-		__auto_type labNext = GRAPHN_ALLOCATE(lab);
-		__auto_type labExit = GRAPHN_ALLOCATE(lab);
-		__auto_type labCond = GRAPHN_ALLOCATE(lab);
+		
+		__auto_type labNext = IRCreateLabel();
+		__auto_type labExit = IRCreateLabel();
+		__auto_type labCond = IRCreateLabel();
 
 		struct parserNodeFor *forStmt = (void *)node;
 		graphNodeIR current=IRCreateLabel();
@@ -1441,14 +1429,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 			lab = *find;
 		else
 			ptrMapGNIRByParserNodeAdd(labelsByPN, (struct parserNode *)node, lab);
-
-		struct IRAttrLabelName attr;
-		attr.base.name = (void *)IR_ATTR_LABEL_NAME;
-		attr.base.destroy = IRAttrLabelNameDestroy;
-		attr.name = calloc(strlen(name->text) + 1,1);
-		strcpy(attr.name, name->text);
-		IRAttrReplace(lab, __llCreate(&attr, sizeof(attr)));
-
+		
 		return (struct enterExit){lab, lab};
 	}
 	case NODE_ASM_LABEL_LOCAL: {
@@ -1471,7 +1452,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 	case NODE_ASM_LABEL_GLBL: {
 		struct parserNodeLabelGlbl *glbl = (void *)node;
 		struct parserNodeName *name = (void *)glbl->name;
-		graphNodeIR lab = IRCreateLabel();
+		graphNodeIR lab = IRCreateGlobalLabel(name->text);
 
 		// Insert into pairs
 		__auto_type find = ptrMapGNIRByParserNodeGet(labelsByPN, (struct parserNode *)node);
@@ -1479,13 +1460,6 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 			lab = *find;
 		else
 			ptrMapGNIRByParserNodeAdd(labelsByPN, (struct parserNode *)node, lab);
-
-		struct IRAttrLabelName attr;
-		attr.base.name = (void *)IR_ATTR_LABEL_NAME;
-		attr.base.destroy = IRAttrLabelNameDestroy;
-		attr.name = calloc(strlen(name->text) + 1,1);
-		strcpy(attr.name, name->text);
-		IRAttrReplace(lab, __llCreate(&attr, sizeof(attr)));
 
 		return (struct enterExit){lab, lab};
 	}

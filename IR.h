@@ -386,14 +386,14 @@ struct IRNodeDec {
 	struct IRNode base;
 	long isSuffix;
 };
-//"a"
-//"b"
 struct IRNodeArrayAccess {
 	struct IRNode base;
 	long scale;
 };
 struct IRNodeLabel {
-	struct IRNode base;
+		struct IRNode base;
+		char *name;
+		unsigned int isLocal:1; 
 };
 struct IRNodeLabelLocal {
 	struct IRNode base;
@@ -571,3 +571,4 @@ void IRRemoveNeverFlows(graphNodeIR node);
 graphNodeIR IRCreateFuncVaArgArgv();
 graphNodeIR IRCreateFuncVaArgArgc();
 graphNodeIR IRCreateSizeof(struct object *obj);
+graphNodeIR IRCreateGlobalLabel(const char *name);

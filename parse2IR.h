@@ -6,7 +6,6 @@ struct enterExit {
 };
 struct enterExit parserNodes2IR(strParserNode node);
 void IRGenInit(strFileMappings mappings);
-extern const void *IR_ATTR_LABEL_NAME;
 struct IRAttrLabelName {
 	struct IRAttr base;
 	char *name;
