@@ -642,11 +642,11 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 				strRegP consumedRegs CLEANUP(strRegPDestroy)=NULL;
 				for(long a=0;a!=strOpcodeTemplateArgSize(opsByName[t]->args);a++) {
 						switch(args[a]->type) {
+						case X86ADDRMODE_SIZEOF:
 						case X86ADDRMODE_VAR_ADDR:
 						case X86ADDRMODE_ITEM_ADDR:
 						case X86ADDRMODE_SINT:
 						case X86ADDRMODE_UINT:
-						case X86ADDRMODE_SIZEOF:
 						case X86ADDRMODE_LABEL:
 						case X86ADDRMODE_STR: {
 								if(args[a]->valueType)
@@ -810,8 +810,6 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 				for(long c=0;c!=strRegPSize(consumedRegs);c++) {
 						unconsumeRegister(consumedRegs[c]);
 				}
-				if(templateIsValid[t])
-						break;
 		}
 		//Find index of lowest (valid) template
 		long lowestValidI=-1;
@@ -2564,6 +2562,12 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 	strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIROutgoing(start);
 	switch (graphNodeIRValuePtr(start)->type) {
 	case IR_SIZEOF: {
+			strGraphEdgeIRP asn CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(out, IR_CONN_DEST);
+			if(strGraphEdgeIRPSize(asn)) {
+					struct X86AddressingMode *sz CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(start);
+					struct X86AddressingMode *o CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(graphEdgeIROutgoing(asn[0]));
+					asmTypecastAssign(o, sz, ASM_ASSIGN_X87FPU_POP);
+			}
 			return nextNodesToCompile(start);
 	}
 	case IR_SOURCE_MAPPING: {

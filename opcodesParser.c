@@ -585,19 +585,19 @@ int opcodeTemplateArgAcceptsAddrMode(const struct opcodeTemplateArg *arg, const 
 			goto fail;
 	case OPC_TEMPLATE_ARG_SINT8:
 	case OPC_TEMPLATE_ARG_UINT8:
-		if (mode->type == X86ADDRMODE_SINT || mode->type == X86ADDRMODE_UINT) {
+		if (mode->type == X86ADDRMODE_SINT || mode->type == X86ADDRMODE_UINT||mode->type==X86ADDRMODE_SIZEOF) {
 			return sizeMatchSigned(mode, 1)||sizeMatchUnsigned(mode, 1);
 		} else
 			goto fail;
 	case OPC_TEMPLATE_ARG_UINT16:
 	case OPC_TEMPLATE_ARG_SINT16:
-		if (mode->type == X86ADDRMODE_SINT || mode->type == X86ADDRMODE_UINT) {
+		if (mode->type == X86ADDRMODE_SINT || mode->type == X86ADDRMODE_UINT||mode->type==X86ADDRMODE_SIZEOF) {
 				return sizeMatchSigned(mode, 2)||sizeMatchUnsigned(mode, 2);
 		} else
 			goto fail;
 	case OPC_TEMPLATE_ARG_SINT32:
 	case OPC_TEMPLATE_ARG_UINT32:
-		if (mode->type == X86ADDRMODE_SINT || mode->type == X86ADDRMODE_UINT) {
+		if (mode->type == X86ADDRMODE_SINT || mode->type == X86ADDRMODE_UINT||mode->type==X86ADDRMODE_SIZEOF) {
 			return sizeMatchSigned(mode, 4)||sizeMatchUnsigned(mode, 4);
 		}
 		if (ptrSize() == 4) {
@@ -606,7 +606,7 @@ int opcodeTemplateArgAcceptsAddrMode(const struct opcodeTemplateArg *arg, const 
 			goto fail;
 	case OPC_TEMPLATE_ARG_SINT64:
 	case OPC_TEMPLATE_ARG_UINT64:
-		if (mode->type == X86ADDRMODE_SINT || mode->type == X86ADDRMODE_UINT) {
+		if (mode->type == X86ADDRMODE_SINT || mode->type == X86ADDRMODE_UINT||mode->type==X86ADDRMODE_SIZEOF) {
 			return sizeMatchSigned(mode, 8)||sizeMatchUnsigned(mode, 8);
 		}
 		if (ptrSize() == 8) {

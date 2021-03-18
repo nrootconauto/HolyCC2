@@ -189,11 +189,9 @@ U0 testRange() {
 			printf("3>2>1>0:%li\n",3>2>1>0);
 }
 I32i main() {
-					U8i *str=JsonParseString("\"Hello World\\n\"",NULL);
-					printf("%s\n",str);
-					I32i *end=10;
-					JsonParseString("\"a\"abc",&end);
-					printf("%s",end);
+					I32i end;
+					ParserJsonLiteral("123",0,NULL,&end);
+					printf("%li",end);
 					return 0;
 					U8i *str=__UnescapeStr("Hello World\n");
 					printf("%s\n",str);

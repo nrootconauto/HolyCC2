@@ -201,7 +201,7 @@ U0 JsonNodePrint(JsonNode *root,I32i tabLen=0) {
 			tabPrintN(tabLen);
 			switch(root->type) {
 																						case JSON_STR: {
-																											Print("%q;\n",root->val.str);
+																											Print("\"%q\";\n",root->val.str);
 																											break;
 																						}
 																						case JSON_SINT: {
