@@ -580,7 +580,7 @@ char *X86EmitAsmLabel(const char *name) {
 	return retVal;
 }
 static strChar dumpStrLit(const char *str,long len) {
-	char *otherValids = " []{}\\|;:\"\'<>?,./`~!@#$%^&*()-_+=";
+	char *otherValids = " []{}|;:\"<>?,./`~!@#$%^&*()-_+=";
 	strChar retVal = NULL;
 	for (long i = 0; i != len; i++) {
 		if (i != 0)

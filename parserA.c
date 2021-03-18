@@ -3163,8 +3163,18 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 	__auto_type oldLabelRefs = labelReferences;
 	labels = mapParserNodeCreate();
 	labelReferences = mapParserNodesCreate();
-	//
 
+
+	//Add func before use to allow calling function from within function
+	struct parserNodeFuncForwardDec forward;
+		forward.base.refCount=1;
+		forward.base.type = NODE_FUNC_FORWARD_DECL;
+		forward.funcType = funcType;
+		forward.name = refNode(name2);
+		struct parserNode *fwdAlloced = ALLOCATE(forward);
+		parserAddFunc(name2, funcType, fwdAlloced);
+		parserNodeDestroy(&fwdAlloced);
+	
 	struct parserNode *retVal = NULL;
 	struct parserNode *scope CLEANUP(parserNodeDestroy) = parseScope(start, &start, (struct objectFunction*)funcType);
 	if (!scope) {
@@ -3183,7 +3193,7 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 		
 		retVal = ALLOCATE(forward);
 	} else {
-		// Has a function body
+			// Has a function body
 		struct parserNodeFuncDef func;
 		func.base.refCount=1;
 		func.base.type = NODE_FUNC_DEF;
