@@ -139,16 +139,16 @@ static U8i *JsonParseString(U8i *str,U8i **end) {
 }
 static JsonNode *ParseJsonEntry(U8i *str,I32i chrI,I32i *end);
 static JsonNode *ParserJsonLiteral(U8i *str,I32i chrI,JsonNode *prevNode,I32i *endI) {
-							I32i fltEnd=chrI,intEnd=chrI;
+							  U8i *fltEnd=&str[chrI],*intEnd=&str[chrI];
 									F64 flt=Str2F64(&str[chrI],&fltEnd);
 									I32i int=Str2I32i(&str[chrI],&intEnd);
 									if(fltEnd!=chrI||intEnd!=chrI) {
 																																								//Use largest item
 																																								if(fltEnd>intEnd) {
-																																																										if(endI) *endI=fltEnd;
+																																																										if(endI) *endI=fltEnd-&str[chrI];
 																																																										return JsonNodeFltCreate(prevNode,flt);
 																																								} else {
-																																																										if(endI) *endI=intEnd;
+																																																										if(endI) *endI=intEnd-&str[chrI];
 																																								                  return  JsonNodeIntCreate(prevNode,int);
 																																								}
 									}

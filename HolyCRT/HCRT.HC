@@ -191,7 +191,7 @@ U0 testRange() {
 I32i main() {
 					I32i end;
 					ParserJsonLiteral("123",0,NULL,&end);
-					printf("%li",end);
+					printf("%li\n",end);
 					return 0;
 					U8i *str=__UnescapeStr("Hello World\n");
 					printf("%s\n",str);
