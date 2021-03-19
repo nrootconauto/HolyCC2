@@ -1043,11 +1043,6 @@ static int isPrimitiveType(const struct object *obj) {
 static int isNotNoreg(const struct parserVar *var, const void *data) {
 	return !var->isNoreg;
 }
-static int frameEntryCmp(const void *a, const void *b) {
-	const struct frameEntry *A = a;
-	const struct frameEntry *B = b;
-	return IRVarCmp(&A->var, &B->var);
-}
 static void debugShowGraphIR(graphNodeIR enter) {
 #if DEBUG_PRINT_ENABLE
 		const char *name = tmpnam(NULL);
@@ -1542,38 +1537,8 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	long oldFrameSize=frameSize;
 	
 	// Frame allocate
-	{
-		strFrameEntry layout CLEANUP(strFrameEntryDestroy) = IRComputeFrameLayout(start, &frameSize);
-		localVarFrameOffsets = ptrMapFrameOffsetCreate();
-		for (long i = 0; i != strFrameEntrySize(layout); i++)
-				ptrMapFrameOffsetAdd(localVarFrameOffsets, layout[i].var.var, layout[i].offset);
-
-		strGraphNodeIRP removed CLEANUP(strGraphNodeIRPDestroy) = NULL;
-		strGraphNodeIRP added CLEANUP(strGraphNodeIRPDestroy) = NULL;
-		for (long n = 0; n != strGraphNodeIRPSize(regAllocedNodes); n++) {
-			struct IRNodeValue *ir = (void *)graphNodeIRValuePtr(regAllocedNodes[n]);
-			if (ir->base.type != IR_VALUE)
-				continue;
-			if (ir->val.type != IR_VAL_VAR_REF)
-				continue;
-			if (ir->val.value.var.var->isGlobal)
-				continue;
-			noregs=strPVarRemoveItem(noregs, ir->val.value.var.var, (PVarCmpType)ptrPtrCmp); 
-			
-			__auto_type find = ptrMapFrameOffsetGet(localVarFrameOffsets, ir->val.value.var.var);
-			assert(find);
-			removed = strGraphNodeIRPSortedInsert(removed, regAllocedNodes[n], (gnCmpType)ptrPtrCmp);
-			__auto_type frameReference = IRCreateFrameAddress(*find, ir->val.value.var.var->type);
-			added = strGraphNodeIRPSortedInsert(added, frameReference, (gnCmpType)ptrPtrCmp);
-
-			strGraphNodeIRP dummy CLEANUP(strGraphNodeIRPDestroy) = strGraphNodeIRPAppendItem(NULL, regAllocedNodes[n]);
-			graphIRReplaceNodes(dummy, frameReference, NULL, (void (*)(void *))IRNodeDestroy);
-		}
-
-		regAllocedNodes = strGraphNodeIRPSetDifference(regAllocedNodes, removed, (gnCmpType)ptrPtrCmp);
-		regAllocedNodes = strGraphNodeIRPSetUnion(regAllocedNodes, added, (gnCmpType)ptrPtrCmp);
-	}
-
+	IRComputeFrameLayout(regAllocedNodes[0], NULL);
+	
 	// Replace all global variables with
 	{
 		strGraphNodeIRP removed CLEANUP(strGraphNodeIRPDestroy) = NULL;
