@@ -2811,7 +2811,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 							imulArgs=strX86AddrModeAppendItem(imulArgs, X86AddrModeIndirReg(stackPointer(), &typeI8i));
 							assembleOpcode(start, "IMUL", imulArgs);
 
-							struct X86AddressingMode *dummyLoc CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())), X86AddrModeSint(1+1+2), &typeI8i);
+							struct X86AddressingMode *dummyLoc CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())), X86AddrModeSint(1+1), &typeI8i);
 							asmTypecastAssign(dummyLoc, alMode, ASM_ASSIGN_X87FPU_POP);
 							popMode(bMode);
 							popMode(aMode);
