@@ -2513,8 +2513,6 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			diagLineCol(mapping->fn, mapping->start, &line, NULL);			
 
 			const char *fmt=";;;   %s:%li:\"\"\"%s\"\"\"   ;;;";
-			__auto_type f=fopen(mapping->fn, "r");
-			fseek(f, mapping->start, SEEK_SET);
 
 			long len=diagDumpQoutedText(mapping->start,mapping->len+mapping->start,NULL);
 			char qouted[len+1];
