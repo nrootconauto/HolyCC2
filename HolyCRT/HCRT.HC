@@ -1425,7 +1425,7 @@ try {
 					testRange();
 					}
 
-					"Hello Wolrd:%.6n\n",1534543.500;
+					"Hello Wolrd:%.6n\n",15.500;
 					return 0;
 }
 Print("Hello World,%d\n",123);

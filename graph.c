@@ -17,12 +17,12 @@ struct __graphEdge {
 	long itemSize;
 	unsigned int valuePresent : 1;
 };
-
 struct __graphNode {
 	strGraphEdgeP incoming;
 	strGraphEdgeP outgoing;
 	long itemSize;
 	int version;
+		strGraphNodeP *graphAllNodes;
 	unsigned int killable : 1;
 };
 static int ptrCompare(const void *a, const void *b) {
@@ -40,6 +40,8 @@ struct __graphNode *__graphNodeCreate(void *value, long itemSize, int version) {
 	retVal->outgoing = NULL;
 	retVal->version = version;
 	retVal->itemSize = itemSize;
+	retVal->graphAllNodes=calloc(sizeof(strGraphNodeP), 1);
+	*retVal->graphAllNodes=strGraphNodePAppendItem(*retVal->graphAllNodes, retVal);
 	return retVal;
 }
 enum dir { DIR_FORWARD, DIR_BACKWARD };
@@ -180,7 +182,7 @@ static void __graphEdgeKillAllPred(struct __graphNode *from, struct __graphNode 
 		free(toDestroy[i]);
 }
 void __graphEdgeKill(struct __graphNode *in, struct __graphNode *out, void *data, int (*pred)(void *, void *), void (*kill)(void *)) {
-	// out's incoming's elements point to __graphEdge(which are destroyed when
+		// out's incoming's elements point to __graphEdge(which are destroyed when
 	// in->outgoing is destroyed below)
 
 	__graphEdgeKillAllPred(in, out, data, pred, kill);
@@ -202,7 +204,8 @@ static int llpredAlwaysTrue(const void *a, const void *b) {
 	return 0;
 }
 void __graphNodeKill(struct __graphNode *node, void (*killNode)(void *item), void (*killEdge)(void *item)) {
-//
+		*node->graphAllNodes=strGraphNodePRemoveItem(*node->graphAllNodes, node, (gnCmpType)ptrCompare);
+		//
 loop:;
 		strGraphEdgeP connectionPtrs CLEANUP(strGraphEdgePDestroy) = NULL;
 	for (int i = 0; i != 2; i++) {
@@ -237,7 +240,10 @@ static void __graphVisitAppend(struct __graphNode *node, void *data) {
 	strGraphNodeP *visited = data;
 	*visited = strGraphNodePSortedInsert(*visited, node, (gnCmpType)ptrCompare);
 }
-strGraphNodeP __graphNodeVisitAll(const struct __graphNode *start) {
+strGraphNodeP __graphNodeVisitAll(struct __graphNode *start) {
+		return strGraphNodePClone(*start->graphAllNodes);
+}
+strGraphNodeP __graphNodeVisitAllAccessable(const struct __graphNode *start) {
 	if (!start)
 		return NULL;
 
@@ -275,7 +281,14 @@ void __graphKillAll(struct __graphNode *start, void (*killFunc)(void *), void (*
 	}
 }
 struct __graphEdge *__graphNodeConnect(struct __graphNode *a, struct __graphNode *b, void *data, long itemSize) {
-	//
+		*a->graphAllNodes=strGraphNodePSetUnion(*a->graphAllNodes, *b->graphAllNodes, (gnCmpType)ptrCompare);
+		if(a->graphAllNodes!=b->graphAllNodes) {
+				__auto_type bNodes=*b->graphAllNodes;
+				for(long A=0;A!=strGraphNodePSize(bNodes);A++)
+								bNodes[A]->graphAllNodes=a->graphAllNodes;
+				strGraphNodePDestroy(&bNodes);
+		}
+		//
 	struct __graphEdge *newEdgeNode = NULL;
 	if (data == NULL) {
 			newEdgeNode = calloc(sizeof(struct __graphEdge),1);
@@ -844,4 +857,16 @@ long graphNodeValueSize(const struct __graphNode *node) {
 }
 long graphEdgeValueSize(const struct __graphEdge *edge) {
 	return edge->itemSize;
+}
+void graphIsolateFromUnaccessable(struct __graphNode *node) {
+		__auto_type originalAll=node->graphAllNodes;
+		strGraphNodeP accessable =__graphNodeVisitAllAccessable(node);
+		*originalAll=strGraphNodePSetDifference(*originalAll, accessable, (gnCmpType)ptrCompare);
+		strGraphNodeP *alloced=calloc(sizeof(strGraphNodeP),1);
+		*alloced=accessable;
+		for(long n=0;n!=strGraphNodePSize(accessable);n++)
+				accessable[n]->graphAllNodes=alloced;
+
+		if(strGraphNodePSize(*originalAll)==0)
+				strGraphNodePDestroy(originalAll);
 }

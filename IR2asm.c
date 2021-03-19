@@ -1415,6 +1415,7 @@ void IRCompile(graphNodeIR start, int isFunc) {
 		}
 
 		funcsWithin = strGraphNodeIRPSortedInsert(funcsWithin, nodes[n], (gnCmpType)ptrPtrCmp);
+		graphIsolateFromUnaccessable(nodes[n]);
 	}
 	
 	strGraphNodeIRPDestroy(&nodes);

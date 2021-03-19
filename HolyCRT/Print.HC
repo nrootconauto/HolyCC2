@@ -101,8 +101,6 @@ static F64 fild64(I64Pair pair) {
 				asm {
 								IMPORT pair;
 								FILD U64[pair]
-								LEAVE
-								RET
 				}
 }
 static U0 __callPrintF64(F64 f,I32i digits) {

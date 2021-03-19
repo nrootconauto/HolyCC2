@@ -581,7 +581,7 @@ strGraphNodeIRLiveP __IRInterferenceGraphFilter(graphNodeMapping start, const vo
 
 		// Filter out all accessible nodes from retVal,then we look for the next
 		// graph
-		strGraphNodeIRLiveP asscesibleNodes CLEANUP(strGraphNodeIRLivePDestroy) = graphNodeIRLiveAllNodes(retVal[0]);
+		strGraphNodeIRLiveP asscesibleNodes CLEANUP(strGraphNodeIRLivePDestroy) = graphIRLiveAllAccesableNodes(retVal[0]);
 		retVal = strGraphNodeIRLivePSetDifference(retVal, asscesibleNodes, (gnCmpType)ptrPtrCmp);
 	}
 	return allGraphs;

@@ -112,7 +112,8 @@ struct __graphEdge;
 	inline void graph##suffix##ReplaceNodes(strGraphNode##suffix##P toReplace, graphNode##suffix node,                                                               \
 	                                        int (*edgeCmp)(const struct __graphEdge *, const struct __graphEdge *), void (*killNodeData)(void *)) {                  \
 		graphReplaceWithNode(toReplace, node, edgeCmp, killNodeData, sizeof(edgeType));                                                                                \
-	}
+	} \
+	inline  __attribute__((always_inline)) strGraphNode##suffix##P graph##suffix##AllAccesableNodes(graphNode##suffix node ) {return __graphNodeVisitAllAccessable(node);} 
 void __graphKillAll(struct __graphNode *start, void (*killFunc)(void *), void (*killEdge)(void *));
 void __graphNodeKill(struct __graphNode *node, void (*killNode)(void *item), void (*killEdge)(void *item));
 void __graphNodeVisitForward(struct __graphNode *node, void *data, int(pred)(const struct __graphNode *, const struct __graphEdge *, const void *),
@@ -139,13 +140,14 @@ void *__graphNodeValuePtr(const struct __graphNode *node);
 int __graphIsConnectedTo(const struct __graphNode *from, const struct __graphNode *to);
 strGraphNodeP __graphNodeIncomingNodes(const struct __graphNode *node);
 strGraphNodeP __graphNodeOutgoingNodes(const struct __graphNode *node);
-strGraphNodeP __graphNodeVisitAll(const struct __graphNode *start);
+strGraphNodeP __graphNodeVisitAll(struct __graphNode *start);
 STR_TYPE_DEF(strGraphEdgeP, GraphPath);
 STR_TYPE_FUNCS(strGraphEdgeP, GraphPath);
 strGraphPath graphAllPathsTo(struct __graphNode *from, struct __graphNode *to);
 void graphPrint(struct __graphNode *node, char *(*toStr)(struct __graphNode *), char *(*toStrEdge)(struct __graphEdge *));
 void graphReplaceWithNode(strGraphNodeP toReplace, struct __graphNode *replaceWith, int (*edgeCmp)(const struct __graphEdge *, const struct __graphEdge *),
                           void (*killNodeData)(void *), long edgeSize);
+strGraphNodeP __graphNodeVisitAllAccessable(const struct __graphNode *start);
 
 GRAPH_TYPE_DEF(struct __graphNode *, struct __graphEdge *, Mapping);
 GRAPH_TYPE_FUNCS(struct __graphNode *, struct __graphEdge *, Mapping);
@@ -163,3 +165,4 @@ void graph2GraphVizUndir(FILE *dumpTo, graphNodeMapping graph, const char *title
                          char *(*nodeToLabel)(const struct __graphNode *node, mapGraphVizAttr *attrs, const void *data), const void *nodeData);
 strGraphEdgeP graphAllEdgesBetween(const struct __graphNode *node, const void *data, int (*predicate)(const struct __graphNode *node, const void *data));
 graphNodeMapping graphNodeMappingClone(graphNodeMapping mapping);
+void graphIsolateFromUnaccessable(struct __graphNode *node);
