@@ -1948,12 +1948,8 @@ static graphNodeIR assembleOpIntShift(graphNodeIR start, const char *op) {
 			AUTO_LOCK_MODE_REGS(bMode);
 			AUTO_LOCK_MODE_REGS(oMode);
 			AUTO_LOCK_MODE_REGS(clMode);
-
 			struct X86AddressingMode *accum=getAccumulatorForType(oMode->valueType);
-			
-			strRegP oModeRegs CLEANUP(strRegPDestroy)=regsFromMode(oMode);
-			if(regConflictsWithOtherRegs(oModeRegs, &regX86CL))
-					pushReg(&regX86CL);
+			pushReg(&regX86CL);
 			
 			asmTypecastAssign(clMode, bMode,0);
 			asmTypecastAssign(accum,aMode, ASM_ASSIGN_X87FPU_POP);
@@ -1962,9 +1958,7 @@ static graphNodeIR assembleOpIntShift(graphNodeIR start, const char *op) {
 		args = strX86AddrModeAppendItem(args, X86AddrModeReg(&regX86CL,&typeI8i));
 		assembleOpcode(start,op,args);
 		
-		if(regConflictsWithOtherRegs(oModeRegs, &regX86CL))
-				popReg(&regX86CL);
-
+		popReg(&regX86CL);
 		asmTypecastAssign(oMode, accum, ASM_ASSIGN_X87FPU_POP);
 		return out;
 	}
