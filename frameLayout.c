@@ -134,7 +134,6 @@ void IRComputeFrameLayout(graphNodeIR start, long *frameSize,ptrMapFrameOffset *
 	currentOffset=pack(0, LONG_MAX, &allRefs, &order);
 
 	__auto_type localVarFrameOffsets = ptrMapFrameOffsetCreate();
-		for (long i = 0; i != strIRVarRefsSize(order); i++)
 		for (long o = 0; o != strIRVarRefsSize(order); o++) {
 				for(long n=0;n!=strGraphNodeIRPSize(order[o]->refs);n++) {
 						struct IRNodeValue *ir = (void *)graphNodeIRValuePtr(order[o]->refs[n]);
@@ -145,8 +144,7 @@ void IRComputeFrameLayout(graphNodeIR start, long *frameSize,ptrMapFrameOffset *
 				if (ir->val.value.var.var->isGlobal)
 						continue;
 				if(!ptrMapFrameOffsetGet(localVarFrameOffsets, ir->val.value.var.var))
-						ptrMapFrameOffsetAdd(localVarFrameOffsets, order[i]->vars[0].var, order[i]->offset+order[i]->largestSize);
-
+						ptrMapFrameOffsetAdd(localVarFrameOffsets, order[o]->vars[0].var, order[o]->offset+order[o]->largestSize);
 				
 				__auto_type find = ptrMapFrameOffsetGet(localVarFrameOffsets, ir->val.value.var.var);
 				assert(find);
