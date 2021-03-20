@@ -447,8 +447,6 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 			//Account for numerical offset2
 			if(args[i]->value.m.value.sib.offset2) {
 					char *buffer CLEANUP(free2)=fromFmt("%+li",args[i]->value.m.value.sib.offset2);
-					if(offsetStr==NULL)
-							offsetStr=strCharAppendItem(offsetStr, '\0');
 					offsetStr=strCharResize(offsetStr,strCharSize(offsetStr)+strlen(buffer)+1);
 					strcat(offsetStr, buffer);
 			}
@@ -457,7 +455,8 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 			for(long m=0;m!=strObjectMemberPSize(members);m++) {
 					char *memNam=offsetName(members[m]);
 					char *buffer CLEANUP(free2)=fromFmt( "+%s",memNam);
-					offsetStr=strCharConcat(offsetStr, strClone(buffer));
+					offsetStr=strCharResize(offsetStr,strCharSize(offsetStr)+strlen(buffer)+1);
+					strcat(offsetStr, buffer);
 			}
 			
 			strChar buffer CLEANUP(strCharDestroy) = NULL;

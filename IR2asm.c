@@ -1418,7 +1418,8 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	IRInsertImplicitTypecasts(start);
 	
 	nodes = graphNodeIRAllNodes(start);
-
+	__auto_type poo=insertLabelsForAsm(nodes);
+	nodes = graphNodeIRAllNodes(start);
 	// If start is a function-start,make a list of arguments and store them into variables,replace references to function argument node with variable
 
 	// "Push" asmFuncArgVars
@@ -1509,57 +1510,29 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	if(allocateX87fpuRegs) {
 			IRRegisterAllocateX87(start);
 	}
-	
-	strGraphNodeIRP regAllocedNodes CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRAllNodes(start);
-	{
-		strGraphNodeIRP removedNodes CLEANUP(strGraphNodeIRPDestroy) = NULL;
-		strGraphNodeIRP addedNodes CLEANUP(strGraphNodeIRPDestroy) = NULL;
-		// Replace all spills/loads with variable,then we compute a frame layout
-		for (long i = 0; i != strGraphNodeIRPSize(regAllocedNodes); i++) {
-			if (graphNodeIRValuePtr(regAllocedNodes[i])->type == IR_SPILL_LOAD) {
-				struct IRNodeSpill *spillLoad = (void *)graphNodeIRValuePtr(regAllocedNodes[i]);
-
-				__auto_type var = spillLoad->item.value.var.var;
-				strGraphNodeP toReplace CLEANUP(strGraphNodePDestroy) = strGraphNodePAppendItem(NULL, regAllocedNodes[i]);
-				__auto_type newNode = IRCreateVarRef(var);
-				graphReplaceWithNode(toReplace, newNode, NULL, (void (*)(void *))IRNodeDestroy, sizeof(enum IRConnType));
-
-				removedNodes = strGraphNodeIRPSortedInsert(removedNodes, regAllocedNodes[i], (gnCmpType)ptrPtrCmp);
-				addedNodes = strGraphNodeIRPSortedInsert(addedNodes, newNode, (gnCmpType)ptrPtrCmp);
-			}
-		}
-		regAllocedNodes = strGraphNodeIRPSetDifference(regAllocedNodes, removedNodes, (gnCmpType)ptrPtrCmp);
-		regAllocedNodes = strGraphNodeIRPSetUnion(regAllocedNodes, addedNodes, (gnCmpType)ptrPtrCmp);
-	}
 
 	//"Push" the old frame layout
 	__auto_type oldOffsets = localVarFrameOffsets;
 	long oldFrameSize=frameSize;
 	
 	// Frame allocate
-	IRComputeFrameLayout(regAllocedNodes[0], NULL);
+	IRComputeFrameLayout(start, &frameSize,&localVarFrameOffsets);
 	
 	// Replace all global variables with
 	{
-		strGraphNodeIRP removed CLEANUP(strGraphNodeIRPDestroy) = NULL;
-		strGraphNodeIRP added CLEANUP(strGraphNodeIRPDestroy) = NULL;
-		for (long n = 0; n != strGraphNodeIRPSize(regAllocedNodes); n++) {
-			struct IRNodeValue *val = (void *)graphNodeIRValuePtr(regAllocedNodes[n]);
-			if (val->base.type != IR_VALUE)
-				continue;
-			if (val->val.type != IR_VAL_VAR_REF)
-				continue;
-			if (!val->val.value.var.var->isGlobal)
-				continue;
-			__auto_type sym = IRCreateGlobalVarRef(val->val.value.var.var);
-			strGraphNodeIRP toReplace CLEANUP(strGraphNodeIRPDestroy) = strGraphNodeIRPAppendItem(NULL, regAllocedNodes[n]);
-			graphIRReplaceNodes(toReplace, sym, NULL, (void (*)(void *))IRNodeDestroy);
-
-			removed = strGraphNodeIRPSortedInsert(removed, regAllocedNodes[n], (gnCmpType)ptrPtrCmp);
-			added = strGraphNodeIRPSortedInsert(added, sym, (gnCmpType)ptrPtrCmp);
-		}
-		regAllocedNodes = strGraphNodeIRPSetDifference(regAllocedNodes, removed, (gnCmpType)ptrPtrCmp);
-		regAllocedNodes = strGraphNodeIRPSetUnion(regAllocedNodes, added, (gnCmpType)ptrPtrCmp);
+			strGraphNodeIRP regAllocedNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start); 
+			for (long n = 0; n != strGraphNodeIRPSize(regAllocedNodes); n++) {
+					struct IRNodeValue *val = (void *)graphNodeIRValuePtr(regAllocedNodes[n]);
+					if (val->base.type != IR_VALUE)
+							continue;
+					if (val->val.type != IR_VAL_VAR_REF)
+							continue;
+					if (!val->val.value.var.var->isGlobal)
+							continue;
+					__auto_type sym = IRCreateGlobalVarRef(val->val.value.var.var);
+					strGraphNodeIRP toReplace CLEANUP(strGraphNodeIRPDestroy) = strGraphNodeIRPAppendItem(NULL, regAllocedNodes[n]);
+					graphIRReplaceNodes(toReplace, sym, NULL, (void (*)(void *))IRNodeDestroy);
+			}
 	}
 	// For all non-reg globals,dump them to global scope
 	if (!isFunc)
@@ -1574,11 +1547,7 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	// This computes calling information for the ABI
 	IRComputeABIInfo(start);
 
-	{
-			strGraphNodeIRP inserted CLEANUP(strGraphNodeIRPDestroy) = insertLabelsForAsm(regAllocedNodes);
-			inserted = strGraphNodeIRPSetUnion(inserted,nodes, (gnCmpType)ptrPtrCmp);
-	}
-	
+	//debugShowGraphIR(start);
 	IR2Asm(start);
 
 	if(!isFunc)
@@ -1594,7 +1563,7 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	for (long f = 0; f != strGraphNodeIRPSize(funcsWithin); f++) {
 		IRCompile(funcsWithin[f], 1);
 	}
-	graphNodeIRKillGraph(&start, (void(*)(void*))IRNodeDestroy, NULL);
+	//graphNodeIRKillGraph(&start, (void(*)(void*))IRNodeDestroy, NULL);
 }
 static int isPtrType(struct object *obj) {
 	__auto_type type = objectBaseType(obj)->type;
@@ -2447,6 +2416,7 @@ static void storeMemberPtrInReg(struct reg *memReg, graphNodeIR sourceNode, strO
 			__auto_type sib=X86AddrModeIndirSIB(0, 0, X86AddrModeReg(memReg, getTypeForSize(ptrSize())), NULL,  getTypeForSize(ptrSize()));
 			for(long m=0;m!=strObjectMemberPSize(currMembers);m++)
 					X86AddrModeIndirSIBAddMemberOffset(sib,currMembers[m]);
+			sib->valueType=getTypeForSize(ptrSize());
 			leaArgs = strX86AddrModeAppendItem(leaArgs, sib);
 			assembleInst("LEA", leaArgs);
 	}

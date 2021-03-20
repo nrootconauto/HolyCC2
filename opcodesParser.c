@@ -721,6 +721,7 @@ void X86AddrModeIndirSIBAddOffset(struct X86AddressingMode *addrMode,int32_t off
 }
 void X86AddrModeIndirSIBAddMemberOffset(struct X86AddressingMode *addrMode,struct objectMember *mem)  {
 		addrMode->value.m.value.sib.memberOffsets=strObjectMemberPAppendItem(addrMode->value.m.value.sib.memberOffsets, mem);
+		addrMode->valueType=mem->type;
 }
 struct X86AddressingMode *X86AddrModeIndirSIB(long scale, struct X86AddressingMode *index, struct X86AddressingMode *base, struct X86AddressingMode *offset,
                                               struct object *type) {

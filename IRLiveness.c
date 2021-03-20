@@ -6,12 +6,11 @@
 #include "basicBlocks.h"
 #include "debugPrint.h"
 #include <stdio.h>
-void *IR_ATTR_BASIC_BLOCK = "BASIC_BLOCK";
 typedef int (*gnCmpType)(const graphNodeMapping *, const graphNodeMapping *);
 typedef int (*varRefCmpType)(const struct IRVar **, const struct IRVar **);
 #define ALLOCATE(x)                                                                                                                                                \
 	({                                                                                                                                                               \
-		typeof(x) *ptr = calloc(sizeof(x));                                                                                                                            \
+			typeof(x) *ptr = calloc(sizeof(x),1);																																	\
 		*ptr = x;                                                                                                                                                      \
 		ptr;                                                                                                                                                           \
 	})
@@ -29,46 +28,9 @@ static int filterVars(void *data, struct __graphNode *node) {
 
 	return 1;
 }
-static void copyConnections(strGraphEdgeP in, strGraphEdgeP out) {
-	// Connect in to out(if not already connectected)
-	for (long inI = 0; inI != strGraphEdgeMappingPSize(in); inI++) {
-		for (long outI = 0; outI != strGraphEdgeMappingPSize(out); outI++) {
-			__auto_type inNode = graphEdgeMappingIncoming(in[inI]);
-			__auto_type outNode = graphEdgeMappingOutgoing(out[outI]);
-
-			// Check if not connected to
-			if (__graphIsConnectedTo(inNode, outNode))
-				continue;
-
-			DEBUG_PRINT("Connecting %s to %s\n", var2Str(*graphNodeMappingValuePtr(inNode)), var2Str(*graphNodeMappingValuePtr(outNode)))
-			graphNodeMappingConnect(inNode, outNode, NULL);
-		}
-	}
-}
-static void __filterTransparentKill(graphNodeMapping node) {
-	__auto_type in = graphNodeMappingIncoming(node);
-	__auto_type out = graphNodeMappingOutgoing(node);
-
-	copyConnections(in, out);
-
-	graphNodeMappingKill(&node, NULL, NULL);
-}
 static int IRVarRefCmp(const struct IRVar **a, const struct IRVar **b) {
 	return IRVarCmp(a[0], b[0]);
 }
-static int isExprEdge(graphEdgeIR edge) {
-	switch (*graphEdgeIRValuePtr(edge)) {
-	case IR_CONN_DEST:
-	case IR_CONN_FUNC:
-	case IR_CONN_FUNC_ARG_1 ... IR_CONN_FUNC_ARG_128:
-	case IR_CONN_SIMD_ARG:
-	case IR_CONN_SOURCE_A:
-	case IR_CONN_SOURCE_B:
-		return 1;
-	default:
-		return 0;
-	}
-};
 static int ptrPtrCmp(const void *a, const void *b) {
 		if(*(void**)a>*(void**)b)
 				return 1;
@@ -89,24 +51,11 @@ static int isVarNode(const struct IRNode *irNode) {
 
 	return 0;
 }
-static void killNode(void *ptr) {
-		struct blockMetaNode *Ptr=ptr;
-	__graphNodeKill(Ptr->node, NULL, NULL);
+static struct IRVar varFromNode(graphNodeIR node) {
+		__auto_type val=graphNodeIRLiveValuePtr(node);
+		return val->ref;
 }
-struct varRefNodePair {
-	struct IRVar ref;
-	graphNodeIRLive node;
-};
-STR_TYPE_DEF(struct varRefNodePair, VarRefNodePair);
-STR_TYPE_FUNCS(struct varRefNodePair, VarRefNodePair);
-static int varRefNodePairCmp(const struct varRefNodePair *a, const struct varRefNodePair *b) {
-	return IRVarCmp(&a->ref, &b->ref);
-}
-static char *strDup(const char *text) {
-		return strcpy(calloc(strlen(text) + 1,1), text);
-}
-STR_TYPE_DEF(char, Char);
-STR_TYPE_FUNCS(char, Char);
+static __thread graphNodeIRLive lastWritten=NULL;
 static graphNodeIRLive  __IRInterferenceGraphFilterExp(graphNodeIR node,strGraphNodeIRLiveP *stack,strVar exclude, const void *data,int (*varFilter)(graphNodeIR node, const void *data)) { 
 		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=IREdgesByPrec(node);
 		graphNodeIRLive liveNode=NULL;
@@ -115,27 +64,54 @@ static graphNodeIRLive  __IRInterferenceGraphFilterExp(graphNodeIR node,strGraph
 		} else if(isVarNode(graphNodeIRValuePtr(node))) {
 		valid:;
 				struct IRVarLiveness live;
-				live.ref=((struct IRNodeValue*)(graphNodeIRValuePtr(node)))->val.value.var;
-				liveNode=graphNodeIRLiveCreate(live, 0);
+				__auto_type var=((struct IRNodeValue*)(graphNodeIRValuePtr(node)))->val.value.var;
+				if(NULL==strVarSortedFind(exclude, var, IRVarCmp)) {
+						live.ref=var;
+						lastWritten=liveNode=graphNodeIRLiveCreate(live, 0);
+				}
+		}
+		long originalSize=strGraphNodeIRPSize(*stack);
+
+		for(long e=0;e!=strGraphEdgeIRPSize(in);e++) {
+				__IRInterferenceGraphFilterExp(graphEdgeIRIncoming(in[e]), stack, exclude,data, varFilter);
 		}
 
-		if(liveNode)
+		for(long N=0;N!=strGraphNodeIRLivePSize(*stack);N++)  {
 				for(long n=0;n!=strGraphNodeIRLivePSize(*stack);n++) {
-						graphNodeIRLiveConnect(stack[0][n], liveNode, NULL);
-						graphNodeIRLiveConnect(liveNode,stack[0][n], NULL);
+						if(stack[0][n]==stack[0][N]) continue;
+						
+						if(!graphNodeIRLiveConnectedTo(stack[0][n], stack[0][N])) {
+								graphNodeIRLiveConnect(stack[0][n], stack[0][N], NULL);
+								graphNodeIRLiveConnect(stack[0][N],stack[0][n], NULL);
+						}
 				}
+		}
+		struct basicBlock inOut;
+		inOut.refCount=1;
+		inOut.in=NULL;
+		inOut.out=NULL;
+		for(long s=0;s!=strGraphNodeIRPSize(*stack);s++) {
+				inOut.in=strVarSortedInsert(inOut.in,  varFromNode(stack[0][s]), IRVarCmp);
+				varFromNode(stack[0][s]).var->refCount++;
+		}
+		if(liveNode) {
+				inOut.out=strVarAppendItem(inOut.out, varFromNode(liveNode));
+				varFromNode(liveNode).var->refCount++;
+		}
+		
+		struct IRAttrBasicBlock attr;
+		attr.base.name=(void*)IR_ATTR_BASIC_BLOCK;
+		attr.base.destroy=IRAttrBasicBlockDestroy;
+		attr.block=ALLOCATE(inOut);
+		IRAttrReplace(node,__llCreate(&attr, sizeof(attr)));
+
+		if(liveNode)
+				*stack=strGraphNodeIRPResize(*stack, originalSize);
 		
 		if(liveNode)
 					*stack=strGraphNodeIRLivePAppendItem(*stack, liveNode);
 
-		graphNodeIRLive retVal=NULL;
-		for(long e=0;e!=strGraphEdgeIRPSize(in);e++) {
-				retVal=__IRInterferenceGraphFilterExp(node, stack, exclude,data, varFilter);
-		}
-		if(liveNode)
-					*stack=strGraphNodeIRLivePPop(*stack, &retVal);
-
-		return retVal;
+		return lastWritten;
 }
 strGraphNodeIRLiveP IRInterferenceGraphFilter(graphNodeIR start, const void *data, int (*varFilter)(graphNodeIR node, const void *data)) {
 		strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);
@@ -143,9 +119,12 @@ strGraphNodeIRLiveP IRInterferenceGraphFilter(graphNodeIR start, const void *dat
 		strVar vars CLEANUP(strVarDestroy)=NULL;
 		strVar multiVars CLEANUP(strVarDestroy)=NULL;
 		for(long n=0;n!=strGraphNodeIRLivePSize(allNodes);n++) {
-				__auto_type var=graphNodeIRLiveValuePtr(allNodes[n])->ref;
+				struct IRNodeValue *val=(void*)graphNodeIRValuePtr(allNodes[n]);
+				if(val->base.type!=IR_VALUE) continue;
+				if(val->val.type!=IR_VAL_VAR_REF) continue;
+				__auto_type var=val->val.value.var;
 				if(strVarSortedFind(vars, var, IRVarCmp))
-						multiVars=strVarAppendItem(multiVars, var);
+						multiVars=strVarSortedInsert(multiVars, var,IRVarCmp);
 				vars=strVarSortedInsert(vars, var, IRVarCmp);
 		}
 		multiVars=strVarUnique(multiVars, IRVarCmp , NULL);
@@ -160,8 +139,10 @@ strGraphNodeIRLiveP IRInterferenceGraphFilter(graphNodeIR start, const void *dat
 						continue;
 
 				strGraphNodeIRLiveP stack CLEANUP(strGraphNodeIRLivePDestroy)=NULL;
+				lastWritten=NULL;
 				__auto_type e=__IRInterferenceGraphFilterExp(end,&stack,multiVars,data,varFilter);
-				retVal=strGraphNodeIRLivePSortedInsert(retVal, e, (gnCmpType)ptrPtrCmp);
+				if(e)
+						retVal=strGraphNodeIRLivePSortedInsert(retVal, e, (gnCmpType)ptrPtrCmp);
 		}
 		
 	return retVal;

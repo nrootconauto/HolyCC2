@@ -105,11 +105,11 @@ static int namedVarFilter(graphNodeIR node,const void *data) {
 		}
 		return 1;
 }
-void IRComputeFrameLayout(graphNodeIR start, long *frameSize) {
+void IRComputeFrameLayout(graphNodeIR start, long *frameSize,ptrMapFrameOffset *offsets) {
 	strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);
 	strIRVarRefs allRefs CLEANUP(strIRVarRefsDestroy2)=NULL;
-	for(long n=0;n!=0;n++) {
-			struct IRNodeValue *val=(void*)graphNodeIRLiveAllNodes(allNodes[n]);
+	for(long n=0;n!=strGraphNodeIRPSize(allNodes);n++) {
+			struct IRNodeValue *val=(void*)graphNodeIRValuePtr(allNodes[n]);
 			if(val->base.type!=IR_VALUE) continue;
 			if(val->val.type!=IR_VAL_VAR_REF) continue;
 			__auto_type var=val->val.value.var;
@@ -125,7 +125,7 @@ void IRComputeFrameLayout(graphNodeIR start, long *frameSize) {
 					find[0]->refs=strGraphNodeIRPSortedInsert(find[0]->refs, allNodes[n], (gnCmpType)ptrPtrCmp);
 					IRVarRefsPairDestroy(ALLOCATE(dummy));
 			} else {
-					strIRVarRefsSortedInsert(allRefs, ALLOCATE(dummy), IRVarRefsCmp);
+					allRefs=strIRVarRefsSortedInsert(allRefs, ALLOCATE(dummy), IRVarRefsCmp);
  		}
 	}
 	
@@ -156,6 +156,14 @@ void IRComputeFrameLayout(graphNodeIR start, long *frameSize) {
 		}
 }
 	
-	if (frameSize)
-		*frameSize = currentOffset;
+		if (frameSize) {
+				*frameSize = 0;
+				if(strIRVarRefsSize(order)) {
+						__auto_type top=order[strIRVarRefsSize(order)-1];
+						*frameSize=top->offset+top->largestSize;
+				}
+		}
+
+		if(offsets)
+				*offsets=localVarFrameOffsets;
 }

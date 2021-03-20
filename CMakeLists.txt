@@ -81,7 +81,7 @@ if(TRUE)
 foreach(file ${sources})
  get_filename_component(fn ${file} NAME)
 	get_filename_component(dir ${file} DIRECTORY)
-
+ 
 file(MAKE_DIRECTORY "${CMAKE_SOURCE_DIR}/doc/${dir}")
 if(EXISTS "${CMAKE_SOURCE_DIR}/doc/${file}.md")
  add_custom_command(TARGET doc COMMAND codedoc --title "HolyCC:${file}" --body ${CMAKE_SOURCE_DIR}/doc/${file}.md ${CMAKE_SOURCE_DIR}/${file}>${CMAKE_SOURCE_DIR}/doc/${file}.html DEPENDS ${file})

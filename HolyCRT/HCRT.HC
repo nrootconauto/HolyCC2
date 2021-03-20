@@ -113,7 +113,7 @@ U0 testRegsI16i() {
 			printf("%li\n",(a||b)==0);
 			printf("%li\n",(a^^b)==0);
 }
-U0 testRegsI8i() {
+/*U0 testRegsI8i() {
 			{
 			printf("I8i BL BH\n");
 			I8i reg BL a=2;
@@ -1374,7 +1374,7 @@ U0 testRegsI8i() {
 			printf("%li\n",(a||b)==0);
 			printf("%li\n",(a^^b)==0);
 }
-}
+}*/
 U0 testRegsCast() {
 			I32i reg EDX reg32=1;
 			I16i reg BX reg16=1;
@@ -1419,7 +1419,7 @@ try {
 				} catch {
 					testRegsI32i();
 					testRegsI16i();
-					testRegsI8i();
+					//testRegsI8i();
 					testRegsCast();
 					testNoDest();
 					testRange();
@@ -1428,4 +1428,3 @@ try {
 					"Hello Wolrd:%.6n\n",15.500;
 					return 0;
 }
-Print("Hello World,%d\n",123);

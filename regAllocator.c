@@ -412,6 +412,8 @@ static int filterIntVars(graphNodeIR node, const void *data) {
 		return 0;
 	if (value->val.value.var.var->isNoreg)
 		return 0;
+	if (value->val.value.var.var->isGlobal)
+			return 0;
 	if (__varFiltPred)
 		if (!__varFiltPred(value->val.value.var.var, __varFilterData))
 			return 0;
@@ -639,37 +641,6 @@ static int conflictPairContains(graphNodeIRLive node, const struct conflictPair 
 	return pair->a == node || pair->b == node;
 }
 static void *IR_ATTR_TEMP_VARIABLE = "TMP_VAR";
-static void replaceVarsWithSpillOrLoad(strGraphNodeIRLiveP spillNodes, strGraphNodeIRP *allNodes) {
-	// Create assicaitve array
-	strVarToLiveNode varToLive = NULL;
-	for (long i = 0; i != strGraphNodeIRLivePSize(spillNodes); i++) {
-		struct varToLiveNode pair;
-		pair.live = spillNodes[i];
-		pair.var = graphNodeIRLiveValuePtr(spillNodes[i])->ref;
-		varToLive = strVarToLiveNodeSortedInsert(varToLive, pair, varToLiveNodeCompare);
-	}
-
-	strGraphNodeIRP removed CLEANUP(strGraphNodeIRPDestroy)=NULL;
-	for (long i = 0; i != strGraphNodeIRPSize(allNodes[0]); i++) {
-		// Look for vairable
-		if (isVar(allNodes[0][i])) {
-			// Check if in spill nodes
-			struct IRNodeValue *value = (void *)graphNodeIRValuePtr(allNodes[0][i]);
-
-			struct varToLiveNode dummy;
-			dummy.var = value->val.value.var;
-			dummy.live = NULL;
-			__auto_type find = strVarToLiveNodeSortedFind(varToLive, dummy, varToLiveNodeCompare);
-
-			if (find) {
-				__auto_type node = IRCreateSpillLoad(&value->val.value.var);
-				replaceNodeWithExpr(allNodes[0][i], IREndOfExpr(node));
-				removed=strGraphNodeIRPSortedInsert(removed, allNodes[0][i], (gnCmpType)ptrPtrCmp);
-			}
-		}
-	}
-	*allNodes=strGraphNodeIRPSetDifference(*allNodes, removed, (gnCmpType)ptrPtrCmp);
-}
 static void replaceVarsWithRegisters(ptrMapregSlice map, strGraphNodeIRLiveP allLiveNodes,strGraphNodeIRP *allNodes) {
 	//
 	// Create an associative array to turn variables into live nodes
@@ -713,6 +684,7 @@ static void replaceVarsWithRegisters(ptrMapregSlice map, strGraphNodeIRLiveP all
 				attr.base.name = IR_ATTR_VARIABLE;
 				attr.base.destroy = NULL;
 				attr.var = var;
+				var.var->refCount++;
 				__auto_type attrLL = __llCreate(&attr, sizeof(attr));
 				// Insert
 				__auto_type attrPtr = &graphNodeIRValuePtr(regRef)->attrs;
@@ -978,9 +950,6 @@ void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,v
 
 		// Replace with registers
 		replaceVarsWithRegisters(regsByLivenessNode, allColorNodes,&allNodes2);
-
-		// Replce spill nodes with spill/load
-		replaceVarsWithSpillOrLoad(spillNodes, &allNodes2);
 
 		//Assert no adjacent conflicts 
 		for(long n=0;n!=strGraphNodeIRPSize(allColorNodes);n++) {
