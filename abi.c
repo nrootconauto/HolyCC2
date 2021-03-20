@@ -189,16 +189,16 @@ void findRegisterLiveness(graphNodeIR start) {
 		// Find insrection in/out registers that conflict
 		strRegP conflicts = NULL;
 		for (long i = 0; i != strVarSize(inVars); i++) {
-			__auto_type iFind = *ptrMapVar2RegGet(var2Reg, inVars[i].var);
-			if(!iFind) continue;
+				__auto_type iFind = *ptrMapVar2RegGet(var2Reg, inVars[i].var);
+				if(!iFind) continue;
+				conflicts = strRegPSortedInsert(conflicts, iFind, (regCmpType)ptrPtrCmp);
+		}
 			for (long o = 0; o != strVarSize(outVars); o++) {
 				__auto_type oFind = *ptrMapVar2RegGet(var2Reg, outVars[o].var);
 				if(!oFind) continue;
-				__auto_type common = smallestRegContainingBoth(iFind, oFind);
-				conflicts = strRegPSortedInsert(conflicts, common, (regCmpType)ptrPtrCmp);
+				conflicts = strRegPSortedInsert(conflicts, oFind, (regCmpType)ptrPtrCmp);
 			}
-		}
-
+			
 		strRegP inRegs =NULL;
 		for (long i = 0; i != strVarSize(inVars); i++) {
 				__auto_type iFind = *ptrMapVar2RegGet(var2Reg, inVars[i].var);
