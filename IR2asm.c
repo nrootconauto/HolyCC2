@@ -1547,7 +1547,7 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	// This computes calling information for the ABI
 	IRComputeABIInfo(start);
 
-	if(isFunc)	debugShowGraphIR(start);
+	//if()	debugShowGraphIR(start);
 	IR2Asm(start);
 
 	if(!isFunc)

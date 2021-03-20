@@ -108,6 +108,7 @@ struct opcodeTemplateArg {
 		int64_t sint;
 		struct reg *reg;
 	} value;
+		unsigned int isChangedByOp:1;
 };
 STR_TYPE_DEF(struct opcodeTemplateArg, OpcodeTemplateArg);
 STR_TYPE_FUNCS(struct opcodeTemplateArg, OpcodeTemplateArg);

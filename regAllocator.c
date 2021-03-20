@@ -785,7 +785,7 @@ void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,v
 								strGraphEdgeIRLiveP aRegO CLEANUP(strGraphEdgeIRLivePDestroy)=graphNodeIRLiveOutgoing(adj[a]);
 								if(strGraphEdgeIRLivePSize(currDegO)>strGraphEdgeIRLivePSize(aRegO)) {
 										ptrMapregSliceRemove(regsByLivenessNode, allColorNodes[n]);
-										assert(!!ptrMapregSliceGet(regsByLivenessNode, allColorNodes[a]));
+										assert(!ptrMapregSliceGet(regsByLivenessNode, allColorNodes[n]));
 										printf("Spilling :%p,%p\n",allColorNodes[n],graphNodeIRLiveValuePtr(allColorNodes[n])->ref.var);
 								}else {
 										ptrMapregSliceRemove(regsByLivenessNode, adj[a]);

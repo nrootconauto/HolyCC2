@@ -209,6 +209,7 @@ void parseOpcodeFile() {
 	    "^",  //?
 	    "*",  // ST(i) like
 	    "$",  //?
+					"@",  // Modification I made,Makes it so argument is changed by the opcode
 	    "#",  // Modification I made,specifies intel name
 	    "##", // Modification I made,specifies alias(followed by string)
 	    ",",      "+R",   "+I",     "/R",     "/0",      "/1",      "/2", "/3", "/4", "/5",   "/6",    "/7",    "IB",    "IW",    "ID",     "RM8",    "RM16",
@@ -315,15 +316,19 @@ void parseOpcodeFile() {
 						}
 						// Look for arg keywords or flags
 						for (;;) {
-							long oldPos = pos;
+								long oldPos = pos;
 							struct opLexerItem *item CLEANUP(opLexerItemDestroy) = lexItem(text, &pos, keywords, kwCount);
-#define ARG_BY_NAME(arg, name)                                                                                                                                     \
-	else if (0 == strcmp(item->value.kw, name)) {                                                                                                                    \
-		struct opcodeTemplateArg __arg;                                                                                                                                \
-		__arg.type = arg;                                                                                                                                              \
-		template.args = strOpcodeTemplateArgAppendItem(template.args, __arg);                                                                                          \
-	}
-							if (item->type == OP_LEXER_INT) {
+#define ARG_BY_NAME(arg, name)																																										\
+							else if (0 == strcmp(item->value.kw, name)) {																				\
+									struct opcodeTemplateArg __arg;																																\
+									__arg.type = arg;																																														\
+									__arg.isChangedByOp=0;																																									\
+									long oldPos=pos;																																															\
+									const char *kwText=NULL;lexKeyword(text, &pos, keywords, kwCount,&kwText);	\
+									if(kwText) {if(0==strcmp(kwText,"@")) __arg.isChangedByOp=1; else pos=oldPos;}	\
+									template.args = strOpcodeTemplateArgAppendItem(template.args, __arg ); \
+						}
+						if (item->type == OP_LEXER_INT) {
 								pos = oldPos;
 								goto opcodeFinish;
 							} else if (item->type == OP_LEXER_KW) {
