@@ -106,17 +106,6 @@ static graphNodeIRLive  __IRInterferenceGraphFilterExp(graphNodeIR node,strGraph
 		attr.block=ALLOCATE(inOut);
 		IRAttrReplace(node,__llCreate(&attr, sizeof(attr)));
 
-		if(graphNodeIRValuePtr(node)->type==IR_DERREF) {
-				if(strGraphNodeIRLivePSize(*stack)) {
-						for(long s=0;s!=strGraphNodeIRLivePSize(*stack);s++) {
-								assert(strGraphNodeIRLivePSortedFind(lastWritten, stack[0][s] ,  (gnCmpType)ptrPtrCmp));
-								printf("VAR:%p\n", varFromNode(stack[0][s]).var);
-						}
-						printf("\n");
-				}
-		}
-
-		
 		if(liveNode)
 				*stack=strGraphNodeIRPResize(*stack, originalSize);
 		

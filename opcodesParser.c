@@ -417,6 +417,10 @@ void parseOpcodeFile() {
 								struct opcodeTemplateArg arg;
 								arg.type = OPC_TEMPLATE_ARG_REG;
 								arg.value.reg = *find;
+								long oldPos=pos;
+								const char *kwText=NULL;lexKeyword(text, &pos, keywords, kwCount,&kwText);
+								if(kwText) {if(0==strcmp(kwText,"@")) arg.isChangedByOp=1; else pos=oldPos;}
+								
 								template.args = strOpcodeTemplateArgAppendItem(template.args, arg);
 							} else {
 								assert(0);

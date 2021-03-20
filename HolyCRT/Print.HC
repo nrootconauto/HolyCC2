@@ -29,7 +29,7 @@ static U0 __PrintF64(F64 f,F64 e,F64 p,I32i digits) {
 
 							F64 R=__PrintF64Shift(f,Max(0.0,e-p));
 							F64 S=__PrintF64Shift(1.0,Max(0.0,-(e-p)));
-							//printf("%lf,%lf\n",R/S,value);
+							printf("%lf,%lf\n",R/S,value);
 
 							F64 mA=__PrintF64Shift(1.0,Max(0.0,e-p));
 							F64 mB=mA;

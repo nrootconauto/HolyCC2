@@ -1424,7 +1424,6 @@ try {
 					testNoDest();
 					testRange();
 					}
-
 					"Hello Wolrd:%.6n\n",15.500;
 					return 0;
 }

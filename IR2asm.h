@@ -8,8 +8,8 @@ struct X86AddressingMode *IRNode2AddrMode(graphNodeIR start);
 enum asmAssignFlags {
 		ASM_ASSIGN_X87FPU_POP=1,
 };
-void asmAssign(struct X86AddressingMode *a, struct X86AddressingMode *b, long size,enum asmAssignFlags flags);
-void asmTypecastAssign(struct X86AddressingMode *outMode, struct X86AddressingMode *inMode,enum asmAssignFlags flags);
+void asmAssign(graphNodeIR atNode,struct X86AddressingMode *a, struct X86AddressingMode *b, long size,enum asmAssignFlags flags);
+void asmTypecastAssign(graphNodeIR atNode,struct X86AddressingMode *outMode, struct X86AddressingMode *inMode,enum asmAssignFlags flags);
 strRegP deadRegsAtPoint(graphNodeIR atNode,struct object *type);
 struct reg *regForTypeExcludingConsumed(struct object *type);
 void consumeRegister(struct reg *reg) ;
