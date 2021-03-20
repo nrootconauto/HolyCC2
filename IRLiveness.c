@@ -55,11 +55,11 @@ static struct IRVar varFromNode(graphNodeIR node) {
 		__auto_type val=graphNodeIRLiveValuePtr(node);
 		return val->ref;
 }
-static __thread graphNodeIRLive lastWritten=NULL;
+static __thread strGraphNodeIRLiveP lastWritten=NULL;
 static graphNodeIRLive  __IRInterferenceGraphFilterExp(graphNodeIR node,strGraphNodeIRLiveP *stack,strVar exclude, const void *data,int (*varFilter)(graphNodeIR node, const void *data)) { 
 		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=IREdgesByPrec(node);
 		graphNodeIRLive liveNode=NULL;
-		if(varFilter) {
+		if(varFilter&&isVarNode(graphNodeIRValuePtr(node))) {
 				if(varFilter(node,data)) goto valid;
 		} else if(isVarNode(graphNodeIRValuePtr(node))) {
 		valid:;
@@ -67,7 +67,8 @@ static graphNodeIRLive  __IRInterferenceGraphFilterExp(graphNodeIR node,strGraph
 				__auto_type var=((struct IRNodeValue*)(graphNodeIRValuePtr(node)))->val.value.var;
 				if(NULL==strVarSortedFind(exclude, var, IRVarCmp)) {
 						live.ref=var;
-						lastWritten=liveNode=graphNodeIRLiveCreate(live, 0);
+						liveNode=graphNodeIRLiveCreate(live, 0);
+						lastWritten=strGraphNodeIRLivePSortedInsert(lastWritten,liveNode,(gnCmpType)ptrPtrCmp);
 				}
 		}
 		long originalSize=strGraphNodeIRPSize(*stack);
@@ -105,13 +106,35 @@ static graphNodeIRLive  __IRInterferenceGraphFilterExp(graphNodeIR node,strGraph
 		attr.block=ALLOCATE(inOut);
 		IRAttrReplace(node,__llCreate(&attr, sizeof(attr)));
 
+		if(graphNodeIRValuePtr(node)->type==IR_DERREF) {
+				if(strGraphNodeIRLivePSize(*stack)) {
+						for(long s=0;s!=strGraphNodeIRLivePSize(*stack);s++) {
+								assert(strGraphNodeIRLivePSortedFind(lastWritten, stack[0][s] ,  (gnCmpType)ptrPtrCmp));
+								printf("VAR:%p\n", varFromNode(stack[0][s]).var);
+						}
+						printf("\n");
+				}
+		}
+
+		
 		if(liveNode)
 				*stack=strGraphNodeIRPResize(*stack, originalSize);
 		
 		if(liveNode)
 					*stack=strGraphNodeIRLivePAppendItem(*stack, liveNode);
 
-		return lastWritten;
+		for(long N=0;N!=strGraphNodeIRLivePSize(*stack);N++)  {
+				for(long n=0;n!=strGraphNodeIRLivePSize(*stack);n++) {
+						if(stack[0][n]==stack[0][N]) continue;
+						
+						if(!graphNodeIRLiveConnectedTo(stack[0][n], stack[0][N])) {
+								graphNodeIRLiveConnect(stack[0][n], stack[0][N], NULL);
+								graphNodeIRLiveConnect(stack[0][N],stack[0][n], NULL);
+						}
+				}
+		}
+		
+		return NULL;
 }
 strGraphNodeIRLiveP IRInterferenceGraphFilter(graphNodeIR start, const void *data, int (*varFilter)(graphNodeIR node, const void *data)) {
 		strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);
@@ -137,12 +160,18 @@ strGraphNodeIRLiveP IRInterferenceGraphFilter(graphNodeIR start, const void *dat
 						continue;
 				if(start==allNodes[n]&&end==allNodes[n])
 						continue;
+				if(end!=allNodes[n])
+						continue;
 
 				strGraphNodeIRLiveP stack CLEANUP(strGraphNodeIRLivePDestroy)=NULL;
 				lastWritten=NULL;
-				__auto_type e=__IRInterferenceGraphFilterExp(end,&stack,multiVars,data,varFilter);
-				if(e)
-						retVal=strGraphNodeIRLivePSortedInsert(retVal, e, (gnCmpType)ptrPtrCmp);
+				__IRInterferenceGraphFilterExp(end,&stack,multiVars,data,varFilter);
+
+				long old=strGraphNodeIRLivePSize(retVal);
+				long lastWrittenS=strGraphNodeIRLivePSize(lastWritten);
+				retVal=strGraphNodeIRLivePSetUnion(retVal, lastWritten, (gnCmpType)ptrPtrCmp);
+				assert(strGraphNodeIRLivePSize(retVal)==old+lastWrittenS);
+				strGraphNodeIRLivePDestroy(&lastWritten);
 		}
 		
 	return retVal;

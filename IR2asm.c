@@ -1049,7 +1049,7 @@ static void debugShowGraphIR(graphNodeIR enter) {
 	__auto_type map = graphNodeCreateMapping(enter, 1);
 	IRGraphMap2GraphViz(map, "viz", name, NULL, NULL, NULL, NULL);
 	char buffer[1024];
-	sprintf(buffer, "sleep 0.1 &&dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg & ", name);
+	sprintf(buffer, "sleep 1 &&dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg & ", name);
 
 	system(buffer);
 	#endif
@@ -1547,7 +1547,7 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	// This computes calling information for the ABI
 	IRComputeABIInfo(start);
 
-	//debugShowGraphIR(start);
+	if(isFunc)	debugShowGraphIR(start);
 	IR2Asm(start);
 
 	if(!isFunc)

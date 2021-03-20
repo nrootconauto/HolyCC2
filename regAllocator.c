@@ -338,68 +338,6 @@ static int conflictPairCmp(const struct conflictPair *a, const struct conflictPa
 }
 STR_TYPE_DEF(struct conflictPair, ConflictPair);
 STR_TYPE_FUNCS(struct conflictPair, ConflictPair);
-static strConflictPair recolorAdjacentNodes(ptrMapregSlice node2RegSlice, graphNodeIRLive node,double(*nodeWeight)(struct IRVar*,void*),void *nodeWeightData) {
-	__auto_type allNodes = graphNodeIRLiveAllNodes(node);
-
-	strConflictPair conflicts = NULL;
-	for (long i = 0; i != strGraphNodeIRLivePSize(allNodes); i++) {
-		__auto_type outgoingNodes = graphNodeIRLiveOutgoingNodes(allNodes[i]);
-
-		// Get current register
-		__auto_type find = ptrMapregSliceGet(node2RegSlice, allNodes[i]);
-		if (!find) {
-		whineNotColored:
-			printf("Dear programmer,try assigning registers to nodes before calling %s\n", __FUNCTION__);
-			abort();
-		}
-
-		__auto_type masterSlice = *find;
-
-		// Check for conflicting adjacent items
-		for (long i2 = 0; i2 != strGraphNodeIRLivePSize(outgoingNodes); i2++) {
-			__auto_type find = ptrMapregSliceGet(node2RegSlice, outgoingNodes[i2]);
-			// Not a register node
-			if (!find)
-				continue;
-
-			// If conflict
-			if (regSliceConflict(&masterSlice, find)) {
-				struct conflictPair pair = {allNodes[i], outgoingNodes[i2]};
-
-				// Check if exists if the pair is reverses,there is no need for
-				// duplicates
-				struct conflictPair backwards = {outgoingNodes[i2], allNodes[i]};
-				if (NULL != strConflictPairSortedFind(conflicts, backwards, conflictPairCmp))
-					continue;
-
-				// Check if exists,if so dont insert
-				if (NULL == strConflictPairSortedFind(conflicts, pair, conflictPairCmp)) {
-						__auto_type iVar=&graphNodeIRLiveValuePtr(allNodes[i])->ref;
-						__auto_type i2Var=&graphNodeIRLiveValuePtr(outgoingNodes[i2])->ref;
-						double aWeight=1.1;
-						double bWeight=1.1;
-						if(nodeWeight) {
-								aWeight=nodeWeight(iVar,nodeWeightData);
-								bWeight=nodeWeight(i2Var,nodeWeightData);
-						}
-
-						if(iVar->var->inReg)
-								aWeight=INFINITY;
-						if(i2Var->var->inReg)
-								bWeight=INFINITY;
-						
-						aWeight= interfereMetric(aWeight, allNodes[i]); 
-					 bWeight= interfereMetric(bWeight, outgoingNodes[i2]);
-						pair.aWeight = aWeight;
-						pair.bWeight = bWeight;
-						
-					conflicts = strConflictPairSortedInsert(conflicts, pair, conflictPairCmp);
-				}
-			}
-		}
-	}
-	return conflicts;
-}
 static int filterIntVars(graphNodeIR node, const void *data) {
 	struct IRNodeValue *value = (void *)graphNodeIRValuePtr(node);
 	if (value->base.type != IR_VALUE)
@@ -448,29 +386,10 @@ STR_TYPE_FUNCS(int, Int);
 static int intCmp(const int *a, const int *b) {
 	return *a - *b;
 }
-strInt getColorList(llVertexColor vertexColors) {
-	strInt retVal = NULL;
-	for (__auto_type node = llVertexColorFirst(vertexColors); node != NULL; node = llVertexColorNext(node)) {
-		// Insert into retVal if color isnt already in retVal
-		if (NULL == strIntSortedFind(retVal, llVertexColorValuePtr(node)->color, intCmp))
-			retVal = strIntSortedInsert(retVal, llVertexColorValuePtr(node)->color, intCmp);
-	}
-
-	return retVal;
-}
 struct metricPair {
 	graphNodeIRLive node;
 	double metricValue;
 };
-static int metricPairCmp(const void *a, const void *b) {
-	const struct metricPair *A = a, *B = b;
-	if (A->metricValue > B->metricValue)
-		return 1;
-	else if (A->metricValue < B->metricValue)
-		return -1;
-	else
-		return 0;
-}
 struct interferencePair {
 	struct IRVar *var;
 	strIRVar inteferesWith;
@@ -748,14 +667,6 @@ static void strGraphPathsDestroy2(strGraphPath *paths) {
 static int isExprEdge(const void *data, const graphEdgeIR *edge) {
 	return IRIsExprEdge(*graphEdgeIRValuePtr(*edge));
 }
-static int registerConflict(strRegSlice a, strRegSlice b) {
-	for (long i = 0; i != strRegSliceSize(a); i++)
-		for (long j = 0; j != strRegSliceSize(b); j++)
-			if (regSliceConflict(&a[i], &b[j]))
-				return 1;
-
-	return 0;
-}
 typedef int (*geCmpType)(const graphEdgeIR *, const graphEdgeIR *);
 struct rematerialization {
 	graphNodeIR clone;
@@ -773,7 +684,7 @@ static void mapRegSliceDestroy2(ptrMapregSlice *toDestroy) {
 }
 static void strGraphNodeIRLivePDestroy2(strGraphNodeIRLiveP *str) {
 		for(long g=0;g!=strGraphNodeIRLivePSize(*str);g++) {
-				graphNodeIRKillGraph(&str[0][g], NULL, NULL);
+				graphNodeIRLiveKill(&str[0][g], NULL, NULL);
 		}
 		strGraphNodeIRLivePDestroy(str);
 }
@@ -794,22 +705,15 @@ void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,v
 	// IRInterferenceGraphFilter(start, filterFloatVars, NULL);
 
 	strIRVar liveVars CLEANUP(strIRVarDestroy) = NULL;
-	strGraphNodeIRLiveP interferes CLEANUP(strGraphNodeIRLivePDestroy) = strGraphNodeIRLivePClone(intInterfere);
+	strGraphNodeIRLiveP interferes  = strGraphNodeIRLivePClone(intInterfere);
 	interferes = strGraphNodeIRLivePConcat(interferes, strGraphNodeIRLivePClone(floatInterfere));
-	for (long i = 0; i != strGraphNodeIRLivePSize(interferes); i++) {
-		__auto_type interfere = interferes[i];
+	 {
+		__auto_type interfere = interferes;
 
 		ptrMapregSlice regsByLivenessNode = ptrMapregSliceCreate(); // TODO rename
-
-		// debugPrintInterferenceGraph(interferes[i], regsByLivenessNode);
-
-		//llVertexColor vertexColors CLEANUP(llVertexColorsDestroy2) = graphColor(interfere);
-
-		//strInt colors CLEANUP(strIntDestroy) = getColorList(vertexColors);
-
 		// Choose registers
 
-		strGraphNodeIRLiveP allColorNodes CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRLiveAllNodes(interfere);
+		strGraphNodeIRLiveP allColorNodes CLEANUP(strGraphNodeIRPDestroy) = strGraphNodeIRLivePClone(interfere);
 		for (long i = 0; i != strGraphNodeIRLivePSize(allColorNodes); i++) {
 			// Get adjacent items
 			__auto_type outgoing = graphNodeIRLiveOutgoingNodes(allColorNodes[i]);
@@ -851,124 +755,51 @@ void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,v
 			}
 
 			// Insert find
-			ptrMapregSliceAdd(regsByLivenessNode, allColorNodes[i], slice);
+			if(!ptrMapregSliceGet(regsByLivenessNode, allColorNodes[i]))
+					ptrMapregSliceAdd(regsByLivenessNode, allColorNodes[i], slice);
 		}
 
-		// debugPrintInterferenceGraph(interferes[i], regsByLivenessNode);
-
-		// Get conflicts and spill nodes
-		strGraphNodeIRLiveP spillNodes CLEANUP(strGraphNodeIRPDestroy) = NULL;
-		strConflictPair conflicts CLEANUP(strConflictPairDestroy) = recolorAdjacentNodes(regsByLivenessNode, allColorNodes[0],nodeWeight,nodeWeightData);
 		
-		// Sort conflicts by minimum spill metric
-		strConflictPair conflictsSortedByWeight CLEANUP(strConflictPairDestroy) = strConflictPairClone(conflicts);
-		qsort(conflictsSortedByWeight, strConflictPairSize(conflicts), sizeof(*conflicts), conflictPairWeightCmp);
-
 		// Find noreg nodes and remove them from conflicts and mark them as spill.
 		for(long n=0;n!=strGraphNodeIRLivePSize(allColorNodes);n++) {
 				__auto_type node=allColorNodes[n];
 				if(graphNodeIRLiveValuePtr(node)->ref.var->isNoreg) {
-						conflicts = strConflictPairRemoveIf(conflicts, node, (removeIfPred)conflictPairContains);
-						conflictsSortedByWeight = strConflictPairRemoveIf(conflictsSortedByWeight, node, (removeIfPred)conflictPairContains);
-						spillNodes=strGraphNodeIRLivePSortedInsert(spillNodes, node, (gnCmpType)ptrPtrCmp);
+						ptrMapregSliceRemove(regsByLivenessNode, node);
 				}
 		}
 		
-		//
-		// Choose spill Nodes:
-		//
-		// To do this,we first find a list of unspilled nodes that affect unspilled
-		// node(i),we then spill the one with the lowest metric. Then we mark the
-		// spilled node.We repeat untill there all conflicts are resolved(all
-		// unspilled nodes are not adjacent to another unspilled node).
-		//
-		for (; 0 != strConflictPairSize(conflicts);) {
-			// Get a list of items that conflict with conflicts[0]
-				strConflictPair conflictsWithFirst CLEANUP(strConflictPairDestroy) = conflictPairFindAffects(conflicts[0].a, conflicts);
-
-			//
-			// Do a set union of all items that conflict with each other untill there
-			// is no change
-			//
-			for (;;) {
-					strConflictPair clone CLEANUP(strConflictPairDestroy) = strConflictPairClone(conflictsWithFirst);
-
-				long oldSize = strConflictPairSize(conflictsWithFirst);
-				// union
-				for (long i = 0; i != strConflictPairSize(clone); i++) {
-					__auto_type conflictsWithFirst1 = strConflictPairSetUnion(conflictPairFindAffects(clone[i].a, conflicts), conflictsWithFirst, conflictPairCmp);
-					strConflictPairDestroy(&conflictsWithFirst);
-					__auto_type conflictsWithFirst2 = strConflictPairSetUnion(conflictPairFindAffects(clone[i].b, conflicts), conflictsWithFirst1, conflictPairCmp);
-					strConflictPairDestroy(&conflictsWithFirst1);
-					conflictsWithFirst=conflictsWithFirst2;
-				}
-
-				// Break if no change
-				long newSize = strConflictPairSize(conflictsWithFirst);
-
-				if (oldSize == newSize)
-					break;
-			}
-
-			//
-			// Find the node with the lowest cost according conflictsSortedByWeight
-			//
-			long lowestConflictI = -1;
-			for (long i = 0; i != strConflictPairSize(conflictsWithFirst); i++) {
-				for (long i2 = 0; i2 != strConflictPairSize(conflictsSortedByWeight); i2++)
-					if (conflictsWithFirst[i].a == conflictsSortedByWeight[i2].a)
-						if (conflictsWithFirst[i].b == conflictsSortedByWeight[i2].b)
-							lowestConflictI = i;
-			}
-
-			assert(lowestConflictI != -1);
-
-			// Add to spill nodes
-			graphNodeIRLive lowestConflictNode =
-			    (conflicts[lowestConflictI].aWeight < conflicts[lowestConflictI].bWeight) ? conflicts[lowestConflictI].a : conflicts[lowestConflictI].b;
-			spillNodes = strGraphNodeIRLivePSortedInsert(spillNodes, lowestConflictNode, (gnCmpType)ptrPtrCmp);
-
-			// Remove all references to spilled node in conflicts and
-			// conflictsSortedByWeight
-			
-			__auto_type node = lowestConflictNode;
-
-			conflicts = strConflictPairRemoveIf(conflicts, node, (removeIfPred)conflictPairContains);
-			conflictsSortedByWeight = strConflictPairRemoveIf(conflictsSortedByWeight, node, (removeIfPred)conflictPairContains);
-		}
-
-		// Add variables in liveness nodes to liveVars
-		for (long i = 0; i != strGraphNodeIRLivePSize(allColorNodes); i++) {
-			if (NULL == strIRVarSortedFind(liveVars, &graphNodeIRLiveValuePtr(allColorNodes[i])->ref, IRVarCmp2))
-				liveVars = strIRVarSortedInsert(liveVars, &graphNodeIRLiveValuePtr(allColorNodes[i])->ref, IRVarCmp2);
-		}
-
-		// Remove spilled vars from regsByLivenessNode
-		for (long i = 0; i != strGraphNodeIRLivePSize(spillNodes); i++) {
-			ptrMapregSliceRemove(regsByLivenessNode, spillNodes[i]);
-		}
-
-		// Replace with registers
-		replaceVarsWithRegisters(regsByLivenessNode, allColorNodes,&allNodes2);
-
 		//Assert no adjacent conflicts 
 		for(long n=0;n!=strGraphNodeIRPSize(allColorNodes);n++) {
-				if(strGraphNodeIRLivePSortedFind(spillNodes, allColorNodes[n], (gnCmpType)ptrPtrCmp))
-						continue;
 				strGraphNodeIRLiveP adj CLEANUP(strGraphNodeIRLivePDestroy)=graphNodeIROutgoingNodes(allColorNodes[n]);
 				for(long a=0;a!=strGraphNodeIRPSize(adj);a++) {
-						if(allColorNodes[n]==adj[a])
-								continue;
+				check:;
 						__auto_type curReg=ptrMapregSliceGet(regsByLivenessNode ,  allColorNodes[n]);
-						__auto_type aReg=ptrMapregSliceGet(regsByLivenessNode ,  adj[a]);
+						__auto_type aReg=ptrMapregSliceGet(regsByLivenessNode ,  adj[a]);				
 						
+						if(!curReg)
+								continue;
 						if(!aReg)
 								continue;
-						if(regSliceConflict(curReg, aReg))
-								debugPrintInterferenceGraph(interfere, regsByLivenessNode);
-						assert(!regSliceConflict(curReg, aReg));
+						if(regConflict(curReg->reg, aReg->reg)) {
+								strGraphEdgeIRLiveP currDegO CLEANUP(strGraphEdgeIRLivePDestroy)=graphNodeIRLiveOutgoing(allColorNodes[n]);
+								strGraphEdgeIRLiveP aRegO CLEANUP(strGraphEdgeIRLivePDestroy)=graphNodeIRLiveOutgoing(adj[a]);
+								if(strGraphEdgeIRLivePSize(currDegO)>strGraphEdgeIRLivePSize(aRegO)) {
+										ptrMapregSliceRemove(regsByLivenessNode, allColorNodes[n]);
+										assert(!!ptrMapregSliceGet(regsByLivenessNode, allColorNodes[a]));
+										printf("Spilling :%p,%p\n",allColorNodes[n],graphNodeIRLiveValuePtr(allColorNodes[n])->ref.var);
+								}else {
+										ptrMapregSliceRemove(regsByLivenessNode, adj[a]);
+										assert(!ptrMapregSliceGet(regsByLivenessNode, adj[a]));
+										printf("Spilling :%p,%p\n",adj[a],graphNodeIRLiveValuePtr(adj[a])->ref.var);
+								}
+								goto check;
+						}
+						assert(!regConflict(curReg->reg, aReg->reg));
 				}
 		}
+		// Replace with registers
+		replaceVarsWithRegisters(regsByLivenessNode, allColorNodes,&allNodes2);
+		
 	}
 
 	//	removeDeadExpresions(start, liveVars);
