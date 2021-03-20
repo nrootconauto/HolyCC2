@@ -1948,18 +1948,24 @@ static graphNodeIR assembleOpIntShift(graphNodeIR start, const char *op) {
 			AUTO_LOCK_MODE_REGS(bMode);
 			AUTO_LOCK_MODE_REGS(oMode);
 			AUTO_LOCK_MODE_REGS(clMode);
-			struct X86AddressingMode *tmpRegMode CLEANUP(X86AddrModeDestroy)=getAccumulatorForType(oMode->valueType);
-		asmTypecastAssign(tmpRegMode,aMode, ASM_ASSIGN_X87FPU_POP);
 
-		pushReg(&regX86CL);
-		asmTypecastAssign(clMode, bMode,0);
+			struct X86AddressingMode *accum=getAccumulatorForType(oMode->valueType);
+			
+			strRegP oModeRegs CLEANUP(strRegPDestroy)=regsFromMode(oMode);
+			if(regConflictsWithOtherRegs(oModeRegs, &regX86CL))
+					pushReg(&regX86CL);
+			
+			asmTypecastAssign(clMode, bMode,0);
+			asmTypecastAssign(accum,aMode, ASM_ASSIGN_X87FPU_POP);
 		strX86AddrMode args CLEANUP(strX86AddrModeDestroy2) = NULL;
-		args = strX86AddrModeAppendItem(args, X86AddrModeClone(tmpRegMode));
+		args = strX86AddrModeAppendItem(args, X86AddrModeClone(accum));
 		args = strX86AddrModeAppendItem(args, X86AddrModeReg(&regX86CL,&typeI8i));
 		assembleOpcode(start,op,args);
-		popReg(&regX86CL);
 		
-		asmTypecastAssign(oMode, tmpRegMode, ASM_ASSIGN_X87FPU_POP);
+		if(regConflictsWithOtherRegs(oModeRegs, &regX86CL))
+				popReg(&regX86CL);
+
+		asmTypecastAssign(oMode, accum, ASM_ASSIGN_X87FPU_POP);
 		return out;
 	}
 	one : {
