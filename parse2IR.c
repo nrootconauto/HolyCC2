@@ -719,15 +719,7 @@ graphNodeIR parserNode2Expr(const struct parserNode *node) {
 	}
 	case NODE_FUNC_REF: {
 		struct parserNodeFuncRef *ref = (void *)node;
-
-		struct IRNodeValue val;
-		val.base.attrs = NULL;
-		val.base.type = IR_VALUE;
-		val.val.type = IR_VAL_FUNC;
-		val.val.value.func = ref->func;
-
-		__auto_type retVal = GRAPHN_ALLOCATE(val);
-		return retVal;
+		return IRCreateFuncRef(ref->func);
 	}
 	case NODE_FUNC_CALL: {
 		struct IRNodeFuncCall call;
@@ -982,12 +974,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 					abort();
 			}
 			
-			struct IRNodeValue value;
-			value.base.attrs=NULL;
-			value.base.type=IR_VALUE;
-			value.val.type=IR_VAL_FUNC;
-			value.val.value.func= parserGetFuncByName("Print");
-			__auto_type printFunc=GRAPHN_ALLOCATE(value);
+			__auto_type printFunc=IRCreateFuncRef(parserGetFuncByName("Print"));
 			
 			struct parserNodePrint *pri=(void*)node;
 			strGraphNodeIRP args CLEANUP(strGraphNodeIRPDestroy)=NULL;

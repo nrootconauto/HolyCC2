@@ -572,3 +572,4 @@ graphNodeIR IRCreateFuncVaArgArgv();
 graphNodeIR IRCreateFuncVaArgArgc();
 graphNodeIR IRCreateSizeof(struct object *obj);
 graphNodeIR IRCreateGlobalLabel(const char *name);
+graphNodeIR IRCreateFuncRef(struct parserFunction *func);

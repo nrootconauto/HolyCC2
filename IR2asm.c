@@ -1375,6 +1375,79 @@ static strIRVar2WeightAssoc computeVarWeights(graphNodeIR start) {
 		}
 		return retVal;
 }
+static struct parserFunction *includeHCRTFunc(const char *name) {
+		__auto_type sym=parserGetFuncByName("PowF64");
+		if(!sym) {
+				fprintf(stderr, "Include HCRT for PowF64");
+				abort();
+		}
+		return sym;
+}
+static void classAssign(graphNodeIR start,struct X86AddressingMode *a,struct X86AddressingMode *b) {
+		__auto_type dstType=a->valueType;
+		
+		struct X86AddressingMode *rdi CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regAMD64RDI, NULL);
+		struct X86AddressingMode *rsi CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regAMD64RSI, NULL);
+		__auto_type di=demoteAddrMode(rdi, getTypeForSize(ptrSize()));
+		__auto_type si=demoteAddrMode(rsi, getTypeForSize(ptrSize()));
+		if(regIsAliveAtNode(start, di->value.reg)) pushMode(di);
+		if(regIsAliveAtNode(start, si->value.reg)) pushMode(si);
+
+		//Store in accumulator if (r|e)si is used in second argument
+		struct X86AddressingMode *accum CLEANUP(X86AddrModeDestroy)=getAccumulatorForType(getTypeForSize(ptrSize()));
+		if(b->type==X86ADDRMODE_MEM||b->type==X86ADDRMODE_VAR_ADDR||b->type==X86ADDRMODE_ITEM_ADDR) {
+				strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+				leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeClone(accum));
+				leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeClone(b));
+				assembleOpcode(start, "LEA",  leaArgs);
+		} else if(b->type==X86ADDRMODE_REG) {
+				asmAssign(start, accum, b, ptrSize(), ASM_ASSIGN_X87FPU_POP);
+		} else assert(0);
+		
+		if(a->type==X86ADDRMODE_MEM||a->type==X86ADDRMODE_VAR_ADDR||a->type==X86ADDRMODE_ITEM_ADDR) {
+				strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+				leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeClone(di));
+				leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeClone(a));
+				assembleOpcode(start, "LEA",  leaArgs);
+		} else if(a->type==X86ADDRMODE_REG) {
+				asmAssign(start, di, a, ptrSize(), ASM_ASSIGN_X87FPU_POP);
+		} else assert(0);
+
+		asmAssign(start, si, accum, ptrSize(), ASM_ASSIGN_X87FPU_POP);
+		assembleOpcode(start, "REP",  NULL);
+		assembleOpcode(start, "MOVSB", NULL);
+		
+		if(regIsAliveAtNode(start, si->value.reg)) pushMode(si);
+		if(regIsAliveAtNode(start, di->value.reg)) pushMode(di);
+}
+static void insertImplicitFuncs(graphNodeIR start) {
+		strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);
+		for(long n=0;n!=strGraphNodeIRPSize(allNodes);n++) {
+				//Power
+				if(graphNodeIRValuePtr(allNodes[n])->type==IR_POW) {
+						__auto_type type=objectBaseType(IRNodeType(allNodes[n]));
+						struct parserFunction *sym;
+						if(type==&typeF64) {
+								sym=includeHCRTFunc("PowF64");
+						} else if(typeIsSigned(type)) {
+								sym=includeHCRTFunc("PowI32i");
+						} else {
+								sym=includeHCRTFunc("PowU32i");
+						}
+				pow:;
+						graphNodeIR a,b;
+						binopArgs(allNodes[n], &a, &b);
+						__auto_type dst=nodeDest(allNodes[n]);
+						__auto_type pow=IRCreateFuncCall(IRCreateFuncRef(sym), a,b,NULL);
+						strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(allNodes[n]);
+						for(long o=0;o!=strGraphEdgeIRPSize(out);o++)
+								graphNodeIRConnect(pow, graphEdgeIROutgoing(out[o]), *graphEdgeIRValuePtr(out[o]));
+						
+						graphNodeIRKill(&allNodes[n], (void(*)(void*))IRNodeDestroy, NULL);
+						continue;
+				}
+		}
+} 
 void IRCompile(graphNodeIR start, int isFunc) {
 		//debugShowGraphIR(start);
 		IR2AsmInit();
@@ -1424,6 +1497,7 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	
 	strGraphNodeIRPDestroy(&nodes);
 	IRRemoveNeverFlows(start);
+	insertImplicitFuncs(start);
 	IRInsertImplicitTypecasts(start);
 	
 	nodes = graphNodeIRAllNodes(start);
@@ -1649,7 +1723,6 @@ static void setCond(graphNodeIR atNode,const char *cond, struct X86AddressingMod
 		assembleOpcode(atNode,buffer,setccArgs);
 	}
 }
-static struct X86AddressingMode *includeHCRTFunc(const char *name);
 static strX86AddrMode X87UnopArgs(graphNodeIR node) {
 		strGraphEdgeIRP inArgs CLEANUP(strGraphEdgeIRPDestroy)=IREdgesByPrec(node);
 				__auto_type srcNode=graphEdgeIRIncoming(inArgs[0]);
@@ -1758,17 +1831,7 @@ static void compileX87Expr(graphNodeIR node) {
 				return;
 		}
 		case IR_POW: {
-				struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86ST0,&typeF64);
-				oMode->valueType=&typeF64;
-				struct X86AddressingMode *powF64Mode CLEANUP(X86AddrModeDestroy)=includeHCRTFunc("PowF64");
-
-				X87BinopArgs(node, &regX86ST1, &regX86ST0);
-				
-				strX86AddrMode args CLEANUP(strX86AddrModeDestroy2)=NULL;
-				args=strX86AddrModeAppendItem(args, X86AddrModeReg(&regX86ST0,&typeF64));
-				args=strX86AddrModeAppendItem(args, X86AddrModeReg(&regX86ST0,&typeF64));
-				IRABICall2Asm(node, powF64Mode, args, oMode);
-				X87StoreResult(node);
+				assert(0);
 				return;
 		}
 		case IR_GT: {
@@ -3006,30 +3069,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 	}
 	case IR_POW: {
-			COMPILE_87_IFN;
-			graphNodeIR a,b,out=nodeDest(start);
-			
-			if(!nodeDest(start))
-					return nextNodesToCompile(start);
-			
-			binopArgs(start,&a,&b);
-			struct X86AddressingMode *aMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(a);
-			struct X86AddressingMode *bMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(b);
-			struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(out);
-			strX86AddrMode args CLEANUP(strX86AddrModeDestroy)=NULL;
-			args=strX86AddrModeAppendItem(args, aMode);
-			args=strX86AddrModeAppendItem(args, bMode);
-			switch(getCurrentArch()) {
-			case ARCH_TEST_SYSV:
-			case ARCH_X86_SYSV: {
-					struct X86AddressingMode *powMode CLEANUP(X86AddrModeDestroy)=includeHCRTFunc("PowI32i");
-					IRABICall2Asm(start, powMode, args, oMode);
-					break;
-			}
-			case ARCH_X64_SYSV:;
-					// TODO
-					assert(0);
-			};
+			assert(0);
 			return nextNodesToCompile(start);
 	}
 	case IR_LOR: {
@@ -3738,17 +3778,6 @@ computeArgs:;
 		__IR2AsmExpr(graphEdgeIRIncoming(incoming[a]));
 	}
 	__IR2Asm(start);
-}
-static struct X86AddressingMode *includeHCRTFunc(const char *name) {
-		__auto_type sym= parserGetGlobalSym(name);
-		if(!sym) {
-				fprintf(stderr,"Include HCRT.HC for \"%s\"\n", name);
-				abort();
-		}
-		__auto_type name2=parserGetGlobalSymLinkageName(name);
-		__auto_type retVal=X86AddrModeLabel(name2);
-		retVal->valueType=sym->type;
-		return retVal;
 }
 void IR2Asm(graphNodeIR start) {
 		strGraphNodeIRP __next;

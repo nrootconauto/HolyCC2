@@ -76,6 +76,14 @@ graphNodeIR IRCreateSizeof(struct object *obj) {
 		sizof.type=obj;
 		return GRAPHN_ALLOCATE(sizof);
 }
+graphNodeIR IRCreateFuncRef(struct parserFunction *func) {
+		struct IRNodeValue value;
+			value.base.attrs=NULL;
+			value.base.type=IR_VALUE;
+			value.val.type=IR_VAL_FUNC;
+			value.val.value.func=func;
+			return GRAPHN_ALLOCATE(value);
+}
 graphNodeIR IRCreateFuncCall(graphNodeIR func, ...) {
 	struct IRNodeFuncCall call;
 	call.base.attrs = NULL;
