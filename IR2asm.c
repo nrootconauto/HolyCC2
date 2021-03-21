@@ -361,6 +361,7 @@ loop:;
 	}
 	goto loop;
 }
+static void debugShowGraphIR(graphNodeIR enter);
 static struct X86AddressingMode *__node2AddrMode(graphNodeIR start) {
 	if (graphNodeIRValuePtr(start)->type == IR_VALUE) {
 		struct IRNodeValue *value = (void *)graphNodeIRValuePtr(start);
@@ -428,6 +429,7 @@ static struct X86AddressingMode *__node2AddrMode(graphNodeIR start) {
 			__auto_type lab=getLabelName(start);
 			return X86AddrModeLabel(lab);
 	} else {
+			debugShowGraphIR(start);
 		fprintf(stderr, "Accessing member requires pointer source.\n");
 		abort();
 	}
@@ -1233,7 +1235,7 @@ void asmAssign(graphNodeIR atNode,struct X86AddressingMode *a, struct X86Address
 							}
 					} else if(a->type==X86ADDRMODE_ITEM_ADDR||a->type==X86ADDRMODE_MEM) {
 							if(objectBaseType(a->valueType)==&typeF64) {
-									const char *op=(flags&ASM_ASSIGN_X87FPU_POP)?"FSTP":"FST";
+									const char *op=(flags&ASM_ASSIGN_X87FPU_POP)?"FSTP":"FSTP";
 									strX86AddrMode fistArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeClone(a));
 									assembleOpcode(atNode,op, fistArgs);
 							} else {
@@ -1420,6 +1422,20 @@ static void classAssign(graphNodeIR start,struct X86AddressingMode *a,struct X86
 		if(regIsAliveAtNode(start, si->value.reg)) pushMode(si);
 		if(regIsAliveAtNode(start, di->value.reg)) pushMode(di);
 }
+static int insertBetweenExprPred(graphNodeIR start,const void *data) {
+		switch(getCurrentArch()) {
+		case ARCH_X86_SYSV:
+		case ARCH_TEST_SYSV: {
+				__auto_type type=IRNodeType(start);
+				if(type)
+				if(objectBaseType(type)==&typeF64)
+						return 0;
+				return 1;
+		}
+		case ARCH_X64_SYSV:
+				return 1;
+		}
+}
 static void insertImplicitFuncs(graphNodeIR start) {
 		strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);
 		for(long n=0;n!=strGraphNodeIRPSize(allNodes);n++) {
@@ -1442,7 +1458,8 @@ static void insertImplicitFuncs(graphNodeIR start) {
 						strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(allNodes[n]);
 						for(long o=0;o!=strGraphEdgeIRPSize(out);o++)
 								graphNodeIRConnect(pow, graphEdgeIROutgoing(out[o]), *graphEdgeIRValuePtr(out[o]));
-						
+
+						graphNodeIRConnect(IRStmtStart(allNodes[n]),pow,IR_CONN_FLOW);
 						graphNodeIRKill(&allNodes[n], (void(*)(void*))IRNodeDestroy, NULL);
 						continue;
 				}
@@ -1630,6 +1647,7 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	// This computes calling information for the ABI
 	IRComputeABIInfo(start);
 
+	if(isFunc) debugShowGraphIR(start);
 	IR2Asm(start);
 
 	if(!isFunc)
@@ -3266,7 +3284,8 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				return nextNodesToCompile(start);
 		
 		if (isIntNode(start) || isPtrNode(start)) {
-			assembleOpInt(start, "AND");
+				//debugShowGraphIR(start);
+				assembleOpInt(start, "AND");
 		} else
 			assert(0);
 		return nextNodesToCompile(start);

@@ -141,7 +141,17 @@ void findRegisterLiveness(graphNodeIR start) {
 	// Replace Registers with variables and do liveness analysis on the variables
 	strVariable regVars CLEANUP(strVariableDestroy) = NULL;
 	ptrMapVar2Reg var2Reg = ptrMapVar2RegCreate();
-
+	const struct reg *fpu[]={
+				&regX86ST0,
+				&regX86ST1,
+				&regX86ST2,
+				&regX86ST3,
+				&regX86ST4,
+				&regX86ST5,
+				&regX86ST6,
+				&regX86ST7,
+		};
+	
 	for (long i = 0; i != strGraphNodeIRPSize(allNodes); i++) {
 		struct IRNodeValue *value = (void *)graphNodeIRValuePtr(allNodes[i]);
 		if (value->base.type != IR_VALUE)
@@ -149,6 +159,8 @@ void findRegisterLiveness(graphNodeIR start) {
 		if (value->val.type != IR_VAL_REG)
 			continue;
 		__auto_type reg = value->val.value.reg.reg;
+		for(long r=0;r!=8;r++) if(fpu[r]==reg) goto next;
+
 		__auto_type var=IRCreateVirtVar(&typeU0);
 		__auto_type newNode = IRCreateVarRef(var);
 		ptrMapVar2RegAdd(var2Reg, var, reg);
@@ -160,7 +172,8 @@ void findRegisterLiveness(graphNodeIR start) {
 		newAttr.old = allNodes[i];
 		IRAttrReplace(newNode, __llCreate(&newAttr, sizeof(newAttr)));
 		swapNode(allNodes[i], newNode);
-		
+
+	next:;
 	}
 	strGraphNodeIRPDestroy(&allNodes);
 	allNodes=graphNodeIRAllNodes(start);

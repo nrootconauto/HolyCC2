@@ -51,31 +51,11 @@ static int isX87Reg(struct reg *r) {
 						return 1;
 		return 0;
 } 
-struct reg *X87FpuPopReg(graphNodeIR node) {
-		long cur=strRegPSize(fpuRegsInUse);
-		struct reg *stack[]={
-				&regX86ST0,
-				&regX86ST1,
-				&regX86ST2,
-				&regX86ST3,
-				&regX86ST4,
-				&regX86ST5,
-				&regX86ST6,
-				&regX86ST7,
-		};
-		if(!cur)
-				return NULL;
-
-		struct IRAttr attr;
-		attr.destroy=NULL;
-		attr.name=IR_ATTR_X87FPU_POP_AT;
-		__auto_type ll=__llCreate(&attr, sizeof(attr));
-		IRAttrReplace(node, ll);
-		
-		fpuRegsInUse=strRegPRemoveItem(fpuRegsInUse, stack[cur-1], (regCmpType)ptrPtrCmp);
-		return stack[cur-1];
+static void X87FpuPopReg() {
+		fpuRegsInUse=strRegPPop(fpuRegsInUse, NULL);
+		nodeStack=strGraphNodeIRPPop(nodeStack, NULL);
 }
-strRegP X87FpuRegsInUse() {
+static strRegP X87FpuRegsInUse() {
 		return strRegPClone(fpuRegsInUse);
 }
 static struct regSlice pushedStXslice() {
@@ -104,26 +84,73 @@ static int isX87CmpOp(graphNodeIR node) {
 						return 0;
 		}
 }
+static graphNodeIR insertFpuValue(graphNodeIR start) {
+		if(strRegPSize(fpuRegsInUse)<6) {
+		insertSt0:;
+				__auto_type slice=pushedStXslice();
+				__auto_type st0=IRCreateRegRef( &slice);
+				IRInsertAfter(start, st0, st0, IR_CONN_DEST);
+				nodeStack=strGraphNodeIRPAppendItem(nodeStack,st0);
+				return st0;
+		} else {
+				long size=strRegPSize(fpuRegsInUse);
+				fpuRegsInUse=strRegPPop(fpuRegsInUse, NULL);
+				//Spill poped register
+				__auto_type topNode=nodeStack[size-1];
+				strGraphNodeIRP toReplace CLEANUP(strGraphNodeIRPDestroy)=strGraphNodeIRPAppendItem(NULL, topNode);
+				__auto_type spill=IRCreateVarRef(IRCreateVirtVar(&typeF64));
+				graphIRReplaceNodes(toReplace, spill, NULL, (void(*)(void*))IRNodeDestroy);
+				goto insertSt0;
+		}
+}
+static void spillFpuStack() {
+		for(long s=0;s!=strGraphNodeIRPSize(nodeStack);s++) {
+				if(strRegPSize(fpuRegsInUse)) {
+						__auto_type topNode=nodeStack[strGraphNodeIRPSize(nodeStack)-1];
+						strGraphNodeIRP toReplace CLEANUP(strGraphNodeIRPDestroy)=strGraphNodeIRPAppendItem(NULL, topNode);
+						__auto_type spill=IRCreateVarRef(IRCreateVirtVar(&typeF64));
+						graphIRReplaceNodes(toReplace, spill, NULL, (void(*)(void*))IRNodeDestroy);
+						X87FpuPopReg();
+				} else {
+						strGraphNodeIRPDestroy(&nodeStack);
+						nodeStack=NULL;
+						return ;
+				}
+		}
+}
 static void exprRecur(graphNodeIR start,ptrMapRefCount refCounts,int parentIsFpuOp) {
-		if(graphNodeIRValuePtr(start)->type==IR_TYPECAST)
-				return;
 		if(graphNodeIRValuePtr(start)->type==IR_DERREF)
 				return;
+
+		if(graphNodeIRValuePtr(start)->type==IR_VALUE) {
+				struct IRNodeValue *val=(void*)graphNodeIRValuePtr(start);
+				if(val->val.type==IR_VAL_VAR_REF&&objectBaseType(IRNodeType(start))==&typeF64) { 
+						if(*ptrMapRefCountGet(refCounts, val->val.value.var.var)==1&&val->val.value.var.var->isTmp) {
+								strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=IREdgesByPrec(start);
+								for(long i=0;i!=strGraphEdgeIRPSize(in);i++)
+										exprRecur(graphEdgeIRIncoming(in[i]),refCounts,parentIsFpuOp);
+								strGraphEdgeIRP in2 CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
+								strGraphEdgeIRP out2 CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(start);
+								for(long i=0;i!=strGraphEdgeIRPSize(in2);i++)
+										for(long o=0;o!=strGraphEdgeIRPSize(out2);o++)
+												graphNodeIRConnect(graphEdgeIRIncoming(in2[i]), graphEdgeIROutgoing(out2[o]), *graphEdgeIRValuePtr(out2[o]));
+								graphNodeIRKill(&start, (void(*)(void*))IRNodeDestroy, NULL);
+								return ;
+						}
+				}
+		}
 		
 		int isFunc=graphNodeIRValuePtr(start)->type==IR_FUNC_CALL;
 		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=IREdgesByPrec(start);
-		if(isX87CmpOp(start))
-				in=strGraphEdgeIRPReverse(in);
 		
 		if(isFunc) {
+				spillFpuStack();
 				for(long a=0;a!=strGraphEdgeIRPSize(in);a++) {
 						__auto_type node=graphEdgeIRIncoming(in[a]);
 						exprRecur(node,refCounts,0);
 						//epxrRecur may have modified incoming edges so recompute
 						strGraphEdgeIRPDestroy(&in);
 						in=IREdgesByPrec(start);
-						if(isX87CmpOp(start))
-								in=strGraphEdgeIRPReverse(in);
 						
 						node=graphEdgeIRIncoming(in[a]);
 						//Functions require all fpu registers be empty priror to entering them(SYSTEM-V i386),so store them in variables not registers
@@ -135,21 +162,37 @@ static void exprRecur(graphNodeIR start,ptrMapRefCount refCounts,int parentIsFpu
 										continue;
 								__auto_type varRef=IRCreateVarRef(IRCreateVirtVar(&typeF64));
 								IRInsertAfter(node, varRef, varRef, IR_CONN_DEST);
-								X87FpuPopReg(varRef);
+								X87FpuPopReg();
 						}
 				}
 				if(objectBaseType(IRNodeType(start))!=&typeF64)
 						return;
-				goto output;
+				else
+						insertFpuValue(start);
 		} else if(graphNodeIRValuePtr(start)->type!=IR_VALUE) {
 				int isTypecastFromF64=0;
 				if(graphNodeIRValuePtr(start)->type==IR_TYPECAST) {
+						exprRecur(graphEdgeIRIncoming(in[0]), refCounts, parentIsFpuOp);
+						strGraphEdgeIRPDestroy(&in);
+						in =IREdgesByPrec(start);
+
 						if(objectBaseType(IRNodeType(graphEdgeIRIncoming(in[0])))==&typeF64) {
 								//Just return if typecast to F64 from F64
 								if( objectBaseType(IRNodeType(start))==&typeF64)
 										return;
 								isTypecastFromF64=1;
+								struct IRNodeValue *val=(void*)graphNodeIRValuePtr(graphEdgeIRIncoming(in[0]));
+								if(val->base.type==IR_VALUE)
+										if(val->val.type==IR_VAL_REG)
+												if(isX87Reg(val->val.value.reg.reg))
+														X87FpuPopReg();
 						}
+						//If cast to F64
+						if(objectBaseType(IRNodeType(start))==&typeF64) {
+								insertFpuValue(start);
+								return;
+						}
+						if(isTypecastFromF64) return;
 				}
 				// Is a binop or unop,so replace single use variables(and temporary) with registers ,or if used elsewhere,assign into a register
 				// If not a variable,assign into register
@@ -159,42 +202,13 @@ static void exprRecur(graphNodeIR start,ptrMapRefCount refCounts,int parentIsFpu
 						isFpOp=1;
 				} else if(isX87CmpOp(start)) {
 						isFpOp=1;
-				} else if(!isTypecastFromF64) 
-						return;
+				}
+
+				strGraphEdgeIRPDestroy(&in);
+				in =IREdgesByPrec(start);
 				for(long i =0;i!=strGraphEdgeIRPSize(in);i++) {
 						__auto_type node=graphEdgeIRIncoming(in[i]);
 						exprRecur(node,refCounts,isFpOp||isTypecastFromF64);
-						if(isFpOp)
-								nodeStack=strGraphNodeIRPAppendItem(nodeStack,node);
-				}
-				if(isFpOp||isTypecastFromF64) {
-						for(long i=strGraphEdgeIRPSize(in)-1;i>=0;i--) {
-								__auto_type node=graphEdgeIRIncoming(in[i]);
-								struct IRNodeValue *value=(void*)graphNodeIRValuePtr(node);
-								if(value->val.type==IR_VAL_VAR_REF) {
-										__auto_type var=value->val.value.var.var;
-										if(var->isTmp&&*ptrMapRefCountGet(refCounts, var)==1) {
-												strGraphNodeIRP toReplace CLEANUP(strGraphNodeIRPDestroy)=strGraphNodeIRPAppendItem(NULL, node);
-												/*
-												__auto_type slice=pushedStXslice();
-												__auto_type st0=IRCreateRegRef( &slice);
-												graphIRReplaceNodes(toReplace, st0, NULL, (void(*)(void*))IRNodeDestroy);
-												nodeStack=strGraphNodeIRPPop(nodeStack, NULL);
-												*/												
-												continue;
-										}
-							}
-								//Assign value into register
-								/*
-								__auto_type slice=pushedStXslice();
-								__auto_type st0=IRCreateRegRef( &slice);
-								IRInsertAfter(node, st0, st0, IR_CONN_DEST);
-								nodeStack=strGraphNodeIRPPop(nodeStack, NULL);
-								*/
-								__auto_type varRef=IRCreateVarRef(IRCreateVirtVar(&typeF64));
-								IRInsertAfter(node, varRef, varRef, IR_CONN_DEST);
-								X87FpuPopReg(varRef);
-						}
 				}
 
 				//Pop incoming registers
@@ -207,16 +221,12 @@ static void exprRecur(graphNodeIR start,ptrMapRefCount refCounts,int parentIsFpu
 						if(val->val.type==IR_VAL_REG) {
 								__auto_type reg=val->val.value.reg.reg;
 								if(isX87Reg(reg))
-										X87FpuPopReg(graphEdgeIRIncoming(in2[i]));
+										X87FpuPopReg();
 						}
 				}
-				//No need to insert ST register at output if typecast unless typecast to flaoting type
-				if(isTypecastFromF64) {
-						struct IRNodeTypeCast *cast=(void*)graphNodeIRValuePtr(start);
-						if(objectBaseType(cast->out)!=&typeF64)
-								return;
-				}
-				goto output;
+				//Push result
+				if(isFpOp&&!isX87CmpOp(start))
+						insertFpuValue(start);
 		} else if(graphNodeIRValuePtr(start)->type==IR_VALUE) {
 				if(strGraphEdgeIRPSize(in)==1)
 						exprRecur(graphEdgeIRIncoming(in[0]),refCounts,0);
@@ -231,69 +241,27 @@ static void exprRecur(graphNodeIR start,ptrMapRefCount refCounts,int parentIsFpu
 				if(strGraphEdgeIRPSize(dst1)||strGraphEdgeIRPSize(dst2)) {
 						__auto_type dst=strGraphEdgeIRPSize(dst1)?dst1:dst2;
 						struct IRNodeValue *val=(void*)graphNodeIRValuePtr(graphEdgeIRIncoming(dst[0]));
-						if(val->base.type!=IR_VALUE)
-								return;
-						if(val->val.type!=IR_VAL_REG)
-								return;
-						if(!isX87Reg(val->val.value.reg.reg))
-								return;
-						//TODO assert that it i ST(0)
-						X87FpuPopReg(graphEdgeIRIncoming(dst[0]));
-						return;
-				}
-
-				//If is a X87fpu register that leads to nowhere,can pop
-				if(graphNodeIRValuePtr(start)->type==IR_VALUE) {
-						struct IRNodeValue *val=(void*)graphNodeIRValuePtr(start);
-						if(val->val.type!=IR_VAL_REG)
-								return ;
-						if(!isX87Reg(val->val.value.reg.reg))
-								return ;
-						
-						strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(start);
-						strGraphEdgeIRP outDst1 CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(out, IR_CONN_DEST);
-						strGraphEdgeIRP outDst2 CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(out, IR_CONN_ASSIGN_FROM_PTR);
-						if(strGraphEdgeIRPSize(outDst1)==0&&strGraphEdgeIRPSize(outDst2)==0) {
-								X87FpuPopReg(start);
-								return;
-						}
+						if(val->base.type==IR_VALUE)
+								if(val->val.type==IR_VAL_REG)
+										if(isX87Reg(val->val.value.reg.reg))
+												X87FpuPopReg();
 				}
 		} else {
 				fputs("Can't make sense of this node as an expression.\n", stderr);
 				abort();
 		}
 		return;
-	output:;
-		if(isX87CmpOp(start))
-				return;
-		
-		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(start);
-		strGraphEdgeIRP outDst1 CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(out, IR_CONN_DEST);
-		strGraphEdgeIRP outDst2 CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(out, IR_CONN_ASSIGN_FROM_PTR);
-		strGraphEdgeIRP outDst=(strGraphEdgeIRPSize(outDst1))?outDst1:outDst2;
-		
-		if(strGraphEdgeIRPSize(outDst)==1) {
-				struct IRNodeValue *val=(void*)graphNodeIRValuePtr(graphEdgeIROutgoing(outDst[0]));
-				if(val->val.type!=IR_VAL_REG)
-						goto insertSt0;
-				if(val->val.value.reg.reg!=&regX86ST0)
-						goto insertSt0;
-				return ;
-		insertSt0: {
-						/*
-						__auto_type slice=pushedStXslice();
-						__auto_type st0=IRCreateRegRef(&slice);
-						IRInsertAfter(start, st0, st0, IR_CONN_DEST);
-						*/
-
-						/*
-						__auto_type varRef=IRCreateVarRef(IRCreateVirtVar(&typeF64));
-						IRInsertAfter(start, varRef, varRef, IR_CONN_DEST);
-						X87FpuPopReg(varRef);
-						*/
-				}
-		}
 }
+static void debugShowGraphIR(graphNodeIR enter) {
+		const char *name = tmpnam(NULL);
+	__auto_type map = graphNodeCreateMapping(enter, 1);
+	IRGraphMap2GraphViz(map, "viz", name, NULL, NULL, NULL, NULL);
+	char buffer[1024];
+	sprintf(buffer, "sleep 1 &&dot -Tsvg %s > /tmp/dot.svg && firefox /tmp/dot.svg & ", name);
+
+	system(buffer);
+}
+
 void IRRegisterAllocateX87(graphNodeIR start) {
 		strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);
 		strGraphNodeIRP exprEnds CLEANUP(strGraphNodeIRPDestroy)=NULL;
@@ -322,9 +290,28 @@ void IRRegisterAllocateX87(graphNodeIR start) {
 				}
 		}
 		for(long e=0;e!=strGraphNodeIRPSize(exprEnds);e++) {
-				strGraphNodeIRPDestroy(&nodeStack);
 				nodeStack=NULL;
+				fpuRegsInUse=NULL;
+				//Is connected to a return node
+				int isConnected2Ret=0;
+				strGraphNodeIRP out CLEANUP(strGraphNodeIRPDestroy)=graphNodeIROutgoingNodes(exprEnds[e]);
+				if(strGraphNodeIRPSize(out)==1)
+ 						if(graphNodeIRValuePtr(out[0])->type==IR_FUNC_RETURN)
+								isConnected2Ret=1;
+				
 				exprRecur(exprEnds[e],refCounts,0);
-				assert(!strRegPSize(fpuRegsInUse));
+				if(strRegPSize(fpuRegsInUse)) {
+						if(strRegPSize(fpuRegsInUse)==1) {
+								if(isConnected2Ret)
+										goto next;
+								spillFpuStack();
+						} else {
+								debugShowGraphIR(start);
+								assert(0);
+						}
+				}
+		next:;
+				strGraphNodeIRPDestroy(&nodeStack);
+				strRegPDestroy(&fpuRegsInUse);
 		}
 }
