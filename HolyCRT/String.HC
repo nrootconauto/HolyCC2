@@ -16,18 +16,18 @@ I32i StrLen(U8i *str) {
 U0 StrCpy(U8i *dst,U8i *src) {
 			I32i len=StrLen(src);
 			dst[len]='\0';
-			while(len-=1>=0) {
+			while((len-=1)>=0) {
 																				dst[len]=src[len];
 			}
 }
 U8i *StrDupLen(U8i *str,I32i len) {
 				U8i *retVal=malloc(len+1);
 				retVal[len]='\0';
-				while(len-=1>=0) retVal[len]=str[len];
+				while((len-=1)>=0) retVal[len]=str[len];
 				return retVal;
 }
 I32i StrNCmp(U8i *a,U8i *b,I32i len) {
-					while(len-=1>=0) {
+					while((len-=1)>=0) {
 																						if(*a!=*b) return *a-*b;
 																						a+=1;
 																						b+=1;
@@ -101,10 +101,11 @@ F64 Str2F64(U8i *str,U8i **end=NULL) {
  												}
 				}
 				end:
-				if(end) *end=chr;
+				if(end) *end=&str[chr];
 				current*=10.0`(exp)(F64);
 				return current;
 
 				fail:
+				if(end) *end=&str[chr];
 				return -0.0;
 }

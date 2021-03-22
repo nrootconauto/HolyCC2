@@ -1409,6 +1409,7 @@ U0 testRange() {
 			printf("3>2>1>0:%li\n",3>2>1>0);
 }
 I32i main() {
+     /*
 					I32i end;
 					ParserJsonLiteral("123",0,NULL,&end);
 					printf("%li\n",end);
@@ -1428,5 +1429,12 @@ try {
 					printf("%lf\n",52-1.0);
 					printf("%lf\n",(52+1.0)-(1.0+1.0));
 					"Hello Wolrd:%.6n\n",15.500;
+					*/
+					"Hello Wolrd:%.6n\n",15.500;
+					U8i *str="ABC:[1,2,3]";
+					I32i end;
+					JsonNode *node=ParseJsonEntry(str,0,&end);
+					JsonNodePrint(node);
+					printf("%li\n",end);
 					return 0;
 }
