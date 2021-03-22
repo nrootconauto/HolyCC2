@@ -1647,7 +1647,6 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	// This computes calling information for the ABI
 	IRComputeABIInfo(start);
 
-	if(isFunc) debugShowGraphIR(start);
 	IR2Asm(start);
 
 	if(!isFunc)
@@ -1750,23 +1749,36 @@ static strX86AddrMode X87UnopArgs(graphNodeIR node) {
 				asmTypecastAssign(node,retVal[0], mode, ASM_ASSIGN_X87FPU_POP);
 				return retVal;
 }
+static int isFltRegMode(struct X86AddressingMode *addr) {
+		if(addr->type==X86ADDRMODE_REG)
+				return isX87FltReg(addr->value.reg);
+		return 0;
+}
 static strX86AddrMode X87BinopArgs(graphNodeIR node,struct reg *a,struct reg *b) {
 		graphNodeIR sA,sB;
 		binopArgs(node, &sA, &sB);
+		
 		strX86AddrMode retVal= strX86AddrModeAppendItem(NULL, X86AddrModeReg(a,&typeF64));
 		retVal= strX86AddrModeAppendItem(retVal, X86AddrModeReg(b,&typeF64));
-				struct X86AddressingMode *aMode CLEANUP(X86AddrModeDestroy)=(void*)IRNode2AddrMode(sA);
-				struct X86AddressingMode *bMode CLEANUP(X86AddrModeDestroy)=(void*)IRNode2AddrMode(sB);
-				if(a==&regX86ST0) {
-						__auto_type tmp=aMode;
-						aMode=bMode;
-						bMode=tmp;
-				}
-				struct X86AddressingMode *st0 CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86ST0,&typeF64);
-				st0->valueType=&typeF64;
-				asmTypecastAssign(node,st0, aMode, 0);
-				asmTypecastAssign(node,st0, bMode, 0);
-				return retVal;
+		struct X86AddressingMode *aMode CLEANUP(X86AddrModeDestroy)=(void*)IRNode2AddrMode(sA);
+		struct X86AddressingMode *bMode CLEANUP(X86AddrModeDestroy)=(void*)IRNode2AddrMode(sB);
+		
+		struct X86AddressingMode *st0 CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86ST0,&typeF64);
+		strX86AddrMode st1XCHG CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem( NULL,X86AddrModeReg(&regX86ST1,&typeF64));
+		st0->valueType=&typeF64;
+		if(isFltRegMode(aMode)&&isFltRegMode(bMode)) {		
+		} else if(!isFltRegMode(aMode)&&isFltRegMode(bMode)) {
+				asmTypecastAssign(node, st0, aMode, 0);
+				assembleInst("FXCH", st1XCHG);
+		} else if(isFltRegMode(aMode)&&!isFltRegMode(bMode)) {
+				asmTypecastAssign(node, st0, bMode, 0);
+		} else {
+				asmTypecastAssign(node, st0, aMode, 0);
+				asmTypecastAssign(node, st0, bMode, 0);
+		}
+
+		if(a==&regX86ST0) assembleInst("FXCH", st1XCHG);
+		return retVal;
 }
 static void X87StoreResult(graphNodeIR node) {
 		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIROutgoing(node);

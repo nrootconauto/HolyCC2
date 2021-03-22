@@ -20,28 +20,39 @@ static F64 __PrintF64Shift(F64 a, F64 b) {
 _import  log10 F64 Log10(F64 num);
 //http://kurtstephens.com/files/p372-steele.pdf
 static U0 __PrintF64(F64 f,F64 e,F64 p,I32i digits) {
+							//printf("f:%lf\n",f);
 							F64 value=f*2.0`(e-p);
+							//printf("%lf\n",p);
 							if(value==0)
 							{
 								printf("0.0");
 								return ;
 							}
 
+							//printf("%lf\n",e-p);
 							F64 R=__PrintF64Shift(f,Max(0.0,e-p));
+							//printf("%lf\n",R);
 							F64 S=__PrintF64Shift(1.0,Max(0.0,-(e-p)));
+							//printf("%lf\n",S);
 							printf("%lf,%lf\n",R/S,value);
 
 							F64 mA=__PrintF64Shift(1.0,Max(0.0,e-p));
 							F64 mB=mA;
-
+							//printf("%lf,%lf,%lf\n",mA,mB,e-p);
 							//printf("%lf,%lf,%lf\n",mA/S,mB/S,2.0`(e-p));
-							if(floor(f)==__PrintF64Shift(1.0,p-1)) {
+							//printf("p-1:%lf\n",p-1);
+							//printf("FLOO:%lf,%lf\n",floor(f),ceil(__PrintF64Shift(1.0,p-1.0)));
+							if(floor(f)==floor(__PrintF64Shift(1.0,p-1))) {
+																																																					//																																					printf("HERE\n");
 																											mA=__PrintF64Shift(mA,1.0);
 																											R=__PrintF64Shift(R,1.0);
 																											S=__PrintF64Shift(S,1.0);
 							}
 							I32i k=0;
+							//printf("%lf\n",R);
+							//printf("%lf,%lf\n",S,S/10.0);
 							while(R<ceil(S/10)) {
+																											//printf("%lf=%lf\n",(R/S)*10.0`(k(F64)),value);
 																											k-=1;
 																											R*=10.0;
 																											mA*=10.0;

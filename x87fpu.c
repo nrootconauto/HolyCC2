@@ -124,19 +124,19 @@ static void exprRecur(graphNodeIR start,ptrMapRefCount refCounts,int parentIsFpu
 
 		if(graphNodeIRValuePtr(start)->type==IR_VALUE) {
 				struct IRNodeValue *val=(void*)graphNodeIRValuePtr(start);
-				if(val->val.type==IR_VAL_VAR_REF&&objectBaseType(IRNodeType(start))==&typeF64) { 
-						if(*ptrMapRefCountGet(refCounts, val->val.value.var.var)==1&&val->val.value.var.var->isTmp) {
-								strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=IREdgesByPrec(start);
-								for(long i=0;i!=strGraphEdgeIRPSize(in);i++)
-										exprRecur(graphEdgeIRIncoming(in[i]),refCounts,parentIsFpuOp);
-								strGraphEdgeIRP in2 CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
-								strGraphEdgeIRP out2 CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(start);
-								for(long i=0;i!=strGraphEdgeIRPSize(in2);i++)
-										for(long o=0;o!=strGraphEdgeIRPSize(out2);o++)
-												graphNodeIRConnect(graphEdgeIRIncoming(in2[i]), graphEdgeIROutgoing(out2[o]), *graphEdgeIRValuePtr(out2[o]));
-								graphNodeIRKill(&start, (void(*)(void*))IRNodeDestroy, NULL);
+				if(val->val.type==IR_VAL_VAR_REF&&objectBaseType(IRNodeType(start))==&typeF64) {
+								if(*ptrMapRefCountGet(refCounts, val->val.value.var.var)==1&&val->val.value.var.var->isTmp) {
+										strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=IREdgesByPrec(start);
+										for(long i=0;i!=strGraphEdgeIRPSize(in);i++)
+												exprRecur(graphEdgeIRIncoming(in[i]),refCounts,parentIsFpuOp);
+										strGraphEdgeIRP in2 CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(start);
+										strGraphEdgeIRP out2 CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(start);
+										for(long i=0;i!=strGraphEdgeIRPSize(in2);i++)
+												for(long o=0;o!=strGraphEdgeIRPSize(out2);o++)
+														graphNodeIRConnect(graphEdgeIRIncoming(in2[i]), graphEdgeIROutgoing(out2[o]), *graphEdgeIRValuePtr(out2[o]));
+										graphNodeIRKill(&start, (void(*)(void*))IRNodeDestroy, NULL);
+								}
 								return ;
-						}
 				}
 		}
 		
@@ -172,10 +172,10 @@ static void exprRecur(graphNodeIR start,ptrMapRefCount refCounts,int parentIsFpu
 		} else if(graphNodeIRValuePtr(start)->type!=IR_VALUE) {
 				int isTypecastFromF64=0;
 				if(graphNodeIRValuePtr(start)->type==IR_TYPECAST) {
-						exprRecur(graphEdgeIRIncoming(in[0]), refCounts, parentIsFpuOp);
+						exprRecur(graphEdgeIRIncoming(in[0]), refCounts, 0);
 						strGraphEdgeIRPDestroy(&in);
 						in =IREdgesByPrec(start);
-
+						
 						if(objectBaseType(IRNodeType(graphEdgeIRIncoming(in[0])))==&typeF64) {
 								//Just return if typecast to F64 from F64
 								if( objectBaseType(IRNodeType(start))==&typeF64)
@@ -246,6 +246,7 @@ static void exprRecur(graphNodeIR start,ptrMapRefCount refCounts,int parentIsFpu
 										if(isX87Reg(val->val.value.reg.reg))
 												X87FpuPopReg();
 				}
+
 		} else {
 				fputs("Can't make sense of this node as an expression.\n", stderr);
 				abort();
@@ -299,7 +300,7 @@ void IRRegisterAllocateX87(graphNodeIR start) {
  						if(graphNodeIRValuePtr(out[0])->type==IR_FUNC_RETURN)
 								isConnected2Ret=1;
 				
-				exprRecur(exprEnds[e],refCounts,0);
+				exprRecur(exprEnds[e],refCounts,1);
 				if(strRegPSize(fpuRegsInUse)) {
 						if(strRegPSize(fpuRegsInUse)==1) {
 								if(isConnected2Ret)

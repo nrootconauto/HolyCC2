@@ -1424,6 +1424,9 @@ try {
 					testNoDest();
 					testRange();
 					}
+					printf("%lf\n",52.0-1);
+					printf("%lf\n",52-1.0);
+					printf("%lf\n",(52+1.0)-(1.0+1.0));
 					"Hello Wolrd:%.6n\n",15.500;
 					return 0;
 }
