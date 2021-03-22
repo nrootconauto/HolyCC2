@@ -744,6 +744,17 @@ graphNodeIR parserNode2Expr(const struct parserNode *node) {
 
 			args = strGraphNodeIRPAppendItem(args, arg);
 		}
+		
+		//Fill in remaining args with dft value
+		__auto_type funcType=IRNodeType(func);
+		assert(funcType->type==TYPE_FUNCTION||funcType->type==TYPE_PTR);
+		if(funcType->type==TYPE_PTR) {funcType=((struct objectPtr*)funcType)->type;}
+		struct objectFunction *funcType2=(void*)funcType;
+		
+		for (long i =  strParserNodeSize(call2->args);i<strFuncArgSize(funcType2->args); i++) {
+				assert(funcType2->args[i].dftVal);
+				args=strGraphNodeIRPAppendItem(args, parserNode2Expr(funcType2->args[i].dftVal));
+		}  
 
 		// Connect args
 		graphNodeIR callNode = GRAPHN_ALLOCATE(call);

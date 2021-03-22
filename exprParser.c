@@ -420,9 +420,22 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 			for (long i = 0; i != strFuncArgSize(func->args); i++) {
 				__auto_type expected = &func->args[i];
 				// If past provided args,check for defualt
-				if (strParserNodeSize(call->args) <= i)
-					if (func->args[i].dftVal == NULL)
-						goto noDft;
+				if (strParserNodeSize(call->args) <= i&&!func->hasVarLenArgs) {
+ 						if (func->args[i].dftVal == NULL)
+								goto noDft;
+						else
+								continue;
+				}
+				if(strFuncArgSize(func->args) <= i&&!func->hasVarLenArgs) {
+						// Whine about no defualt
+						diagErrorStart(call->func->pos.start, call->func->pos.end);
+						char buffer[1024];
+						sprintf(buffer, "Too many aruments for function.");
+						diagPushText(buffer);
+						diagEndMsg();
+						noteItem(call->func);
+						goto callFail;
+				}
 
 				// If empty arg check for defualt
 				if (call->args[i] == NULL) {

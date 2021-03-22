@@ -13,6 +13,7 @@ union JsonValue {
 };
 class JsonNode {
 						JsonNode *prev,*next,*par;
+						U8i *name;
 						I32i type;
 						JsonValue val;
 };
@@ -137,7 +138,7 @@ static U8i *JsonParseString(U8i *str,U8i **end) {
 							
 							return retVal; 							
 }
-static JsonNode *ParseJsonEntry(U8i *str,I32i chrI,I32i *end);
+static JsonNode *ParseJsonEntry(U8i *str,I32i chrI,I32i *end,JsonNode *prevNode=NULL);
 static JsonNode *ParserJsonLiteral(U8i *str,I32i chrI,JsonNode *prevNode,I32i *endI) {
 							  U8i *fltEnd=&str[chrI],*intEnd=&str[chrI];
 									F64 flt=Str2F64(&str[chrI],&fltEnd);
@@ -225,26 +226,62 @@ U0 JsonNodePrint(JsonNode *root,I32i tabLen=0) {
 																						}
 			}
 }
-static JsonNode *ParseJsonEntry(U8i *str,I32i chrI,I32i *end) {
+static I32i __JsonSkipWhitespace(U8i *str,I32i chrI) {
+							loop:
+							if(str[chrI]==' '||str[chrI]=='\t'||str[chrI]=='\r') {
+																		chrI+=1;
+																		goto loop;
+							}
+							if(0==StrNCmp(str+chrI,"//",2)) {
+							loop2:
+																																if(str[chrI]=='\t'||str[chrI]=='\r') {
+																																																									chrI+=1;
+																																																									goto loop;
+																																} else {
+																																		chrI+=1;
+																																		goto loop2;
+																																}
+							}
+							if(0==StrNCmp(str+chrI,"/*",2)) {
+																																					loop3:
+																																					if(0==StrNCmp(str+chrI,"*/",2)) {
+																																																									chrI+=2;
+																																																									goto loop;
+																																					} else {
+																																												chrI+=1;
+																																												goto loop3;
+																																					}
+							}
+							return chrI;
+}
+static JsonNode *ParseJsonEntry(U8i *str,I32i chrI,I32i *end,JsonNode *prevNode=NULL) {
+							chrI=__JsonSkipWhitespace(str,chrI);
 							JsonNode *prevNode=NULL;
-									findName:
-									I32i nameStart=chrI;
-									U8i *name=NULL;
-									for(;;chrI+=1) {
-																					U8i chr=str[chrI];
-																					if('z'>=chr>='a') goto findNameValid;
-																					if('Z'>=chr>='A') goto findNameValid;
-																					if('9'>=chr>='0') goto findNameValid;
-																					if(chr=='_'||chr=='$') goto findNameValid;
+							findName:
+							I32i nameStart=chrI;
+							U8i *name=NULL;
+							for(;;chrI+=1) {
+																						U8i chr=str[chrI];
+																						if('z'>=chr>='a') goto findNameValid;
+																						if('Z'>=chr>='A') goto findNameValid;
+																						if('9'>=chr>='0') goto findNameValid;
+																						if(chr=='_'||chr=='$') goto findNameValid;
 
-																					name=StrDupLen(&str[nameStart],chrI-nameStart);
-																					goto findColon;
-																					findNameValid:
-									}
-									findColon:
-									printf("JSON_NAME:%s\n",name);
+																						name=StrDupLen(&str[nameStart],chrI-nameStart);
+																						goto findColon;
+																						findNameValid:
+																						}
+						findColon:
+						name=malloc(chrI-nameStart+1);
+						StrCpy(name,&str[chrI]);
+						printf("JSON_NAME:%s\n",name);
 
-									if(str[chrI]!=':') return NULL;
-									chrI+=1;
-									next:
+						chrI=__JsonSkipWhitespace(str,chrI);
+						if(str[chrI]!=':') return NULL;
+						chrI=__JsonSkipWhitespace(str,chrI+1);
+
+						JsonNode *node=ParserJsonLiteral(str,chrI,prevNode,&chrI);
+						node.name=name;
+						if(end) *end=chrI;
+						return node;
 }
