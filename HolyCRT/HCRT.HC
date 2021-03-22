@@ -1431,7 +1431,7 @@ try {
 					"Hello Wolrd:%.6n\n",15.500;
 					*/
 					"Hello Wolrd:%.6n\n",15.500;
-					U8i *str="ABC:[1,2,3]";
+					U8i *str="ABC:[1,\"2\\n2\",3]";
 					I32i end;
 					JsonNode *node=ParseJsonEntry(str,0,&end);
 					JsonNodePrint(node);

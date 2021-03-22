@@ -23,7 +23,7 @@ static JsonNode *JsonNodeStrCreate(JsonNode *prev,U8i *str) {
 							value.par=NULL;
 							value.next=NULL;
 							value.type=JSON_STR;
-							value.val.str=str;
+							value.val.str=StrDupLen(str,StrLen(str));
 							JsonNode *retval=malloc(sizeof(value));
 							*retval=value;
 							return retval;
@@ -63,7 +63,7 @@ static JsonNode *JsonNodeArrCreate(JsonNode *prev,I32i len,JsonNode **nodes) {
 							JsonNode *retval=malloc(sizeof(value));
 							*retval=value;
 							
-							printf("T:%li,%li\n",retval->type,value.type);
+							//printf("T:%li,%li\n",retval->type,value.type);
 							return retval;
 }
 static U8i *JsonParseString(U8i *str,U8i **end) {
@@ -138,7 +138,7 @@ static U8i *JsonParseString(U8i *str,U8i **end) {
 							}
 							goto loop;
 							end:
-							
+
 							return retVal; 							
 }
 static JsonNode *ParseJsonEntry(U8i *str,I32i chrI,I32i *end,JsonNode *prevNode=NULL);
@@ -146,8 +146,8 @@ static JsonNode *ParserJsonLiteral(U8i *str,I32i chrI,JsonNode *prevNode,I32i *e
 							  U8i *fltEnd=&str[chrI],*intEnd=&str[chrI];
 									F64 flt=Str2F64(&str[chrI],&fltEnd);
 									I32i int=Str2I32i(&str[chrI],&intEnd);
-									printf("%li\n",fltEnd-&str[chrI]);
-									printf("%li\n",intEnd-&str[chrI]);
+									//printf("%li\n",fltEnd-&str[chrI]);
+									//printf("%li\n",intEnd-&str[chrI]);
 									if(fltEnd!=&str[chrI]||intEnd!=&str[chrI]) {
 																																								//Use largest item
 																																								if(fltEnd>intEnd) {
@@ -158,10 +158,10 @@ static JsonNode *ParserJsonLiteral(U8i *str,I32i chrI,JsonNode *prevNode,I32i *e
 																																								                  return  JsonNodeIntCreate(prevNode,int);
 																																								}
 									}
-									I32i strEnd=chrI;
+									U8i *strEnd;
 									U8i *string=JsonParseString(&str[chrI],&strEnd);
 									if(string) {
-																				if(endI) *endI=strEnd;
+																				if(endI) *endI=strEnd-str;
 																				prevNode=JsonNodeStrCreate(prevNode,string);
 																				free(string);
 																				return prevNode;
@@ -185,7 +185,7 @@ static JsonNode *ParserJsonLiteral(U8i *str,I32i chrI,JsonNode *prevNode,I32i *e
 																																																				Print("Expected item.\n");
 																																																				break;
 																																											}
-																																											printf("f:%li\n",chrI);
+																																											//printf("f:%li\n",chrI);
 																																											arr=realloc(arr,sizeof(JsonNode*)*(arrLen+=1));
 																																											arr[arrLen-1]=tmp;
 
@@ -195,7 +195,7 @@ static JsonNode *ParserJsonLiteral(U8i *str,I32i chrI,JsonNode *prevNode,I32i *e
 																												chrI+=1;
 																												if(endI) *endI=chrI;
 																												JsonNode *y= JsonNodeArrCreate(prevNode,arrLen,arr);
-																												printf("t:%li\n",y->type);;
+																												//printf("t:%li\n",y->type);;
 																												return y;
 }
 
@@ -207,11 +207,11 @@ static JsonNode *ParserJsonLiteral(U8i *str,I32i chrI,JsonNode *prevNode,I32i *e
 									}
 }
 static U0 tabPrintN(I32i tabLen) {
-							while((tabLen-=1)>=0) printf("\t");
+							while((tabLen-=1)>=0) Print("\t");
 }
 U0 JsonNodePrint(JsonNode *root,I32i tabLen=0) {
 			tabPrintN(tabLen);
-			printf("t:%li\n",root->type);
+			//printf("t:%li\n",root->type);
 			switch(root->type) {
 																						case JSON_STR: {
 																											Print("\"%q\";\n",root->val.str);
@@ -229,11 +229,11 @@ U0 JsonNodePrint(JsonNode *root,I32i tabLen=0) {
 																											break;
 																						}
 																						case JSON_ARR: {
-																											printf("[\n");
+																											Print("[\n");
 																											for(I32i i=0;root->val.arr[i]!=NULL;i+=1)
 																																				JsonNodePrint(root->val.arr[i],tabLen+1);
 																											tabPrintN(tabLen);
-																											printf("]\n");
+																											Print("]\n");
 																											break;
 																						}
 			}
@@ -284,7 +284,7 @@ static JsonNode *ParseJsonEntry(U8i *str,I32i chrI,I32i *end,JsonNode *prevNode=
 																						findNameValid:
 																						}
 						findColon:
-						printf("JSON_NAME:%s\n",name);
+						//printf("JSON_NAME:%s\n",name);
 
 						chrI=__JsonSkipWhitespace(str,chrI);
 						if(str[chrI]!=':') return NULL;

@@ -267,6 +267,12 @@ U0 Print(U8i *fmt,...) {
 											// TODO implement flags and aux.
 											//
 											switch(*str) {
+																								case 'q': {
+																													U8i *str=__UnescapeStr(argv[argi]);
+																													printf("%s",str);
+																													free(str);
+																													break;
+																								}
 																								case 'n': {
 																													F64 *tmp=(&argv[argi])(F64);
 																													F64 val=*tmp;

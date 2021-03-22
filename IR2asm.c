@@ -3716,6 +3716,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				AUTO_LOCK_MODE_REGS(iMode);
 				AUTO_LOCK_MODE_REGS(fromMode);
 				struct X86AddressingMode *tmpReg CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(regForTypeExcludingConsumed(getTypeForSize(ptrSize())),getTypeForSize(ptrSize()));
+				if(regIsAliveAtNode(start,tmpReg->value.reg)) pushMode(tmpReg);
 				asmTypecastAssign(start,tmpReg, iMode, ASM_ASSIGN_X87FPU_POP);
 				struct X86AddressingMode *indirTmpReg CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirReg(tmpReg->value.reg, IRNodeType(start));
 				if(strGraphEdgeIRPSize(inAsn)==1) {
@@ -3723,6 +3724,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				} else if(strGraphEdgeIRPSize(inAsnFromPtr) == 1) {
 						asmAssignFromPtr(indirTmpReg, fromMode,objectSize(IRNodeType(start), NULL),ASM_ASSIGN_X87FPU_POP);
 				}
+				if(regIsAliveAtNode(start,tmpReg->value.reg)) popMode(tmpReg);
 		}
 
 		
