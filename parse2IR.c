@@ -113,8 +113,9 @@ static struct enterExit insSrcMapping(long start,long end,struct enterExit pair)
 		return pair;
 }
 static struct enterExit insSrcMappingsForBody(struct parserNode *node,struct enterExit pair) {
-		if(node->type==NODE_BINOP||node->type==NODE_UNOP||node->type==NODE_FUNC_CALL||node->type==NODE_VAR_DECLS||node->type==NODE_VAR_DECL)
-				return insSrcMapping(node->pos.start, node->pos.end, pair);
+		if(node)
+				if(node->type==NODE_BINOP||node->type==NODE_UNOP||node->type==NODE_FUNC_CALL||node->type==NODE_VAR_DECLS||node->type==NODE_VAR_DECL)
+						return insSrcMapping(node->pos.start, node->pos.end, pair);
 		return pair;
 }
 static struct IRGenScopeStack *IRGenScopePush(enum scopeType type) {
@@ -962,7 +963,7 @@ static struct enterExit varDecl2IR(const struct parserNode *node) {
 	return retVal;
 }
 static struct enterExit __parserNode2IRStmt(const struct parserNode *node) {
-	__auto_type retVal = __parserNode2IRNoStmt(node);
+		__auto_type retVal = __parserNode2IRNoStmt(node);
 	return retVal;
 }
 static void debugShowGraphIR(graphNodeIR enter) {
@@ -977,7 +978,11 @@ static void debugShowGraphIR(graphNodeIR enter) {
 STR_TYPE_DEF(struct parserVar*,ParserVar);
 STR_TYPE_FUNCS(struct parserVar*,ParserVar);
 static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
-	switch (node->type) {
+		if(!node) {
+				__auto_type lab=IRCreateLabel();
+				return (struct enterExit){lab,lab};
+		}
+		switch (node->type) {
 	case NODE_PRINT: {
 			__auto_type sym=parserGetGlobalSym("Print");
 			if(!sym) {

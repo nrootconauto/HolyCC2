@@ -31,6 +31,11 @@ struct object *objectBaseType(const struct object *obj) {
 			return (struct object *)obj;
 
 		return objectBaseType(un->baseType);
+	} else if(obj->type==TYPE_FORWARD) {
+			struct parserNodeName *name=(void*)((struct objectForwardDeclaration*)obj)->name;
+			assert(name);
+			__auto_type type=objectByName(name->text);
+			if(type->type!=TYPE_FORWARD) return type;
 	}
 
 	return (struct object *)obj;
@@ -725,6 +730,9 @@ int /*Returns 0 if not equal.*/ objectEqual(const struct object *a, const struct
 	if (a == b)
 		return 1;
 
+	if(a->type==TYPE_FORWARD) a=objectBaseType(a);
+	if(b->type==TYPE_FORWARD) b=objectBaseType(b);
+	
 	if (a->type != b->type)
 		return 0;
 	if (a->type == TYPE_PTR) {

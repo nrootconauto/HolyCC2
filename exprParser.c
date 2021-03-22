@@ -157,6 +157,33 @@ static void noteItem(struct parserNode *node) {
 		diagEndMsg();
 	}
 }
+static void validatePtrPass(struct object *expected,struct parserNode *node) {
+		__auto_type type=assignTypeToOp(node);
+		if(objectEqual(expected,objectPtrCreate(&typeU0))||objectEqual(type,objectPtrCreate(&typeU0))) {
+				if(type->type==TYPE_CLASS||type->type==TYPE_UNION)
+						goto invalidPass;
+		} else {
+				if(!objectEqual(expected,type)) {
+						__auto_type t=objectBaseType(type)->type;
+						int isNumeric=t==TYPE_I8i||t==TYPE_I16i||t==TYPE_I32i||t==TYPE_I64i||t==TYPE_U8i||t==TYPE_U16i||t==TYPE_U32i||t==TYPE_U64i;
+						if(!isNumeric) {
+						invalidPass:
+								diagNoteStart(node->pos.start, node->pos.end);
+
+								char *expStr=object2Str(expected);
+								char *gotStr=object2Str(objectBaseType(type));
+								const char *fmt="Passing type %s to type %s.";
+								long len=snprintf(NULL,0, fmt, gotStr,expStr);
+								char buffer[len+1];
+								snprintf(buffer, len+1, fmt, gotStr,expStr);
+						
+								diagPushText(buffer);
+								free(gotStr),free(expStr);
+								diagEndMsg(); 
+						}
+				}
+		}
+}
 static void incompatTypes(struct parserNode *node, struct object *expected) {
 	char *haveName = NULL, *expectedName = NULL;
 	haveName = object2Str(assignTypeToOp(node));
@@ -248,6 +275,8 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 				if (aType != bType)
 					goto binopInvalid;
 				return base;
+			} else if(base->type==TYPE_PTR) {
+					validatePtrPass(base, binop->b);
 			}
 		}
 		if (binop->type != NULL)
@@ -263,15 +292,7 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 				int aPtr=(objectBaseType(aType)->type==TYPE_PTR);
 				int bPtr=(objectBaseType(bType)->type==TYPE_PTR);
 				if(aPtr&&bPtr) {
-						/*
-						if(objectBaseType(aType)!=objectBaseType(bType)) {
-								diagWarnStart(binop->base.pos.start, binop->base.pos.end);
-								diagPushText("Pointer type mismatch with operator");
-								diagPushQoutedText(binop->op->pos.start, binop->op->pos.end);
-								diagPushText(".");
-								diagEndMsg();
-						}
-						*/
+						validatePtrPass(aType, binop->b);
 				}
 				
 			// Dont promote left value on assign
@@ -460,7 +481,7 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 				int expectedArith = isArith(expected->type);
 				int haveArith = isArith(have);
 				if (expectedArith && haveArith) {
-
+						//validatePtrPass(expected->type,call->args[i]);
 				} else if (expectedArith || haveArith) {
 					// One is arithmetic and one isn't
 					incompatTypes(call->args[i], expected->type);

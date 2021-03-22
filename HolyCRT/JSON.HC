@@ -1,7 +1,7 @@
 class JsonNode;
 #define JSON_STR 0
 #define JSON_SINT 1
-#define JSON_NODE 2
+#define JSON_OBJ 2
 #define JSON_FLT 3
 #define JSON_ARR 4
 union JsonValue {
@@ -17,6 +17,7 @@ class JsonNode {
 						I32i type;
 						JsonValue val;
 };
+static I32i __JsonSkipWhitespace(U8i *str,I32i chrI);
 static JsonNode *JsonNodeStrCreate(JsonNode *prev,U8i *str) {
 							JsonNode value;
 							value.prev=prev;
@@ -26,6 +27,7 @@ static JsonNode *JsonNodeStrCreate(JsonNode *prev,U8i *str) {
 							value.val.str=StrDupLen(str,StrLen(str));
 							JsonNode *retval=malloc(sizeof(value));
 							*retval=value;
+							if(prev) prev->next=retval;
 							return retval;
 }
 static JsonNode *JsonNodeIntCreate(JsonNode *prev,I32i sint) {
@@ -37,6 +39,8 @@ static JsonNode *JsonNodeIntCreate(JsonNode *prev,I32i sint) {
 							value.val.sint=sint;
 							JsonNode *retval=malloc(sizeof(value));
 							*retval=value;
+
+							if(prev) prev->next=retval;
 							return retval;
 }
 static JsonNode *JsonNodeFltCreate(JsonNode *prev,F64 flt) {
@@ -48,6 +52,8 @@ static JsonNode *JsonNodeFltCreate(JsonNode *prev,F64 flt) {
 							value.val.flt=flt;
 							JsonNode *retval=malloc(sizeof(value));
 							*retval=value;
+
+							if(prev) prev->next=retval;
 							return retval;
 }
 static JsonNode *JsonNodeArrCreate(JsonNode *prev,I32i len,JsonNode **nodes) {
@@ -62,8 +68,21 @@ static JsonNode *JsonNodeArrCreate(JsonNode *prev,I32i len,JsonNode **nodes) {
 								value.val.arr[len]=nodes[len];
 							JsonNode *retval=malloc(sizeof(value));
 							*retval=value;
-							
-							//printf("T:%li,%li\n",retval->type,value.type);
+
+							if(prev) prev->next=retval;
+							return retval;
+}
+static JsonNode *JsonNodeObjCreate(JsonNode *prev,JsonNode *first) {
+							JsonNode value;
+							value.prev=prev;
+							value.par=NULL;
+							value.next=NULL;
+							value.type=JSON_OBJ;
+							value.val.node=first;
+							JsonNode *retval=malloc(sizeof(value));
+							*retval=value;
+
+							if(prev) prev->next=retval;
 							return retval;
 }
 static U8i *JsonParseString(U8i *str,U8i **end) {
@@ -146,8 +165,6 @@ static JsonNode *ParserJsonLiteral(U8i *str,I32i chrI,JsonNode *prevNode,I32i *e
 							  U8i *fltEnd=&str[chrI],*intEnd=&str[chrI];
 									F64 flt=Str2F64(&str[chrI],&fltEnd);
 									I32i int=Str2I32i(&str[chrI],&intEnd);
-									//printf("%li\n",fltEnd-&str[chrI]);
-									//printf("%li\n",intEnd-&str[chrI]);
 									if(fltEnd!=&str[chrI]||intEnd!=&str[chrI]) {
 																																								//Use largest item
 																																								if(fltEnd>intEnd) {
@@ -199,11 +216,19 @@ static JsonNode *ParserJsonLiteral(U8i *str,I32i chrI,JsonNode *prevNode,I32i *e
 																												return y;
 }
 
-									if(str[chrI]=='{') {																												
+									if(str[chrI]=='{') {
+																												JsonNode *prev=NULL;
+																												chrI=__JsonSkipWhitespace(str,chrI);
 																												for(;str[chrI]!='}';) {
-																																		ParseJsonEntry(str,chrI,&chrI);
+																																		JsonNode *node=ParseJsonEntry(str,chrI,&chrI,prev);
+																																		chrI=__JsonSkipWhitespace(str,chrI);
+																																		if(str[chrI]!=';') {
+																																																					Print("Expected ';'\n");
 																																		}
-																												chrI+=1;						
+																																		node=prev;
+																												}
+																												chrI+=1;
+																												
 									}
 }
 static U0 tabPrintN(I32i tabLen) {
@@ -221,7 +246,10 @@ U0 JsonNodePrint(JsonNode *root,I32i tabLen=0) {
 																											Print("%d;\n",root->val.sint);
 																											break;
 																						}
-																						case JSON_NODE: {
+																						case JSON_OBJ: {
+																											Print("{\n");
+																											for(JsonNode *node=root->val.node;node!=NULL;node=node->next);
+																											Print("}\n");
 																											break;
 																						}
 																						case JSON_FLT: {
