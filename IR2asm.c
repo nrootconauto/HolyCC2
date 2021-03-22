@@ -1332,8 +1332,9 @@ void asmAssign(graphNodeIR atNode,struct X86AddressingMode *a, struct X86Address
 void asmAssignFromPtr(struct X86AddressingMode *a,struct X86AddressingMode *b,long size,enum asmAssignFlags flags) {
 		AUTO_LOCK_MODE_REGS(a);
 		AUTO_LOCK_MODE_REGS(b);
-		struct X86AddressingMode *indir CLEANUP(X86AddrModeDestroy)=__mem2SIB(b);
-		indir->valueType=a->valueType;
+		struct X86AddressingMode * accum CLEANUP(X86AddrModeDestroy) =getAccumulatorForType(objectPtrCreate(&typeU0));
+		asmAssign(NULL,accum, b, ptrSize(), ASM_ASSIGN_X87FPU_POP);
+		struct X86AddressingMode *indir CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirReg(accum->value.reg, a->valueType);
 		asmAssign(NULL,a, indir, size, flags);
 }
 struct IRVar2WeightAssoc {
@@ -3714,7 +3715,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				struct X86AddressingMode *fromMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(fromNode);
 				AUTO_LOCK_MODE_REGS(iMode);
 				AUTO_LOCK_MODE_REGS(fromMode);
-				struct X86AddressingMode *tmpReg CLEANUP(X86AddrModeDestroy)=getAccumulatorForType(getTypeForSize(ptrSize()));
+				struct X86AddressingMode *tmpReg CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(regForTypeExcludingConsumed(getTypeForSize(ptrSize())),getTypeForSize(ptrSize()));
 				asmTypecastAssign(start,tmpReg, iMode, ASM_ASSIGN_X87FPU_POP);
 				struct X86AddressingMode *indirTmpReg CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirReg(tmpReg->value.reg, IRNodeType(start));
 				if(strGraphEdgeIRPSize(inAsn)==1) {
