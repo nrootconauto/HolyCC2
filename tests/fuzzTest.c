@@ -115,7 +115,7 @@ void fuzzTestBinops() {
 				&typeU32i,
 				&typeU64i,
 		};
-		long a=235,b=3;
+		long a=127,b=3;
 		for(long t=0;t!=sizeof(types)/sizeof(*types);t++) {
 				strRegP regs CLEANUP(strRegPDestroy)=regGetForType(types[t]);
 				for(long r1=0;r1!=strRegPSize(regs);r1++) {
@@ -130,7 +130,8 @@ void fuzzTestBinops() {
 										graphNodeIR start=IRCreateLabel();
 										//__auto_type res=genBinop((struct opTextPair){IR_ADD,"ADD"},start, types[t], a, b, a+b, regs[r1],regs[r2],regs[r3]);
 										//__auto_type res=genBinop((struct opTextPair){IR_SUB,"SUB"},start, types[t], a, b, a-b, regs[r1],regs[r2],regs[r3]);
-										__auto_type res=genBinop((struct opTextPair){IR_MULT,"MULT"},start, types[t], a, b, a*b, regs[r1],regs[r2],regs[r3]);
+										//__auto_type res=genBinop((struct opTextPair){IR_MULT,"MULT"},start, types[t], a, b, a*b, regs[r1],regs[r2],regs[r3]);
+										__auto_type res=genBinop((struct opTextPair){IR_DIV,"DIV"},start, types[t], a, b, a/b, regs[r1],regs[r2],regs[r3]);
 										assembleTest(res);
 								}
 						}
