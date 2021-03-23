@@ -748,7 +748,7 @@ void X86EmitAsmLeaveFunc(const char *cacheDir) {
 		strChar initSyms CLEANUP(strCharDestroy) = file2Str(currentFileSet->initSymbolsTmpFile);
 		fwrite(symbols, strCharSize(symbols), 1, fn);
 		fprintf(fn, "SECTION .text\n");
-		fprintf(fn, "%s:", currentFileSet->funcName);
+		fprintf(fn, "%s:\n", currentFileSet->funcName);
 		fwrite(code, strCharSize(code), 1, fn);
 		fprintf(fn, "SECTION .data\n");
 		fwrite(consts, strCharSize(consts), 1, fn);

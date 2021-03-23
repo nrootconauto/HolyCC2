@@ -31,9 +31,11 @@ void IEEE754Tests();
 void asmEmitterTests();
 void compileTests();
 void ropeTests();
+void fuzzTestBinops();
 int main() {
 		init();
 		//ropeTests();
  		compileTests();
+			 fuzzTestBinops();
 		return 0;
 }

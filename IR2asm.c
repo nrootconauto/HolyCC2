@@ -3017,7 +3017,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				struct X86AddressingMode *axMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86AX,&typeI16i);
 				axMode->valueType=&typeI16i;
 				asmTypecastAssign(start,axMode, aMode, ASM_ASSIGN_X87FPU_POP);
-				divArgs = strX86AddrModeAppendItem(divArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())), X86AddrModeSint(1), &typeI8i));
+				divArgs = strX86AddrModeAppendItem(divArgs, X86AddrModeIndirReg(stackPointer(), &typeI8i));
 				assembleOpcode(start,op, divArgs);
 
 				strX86AddrMode incArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())));

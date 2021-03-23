@@ -59,6 +59,7 @@ list(APPEND tests "tests/compileTests.c")
 list(APPEND tests "tests/ropeTests.c")
 list(APPEND tests "tests/tests.c")
 list(APPEND tests "tests/compileTests.c")
+list(APPEND tests "tests/fuzzTest.c")
 add_executable(holycc2Tests ${sources} ${tests})
 add_executable(hcc ${sources} "main.c")
 
