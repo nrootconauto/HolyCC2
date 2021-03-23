@@ -2965,21 +2965,23 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		strX86AddrMode ppRDX CLEANUP(strX86AddrModeDestroy2) = NULL;
 		switch (objectSize(IRNodeType(start), NULL)) {
 		case 1:
-				IF_NOT_CONFLICT(regX86AH, ppRAX = strX86AddrModeAppendItem(NULL, X86AddrModeReg(&regX86AH,&typeI8i)));
-			IF_NOT_CONFLICT(regX86AL, ppRDX = strX86AddrModeAppendItem(NULL, X86AddrModeReg(&regX86AL,&typeI8i)));
+				//Dont backup accumtator
 			break;
 		case 2:
-			IF_NOT_CONFLICT(regX86AX, ppRAX = strX86AddrModeAppendItem(NULL, X86AddrModeReg(&regX86AX,&typeI16i)));
+				//Dont backup accumtator
+				//	IF_NOT_CONFLICT(regAMD64RAX, ppRAX = strX86AddrModeAppendItem(NULL, X86AddrModeReg(&regAMD64RAX,&typeI64i)));
 			IF_NOT_CONFLICT(regX86DX, ppRDX = strX86AddrModeAppendItem(NULL, X86AddrModeReg(&regX86DX,&typeI16i)));
 			break;
 		case 4:
-			IF_NOT_CONFLICT(regX86EAX, ppRAX = strX86AddrModeAppendItem(NULL, X86AddrModeReg(&regX86EAX,&typeI32i)));
-			IF_NOT_CONFLICT(regX86EDX, ppRDX = strX86AddrModeAppendItem(NULL, X86AddrModeReg(&regX86EDX,&typeI32i)));
-			break;
+				//Dont backup accumtator
+				//	IF_NOT_CONFLICT(regAMD64RAX, ppRAX = strX86AddrModeAppendItem(NULL, X86AddrModeReg(&regAMD64RAX,&typeI64i)));
+				IF_NOT_CONFLICT(regX86EDX, ppRDX = strX86AddrModeAppendItem(NULL, X86AddrModeReg(&regX86EDX,&typeI32i)));
+				break;
 		case 8:
-			IF_NOT_CONFLICT(regAMD64RAX, ppRAX = strX86AddrModeAppendItem(NULL, X86AddrModeReg(&regAMD64RAX,&typeI64i)));
-			IF_NOT_CONFLICT(regAMD64RDX, ppRDX = strX86AddrModeAppendItem(NULL, X86AddrModeReg(&regAMD64RDX,&typeI64i)));
-			break;
+				//Dont backup accumtator 
+				//	IF_NOT_CONFLICT(regAMD64RAX, ppRAX = strX86AddrModeAppendItem(NULL, X86AddrModeReg(&regAMD64RAX,&typeI64i)));
+				IF_NOT_CONFLICT(regAMD64RDX, ppRDX = strX86AddrModeAppendItem(NULL, X86AddrModeReg(&regAMD64RDX,&typeI64i)));
+				break;
 		}
 		if (ppRAX)
 				pushMode(ppRAX[0]), consumeRegFromMode(ppRAX[0]);
@@ -3007,8 +3009,13 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				
 				divArgs = strX86AddrModeAppendItem(divArgs, X86AddrModeIndirReg(stackPointer(), &typeI8i));
 				assembleOpcode(start,op, divArgs);
-
 				popMode(bMode);
+
+				if (ppRDX)
+						popMode(ppRDX[0]), unconsumeRegFromMode(ppRDX[0]);
+				if (ppRAX)
+						popMode(ppRAX[0]), unconsumeRegFromMode(ppRAX[0]);
+				
 				if (isDivOrMod) {
 						struct X86AddressingMode *al CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86AL,&typeI8i);
 						asmAssign(start,outMode, al, 1,0);
@@ -3027,17 +3034,28 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			dxorArgs = strX86AddrModeAppendItem(dxorArgs, X86AddrModeReg(&regX86DX,&typeI16i));;
 			assembleInst("XOR", dxorArgs);
 			assembleOpcode(start,op, divArgs);
-			//Dummy pop
-			popMode(bMode);
-
-			if (isDivOrMod) {
-					struct X86AddressingMode *ax CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86AX,&typeI16i);
-					asmAssign(start,outMode, ax, 1,0);
-			} else {
-					struct X86AddressingMode *dx CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86DX,&typeI16i);
-					asmAssign(start,outMode, dx, 1,0);
+			{
+					//Dummy pop
+					strX86AddrMode addSpArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeReg(stackPointer(), NULL));
+					addSpArgs=strX86AddrModeAppendItem(addSpArgs, X86AddrModeSint(objectSize(bMode->valueType, NULL)));
+					assembleInst("ADD", addSpArgs);
 			}
-			break;
+			{
+					//Accumulator(RAX etc...) is always free
+					struct X86AddressingMode *ax CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86AX,&typeI16i);
+					if (!isDivOrMod) {
+							struct X86AddressingMode *dx CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86DX,&typeI16i);
+							asmAssign(start,ax,dx, 2, ASM_ASSIGN_X87FPU_POP);
+					}
+		
+					if (ppRDX)
+							popMode(ppRDX[0]), unconsumeRegFromMode(ppRDX[0]);
+					if (ppRAX)
+							popMode(ppRAX[0]), unconsumeRegFromMode(ppRAX[0]);
+			
+					asmAssign(start,outMode, ax, 2,0);
+					break;
+			}
 		case 4:
 				pushMode(bMode);
 				pushMode(aMode);
@@ -3047,17 +3065,28 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				dxorArgs = strX86AddrModeAppendItem(dxorArgs, X86AddrModeReg(&regX86EDX,&typeI32i));
 			assembleInst("XOR", dxorArgs);
 			assembleOpcode(start,op, divArgs);
-			//Dummy pop
-			popMode(bMode);
-
-			if (isDivOrMod) {
-				struct X86AddressingMode *eax CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86EAX,&typeI32i);
-				asmAssign(start,outMode, eax, 1,0);
-			} else {
-				struct X86AddressingMode *edx CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86EDX,&typeI32i);
-				asmAssign(start,outMode, edx, 1,0);
+			{
+					//Dummy pop
+					strX86AddrMode addSpArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeReg(stackPointer(), NULL));
+					addSpArgs=strX86AddrModeAppendItem(addSpArgs, X86AddrModeSint(objectSize(bMode->valueType, NULL)));
+					assembleInst("ADD", addSpArgs);
 			}
-			break;
+			{
+					//Accumulator(RAX etc...) is always free
+					struct X86AddressingMode *eax CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86EAX,&typeI32i);
+					if (!isDivOrMod) {
+							struct X86AddressingMode *edx CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86EDX,&typeI32i);
+							asmAssign(start,eax,edx, 4, ASM_ASSIGN_X87FPU_POP);
+					}
+			
+					if (ppRDX)
+							popMode(ppRDX[0]), unconsumeRegFromMode(ppRDX[0]);
+					if (ppRAX)
+							popMode(ppRAX[0]), unconsumeRegFromMode(ppRAX[0]);
+			
+					asmAssign(start,outMode, eax, 4,0);
+					break;
+			}
 		case 8:
 				pushMode(bMode);
 				pushMode(aMode);
@@ -3067,23 +3096,31 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			dxorArgs = strX86AddrModeAppendItem(dxorArgs, X86AddrModeReg(&regAMD64RDX,&typeI64i));
 			assembleInst("XOR", dxorArgs);
 			assembleOpcode(start,op, divArgs);
-			//Dummy pop
-			popMode(bMode);
-
-			if (isDivOrMod) {
-				struct X86AddressingMode *rdx CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regAMD64RDX,&typeI64i);
-				asmAssign(start,outMode, rdx, 1,0);
-			} else {
-				struct X86AddressingMode *rax CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regAMD64RAX,&typeI64i);
-				asmAssign(start,outMode, rax, 1,0);
+			{
+					//Dummy pop
+					strX86AddrMode addSpArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeReg(stackPointer(), NULL));
+					addSpArgs=strX86AddrModeAppendItem(addSpArgs, X86AddrModeSint(objectSize(bMode->valueType, NULL)));
+					assembleInst("ADD", addSpArgs);
 			}
-			break;
+			{
+					//Accumulator(RAX etc...) is always free
+					struct X86AddressingMode *rax CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regAMD64RAX,&typeI64i);
+					if (!isDivOrMod) {
+							struct X86AddressingMode *rdx CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regAMD64RDX,&typeI64i);
+							asmAssign(start,rax,rdx, 8, ASM_ASSIGN_X87FPU_POP);
+					}
+			
+					if (ppRDX)
+							popMode(ppRDX[0]), unconsumeRegFromMode(ppRDX[0]);
+					if (ppRAX)
+							popMode(ppRAX[0]), unconsumeRegFromMode(ppRAX[0]);
+			
+					asmAssign(start,outMode, rax, 8,0);
+					break;
+			};
 		}
 		
-		if (ppRDX)
-				popMode(ppRDX[0]), unconsumeRegFromMode(ppRDX[0]);
-		if (ppRAX)
-			popMode(ppRAX[0]), unconsumeRegFromMode(ppRAX[0]);
+		
 		return strGraphNodeIRPAppendItem(NULL, nodeDest(start));
 	}
 	case IR_POW: {
