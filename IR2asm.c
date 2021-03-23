@@ -2863,7 +2863,6 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 					}
 				}
 
-				strX86AddrMode mulArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
 				strX86AddrMode ppArgsA CLEANUP(strX86AddrModeDestroy2) = NULL;
 				strX86AddrMode ppArgsD CLEANUP(strX86AddrModeDestroy2) = NULL;
 
@@ -2875,14 +2874,12 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				case 1: {
 						struct X86AddressingMode *alMode CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86AL,aMode->valueType);
 						asmAssign(start,alMode, aMode, 1,0);
-					mulArgs = strX86AddrModeAppendItem(mulArgs, X86AddrModeClone(bMode));
 					outReg = &regX86AL;
 					break;
 				}
 				case 2: {
 						struct X86AddressingMode *axMode CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86AX,aMode->valueType);
 					asmAssign(start,axMode, aMode, 2,0);
-					mulArgs = strX86AddrModeAppendItem(mulArgs, X86AddrModeClone(bMode));
 					pushPopRegs = strRegPAppendItem(pushPopRegs, &regX86DX);
 					outReg = &regX86AX;
 					break;
@@ -2890,7 +2887,6 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				case 4: {
 					struct X86AddressingMode *eaxMode CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regX86EAX,aMode->valueType);
 					asmAssign(start,eaxMode, aMode, 4,0);
-					mulArgs = strX86AddrModeAppendItem(mulArgs, X86AddrModeClone(bMode));
 					pushPopRegs = strRegPAppendItem(pushPopRegs, &regX86EDX);
 					outReg = &regX86EAX;
 					break;
@@ -2898,7 +2894,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				case 8: {
 					struct X86AddressingMode *raxMode CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(&regAMD64RAX,aMode->valueType);
 					asmAssign(start,raxMode, aMode, 8,0);
-					mulArgs = strX86AddrModeAppendItem(mulArgs, X86AddrModeClone(bMode));
+					
 					pushPopRegs = strRegPAppendItem(pushPopRegs, &regAMD64RDX);
 					outReg = &regAMD64RAX;
 					break;
@@ -2906,35 +2902,27 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 					assert(0);
 				}
 
-				// Make room on stack for  result
-				strX86AddrMode addSPArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
-				addSPArgs = strX86AddrModeAppendItem(addSPArgs, X86AddrModeSint(outSize));
-				addSPArgs = strX86AddrModeAppendItem(addSPArgs, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())));
-				assembleInst("ADD", addSPArgs);
-
 				// Push uncomsumed registers that are affected
 				for (long r = 0; r != strRegPSize(pushPopRegs); r++)
 					pushReg(pushPopRegs[r]);
 
 				struct X86AddressingMode *resRegMode CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(outReg,getTypeForSize(outSize));
+				//PUT ON TOP OF STACK
+				pushMode(bMode);
+
+				//READ FROM TOP OF STACK
+				strX86AddrMode mulArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL,X86AddrModeIndirReg(stackPointer(),bMode->valueType));
 				assembleInst("MUL", mulArgs);
 
-				// Assign to area below pushed args
-				long offset = 0;
-				for (long r = 0; r != strRegPSize(pushPopRegs); r++)
-					offset += pushPopRegs[r]->size;
-				struct X86AddressingMode *resultPointer =
-						X86AddrModeIndirSIB(0, 0, X86AddrModeReg((ptrSize() == 4 ? &regX86ESP : &regAMD64RSP),getTypeForSize(ptrSize())), X86AddrModeSint(-offset), IRNodeType(nodeDest(start)));
-				asmAssign(start,resultPointer, resRegMode, outSize,0);
-
+				strX86AddrMode addSp CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeReg(stackPointer(), getTypeForSize(ptrSize())));
+				addSp=strX86AddrModeAppendItem(addSp, X86AddrModeSint(objectSize(bMode->valueType, NULL)));
+				assembleInst("ADD", addSp);
+				
 				// Pop uncomsumed registers that are affected
 				for (long r = strRegPSize(pushPopRegs) - 1; r >= 0; r--)
 					popReg(pushPopRegs[r]);
 
-				struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(nodeDest(start));
-				asmAssign(start,oMode, X86AddrModeIndirReg(stackPointer(), IRNodeType(nodeDest(start))), outSize,0);
-				// Free room for result on stack
-				assembleInst("SUB", addSPArgs);
+				asmAssign(start,oMode, resRegMode, outSize,0);
 			}
 		}
 		return nextNodesToCompile(start);

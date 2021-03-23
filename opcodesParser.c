@@ -494,9 +494,11 @@ static int sizeMatchSigned(const struct X86AddressingMode *mode, long size) {
 	}
 	switch (mode->type) {
 	case X86ADDRMODE_SINT:
-		return mode->value.sint >= lowerBound && mode->value.sint <= upperBound;
+			return 1;
+			//return mode->value.sint >= lowerBound && mode->value.sint <= upperBound;
 	case X86ADDRMODE_UINT:
-		return mode->value.uint <= upperBound;
+			return 1;
+			//return mode->value.uint <= upperBound;
 	case X86ADDRMODE_REG:
 		return mode->value.reg->size == size;
 	case X86ADDRMODE_ITEM_ADDR:
