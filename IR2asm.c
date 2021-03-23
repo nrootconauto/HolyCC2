@@ -2044,24 +2044,28 @@ static graphNodeIR assembleOpIntShift(graphNodeIR start, const char *op) {
 		shift = bMode->value.uint;
 		goto imm;
 	}
-	clMode->valueType = &typeI8i;
 	{
 			AUTO_LOCK_MODE_REGS(bMode);
 			AUTO_LOCK_MODE_REGS(oMode);
 			AUTO_LOCK_MODE_REGS(clMode);
-			struct X86AddressingMode *accum=getAccumulatorForType(oMode->valueType);
-			pushReg(&regX86CL);
+
+			if(!__ouputModeAffectsInput(clMode, oMode))
+					pushReg(&regX86CL);
 			
-			asmTypecastAssign(start,clMode, bMode,0);
-			asmTypecastAssign(start,accum,aMode, ASM_ASSIGN_X87FPU_POP);
-		strX86AddrMode args CLEANUP(strX86AddrModeDestroy2) = NULL;
-		args = strX86AddrModeAppendItem(args, X86AddrModeClone(accum));
-		args = strX86AddrModeAppendItem(args, X86AddrModeReg(&regX86CL,&typeI8i));
-		assembleOpcode(start,op,args);
-		
-		popReg(&regX86CL);
-		asmTypecastAssign(start,oMode, accum, ASM_ASSIGN_X87FPU_POP);
-		return out;
+			pushMode(aMode);
+
+			asmTypecastAssign(start, clMode, bMode, ASM_ASSIGN_X87FPU_POP);
+			
+			strX86AddrMode args CLEANUP(strX86AddrModeDestroy2) = NULL;
+			args = strX86AddrModeAppendItem(args, X86AddrModeIndirReg(stackPointer(), oMode->valueType));
+			args = strX86AddrModeAppendItem(args, X86AddrModeReg(&regX86CL,&typeI8i));
+			assembleOpcode(start,op,args);
+
+			popMode(oMode);
+			
+			if(!__ouputModeAffectsInput(clMode, oMode))
+					popReg(&regX86CL);
+			return out;
 	}
 	one : {
 			asmTypecastAssign(start,oMode, aMode, ASM_ASSIGN_X87FPU_POP);
