@@ -128,7 +128,8 @@ void fuzzTestBinops() {
 										if(regConflict(&regAMD64RAX, regs[r3]))continue;
 										
 										graphNodeIR start=IRCreateLabel();
-										__auto_type res=genBinop((struct opTextPair){IR_ADD,"ADD"},start, types[t], a, b, a+b, regs[r1],regs[r2],regs[r3]);
+										//__auto_type res=genBinop((struct opTextPair){IR_ADD,"ADD"},start, types[t], a, b, a+b, regs[r1],regs[r2],regs[r3]);
+										__auto_type res=genBinop((struct opTextPair){IR_SUB,"SUB"},start, types[t], a, b, a-b, regs[r1],regs[r2],regs[r3]);
 										assembleTest(res);
 								}
 						}
