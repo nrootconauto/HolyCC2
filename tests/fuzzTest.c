@@ -175,7 +175,8 @@ void fuzzTestBinops() {
 										//__auto_type res=genBinop((struct opTextPair){IR_BAND,"BAND"}, start, types[t], a, b, a&b, regs[r1], regs[r2], regs[r3]);
 										//__auto_type res=genBinop((struct opTextPair){IR_BOR,"BOR"}, start, types[t], a, b, a|b, regs[r1], regs[r2], regs[r3]);
 										//__auto_type res=genBinop((struct opTextPair){IR_BXOR,"XOR"}, start, types[t], a, b, a^b, regs[r1], regs[r2], regs[r3]);
-										__auto_type res=genUnop((struct opTextPair){IR_NEG,"NEG"}, start, types[t], a, -a, regs[r1], regs[r3]);
+										//__auto_type res=genUnop((struct opTextPair){IR_NEG,"NEG"}, start, types[t], a, -a, regs[r1], regs[r3]);
+										__auto_type res=genUnop((struct opTextPair){IR_BNOT,"BNOT"}, start, types[t], a, ~a, regs[r1], regs[r3]);
 										assembleTest(res);
 								}
 						}
