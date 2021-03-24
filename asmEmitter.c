@@ -543,6 +543,12 @@ void X86EmitAsmParserInst(struct parserNodeAsmInstX86 *inst) {
 	assert(!err);
 }
 void X86EmitAsmGlobalVar(struct parserVar *var) {
+		__auto_type base=objectBaseType(var->type);
+		if(base->type==TYPE_CLASS||base->type==TYPE_UNION) {
+				char *szStr CLEANUP(free2)=sizeofName(base);
+				fprintf(currentFileSet->initSymbolsTmpFile, "$%s: resb %s\n", var->name,szStr);
+				return ;
+		}
 	fprintf(currentFileSet->initSymbolsTmpFile, "$%s: resb %li\n", var->name, objectSize(var->type, NULL));
 }
 void X86EmitAsmIncludeBinfile(const char *fileName) {

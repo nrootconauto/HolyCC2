@@ -1133,6 +1133,7 @@ static struct X86AddressingMode *__mem2SIB(struct X86AddressingMode *a) {
 		return NULL;
 }
 static int isFltType(struct object *obj);
+static void classAssign(graphNodeIR start,struct X86AddressingMode *a,struct X86AddressingMode *b);
 void asmAssign(graphNodeIR atNode,struct X86AddressingMode *a, struct X86AddressingMode *b, long size,enum asmAssignFlags flags) {
 		if (a->type == X86ADDRMODE_REG) {
 		if (isX87FltReg(a->value.reg)) {
@@ -1302,26 +1303,7 @@ void asmAssign(graphNodeIR atNode,struct X86AddressingMode *a, struct X86Address
 		return;
 	} else {
 	memcpy:;
-			struct X86AddressingMode *aSIB CLEANUP(X86AddrModeDestroy)=__mem2SIB(a);
-			struct X86AddressingMode *bSIB CLEANUP(X86AddrModeDestroy)=__mem2SIB(b);
-			for(;size!=0;) {
-					long chunk=0;
-					if(size>=8&&dataSize()>=8) {
-							chunk=8;
-					} else if(size>=4) {
-							chunk=4;
-					} else if(size==2) {
-							chunk=2;
-					} else
-							chunk=1;
-					
-					aSIB->valueType=getTypeForSize(chunk);
-					bSIB->valueType=getTypeForSize(chunk);
-					asmAssign(atNode,aSIB, bSIB, chunk, 0);
-					X86AddrModeIndirSIBAddOffset(aSIB, chunk);
-					X86AddrModeIndirSIBAddOffset(bSIB, chunk);
-					size-=chunk;
-			}
+			classAssign(atNode,a,b);
 	}
 }
 void asmAssignFromPtr(struct X86AddressingMode *a,struct X86AddressingMode *b,long size,enum asmAssignFlags flags) {
@@ -1387,35 +1369,52 @@ static void classAssign(graphNodeIR start,struct X86AddressingMode *a,struct X86
 		struct X86AddressingMode *rsi CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regAMD64RSI, NULL);
 		__auto_type di=demoteAddrMode(rdi, getTypeForSize(ptrSize()));
 		__auto_type si=demoteAddrMode(rsi, getTypeForSize(ptrSize()));
-		if(regIsAliveAtNode(start, di->value.reg)) pushMode(di);
-		if(regIsAliveAtNode(start, si->value.reg)) pushMode(si);
-
+		if(start) if(regIsAliveAtNode(start, di->value.reg)) pushMode(di);
+		if(start) if(regIsAliveAtNode(start, si->value.reg)) pushMode(si);
+		
 		//Store in accumulator if (r|e)si is used in second argument
-		struct X86AddressingMode *accum CLEANUP(X86AddrModeDestroy)=getAccumulatorForType(getTypeForSize(ptrSize()));
+		AUTO_LOCK_MODE_REGS(a);
+		AUTO_LOCK_MODE_REGS(b);
+
+		struct X86AddressingMode *tmpReg CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(regForTypeExcludingConsumed(getTypeForSize(ptrSize())),objectPtrCreate(a->valueType));
+		if(start) if(regIsAliveAtNode(start, tmpReg->value.reg)) pushMode(tmpReg);
+
 		if(b->type==X86ADDRMODE_MEM||b->type==X86ADDRMODE_VAR_ADDR||b->type==X86ADDRMODE_ITEM_ADDR) {
 				strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
-				leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeClone(accum));
+				leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeClone(tmpReg));
 				leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeClone(b));
+				leaArgs[1]->valueType=&typeI32i;
 				assembleOpcode(start, "LEA",  leaArgs);
 		} else if(b->type==X86ADDRMODE_REG) {
-				asmAssign(start, accum, b, ptrSize(), ASM_ASSIGN_X87FPU_POP);
+				asmAssign(start, tmpReg, b, ptrSize(), ASM_ASSIGN_X87FPU_POP);
 		} else assert(0);
 		
 		if(a->type==X86ADDRMODE_MEM||a->type==X86ADDRMODE_VAR_ADDR||a->type==X86ADDRMODE_ITEM_ADDR) {
 				strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 				leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeClone(di));
 				leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeClone(a));
+				leaArgs[1]->valueType=&typeI32i;
 				assembleOpcode(start, "LEA",  leaArgs);
 		} else if(a->type==X86ADDRMODE_REG) {
 				asmAssign(start, di, a, ptrSize(), ASM_ASSIGN_X87FPU_POP);
 		} else assert(0);
 
-		asmAssign(start, si, accum, ptrSize(), ASM_ASSIGN_X87FPU_POP);
+		asmAssign(start, si, tmpReg, ptrSize(), ASM_ASSIGN_X87FPU_POP);
+		
+		struct X86AddressingMode *__ecxMode=X86AddrModeReg(&regAMD64RCX,NULL);
+		struct X86AddressingMode *ecxMode CLEANUP(X86AddrModeDestroy)=demoteAddrMode(__ecxMode, getTypeForSize(dataSize()));
+		if(start) if(regIsAliveAtNode(start, ecxMode->value.reg)) pushMode(ecxMode);
+		
+		asmTypecastAssign(start,ecxMode, X86AddrModeSizeofObj(a->valueType), ASM_ASSIGN_X87FPU_POP);
+		
+		
 		assembleOpcode(start, "REP",  NULL);
 		assembleOpcode(start, "MOVSB", NULL);
-		
-		if(regIsAliveAtNode(start, si->value.reg)) pushMode(si);
-		if(regIsAliveAtNode(start, di->value.reg)) pushMode(di);
+
+		if(start) if(regIsAliveAtNode(start, ecxMode->value.reg)) popMode(ecxMode);
+		if(start) if(regIsAliveAtNode(start, tmpReg->value.reg)) popMode(tmpReg);
+		if(start) if(regIsAliveAtNode(start, si->value.reg)) popMode(si);
+		if(start) if(regIsAliveAtNode(start, di->value.reg)) popMode(di);
 }
 static int insertBetweenExprPred(graphNodeIR start,const void *data) {
 		switch(getCurrentArch()) {
