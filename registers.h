@@ -153,3 +153,5 @@ struct reg *basePointer();
 struct reg *stackPointer();
 long dataSize();
 struct object *dftValType();
+struct X86AddressingMode;
+struct X86AddressingMode *getAccumulatorForType(struct object *type);

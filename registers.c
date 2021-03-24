@@ -1,3 +1,4 @@
+#include "opcodesParser.h"
 #include <assert.h>
 #include "cleanup.h"
 #include "object.h"
@@ -562,4 +563,9 @@ struct object *dftValType() {
 		return &typeI64i;
 	}
 	assert(0);
+}
+struct X86AddressingMode *getAccumulatorForType(struct object *type) {
+		__auto_type sub=subRegOfType(&regAMD64RAX, type);
+		if(!sub) return NULL;
+		return X86AddrModeReg(sub, type);
 }

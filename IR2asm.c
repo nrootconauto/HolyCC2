@@ -27,11 +27,6 @@ struct IRAttrAddrMode {
 	struct IRAttr base;
 	struct X86AddressingMode *mode;
 };
-static struct X86AddressingMode *getAccumulatorForType(struct object *type) {
-		__auto_type sub=subRegOfType(&regAMD64RAX, type);
-		if(!sub) return NULL;
-		return X86AddrModeReg(sub, type);
-}
 static void IRAttrAddrModeDestroy(struct IRAttr *attr) {
 	struct IRAttrAddrMode *Attr = (void *)attr;
 	X86AddrModeDestroy(&Attr->mode);
@@ -2185,7 +2180,6 @@ static graphNodeIR assembleOpPtrArith(graphNodeIR start) {
 				bMode=tmp;
 				goto swapLoop;
 		}
-		int sub=graphNodeIRValuePtr(start)->type==IR_SUB;
 		switch(scale) {
 		case 1:
 		case 2:
@@ -2219,11 +2213,6 @@ static graphNodeIR assembleOpPtrArith(graphNodeIR start) {
 				if(pushIndex)
 						asmAssign(start,indexRegMode, bMode , ptrSize() , 0 );
 				AUTO_LOCK_MODE_REGS(indexRegMode);
-
-				if(sub) {
-						strX86AddrMode negArgs CLEANUP(strX86AddrModeDestroy)=strX86AddrModeAppendItem(NULL, indexRegMode);
-						assembleInst("NEG", negArgs);
-				}
 				
 				struct X86AddressingMode *tmpRegMode CLEANUP(X86AddrModeDestroy)=getAccumulatorForType(IRNodeType(out));
 				strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
@@ -2232,12 +2221,6 @@ static graphNodeIR assembleOpPtrArith(graphNodeIR start) {
 				assembleInst("LEA", leaArgs);
 				asmAssign(start,oMode, tmpRegMode, ptrSize(), 0);
 
-				//Restore register to original value(if we didnt already push the old value which we will restored)
-				if(sub&&!pushIndex) {
-						strX86AddrMode negArgs CLEANUP(strX86AddrModeDestroy)=strX86AddrModeAppendItem(NULL, indexRegMode);
-						assembleInst("NEG", negArgs);
-				}
-
 				if(pushIndex)
 						if(regIsAliveAtNode(start, indexReg))  popReg(indexReg);
 				if(pushBase)
@@ -2245,18 +2228,19 @@ static graphNodeIR assembleOpPtrArith(graphNodeIR start) {
 				return out;
 		}
 		default: {
-				struct X86AddressingMode *zeroMode CLEANUP(X86AddrModeDestroy)=X86AddrModeSint(0);
-				asmTypecastAssign(start,oMode, zeroMode, 0);
-				
+				struct X86AddressingMode *accum CLEANUP(X86AddrModeDestroy)=getAccumulatorForType(oMode->valueType);
+				asmTypecastAssign(start, accum, bMode, ASM_ASSIGN_X87FPU_POP);
 				strX86AddrMode imul2Args CLEANUP(strX86AddrModeDestroy2)=NULL;
-				imul2Args=strX86AddrModeAppendItem(imul2Args, X86AddrModeClone(oMode));
-				imul2Args=strX86AddrModeAppendItem(imul2Args, X86AddrModeSint(scale*(sub?-1:1)));
+				imul2Args=strX86AddrModeAppendItem(imul2Args, X86AddrModeClone(accum));
+				imul2Args=strX86AddrModeAppendItem(imul2Args, X86AddrModeSint(scale));
 				assembleOpcode(start, "IMUL2", imul2Args);
 				
 				strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
-				addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeClone(oMode));
-				addArgs=strX86AddrModeAppendItem(addArgs,X86AddrModeClone(bMode));
+				addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeClone(accum));
+				addArgs=strX86AddrModeAppendItem(addArgs,X86AddrModeClone(aMode));
 				assembleOpcode(start, "ADD", addArgs);
+
+				asmTypecastAssign(start, oMode, accum, ASM_ASSIGN_X87FPU_POP);
 				return out;
 		}
 		} 
