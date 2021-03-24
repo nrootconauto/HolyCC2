@@ -133,7 +133,9 @@ void fuzzTestBinops() {
 										//__auto_type res=genBinop((struct opTextPair){IR_MULT,"MULT"},start, types[t], a, b, a*b, regs[r1],regs[r2],regs[r3]);
 										//__auto_type res=genBinop((struct opTextPair){IR_DIV,"DIV"},start, types[t], a, b, a/b, regs[r1],regs[r2],regs[r3]);
 										//__auto_type res=genBinop((struct opTextPair){IR_MOD,"MOD"},start, types[t], a, b, a%b, regs[r1],regs[r2],regs[r3]);
-										__auto_type res=genBinop((struct opTextPair){IR_RSHIFT,"RSHIFT"},start, types[t], a, b, a>>b, regs[r1],regs[r2],regs[r3]);
+										//__auto_type res=genBinop((struct opTextPair){IR_RSHIFT,"RSHIFT"},start, types[t], a, b, a>>b, regs[r1],regs[r2],regs[r3]);
+										__auto_type res=genBinop((struct opTextPair){IR_BAND}, start, types[t], a, b, a&b, regs[r1], regs[r2], regs[r3]);
+
 										assembleTest(res);
 								}
 						}
