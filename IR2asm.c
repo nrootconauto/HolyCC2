@@ -3191,11 +3191,20 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			}
 		}
 
-		struct X86AddressingMode *outMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(graphEdgeIROutgoing(out[0]));
 		graphNodeIR a, b;
 		binopArgs(start, &a, &b);
 		struct X86AddressingMode *aMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(a);
 		struct X86AddressingMode *bMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(b);
+
+		struct X86AddressingMode *__outMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(graphEdgeIROutgoing(out[0]));
+		struct X86AddressingMode *accum CLEANUP(X86AddrModeDestroy)=getAccumulatorForType(__outMode->valueType);
+		struct X86AddressingMode *outMode=NULL;
+		//Use accumulator is outmode inteferes with a/bMode
+		int useAccum=__ouputModeAffectsInput(aMode, __outMode)||__ouputModeAffectsInput(bMode, __outMode);
+		if(useAccum) {
+				outMode=accum;
+		} else outMode=__outMode;
+		
 		// CMP aMode,0
 		// SETNE outMode
 		// CMP bMode,0
@@ -3224,6 +3233,10 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		assembleOpcode(start,"XOR", xorArgs);
 		
 		X86EmitAsmLabel(endLabel);
+
+		if(useAccum)
+				asmTypecastAssign(start, __outMode, accum, ASM_ASSIGN_X87FPU_POP);
+		
 		return nextNodesToCompile(start);
 	}
 	case IR_LAND: {
