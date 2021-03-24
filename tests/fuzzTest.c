@@ -41,6 +41,44 @@ static struct parserFunction *includeHCRTFunc(const char *name) {
 		}
 		return sym;
 }
+static graphNodeIR genUnop(struct opTextPair pair,graphNodeIR connectTo,struct object *obj,long a,long res,struct reg *src1,struct reg *dst) {
+		__auto_type funcRef=IRCreateFuncRef(includeHCRTFunc("printf"));
+
+		struct regSlice reg;
+		reg.offset=0,reg.reg=src1,reg.type=obj,reg.widthInBits=objectSize(obj, NULL);
+		__auto_type src1Asn=IRCreateAssign(IRCreateIntLit(a), IRCreateRegRef(&reg));
+
+		__auto_type unop=IRCreateUnop(src1Asn, pair.irType);
+		reg.offset=0,reg.reg=dst,reg.type=obj,reg.widthInBits=objectSize(obj, NULL);
+		
+		__auto_type dstAsn=IRCreateAssign(unop, IRCreateRegRef(&reg));
+		__auto_type eq=IRCreateAssign(IRCreateBinop(dstAsn, IRCreateIntLit(res), IR_EQ),IRCreateRegRef(&reg));
+		
+		graphNodeIR lab;
+		{
+				long len=snprintf(NULL, 0, "%s_%li", pair.text,a);
+				char buffer[len+1];
+				sprintf(buffer,"%s_%li", pair.text,a);
+				lab=IRCreateGlobalLabel(buffer);
+		}
+
+		graphNodeIR strLit;
+		{
+				char *typeName=object2Str(obj);
+				const char *fmt="\n%s_%s_%li(%s=%s) %%li\n";
+				long len=snprintf(NULL, 0, fmt, pair.text,typeName,a,dst->name,src1->name);
+				char buffer[len+1];
+				sprintf(buffer,fmt, pair.text,typeName,a,dst->name,src1->name);
+				__auto_type lab=IRCreateGlobalLabel(buffer);
+				strLit=IRCreateStrLit(buffer);
+				free(typeName);
+		}
+		
+		__auto_type retVal=IRCreateFuncCall(funcRef, strLit,eq,NULL);
+		graphNodeIRConnect(lab,IRStmtStart(retVal),IR_CONN_FLOW);
+		graphNodeIRConnect(connectTo, lab, IR_CONN_FLOW);
+		return dstAsn;
+}
 static graphNodeIR genBinop(struct opTextPair pair,graphNodeIR connectTo,struct object *obj,long a,long b,long res,struct reg *src1,struct reg *src2,struct reg *dst) {
 		__auto_type funcRef=IRCreateFuncRef(includeHCRTFunc("printf"));
 
@@ -136,7 +174,8 @@ void fuzzTestBinops() {
 										//__auto_type res=genBinop((struct opTextPair){IR_RSHIFT,"RSHIFT"},start, types[t], a, b, a>>b, regs[r1],regs[r2],regs[r3]);
 										//__auto_type res=genBinop((struct opTextPair){IR_BAND,"BAND"}, start, types[t], a, b, a&b, regs[r1], regs[r2], regs[r3]);
 										//__auto_type res=genBinop((struct opTextPair){IR_BOR,"BOR"}, start, types[t], a, b, a|b, regs[r1], regs[r2], regs[r3]);
-										__auto_type res=genBinop((struct opTextPair){IR_BXOR,"XOR"}, start, types[t], a, b, a^b, regs[r1], regs[r2], regs[r3]);
+										//__auto_type res=genBinop((struct opTextPair){IR_BXOR,"XOR"}, start, types[t], a, b, a^b, regs[r1], regs[r2], regs[r3]);
+										__auto_type res=genUnop((struct opTextPair){IR_NEG,"NEG"}, start, types[t], a, -a, regs[r1], regs[r3]);
 										assembleTest(res);
 								}
 						}
