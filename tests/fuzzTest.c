@@ -135,7 +135,7 @@ static graphNodeIR genBinopPtrArith(struct opTextPair pair,graphNodeIR connectTo
 		reg.offset=0,reg.reg=dst,reg.type=&typeI32i,reg.widthInBits=objectSize(&typeI32i, NULL);
 		
 		__auto_type dstAsn=IRCreateAssign(binop, IRCreateRegRef(&reg));
-		__auto_type eq=IRCreateAssign(IRCreateBinop(dstAsn, IRCreateIntLit(res), IR_EQ),IRCreateRegRef(&reg));
+		__auto_type eq=IRCreateAssign(IRCreateBinop(dstAsn, IRCreateIntLit(res), IR_EQ),IRCreateIntLit(1));
 		
 		graphNodeIR lab;
 		{
@@ -248,7 +248,8 @@ void fuzzTestBinops() {
 										for(long r3=0;r3!=strRegPSize(regs);r3++) {
 												if(r1==r2) continue;
 												__auto_type start=IRCreateLabel();
-												__auto_type res=genBinopPtrArith((struct opTextPair){IR_ADD,"PTR_ADD"}, start, types[t], a, b, a+b*objectSize(types[t], NULL), regs[r1], regs[r2], regs[r3]);
+												//__auto_type res=genBinopPtrArith((struct opTextPair){IR_ADD,"PTR_ADD"}, start, types[t], a, b, a+b*objectSize(types[t], NULL), regs[r1], regs[r2], regs[r3]);
+												__auto_type res=genBinopPtrArith((struct opTextPair){IR_SUB,"PTR_SUB"}, start, types[t], a, b, a-b*objectSize(types[t], NULL), regs[r1], regs[r2], regs[r3]);
 												assembleTest(res);
 										}
 								}
