@@ -1375,7 +1375,9 @@ static void classAssign(graphNodeIR start,struct X86AddressingMode *a,struct X86
 		//Store in accumulator if (r|e)si is used in second argument
 		AUTO_LOCK_MODE_REGS(a);
 		AUTO_LOCK_MODE_REGS(b);
-
+		AUTO_LOCK_MODE_REGS(si);
+		AUTO_LOCK_MODE_REGS(di);
+		
 		struct X86AddressingMode *tmpReg CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(regForTypeExcludingConsumed(getTypeForSize(ptrSize())),objectPtrCreate(a->valueType));
 		if(start) if(regIsAliveAtNode(start, tmpReg->value.reg)) pushMode(tmpReg);
 

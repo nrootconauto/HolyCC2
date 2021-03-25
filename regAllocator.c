@@ -507,16 +507,19 @@ typedef int (*regCmpType)(const struct reg **, const struct reg **);
 typedef struct regSlice (*color2RegPredicate)(strRegSlice adjacent, strRegP avail, graphNodeIRLive live, int color, const void *data, long colorCount,
                                               const int *colors);
 static struct regSlice color2Reg(strRegSlice adjacent, strRegP avail, graphNodeIRLive live, int color, const void *data, long colorCount) {
-	__auto_type avail2 = strRegPClone(avail);
-	strRegP adjRegs = NULL;
-	for (long i = 0; i != strRegSliceSize(adjacent); i++) {
-		adjRegs = strRegPSortedInsert(adjRegs, adjacent[i].reg, (regCmpType)ptrPtrCmp);
-	}
-	avail2 = strRegPSetDifference(avail2, adjRegs, (regCmpType)ptrPtrCmp);
-
-	if (strRegPSize(avail2) == 0) {
-		avail2 = strRegPClone(avail);
-	}
+		strRegP  avail2 CLEANUP(strRegPDestroy) = strRegPClone(avail);
+		strRegP adjRegs CLEANUP(strRegPDestroy) = NULL;
+		for(long av=0;av!=strRegPSize(avail);av++) {
+				for (long i = 0; i != strRegSliceSize(adjacent); i++) {
+						if(regConflict(avail[av], &regAMD64RAX)) goto next;
+						if(regConflict(avail[av], adjacent[i].reg))
+								goto next;
+				}
+				avail2 = strRegPSortedInsert(avail2, avail[av], (regCmpType)ptrPtrCmp);
+		next:;
+		}
+		if (strRegPSize(avail2) == 0)
+				avail2 = strRegPClone(avail);
 
 	struct regSlice slice;
 	slice.reg = avail2[color % strRegPSize(avail2)];
@@ -528,37 +531,6 @@ static struct regSlice color2Reg(strRegSlice adjacent, strRegP avail, graphNodeI
 }
 STR_TYPE_DEF(struct metricPair, MetricPair);
 STR_TYPE_FUNCS(struct metricPair, MetricPair);
-static struct conflictPair *__conflictPairFindAffects(graphNodeIRLive node, const struct conflictPair *start, const struct conflictPair *end) {
-	for (; start != end; start++) {
-		if (start->a == node)
-			return (void *)start;
-		else if (start->b == node)
-			return (void *)start;
-	}
-
-	return NULL;
-}
-strConflictPair conflictPairFindAffects(graphNodeIRLive node, strConflictPair pairs) {
-	strConflictPair retVal = NULL;
-	__auto_type start = pairs;
-	__auto_type end = pairs + strConflictPairSize(pairs);
-	for (; start != end;) {
-		__auto_type find = __conflictPairFindAffects(node, start, end);
-		// Quit if no find
-		if (!find)
-			break;
-
-		// Insert
-		retVal = strConflictPairSortedInsert(retVal, *find, conflictPairCmp);
-
-		// Continue from after find
-		start = find + 1;
-	}
-	return retVal;
-}
-static int conflictPairContains(graphNodeIRLive node, const struct conflictPair *pair) {
-	return pair->a == node || pair->b == node;
-}
 static void *IR_ATTR_TEMP_VARIABLE = "TMP_VAR";
 static void replaceVarsWithRegisters(ptrMapregSlice map, strGraphNodeIRLiveP allLiveNodes,strGraphNodeIRP *allNodes) {
 	//
@@ -709,13 +681,13 @@ void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,v
 	interferes = strGraphNodeIRLivePConcat(interferes, strGraphNodeIRLivePClone(floatInterfere));
 	 {
 		__auto_type interfere = interferes;
-
+		
 		ptrMapregSlice regsByLivenessNode = ptrMapregSliceCreate(); // TODO rename
 		// Choose registers
 
 		strGraphNodeIRLiveP allColorNodes CLEANUP(strGraphNodeIRPDestroy) = strGraphNodeIRLivePClone(interfere);
 		for (long i = 0; i != strGraphNodeIRLivePSize(allColorNodes); i++) {
-			// Get adjacent items
+				// Get adjacent items
 			__auto_type outgoing = graphNodeIRLiveOutgoingNodes(allColorNodes[i]);
 			strRegSlice adj = NULL;
 			for (long i2 = 0; i2 != strGraphNodeIRLivePSize(outgoing); i2++) {
@@ -775,21 +747,15 @@ void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,v
 				check:;
 						__auto_type curReg=ptrMapregSliceGet(regsByLivenessNode ,  allColorNodes[n]);
 						__auto_type aReg=ptrMapregSliceGet(regsByLivenessNode ,  adj[a]);				
-						
 						if(!curReg)
 								continue;
 						if(!aReg)
 								continue;
+						assert(!regConflict(curReg->reg, &regAMD64RAX));
+						
 						if(regConflict(curReg->reg, aReg->reg)) {
-								strGraphEdgeIRLiveP currDegO CLEANUP(strGraphEdgeIRLivePDestroy)=graphNodeIRLiveOutgoing(allColorNodes[n]);
-								strGraphEdgeIRLiveP aRegO CLEANUP(strGraphEdgeIRLivePDestroy)=graphNodeIRLiveOutgoing(adj[a]);
-								if(strGraphEdgeIRLivePSize(currDegO)>strGraphEdgeIRLivePSize(aRegO)) {
-										ptrMapregSliceRemove(regsByLivenessNode, allColorNodes[n]);
-										assert(!ptrMapregSliceGet(regsByLivenessNode, allColorNodes[n]));
-								}else {
-										ptrMapregSliceRemove(regsByLivenessNode, adj[a]);
-										assert(!ptrMapregSliceGet(regsByLivenessNode, adj[a]));
-								}
+								ptrMapregSliceRemove(regsByLivenessNode, allColorNodes[n]);
+								assert(!ptrMapregSliceGet(regsByLivenessNode, allColorNodes[n]));
 								goto check;
 						}
 						assert(!regConflict(curReg->reg, aReg->reg));
