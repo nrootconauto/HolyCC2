@@ -562,7 +562,8 @@ static void replaceVarsWithRegisters(ptrMapregSlice map, strGraphNodeIRLiveP all
 				__auto_type find2 = ptrMapregSliceGet(map, find->live);
 				if (!find2)
 					continue;
-
+				printf("%p,%s\n",find->var.var,find2->reg->name);
+				
 				__auto_type slice = *find2;
 
 				// Replace
@@ -668,10 +669,9 @@ void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,v
                         const void *varFiltData) {
 	__varFilterData = varFiltData;
 	__varFiltPred = varFiltPred;
-	// SSA
 	strGraphNodeIRP allNodes2 CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRAllNodes(start);
 	
-	strGraphNodeIRLiveP intInterfere CLEANUP(strGraphNodeIRLivePDestroy2) = IRInterferenceGraphFilter(start, NULL, filterIntVars);
+	strGraphNodeIRLiveP intInterfere CLEANUP(strGraphNodeIRLivePDestroy2) = IRInterferenceGraphFilter(start, NULL, NULL);
 
 	__auto_type floatInterfere = NULL;
 	// IRInterferenceGraphFilter(start, filterFloatVars, NULL);
@@ -689,6 +689,7 @@ void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,v
 		for (long i = 0; i != strGraphNodeIRLivePSize(allColorNodes); i++) {
 				// Get adjacent items
 			__auto_type outgoing = graphNodeIRLiveOutgoingNodes(allColorNodes[i]);
+
 			strRegSlice adj = NULL;
 			for (long i2 = 0; i2 != strGraphNodeIRLivePSize(outgoing); i2++) {
 				if (outgoing[i2] == allColorNodes[i])
@@ -741,10 +742,10 @@ void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,v
 		}
 		
 		//Assert no adjacent conflicts 
-		for(long n=0;n!=strGraphNodeIRPSize(allColorNodes);n++) {
+		for(long n=0;n!=strGraphNodeIRLivePSize(allColorNodes);n++) {
 				strGraphNodeIRLiveP adj CLEANUP(strGraphNodeIRLivePDestroy)=graphNodeIROutgoingNodes(allColorNodes[n]);
-				for(long a=0;a!=strGraphNodeIRPSize(adj);a++) {
 				check:;
+				for(long a=0;a!=strGraphNodeIRPSize(adj);a++) {
 						__auto_type curReg=ptrMapregSliceGet(regsByLivenessNode ,  allColorNodes[n]);
 						__auto_type aReg=ptrMapregSliceGet(regsByLivenessNode ,  adj[a]);				
 						if(!curReg)
@@ -754,11 +755,26 @@ void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,v
 						assert(!regConflict(curReg->reg, &regAMD64RAX));
 						
 						if(regConflict(curReg->reg, aReg->reg)) {
+								printf("Conflict:%p\n",graphNodeIRLiveValuePtr(allColorNodes[n])->ref.var);
 								ptrMapregSliceRemove(regsByLivenessNode, allColorNodes[n]);
 								assert(!ptrMapregSliceGet(regsByLivenessNode, allColorNodes[n]));
 								goto check;
 						}
 						assert(!regConflict(curReg->reg, aReg->reg));
+				}
+		}
+		for(long n=0;n!=strGraphNodeIRLivePSize(allColorNodes);n++) {
+				strGraphNodeIRLiveP adj CLEANUP(strGraphNodeIRLivePDestroy)=graphNodeIROutgoingNodes(allColorNodes[n]);
+				adj=strGraphNodeIRLivePSetUnion(graphNodeIRIncomingNodes(allColorNodes[n]),adj,(gnCmpType)ptrPtrCmp);
+				for(long a=0;a!=strGraphNodeIRPSize(adj);a++) {
+						__auto_type curReg=ptrMapregSliceGet(regsByLivenessNode ,  allColorNodes[n]);
+						__auto_type aReg=ptrMapregSliceGet(regsByLivenessNode ,  adj[a]);				
+						if(!curReg)
+								continue;
+						if(!aReg)
+								continue;
+						assert(!regConflict(curReg->reg, aReg->reg));
+						printf("%p,%s,%p,%s\n",allColorNodes[n],curReg->reg->name,adj[a],aReg->reg->name);
 				}
 		}
 		// Replace with registers

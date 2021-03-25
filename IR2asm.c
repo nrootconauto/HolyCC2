@@ -604,6 +604,10 @@ strRegP deadRegsAtPoint(graphNodeIR atNode,struct object *type) {
 				__auto_type find=llIRAttrFind(graphNodeIRValuePtr(atNode)->attrs ,  IR_ATTR_ABI_INFO,IRAttrGetPred);
 				if(find)
 						livenessInfo=(void*)llIRAttrValuePtr(find);
+				if(!find) {
+						strRegPDestroy(&regs);
+						return NULL;
+				}
 
 				regs=strRegPRemoveIf(regs, livenessInfo, ifInLive);
 		}
@@ -1637,6 +1641,10 @@ void IRCompile(graphNodeIR start, int isFunc) {
 		}
 
 	IRComputeABIInfo(start);
+	if(isFunc) {
+			printf("HERE\n");
+			debugShowGraphIR(start);
+	}
 	// Frame allocate
 	IRComputeFrameLayout(start, &frameSize,&localVarFrameOffsets);
 	
@@ -3865,7 +3873,8 @@ computeArgs:;
 }
 void IR2Asm(graphNodeIR start) {
 		strGraphNodeIRP __next;
-		if (IREndOfExpr(start) != start) {
+		__auto_type end=IREndOfExpr(start);
+		if (end != start&& end!=NULL) {
 				// Start of statement can be label,so compile label first(__IR2Asm only compiles node once)
 				__auto_type exprStart = IRStmtStart(start);
 				if (graphNodeIRValuePtr(exprStart)->type == IR_LABEL)

@@ -162,6 +162,7 @@ void findRegisterLiveness(graphNodeIR start) {
 		for(long r=0;r!=8;r++) if(fpu[r]==reg) goto next;
 
 		__auto_type var=IRCreateVirtVar(&typeU0);
+		var->name=strcpy(calloc(strlen(reg->name)+1,1), reg->name);
 		__auto_type newNode = IRCreateVarRef(var);
 		ptrMapVar2RegAdd(var2Reg, var, reg);
 		
@@ -180,6 +181,7 @@ void findRegisterLiveness(graphNodeIR start) {
 	//
 	// This has a side effect of attributing basic block attributes to nodes,which tell the in/out variables for each node in an expression
 	//
+	printf("\n\n\nABI:\n\n\n");
 	strGraphNodeIRLiveP livenessGraphs CLEANUP(strGraphNodeIRLivePDestroy) = IRInterferenceGraphFilter(start, NULL,NULL);
 	for (long n = 0; n != strGraphNodeIRPSize(allNodes); n++) {
 		struct IRNodeFuncCall *call = (void *)graphNodeIRValuePtr(allNodes[n]);

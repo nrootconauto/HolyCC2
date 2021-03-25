@@ -395,7 +395,8 @@ int regSliceConflict(const struct regSlice *a, const struct regSlice *b) {
 	return 0;
 }
 int regConflict(struct reg *a, struct reg *b) {
-	struct regSlice A;
+		if(a==b) return 1;
+		struct regSlice A;
 	A.offset = 0, A.reg = a, A.widthInBits = a->size * 8;
 	struct regSlice B;
 	B.offset = 0, B.reg = b, B.widthInBits = b->size * 8;

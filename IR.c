@@ -529,6 +529,13 @@ void IRRemoveDeadExpression(graphNodeIR end, strGraphNodeP *removed) {
 		*removed = starts;
 }
 graphNodeIR IRStmtStart(graphNodeIR node) {
+		switch(graphNodeIRValuePtr(node)->type) {
+		case IR_COND_JUMP:
+		case IR_JUMP_TAB:
+		case IR_FUNC_RETURN:
+				return node;
+		default:;
+		}
 		strGraphNodeIRP starts CLEANUP(strGraphNodeIRPDestroy) = strGraphNodeIRPAppendItem(NULL, node);
 	graphNodeIRVisitBackward(node, &starts, exprEdgePred, addNode2List);
 
@@ -1521,6 +1528,13 @@ graphNodeIR IRCreateSourceMapping(const char *fileName,long start,long len) {
 		return GRAPHN_ALLOCATE(mapping);
 }
 graphNodeIR IREndOfExpr(graphNodeIR node) {
+		switch(graphNodeIRValuePtr(node)->type) {
+		case IR_COND_JUMP:
+		case IR_JUMP_TAB:
+		case IR_FUNC_RETURN:
+				return node;
+		default:;
+		}
 	if (graphNodeIRValuePtr(node)->type == IR_LABEL) {
 		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIROutgoing(node);
 		int flowOut = 0;
