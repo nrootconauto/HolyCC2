@@ -685,13 +685,11 @@ void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,v
 			value.value.var = graphNodeIRLiveValuePtr(allColorNodes[i])->ref;
 			__auto_type type = IRValueGetType(&value);
 
+			int onlyInts=getCurrentArch()==ARCH_TEST_SYSV||getCurrentArch()==ARCH_X86_SYSV;
+				if(onlyInts)
+						if(!IsInteger(type)) continue;
+			
 			__auto_type regsForType = regGetForType(type);
-			//
-			// If type is F64,ignore ST(0) and ST(1),they are used for arithmetic
-			//
-			regsForType = strRegPRemoveItem(regsForType, &regX86ST0, (regCmpType)ptrPtrCmp);
-			regsForType = strRegPRemoveItem(regsForType, &regX86ST1, (regCmpType)ptrPtrCmp);
-
 			struct regSlice slice ;
 			if(!value.value.var.var->inReg) {
 					slice=color2Reg(adj, regsForType, allColorNodes[i], rand(), NULL, strGraphNodeIRLivePSize(allColorNodes));
