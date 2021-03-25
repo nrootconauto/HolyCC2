@@ -311,33 +311,6 @@ static double interfereMetric(double cost, graphNodeIRLive node) {
 
 	return retVal;
 }
-struct conflictPair {
-	graphNodeIRLive a;
-	graphNodeIRLive b;
-	double aWeight;
-	double bWeight;
-};
-static int conflictPairWeightCmp(const void *a, const void *b) {
-	const struct conflictPair *A = a, *B = b;
-
-	double minWeightA = (A->aWeight < A->bWeight) ? A->aWeight : A->bWeight;
-	double minWeightB = (B->aWeight < B->bWeight) ? B->aWeight : B->bWeight;
-
-	if (minWeightA > minWeightB)
-		return 1;
-	else if (minWeightA < minWeightB)
-		return -1;
-	return 0;
-}
-static int conflictPairCmp(const struct conflictPair *a, const struct conflictPair *b) {
-	int cmp = ptrPtrCmp(&a->a, &b->a);
-	if (cmp != 0)
-		return cmp;
-
-	return ptrPtrCmp(&a->b, &b->b);
-}
-STR_TYPE_DEF(struct conflictPair, ConflictPair);
-STR_TYPE_FUNCS(struct conflictPair, ConflictPair);
 static int filterIntVars(graphNodeIR node, const void *data) {
 	struct IRNodeValue *value = (void *)graphNodeIRValuePtr(node);
 	if (value->base.type != IR_VALUE)
@@ -562,7 +535,10 @@ static void replaceVarsWithRegisters(ptrMapregSlice map, strGraphNodeIRLiveP all
 				__auto_type find2 = ptrMapregSliceGet(map, find->live);
 				if (!find2)
 					continue;
-				printf("%p,%s\n",find->var.var,find2->reg->name);
+				int onlyInts=getCurrentArch()==ARCH_TEST_SYSV||getCurrentArch()==ARCH_X86_SYSV;
+				if(onlyInts) {
+						if(!filterIntVars(allNodes[0][i],NULL)) continue;
+				}
 				
 				__auto_type slice = *find2;
 
@@ -664,7 +640,6 @@ static void strGraphNodeIRLivePDestroy2(strGraphNodeIRLiveP *str) {
 static void llVertexColorsDestroy2(llVertexColor *colors) {
 		llVertexColorDestroy( colors,NULL);
 }
-typedef int (*removeIfPred)(const void *, const struct conflictPair *);
 void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,void *data),void *nodeWeightData, int (*varFiltPred)(const struct parserVar *, const void *),
                         const void *varFiltData) {
 	__varFilterData = varFiltData;
@@ -755,7 +730,7 @@ void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,v
 						assert(!regConflict(curReg->reg, &regAMD64RAX));
 						
 						if(regConflict(curReg->reg, aReg->reg)) {
-								printf("Conflict:%p\n",graphNodeIRLiveValuePtr(allColorNodes[n])->ref.var);
+								
 								ptrMapregSliceRemove(regsByLivenessNode, allColorNodes[n]);
 								assert(!ptrMapregSliceGet(regsByLivenessNode, allColorNodes[n]));
 								goto check;
@@ -774,7 +749,6 @@ void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,v
 						if(!aReg)
 								continue;
 						assert(!regConflict(curReg->reg, aReg->reg));
-						printf("%p,%s,%p,%s\n",allColorNodes[n],curReg->reg->name,adj[a],aReg->reg->name);
 				}
 		}
 		// Replace with registers

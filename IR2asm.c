@@ -1641,10 +1641,6 @@ void IRCompile(graphNodeIR start, int isFunc) {
 		}
 
 	IRComputeABIInfo(start);
-	if(isFunc) {
-			printf("HERE\n");
-			debugShowGraphIR(start);
-	}
 	// Frame allocate
 	IRComputeFrameLayout(start, &frameSize,&localVarFrameOffsets);
 	

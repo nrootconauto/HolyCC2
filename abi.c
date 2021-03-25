@@ -181,7 +181,6 @@ void findRegisterLiveness(graphNodeIR start) {
 	//
 	// This has a side effect of attributing basic block attributes to nodes,which tell the in/out variables for each node in an expression
 	//
-	printf("\n\n\nABI:\n\n\n");
 	strGraphNodeIRLiveP livenessGraphs CLEANUP(strGraphNodeIRLivePDestroy) = IRInterferenceGraphFilter(start, NULL,NULL);
 	for (long n = 0; n != strGraphNodeIRPSize(allNodes); n++) {
 		struct IRNodeFuncCall *call = (void *)graphNodeIRValuePtr(allNodes[n]);

@@ -68,7 +68,7 @@ static graphNodeIRLive  __IRInterferenceGraphFilterExp(graphNodeIR node,strGraph
 				if(NULL==strVarSortedFind(exclude, var, IRVarCmp)) {
 						live.ref=var;
 						liveNode=graphNodeIRLiveCreate(live, 0);
-						printf("CREATING:%p:%p\n",var.var,liveNode);	
+
 						lastWritten=strGraphNodeIRLivePSortedInsert(lastWritten,liveNode,(gnCmpType)ptrPtrCmp);
 				}
 		}
@@ -90,11 +90,6 @@ static graphNodeIRLive  __IRInterferenceGraphFilterExp(graphNodeIR node,strGraph
 								graphNodeIRLiveConnect(stack[0][N],stack[0][n], NULL);
 						}
 				}
-		}
-
-		printf("Stack:\n");
-		for(long s=0;s!=strGraphNodeIRPSize(*stack);s++) {
-				printf("%p\n",graphNodeIRLiveValuePtr(stack[0][s])->ref.var);
 		}
 		
 		struct basicBlock inOut;
@@ -164,7 +159,6 @@ strGraphNodeIRLiveP IRInterferenceGraphFilter(graphNodeIR start, const void *dat
 
 				strGraphNodeIRLiveP stack CLEANUP(strGraphNodeIRLivePDestroy)=NULL;
 				lastWritten=NULL;
-				printf("\n\n\nRUN:%p\n\n\n",allNodes[n]);
 				__IRInterferenceGraphFilterExp(end,&stack,multiVars,data,varFilter);
 
 				long old=strGraphNodeIRLivePSize(retVal);
