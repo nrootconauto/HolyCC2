@@ -1611,8 +1611,6 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	__auto_type oldOffsets = localVarFrameOffsets;
 	long oldFrameSize=frameSize;
 	
-	// Frame allocate
-	IRComputeFrameLayout(start, &frameSize,&localVarFrameOffsets);
 	
 	// Replace all global variables with
 	{
@@ -1638,11 +1636,13 @@ void IRCompile(graphNodeIR start, int isFunc) {
 			X86EmitAsmGlobalVar(noregs[p]);
 		}
 
+	IRComputeABIInfo(start);
+	// Frame allocate
+	IRComputeFrameLayout(start, &frameSize,&localVarFrameOffsets);
 	
 	IRABIAsmPrologue(frameSize);
 	// This computes calling information for the ABI
-	IRComputeABIInfo(start);
-
+	
 	IR2Asm(start);
 
 	if(!isFunc)
