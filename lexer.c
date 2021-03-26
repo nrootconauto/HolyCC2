@@ -36,6 +36,7 @@ static const char *keywords[] = {
     "import",
     "_import",
     "public",
+				"internal",
     //
     ";",
     "{",

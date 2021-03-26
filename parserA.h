@@ -78,6 +78,7 @@ struct linkage {
 		LINKAGE__EXTERN = 8,
 		LINKAGE_IMPORT = 16,
 		LINKAGE__IMPORT = 32,
+		LINKAGE_INTERNAL=64,
 	} type;
 	char *fromSymbol;
 };

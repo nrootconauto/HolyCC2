@@ -1050,6 +1050,7 @@ static struct linkage getLinkage(llLexerItem start, llLexerItem *result) {
 
 	struct linkagePair pairs[] = {
 	    {LINKAGE_PUBLIC, "public"},   {LINKAGE_STATIC, "static"}, {LINKAGE_EXTERN, "extern"},
+					{LINKAGE_INTERNAL, "internal"},
 	    {LINKAGE__EXTERN, "_extern"}, {LINKAGE_IMPORT, "import"}, {LINKAGE__IMPORT, "_import"},
 	};
 	__auto_type count = sizeof(pairs) / sizeof(*pairs);

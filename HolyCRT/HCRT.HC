@@ -147,6 +147,7 @@ U0 testRegsCast() {
 U0 testRange() {
 			printf("3>2>1>0:%li\n",3>2>1>0);
 }
+internal  U8i HCC_DEBUG_SYMS;
 I32i main() {
 I32i end;
 					ParserJsonLiteral("123",0,NULL,&end);
@@ -285,5 +286,6 @@ try {
 														Print("%d\n",*HashTableGet(table,values[i])(I32i*));
 					}
 					HashTableDestroy(table);
+					Print("%q\n",&HCC_DEBUG_SYMS);
 					return 0;
 }

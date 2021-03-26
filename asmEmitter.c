@@ -308,7 +308,7 @@ static void X86EmitSymbolTable(FILE *dumpTo) {
 		__auto_type link = parserGlobalSymLinkage(keys[i]);
 		if ((link->type & LINKAGE__EXTERN) || (link->type & LINKAGE__IMPORT)) {
 			fprintf(dumpTo, "EXTERN %s ; Appears as %s in src.\n", name, keys[i]);
-		} else if ((link->type & LINKAGE_STATIC)) {
+		} else if ((link->type & LINKAGE_STATIC)||(link->type & LINKAGE_INTERNAL)) {
 			// Do nothing
 		} else if ((link->type & LINKAGE_EXTERN) || (link->type & LINKAGE_IMPORT)) {
 			fprintf(dumpTo, "EXTERN %s\n", name);
@@ -545,6 +545,19 @@ void X86EmitAsmParserInst(struct parserNodeAsmInstX86 *inst) {
 }
 void X86EmitAsmGlobalVar(struct parserVar *var) {
 		__auto_type base=objectBaseType(var->type);
+		if(var->isGlobal) {
+				__auto_type find=parserGetGlobalSym(var->name);
+				switch(find->link.type) {
+				case LINKAGE_EXTERN:
+				case LINKAGE_IMPORT:
+				case LINKAGE__EXTERN:
+				case LINKAGE__IMPORT:
+						return;
+				case LINKAGE_INTERNAL:
+						return;
+				default:;
+				}
+		}
 		if(base->type==TYPE_CLASS||base->type==TYPE_UNION) {
 				char *szStr CLEANUP(free2)=sizeofName(base);
 				fprintf(currentFileSet->initSymbolsTmpFile, "$%s: resb %s\n", var->name,szStr);
@@ -720,7 +733,12 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 				}
 				break;
 		}
-		emitDebuggerTypeDefinitions();
+		char *debugSymbolText CLEANUP(free2)=emitDebuggerTypeDefinitions();
+		
+		fprintf(writeTo, "\nSECTION .data\n");
+		strChar symsText CLEANUP(strCharDestroy)=dumpStrLit(debugSymbolText,strlen(debugSymbolText));
+		fprintf(writeTo, "HCC_DEBUG_SYMS: DB %s",symsText);
+		
 		fclose(writeTo);
 }
 void X86EmitAsmEnterFileStartCode() {
