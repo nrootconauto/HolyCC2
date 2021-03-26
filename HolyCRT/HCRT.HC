@@ -286,10 +286,12 @@ try {
 					for(I32i i=0;i!=KeyValPairSize(table);i++) {
 														Print("%q\n",keys[i]);
 					}
+					/*
 					for(I32i i=0;i!=100;i+=1) {
 														//Print("%d\n",*KeyValPairGet(table,values[i])(I32i*));
 														KeyValPairRemove(table,values[i]);
 														//Print("%d\n",KeyValPairSize(table));
-					}
+					}*/
+					KeyValPairDestroy(table);
 					return 0;
 }

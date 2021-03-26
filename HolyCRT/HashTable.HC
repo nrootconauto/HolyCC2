@@ -15,6 +15,16 @@ I32i KeyValPairSize(CKeyValPair *pairs) {
 					for(CKeyValPair *left=pairs->prev;left;left=left->prev) size+=1;
 					return size;
 }
+U0 KeyValPairDestroy(CKeyValPair *pairs) {
+			for(pairs=pairs->prev;pairs->prev;pairs=pairs->prev);
+			CKeyValPair *next=pairs->next;
+			loop:
+			next=pairs->next;
+			free(pairs->text);
+			free(pairs);
+			pairs=next;
+			if(next) goto loop;
+}
 U8i **KeyValPairKeys(CKeyValPair *table) {
 				I32i size=KeyValPairSize(table);
 				U8i **retval=malloc(size*sizeof(U8i*));
