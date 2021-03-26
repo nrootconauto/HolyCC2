@@ -270,9 +270,12 @@ void IRRegisterAllocateX87(graphNodeIR start) {
 		ptrMapRefCount refCounts=ptrMapRefCountCreate();
 		for(long n=0;n!=strGraphNodeIRPSize(allNodes);n++) {
 				__auto_type end=IREndOfExpr(allNodes[n]);
+				__auto_type start=IRStmtStart(allNodes[n]);
 				if(!end)
 						continue;
-				if(end==allNodes[n])
+				if(start==end)
+						continue;
+				if(end!=allNodes[n])
 						continue;
 				if(!strGraphNodeIRPSortedFind(exprEnds, end, (gnCmpType)ptrPtrCmp))
 						exprEnds=strGraphNodeIRPSortedInsert(exprEnds, end, (gnCmpType)ptrPtrCmp);

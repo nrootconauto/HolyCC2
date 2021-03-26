@@ -1302,6 +1302,18 @@ void asmAssign(graphNodeIR atNode,struct X86AddressingMode *a, struct X86Address
 						goto memcpy;
 		}
 
+		struct X86AddressingMode *A CLEANUP(X86AddrModeDestroy)=X86AddrModeClone(a);
+		if(a->valueType) if(a->valueType->type==TYPE_ARRAY)
+				A->valueType=objectPtrCreate(&typeU0);
+		
+		struct X86AddressingMode *B CLEANUP(X86AddrModeDestroy)=X86AddrModeClone(b);
+		if(b->valueType) if(b->valueType->type==TYPE_ARRAY)
+				B->valueType=objectPtrCreate(&typeU0);
+
+		strX86AddrModeDestroy(&args);
+		args=strX86AddrModeAppendItem(NULL, A);
+		args=strX86AddrModeAppendItem(args, B);
+	
 		assert(size!=8);
 		assembleOpcode(atNode,"MOV",args);
 		return;
@@ -1666,7 +1678,7 @@ void IRCompile(graphNodeIR start, int isFunc) {
 }
 static int isPtrType(struct object *obj) {
 	__auto_type type = objectBaseType(obj)->type;
-	return type == TYPE_PTR || type == TYPE_ARRAY||type==TYPE_FUNCTION;
+	return type == TYPE_PTR ||type==TYPE_FUNCTION;
 }
 
 static int isPtrNode(graphNodeIR start) {
@@ -2219,10 +2231,10 @@ static graphNodeIR assembleOpPtrArith(graphNodeIR start) {
 						asmAssign(start,indexRegMode, bMode , ptrSize() , 0 );
 				AUTO_LOCK_MODE_REGS(indexRegMode);
 				
-				struct X86AddressingMode *tmpRegMode CLEANUP(X86AddrModeDestroy)=getAccumulatorForType(IRNodeType(out));
+				struct X86AddressingMode *tmpRegMode CLEANUP(X86AddrModeDestroy)=getAccumulatorForType(getTypeForSize(ptrSize()));
 				strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 				leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeClone(tmpRegMode));
-				leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeIndirSIB(scale, X86AddrModeReg(indexReg,getTypeForSize(ptrSize())), X86AddrModeReg(baseReg,getTypeForSize(ptrSize())), NULL, oMode->valueType));
+				leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeIndirSIB(scale, X86AddrModeReg(indexReg,getTypeForSize(ptrSize())), X86AddrModeReg(baseReg,getTypeForSize(ptrSize())), NULL, getTypeForSize(ptrSize())));
 				assembleInst("LEA", leaArgs);
 				asmAssign(start,oMode, tmpRegMode, ptrSize(), 0);
 
@@ -2589,7 +2601,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		COMPILE_87_IFN;
 		graphNodeIR a, b;
 		binopArgs(start, &a, &b);
-		if (isIntNode(a) || isPtrNode(a))
+		if (isIntNode(a) || isPtrNode(a)||IRNodeType(a)->type==TYPE_ARRAY)
 			return nextNodesToCompile(assembleOpInt(start, "ADD"));
 		else
 			assert(0);
@@ -2667,12 +2679,6 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 					imul2Args=strX86AddrModeAppendItem(imul2Args, addrMode);
 					imul2Args=strX86AddrModeAppendItem(imul2Args, stackTop);
 					assembleInst("IMUL2", imul2Args);
-					
-					//Add 4 from the stack pointer to "pop"
-					strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
-					addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())));
-					addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeSint(4));
-					assembleInst("ADD", addArgs);
 			}
 			
 			//Exchange the location of reg32's old value with reg32,then add the  value stored on the stack to the stack pointer
@@ -2689,6 +2695,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			
 			//Assign the stack pointer to the output position which will point to the area on the stack
 			struct X86AddressingMode *spMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize()));
+			outMode->valueType=objectPtrCreate(&typeU0);
 			asmAssign(start,outMode, spMode , ptrSize(), 0);
 			return nextNodesToCompile(start);
 	}
@@ -2772,7 +2779,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		graphNodeIR a, b;
 		binopArgs(start, &a, &b);
 		// Are assumed to be same type if valid IR graph
-		if (isIntNode(a) || isPtrNode(a))
+		if (isIntNode(a) || isPtrNode(a)||IRNodeType(a)->type==TYPE_ARRAY)
 			return strGraphNodeIRPAppendItem(NULL, assembleOpInt(start, "SUB"));
 		assert(0);
 		return NULL;

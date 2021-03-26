@@ -389,9 +389,6 @@ void IRInsertAfter(graphNodeIR insertAfter, graphNodeIR entry, graphNodeIR exit,
 	for (long i = 0; i != strGraphEdgeIRPSize(outgoing); i++) {
 		// Connect outgoing to entry
 		graphNodeIRConnect(exit, graphEdgeIROutgoing(outgoing[i]), *graphEdgeIRValuePtr(outgoing[i]));
-
-		// Disconnect for insertBefore
-		graphEdgeIRKill(graphEdgeIROutgoing(outgoing[i]), insertAfter, NULL, NULL, NULL);
 	}
 	for (long i = 0; i != strGraphEdgeIRPSize(outgoing); i++) 	{
 					// Disconnect for insertBefore

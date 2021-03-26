@@ -3,7 +3,18 @@ class CKeyValPair {
 						U8i *text;
 						U8i *ptr;
 };
+class CHashTable {
+						CKeyValPair *buckets;
+						I32i count;
+};
 #define KEY_EXISTS 1
+I32i KeyValPairSize(CKeyValPair *pairs) {
+					if(!pairs) return 0;
+					I32i size=1;
+					for(CKeyValPair *right=pairs->next;right;right=right->next) size+=1;
+					for(CKeyValPair *left=pairs->prev;left;left=left->prev) size+=1;
+					return size;
+}
 CKeyValPair *KeyValPairInsert(CKeyValPair *table,U8i *ptr,U8i *text) {
 											CKeyValPair *nextItem=NULL;
 											if(!table) goto insert;
@@ -83,4 +94,17 @@ U0 *KeyValPairGet(CKeyValPair *table,U8i *text) {
 			table=table->prev;
 			} else if(cmp>0) return NULL;
 			goto loop;
+}
+I32i CHashTableSize(CHashTable *tab) {
+					
+} 
+I32i Hash(U8i *str) {
+					I32i len=StrLen(str);
+					I32i retval=0;
+					while((len-=1)>=0) {
+																								retval*=31;
+																								retval+=*str;
+																								str+=1;
+					}
+					return retval;
 }

@@ -181,7 +181,7 @@ void IRComputeFrameLayout(graphNodeIR start, long *frameSize,ptrMapFrameOffset *
 					sprintf(buffer, "%li", color);
 
 					// Ensure variable exists in allRefs
-					__auto_type refPairFind=IRVarRefsFindVar(allRefs,&graphNodeIRLiveValuePtr(allNodes[n])->ref);
+					__auto_type refPairFind=IRVarRefsFindVar(allRefs,&graphNodeIRLiveValuePtr(colorBlob[n])->ref);
 					if(!refPairFind)
 							continue;
 					

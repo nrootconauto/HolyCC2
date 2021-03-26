@@ -286,7 +286,7 @@ MAP_TYPE_DEF(long,Count);
 MAP_TYPE_FUNCS(long,Count);
 static int IsInteger(struct object *obj) {
 	// Check if ptr
-	if (obj->type == TYPE_PTR || obj->type == TYPE_ARRAY)
+	if (obj->type == TYPE_PTR)
 		return 1;
 
 	// Check if integer type
@@ -491,8 +491,10 @@ static struct regSlice color2Reg(strRegSlice adjacent, strRegP avail, graphNodeI
 				avail2 = strRegPSortedInsert(avail2, avail[av], (regCmpType)ptrPtrCmp);
 		next:;
 		}
-		if (strRegPSize(avail2) == 0)
-				avail2 = strRegPClone(avail);
+		if (strRegPSize(avail2) == 0) {
+				strRegPDestroy(&avail2);
+				avail2 = regGetForType(graphNodeIRLiveValuePtr(live)->ref.var->type);
+		}
 
 	struct regSlice slice;
 	slice.reg = avail2[color % strRegPSize(avail2)];
@@ -541,13 +543,9 @@ static void replaceVarsWithRegisters(ptrMapregSlice map, strGraphNodeIRLiveP all
 				}
 				
 				__auto_type slice = *find2;
-
-				// Replace
 				__auto_type regRef = IRCreateRegRef(&slice);
-				replaceNodeWithExpr(allNodes[0][i], regRef);
-				removed=strGraphNodeIRPSortedInsert(removed, allNodes[0][i], (gnCmpType)ptrPtrCmp);
 				
-				// Add attrbute to regRef that marks as originating from varaible
+					// Add attrbute to regRef that marks as originating from varaible
 				struct IRAttrVariable attr;
 				attr.base.name = IR_ATTR_VARIABLE;
 				attr.base.destroy = NULL;
@@ -558,6 +556,10 @@ static void replaceVarsWithRegisters(ptrMapregSlice map, strGraphNodeIRLiveP all
 				__auto_type attrPtr = &graphNodeIRValuePtr(regRef)->attrs;
 				llIRAttrInsert(*attrPtr, attrLL, IRAttrInsertPred);
 				*attrPtr = attrLL;
+				
+				// Replace
+				replaceNodeWithExpr(allNodes[0][i], regRef);
+				removed=strGraphNodeIRPSortedInsert(removed, allNodes[0][i], (gnCmpType)ptrPtrCmp);
 			}
 		}
 	}
