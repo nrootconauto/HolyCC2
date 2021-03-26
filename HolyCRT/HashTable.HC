@@ -1,0 +1,83 @@
+class CKeyValPair {
+						CKeyValPair *prev,*next;
+						U8i *text;
+						U8i *ptr;
+};
+#define KEY_EXISTS 1
+CKeyValPair *KeyValPairInsert(CKeyValPair *table,U8i *ptr,U8i *text) {
+											if(!table) return NULL;
+											I32i hasLen=StrLen(text);
+
+											CKeyValPair *nextItem=NULL;
+											//Move all the way to the right
+											while(table->next) table=table->next;
+
+											loop:
+											if(table==NULL) goto insert;
+											I32i curLen=StrLen(table->text);
+											I32i min;
+											if(curLen>hasLen) min=hasLen; else min=curLen;
+											min+=1; //Account for NULL byte
+											I32i cmp=StrNCmp(table->text,text,min);
+											if(cmp==0) throw(KEY_EXISTS);
+											else if(cmp<0) {
+																nextItem=table;
+																table=table->prev;
+											} else if(cmp>0) {
+											     insert:
+																CKeyValPair *next=nextItem;
+																CKeyValPair new;
+																new.prev=table;
+																new.next=next;
+																new.ptr=ptr;
+																new.text=StrDupLen(text,StrLen(text));
+																CKeyValPair *New=malloc(sizeof(CKeyValPair));
+																*New=new;
+																return New;
+										}
+										goto loop;
+}
+U0 KeyValPairRemove(CKeyValPair *table,U8i *text) {
+												if(!table) return;
+												I32i hasLen=StrLen(text);
+												
+												//Move all the way to the right
+												while(table->next) table=table->next;
+
+												loop:
+												I32i curLen=StrLen(table->text);
+												I32i min;
+												if(curLen>hasLen) min=hasLen; else min=curLen;
+												min+=1; //Account for NULL byte
+												I32i cmp=StrNCmp(table->text,text,min);
+												if(cmp==0)  {
+																								if(table->prev) table->prev->next=table->next;
+																								if(table->next) table->next->prev=table->prev;
+																								free(table->text);
+																								free(table);
+																								return ;
+												} else if(cmp<0) {
+														table=table->prev;
+												} else if(cmp>0) return;
+												goto loop;
+}
+U0 *KeyValPairGet(CKeyValPair *table,U8i *text) {
+			if(!table) return NULL;
+			I32i hasLen=StrLen(text);
+												
+			//Move all the way to the right
+			while(table->next) table=table->next;
+
+			loop:
+			I32i curLen=StrLen(table->text);
+			I32i min;
+			if(curLen>hasLen) min=hasLen; else min=curLen;
+			min+=1; //Account for NULL byte
+			I32i cmp=StrNCmp(table->text,text,min);
+			if(cmp==0)  {
+															return table->ptr;
+			} else if(cmp<0) {
+			table=table->prev;
+			} else if(cmp>0) return NULL;
+			goto loop;
+}

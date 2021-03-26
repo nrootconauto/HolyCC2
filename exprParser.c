@@ -246,6 +246,8 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 				aType = ((struct objectPtr *)aType)->type;
 
 			struct parserNodeName *nm = (void *)access->name;
+			if(aType->type==TYPE_FORWARD)
+					aType=objectBaseType(aType);
 			if (aType->type != TYPE_CLASS && aType->type != TYPE_UNION) {
 			failMember:;
 				diagErrorStart(op->base.pos.start, op->base.pos.end);

@@ -1694,6 +1694,8 @@ graphNodeIR IRCreateMemberAccess(graphNodeIR input, const char *name) {
 		struct objectPtr *ptr = (void *)type;
 		type = ptr->type;
 	}
+	if(type->type==TYPE_FORWARD)
+			type=objectBaseType(type);
 	struct objectMember *member = NULL;
 	if (type->type == TYPE_CLASS) {
 		struct objectClass *cls = (void *)type;
