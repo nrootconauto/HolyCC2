@@ -365,16 +365,21 @@ struct object *IRValueGetType(struct IRValue *node) {
 		return NULL;
 	}
 }
+static int ptrEqual(void *a,void* b) {
+		return a==b;
+}
 void IRInsertBefore(graphNodeIR insertBefore, graphNodeIR entry, graphNodeIR exit, enum IRConnType connType) {
 	__auto_type incoming = graphNodeIRIncoming(insertBefore);
 
 	for (long i = 0; i != strGraphEdgeIRPSize(incoming); i++) {
 		// Connect incoming to entry
 		graphNodeIRConnect(graphEdgeIRIncoming(incoming[i]), entry, *graphEdgeIRValuePtr(incoming[i]));
-
-		// Disconnect for insertBefore
-		graphEdgeIRKill(graphEdgeIRIncoming(incoming[i]), insertBefore, NULL, NULL, NULL);
 	}
+	
+	for (long i = 0; i != strGraphEdgeIRPSize(incoming); i++) 	{
+					// Disconnect for insertBefore
+					graphEdgeIRKill(graphEdgeIRIncoming(incoming[i]), insertBefore, graphEdgeIRValuePtr(incoming[i]), ptrEqual, NULL);
+			}
 	// Connect exit to insertBefore
 	graphNodeIRConnect(exit, insertBefore, connType);
 }
@@ -388,6 +393,10 @@ void IRInsertAfter(graphNodeIR insertAfter, graphNodeIR entry, graphNodeIR exit,
 		// Disconnect for insertBefore
 		graphEdgeIRKill(graphEdgeIROutgoing(outgoing[i]), insertAfter, NULL, NULL, NULL);
 	}
+	for (long i = 0; i != strGraphEdgeIRPSize(outgoing); i++) 	{
+					// Disconnect for insertBefore
+					graphEdgeIRKill(graphEdgeIROutgoing(outgoing[i]), insertAfter, graphEdgeIRValuePtr(outgoing[i]), ptrEqual, NULL);
+			}
 
 	graphNodeIRConnect(insertAfter, entry, connType);
 }

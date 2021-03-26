@@ -28,7 +28,7 @@ U8i *StrDupLen(U8i *str,I32i len) {
 }
 I32i StrNCmp(U8i *a,U8i *b,I32i len) {
 					while((len-=1)>=0) {
-																						if(*a!=*b) return *a-*b;
+																						if(*a!=*b) return *a(I8i*)-*b(I8i*);
 																						a+=1;
 																						b+=1;
 					}

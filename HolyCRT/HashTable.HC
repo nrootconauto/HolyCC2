@@ -5,10 +5,10 @@ class CKeyValPair {
 };
 #define KEY_EXISTS 1
 CKeyValPair *KeyValPairInsert(CKeyValPair *table,U8i *ptr,U8i *text) {
-											if(!table) return NULL;
+											CKeyValPair *nextItem=NULL;
+											if(!table) goto insert;
 											I32i hasLen=StrLen(text);
 
-											CKeyValPair *nextItem=NULL;
 											//Move all the way to the right
 											while(table->next) table=table->next;
 
@@ -33,6 +33,9 @@ CKeyValPair *KeyValPairInsert(CKeyValPair *table,U8i *ptr,U8i *text) {
 																new.text=StrDupLen(text,StrLen(text));
 																CKeyValPair *New=malloc(sizeof(CKeyValPair));
 																*New=new;
+
+																if(table) table->next=New;
+																if(next) next->prev=New;
 																return New;
 										}
 										goto loop;
