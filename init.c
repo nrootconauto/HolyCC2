@@ -29,5 +29,5 @@ void init() {
 	initParserData();
 	initParse2IR();
 	parseOpcodeFile();
-	//	signal(SIGSEGV,printBT);
+	signal(SIGSEGV,printBT);
 }

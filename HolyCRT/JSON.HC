@@ -312,7 +312,12 @@ static JsonNode *ParseJsonEntry(U8i *str,I32i chrI,I32i *end,JsonNode *prevNode=
 																						findNameValid:
 																						}
 						findColon:
-						//printf("JSON_NAME:%s\n",name);
+						if(nameStart==chrI) {
+																										U8i *strEnd=NULL;
+																										name=JsonParseString(&str[chrI],&strEnd);
+																										chrI=strEnd-str;
+						}
+						printf("JSON_NAME:%s\n",name);
 
 						chrI=__JsonSkipWhitespace(str,chrI);
 						if(str[chrI]!=':') return NULL;

@@ -274,7 +274,7 @@ try {
 					"97",
 					"98",
 					"99"
-};
+					};
 					I32i values2[100+1];
 					CHashTable *table=HashTableCreate();
 					for(I32i i=0;i!=100;i+=1) {

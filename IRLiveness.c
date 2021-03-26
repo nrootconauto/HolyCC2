@@ -72,7 +72,7 @@ static graphNodeIRLive  __IRInterferenceGraphFilterExp(graphNodeIR node,strGraph
 						lastWritten=strGraphNodeIRLivePSortedInsert(lastWritten,liveNode,(gnCmpType)ptrPtrCmp);
 				}
 		}
-		long originalSize=strGraphNodeIRPSize(*stack);
+		long originalSize=strGraphNodeIRPSize(*stack);\
 		
 		for(long e=0;e!=strGraphEdgeIRPSize(in);e++) {
 				__IRInterferenceGraphFilterExp(graphEdgeIRIncoming(in[e]), stack, exclude,data, varFilter);

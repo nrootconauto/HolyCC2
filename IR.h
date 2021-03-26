@@ -262,6 +262,8 @@ enum IRNodeType {
 	IR_ASM_IMPORT,
 	//
 	IR_SOURCE_MAPPING,
+	//
+	IR_DEBUG,
 };
 struct IRNode;
 struct IRAttr {
@@ -401,6 +403,11 @@ struct IRNodeLabelLocal {
 struct IRNodePtrRef {
 	struct IRNode base;
 };
+struct IRNodeDebug {
+		struct IRNode base;
+		char *fn;
+		long line;
+};
 struct IRNodeFuncCall {
 	struct IRNode base;
 };
@@ -480,7 +487,6 @@ struct IRNodeAsmDU32 {
 };
 struct IRNodeSourceMapping {
 		struct IRNode base;
-		const char *fn;
 		long start,len;
 };
 struct IRNodeAsmDU64 {
@@ -566,10 +572,11 @@ graphNodeIR IRCreateArrayDecl(struct parserVar *assignInto,struct object *type,s
 graphNodeIR IRGetArrayDimForVar(struct parserVar *arrVar,long i);
 graphNodeIR IRObjectArrayScale(struct objectArray *arr);
 graphNodeIR IRCreateArrayAccess(graphNodeIR arr,graphNodeIR index);
-graphNodeIR IRCreateSourceMapping(const char *fileName,long start,long len);
+graphNodeIR IRCreateSourceMapping(long start,long len);
 void IRRemoveNeverFlows(graphNodeIR node);
 graphNodeIR IRCreateFuncVaArgArgv();
 graphNodeIR IRCreateFuncVaArgArgc();
 graphNodeIR IRCreateSizeof(struct object *obj);
 graphNodeIR IRCreateGlobalLabel(const char *name);
 graphNodeIR IRCreateFuncRef(struct parserFunction *func);
+graphNodeIR IRCreateDebug(const char *fn,long line);

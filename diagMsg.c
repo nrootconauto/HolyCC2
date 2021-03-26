@@ -210,9 +210,14 @@ found : {
 		*col = where - inst->lineStarts[line2];
 }
 }
-void diagLineCol(const char *fn, long where, long *line, long *col) {
-		__auto_type inst=*mapInstGet(insts, fn);
-		__getLineCol(&inst, where, line, col);
+void diagLineCol(const char **fn, long where, long *line, long *col) {
+		__auto_type inst=diagInstByPos(where);
+
+		// 1st insert is the initial source so ignore initial source
+		where = mapToSource(where, mappings, inst->mappingOffset);
+		
+		__getLineCol(inst, where, line, col);
+		if(fn) *fn=inst->fileName;
 }
 static long fileSize(FILE *f) {
 	fseek(f, 0, SEEK_END);

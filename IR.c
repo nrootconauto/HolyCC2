@@ -368,6 +368,14 @@ struct object *IRValueGetType(struct IRValue *node) {
 static int ptrEqual(void *a,void* b) {
 		return a==b;
 }
+graphNodeIR IRCreateDebug(const char *fn,long line) {
+		struct IRNodeDebug debug;
+		debug.base.attrs=NULL;
+		debug.base.type=IR_DEBUG;
+		debug.line=line;
+		debug.fn=strcpy(calloc(strlen(fn)+1, 1), fn);
+		return GRAPHN_ALLOCATE(debug);
+}
 void IRInsertBefore(graphNodeIR insertBefore, graphNodeIR entry, graphNodeIR exit, enum IRConnType connType) {
 	__auto_type incoming = graphNodeIRIncoming(insertBefore);
 
@@ -1524,9 +1532,8 @@ graphNodeIR IRCloneUpTo(graphNodeIR node, strGraphNodeIRP to, ptrMapGraphNode *m
 
 	return retVal;
 }
-graphNodeIR IRCreateSourceMapping(const char *fileName,long start,long len) {
+graphNodeIR IRCreateSourceMapping(long start,long len) {
 		struct IRNodeSourceMapping mapping;
-		mapping.fn=fileName;
 		mapping.start=start;
 		mapping.len=len;
 		mapping.base.type=IR_SOURCE_MAPPING;

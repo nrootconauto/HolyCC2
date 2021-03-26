@@ -2550,7 +2550,8 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 	case IR_SOURCE_MAPPING: {
 			struct IRNodeSourceMapping *mapping=(void*)graphNodeIRValuePtr(start);		
 			long line;
-			diagLineCol(mapping->fn, mapping->start, &line, NULL);			
+			const char *fn;
+			diagLineCol(&fn,mapping->start, &line, NULL);			
 
 			const char *fmt=";;;   %s:%li:\"\"\"%s\"\"\"   ;;;";
 
@@ -2561,9 +2562,9 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			if(strchr(qouted, '\n'))
 					*strchr(qouted, '\n')='\0';
 
-			len=snprintf(NULL, 0, fmt, mapping->fn,line+1,qouted);
+			len=snprintf(NULL, 0, fmt, fn,line+1,qouted);
 			char buffer[len+1];
-			sprintf(buffer, fmt, mapping->fn,line+1,qouted);
+			sprintf(buffer, fmt, fn,line+1,qouted);
 
 			X86EmitAsmComment(buffer);
 			return nextNodesToCompile(start);	

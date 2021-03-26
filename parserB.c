@@ -171,9 +171,9 @@ static void __addGlobalSymbol(struct parserNode *node, const char *name, struct 
 		toInsert.version=0;
 		toInsert.var=var;
 		toInsert.shadowPrec=shadowPrecedence(node);
-		const char *fn=fileNameFromPos(currentFileMappings, node->pos.start);
+		const char *fn;
+		diagLineCol(&fn, node->pos.start, &toInsert.ln,  &toInsert.col);
 		toInsert.fn=strcpy(calloc(strlen(fn)+1,1), fn);
-		diagLineCol(fn, node->pos.start, &toInsert.ln,  &toInsert.col);
 		
 		if (name) {
 				__auto_type find = mapSymbolGet(symbolTable, name);

@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include "cacheDir.h"
 #include <unistd.h>
+#include "dumpDebugInfo.h"
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
 PTR_MAP_FUNCS(struct parserNode *, strChar, LabelNames);
@@ -719,7 +720,7 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 				}
 				break;
 		}
-		
+		emitDebuggerTypeDefinitions();
 		fclose(writeTo);
 }
 void X86EmitAsmEnterFileStartCode() {

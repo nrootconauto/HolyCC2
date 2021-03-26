@@ -155,5 +155,6 @@ U0 HashTableDestroy(CHashTable *table) {
 			for(I32i b=0;b!=table->bucketCount;b+=1) {
 												KeyValPairDestroy(table->buckets[b]);
 			}
+			free(table->buckets);
 			free(table);
 }

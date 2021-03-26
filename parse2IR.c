@@ -105,8 +105,7 @@ void IRGenInit(strFileMappings mappings) {
 }
 static struct enterExit insSrcMapping(long start,long end,struct enterExit pair) {
 		if(currFileMappings) { 
-				const char *fn=fileNameFromPos(currFileMappings, start);
-				__auto_type mapping=IRCreateSourceMapping(fn, start, end-start);
+				__auto_type mapping=IRCreateSourceMapping(start, end-start);
 				graphNodeIRConnect(mapping, pair.enter, IR_CONN_FLOW);
 				pair.enter=mapping;
 		}
