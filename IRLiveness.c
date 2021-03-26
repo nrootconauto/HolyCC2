@@ -73,9 +73,6 @@ static graphNodeIRLive  __IRInterferenceGraphFilterExp(graphNodeIR node,strGraph
 				}
 		}
 		long originalSize=strGraphNodeIRPSize(*stack);
-				
-		if(liveNode)
-					*stack=strGraphNodeIRLivePAppendItem(*stack, liveNode);
 		
 		for(long e=0;e!=strGraphEdgeIRPSize(in);e++) {
 				__IRInterferenceGraphFilterExp(graphEdgeIRIncoming(in[e]), stack, exclude,data, varFilter);

@@ -148,7 +148,6 @@ U0 testRange() {
 			printf("3>2>1>0:%li\n",3>2>1>0);
 }
 I32i main() {
-					/*
 I32i end;
 					ParserJsonLiteral("123",0,NULL,&end);
 					printf("%li\n",end);
@@ -174,7 +173,6 @@ try {
 					JsonNode *node=ParseJsonEntry(str,0,&end);
 					JsonNodePrint(node);
 					printf("%li\n",end);
-					*/
 					I32i one=1;
 					CKeyValPair *table=KeyValPairInsert(NULL,&one,"1");
 					I32i two=2;
