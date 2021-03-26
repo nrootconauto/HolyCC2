@@ -173,8 +173,6 @@ try {
 					JsonNode *node=ParseJsonEntry(str,0,&end);
 					JsonNodePrint(node);
 					printf("%li\n",end);
-					I32i neg=-1;
-					CKeyValPair *table=KeyValPairInsert(NULL,&neg,"-1");
 					U8i *values[99+1]={
 					"0",
 					"1",
@@ -278,20 +276,14 @@ try {
 					"99"
 };
 					I32i values2[100+1];
+					CHashTable *table=HashTableCreate();
 					for(I32i i=0;i!=100;i+=1) {
 														values2[i]=i;
-														KeyValPairInsert(table,&values2[i],values[i]);
+														HashTableAdd(table,&values2[i],values[i]);
 					}
-					U8i **keys=KeyValPairKeys(table);
-					for(I32i i=0;i!=KeyValPairSize(table);i++) {
-														Print("%q\n",keys[i]);
+					for(I32i i=0;i!=100;i++) {
+														Print("%d\n",*HashTableGet(table,values[i])(I32i*));
 					}
-					/*
-					for(I32i i=0;i!=100;i+=1) {
-														//Print("%d\n",*KeyValPairGet(table,values[i])(I32i*));
-														KeyValPairRemove(table,values[i]);
-														//Print("%d\n",KeyValPairSize(table));
-					}*/
-					KeyValPairDestroy(table);
+					HashTableDestroy(table);
 					return 0;
 }

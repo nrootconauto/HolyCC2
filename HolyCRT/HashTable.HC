@@ -4,8 +4,8 @@ class CKeyValPair {
 						U8i *ptr;
 };
 class CHashTable {
-						CKeyValPair *buckets;
-						I32i count;
+						CKeyValPair **buckets;
+						I32i bucketCount;
 };
 #define KEY_EXISTS 1
 I32i KeyValPairSize(CKeyValPair *pairs) {
@@ -16,7 +16,8 @@ I32i KeyValPairSize(CKeyValPair *pairs) {
 					return size;
 }
 U0 KeyValPairDestroy(CKeyValPair *pairs) {
-			for(pairs=pairs->prev;pairs->prev;pairs=pairs->prev);
+			if(!pairs) return ;
+			for(;pairs->prev;pairs=pairs->prev);
 			CKeyValPair *next=pairs->next;
 			loop:
 			next=pairs->next;
@@ -73,8 +74,8 @@ CKeyValPair *KeyValPairInsert(CKeyValPair *table,U8i *ptr,U8i *text) {
 										}
 										goto loop;
 }
-U0 KeyValPairRemove(CKeyValPair *table,U8i *text) {
-												if(!table) return;
+CKeyValPair *KeyValPairRemove(CKeyValPair *table,U8i *text) {
+												if(!table) return NULL;
 												I32i hasLen=StrLen(text);
 												
 												//Move all the way to the right
@@ -87,14 +88,15 @@ U0 KeyValPairRemove(CKeyValPair *table,U8i *text) {
 												min+=1; //Account for NULL byte
 												I32i cmp=StrNCmp(table->text,text,min);
 												if(cmp==0)  {
-																								if(table->prev) table->prev->next=table->next;
-																								if(table->next) table->next->prev=table->prev;
+																								CKeyValPair *retval=NULL;
+																								if(table->prev) retval=table->prev->next=table->next;
+																								if(table->next) retval=table->next->prev=table->prev;
 																								free(table->text);
 																								free(table);
-																								return ;
+																								return retval;
 												} else if(cmp<0) {
 														table=table->prev;
-												} else if(cmp>0) return;
+												} else if(cmp>0) return table;
 												goto loop;
 }
 U0 *KeyValPairGet(CKeyValPair *table,U8i *text) {
@@ -117,9 +119,14 @@ U0 *KeyValPairGet(CKeyValPair *table,U8i *text) {
 			} else if(cmp>0) return NULL;
 			goto loop;
 }
-I32i CHashTableSize(CHashTable *tab) {
-					
-} 
+CHashTable *HashTableCreate() {
+											CHashTable table;
+											table.buckets=malloc(8*sizeof(CKeyValPair*));
+											table.bucketCount=8;
+											CHashTable *retval=malloc(sizeof(CHashTable));
+											*retval=table;
+											return retval;
+}
 I32i Hash(U8i *str) {
 					I32i len=StrLen(str);
 					I32i retval=0;
@@ -129,4 +136,24 @@ I32i Hash(U8i *str) {
 																								str+=1;
 					}
 					return retval;
+} 
+U0 HashTableAdd(CHashTable *table,U0 *ptr,U8i *text) {
+			I32i bucket=Hash(text)%table->bucketCount;
+			table->buckets[bucket]=KeyValPairInsert(table->buckets[bucket],ptr,text);
+}
+U0 HashTableRemove(CHashTable *table,U8i *text) {
+			I32i bucket=Hash(text)%table->bucketCount;
+			I32i bucketSize=KeyValPairSize(table->buckets[bucket]); 
+			KeyValPairRemove(table->buckets[bucket],text);
+			if(bucketSize==1) table->buckets[bucket]=NULL;
+}
+U0 *HashTableGet(CHashTable *table,U8i *text) {
+			I32i bucket=Hash(text)%table->bucketCount;
+			return KeyValPairGet(table->buckets[bucket],text);
+}
+U0 HashTableDestroy(CHashTable *table) {
+			for(I32i b=0;b!=table->bucketCount;b+=1) {
+												KeyValPairDestroy(table->buckets[b]);
+			}
+			free(table);
 }
