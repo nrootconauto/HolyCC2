@@ -15,6 +15,18 @@ I32i KeyValPairSize(CKeyValPair *pairs) {
 					for(CKeyValPair *left=pairs->prev;left;left=left->prev) size+=1;
 					return size;
 }
+U8i **KeyValPairKeys(CKeyValPair *table) {
+				I32i size=KeyValPairSize(table);
+				U8i **retval=malloc(size*sizeof(U8i*));
+				if(!table) return retval;
+				while(table->prev) table=table->prev;
+				I32i index=-1;
+				while(table) {
+																	retval[index+=1]=table->text;
+																	table=table->next;
+				}
+				return retval;
+}
 CKeyValPair *KeyValPairInsert(CKeyValPair *table,U8i *ptr,U8i *text) {
 											CKeyValPair *nextItem=NULL;
 											if(!table) goto insert;

@@ -277,11 +277,19 @@ try {
 					"98",
 					"99"
 };
-I32i values2[100+1];
+					I32i values2[100+1];
 					for(I32i i=0;i!=100;i+=1) {
 														values2[i]=i;
 														KeyValPairInsert(table,&values2[i],values[i]);
 					}
-					Print("%d\n",KeyValPairSize(table));
+					U8i **keys=KeyValPairKeys(table);
+					for(I32i i=0;i!=KeyValPairSize(table);i++) {
+														Print("%q\n",keys[i]);
+					}
+					for(I32i i=0;i!=100;i+=1) {
+														//Print("%d\n",*KeyValPairGet(table,values[i])(I32i*));
+														KeyValPairRemove(table,values[i]);
+														//Print("%d\n",KeyValPairSize(table));
+					}
 					return 0;
 }
