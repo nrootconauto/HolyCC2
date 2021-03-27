@@ -4,9 +4,10 @@
 #include "cleanup.h"
 #include "IR.h"
 #include "ptrMap.h"
+static void debugShowGraphIR(graphNodeIR enter);
 void *IR_ATTR_X87FPU_POP_AT="X87_POP";
-static __thread strRegP fpuRegsInUse=NULL;
-static __thread strGraphNodeIRP nodeStack=NULL;
+static  strRegP fpuRegsInUse=NULL;
+static  strGraphNodeIRP nodeStack=NULL;
 typedef int (*regCmpType)(const struct reg **, const struct reg **);
 typedef int (*gnCmpType)(const graphNodeIR *, const graphNodeIR*);
 PTR_MAP_FUNCS(struct parserVar*, long, RefCount);
@@ -31,8 +32,7 @@ struct reg *X87FpuPushReg() {
 		};
 		long max=sizeof(stack)/sizeof(*stack);
 		if(max<=cur+1)
-				return NULL;
-		fpuRegsInUse=strRegPSortedInsert(fpuRegsInUse, stack[cur], (regCmpType)ptrPtrCmp);
+				return NULL;;
 		return stack[cur];
 }
 static int isX87Reg(struct reg *r) {
@@ -91,6 +91,7 @@ static graphNodeIR insertFpuValue(graphNodeIR start) {
 				__auto_type st0=IRCreateRegRef( &slice);
 				IRInsertAfter(start, st0, st0, IR_CONN_DEST);
 				nodeStack=strGraphNodeIRPAppendItem(nodeStack,st0);
+				fpuRegsInUse=strRegPAppendItem(fpuRegsInUse, &regX86ST0);
 				return st0;
 		} else {
 				long size=strRegPSize(fpuRegsInUse);
@@ -119,8 +120,6 @@ static void spillFpuStack() {
 		}
 }
 static void exprRecur(graphNodeIR start,ptrMapRefCount refCounts,int parentIsFpuOp) {
-		if(graphNodeIRValuePtr(start)->type==IR_DERREF)
-				return;
 
 		if(graphNodeIRValuePtr(start)->type==IR_VALUE) {
 				struct IRNodeValue *val=(void*)graphNodeIRValuePtr(start);
@@ -177,9 +176,6 @@ static void exprRecur(graphNodeIR start,ptrMapRefCount refCounts,int parentIsFpu
 						in =IREdgesByPrec(start);
 						
 						if(objectBaseType(IRNodeType(graphEdgeIRIncoming(in[0])))==&typeF64) {
-								//Just return if typecast to F64 from F64
-								if( objectBaseType(IRNodeType(start))==&typeF64)
-										return;
 								isTypecastFromF64=1;
 								struct IRNodeValue *val=(void*)graphNodeIRValuePtr(graphEdgeIRIncoming(in[0]));
 								if(val->base.type==IR_VALUE)
@@ -192,7 +188,7 @@ static void exprRecur(graphNodeIR start,ptrMapRefCount refCounts,int parentIsFpu
 								insertFpuValue(start);
 								return;
 						}
-						if(isTypecastFromF64) return;
+						return;
 				}
 				// Is a binop or unop,so replace single use variables(and temporary) with registers ,or if used elsewhere,assign into a register
 				// If not a variable,assign into register
@@ -243,8 +239,10 @@ static void exprRecur(graphNodeIR start,ptrMapRefCount refCounts,int parentIsFpu
 						struct IRNodeValue *val=(void*)graphNodeIRValuePtr(graphEdgeIRIncoming(dst[0]));
 						if(val->base.type==IR_VALUE)
 								if(val->val.type==IR_VAL_REG)
-										if(isX87Reg(val->val.value.reg.reg))
+										if(isX87Reg(val->val.value.reg.reg)) {
+												//debugShowGraphIR(start);
 												X87FpuPopReg();
+										}
 				}
 
 		} else {

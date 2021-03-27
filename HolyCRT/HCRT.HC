@@ -9,14 +9,14 @@ extern U0 *realloc(U0 *ptr,I32i size);
 #include "Print.HC"
 #include "JSON.HC"
 #include "HashTable.HC"
-//#include "Debug.HC"
+#include "Debug.HC"
 static I32i foo() {
 							Print("1\n");
 							return 1;
 }
 U0 testNoDest() {
 			Print("No-Dest\n");
-			I32i a=10;
+			I32i a=10; 
 			I32i b=3;
 			(foo()+a)`(b+b);
 			(foo()+a)<<(b+b);
@@ -158,7 +158,7 @@ I32i end;
 					printf("%li\n",end);
 					U8i *str=__UnescapeStr("Hello World\n");
 					printf("%s\n",str);
-/*try {
+try {
 				throw(1);
 				} catch {
 					testRegsI32i();
@@ -173,7 +173,6 @@ I32i end;
 					printf("%lf\n",(52+1.0)-(1.0+1.0));
 					"Hello Wolrd:%.6n\n",15.500;
 					"Hello Wolrd:%.6n\n",15.500;
-					*/
 					
 					U8i *str="{'ABC':[1,\"2\\n2\",3]}";
 					I32i end;
@@ -296,8 +295,8 @@ I32i end;
 					*/
 					//printf("%s\n",&HCC_DEBUG_SYMS);
 					//JsonNodePrint(ParserJsonObject(&HCC_DEBUG_SYMS,0,NULL,NULL));
-					//U8i *r=MStrPrint("HEllo:%d\n",123);
-					//Print("%s\n",r);
-					//free(r);
+					U8i *r=MStrPrint("HEllo:%d\n",123);
+					Print("%q\n",r);
+					free(r);
 					return 0;
 }

@@ -1371,7 +1371,7 @@ static strIRVar2WeightAssoc computeVarWeights(graphNodeIR start) {
 		return retVal;
 }
 static struct parserFunction *includeHCRTFunc(const char *name) {
-		__auto_type sym=parserGetFuncByName("PowF64");
+		__auto_type sym=parserGetFuncByName(name);
 		if(!sym) {
 				fprintf(stderr, "Include HCRT for PowF64");
 				abort();
@@ -1463,15 +1463,16 @@ static void insertImplicitFuncs(graphNodeIR start) {
 								sym=includeHCRTFunc("PowU32i");
 						}
 				pow:;
+						__auto_type stmtStart=IRStmtStart(allNodes[n]);
 						graphNodeIR a,b;
 						binopArgs(allNodes[n], &a, &b);
 						__auto_type dst=nodeDest(allNodes[n]);
-						__auto_type pow=IRCreateFuncCall(IRCreateFuncRef(sym), a,b,NULL);
+						__auto_type symNode=IRCreateFuncRef(sym);
+						graphNodeIRConnect(stmtStart,symNode,IR_CONN_FLOW);
+						__auto_type pow=IRCreateFuncCall(symNode, a,b,NULL);
 						strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(allNodes[n]);
 						for(long o=0;o!=strGraphEdgeIRPSize(out);o++)
 								graphNodeIRConnect(pow, graphEdgeIROutgoing(out[o]), *graphEdgeIRValuePtr(out[o]));
-
-						graphNodeIRConnect(IRStmtStart(allNodes[n]),pow,IR_CONN_FLOW);
 						graphNodeIRKill(&allNodes[n], (void(*)(void*))IRNodeDestroy, NULL);
 						continue;
 				}
@@ -1526,7 +1527,9 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	
 	strGraphNodeIRPDestroy(&nodes);
 	IRRemoveNeverFlows(start);
+	//debugShowGraphIR(start);
 	insertImplicitFuncs(start);
+	//debugShowGraphIR(start);
 	IRInsertImplicitTypecasts(start);
 	
 	nodes = graphNodeIRAllNodes(start);
@@ -1620,6 +1623,7 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	IRRegisterAllocate(start, __var2Weight, weights, isNotNoreg, noregs);
 
 	if(allocateX87fpuRegs) {
+			//debugShowGraphIR(start);
 			IRRegisterAllocateX87(start);
 	}
 

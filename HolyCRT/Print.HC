@@ -17,8 +17,32 @@ static F64 __PrintF64Shift(F64 a, F64 b) {
 _extern putchar U0 PutC(U8i chr);
 _import  log10 F64 Log10(F64 num);
 static U8i *__PrintI32i(I32i value,I32i base,U8i *Digits) {
+   U8i isNeg=0;
+			if(value<0) value*=-1;
+
 			I32i digits=0;
 			I32i value2=value;
+			do {
+						digits+=1;
+						value/=base;
+			} while(value!=0);
+			value=value2;
+			
+			U8i buffer[digits+1+isNeg];
+			if(isNeg) buffer[0]='-';
+			buffer[digits+isNeg]='\0';
+			I32i bufferSize=digits+isNeg;
+			do {
+						digits-=1;
+						buffer[digits+isNeg]=Digits[value%base];
+						value/=base;
+			} while(value!=0);
+
+			return StrDupLen(buffer,bufferSize+1);
+}
+static U8i *__PrintU32i(U32i value,I32i base,U8i *Digits) {
+			I32i digits=0;
+			U32i value2=value;
 			do {
 						digits+=1;
 						value/=base;
@@ -36,7 +60,6 @@ static U8i *__PrintI32i(I32i value,I32i base,U8i *Digits) {
 
 			return StrDupLen(buffer,bufferSize+1);
 }
-
 //http://kurtstephens.com/files/p372-steele.pdf
 static U8i *__PrintF64(F64 f,F64 e,F64 p,I32i digits) {
 							U8i * retval=calloc(128+digits,1);
@@ -310,6 +333,16 @@ U0 __Print(U0(*putChar)(U8i,U0 *),U0 *data,U8i *fmt,I32i *argv) {
 																																										putChar(upper&0xff,data);
 																																										upper>>=8;
 																													};
+																													argi+=1;
+																													break;
+																								}
+																								case 'u': {
+																													U8i *str=__PrintU32i(argv[argi],10,"0123456789");
+																													I32i len=StrLen(str);
+																													for(I32i c=0;c!=len;c+=1) {
+																																						putChar(str[c],data);
+																													}
+																													free(str);
 																													argi+=1;
 																													break;
 																								}

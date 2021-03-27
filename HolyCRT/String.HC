@@ -116,3 +116,11 @@ U8i *StrCat(U8i *a,U8i *b) {
 				StrCpy(retval+StrLen(a),b);
 				return retval;
 }
+I32i StrCmp(U8i *a,U8i *b) {
+					I32i min=0;
+					for(;;) {
+													if(*a-*b!=0) return *a-*b;
+													a+=1;
+													b+=1;
+					}
+}
