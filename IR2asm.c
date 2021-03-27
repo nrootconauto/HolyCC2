@@ -2524,7 +2524,7 @@ static void storeMemberPtrInReg(struct reg *memReg, graphNodeIR sourceNode, strO
 			currChain=strObjectMemberAppendItem(currChain, members[m]);
 
 			//Only dereference pointer if not last item(last item may be of pointer type,but isnt part of the the member chain)
-			if(currentType->type==TYPE_PTR&&m+1<strObjectMemberSize(members)) {
+			if((currentType->type==TYPE_PTR||currentType->type==TYPE_ARRAY)&&m+1<strObjectMemberSize(members)) {
 					__storeMemberPtrInRegLEA(memReg,currChain);
 					strObjectMemberDestroy(&currChain);
 					currChain=NULL;

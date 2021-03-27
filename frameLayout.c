@@ -39,7 +39,7 @@ struct IRVarRefsPair {
 		strVar vars;
 		long offset;
 };
-static void IRVarRefsPairDestroy(void **item) {
+static void IRVarRefsPairDestroy(struct IRVarRefsPair **item) {
 		struct IRVarRefsPair *pair=*item;
 		strGraphNodeIRPDestroy(&pair->refs);
 		strVarDestroy(&pair->vars);
@@ -159,7 +159,7 @@ void IRComputeFrameLayout(graphNodeIR start, long *frameSize,ptrMapFrameOffset *
 			if(find) {
 					IRVarRefsMerge(find,&dummy);
 					struct IRVarRefsPair *alloced=ALLOCATE(dummy);
-					IRVarRefsPairDestroy((void**)&alloced);
+					IRVarRefsPairDestroy(&alloced);
 			} else {
 					allRefs=strIRVarRefsSortedInsert(allRefs, ALLOCATE(dummy), IRVarRefsCmp);
  		}
@@ -190,7 +190,7 @@ void IRComputeFrameLayout(graphNodeIR start, long *frameSize,ptrMapFrameOffset *
 							mapRefsPairInsert(byColor, buffer, refPairFind);
 					} else if(*find!=refPairFind){
 							IRVarRefsMerge(*find,refPairFind);
-							IRVarRefsPairDestroy((void**)refPairFind);
+							IRVarRefsPairDestroy(&refPairFind);
 					}
 					allRefs=strIRVarRefsRemoveItem(allRefs, refPairFind, IRVarRefsCmp);
 			}
@@ -212,6 +212,11 @@ void IRComputeFrameLayout(graphNodeIR start, long *frameSize,ptrMapFrameOffset *
 	currentOffset=pack(0, LONG_MAX, &allRefs, &order);
 
 	__auto_type localVarFrameOffsets = ptrMapFrameOffsetCreate();
+	for(long o=0;o!=strIRVarRefsSize(order);o++) {
+			for(long v=0;v!=strVarSize(order[o]->vars);v++)
+					ptrMapFrameOffsetAdd(localVarFrameOffsets, order[o]->vars[v].var, order[o]->offset+order[o]->largestSize);
+	}
+	
 		for (long o = 0; o != strIRVarRefsSize(order); o++) {
 				for(long n=0;n!=strGraphNodeIRPSize(order[o]->refs);n++) {
 						struct IRNodeValue *ir = (void *)graphNodeIRValuePtr(order[o]->refs[n]);
@@ -221,8 +226,6 @@ void IRComputeFrameLayout(graphNodeIR start, long *frameSize,ptrMapFrameOffset *
 						continue;
 				if (ir->val.value.var.var->isGlobal)
 						continue;
-				if(!ptrMapFrameOffsetGet(localVarFrameOffsets, ir->val.value.var.var))
-						ptrMapFrameOffsetAdd(localVarFrameOffsets, order[o]->vars[0].var, order[o]->offset+order[o]->largestSize);
 				
 				__auto_type find = ptrMapFrameOffsetGet(localVarFrameOffsets, ir->val.value.var.var);
 				assert(find);
