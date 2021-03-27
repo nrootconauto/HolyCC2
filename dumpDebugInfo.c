@@ -170,6 +170,5 @@ char *emitDebuggerTypeDefinitions() {
 		total=strCharConcat(total, fromFmt("]\n}"));
 		total=strCharAppendItem(total, '\0');
 
-		printf("Symbols:%s\n",total);
 		return strcpy(calloc(strlen(total)+1, 1), total);
 }

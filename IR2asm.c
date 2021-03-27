@@ -1623,8 +1623,8 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	IRRegisterAllocate(start, __var2Weight, weights, isNotNoreg, noregs);
 
 	if(allocateX87fpuRegs) {
-			//debugShowGraphIR(start);
 			IRRegisterAllocateX87(start);
+			//			debugShowGraphIR(start);
 	}
 
 	//"Push" the old frame layout
@@ -2488,46 +2488,53 @@ static int IRTableRangeCmp(const struct IRJumpTableRange *a, const struct IRJump
 	else
 		return 0;
 }
+static void __storeMemberPtrInRegLEA(struct reg *memReg,strObjectMember members){
+			strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
+			leaArgs = strX86AddrModeAppendItem(leaArgs, X86AddrModeReg(memReg,getTypeForSize(ptrSize())));
+			__auto_type sib=X86AddrModeIndirSIB(0, 0, X86AddrModeReg(memReg, getTypeForSize(ptrSize())), NULL,  NULL);
+			leaArgs = strX86AddrModeAppendItem(leaArgs, sib);
+			for(long m=0;m!=strObjectMemberSize(members);m++) {
+					X86AddrModeIndirSIBAddMemberOffset(sib,&members[m]);
+					leaArgs[1]->valueType=objectPtrCreate(members[m].type);
+			}
+			assembleInst("LEA", leaArgs);
+}
 static void storeMemberPtrInReg(struct reg *memReg, graphNodeIR sourceNode, strObjectMember members) {
 		struct X86AddressingMode *memRegMode CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(memReg,getTypeForSize(ptrSize()));
-	strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
-	leaArgs = strX86AddrModeAppendItem(leaArgs, X86AddrModeReg(memReg,getTypeForSize(ptrSize())));
-	leaArgs = strX86AddrModeAppendItem(leaArgs, IRNode2AddrMode(sourceNode));
-	leaArgs[1]->valueType = NULL;
-	assembleInst("LEA", leaArgs);
+		struct X86AddressingMode *inMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(sourceNode);
+		struct object *currentType=NULL;
+		__auto_type base=objectBaseType(IRNodeType(sourceNode))->type;
+		assembleInst("NOP", NULL);
+		if(base!=TYPE_PTR&&base!=TYPE_ARRAY) {
+				strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
+				leaArgs = strX86AddrModeAppendItem(leaArgs, X86AddrModeReg(memReg,getTypeForSize(ptrSize())));
+				leaArgs = strX86AddrModeAppendItem(leaArgs, IRNode2AddrMode(sourceNode));
+				leaArgs[1]->valueType = NULL;
+				assembleInst("LEA", leaArgs);
+				currentType = objectPtrCreate(IRNodeType(sourceNode));
+		} else {	
+				asmTypecastAssign(sourceNode, memRegMode, inMode, ASM_ASSIGN_X87FPU_POP);
+				currentType = IRNodeType(sourceNode);
+		}
+		strObjectMember currChain CLEANUP(strObjectMemberDestroy)=NULL;
+		for (long m = 0; m != strObjectMemberSize(members); m++) {
+			memRegMode->valueType = objectPtrCreate(members[m].type);
+			currentType = objectBaseType(members[m].type);
 
-	__auto_type currentType = IRNodeType(sourceNode);
-	strObjectMemberP currMembers CLEANUP(strObjectMemberPDestroy)=NULL;
-	for (long m = 0; m != strObjectMemberSize(members); m++) {
-			if (currentType->type == TYPE_PTR) {
-					if (strObjectMemberPSize(currMembers)) {
-							strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
-							leaArgs = strX86AddrModeAppendItem(leaArgs, X86AddrModeReg(memReg,getTypeForSize(ptrSize())));
-							__auto_type sib=X86AddrModeIndirSIB(0, 0, X86AddrModeReg(memReg, getTypeForSize(ptrSize())), NULL,  getTypeForSize(ptrSize()));
-							for(long m=0;m!=strObjectMemberPSize(currMembers);m++)
-									X86AddrModeIndirSIBAddMemberOffset(sib,currMembers[m]);
-							leaArgs = strX86AddrModeAppendItem(leaArgs, sib);
-							assembleInst("LEA", leaArgs);
-							currMembers=strObjectMemberPResize(currMembers,0);
-					}
+			currChain=strObjectMemberAppendItem(currChain, members[m]);
+
+			//Only dereference pointer if not last item(last item may be of pointer type,but isnt part of the the member chain)
+			if(currentType->type==TYPE_PTR&&m+1<strObjectMemberSize(members)) {
+					__storeMemberPtrInRegLEA(memReg,currChain);
+					strObjectMemberDestroy(&currChain);
+					currChain=NULL;
+					
 					// De-reference
 					struct X86AddressingMode *indir CLEANUP(X86AddrModeDestroy) = X86AddrModeIndirReg(memReg, objectPtrCreate(&typeU0));
 					asmAssign(sourceNode,memRegMode, indir, ptrSize(),0);
 			}
-		memRegMode->valueType = objectPtrCreate(members[m].type);
-		currentType = objectBaseType(members[m].type);
-		currMembers=strObjectMemberPAppendItem(currMembers,  &members[m]);
 	}
-	if (strObjectMemberPSize(currMembers)) {
-			strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
-			leaArgs = strX86AddrModeAppendItem(leaArgs, X86AddrModeReg(memReg,getTypeForSize(ptrSize())));
-			__auto_type sib=X86AddrModeIndirSIB(0, 0, X86AddrModeReg(memReg, getTypeForSize(ptrSize())), NULL,  getTypeForSize(ptrSize()));
-			for(long m=0;m!=strObjectMemberPSize(currMembers);m++)
-					X86AddrModeIndirSIBAddMemberOffset(sib,currMembers[m]);
-			sib->valueType=getTypeForSize(ptrSize());
-			leaArgs = strX86AddrModeAppendItem(leaArgs, sib);
-			assembleInst("LEA", leaArgs);
-	}
+		__storeMemberPtrInRegLEA(memReg,currChain);
 }
 static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 	if (ptrMapCompiledNodesGet(compiledNodes, start)) {

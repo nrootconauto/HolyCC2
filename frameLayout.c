@@ -188,7 +188,7 @@ void IRComputeFrameLayout(graphNodeIR start, long *frameSize,ptrMapFrameOffset *
 					__auto_type find=mapRefsPairGet(byColor, buffer);
 					if(!find) {
 							mapRefsPairInsert(byColor, buffer, refPairFind);
-					} else {
+					} else if(*find!=refPairFind){
 							IRVarRefsMerge(*find,refPairFind);
 							IRVarRefsPairDestroy((void**)refPairFind);
 					}

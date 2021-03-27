@@ -9,7 +9,7 @@ extern U0 *realloc(U0 *ptr,I32i size);
 #include "Print.HC"
 #include "JSON.HC"
 #include "HashTable.HC"
-#include "Debug.HC"
+//#include "Debug.HC"
 static I32i foo() {
 							Print("1\n");
 							return 1;
@@ -152,7 +152,14 @@ U0 testRegsCast() {
 U0 testRange() {
 			printf("3>2>1>0:%li\n",3>2>1>0);
 }
+class fooP {
+						I32i a;
+} FOOP;
 I32i main() {
+					FOOP.a=10;
+					fooP *PTR=&FOOP;
+					Print("%d\n",(PTR+0)->a);
+					Print("%d\n",PTR.a);
 I32i end;
 					ParserJsonLiteral("123",0,NULL,&end);
 					printf("%li\n",end);
@@ -298,5 +305,13 @@ try {
 					U8i *r=MStrPrint("HEllo:%d\n",123);
 					Print("%q\n",r);
 					free(r);
+					/*
+					try {
+									CFileDebugger *dbg=FileDebuggerCreate();
+																			F64 *examp=123.4;
+																			DebuggerPrintVar(dbg,&examp,"F64");
+					} catch {
+							Print("Fuck\n");
+					}*/
 					return 0;
 }

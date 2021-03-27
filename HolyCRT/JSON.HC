@@ -256,14 +256,19 @@ static U0 tabPrintN(I32i tabLen) {
 }
 JsonNode *JsonNodeEntry(JsonNode *root,U8i *str) {
 									if(!root) return NULL;
-									for(;root->prev;root=root->prev);
+									for(;
+									root->prev;
+									root=root->prev);
 									I32i strLen=StrLen(str);
 									for(;root;root=root->next) {
+																																				if(!root->name) goto next;
 																																				I32i curLen=StrLen(root->name);
+																																				printf("%li\n",curLen);
 																																				if(strLen!=curLen) goto next;
 																																				if(0==StrNCmp(root->name,str,curLen)) return root;
 																																				next:
 									}
+									return NULL;
 }
 U0 JsonNodePrint(JsonNode *root,I32i tabLen=0) {
 			switch(root->type) {
