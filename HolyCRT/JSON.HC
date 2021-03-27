@@ -255,7 +255,6 @@ static U0 tabPrintN(I32i tabLen) {
 							while((tabLen-=1)>=0) Print("\t");
 }
 U0 JsonNodePrint(JsonNode *root,I32i tabLen=0) {
-			tabPrintN(tabLen);
 			switch(root->type) {
 																						case JSON_STR: {
 																											Print("\"%q\"",root->val.str);
@@ -266,16 +265,19 @@ U0 JsonNodePrint(JsonNode *root,I32i tabLen=0) {
 																											break;
 																						}
 																						case JSON_OBJ: {
+																											tabPrintN(tabLen);
 																											Print("{\n");
 																											JsonNode *node=root->val.node;
 																											if(!node) goto objEnd;
 																											for(;node->prev;node=node->prev);
 																											for(;node;node=node->next) {
+																																																						tabPrintN(tabLen);
 																																																						Print("\"%q\":",node->name);
 																																																						JsonNodePrint(node,tabLen+1);
 																																																						Print(",\n");
 																											}
 																											objEnd:
+																											tabPrintN(tabLen);
 																											Print("}\n");
 																											break;
 																						}
@@ -284,6 +286,7 @@ U0 JsonNodePrint(JsonNode *root,I32i tabLen=0) {
 																											break;
 																						}
 																						case JSON_ARR: {
+																						 				tabPrintN(tabLen);
 																											Print("[\n");
 																											for(I32i i=0;root->val.arr[i]!=NULL;i+=1) {
 																																				JsonNodePrint(root->val.arr[i],tabLen+1);

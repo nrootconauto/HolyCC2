@@ -158,7 +158,7 @@ char *emitDebuggerTypeDefinitions() {
 		const char *keys[count];
 		parserSymTableNames(keys, NULL);
 
-		strChar total CLEANUP(strCharDestroy)=fromFmt("{\Types:[\n");
+		strChar total CLEANUP(strCharDestroy)=fromFmt("{\nTypes:[\n");
 		for(long k=0;k!=count;k++) {
 				__auto_type sym=parserGetGlobalSym(keys[k]);
 				if(sym->var!=NULL) continue;
