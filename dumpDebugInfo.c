@@ -158,13 +158,16 @@ char *emitDebuggerTypeDefinitions() {
 		const char *keys[count];
 		parserSymTableNames(keys, NULL);
 
-		strChar total CLEANUP(strCharDestroy)=NULL;
+		strChar total CLEANUP(strCharDestroy)=fromFmt("{\Types:[\n");
 		for(long k=0;k!=count;k++) {
 				__auto_type sym=parserGetGlobalSym(keys[k]);
 				if(sym->var!=NULL) continue;
-				if(sym->type->type==TYPE_CLASS||sym->type->type==TYPE_UNION)
+				if(sym->type->type==TYPE_CLASS||sym->type->type==TYPE_UNION) {
 						total=strCharConcat(total, emitDebuggerTypeDefintion(sym->type));
+						total=strCharAppendItem(total, ',');
+				}
 		}
+		total=strCharConcat(total, fromFmt("]\n}"));
 		total=strCharAppendItem(total, '\0');
 
 		printf("Symbols:%s\n",total);
