@@ -2,10 +2,6 @@ extern U0 printf(U8i *fmt,...);
 extern U0 puts(U8i *chr);
 extern I32i sscanf(U8i *fmt,...);
 #define NULL (0)
-extern U0 *malloc(I32i size);
-extern U0 *calloc(I32i size,I32i count); 
-import U0 free(U0 *ptr);
-extern U0 *realloc(U0 *ptr,I32i size);
 
 F64 Max(F64 a,F64 b)
 {
@@ -43,7 +39,7 @@ static U8i *__PrintI32i(I32i value,I32i base,U8i *Digits) {
 
 //http://kurtstephens.com/files/p372-steele.pdf
 static U8i *__PrintF64(F64 f,F64 e,F64 p,I32i digits) {
-							U8i * retval=calloc(256,1);
+							U8i * retval=calloc(128+digits,1);
 							I32i retvalPos=0;
 							F64 value=f*2.0`(e-p);
 							if(value==0)
@@ -366,4 +362,20 @@ static U0 __putChar2(U8i chr,U0 *data) {
 }
 U0 Print(U8i *fmt,...) {
 			__Print(&__putChar2,NULL,fmt,argv);
+}
+static U0 __printAdd1(U8i chr,U0 *data) {
+							*(data(I32i*))+=1;
+}
+static U0 __printAddChr(U8i chr,U0 *data) {
+							**(data(U8i**))=chr;
+							*(data(U8i**))+=1;
+}
+U8i *MStrPrint(U8i *fmt,...) {
+				I32i count=0;
+				__Print(&__printAdd1,&count,fmt,argv);
+				U8i *retval=malloc(count+1);
+				retval[count]='\0';
+				U8i *ptr=retval;
+				__Print(&__printAddChr,&ptr,fmt,argv);
+				return retval;
 }

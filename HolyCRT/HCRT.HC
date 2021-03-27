@@ -1,10 +1,15 @@
 _import pow F64 PowF64(F64 b,F64 e);
+extern U0 *malloc(I32i size);
+extern U0 *calloc(I32i size,I32i count); 
+import U0 free(U0 *ptr);
+extern U0 *realloc(U0 *ptr,I32i size);
 #include "IntPow.HC"
 #include "ExceptLin.HC"
 #include "String.HC"
 #include "Print.HC"
 #include "JSON.HC"
 #include "HashTable.HC"
+//#include "Debug.HC"
 static I32i foo() {
 							Print("1\n");
 							return 1;
@@ -147,14 +152,13 @@ U0 testRegsCast() {
 U0 testRange() {
 			printf("3>2>1>0:%li\n",3>2>1>0);
 }
-internal  U8i HCC_DEBUG_SYMS;
 I32i main() {
 I32i end;
 					ParserJsonLiteral("123",0,NULL,&end);
 					printf("%li\n",end);
 					U8i *str=__UnescapeStr("Hello World\n");
 					printf("%s\n",str);
-try {
+/*try {
 				throw(1);
 				} catch {
 					testRegsI32i();
@@ -169,6 +173,8 @@ try {
 					printf("%lf\n",(52+1.0)-(1.0+1.0));
 					"Hello Wolrd:%.6n\n",15.500;
 					"Hello Wolrd:%.6n\n",15.500;
+					*/
+					
 					U8i *str="{'ABC':[1,\"2\\n2\",3]}";
 					I32i end;
 					JsonNode *node=ParserJsonLiteral(str,0,&end,NULL);
@@ -288,7 +294,10 @@ try {
 					}
 					HashTableDestroy(table);
 					*/
-					printf("%s\n",&HCC_DEBUG_SYMS);
-					JsonNodePrint(ParserJsonObject(&HCC_DEBUG_SYMS,0,NULL,NULL));
+					//printf("%s\n",&HCC_DEBUG_SYMS);
+					//JsonNodePrint(ParserJsonObject(&HCC_DEBUG_SYMS,0,NULL,NULL));
+					//U8i *r=MStrPrint("HEllo:%d\n",123);
+					//Print("%s\n",r);
+					//free(r);
 					return 0;
 }

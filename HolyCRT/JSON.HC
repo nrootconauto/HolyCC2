@@ -254,6 +254,17 @@ static JsonNode *ParserJsonLiteral(U8i *str,I32i chrI,JsonNode *prevNode,I32i *e
 static U0 tabPrintN(I32i tabLen) {
 							while((tabLen-=1)>=0) Print("\t");
 }
+JsonNode *JsonNodeEntry(JsonNode *root,U8i *str) {
+									if(!root) return NULL;
+									for(;root->prev;root=root->prev);
+									I32i strLen=StrLen(str);
+									for(;root;root=root->next) {
+																																				I32i curLen=StrLen(root->name);
+																																				if(strLen!=curLen) goto next;
+																																				if(0==StrNCmp(root->name,str,curLen)) return root;
+																																				next:
+									}
+}
 U0 JsonNodePrint(JsonNode *root,I32i tabLen=0) {
 			switch(root->type) {
 																						case JSON_STR: {

@@ -1,9 +1,9 @@
 #define NULL (0)
 U8i *StrChr(U8i *str,U8i chr) {
-				 do {
+				 while(*str!='\0') {
 																						if(*str==chr) return str;
 																						str+=1;
-				} while(*str!='\0');
+				}
 				return NULL;
 }
 I32i StrLen(U8i *str) {
@@ -108,4 +108,11 @@ F64 Str2F64(U8i *str,U8i **end=NULL) {
 				fail:
 				if(end) *end=&str[chr];
 				return -0.0;
+}
+U8i *StrCat(U8i *a,U8i *b) {
+				I32i len=StrLen(a)+StrLen(b);
+				U8i *retval=calloc(len+1,1);
+				StrCpy(retval,a);
+				StrCpy(retval+StrLen(a),b);
+				return retval;
 }
