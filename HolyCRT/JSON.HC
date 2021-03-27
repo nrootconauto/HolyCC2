@@ -4,6 +4,7 @@ class JsonNode;
 #define JSON_OBJ 2
 #define JSON_FLT 3
 #define JSON_ARR 4
+#define JSON_SYN_ERR -1
 union JsonValue {
 						U8i *str;
 						I32i sint;
@@ -161,6 +162,37 @@ static U8i *JsonParseString(U8i *str,U8i **end) {
 							return retVal; 							
 }
 static JsonNode *ParseJsonEntry(U8i *str,I32i chrI,I32i *end,JsonNode *prevNode=NULL);
+static JsonNode *ParserJsonObject(U8i *str,I32i chrI,JsonNode *prevNode,I32i *end) {
+							chrI=__JsonSkipWhitespace(str,chrI);
+							if(0!=StrNCmp(&str[chrI],"{",1)) return NULL;
+							chrI+=1;
+							JsonNode *cur=NULL;
+							loop:
+							chrI=__JsonSkipWhitespace(str,chrI);
+							if(0==StrNCmp(&str[chrI],"}",1)) {
+							     chrI+=1;
+												if(end) *end=chrI;
+												JsonNode retval;
+												retval.type=JSON_OBJ;
+												retval.prev=retval.next=retval.par=NULL;
+												retval.val.node=cur;
+												JsonNode *alloced=malloc(sizeof(JsonNode));
+												*alloced=retval;
+												//printf("HELLO:%p\n",prevNode);
+												alloced->prev=prevNode;
+												return alloced;
+							} else {
+							    //printf("CUR2:%p\n",cur);
+  					    JsonNode *find=ParseJsonEntry(str,chrI,&chrI,cur);
+											if(!find) throw(JSON_SYN_ERR);
+											cur=find;
+											//printf("CUR:%p\n",cur);
+
+											chrI=__JsonSkipWhitespace(str,chrI);
+											if(str[chrI]==',') chrI+=1;
+											goto loop;
+       }
+}
 static JsonNode *ParserJsonLiteral(U8i *str,I32i chrI,JsonNode *prevNode,I32i *endI) {
 							  U8i *fltEnd=&str[chrI],*intEnd=&str[chrI];
 									F64 flt=Str2F64(&str[chrI],&fltEnd);
@@ -190,11 +222,14 @@ static JsonNode *ParserJsonLiteral(U8i *str,I32i chrI,JsonNode *prevNode,I32i *e
 																												JsonNode **arr=NULL;
 																												I8i firstRun=1;
 																												for(;;) {
+																																				chrI=__JsonSkipWhitespace(str,chrI);
 																																											if(str[chrI]==']') break;
 																																											if(!firstRun) {
-																																																									if(str[chrI]==',')
-																																																																								chrI+=1;				
-																																																									else
+																																																									if(str[chrI]==',') {
+																																																																								chrI=__JsonSkipWhitespace(str,chrI+1);
+																																																																								if(str[chrI]==']') break;
+																																																																								
+																																																									} else
 																																																													Print("Expected \',\'\n");
 																																											}
 																																											JsonNode *tmp=ParserJsonLiteral(str,chrI,NULL,&chrI);
@@ -202,7 +237,6 @@ static JsonNode *ParserJsonLiteral(U8i *str,I32i chrI,JsonNode *prevNode,I32i *e
 																																																				Print("Expected item.\n");
 																																																				break;
 																																											}
-																																											//printf("f:%li\n",chrI);
 																																											arr=realloc(arr,sizeof(JsonNode*)*(arrLen+=1));
 																																											arr[arrLen-1]=tmp;
 
@@ -212,43 +246,36 @@ static JsonNode *ParserJsonLiteral(U8i *str,I32i chrI,JsonNode *prevNode,I32i *e
 																												chrI+=1;
 																												if(endI) *endI=chrI;
 																												JsonNode *y= JsonNodeArrCreate(prevNode,arrLen,arr);
-																												//printf("t:%li\n",y->type);;
 																												return y;
-}
-
-									if(str[chrI]=='{') {
-																												JsonNode *prev=NULL;
-																												chrI=__JsonSkipWhitespace(str,chrI);
-																												for(;str[chrI]!='}';) {
-																																		JsonNode *node=ParseJsonEntry(str,chrI,&chrI,prev);
-																																		chrI=__JsonSkipWhitespace(str,chrI);
-																																		if(str[chrI]!=';') {
-																																																					Print("Expected ';'\n");
-																																		}
-																																		node=prev;
-																												}
-																												chrI+=1;
-																												
-									}
+         }
+	        //Print("%p\n",prevNode);
+									return ParserJsonObject(str,chrI,prevNode,endI);
 }
 static U0 tabPrintN(I32i tabLen) {
 							while((tabLen-=1)>=0) Print("\t");
 }
 U0 JsonNodePrint(JsonNode *root,I32i tabLen=0) {
 			tabPrintN(tabLen);
-			//printf("t:%li\n",root->type);
 			switch(root->type) {
 																						case JSON_STR: {
-																											Print("\"%q\";\n",root->val.str);
+																											Print("\"%q\"",root->val.str);
 																											break;
 																						}
 																						case JSON_SINT: {
-																											Print("%d;\n",root->val.sint);
+																											Print("%d",root->val.sint);
 																											break;
 																						}
 																						case JSON_OBJ: {
 																											Print("{\n");
-																											for(JsonNode *node=root->val.node;node!=NULL;node=node->next);
+																											JsonNode *node=root->val.node;
+																											if(!node) goto objEnd;
+																											for(;node->prev;node=node->prev);
+																											for(;node;node=node->next) {
+																																																						Print("\"%q\":",node->name);
+																																																						JsonNodePrint(node,tabLen+1);
+																																																						Print(",\n");
+																											}
+																											objEnd:
 																											Print("}\n");
 																											break;
 																						}
@@ -258,8 +285,10 @@ U0 JsonNodePrint(JsonNode *root,I32i tabLen=0) {
 																						}
 																						case JSON_ARR: {
 																											Print("[\n");
-																											for(I32i i=0;root->val.arr[i]!=NULL;i+=1)
+																											for(I32i i=0;root->val.arr[i]!=NULL;i+=1) {
 																																				JsonNodePrint(root->val.arr[i],tabLen+1);
+																																				Print(",\n");
+																											}
 																											tabPrintN(tabLen);
 																											Print("]\n");
 																											break;
@@ -268,7 +297,7 @@ U0 JsonNodePrint(JsonNode *root,I32i tabLen=0) {
 }
 static I32i __JsonSkipWhitespace(U8i *str,I32i chrI) {
 							loop:
-							if(str[chrI]==' '||str[chrI]=='\t'||str[chrI]=='\r') {
+							if(str[chrI]==' '||str[chrI]=='\t'||str[chrI]=='\r'||str[chrI]=='\n') {
 																		chrI+=1;
 																		goto loop;
 							}
@@ -296,7 +325,6 @@ static I32i __JsonSkipWhitespace(U8i *str,I32i chrI) {
 }
 static JsonNode *ParseJsonEntry(U8i *str,I32i chrI,I32i *end,JsonNode *prevNode=NULL) {
 							chrI=__JsonSkipWhitespace(str,chrI);
-							JsonNode *prevNode=NULL;
 							findName:
 							I32i nameStart=chrI;
 							U8i *name=NULL;
@@ -317,13 +345,14 @@ static JsonNode *ParseJsonEntry(U8i *str,I32i chrI,I32i *end,JsonNode *prevNode=
 																										name=JsonParseString(&str[chrI],&strEnd);
 																										chrI=strEnd-str;
 						}
-						printf("JSON_NAME:%s\n",name);
-
+						//printf("name:%s\n",name);
+						
 						chrI=__JsonSkipWhitespace(str,chrI);
 						if(str[chrI]!=':') return NULL;
 						chrI=__JsonSkipWhitespace(str,chrI+1);
 
 						JsonNode *node=ParserJsonLiteral(str,chrI,prevNode,&chrI);
+						//Print("%d\n",node->prev==prevNode);
 						node.name=name;
 						if(end) *end=chrI;
 						return node;

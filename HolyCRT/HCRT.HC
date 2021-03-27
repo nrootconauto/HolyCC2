@@ -169,11 +169,12 @@ try {
 					printf("%lf\n",(52+1.0)-(1.0+1.0));
 					"Hello Wolrd:%.6n\n",15.500;
 					"Hello Wolrd:%.6n\n",15.500;
-					U8i *str="ABC:[1,\"2\\n2\",3]";
+					U8i *str="{'ABC':[1,\"2\\n2\",3]}";
 					I32i end;
-					JsonNode *node=ParseJsonEntry(str,0,&end);
+					JsonNode *node=ParserJsonLiteral(str,0,&end,NULL);
 					JsonNodePrint(node);
 					printf("%li\n",end);
+					/*
 					U8i *values[99+1]={
 					"0",
 					"1",
@@ -286,6 +287,8 @@ try {
 														Print("%d\n",*HashTableGet(table,values[i])(I32i*));
 					}
 					HashTableDestroy(table);
-					Print("%q\n",&HCC_DEBUG_SYMS);
+					*/
+					printf("%s\n",&HCC_DEBUG_SYMS);
+					JsonNodePrint(ParserJsonObject(&HCC_DEBUG_SYMS,0,NULL,NULL));
 					return 0;
 }
