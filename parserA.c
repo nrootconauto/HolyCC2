@@ -22,6 +22,7 @@ static struct parserNode *refNode(struct parserNode *node) {
 				return node;
 		return node->refCount++,node;
 }
+static __thread int lastclassAllowed=0;
 static __thread struct parserNode *currentScope = NULL;
 static __thread struct parserNode *currentLoop = NULL;
 MAP_TYPE_DEF(struct parserNode *, ParserNode);
@@ -3097,6 +3098,7 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 	start = llLexerItemNext(start);
 
 	int foundDotDotDot=0;
+	lastclassAllowed=1;
 	for (int firstRun = 1;; firstRun = 0) {
 		rP = expectOp(start, ")");
 		if (rP) {
@@ -3128,7 +3130,9 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 		if (decl)
 			args = strParserNodeAppendItem(args, decl);
 	}
+	lastclassAllowed=0;
 
+	
 	struct object *retType = baseType;
 	for (long i = 0; i != ptrLevel; i++)
 		retType = objectPtrCreate(retType);
@@ -3151,7 +3155,7 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 
 		fargs = strFuncArgAppendItem(fargs, arg);
 	}
-
+	
 	struct object *funcType;
 	funcType = objectFuncCreate(retType, fargs,foundDotDotDot);
 
@@ -4358,10 +4362,16 @@ struct parserNode *parseLastclass(llLexerItem start, llLexerItem *end) {
 		struct parserNode *kw CLEANUP(parserNodeDestroy)=expectKeyword(start, "lastclass");
 		if(!kw) return NULL;
 		if(end) *end=llLexerItemNext(start);
-		printf("HEree\n");
 		struct parserNodeLastclass lc;
 		lc.base.refCount=1;
 		lc.base.type=NODE_LASTCLASS;
 		assignPosByLexerItems((struct parserNode*)&lc, llLexerItemPrev(start), start);
+
+		if(!lastclassAllowed) {
+				diagErrorStart(lc.base.pos.start, lc.base.pos.end);
+				diagPushQoutedText(lc.base.pos.start, lc.base.pos.end);
+				diagPushText(" is only allowed as a function argument.");
+				diagEndMsg();
+		}
 		return ALLOCATE(lc);
 }
