@@ -180,16 +180,14 @@ static JsonNode *ParserJsonObject(U8i *str,I32i chrI,JsonNode *prevNode,I32i *en
 												retval.val.node=cur;
 												JsonNode *alloced=malloc(sizeof(JsonNode));
 												*alloced=retval;
-												//printf("HELLO:%p\n",prevNode);
 												alloced->prev=prevNode;
+												if(prevNode) prevNode->next=alloced;
 												return alloced;
 							} else {
-							    //printf("CUR2:%p\n",cur);
   					    JsonNode *find=ParseJsonEntry(str,chrI,&chrI,cur);
 											if(!find) throw(JSON_SYN_ERR);
 											cur=find;
-											//printf("CUR:%p\n",cur);
-
+											
 											chrI=__JsonSkipWhitespace(str,chrI);
 											if(str[chrI]==',') chrI+=1;
 											goto loop;
@@ -250,8 +248,7 @@ static JsonNode *ParserJsonLiteral(U8i *str,I32i chrI,JsonNode *prevNode,I32i *e
 																												JsonNode *y= JsonNodeArrCreate(prevNode,arrLen,arr);
 																												return y;
          }
-	        //Print("%p\n",prevNode);
-									return ParserJsonObject(str,chrI,prevNode,endI);
+	        return ParserJsonObject(str,chrI,prevNode,endI);
 }
 static U0 tabPrintN(I32i tabLen) {
 							while((tabLen-=1)>=0) Print("\t");
@@ -261,13 +258,10 @@ JsonNode *JsonNodeEntry(JsonNode *root,U8i *str) {
 									for(;
 									root->prev;
 									root=root->prev);
-									printf("%p\n",root);
 									I32i strLen=StrLen(str);
 									for(;root;root=root->next) {
 																																				if(!root->name) goto next;
-																																				printf("%s\n",root->name);
 I32i curLen=StrLen(root->name);
-																																				printf("%li\n",curLen);
 																																				if(strLen!=curLen) goto next;
 																																				if(0==StrNCmp(root->name,str,curLen)) return root;
 																																				next:
@@ -368,14 +362,12 @@ static JsonNode *ParseJsonEntry(U8i *str,I32i chrI,I32i *end,JsonNode *prevNode=
 																										name=JsonParseString(&str[chrI],&strEnd);
 																										chrI=strEnd-str;
 						}
-						//printf("name:%s\n",name);
 						
 						chrI=__JsonSkipWhitespace(str,chrI);
 						if(str[chrI]!=':') return NULL;
 						chrI=__JsonSkipWhitespace(str,chrI+1);
 
 						JsonNode *node=ParserJsonLiteral(str,chrI,prevNode,&chrI);
-						//Print("%d\n",node->prev==prevNode);
 						node->name=name;
 						if(end) *end=chrI;
 						return node;

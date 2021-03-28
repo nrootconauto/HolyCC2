@@ -309,6 +309,12 @@ U0 __Print(U0(*putChar)(U8i,U0 *),U0 *data,U8i *fmt,I32i *argv) {
 											// TODO implement flags and aux.
 											//
 											switch(*str) {
+																								case 's': {
+																													U8i *str=argv[argi](U8i*);
+																													for(I32i c=0;c!=StrLen(str);c+=1) putChar(str[c],data);
+																													argi+=1;
+																													break;
+																								}
 																								case 'q': {
 																													U8i *str=__UnescapeStr(argv[argi]);
 																													for(I32i c=0;c!=StrLen(str);c+=1) putChar(str[c],data);

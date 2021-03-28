@@ -114,6 +114,7 @@ U8i *StrCat(U8i *a,U8i *b) {
 				U8i *retval=calloc(len+1,1);
 				StrCpy(retval,a);
 				StrCpy(retval+StrLen(a),b);
+				free(a),free(b);
 				return retval;
 }
 I32i StrCmp(U8i *a,U8i *b) {

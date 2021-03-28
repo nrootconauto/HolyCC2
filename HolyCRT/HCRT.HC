@@ -153,10 +153,12 @@ U0 testRange() {
 			printf("3>2>1>0:%li\n",3>2>1>0);
 }
 class fooP {
-						I32i a;
+						I32i a,b,c;
 } FOOP;
 I32i main() {
 					FOOP.a=10;
+					FOOP.b=11;
+					FOOP.c=12;
 					fooP *PTR=&FOOP;
 					Print("%d\n",(PTR+0)->a);
 					Print("%d\n",PTR.a);
@@ -181,7 +183,7 @@ try {
 					"Hello Wolrd:%.6n\n",15.500;
 					"Hello Wolrd:%.6n\n",15.500;
 					
-					U8i *str="{'ABC':[1,\"2\\n2\",3]}";
+					U8i *str="{'ABC':[1,\"2\\n2\",3],abc:{b:1,},}";
 					I32i end;
 					JsonNode *node=ParserJsonLiteral(str,0,&end,NULL);
 					JsonNodePrint(node);
@@ -309,7 +311,7 @@ try {
 					try {
 									CFileDebugger *dbg=FileDebuggerCreate();
 																			F64 examp=123.4;
-																			U8i *text=DebuggerPrintVar(dbg,&examp);
+																			U8i *text=DebuggerPrintVar(dbg,&FOOP);
 																			Print("%q\n",text);
 																			free(text);
 					} catch {
