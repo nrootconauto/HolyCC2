@@ -106,13 +106,14 @@ static U8i *__PrintF64(F64 f,F64 e,F64 p,I32i digits) {
 																			S*=10;
 																			//printf("%lf,%lf,%li\n",R,S,k);
 							}
+							Bool ignoreDigits=digits==0;
 							for(I32i firstRun=1;;) {
 															k-=1;
 															F64 U=floor((R*10.0)/S);
 															R=(R*10)%S;
 															mA*=10.0;
 															mB*=10.0;
-															
+															if(!ignoreDigits)
 															if((digits-=1)<0)
 																break;
 
@@ -139,7 +140,7 @@ static U8i *__PrintF64(F64 f,F64 e,F64 p,I32i digits) {
 																																			}
 																																			break;
 																																			}																																		
-																																			
+ 																																			
 
 																if(firstRun) {
 																												retval[retvalPos]="0123456789"[U(I32i)];

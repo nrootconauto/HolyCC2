@@ -48,12 +48,8 @@ CKeyValPair *KeyValPairInsert(CKeyValPair *table,U8i *ptr,U8i *text) {
 
 											loop:
 											if(table==NULL) goto insert;
-											I32i curLen=StrLen(table->text);
-											I32i min;
-											if(curLen>hasLen) min=hasLen; else min=curLen;
-											min+=1; //Account for NULL byte
-											I32i cmp=StrNCmp(table->text,text,min);
-											if(cmp==0) throw(KEY_EXISTS);
+											I32i cmp=StrCmp(table->text,text);
+											if(cmp==0) {throw(KEY_EXISTS);};
 											else if(cmp<0) {
 																nextItem=table;
 																table=table->prev;

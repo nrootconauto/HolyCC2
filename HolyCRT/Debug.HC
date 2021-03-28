@@ -17,13 +17,14 @@ CFileDebugger *FileDebuggerCreate() {
 														if(!types) throw(DEBUGGER_INIT_ERR);
 
 														CHashTable *typeTable=HashTableCreate();
+														printf("%li,\n",types->type);
+														JsonNodePrint(parse);
 														for(I32i i=0;types->val.arr[i]!=NULL;i+=1) {
-																							//printf("name:%li\n",types->val.arr[i]->type);
-																							JsonNode *name=JsonNodeEntry(types->val.arr[i],"name");
+																							JsonNode *name=JsonNodeEntry(types->val.arr[i]->val.node,"name");
 																							printf("name:%p\n",name);
 																							if(!name) throw(DEBUGGER_INIT_ERR);
-																							printf("ADD:%p\n",types);
-																							HashTableAdd(typeTable,name->val.str,types->val.arr[i]);
+																							printf("ADD:%s\n",name->val.str);
+																							HashTableAdd(typeTable,types->val.arr[i],name->val.str);
 														}
 														
 }

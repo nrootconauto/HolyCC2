@@ -65,8 +65,10 @@ static JsonNode *JsonNodeArrCreate(JsonNode *prev,I32i len,JsonNode **nodes) {
 							value.type=JSON_ARR;
 							value.val.arr=malloc(sizeof(JsonNode*)*(len+1));
 							value.val.arr[len]=NULL;
-							while((len-=1)>=0)
-								value.val.arr[len]=nodes[len];
+							while((len-=1)>=0) {
+																										value.val.arr[len]=nodes[len];
+																										nodes[len]->name=MStrPrint("ARR-%d",len);
+							}
 							JsonNode *retval=malloc(sizeof(value));
 							*retval=value;
 
@@ -259,10 +261,12 @@ JsonNode *JsonNodeEntry(JsonNode *root,U8i *str) {
 									for(;
 									root->prev;
 									root=root->prev);
+									printf("%p\n",root);
 									I32i strLen=StrLen(str);
 									for(;root;root=root->next) {
 																																				if(!root->name) goto next;
-																																				I32i curLen=StrLen(root->name);
+																																				printf("%s\n",root->name);
+I32i curLen=StrLen(root->name);
 																																				printf("%li\n",curLen);
 																																				if(strLen!=curLen) goto next;
 																																				if(0==StrNCmp(root->name,str,curLen)) return root;
@@ -372,7 +376,7 @@ static JsonNode *ParseJsonEntry(U8i *str,I32i chrI,I32i *end,JsonNode *prevNode=
 
 						JsonNode *node=ParserJsonLiteral(str,chrI,prevNode,&chrI);
 						//Print("%d\n",node->prev==prevNode);
-						node.name=name;
+						node->name=name;
 						if(end) *end=chrI;
 						return node;
 }
