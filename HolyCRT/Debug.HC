@@ -68,7 +68,6 @@ U8i *DebuggerPrintVar(CFileDebugger *f,U0 *var,U8i *typeName=lastclass,I32i ptrL
 				                               return MStrPrint("%n",*var(F64*));
 				}
 
-				printf("Getting\n");
 				JsonNode *type=HashTableGet(f->typeTable,typeName);
 				if(!type) throw(DEBUGGER_TYPE_NO_EXIST);
 				type=type->val.node;
@@ -77,7 +76,6 @@ U8i *DebuggerPrintVar(CFileDebugger *f,U0 *var,U8i *typeName=lastclass,I32i ptrL
 				JsonNode *members=JsonNodeEntry(type,"members");
 				if(!members) throw(DEBUGGER_TYPE_NO_EXIST);
 				for(I32i m=0;members->val.arr[m]!=NULL;m+=1) {
-													printf("%p\n\n\n",members->val.arr[m]);
 													JsonNode *node=members->val.arr[m]->val.node;
 													JsonNode *nameNode=JsonNodeEntry(node,"name");
 													JsonNode *offsetName=JsonNodeEntry(node,"offset");

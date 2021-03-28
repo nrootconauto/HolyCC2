@@ -764,8 +764,6 @@ static strChar opToText(enum IRNodeType type) {
 		return strClone("^");
 	case IR_COND_JUMP:
 		return strClone("IF");
-	case IR_DEC:
-		return strClone("--");
 	case IR_DERREF:
 		return strClone("DEREF");
 	case IR_DIV:
@@ -780,8 +778,6 @@ static strChar opToText(enum IRNodeType type) {
 		return strClone(">=");
 	case IR_GT:
 		return strClone(">");
-	case IR_INC:
-		return strClone("++");
 	case IR_LABEL:
 		return strClone("LABEL");
 	case IR_LAND:
@@ -1075,8 +1071,6 @@ static char *IRCreateGraphVizNode(const struct __graphNode *node, mapGraphVizAtt
 
 		return strClone(message);
 	}
-	case IR_INC:
-	case IR_DEC:
 	case IR_ADD:
 	case IR_SUB:
 	case IR_POS:
@@ -1402,13 +1396,11 @@ static graphNodeIR __cloneNode(ptrMapGraphNode mappings, graphNodeIR node, enum 
 	case IR_BNOT:
 	case IR_BOR:
 	case IR_BXOR:
-	case IR_DEC:
 	case IR_DERREF:
 	case IR_DIV:
 	case IR_EQ:
 	case IR_GE:
 	case IR_GT:
-	case IR_INC:
 	case IR_LAND:
 	case IR_FUNC_VAARG_ARGC:
 	case IR_FUNC_VAARG_ARGV:
@@ -1594,14 +1586,12 @@ int IRIsOperator(graphNodeIR node) {
 	case IR_BNOT:
 	case IR_BOR:
 	case IR_BXOR:
-	case IR_DEC:
 	case IR_DERREF:
 	case IR_DIV:
 	case IR_EQ:
 	case IR_FUNC_CALL:
 	case IR_GE:
 	case IR_GT:
-	case IR_INC:
 	case IR_LAND:
 	case IR_LE:
 	case IR_LNOT:

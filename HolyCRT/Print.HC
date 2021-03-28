@@ -18,7 +18,7 @@ _extern putchar U0 PutC(U8i chr);
 _import  log10 F64 Log10(F64 num);
 static U8i *__PrintI32i(I32i value,I32i base,U8i *Digits) {
    U8i isNeg=0;
-			if(value<0) value*=-1;
+			if(value<0) {value*=-1;isNeg=1;}
 
 			I32i digits=0;
 			I32i value2=value;

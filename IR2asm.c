@@ -1821,22 +1821,6 @@ static void compileX87Expr(graphNodeIR node) {
 				X87PopFPU();
 				return;
 		}
-		case IR_INC: {
-				strX86AddrMode faddpArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeReg(&regX86ST0,&typeF64));
-				faddpArgs=strX86AddrModeConcat(faddpArgs, X87UnopArgs(node));
-				assembleInst("FLD1", NULL);
-				assembleOpcode(node,"FADDP",faddpArgs);
-				X87StoreResult(node);
-				return ;
-		}
-		case IR_DEC: {
-				strX86AddrMode faddpArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeReg(&regX86ST0,&typeF64));
-				faddpArgs=strX86AddrModeConcat(faddpArgs, X87UnopArgs(node));
-				assembleInst("FLD1", NULL);
-				assembleOpcode(node,"FSUBP",faddpArgs);
-				X87StoreResult(node);
-			return;
-		}
 		case IR_ADD: {
 				strX86AddrMode faddpArgs CLEANUP(strX86AddrModeDestroy2)=X87BinopArgs(node,&regX86ST1,&regX86ST0);
 				assembleOpcode(node,"FADDP",faddpArgs);
@@ -2734,56 +2718,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		IR2Asm(nodes[0]);
 		return nextNodesToCompile(nodes[0]);
 	}
-	case IR_INC: {
-		COMPILE_87_IFN;
-
-		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(start);
-		__auto_type inNode = graphEdgeIRIncoming(in[0]);
-		if (isIntNode(inNode)) {
-			strX86AddrMode args CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, IRNode2AddrMode(inNode));
-			assembleInst("INC", args);
-		} else if (isPtrNode(inNode)) {
-			struct objectPtr *ptr = (void *)IRNodeType(inNode);
-			// ADD ptr,ptrSize
-			struct X86AddressingMode *iMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(start);
-			AUTO_LOCK_MODE_REGS(iMode);
-
-			strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeClone(iMode));
-			addArgs = strX86AddrModeAppendItem(addArgs, X86AddrModeUint(objectSize(ptr->type, NULL)));
-			assembleOpcode(start, "ADD", addArgs);
-		} else
-			assert(0);
-
-		__auto_type dst=nodeDest(start);
-		if (dst)
-				asmAssign(start,IRNode2AddrMode(dst), IRNode2AddrMode(inNode), objectSize(IRNodeType(start), NULL),0);
-		return nextNodesToCompile(start);
-	}
-	case IR_DEC: {
-		COMPILE_87_IFN;
-
-		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(start);
-		__auto_type inNode = graphEdgeIRIncoming(in[0]);
-		if (isIntNode(inNode)) {
-			strX86AddrMode args CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, IRNode2AddrMode(inNode));
-			assembleInst("DEC", args);
-		} else if (isPtrNode(inNode)) {
-			struct objectPtr *ptr = (void *)IRNodeType(inNode);
-			// ADD ptr,ptrSize
-			struct X86AddressingMode *iMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(start);
-
-			strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeClone(iMode));
-			addArgs = strX86AddrModeAppendItem(addArgs, X86AddrModeUint(objectSize(ptr->type, NULL)));
-			assembleOpcode(start, "SUB", addArgs);
-		} else
-			assert(0);
-
-		__auto_type out=nodeDest(start);
-		if (out)
-				asmAssign(start,IRNode2AddrMode(out), IRNode2AddrMode(inNode), objectSize(IRNodeType(start), NULL),0);
-		return nextNodesToCompile(start);
-	}
-	case IR_SUB: {
+		case IR_SUB: {
 			COMPILE_87_IFN;
 			if(!nodeDest(start))
 				return nextNodesToCompile(start);

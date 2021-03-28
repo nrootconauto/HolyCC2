@@ -316,5 +316,14 @@ try {
 					} catch {
 							Print("Fuck\n");
 					}
+					I32i inc=0;
+					Print("%d\n",inc++);
+					Print("%d\n",inc);
+					Print("%d\n",++inc);
+
+					I32i dec=0;
+					Print("%d\n",dec--);
+					Print("%d\n",dec);
+					Print("%d\n",--dec);
 					return 0;
 }

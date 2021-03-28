@@ -192,9 +192,6 @@ enum IRNodeType {
 	IR_STATEMENT_START,
 	IR_STATEMENT_END,
 	//
-	IR_INC,
-	IR_DEC,
-	//
 	IR_ADD,
 	IR_SUB,
 	//
@@ -372,10 +369,6 @@ struct IRNodeValue {
 	struct IRNode base;
 	struct IRValue val;
 };
-struct IRNodeInc {
-	struct IRNode base;
-	long isSuffix;
-};
 struct IRNodeMembersAddrOf {
 		struct IRNode base;
 		strObjectMember members;
@@ -383,10 +376,6 @@ struct IRNodeMembersAddrOf {
 struct IRNodeMembers {
 	struct IRNode base;
 	strObjectMember members;
-};
-struct IRNodeDec {
-	struct IRNode base;
-	long isSuffix;
 };
 struct IRNodeArrayAccess {
 	struct IRNode base;

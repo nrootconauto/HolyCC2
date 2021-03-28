@@ -263,8 +263,8 @@ void initParse2IR() {
 	// Assign unops
 	//
 	unopAssign2IRType = mapIRNodeTypeCreate();
-	mapIRNodeTypeInsert(unopAssign2IRType, "++", IR_INC);
-	mapIRNodeTypeInsert(unopAssign2IRType, "--", IR_DEC);
+	mapIRNodeTypeInsert(unopAssign2IRType, "++", IR_ADD);
+	mapIRNodeTypeInsert(unopAssign2IRType, "--", IR_SUB);
 	//
 	// Unops
 	//
@@ -852,15 +852,19 @@ graphNodeIR parserNode2Expr(const struct parserNode *node) {
 			if (find) {
 					graphNodeIR newNode = NULL;
 					if (0 == strcmp(op->text, "++")) {
-							struct IRNodeInc inc;
-							inc.base.type = IR_INC;
-							inc.base.attrs = NULL;
-							newNode = GRAPHN_ALLOCATE(inc);
+							__auto_type asn=IRCreateAssign(IRCreateBinop(in,IRCreateIntLit(1), IR_ADD),parserNode2Expr(unop->a));
+							if(!unop->isSuffix) {
+									return asn;
+							}
+							//(var+=1)-1;
+							return IRCreateBinop(asn, IRCreateIntLit(1), IR_SUB);
 					} else if (0 == strcmp(op->text, "--")) {
-							struct IRNodeInc dec;
-							dec.base.type = IR_INC;
-							dec.base.attrs = NULL;
-							newNode = GRAPHN_ALLOCATE(dec);
+							__auto_type asn=IRCreateAssign(IRCreateBinop(in,IRCreateIntLit(1), IR_SUB),parserNode2Expr(unop->a));
+							if(!unop->isSuffix) {
+									return asn;
+							}
+							//(var+=1)-1;
+							return IRCreateBinop(asn, IRCreateIntLit(1), IR_ADD);
 					} else {
 							struct IRNodeUnop unop;
 							unop.base.type = *find;
