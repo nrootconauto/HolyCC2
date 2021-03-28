@@ -21,14 +21,22 @@ MAP_TYPE_DEF(char *, SymAsmName);
 MAP_TYPE_FUNCS(char *, SymAsmName);
 STR_TYPE_DEF(strChar, StartCodeName);
 STR_TYPE_FUNCS(strChar, StartCodeName);
+STR_TYPE_DEF(strChar, StrChar);
+STR_TYPE_FUNCS(strChar, StrChar);
+static void strStrCharDestroy2(strStrChar *str) {
+		for(long s=0;s!=strStrCharSize(*str);s++)
+				strCharDestroy(&str[0][s]);
+		strStrCharDestroy(str);
+}
 #define OBJECT_OFFSET_FMT "%s$%s_Offset"
 #define OBJECT_SIZE_FMT "%s$_Size"
 static __thread strStartCodeName initCodeNames=NULL;
+static __thread strStrChar debugInfoLabels=NULL;
 static __thread struct asmFileSet {
 		FILE *constsTmpFile;
 		FILE *symbolsTmpFile;
 		FILE *initSymbolsTmpFile;
-		FILE *codeTmpFile;
+		FILE *codeTmpFile;;
 		long labelCount;
 		strChar funcName;
 		struct asmFileSet *parent;
@@ -162,6 +170,8 @@ __attribute__((constructor)) static void init() {
 	ptrMapRegNameAdd(regNames, &regX86GS, strClone("GS"));
 }
 void X86EmitAsmInit() {
+		strStrCharDestroy2(&debugInfoLabels);
+		debugInfoLabels=NULL;
 		funcFiles=mapFuncFilesCreate();
 		strStartCodeNameDestroy(&initCodeNames);
 		initCodeNames=NULL;
@@ -733,12 +743,19 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 				}
 				break;
 		}
+		
+		
 		char *debugSymbolText CLEANUP(free2)=emitDebuggerTypeDefinitions();
 		
 		fprintf(writeTo, "\nSECTION .data\n");
 		strChar symsText CLEANUP(strCharDestroy)=dumpStrLit(debugSymbolText,strlen(debugSymbolText));
-		fprintf(writeTo, "HCC_DEBUG_SYMS: DB %s",symsText);
-		
+		fprintf(writeTo, "HCC_DEBUG_SYMS: DB %s \n",symsText);
+		const char *ddType=(ptrSize()==4)?"DD":"DQ";
+		fprintf(writeTo, "HCC_DEBUG_FUNC_DATAS:%s ",ddType);
+		for(long d=0;d!=strStrCharSize(debugInfoLabels);d++) {
+				fprintf(writeTo,"%s,",debugInfoLabels[d]);
+		}
+		fprintf(writeTo,"0 \n"); //NULL TERMINATE LIST
 		fclose(writeTo);
 }
 void X86EmitAsmEnterFileStartCode() {
@@ -749,6 +766,14 @@ void X86EmitAsmEnterFileStartCode() {
 		
 		X86EmitAsmEnterFunc(name);
 		initCodeNames=strStartCodeNameAppendItem(initCodeNames, strClone(name));
+}
+char *X86EmitAsmDebuggerInfo(char *data) {
+		strChar dumped CLEANUP(strCharDestroy)=dumpStrLit(data, strlen(data));
+		char *labNam CLEANUP(free2)=fromFmt("DBG_%ss@%li",currentFileSet->funcName,++currentFileSet->labelCount);
+		fprintf(currentFileSet->constsTmpFile, "%s:DB %s\n",labNam,dumped);
+
+		debugInfoLabels=strStrCharAppendItem(debugInfoLabels, strClone(labNam));
+		return strcpy(calloc(strlen(labNam)+1, 1), labNam);
 }
 void X86EmitAsmEnterFunc(const char *funcName) {
 		struct asmFileSet *set=calloc(sizeof(struct asmFileSet), 1);

@@ -7,7 +7,8 @@ class CFuncDebugger {
 						CHashTable *varTable; //JsonNode *
 						I32i lineStart,lineEnd;
 };
-internal  U8i HCC_DEBUG_SYMS;
+internal U8i HCC_DEBUG_SYMS;
+internal U8i HCC_DEBUG_FUNC_DATAS;
 #define DEBUGGER_INIT_ERR -1
 #define DEBUGGER_TYPE_NO_EXIST -2
 CFileDebugger *FileDebuggerCreate() {

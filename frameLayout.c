@@ -140,6 +140,10 @@ static int recolorSoNoConflict(llVertexColor colors,graphNodeIRLive node) {
 		llVertexColorGet(colors, node)->color=max+1;
 		return max+1;
 }
+static void IRAttrVariableDestroy(struct IRAttr *a) {
+		struct IRAttrVariable *var=(void*)a;
+		variableDestroy(var->var.var);
+}
 void IRComputeFrameLayout(graphNodeIR start, long *frameSize,ptrMapFrameOffset *offsets) {
 	strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);
 	strIRVarRefs allRefs CLEANUP(strIRVarRefsDestroy2)=NULL;
@@ -164,7 +168,6 @@ void IRComputeFrameLayout(graphNodeIR start, long *frameSize,ptrMapFrameOffset *
 					allRefs=strIRVarRefsSortedInsert(allRefs, ALLOCATE(dummy), IRVarRefsCmp);
  		}
 	}
-
 	strGraphNodeIRLiveP graphs CLEANUP(strGraphNodeIRLivePDestroy)= IRInterferenceGraphFilter(start,NULL,NULL);
 	__auto_type byColor=mapRefsPairCreate();
 	loop:
@@ -230,7 +233,12 @@ void IRComputeFrameLayout(graphNodeIR start, long *frameSize,ptrMapFrameOffset *
 				__auto_type find = ptrMapFrameOffsetGet(localVarFrameOffsets, ir->val.value.var.var);
 				assert(find);
 				__auto_type frameReference = IRCreateFrameAddress(*find, ir->val.value.var.var->type);
-			
+				struct IRAttrVariable attr;
+				attr.base.name=IR_ATTR_VARIABLE;
+				attr.base.destroy=IRAttrVariableDestroy;
+				attr.var=ir->val.value.var,ir->val.value.var.var->refCount++;
+				IRAttrReplace(frameReference, __llCreate(&attr, sizeof(attr)));
+				
 				strGraphNodeIRP dummy CLEANUP(strGraphNodeIRPDestroy) = strGraphNodeIRPAppendItem(NULL, order[o]->refs[n]);
 				graphIRReplaceNodes(dummy, frameReference, NULL, (void (*)(void *))IRNodeDestroy);
 		}
@@ -243,7 +251,7 @@ void IRComputeFrameLayout(graphNodeIR start, long *frameSize,ptrMapFrameOffset *
 						*frameSize=top->offset+top->largestSize;						
 				}
 		}
-
+		
 		if(offsets)
 				*offsets=localVarFrameOffsets;
 }

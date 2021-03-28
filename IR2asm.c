@@ -8,6 +8,7 @@
 #include "asmEmitter.h"
 #include <assert.h>
 #include "cleanup.h"
+#include "dumpDebugInfo.h"
 #include <ctype.h>
 #include "frameLayout.h"
 #include "hashTable.h"
@@ -52,6 +53,7 @@ static __thread ptrMapLabelNames asmLabelNames;
 static __thread ptrMapCompiledNodes compiledNodes;
 static __thread int insertLabelsForAsmCalled = 0;
 static __thread long frameSize=0;
+static __thread char *debugInfoLab=NULL;
 static void assembleInst(const char *name, strX86AddrMode args) {
 	__auto_type template  = X86OpcodeByArgs(name, args);
  	assert(template);
@@ -1478,6 +1480,22 @@ static void insertImplicitFuncs(graphNodeIR start) {
 				}
 		}
 } 
+static strChar fromFmt(const char *fmt,...) {
+		va_list list,list2;
+		va_start(list, fmt);
+		va_copy(list2, list);
+		long len=vsnprintf(NULL, 0, fmt, list);
+		char buffer[len+1];
+		vsprintf(buffer,fmt, list2);
+		char *retVal=strcpy(calloc( len+1, 1),buffer);
+		va_end(list);
+		va_end(list2);
+
+		__auto_type str=strCharAppendData(NULL, retVal, strlen(retVal));
+		free(retVal);
+		return str;
+}
+
 void IRCompile(graphNodeIR start, int isFunc) {
 		//debugShowGraphIR(start);
 		IR2AsmInit();
@@ -1662,9 +1680,19 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	
 	IRABIAsmPrologue(frameSize);
 	// This computes calling information for the ABI
+
+	char *frameLayoutJson=emitDebufferFrameLayout(localVarFrameOffsets);
+	strChar debugInfo CLEANUP(strCharDestroy)=fromFmt("{%s}" , frameLayoutJson);
+	char *debugInfoStr=X86EmitAsmDebuggerInfo(debugInfo);
+	free(frameLayoutJson);
+	__auto_type olddebugInfoLab=debugInfoLab;
+	debugInfoLab=debugInfoStr;
 	
 	IR2Asm(start);
-
+	
+	debugInfoLab=olddebugInfoLab;
+	free(debugInfoStr);
+	
 	if(!isFunc)
 			IRABIReturn2Asm(NULL, frameSize);
 	

@@ -167,7 +167,7 @@ char *emitDebuggerTypeDefinitions() {
 						total=strCharAppendItem(total, ',');
 				}
 		}
-		total=strCharConcat(total, fromFmt("]\n}"));
+		total=strCharConcat(total, fromFmt("],}\n"));
 		total=strCharAppendItem(total, '\0');
 
 		return strcpy(calloc(strlen(total)+1, 1), total);
@@ -176,5 +176,18 @@ char *emitDebufferFrameLayout(ptrMapFrameOffset offsets) {
 		long size=ptrMapFrameOffsetSize(offsets);
 		struct parserVar *keys[size];
 		ptrMapFrameOffsetKeys(offsets, keys);
-		return NULL;
+
+		strChar total CLEANUP(strCharDestroy)=fromFmt("frameItems:[\n");
+		for(long k=0;k!=size;k++) {
+				if(!keys[k]->name) continue;
+				total=strCharConcat(total, fromFmt("\t{"));
+				strChar typeRef CLEANUP(strCharDestroy)=emitTypeRef(keys[k]->type);
+				total=strCharConcat(total, fromFmt("\t\"name\":\"%s\",",keys[k]->name));
+				total=strCharConcat(total, fromFmt("\t\"offset\":%li,",*ptrMapFrameOffsetGet(offsets, keys[k])));
+				total=strCharConcat(total, fromFmt("\t\"type\":%s,",typeRef));
+				total=strCharConcat(total, fromFmt("\t},\n"));
+		}
+		total=strCharConcat(total, fromFmt("]"));
+		total=strCharAppendItem(total, '\0');
+		return strcpy(calloc(strlen(total)+1, 1), total);
 }
