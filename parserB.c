@@ -285,9 +285,17 @@ void parserAddVar(const struct parserNode *name, struct object *type,struct reg 
 	strcpy(var.name, name2->text);
 
 	__auto_type scope = llScopeValuePtr(currentScope);
+	loop:;
 	__auto_type find = mapVarGet(scope->vars, var.name);
 	if (find) {
 		// TODO whine about re-declaration
+			diagErrorStart(name->pos.start, name->pos.end);
+			diagPushText("Redeclaration of variable ");
+			diagPushQoutedText(name->pos.start, name->pos.end);
+			diagPushText(".");
+			mapVarRemove(scope->vars, var.name,NULL);
+			diagEndMsg();
+			goto loop;
 	} else {
 			mapVarInsert(scope->vars, var.name, ALLOCATE(var));
 	}

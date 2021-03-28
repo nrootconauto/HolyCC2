@@ -41,12 +41,13 @@ static U8i *DebuggerPrintTypeFromJson(CFileDebugger *f,U0 *var,JsonNode *node) {
 							return DebuggerPrintVar(f,var,typename,ptrLevel);
 }
 U8i *DebuggerPrintVar(CFileDebugger *f,U0 *var,U8i *typeName=lastclass,I32i ptrLevel=0) {
+				U8i *retval=NULL;
 				if(ptrLevel) {
 																	U8i *name=StrDupLen(typeName,StrLen(typeName));
 																	while((ptrLevel-=1)>=0) {
 																																									name=StrCat(name,StrDupLen("*",1));
 																	}
-																	U8i *retval=MStrPrint("%q:%p\n",name,*var(U0**));
+																	retval=MStrPrint("%q:%p\n",name,*var(U0**));
 																	free(name);
 																	return retval;
 				}
@@ -72,19 +73,19 @@ U8i *DebuggerPrintVar(CFileDebugger *f,U0 *var,U8i *typeName=lastclass,I32i ptrL
 				if(!type) throw(DEBUGGER_TYPE_NO_EXIST);
 				type=type->val.node;
 
-				U8i *retval=MStrPrint("{");
+				retval=MStrPrint("{");
 				JsonNode *members=JsonNodeEntry(type,"members");
 				if(!members) throw(DEBUGGER_TYPE_NO_EXIST);
 				for(I32i m=0;members->val.arr[m]!=NULL;m+=1) {
 													printf("%p\n\n\n",members->val.arr[m]);
 													JsonNode *node=members->val.arr[m]->val.node;
-													JsonNode *name=JsonNodeEntry(node,"name");
-													JsonNode *offset=JsonNodeEntry(node,"offset");
-													U0 *ptr2=var(U8i*)+offset->val.sint;
-													JsonNode *type=JsonNodeEntry(node,"type");
+													JsonNode *nameNode=JsonNodeEntry(node,"name");
+													JsonNode *offsetName=JsonNodeEntry(node,"offset");
+													U0 *ptr2=var(U8i*)+offsetName->val.sint;
+													type=JsonNodeEntry(node,"type");
 													
 													U8i *valstr=DebuggerPrintTypeFromJson(f,ptr2,type->val.node);
-													retval=StrCat(retval,MStrPrint("%s=%s,",name->val.str,valstr));
+													retval=StrCat(retval,MStrPrint("%s=%s,",nameNode->val.str,valstr));
 													free(valstr);
 				}
 				retval=StrCat(retval,StrDupLen("}",1));

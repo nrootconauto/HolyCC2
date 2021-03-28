@@ -1833,8 +1833,6 @@ struct parserNode *parseScope(llLexerItem start, llLexerItem *end, struct object
 
 	__auto_type originalStart = start;	
 	if (lC) {
-		enterScope();
-
 		if(func)
 				if(func->hasVarLenArgs)
 						parserAddVarLenArgsVars2Func(&func->argcVar,&func->argvVar);
@@ -1858,7 +1856,6 @@ struct parserNode *parseScope(llLexerItem start, llLexerItem *end, struct object
 					retVal->stmts = strParserNodeAppendItem(retVal->stmts, expr);
 			} else {
 				foundOtherSide = 1;
-				leaveScope();
 				start = llLexerItemNext(start);
 				break;
 			}
@@ -2179,13 +2176,10 @@ struct parserNode *parseFor(llLexerItem start, llLexerItem *end) {
 	struct parserNode *retVal = NULL;
 
 	kwFor = expectKeyword(start, "for");
-	int leaveScope2 = 0;
 	if (kwFor) {
 		start = llLexerItemNext(start);
 
 		lP = expectOp(start, "(");
-		enterScope();
-		leaveScope2 = 1;
 		start = llLexerItemNext(start);
 
 		__auto_type originalStart = start;
@@ -2230,8 +2224,6 @@ struct parserNode *parseFor(llLexerItem start, llLexerItem *end) {
 	}
 fail:
 end:
-	if (leaveScope2)
-		leaveScope();
 
 	if (end != NULL)
 		*end = start;
@@ -3186,7 +3178,9 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 		parserNodeDestroy(&fwdAlloced);
 	
 	struct parserNode *retVal = NULL;
+	enterScope();
 	struct parserNode *scope CLEANUP(parserNodeDestroy) = parseScope(start, &start, (struct objectFunction*)funcType);
+	leaveScope();
 	if (!scope) {
 		// If no scope follows,is a forward declaration
 			struct parserNode *semi CLEANUP(parserNodeDestroy) = expectKeyword(start, ";");

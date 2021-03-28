@@ -172,3 +172,9 @@ char *emitDebuggerTypeDefinitions() {
 
 		return strcpy(calloc(strlen(total)+1, 1), total);
 }
+char *emitDebufferFrameLayout(ptrMapFrameOffset offsets) {
+		long size=ptrMapFrameOffsetSize(offsets);
+		struct parserVar *keys[size];
+		ptrMapFrameOffsetKeys(offsets, keys);
+		return NULL;
+}

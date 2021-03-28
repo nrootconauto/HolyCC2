@@ -281,6 +281,7 @@ static U8i *__UnescapeStr(U8i *str) {
 U0 __Print(U0(*putChar)(U8i,U0 *),U0 *data,U8i *fmt,I32i *argv) {
 			U8i *str=fmt;
 			I32i argi=0;
+			I32i len,c;
 			for(;;) {
 											U8i *where=StrChr(str,'%');
 											if(where==NULL) {
@@ -310,26 +311,26 @@ U0 __Print(U0(*putChar)(U8i,U0 *),U0 *data,U8i *fmt,I32i *argv) {
 											//
 											switch(*str) {
 																								case 's': {
-																													U8i *str=argv[argi](U8i*);
-																													for(I32i c=0;c!=StrLen(str);c+=1) putChar(str[c],data);
+																													U8i *strArg=argv[argi](U8i*);
+																													for(c=0;c!=StrLen(strArg);c+=1) putChar(strArg[c],data);
 																													argi+=1;
 																													break;
 																								}
 																								case 'q': {
-																													U8i *str=__UnescapeStr(argv[argi]);
-																													for(I32i c=0;c!=StrLen(str);c+=1) putChar(str[c],data);
-																													free(str);
+																													U8i *unescaped=__UnescapeStr(argv[argi]);
+																													for(c=0;c!=StrLen(unescaped);c+=1) putChar(unescaped[c],data);
+																													free(unescaped);
 																													break;
 																								}
 																								case 'n': {
-																													F64 *tmp=(&argv[argi])(F64);
+																													F64 *tmp=(&argv[argi])(F64*);
 																													F64 val=*tmp;
-																													U8i *str=__callPrintF64(val,decimals);
-																													I32i len=StrLen(str);
-																													for(I32i c=0;c!=len;c+=1) {
-																																						putChar(str[c],data);
+																													U8i *fltStr=__callPrintF64(val,decimals);
+																													len=StrLen(fltStr);
+																													for(c=0;c!=len;c+=1) {
+																																						putChar(fltStr[c],data);
 																													}
-																													free(str);
+																													free(fltStr);
 
 																													argi+=2;
 																													break;
@@ -344,12 +345,12 @@ U0 __Print(U0(*putChar)(U8i,U0 *),U0 *data,U8i *fmt,I32i *argv) {
 																													break;
 																								}
 																								case 'u': {
-																													U8i *str=__PrintU32i(argv[argi],10,"0123456789");
-																													I32i len=StrLen(str);
-																													for(I32i c=0;c!=len;c+=1) {
-																																						putChar(str[c],data);
+																													U8i *unsigned=__PrintU32i(argv[argi],10,"0123456789");
+																													len=StrLen(unsigned);
+																													for(c=0;c!=len;c+=1) {
+																																						putChar(unsigned[c],data);
 																													}
-																													free(str);
+																													free(unsigned);
 																													argi+=1;
 																													break;
 																								}
@@ -363,33 +364,33 @@ U0 __Print(U0(*putChar)(U8i,U0 *),U0 *data,U8i *fmt,I32i *argv) {
 																													break;
 																								}
 																								case 'd': {
-																													U8i *str=__PrintI32i(argv[argi],10,"0123456789");
-																													I32i len=StrLen(str);
-																													for(I32i c=0;c!=len;c+=1) {
-																																						putChar(str[c],data);
+																													U8i *intStr=__PrintI32i(argv[argi],10,"0123456789");
+																													len=StrLen(intStr);
+																													for(c=0;c!=len;c+=1) {
+																																						putChar(intStr[c],data);
 																													}
-																													free(str);
+																													free(intStr);
 																													argi+=1;
 																													break;
 																								}
 																								case 'x': {
-																													U8i *str=__PrintI32i(argv[argi],16,"0123456789abcdef");
-																													I32i len=StrLen(str);
-																													for(I32i c=0;c!=len;c+=1) {
-																																						putChar(str[c],data);
+																													U8i *hexStr=__PrintI32i(argv[argi],16,"0123456789abcdef");
+																													len=StrLen(hexStr);
+																													for(c=0;c!=len;c+=1) {
+																																						putChar(hexStr[c],data);
 																													}
-																													free(str);
+																													free(hexStr);
 																													argi+=1;
 																													break;
 																								}
 																								case 'p':
 																								case 'X': {
-																													U8i *str=__PrintI32i(argv[argi],16,"0123456789ABCDEF");
-																													I32i len=StrLen(str);
-																													for(I32i c=0;c!=len;c+=1) {
-																																						putChar(str[c],data);
+																													U8i *HexStr=__PrintI32i(argv[argi],16,"0123456789ABCDEF");
+																													len=StrLen(HexStr);
+																													for(c=0;c!=len;c+=1) {
+																																						putChar(HexStr[c],data);
 																													}
-																													free(str);
+																													free(HexStr);
 																													argi+=1;
 																													break;
 																								}

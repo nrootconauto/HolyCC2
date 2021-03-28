@@ -240,8 +240,7 @@ void IRComputeFrameLayout(graphNodeIR start, long *frameSize,ptrMapFrameOffset *
 				*frameSize = 0;
 				if(strIRVarRefsSize(order)) {
 						__auto_type top=order[strIRVarRefsSize(order)-1];
-						*frameSize=top->offset+top->largestSize;
-						
+						*frameSize=top->offset+top->largestSize;						
 				}
 		}
 
