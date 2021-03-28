@@ -28,6 +28,7 @@ static const char *keywords[] = {
     //
     "class",
     "union",
+				"lastclass",
     //
     "static",
     "public",

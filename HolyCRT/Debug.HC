@@ -31,7 +31,8 @@ CFileDebugger *FileDebuggerCreate() {
 CFuncDebugger *FuncDebuggerCreate(CFileDebugger *file,JsonNode *vars) {
 						
 }
-U8i *DebuggerPrintVar(CFileDebugger *f,U0 *var,U8i *typeName) {
+U8i *DebuggerPrintVar(CFileDebugger *f,U0 *var,U8i *typeName=lastclass) {
+				Print("%q\n",typeName);
 				if(0==StrCmp(typeName,"I8i")) {
 																																			return MStrPrint("I8i:%d\n",*var(I32i*));
 				} else if(0==StrCmp(typeName,"I16i")) {

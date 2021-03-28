@@ -309,7 +309,7 @@ try {
 					try {
 									CFileDebugger *dbg=FileDebuggerCreate();
 																			F64 examp=123.4;
-																			U8i *text=DebuggerPrintVar(dbg,&examp,"F64");
+																			U8i *text=DebuggerPrintVar(dbg,&examp);
 																			Print("%q\n",text);
 																			free(text);
 					} catch {

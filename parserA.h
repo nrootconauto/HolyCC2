@@ -31,6 +31,7 @@ enum parserNodeType {
 	NODE_LIT_INT,
 	NODE_LIT_STR,
 	NODE_KW,
+	NODE_LASTCLASS,
 	NODE_VAR_DECL,
 	NODE_VAR_DECLS,
 	NODE_META_DATA,
@@ -408,6 +409,10 @@ struct parserNodePrint {
 		struct parserNode *strLit;
 		strParserNode args; 
 };
+struct parserNodeLastclass {
+		struct parserNode base;
+};
+struct parserNode *parseLastclass(llLexerItem start, llLexerItem *end);
 struct parserNode *parseTry(llLexerItem start, llLexerItem *end);
 struct parserNode *parseExpression(llLexerItem start, llLexerItem end, llLexerItem *result);
 struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end);

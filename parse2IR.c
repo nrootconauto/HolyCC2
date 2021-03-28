@@ -605,6 +605,27 @@ static struct enterExit __createSwitchCodeAfterBody(const struct parserNode *nod
 	retVal.exit = switchEndLabel;
 	return retVal;
 }
+static strChar getObjectClassName(struct object *type) {
+	loop:
+		switch(type->type) {
+		case TYPE_ARRAY: {
+				struct objectArray *arr=(void*)type;
+				type=arr->type;
+				goto loop;
+		}
+		case TYPE_PTR:  {
+				struct objectPtr *ptr=(void*)type;
+				type=ptr->type;
+				goto loop;
+		}
+		default: {
+				char *str=object2Str(type);
+				__auto_type retVal=strClone(str); 
+				free(str);
+				return retVal;
+		}
+		}
+}
 static void debugShowGraphIR(graphNodeIR enter);
 static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node);
 graphNodeIR parserNode2Expr(const struct parserNode *node) {
@@ -730,19 +751,27 @@ graphNodeIR parserNode2Expr(const struct parserNode *node) {
 		__auto_type func = parserNode2Expr(call2->func);
 
 		strGraphNodeIRP args = NULL;
+
+		struct object *lastclassType=&typeU0;
 		for (long i = 0; i != strParserNodeSize(call2->args); i++) {
 			graphNodeIR arg = NULL;
 			// If provided
 			if (call2->args[i]) {
 				arg = parserNode2Expr(call2->args[i]);
 			} else {
-				// Use dft
-				struct objectFunction *funcType = (void *)assignTypeToOp(call2->func);
-				assert(funcType->args[i].dftVal);
-				arg = parserNode2Expr(funcType->args[i].dftVal);
+					struct objectFunction *funcType = (void *)assignTypeToOp(call2->func);
+					//Check for lastclass as dft
+					if(funcType->args[i].dftVal->type==NODE_LASTCLASS) {
+							strChar tn CLEANUP(strCharDestroy)= getObjectClassName(lastclassType);
+							arg=IRCreateStrLit(tn);
+					} else {
+							// Use dft
+							assert(funcType->args[i].dftVal);
+							arg = parserNode2Expr(funcType->args[i].dftVal);
+					}
 			}
-
 			args = strGraphNodeIRPAppendItem(args, arg);
+			lastclassType=IRNodeType(arg);
 		}
 		
 		//Fill in remaining args with dft value
@@ -753,7 +782,16 @@ graphNodeIR parserNode2Expr(const struct parserNode *node) {
 		
 		for (long i =  strParserNodeSize(call2->args);i<strFuncArgSize(funcType2->args); i++) {
 				assert(funcType2->args[i].dftVal);
-				args=strGraphNodeIRPAppendItem(args, parserNode2Expr(funcType2->args[i].dftVal));
+				graphNodeIR arg=NULL;
+				//Check for lastclass as dft
+					if(funcType2->args[i].dftVal->type==NODE_LASTCLASS) {
+							strChar tn CLEANUP(strCharDestroy)= getObjectClassName(lastclassType);
+							arg=IRCreateStrLit(tn);
+					} else {
+							arg=parserNode2Expr(funcType2->args[i].dftVal);
+					}
+					args=strGraphNodeIRPAppendItem(args, arg);
+					lastclassType=IRNodeType(arg);
 		}  
 
 		// Connect args
@@ -982,6 +1020,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 				return (struct enterExit){lab,lab};
 		}
 		switch (node->type) {
+		case NODE_LASTCLASS: abort();
 	case NODE_PRINT: {
 			__auto_type sym=parserGetGlobalSym("Print");
 			if(!sym) {

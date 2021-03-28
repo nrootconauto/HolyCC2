@@ -190,6 +190,9 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end, llLex
 		if (result != NULL)
 				*result = start;
 
+		__auto_type lc=parseLastclass(start, result);
+		if(lc) return lc;
+		
 		__auto_type item = llLexerItemValuePtr(start);
 		if (item->template == &floatTemplate) {
 				if (result != NULL)
@@ -1294,6 +1297,8 @@ static llLexerItem findEndOfExpression(llLexerItem start, int stopAtComma) {
 			continue;
 		if(item->template==&kwTemplate) {
 				if(0==strcmp(*(char**)lexerItemValuePtr(item),"sizeof"))
+						continue;
+				if(0==strcmp(*(char**)lexerItemValuePtr(item),"lastclass"))
 						continue;
 		}
 		return start;
@@ -3356,6 +3361,7 @@ void parserNodeDestroy(struct parserNode **node) {
 	if(--node[0]->refCount>0)
 			return;
 	switch (node[0]->type) {
+	case NODE_LASTCLASS: break;
 	case NODE_PRINT: {
 			struct parserNodePrint *prn=(void*)node[0];
 			parserNodeDestroy(&prn->strLit);
@@ -4347,4 +4353,15 @@ void variableDestroy(struct parserVar *var) {
 				strParserNodeDestroy(&var->refs);
 				free(var);
 		}
+}
+struct parserNode *parseLastclass(llLexerItem start, llLexerItem *end) {
+		struct parserNode *kw CLEANUP(parserNodeDestroy)=expectKeyword(start, "lastclass");
+		if(!kw) return NULL;
+		if(end) *end=llLexerItemNext(start);
+		printf("HEree\n");
+		struct parserNodeLastclass lc;
+		lc.base.refCount=1;
+		lc.base.type=NODE_LASTCLASS;
+		assignPosByLexerItems((struct parserNode*)&lc, llLexerItemPrev(start), start);
+		return ALLOCATE(lc);
 }
