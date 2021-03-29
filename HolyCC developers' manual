@@ -1,0 +1,945 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <title>HolyCC developers' manual</title>
+  </head>
+  <body>
+    <h1 align="center"><a name="mozTocId269855" class="mozTocH1"></a>HolyCC
+
+
+
+      developers manual.</h1>
+    <ol id="mozToc">
+      <!--mozToc h1 1 h2 2 h3 3 h4 4 h5 5 h6 6-->
+      <li><a href="#mozTocId269855">HolyCC developers manual.</a>
+        <ol>
+          <li><a href="#mozTocId30488">Lexer:</a></li>
+          <li><a href="#mozTocId94570">Parser:</a>
+            <ol>
+              <li><a href="#mozTocId923683">parserA.c:</a></li>
+              <li><a href="#mozTocId793317">parserB.c:</a></li>
+              <li><a href="#mozTocId246300">exprParser.c:</a></li>
+            </ol>
+          </li>
+          <li><a href="#mozTocId95524">preprocessor.c:</a></li>
+          <li><a href="#mozTocId925499">Diagnostics: diagMsg.c</a></li>
+          <li><a href="#mozTocId241844">IR(intermediate representation)
+              Overview.</a></li>
+          <li><a href="#mozTocId39843">parse2IR.c: Turning parse tree
+              into a IR graph. </a></li>
+          <li><a href="#mozTocId354275">Generating Assembler 1: Overview
+            </a></li>
+          <li><a href="#mozTocId291965">Generating Assembler 2: Code
+              generation toolbox(IR2asm.c)</a>
+            <ol>
+              <li><a href="#mozTocId258958">assembleOpcode </a></li>
+              <li><a href="#mozTocId94471">asmAssign/asmAssignFromPtr/asmTypecastAssign:</a></li>
+              <li><a href="#mozTocId547594">assembleOpInt/assembleOpIntShift/assembleOpPtrArith/assembleOpCmp/compileX87Expr/setCond:</a></li>
+              <li><a href="#mozTocId287602">insertImplicitFuncs(startNode):</a></li>
+              <li><a href="#mozTocId380286">storeMemberPtrInReg(memReg,
+                  sourceNode, members):</a></li>
+              <li><a href="#mozTocId872426">IRNode2AddrMode(node):</a></li>
+            </ol>
+          </li>
+          <li><a href="#mozTocId227447">Generating Assembler 3:
+              asmEmitter.c</a></li>
+          <li><a href="#mozTocId937436">Generating Assembler 4:
+              opcodesParser.c</a></li>
+          <li><a href="#mozTocId453145">Generating Assembler 5: Register
+              Allocation (regAllocator.c)</a></li>
+        </ol>
+      </li>
+      <li><a href="#mozTocId885770">Type Glossary </a>
+        <ol>
+          <li><a href="#mozTocId484908">Hash Tables</a></li>
+          <li><a href="#mozTocId901501">Pointer Maps</a></li>
+          <li><a href="#mozTocId704648">Linked Lists</a></li>
+          <li><a href="#mozTocId237338">Graph Nodes/Edges</a></li>
+          <li><a href="#mozTocId112386">Strings:</a></li>
+          <li><a href="#mozTocId864380">Objects:(types) object.c</a></li>
+        </ol>
+      </li>
+    </ol>
+    <p><br>
+    </p>
+    <hr size="2" width="100%">
+    <p>Weclome to the HolyCC developers manual,this gives a brief
+      outline and insight into the world of my compiler. It will
+      describe the antics that went into its creation ,its
+      shortcomings,oddities and all,so lets dive right in.<br>
+    </p>
+    <h2><a name="mozTocId30488" class="mozTocH2"></a>Lexer:</h2>
+    <p>These go hand and hand. The lexer turns text into tokens,like
+      most of hcc,the tokens use the data after the linked list nodes as
+      the starting pointer for the data. For example <i>nameTemplate </i>appends
+
+
+
+      the text of the name token after the base type(<i>struct lexerItem</i>)<i>.&nbsp;
+
+
+
+      </i>This same type of globbing is used with linked-lists and
+      graph-nodes and such. Here are a list of the lexer templates.<br>
+      <br>
+    </p>
+    <ul>
+      <li>&nbsp;<i>intTemplate,</i>Holds a <i>struct lexerInt</i></li>
+      <li><i>&nbsp;strTemplate,</i> Holds a&nbsp; <i>struct
+          parsedString</i></li>
+      <li><i>&nbsp;floatTemplate,&nbsp; </i>Holds a struct <i>floatTemplate</i></li>
+      <li><i>&nbsp;nameTemplate,</i> The string of the name appears at
+        the end of the linked-list item.</li>
+      <li><i>&nbsp;kwTemplate</i>,<i> </i>Holds a<i> const char *</i></li>
+      <li><i><i>&nbsp;opTemplate</i>,<i> </i></i>Holds a<i><i> const
+            char *</i></i></li>
+    </ul>
+    <p>Lexer items are stored in a linked-list,so use <i>llLexerItemValuePtr(node)
+
+
+
+      </i>to get a <i>struct lexerItem</i>,but then use <i>lexerItemValuePtr(struct
+
+
+
+        lexerItem*)</i> to get the value pointer,the whole formula would
+      look like this <i>lexerItemValuePtr(</i><i>llLexerItemValuePtr(node)).</i></p>
+    <h2><a name="mozTocId94570" class="mozTocH2"></a>Parser:</h2>
+    <p>The parser is where the HolyC magic comes from. It is a
+      hand-written recursive descent parser. with handwritten goodies
+      for special things. Parser items always have a base type <i>struct
+
+
+
+        parserNode</i> as the first member. This allows the pointer to
+      any "derived" type to be treated as a <i>struct parserNode</i>.
+      The parser is split into 3 parts.<br>
+      <br>
+    </p>
+    <ul>
+      <li><i>parserA</i> - handles most of the syntax.</li>
+      <li><i>parserB </i>- handles and contains information about the
+        classes/unions/functions/variables.</li>
+      <li><i>exprParser </i>- handles usage of expressions,this is
+        where the error messages about invalid function usages come from
+        and such.</li>
+    </ul>
+    <h3><a name="mozTocId923683" class="mozTocH3"></a>parserA.c:</h3>
+    <p>This is one of the bigger files of my compiler. At the heart of
+      it is recursive descent for most of the expressions,other things
+      are hand-written. Recursive descent works by&nbsp; calling the
+      next (possible) parser step. It looks like this A-&gt;B-&gt;C. If
+      the next possible item isnt found,we return. If it is found,we add
+      it to the list of&nbsp; items. Most operators use a system of <i>head
+
+
+
+        with tails.</i> We looks for the operator what will be executed
+      first,this becomes the <i>head</i>. We then look for the current
+      operator. Either it is found,in that case we look for more
+      operators of the same precedence or items with lower precedence,or
+      if it is not found we return the <i>head</i> For example,a simple
+      arithmetic scheme would look like this:<br>
+    </p>
+    <p align="center">"+"-&gt;"*"-&gt;<i>number<br>
+      </i></p>
+    <p align="left">If we have the expression 1*2+3,this would
+      happen(Parenthesis are grouping and square brackets are tokens
+      consumed by the parser)<br>
+    </p>
+    <table width="100%" cellspacing="2" cellpadding="2" border="1">
+      <tbody>
+        <tr>
+          <td valign="top" align="center"><b>Rule</b></td>
+          <td valign="top" align="center"><b>Grouping</b><br>
+          </td>
+          <td valign="top" align="center"><b>Explanation</b><br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top">"+"<br>
+          </td>
+          <td valign="top" align="center">[]1*2+3<br>
+          </td>
+          <td valign="top">Our topmost rule<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top">"*"<br>
+          </td>
+          <td valign="top" align="center">[]1*2+3<br>
+          </td>
+          <td valign="top">We didnt find "+"<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top"><i>number</i><br>
+          </td>
+          <td valign="top">[(1)]*2+3<br>
+          </td>
+          <td valign="top">We found a number,so return to "*"<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top">"*"<br>
+          </td>
+          <td valign="top">[(1)*]2+3<br>
+          </td>
+          <td valign="top">1 is our head,so lets look for a tail(next
+            rule is <i>number</i>)<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top"><i>number</i><br>
+          </td>
+          <td valign="top">[(1)*(2)]+3<br>
+          </td>
+          <td valign="top">2 is our tail value,so return to "*"<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top">"*"<br>
+          </td>
+          <td valign="top">[((1)*(2))]+3</td>
+          <td valign="top">Group 1 and 2 ,we found a tail. We didn't
+            find another "*" so return to "+"<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top">"+"<br>
+          </td>
+          <td valign="top">[((1)*(2))+]3<br>
+          </td>
+          <td valign="top">Found a "+",look for a "*"<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top">"*"<br>
+          </td>
+          <td valign="top">[((1)*(2))+]3</td>
+          <td valign="top">Didnt find a "*" so go to <i>number<br>
+            </i></td>
+        </tr>
+        <tr>
+          <td valign="top"><i>number</i><br>
+          </td>
+          <td valign="top">[((1)*(2))+(3)]</td>
+          <td valign="top">Found a <i>number </i>,return to "*"<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top">"*"<br>
+          </td>
+          <td valign="top">[((1)*(2))+(3)]</td>
+          <td valign="top">Return to "+" as didnt find a "*"<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top">"+"<br>
+          </td>
+          <td valign="top">[(((1)*(2))+(3))]</td>
+          <td valign="top">Group "1*2" and 3<br>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p align="left">In <i>parserA.c </i>,the macros <i>LEFT_ASSOC_OP&nbsp;
+
+
+
+      </i>and <i>RIGHT_ASSOC_OP</i> are used to specifies the operators
+      and point to the next function of the recursive descent parser.<br>
+    </p>
+    <h3 align="left"><a name="mozTocId793317" class="mozTocH3"></a>parserB.c:</h3>
+    This is where the symbols of the parser reside. Symbols are stored
+    in <i>struct parserSymbol</i>,<i> </i>but this structure only
+    holds information regarding the linkage and type of the symbol;
+    Variables and functions are stored in <i>struct parserVar</i><i><i>(parserA.h)</i>&nbsp;
+
+
+
+    </i>and <i>struct parserFunction(parserA.h).</i> Everything starts
+    in the global scope after <i>initParserData</i> is called. HolyC
+    doesnt have lexical scoping,but internally scopes are only used for
+    differentiating between global and local scope(which can be entered
+    and exited by using <i>enterScope() </i>and<i> leaveScope</i><i>()</i>)<br>
+    <br>
+    Information regarding symbols can get obtained with <br>
+    <ul>
+      <li><i>parserGlobalSymType(name), </i>Returns a <i>struct
+          object* </i>detailing the type of the symbol<br>
+        <i></i></li>
+      <li><i>parserGetGlobalSymLinkageName(name), </i>Returns the
+        internal name of the symbol (<b>as provided by _import or
+          _extern)</b></li>
+      <li><i>parserGetGlobalSym</i><i>(name)</i>, gets a symbol by a
+        name</li>
+    </ul>
+    <p>Functions are variables are retrieved <b>WITH THEIR NAME NODE
+        FROM THE PARSER</b>,this allows the compiler to collect a list
+      of variable/func references for diagnostics.</p>
+    <ul>
+      <li><i>parserGetVar(const struct parserNode *name)</i></li>
+      <li><i>parserGetFunc(const struct parserNode *name)</i><br>
+        <i></i></li>
+    </ul>
+    <h3><a name="mozTocId246300" class="mozTocH3"></a>exprParser.c:</h3>
+    <p>This part of the parser handles expressions and validates usages
+      of certian types. The main function of this file is <i>assignTypeToOp(struct
+
+
+
+        parserNode*).</i> This returns a <i>struct object*</i> that
+      describes the type of the result from the expression.<br>
+    </p>
+    <i> </i>
+    <h2><a name="mozTocId95524" class="mozTocH2"></a><i>preprocessor.c:</i></h2>
+    <p>This is where the macros get expanded,it is where includes files
+      get included. Another important part of the preprocessor is
+      mapping the resulting text back to the source file(s). To do
+      this,we use an "onion" system. Each include or macro that edits
+      the source text gets added in as a layer. The original source is
+      at the center of the onion,and each edit is a layer. To map a
+      position in the resulting file to the source,we start from that
+      outside and "de-compute" the edits until we reach the layer we
+      want to be at(included files are their own layers,the start and
+      end layers&nbsp; are stored in <i>struct fileMapping</i>). <i>(See
+
+
+
+        textMapper.c) <br>
+      </i></p>
+    <p>Call <i>createPreprocessedFile(const char *fileName,
+        strTextModify *mappings, strFileMappings *fileMappings, int
+        *err) </i>to create a preprocessed <i>FILE*</i> from a
+      filename.<br>
+    </p>
+    <h2><a name="mozTocId925499" class="mozTocH2"></a>Diagnostics:
+      diagMsg.c</h2>
+    <p>The diagnostic system works with the preprocessor to map the
+      preprocessed code back to the unprocessed&nbsp; source. We do this
+      by calling <br>
+      <i>diagInstCreate(DIAG_ANSI_TERM,fileMappings,textModifies,fileName,FILE
+        *dumpToFile). </i>To write a message to the diagnostics
+      machine,first enter a message with <br>
+    </p>
+    <ul>
+      <li><i>diagErrorStart(start,end)</i></li>
+      <li><i>diagWarnStart</i><i>(start,end)</i></li>
+      <li><i>diagNoteStart</i><i>(start,end)</i></li>
+    </ul>
+    <p>Now its time to push text for the message,you can push text or
+      qouted text<br>
+    </p>
+    <ul>
+      <li><i>diagPushText(text)</i></li>
+      <li><i>diagPushQoutedText</i><i>(start,end)</i></li>
+    </ul>
+    <p><b><i>NOTE: </i></b>You can highlight text with<i>
+        diagHighlight(start,end)</i><br>
+    </p>
+    <p>Finally, end the message with <i>diagEndMsg()</i><br>
+    </p>
+    <h2><a name="mozTocId241844" class="mozTocH2"></a>IR(intermediate
+      representation) Overview.</h2>
+    <p>At the heart of the compiler is the graph-structure based
+      intermediate representation. "Graph" here refers the a network of
+      nodes and edges(not a plot of a function etc). This was not the
+      ideal decision to make in my opionion,as the generated
+      instructions are put into a linear order,and being alble to
+      sequentially work with such data is much easier to work with.
+      Nevertheless a graph based approach is used,which seemed good at
+      the time.<br>
+    </p>
+    <p>The main file defining IR node types is IR.h,several utilities
+      are managing IR nodes are define in IR.c.Everything from integers
+      to operators are stuffed into graph-nodes,whoose type is <i>graphNodeIR</i>
+      . These nodes have a type and attributes at the very least,though
+      most nodes share a common base type <i>struct IRNode</i>, and
+      then contain additional main data. Attributes contain secondary
+      information,whereas the node type dictates the structure used.
+      Attributes can be replaced with <i>IRAttrReplace(graphNodeIR,struct
+
+
+
+        IRAttr*)</i>,if no such attribute exists,it will be attributed
+      to the node.<br>
+    </p>
+    <p>Some usefull utilities are <br>
+    </p>
+    <ul>
+      <li><i>IRStmtStart(graphNodeIR node),</i>This returns a <i>graphNodeIR</i>
+        pointing to the start of the statement,if no such node exists,a
+        node is created,this is usefull for generating IR graphs.</li>
+      <li><i>IREndOfExpr(graphNodeIR node),</i> This returns a <i>graphNodeIR
+
+
+
+        </i>pointing to the end of a statement.</li>
+      <li><i>IRInsertNodesBetweenExprs(graphNodeIR expr, int
+          (*pred)(graphNodeIR, const void *), const void *predData)</i>,
+        this inserts temporary values&nbsp; between expression nodes.</li>
+      <li><i>IRCloneNode(graphNodeIR node, enum IRCloneMode mode,
+          ptrMapGraphNode *mappings)</i> Clones a node or nodes based on
+        mode,mappings maps source node to the result node. Valid modes
+        are:</li>
+      <ul>
+        <li><i>IR_CLONE_NODE </i></li>
+        <li><i>IR_CLONE_EXPR <br>
+          </i></li>
+        <li><i>IR_CLONE_EXPR_UNTIL_ASSIGN</i></li>
+      </ul>
+      <li><i>IRRemoveNeverFlows(startNode) </i>removes nodes that are
+        unaccessable(such as items connected to<i> IR_CONN_NEVER_FLOW</i>),this
+
+
+        is usefull for having exits in <i>parse2IR.c </i>that lead
+        into the next statement,but the controlflow leads elsewhere(goto
+        statements for example)</li>
+    </ul>
+    <h2><a name="mozTocId39843" class="mozTocH2"></a>parse2IR.c: Turning
+      parse tree into a IR graph.<br>
+    </h2>
+    <p>Turning the parser tree into a graph is a functionality present
+      in parse2IR.c . The heart of this file is <i>__parserNode2IRNoStmt(struct
+
+
+        parserNode *node)</i>,which turns a parser node into an IR graph
+      expression. Within this file is<i>:<br>
+      </i></p>
+    <ul>
+      <li><i>IRGenScopePop(enum scopeType type)</i></li>
+      <li><i>IRGenScopePush(enum scopeType type).</i><br>
+      </li>
+    </ul>
+    <p><i>&nbsp;</i>These specify the scope type as being a
+      loop/switch/etc. This allows for context specific information when
+      encountering a break operation for example,or keeping track of
+      switch cases. <b>Be sure to set values in the returned <i>struct
+          IRGenScopeStack pointer returned by </i></b><b><i>IRGenScopePush
+          if you are entering a loop of switch statement.</i></b></p>
+    <h2><a name="mozTocId354275" class="mozTocH2"></a>Generating
+      Assembler 1: Overview<br>
+    </h2>
+    <p>HolyCC does register allocation and stack-frame layout. At the
+      heart of both of these algorithms is coloring an interference
+      graph. This may raise 2 questions:<br>
+    </p>
+    <ul>
+      <li>What is graph Coloring and,</li>
+      <li>what is a liveness graph</li>
+    </ul>
+    <p>To awnser the second question,a liveness graph is a network of
+      nodes (that represent variables) that are connected to each other
+      if they must exist in memory at the same time. I originally did
+      conventional liveness anlaysis,but this proved costly with lots of
+      temporary variables,so I have made it so all names variables exist
+      on the stack frame(makes debugging easier),and tempory variables
+      get analyized for liveness using a "stack" method.<br>
+    </p>
+    <b>(NOTE:IRLiveness.c detailed here.)</b><br>
+    <p>The stack method is when the expression graph is traveled in
+      order of precedence (see <i>IREdgesByPrec</i>). This allows for
+      the expressions to be "flattened" into thier execution order. When
+      a operations arguments are being read ,they are put on the stack
+      to signify they are alive at the same time,when the operation is
+      done and writes to a value,the stack is restored to its original
+      size(that the stack was at when the operation started). This
+      signfies that the arguments are done being read. We then push the
+      result on the stack,which may be read from the next operation. If
+      2 or more items exist on that stack at the same time,they <i>interfere</i>
+      with each other so we connect them togheter in the interference
+      graph.See <i>IRInterferenceGraphFilter</i> in <i>IRLiveness.c<br>
+      </i></p>
+    To awnser the first question,we need to know why graph coloring is
+    needed. Graph coloring tries to make it to no nodes share a same
+    adjacent value. This is usefull because if we minimize the total
+    number of values(colors),we can minimize the total number of
+    registers needed to represent all the data. I have implemented a
+    graph coloring algorithm in <i>graphColoring.c</i>(See source in
+    file).<br>
+    <br>
+    <hr size="2" width="100%"><br>
+    <br>
+    X87Floating point unit registers aren't so easy to allocate though.
+    The x87FPU uses a stack,so <i>x87fpu.c </i>allocates registers in
+    a stack-like fashion. The only caveat is the the SystemV abi wants
+    us to make the X87FPU stack empty upon calling a function,so all
+    stack items must be spilled so <b>BE SURE TO INSERT ALL IMPLICIT
+      FUNCTION CALLS BEFORE CALLING </b><b><i>IRRegisterAllocateX87(startNode)</i></b><b>.</b><b><br>
+    </b><br>
+    <hr size="2" width="100%"><br>
+    The function that turns the IR graph into assembly is <i>IRCompile(startNode,isFunc)</i>.
+    Outside of handling inserting implicit function calls,register
+    allocation etc. It calls <i>IR2Asm</i> which calls <i>__IR2Asm</i>
+    which turns each node into assembly. Various functions exist&nbsp;
+    for creating operations based on opcode names. <br>
+    <br>
+    <hr size="2" width="100%"><br>
+    <h2><a name="mozTocId291965" class="mozTocH2"></a>Generating
+      Assembler 2: Code generation toolbox(IR2asm.c)</h2>
+    <h3><a name="mozTocId258958" class="mozTocH3"></a><i>assembleOpcode</i><br>
+    </h3>
+    Becuase an opcode only takes permutations of certian adressing
+    modes,it could be tedious to implement wrappers for all permutations
+    of addressing modes. Luckily for us,i wrote the function <i>assembleOpcode(atNode,name,
+
+
+      args)</i>. This function will automatically convert addressing
+    modes for a opcode and pass them to a valid combination of
+    addressing modes and use dead registers at <i>atNode</i> or
+    push/pop live registers in the process. <br>
+    <br>
+    For example with <i>assembleOpcode(atNode,name, args)</i>, MOV U8i
+    [EAX],U8i[EBX] can be turned into <br>
+    <ul>
+      <li>PUSH EDX</li>
+      <li>MOV EDX , U8I[EBX]</li>
+      <li>MOV U8i[EAX],EDX</li>
+      <li>POP EDX<br>
+      </li>
+    </ul>
+    <h3><a name="mozTocId94471" class="mozTocH3"></a><i>asmAssign/asmAssignFromPtr/asmTypecastAssign:</i></h3>
+    <p>Part of computing is moving data around,so these functions should
+      be useful. All of these functions take a first argument <i>atNode</i>.
+      This allows for optimizations regarding using dead registers as
+      scratch registers.<br>
+    </p>
+    <ul>
+      <li><i>asmAssign(atNode,addrModeA,&nbsp; addrModeB, size,flags). </i>Your
+
+        de-facto assign,operands must be of the same size.It handles
+        moving classes too.</li>
+      <li><i>asmTypecastAssign(</i><i><i>atNode,addrModeA,&nbsp;
+            addrModeB,</i>flags)</i>.<i> </i>This typecasts addrModeB
+        to addrModeA then assigns,if they are of the same type,a
+        standard assign takes place. Use this as your primary means of
+        assigning values.</li>
+      <li><i>asmAssignFromPtr(atNode,aMode,bMode,size,flags)</i> . This
+        does what you think it does.<i>&nbsp;</i></li>
+    </ul>
+    <h3><a name="mozTocId547594" class="mozTocH3"></a><i>assembleOpInt/assembleOpIntShift/assembleOpPtrArith</i><i>/assembleOpCmp</i><i>/compileX87Expr/setCond:</i></h3>
+    <p>These handle assigning and assembling operators,they take a node
+      and automatically assembly the operation</p>
+    <ul>
+      <li><i>assembleOpInt(node,opcodeName)<b> </b></i>This assembles
+        an integer operation at IR node node.</li>
+      <li><i>assembleOpShift(node,opcodeName).</i> This assembles a
+        shift operation.</li>
+      <li><i>assembleOpPtrArith(node)</i>. This assembles a pointer
+        arithmetic operation.</li>
+      <li><i>compileX87Expr</i><i>(node)</i> Handles all of the X87fpu
+        assembler goodies.</li>
+      <li><i>assembleOpCmp(start)</i> Assembles a compare operation at
+        node.</li>
+      <li><i>setCond</i><i>(start,condSuffix,outMode)<b> </b></i>This
+        will set a value based on a condition prefix.</li>
+    </ul>
+    <h3><a name="mozTocId287602" class="mozTocH3"></a>insertImplicitFuncs(startNode):</h3>
+    <p>This function inserts implicit functions be sure to call this
+      before allocating X87FPU registers.<br>
+    </p>
+    <h3><a name="mozTocId380286" class="mozTocH3"></a>storeMemberPtrInReg(memReg,
+
+      sourceNode, members):</h3>
+    <p>This stores&nbsp; the member pointer of the item at sourceNode
+      into register memReg. sourceNode's addressing mode<i> </i>detirmined
+
+      by <i>IRNode2AddrMode</i>.<br>
+    </p>
+    <h3><a name="mozTocId872426" class="mozTocH3"></a>IRNode2AddrMode(node):</h3>
+    <p>This gets the addressing mode from a node.<br>
+    </p>
+    <h2><a name="mozTocId227447" class="mozTocH2"></a>Generating
+      Assembler 3: asmEmitter.c</h2>
+    <p>These functions are found in asmEmitter.c This file does a bit
+      more than initially expected. Because this compiler is caching(it
+      only recompiles functions that change),each function is put in its
+      own file(which you enter with <i>X86EmitAsmEnterFunc(name)</i>).
+      Initializer code is entered using <i>X86EmitAsmEnterFileStartCode()</i>.
+      The compiler will include all of the function files into a result
+      file which will be assembled. Function files will be pulled from a
+      cache direction when you put them all together with <i><b>X86EmitAsm2File(name,cacheDir)</b></i>.</p>
+    <p>Outside of putting the files togheter,we have functions for
+      writing into said files. These functions dont work in a linear
+      order though,as they write to desinated temporary files and then
+      combined at the end(See <i>struct asmFileSet</i> if you want the
+      nitty gritty). This allows for inserting constants in one section
+      and code in another.&nbsp; The functions of interest are :<br>
+    </p>
+    <ul>
+      <li><i>X86EmitAsmIncludeBinfile(filename)</i>, Includes a binary
+        file in the code segment</li>
+      <li><i>char *X86EmitAsmLabel(name)</i>,Emits a readable label
+        containing name,returns the resulting label name.</li>
+      <li><i>X86EmitAsmInst(opcodeTemplate *template,args,int*err), </i>This
+
+        emits a instruction in the code segment.</li>
+      <li><i>X86EmitAsmDU8/X86EmitAsmDU16/X86EmitAsmDU32/X86EmitAsmDU64(args,len)</i>
+        This emits data in the consts segment. It returns an addressing
+        mode pointing to the resulting data.</li>
+      <li><i>X86EmitAsmComment(text)</i> This is usefull for adding
+        information to the generated assembly</li>
+      <li><i>X86EmitAsmStrLit(text,size)</i> This returns an addressing
+        mode pointing to the string literal. <br>
+      </li>
+      <li><i>X86EmitAsmUniqueLabName(head)</i> This returns a char *
+        of&nbsp; a unique label name.</li>
+    </ul>
+    <h2><a name="mozTocId937436" class="mozTocH2"></a>Generating
+      Assembler 4: opcodesParser.c</h2>
+    <p>This file parses OpCodes.txt, <b>and it also provides functions
+        for creating addressing modes<tt></tt></b>,<b>something you will
+        want</b>. Being familiar with X86 addressing modes is benefical
+      for understanding these functions,but it may also be benefical to
+      know that is compiler does some sugar around them too. Because
+      this is a caching compiler,only changed functions get recompiled.
+      This would be problematatic if a class that a function depends on
+      gets changed. This is where the sugar comes in.<br>
+    </p>
+    <p>The compiler will have a list of macros that will expand to the
+      class/union offsets/sizes. This allows us to only have to
+      re-assemble the function,not recompile it. For example,if an
+      offset of a class changes,we just add the macro of the member
+      offset.(The same goes for object size). We can do this by using <i>X86AddrModeIndirSIBAddMemberOffset(addrMode,memberPtr).</i>
+      A virtual addressing mode for "sizeof type" can be created with <i>X86AddrModeSizeofObj(type)</i>.<br>
+    </p>
+    <p>Conventional addressing modes can be created with these functions</p>
+    <ul>
+      <li><i>X86AddrModeFlt(dobuue)</i> Creates a label to a floating
+        point</li>
+      <li><i>X86AddrModeItemAddrOf(symbol,offset,type)</i> This creates
+        a reference to a symbol with an offset</li>
+      <li><i>X86AddrModeVar(var,offset)</i> This creates a reference to
+        a variable with an offset</li>
+      <li><i>X86AddrModeLabel</i>(name) This a reference to a label.</li>
+      <li><i>X86AddrModeClone(mode) </i>This clones a mode.</li>
+      <li><i>X86AddrModeStr(text,len)</i> This creates a string.</li>
+      <li><i>X86AddrModeIndirLabel(label,type) </i>This creates an
+        indirect reference to a label.</li>
+      <li><i>X86AddrModeGlblVar(var)</i> This creates a reference to a
+        global variable.</li>
+      <li><i>X86AddrModeFunc(func)</i> This creates a reference to a
+        function,name mangling will be accounted for in here.</li>
+      <li><i>X86AddrModeIndirSIB(scale,indexMode,baseMode,offsetMode,type)</i>
+        This creates a indirect addressing mode. Offsets can be added
+        after its creation with <i>X86AddrModeIndirSIBAddMemberOffset</i>
+        and <i>X86AddrModeIndirSIBAddOffset(mode,offset)</i>.</li>
+      <li><i>X86AddrModeReg(reg,value Type)</i></li>
+      <li><i>X86AddrModeIndirMem(where, type) </i>This points a
+        constant location in memory.<i><br>
+        </i></li>
+    </ul>
+    <br>
+    Another part of opcodes parser is the opcode templates.We can get a
+    list of opcode templates&nbsp; with&nbsp; <i><br>
+      <br>
+    </i>
+    <ul>
+      <li><i>&nbsp;X86OpcodesByName(name)</i>,or if we have a list of
+        arguments we can use</li>
+      <li>&nbsp;<i>X86OpcodeByArgs</i><i>(name,addrModes)</i></li>
+    </ul>
+    <h2><a name="mozTocId453145" class="mozTocH2"></a>Generating
+      Assembler 5: Register Allocation (regAllocator.c)<br>
+    </h2>
+    <p>In regAllocator.c <i>IRRegisterAllocate(graphNodeIR start,&nbsp;
+        double (*nodeWeight)(struct IRVar *,void *data), void
+        *nodeWeightData, int (*varFiltPred)(const struct parserVar *,
+        const void *),const void *varFiltData)</i> is the main function
+      of the file. We first start by getting a interference graph. We
+      then assign colors to the nodes using a random number,in
+      conjunction with choosing from registers that are not adjacent to
+      said node. Afterwards we go through the nodes again removing any
+      nodes that conflict with each other from the pool of nodes marked
+      for registers. We "spill"(dont store in register) The node with
+      the highest interference degree so we free up other nodes to store
+      in registers(end goal is that so that 2 adjacent nodes dont
+      conflict with eachother).<br>
+    </p>
+    <hr size="2" width="100%">
+    <h1 align="center"><a name="mozTocId885770" class="mozTocH1"></a>Type
+
+      Glossary<br>
+    </h1>
+    <p>The compiler uses many data structures. These structures are
+      created though macros in the form of macros,they&nbsp; main
+      "templated" types are <br>
+      <br>
+    </p>
+    <ul>
+      <li>Hash tables</li>
+      <li>Pointer maps</li>
+      <li>Strings(of various types,not just text)</li>
+      <li>Linked lists</li>
+      <li>Graph Nodes/Edges</li>
+    </ul>
+    <h2><a name="mozTocId484908" class="mozTocH2"></a>Hash Tables</h2>
+    <p>These store&nbsp; items based on text, use <i>MAP_TYPE_DEF and
+        MAP_TYPE_FUNCS</i> to create the type and functions of the hash
+      table. An example of functions generated with an int map are:<br>
+    </p>
+    <ul>
+      <li><i>mapIntCreate() Creates a map</i></li>
+      <li><i>mapIntInsert(map,key,item)</i></li>
+      <li><i>mapIntGet(map,key)</i></li>
+      <li><i>mapIntRemove(map,key,killFunc)</i></li>
+      <li><i>mapIntDestroy(*map)</i></li>
+      <li><i>mapIntValueKey(int*) </i>Gets the key from a value
+        pointer.</li>
+      <li><i>mapIntClone(map) <br>
+        </i></li>
+      <li><i>mapIntKeys(map,keys,long *count)</i></li>
+    </ul>
+    <h2><a name="mozTocId901501" class="mozTocH2"></a><i>Pointer Maps</i></h2>
+    <p>These are special hash tables that take pointers as keys,use <i>PTR_MAP_DEF</i>
+      and<i> PTR_MAP_FUNCS</i> to create a pointer map and its
+      functions. And example of a int pointer map are:<br>
+    </p>
+    <ul>
+      <li><i>ptrMapIntAdd(map,ptr,int)</i></li>
+      <li><i>ptrMapIntRemove(map,ptr)</i></li>
+      <li><i>ptrMapIntGet(map,ptr)</i></li>
+      <li><i>ptrMapIntDestroy(*map)</i></li>
+      <li><i><i>ptrMapIntCreate()</i></i></li>
+      <li><i>ptrMapIntSize(map);</i></li>
+      <li><i>ptrMapIntKeys(map,dumpTo)</i></li>
+    </ul>
+    <h2><a name="mozTocId704648" class="mozTocH2"></a><i>Linked Lists</i></h2>
+    <p>These are linked lists,they have smallest insertion and removal
+      times,but take longer to create. Data is stored after the linked
+      list structure,so when you are debugging,do <i>(valueTuype*)(linkedList+1)
+
+      </i>to get the pointer of linked list item. Use <i>LL_TYPE_DEF&nbsp;
+
+      </i>and <i>LL_TYPE_FUNCS</i> to create a linked list type and
+      functions. Here are some examples functions for a int linked list.</p>
+    <ul>
+      <li><i>llIntCreate(value) </i>This creates a linked list node.</li>
+      <li><i>llIntInsert(node,otherNodes,int(*pred)(const int*,const int
+          *)) </i>Sorted inserts a node based on predicate</li>
+      <li><i>llIntRemove(node)</i> Detaches a node from a linked list.</li>
+      <li><i>llIntValuePtr(node)</i> Returns the value pointer of the
+        node</li>
+      <li><i>llIntNext(node)</i> Returns the next linked list node</li>
+      <li><i>llIntPrev(node)</i> Returns the previous linked list node</li>
+      <li><i>llInt</i><i>Destroy(node,killFunc) </i>Destroys all
+        elements in a linked list and its data</li>
+      <li><i>llIntFindLeft(node,data,int(*pred)(void*,int*))</i>
+        Searches left</li>
+      <li><i>llIntFindRight(node,data,int(*pred)(void*,int*))</i>
+        Searches right</li>
+      <li><i>llIntFind(node,data,int(*pred)(void*,int*))</i> Searches
+        left/right<br>
+      </li>
+      <li><i>llIntSize(node)</i></li>
+      <li><i>llIntInsertListBefore(node,list)</i></li>
+      <li><i><i>llIntInsertListAfter(node,list)</i></i></li>
+    </ul>
+    <h2><a name="mozTocId237338" class="mozTocH2"></a><i>Graph
+        Nodes/Edges</i></h2>
+    <p>These represent a network of objects connected by edges. This is
+      used as the primary form of IR for the compiler. Use <i>GRAPH_TYPE_DEF
+
+      </i>and <i>GRAPH_TYPE_FUNCS</i>. For example,an graph structure
+      with int edges and int nodes will give these functions:<br>
+    </p>
+    <ul>
+      <li><i>graphNodeIntKillGraph(node, void (*killNode)(void *), void
+          (*killEdge)(void *)) </i><b>THIS KILLS EVERY NODE IN THE
+          GRAPH</b></li>
+      <li><i>graphNodeIntKill(node, void (*killNode)(void *), void
+          (*killEdge)(void *)) </i>This kills a single node</li>
+      <li><i><i>graphEdgeIntKill(node1,node2,data,int(*pred)(void*,void*),void(*killEdge)(void*))
+
+          </i></i><b>This kills edges between 2 nodes based on a
+          predicate</b>,<b>not the individual edge</b></li>
+      <li><i><i>graphNodeIntVisitForward(node, data, int (*pred)(node,
+            edge,data),void (*visit)(node, data)) </i></i>This
+        recursivley visits nodes forwards</li>
+      <li><i><i><i><i>graphNodeIntVisitBackward(node, data, int
+                (*pred)(node, edge,data),void (*visit)(node, data)) </i></i></i></i>This
+
+        recursivley visits nodes backwards.</li>
+      <li><i>graphNodeIntCreate(value,version)</i> This creates a
+        graphNode</li>
+      <li><i>graphNodeIntIncoming(node)</i> This returns a list of
+        incoming edges sorted by pointer</li>
+      <li><i>graphNodeIntOutgoing(node)</i> This returns a list of
+        outgoing edges sorted by pointer</li>
+      <li><i>graphNodeIntValuePtr(node) <br>
+        </i></li>
+      <li><i><i>graphEdgeIntValuePtr(edge) </i></i></li>
+      <li><i><i>graphEdgeIntOutgoing(edge) </i></i>This returns to the
+        outgoing node of the edge</li>
+      <li><i><i>graphNodeIntIncomingNodes(node) </i></i>This returns a
+        list of incoming nodes sorted by pointer</li>
+      <li><i><i>graphNodeIntOutgoing</i></i><i><i><i><i>Nodes</i></i>(node)
+
+          </i></i>This returns a list of outgoing nodes sorted by
+        pointer</li>
+      <li><i>graphNodeIntAllNodes(node) </i><b>This</b> <b>returns a
+          list of all nodes associated with the graph,which may not be
+          accessable from the node,use graphIntAllAccesableNodes</b> <b>for
+
+          accessable nodes</b>.</li>
+      <li><i>graphIntAllAccesableNodes</i>(node) This returns a list of
+        all accessable nodes from node.</li>
+      <li><i>graphIntReplaceNodes</i><i>(nodes,replaceWith,edgeCmp,killNodeData).</i>
+        This replaces nodes with a single node,edgeCmp is used to avoid
+        repeat edge connections</li>
+      <li><font color="#ff6600"><i>graphIsolateFromUnaccessable(node) </i></font>This
+
+        is an oddity, <b>THIS DISASSOCIATES ALL ACCESSIBLE NODES FROM
+          node FROM THE PARENT GRAPH AND MAKES THE ACCESSIBLE NODES
+          EXIST IN ITS OWN GRAPH</b>,<font color="#ff6600"><b>IT
+            SEPARATES 2 GRAPHS.</b></font></li>
+    </ul>
+    <h2><a name="mozTocId112386" class="mozTocH2"></a>Strings:</h2>
+    <p>Strings in HolyCC aren't limited to text,they are strings of
+      various data types. Strings are a powerhouse here as i have
+      written algorithms for set theory on the strings,which is useful
+      for other algorithms(<b>ALWAYS KEEP THE ITEMS SORTED PRIOR TO
+        CALLING THESE FUNCTIONS</b>). Create the string for your select
+      data type using <i>STR_TYPE_DEF</i><i> </i>and <i>STR_TYPE_FUNCS</i>.
+      Here are the example functions for a int-type string:<br>
+    </p>
+    <ul>
+      <li><i>strIntDestroy(str)</i></li>
+      <li><i>strIntAppendItem(str,value)</i></li>
+      <li><i>strIntReserve(str,len)</i></li>
+      <li><i><i>strIntSize(str)</i></i></li>
+      <li><i><i><i><i>strIntCapacity(str)</i></i></i></i></li>
+      <li><i><i><i><i><i><i><i><i>strIntConcat(strA,strB)</i></i></i></i></i></i></i></i></li>
+      <li><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i>strIntResize(str,newSize)</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></li>
+      <li><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i>strIntSortedInsert(str,value,int(*</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i>cmp</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i>)</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i>(type*,type*)</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i>)</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></li>
+      <li><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i>strIntAppendData(str,data,len)</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></li>
+      <li><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i>strIntSortedFind(str,value,int(*</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i>cmp</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i>)</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i>(type*,type*)</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i>)</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></li>
+      <li><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i>strIntSetDifference(strA,strB,int(*</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i>cmp</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i>)</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i>(type*,type*)</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i>)</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></li>
+      <li><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i>strIntSetUnion(strA,strB,int(*</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i>cmp</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i>)</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i>(type*,type*)</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i>)</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></li>
+      <li><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i>strIntRemoveIf(strA,data,int(*</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i><i>pred</i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i>(void*,type*)</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i>)</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></li>
+      <li><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i>strIntUnique(strA,int(*</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i>cmp</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i>)</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i>(type*,type*)</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i>)</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></li>
+      <li><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i>strIntSetIntersection(strA,strB,int(*cmp)</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i>(type*,type*)</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i>)</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></li>
+      <li><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i>strIntClone(strA</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i>)</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></li>
+      <li><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i>strIntPop(strA</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i>,*resultValue)</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></li>
+      <li><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i>strIntRemoveItem(strA,int(*cmp)</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i><i>(type*,type*))</i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></i></li>
+    </ul>
+    <h2><a name="mozTocId864380" class="mozTocH2"></a><i>Objects</i>:(types)
+      object.c<br>
+    </h2>
+    This type represents a type such as a class/union/function/primtive.
+    It is detailed in object.h/c. Objects such as
+    pointers,arrays,classes and union are derived by this type. Items of
+    this type are federated by a hash table called <i>objectRegistry</i>.
+    When an object is created,it is registered into the register in <i>hashObject
+    </i>. There is no need to free objects as they will automatically be
+    freed when the registry is cleared.<br>
+    <p>Composite types can be constructed with the use of functions,and
+      their properties can be accessed via derived structs<br>
+    </p>
+    <table width="100%" cellspacing="2" cellpadding="2" border="1">
+      <tbody>
+        <tr>
+          <td valign="top" align="center"><b>Type</b><br>
+          </td>
+          <td valign="top" align="center"><b>Constructor</b><br>
+          </td>
+          <td valign="top" align="center"><b>Struct</b><br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top">TYPE_Bool<br>
+          </td>
+          <td valign="top">NONE<br>
+          </td>
+          <td valign="top">struct object *<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top">TYPE_U0<br>
+          </td>
+          <td valign="top">NONE<br>
+          </td>
+          <td valign="top">struct object *<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top">TYPE_U8i-TYPE_U64i</td>
+          <td valign="top">NONE<br>
+          </td>
+          <td valign="top">struct object *<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top">TYPE_I8i-TYPE_I64i</td>
+          <td valign="top">NONE</td>
+          <td valign="top">struct object *</td>
+        </tr>
+        <tr>
+          <td valign="top">TYPE_F64<br>
+          </td>
+          <td valign="top">NONE<br>
+          </td>
+          <td valign="top">struct object *<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top">TYPE_CLASS<br>
+          </td>
+          <td valign="top"><i>objectClassCreate(struct parserNode
+              *name,members,memberCount)</i><br>
+          </td>
+          <td valign="top">struct objectClass *<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top">TYPE_UNION<br>
+          </td>
+          <td valign="top"><i>objectUnionCreate(struct parserNode
+              *name,members,memberCount)</i></td>
+          <td valign="top">struct objectUnion *<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top">TYPE_FORWARD(class/union forward,not func)<br>
+          </td>
+          <td valign="top"><i>objectForwardDeclarationCreate(struct
+              parserNode *name, <font color="#ff6600">(TYPE_CLASS OR
+                TYPE_UNION)</font>)</i><br>
+          </td>
+          <td valign="top">struct objectForwardDeclaration*<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top">TYPE_PTR<br>
+          </td>
+          <td valign="top"><i>objectPtrCreate(baseType)</i><br>
+          </td>
+          <td valign="top">struct objectPtr *<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top">TYPE_ARRAY<br>
+          </td>
+          <td valign="top"><i>objectArrayCreate(baseType,parserNode
+              dim,void *dimIR)</i><br>
+          </td>
+          <td valign="top">struct objectArray *<br>
+          </td>
+        </tr>
+        <tr>
+          <td valign="top">TYPE_FUNCTION<br>
+          </td>
+          <td valign="top"><i>objectFuncCreate(retType,strFuncArg
+              args,hasVarLenArgs)</i><i><br>
+            </i></td>
+          <td valign="top">struct objectFunction *<br>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p><br>
+    </p>
+  </body>
+</html>
