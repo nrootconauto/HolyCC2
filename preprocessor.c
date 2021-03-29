@@ -359,10 +359,14 @@ static long fstreamSeekPastEndOfLine(FILE *stream) {
 }
 MAP_TYPE_DEF(void *, UsedDefines);
 MAP_TYPE_FUNCS(void *, UsedDefines);
-static void expandDefinesInRangeRecur(struct __vec **retVal, mapDefineMacro defines, long where, long end, int *expanded, mapUsedDefines used, int *err) {
+static void expandDefinesInRangeRecur(struct __vec **retVal, mapDefineMacro defines, long where, long end, int *expanded, mapUsedDefines *used, int *err) {
 	__auto_type prev = *(void **)retVal + where;
 
 	for (;;) {
+			//Clear used each run
+			mapUsedDefinesDestroy(*used ,  NULL);
+			*used=mapUsedDefinesCreate();
+			
 		void *nextReplacement = findNextWord(*retVal, where);
 		void *nextMacroStart = strchr(where + *(char **)retVal, '#');
 		long newEnd = (nextMacroStart == NULL) ? end : nextMacroStart - *(void **)retVal;
@@ -393,12 +397,12 @@ static void expandDefinesInRangeRecur(struct __vec **retVal, mapDefineMacro defi
 			 * #define y x
 			 * x //x will infinitly recur
 			 */
-			if (mapDefineMacroGet(used, (char *)slice) != NULL) {
+			if (mapDefineMacroGet(*used, (char *)slice) != NULL) {
 				if (err != NULL)
 					*err = 1;
 				return;
 			}
-			mapUsedDefinesInsert(used, (char *)slice, NULL);
+			mapUsedDefinesInsert(*used, (char *)slice, NULL);
 
 			// Add source mapping
 			long insertAt = nextReplacement - *(void **)retVal;
@@ -430,7 +434,7 @@ static void expandDefinesInRange(struct __vec **retVal, mapDefineMacro defines, 
 		*expanded = 0;
 
 	__auto_type used = mapUsedDefinesCreate();
-	expandDefinesInRangeRecur(retVal, defines, where, end, expanded, used, err);
+	expandDefinesInRangeRecur(retVal, defines, where, end, expanded, &used, err);
 	mapUsedDefinesDestroy(used, NULL);
 }
 static struct __vec *fileReadLine(FILE *file, long lineStart, long *nextLineStart, struct __vec **newLine);

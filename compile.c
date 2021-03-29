@@ -86,8 +86,8 @@ void compileFile(const char *fn, const char *dumpTo) {
 					long hashedFileSize=0;
 					hashSource(def->__cacheStartToken, def->__cacheEndToken, nm->text, &existsInCache,NULL,&hashedFileSize);
 					if(existsInCache) {
-							char fnBuffer[hashedFileSize+1];
-							hashSource(def->__cacheStartToken, def->__cacheEndToken, nm->text, &existsInCache,(char**)fnBuffer,&hashedFileSize);
+							char *fnBuffer=__builtin_alloca(hashedFileSize+1);
+							hashSource(def->__cacheStartToken, def->__cacheEndToken, nm->text, &existsInCache,(char**)&fnBuffer,&hashedFileSize);
 
 							int existsInCache;
 							X86EmitAsmAddCachedFuncIfExists(nm->text, &existsInCache);

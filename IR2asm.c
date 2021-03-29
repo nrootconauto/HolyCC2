@@ -303,13 +303,6 @@ static void binopArgs(graphNodeIR node, graphNodeIR *a, graphNodeIR *b) {
 	else
 		assert(0);
 }
-static int isReg(graphNodeIR node) {
-	if (graphNodeIRValuePtr(node)->type == IR_VALUE) {
-		struct IRNodeValue *val = (void *)graphNodeIRValuePtr(node);
-		return val->val.type == IR_VAL_REG;
-	}
-	return 0;
-}
 #define ALLOCATE(val)                                                                                                                                              \
 	({                                                                                                                                                               \
 		typeof(val) *r = calloc(sizeof(val));                                                                                                                          \
@@ -1324,13 +1317,13 @@ void asmAssign(graphNodeIR atNode,struct X86AddressingMode *a, struct X86Address
 			classAssign(atNode,a,b);
 	}
 }
-void asmAssignFromPtr(struct X86AddressingMode *a,struct X86AddressingMode *b,long size,enum asmAssignFlags flags) {
+void asmAssignFromPtr(graphNodeIR atNode, struct X86AddressingMode *a,struct X86AddressingMode *b,long size,enum asmAssignFlags flags) {
 		AUTO_LOCK_MODE_REGS(a);
 		AUTO_LOCK_MODE_REGS(b);
 		struct X86AddressingMode * accum CLEANUP(X86AddrModeDestroy) =getAccumulatorForType(objectPtrCreate(&typeU0));
-		asmAssign(NULL,accum, b, ptrSize(), ASM_ASSIGN_X87FPU_POP);
+		asmAssign(atNode,accum, b, ptrSize(), ASM_ASSIGN_X87FPU_POP);
 		struct X86AddressingMode *indir CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirReg(accum->value.reg, a->valueType);
-		asmAssign(NULL,a, indir, size, flags);
+		asmAssign(atNode,a, indir, size, flags);
 }
 struct IRVar2WeightAssoc {
 		double weight;
@@ -1436,20 +1429,6 @@ static void classAssign(graphNodeIR start,struct X86AddressingMode *a,struct X86
 		if(start) if(regIsAliveAtNode(start, si->value.reg)) popMode(si);
 		if(start) if(regIsAliveAtNode(start, di->value.reg)) popMode(di);
 }
-static int insertBetweenExprPred(graphNodeIR start,const void *data) {
-		switch(getCurrentArch()) {
-		case ARCH_X86_SYSV:
-		case ARCH_TEST_SYSV: {
-				__auto_type type=IRNodeType(start);
-				if(type)
-				if(objectBaseType(type)==&typeF64)
-						return 0;
-				return 1;
-		}
-		case ARCH_X64_SYSV:
-				return 1;
-		}
-}
 static void insertImplicitFuncs(graphNodeIR start) {
 		strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);
 		for(long n=0;n!=strGraphNodeIRPSize(allNodes);n++) {
@@ -1491,7 +1470,7 @@ static strChar fromFmt(const char *fmt,...) {
 		va_end(list);
 		va_end(list2);
 
-		__auto_type str=strCharAppendData(NULL, retVal, strlen(retVal));
+		__auto_type str=strCharAppendData(NULL, retVal, strlen(retVal)+1);
 		free(retVal);
 		return str;
 }
@@ -2305,16 +2284,6 @@ static graphNodeIR assembleOpCmp(graphNodeIR start) {
 	}
 	return out;
 }
-static graphNodeIR assembleOpIntLogical(graphNodeIR start, const char *suffix) {
-	graphNodeIR a, b, out = nodeDest(start);
-	if(!out)
-			return NULL;
-	binopArgs(start, &a, &b);
-	assembleOpCmp(start);
-	struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(out);
-	setCond(start, suffix, oMode);
-	return out;
-}
 static graphNodeIR assembleOpInt(graphNodeIR start, const char *opName) {
 		graphNodeIR a, b, out = nodeDest(start);
 		if(!out)
@@ -2487,11 +2456,6 @@ void asmTypecastAssign(graphNodeIR atNode,struct X86AddressingMode *outMode, str
 		return;
 	}
 	return;
-}
-static struct reg *addrModeReg(struct X86AddressingMode *mode) {
-	if (mode->type != X86ADDRMODE_REG)
-		return NULL;
-	return mode->value.reg;
 }
 static int IRTableRangeCmp(const struct IRJumpTableRange *a, const struct IRJumpTableRange *b) {
 	if (a->start > b->start)
@@ -3660,7 +3624,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		if (strGraphEdgeIRPSize(fromPtrAssigns) == 1) {
 			__auto_type incoming = graphEdgeIRIncoming(fromPtrAssigns[0]);
 			struct X86AddressingMode *inMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(incoming);
-			asmAssignFromPtr(currMode, inMode,objectSize(inMode->valueType, NULL),0);
+			asmAssignFromPtr(start,currMode, inMode,objectSize(inMode->valueType, NULL),0);
 		}
 		return nextNodesToCompile(start);
 	}
@@ -3760,7 +3724,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 				if(strGraphEdgeIRPSize(inAsn)==1) {
 						asmTypecastAssign(start,indirTmpReg, fromMode,ASM_ASSIGN_X87FPU_POP);
 				} else if(strGraphEdgeIRPSize(inAsnFromPtr) == 1) {
-						asmAssignFromPtr(indirTmpReg, fromMode,objectSize(IRNodeType(start), NULL),ASM_ASSIGN_X87FPU_POP);
+						asmAssignFromPtr(start,indirTmpReg, fromMode,objectSize(IRNodeType(start), NULL),ASM_ASSIGN_X87FPU_POP);
 				}
 				if(regIsAliveAtNode(start,tmpReg->value.reg)) popMode(tmpReg);
 		}
@@ -3768,7 +3732,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		
 		if (strGraphEdgeIRPSize(dst) == 1) {
 				struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(graphEdgeIROutgoing(dst[0]));
-				asmAssignFromPtr(oMode, iMode,objectSize(oMode->valueType, NULL),ASM_ASSIGN_X87FPU_POP);
+				asmAssignFromPtr(start,oMode, iMode,objectSize(oMode->valueType, NULL),ASM_ASSIGN_X87FPU_POP);
 		}
 
 		return nextNodesToCompile(start);
@@ -3815,7 +3779,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		strGraphEdgeIRP inAsnFromPtr CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(in, IR_CONN_ASSIGN_FROM_PTR);
 		if (strGraphEdgeIRPSize(inAsnFromPtr) == 1) {
 			struct X86AddressingMode *iMode2 CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(graphEdgeIRIncoming(inAsnFromPtr[0]));
-			asmAssignFromPtr(memRegMode, iMode2,objectSize(memRegMode->valueType, NULL),0);
+			asmAssignFromPtr(start,memRegMode, iMode2,objectSize(memRegMode->valueType, NULL),0);
 		}
 
 		if (strGraphEdgeIRPSize(outAssn) == 1) {
@@ -3834,13 +3798,6 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 	case IR_SPILL_LOAD:
 		assert(0);
 	}
-}
-static int isNotArgEdge(const void *data, const graphEdgeIR *edge) {
-	__auto_type type = *graphEdgeIRValuePtr(*edge);
-	return !IRIsExprEdge(type);
-}
-static int isUnvisited(const void *data, const graphNodeIR *node) {
-	return NULL != ptrMapCompiledNodesGet(compiledNodes, *node);
 }
 void __IR2AsmExpr(graphNodeIR start) {
 computeArgs:;

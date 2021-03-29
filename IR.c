@@ -530,18 +530,6 @@ int IRIsDeadExpression(graphNodeIR end) {
 
 	return isDead;
 }
-void IRRemoveDeadExpression(graphNodeIR end, strGraphNodeP *removed) {
-	__auto_type nodes = IRStmtNodes(end);
-	strGraphNodeIRP starts = strGraphNodeIRPAppendItem(NULL, end);
-	graphNodeIRVisitBackward(end, &starts, untilAssign, addNode2List);
-
-	for (long i = 0; i != strGraphNodeIRPSize(starts); i++) {
-		transparentKill(starts[i]);
-	}
-
-	if (removed)
-		*removed = starts;
-}
 graphNodeIR IRStmtStart(graphNodeIR node) {
 		switch(graphNodeIRValuePtr(node)->type) {
 		case IR_COND_JUMP:
@@ -1576,42 +1564,6 @@ graphNodeIR IREndOfExpr(graphNodeIR node) {
 	end:
 		// No expression edges so is end of expression
 		return node;
-	}
-}
-int IRIsOperator(graphNodeIR node) {
-	switch (graphNodeIRValuePtr(node)->type) {
-	case IR_ADD:
-	case IR_ADDR_OF:
-	case IR_BAND:
-	case IR_BNOT:
-	case IR_BOR:
-	case IR_BXOR:
-	case IR_DERREF:
-	case IR_DIV:
-	case IR_EQ:
-	case IR_FUNC_CALL:
-	case IR_GE:
-	case IR_GT:
-	case IR_LAND:
-	case IR_LE:
-	case IR_LNOT:
-	case IR_LOR:
-	case IR_LSHIFT:
-	case IR_LT:
-	case IR_LXOR:
-	case IR_MOD:
-	case IR_MULT:
-	case IR_NE:
-	case IR_NEG:
-	case IR_POS:
-	case IR_POW:
-	case IR_RSHIFT:
-	case IR_SIMD:
-	case IR_SUB:
-	case IR_TYPECAST:
-		return 1;
-	default:
-		return 0;
 	}
 }
 graphNodeIR IRCreateFuncArg(struct object *type, long funcIndex) {

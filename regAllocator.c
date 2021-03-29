@@ -172,67 +172,6 @@ static void removeChooseNode(graphNodeIR chooseNode) {
 }
 STR_TYPE_DEF(strGraphNodeIRP, VarRefs);
 STR_TYPE_FUNCS(strGraphNodeIRP, VarRefs);
-struct aliasPair {
-	graphNodeIR a, b;
-};
-static int aliasPairCmp(const struct aliasPair *a, const struct aliasPair *b) {
-	struct IRNodeValue *Aa = (void *)graphNodeIRValuePtr(a->a);
-	struct IRNodeValue *Ba = (void *)graphNodeIRValuePtr(b->a);
-	struct IRNodeValue *Ab = (void *)graphNodeIRValuePtr(a->b);
-	struct IRNodeValue *Bb = (void *)graphNodeIRValuePtr(b->b);
-	int cmpA = IRVarCmp(&Aa->val.value.var, &Ba->val.value.var);
-	if (cmpA != 0)
-		return cmpA;
-
-	int cmpB = IRVarCmp(&Ab->val.value.var, &Bb->val.value.var);
-	if (cmpB != 0)
-		return cmpB;
-
-	return 0;
-}
-static int varRefsGetCmp(const strGraphNodeIRP *a, const strGraphNodeP *b) {
-	long aSize = strGraphNodeIRPSize(*a);
-	long bSize = strGraphNodeIRPSize(*b);
-	long minSize = (aSize < bSize) ? aSize : bSize;
-
-	for (long i = 0; i != minSize; i++) {
-		int cmp = ptrPtrCmp(a + i, b + i);
-		if (cmp != 0)
-			return cmp;
-	}
-
-	if (aSize > bSize)
-		return 1;
-	if (aSize < bSize)
-		return -1;
-	else
-		return 0;
-}
-STR_TYPE_DEF(struct aliasPair, AliasPair);
-STR_TYPE_FUNCS(struct aliasPair, AliasPair);
-STR_TYPE_DEF(strGraphNodeIRP, AliasBlob);
-STR_TYPE_FUNCS(strGraphNodeIRP, AliasBlob);
-static int AliasBlobCmp(const strGraphNodeIRP *A, const strGraphNodeIRP *B) {
-	long aSize = strGraphNodeIRPSize(*A);
-	long bSize = strGraphNodeIRPSize(*B);
-	long max = (aSize > bSize) ? aSize : bSize;
-
-	// Check for difference in shared portion
-	for (long i = 0; i != max; i++) {
-		if (ptrPtrCmp(&A[i], &B[i]))
-			return ptrPtrCmp(&A[i], &B[i]);
-	}
-
-	// Now compare by sizes
-	if (aSize == bSize)
-		return 0;
-	else if (aSize > bSize)
-		return 1;
-	else if (aSize < bSize)
-		return -1;
-
-	return 0;
-}
 static int getVarRefIndex(strVarRefs refs, graphNodeIR node) {
 	for (long i = 0; i != strVarRefsSize(refs); i++) {
 		if (strGraphNodeIRPSortedFind(refs[i], node, (gnCmpType)ptrPtrCmp))
@@ -266,21 +205,6 @@ static struct IRVar *getVar(graphNodeIR node) {
 			return NULL;
 	} else
 		return NULL;
-}
-static int chooseCmp(const graphNodeIR *a,const graphNodeIR *b) {
-		struct  IRNodeChoose *A=(void*)graphNodeIRValuePtr(*a);
-		struct  IRNodeChoose *B=(void*)graphNodeIRValuePtr(*b);
-		long aSize=strGraphNodeIRPSize(A->canidates);
-		long bSize=strGraphNodeIRPSize(A->canidates);
-		long min=aSize>bSize?bSize:aSize;
-		for(long v=0;v!=min;v++) {
-				int cmp=IRVarCmp(getVar(A->canidates[v]),getVar(B->canidates[v]));
-				if(cmp!=0)
-						return cmp;
-		}
-		if(aSize==bSize)
-				return 0;
-		return aSize>bSize?1:-1;
 }
 MAP_TYPE_DEF(long,Count);
 MAP_TYPE_FUNCS(long,Count);
@@ -359,14 +283,6 @@ STR_TYPE_FUNCS(int, Int);
 static int intCmp(const int *a, const int *b) {
 	return *a - *b;
 }
-struct metricPair {
-	graphNodeIRLive node;
-	double metricValue;
-};
-struct interferencePair {
-	struct IRVar *var;
-	strIRVar inteferesWith;
-};
 static int isVar(graphNodeIR node) {
 	if (graphNodeIRValuePtr(node)->type == IR_VALUE) {
 		// Is a variable
@@ -377,35 +293,6 @@ static int isVar(graphNodeIR node) {
 	}
 	return 0;
 }
-static int graphPathCmp(const strGraphEdgeIRP *a, const strGraphEdgeIRP *b) {
-	long aSize = strGraphEdgeIRPSize(*a);
-	long bSize = strGraphEdgeIRPSize(*b);
-	long min = (aSize < bSize) ? aSize : bSize;
-
-	for (long i = 0; i != min; i++) {
-		__auto_type aNode = graphEdgeIROutgoing(a[0][i]);
-		__auto_type bNode = graphEdgeIROutgoing(b[0][i]);
-		int cmp = ptrPtrCmp(&aNode, &bNode);
-		if (cmp != 0)
-			return cmp;
-	}
-
-	if (aSize > bSize)
-		return 1;
-	else if (aSize < bSize)
-		return -1;
-	else
-		return 0;
-}
-
-struct varsAndReplaced {
-	strIRVar vars;
-	strGraphNodeIRP *replaced;
-};
-static int untillStartOfExpr(const struct __graphNode *node, const struct __graphEdge *edge, const void *data) {
-	return IRIsExprEdge(*graphEdgeIRValuePtr((graphEdgeIR)edge));
-};
-
 struct varToLiveNode {
 	struct IRVar var;
 	graphNodeIRLive live;
@@ -415,60 +302,6 @@ static int varToLiveNodeCompare(const struct varToLiveNode *a, const struct varT
 }
 STR_TYPE_DEF(struct varToLiveNode, VarToLiveNode);
 STR_TYPE_FUNCS(struct varToLiveNode, VarToLiveNode);
-static void removeDeadExpresions(graphNodeIR startAt, strIRVar liveVars) {
-	strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRAllNodes(startAt);
-	strGraphNodeIRP toRemove CLEANUP(strGraphNodeIRPDestroy) = strGraphNodeIRPReserve(NULL, strGraphNodeIRPSize(allNodes));
-
-loop:
-	allNodes = strGraphNodeIRPSetDifference(allNodes, toRemove, (gnCmpType)ptrPtrCmp);
-
-	for (long i = 0; i != strGraphNodeIRPSize(allNodes); i++) {
-		// Dont revisit
-		toRemove = strGraphNodeIRPSortedInsert(toRemove, allNodes[i], (gnCmpType)ptrPtrCmp);
-
-		//
-		// Find end of expression that is an assigned node
-		//
-
-		// Check for assign
-		strGraphEdgeIRP incoming = graphNodeIRIncoming(allNodes[i]);
-		strGraphEdgeIRP incomingAssigns = IRGetConnsOfType(incoming, IR_CONN_DEST);
-		if (strGraphEdgeIRPSize(incomingAssigns)) {
-			// If destination is a variable that isn't alive,destroy it
-			if (isVar(allNodes[i])) {
-				// Ensure allNodes[i ] is end of expression
-				strGraphEdgeIRP outgoing = graphNodeIROutgoing(allNodes[i]);
-				for (long i = 0; i != strGraphEdgeIRPSize(outgoing); i++)
-					if (IRIsExprEdge(*graphEdgeIRValuePtr(outgoing[i])))
-						goto __continue;
-
-				// Ensure points to non-alive variable
-				struct IRNodeValue *value = (void *)graphNodeIRValuePtr(allNodes[i]);
-				if (NULL == strIRVarSortedFind(liveVars, &value->val.value.var, IRVarCmp2)) {
-					__auto_type in = graphEdgeIRIncoming(incoming[0]);
-
-					// Wasn't found in live vairables so delete assign
-					transparentKill(allNodes[i], 1);
-
-					// Check if dead expression now that we removed the dead assign
-					if (IRIsDeadExpression(in)) {
-						// Remove dead expression
-						strGraphNodeIRP removed CLEANUP(strGraphNodeIRPDestroy);
-						IRRemoveDeadExpression(in, &removed);
-						toRemove = strGraphNodeIRPSetUnion(toRemove, removed, (gnCmpType)ptrPtrCmp);
-
-						// Add allNodes[i] to removed(transparently killed above)
-						toRemove = strGraphNodeIRPSortedInsert(toRemove, allNodes[i], (gnCmpType)ptrPtrCmp);
-
-						// Restart search
-						goto loop;
-					}
-				}
-			}
-		}
-	__continue:;
-	}
-}
 static int nodeEqual(const graphNodeIR *a, const graphNodeIR *b) {
 	return *a == *b;
 }
@@ -504,8 +337,6 @@ static struct regSlice color2Reg(strRegSlice adjacent, strRegP avail, graphNodeI
 
 	return slice;
 }
-STR_TYPE_DEF(struct metricPair, MetricPair);
-STR_TYPE_FUNCS(struct metricPair, MetricPair);
 static void *IR_ATTR_TEMP_VARIABLE = "TMP_VAR";
 static void replaceVarsWithRegisters(ptrMapregSlice map, strGraphNodeIRLiveP allLiveNodes,strGraphNodeIRP *allNodes) {
 	//
@@ -576,31 +407,6 @@ void IRAttrVariableRemoveAllNodes(graphNodeIR node) {
 		}
 	}
 }
-static int isAssignedLiveVarOrLoad(graphNodeIR start, const void *live) {
-	// Check if load of live variable
-	if (graphNodeIRValuePtr(start)->type == IR_SPILL_LOAD) {
-		struct IRNodeSpill *spill = (void *)graphNodeIRValuePtr(start);
-		strVar liveVars = (void *)live;
-		return NULL != strVarSortedFind(liveVars, spill->item.value.var, IRVarCmp);
-	}
-
-	// Is attributed to a live varible
-	__auto_type find = llIRAttrFind(graphNodeIRValuePtr(start)->attrs, IR_ATTR_VARIABLE, IRAttrGetPred);
-	if (find) {
-		struct IRAttrVariable *var = (void *)llIRAttrValuePtr(find);
-
-		struct IRNodeValue *val = (void *)graphNodeIRValuePtr(start);
-		strVar liveVars = (void *)live;
-		return NULL != strVarSortedFind(liveVars, var->var, IRVarCmp);
-	}
-
-	return 0;
-}
-static int isAssignRegMappedNode(const void *data, const graphNodeMapping *mapping) {
-	strGraphEdgeIRP incoming CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIRIncoming(*graphNodeMappingValuePtr((graphNodeMapping)*mapping));
-	strGraphEdgeIRP assigns CLEANUP(strGraphEdgeIRPDestroy) = IRGetConnsOfType(incoming, IR_CONN_DEST);
-	return strGraphEdgeIRPSize(assigns) != 0;
-}
 struct varInReg {
 	struct IRVar var;
 	struct regSlice slice;
@@ -610,23 +416,7 @@ static int varInRegCmp(const struct varInReg *a, const struct varInReg *b) {
 }
 STR_TYPE_DEF(struct varInReg, VarInReg);
 STR_TYPE_FUNCS(struct varInReg, VarInReg);
-static void strGraphPathsDestroy2(strGraphPath *paths) {
-	for (long i = 0; i != strGraphPathSize(*paths); i++)
-		strGraphEdgePDestroy(&paths[0][i]);
-	strGraphPathDestroy(paths);
-}
-static int isExprEdge(const void *data, const graphEdgeIR *edge) {
-	return IRIsExprEdge(*graphEdgeIRValuePtr(*edge));
-}
 typedef int (*geCmpType)(const graphEdgeIR *, const graphEdgeIR *);
-struct rematerialization {
-	graphNodeIR clone;
-	strRegSlice registers;
-};
-static void addToNodes(struct __graphNode *node, void *data) {
-	strGraphNodeIRP *Data = (void *)data;
-	*Data = strGraphNodeIRPSortedInsert(*Data, node, (gnCmpType)ptrPtrCmp);
-}
 static void ptrMapGraphNodeDestroy2(ptrMapGraphNode *node) {
  	ptrMapGraphNodeDestroy(*node, NULL);
 }
@@ -648,14 +438,8 @@ void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,v
 	__varFiltPred = varFiltPred;
 	strGraphNodeIRP allNodes2 CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRAllNodes(start);
 	
-	strGraphNodeIRLiveP intInterfere CLEANUP(strGraphNodeIRLivePDestroy2) = IRInterferenceGraphFilter(start, NULL, NULL);
-
-	__auto_type floatInterfere = NULL;
-	// IRInterferenceGraphFilter(start, filterFloatVars, NULL);
-
 	strIRVar liveVars CLEANUP(strIRVarDestroy) = NULL;
-	strGraphNodeIRLiveP interferes  = strGraphNodeIRLivePClone(intInterfere);
-	interferes = strGraphNodeIRLivePConcat(interferes, strGraphNodeIRLivePClone(floatInterfere));
+	strGraphNodeIRLiveP interferes  = IRInterferenceGraphFilter(start, NULL, NULL);
 	 {
 		__auto_type interfere = interferes;
 		
@@ -730,9 +514,15 @@ void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,v
 						assert(!regConflict(curReg->reg, &regAMD64RAX));
 						
 						if(regConflict(curReg->reg, aReg->reg)) {
-								
-								ptrMapregSliceRemove(regsByLivenessNode, allColorNodes[n]);
-								assert(!ptrMapregSliceGet(regsByLivenessNode, allColorNodes[n]));
+								strGraphEdgeIRLiveP degreeCur CLEANUP(strGraphEdgeIRLivePDestroy)=graphNodeIRLiveOutgoing(allColorNodes[n]);
+								strGraphEdgeIRLiveP degreeAdj CLEANUP(strGraphEdgeIRLivePDestroy)=graphNodeIRLiveOutgoing(adj[a]);
+								if(strGraphEdgeIRLivePSize(degreeCur)>strGraphEdgeIRLivePSize(degreeAdj)) {
+										ptrMapregSliceRemove(regsByLivenessNode, allColorNodes[n]);
+										assert(!ptrMapregSliceGet(regsByLivenessNode, allColorNodes[n]));
+								} else {
+										ptrMapregSliceRemove(regsByLivenessNode, adj[a]);
+										assert(!ptrMapregSliceGet(regsByLivenessNode, adj[a]));
+								}
 								goto check;
 						}
 						assert(!regConflict(curReg->reg, aReg->reg));
