@@ -177,7 +177,7 @@ char *emitDebufferFrameLayout(ptrMapFrameOffset offsets) {
 		struct parserVar *keys[size];
 		ptrMapFrameOffsetKeys(offsets, keys);
 
-		strChar total CLEANUP(strCharDestroy)=fromFmt("frameItems:[\n");
+		strChar total CLEANUP(strCharDestroy)=fromFmt("[\n");
 		for(long k=0;k!=size;k++) {
 				if(!keys[k]->name) continue;
 				total=strCharConcat(total, fromFmt("\t{"));

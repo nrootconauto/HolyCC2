@@ -2,6 +2,7 @@ extern U8i *gets(U8i *buffer);;
 class CFuncDebugger;
 class CFileDebugger {
 						CHashTable *typeTable; //JsonNode *
+						CHashTable *funcDebuggers; // CFuncDebugger *
 };
 class CFuncDebugger {
 						CHashTable *varTable; //JsonNode *
@@ -11,29 +12,56 @@ internal U8i HCC_DEBUG_SYMS;
 internal U8i HCC_DEBUG_FUNC_DATAS;
 #define DEBUGGER_INIT_ERR -1
 #define DEBUGGER_TYPE_NO_EXIST -2
+CFuncDebugger *FuncDebuggerCreate(CFileDebugger *file,U8i *info);
 CFileDebugger *FileDebuggerCreate() {
 														JsonNode *parse=ParserJsonObject(&HCC_DEBUG_SYMS,0,NULL,NULL);
 														JsonNode *types=JsonNodeEntry(parse->val.node,"Types");
-														printf("Types:%p\n",types);
 														if(!types) throw(DEBUGGER_INIT_ERR);
 
 														CHashTable *typeTable=HashTableCreate();
-														printf("%li,\n",types->type);
 														JsonNodePrint(parse);
 														for(I32i i=0;types->val.arr[i]!=NULL;i+=1) {
 																							JsonNode *name=JsonNodeEntry(types->val.arr[i]->val.node,"name");
-																							printf("name:%p\n",name);
 																							if(!name) throw(DEBUGGER_INIT_ERR);
-																							printf("ADD:%s\n",name->val.str);
 																							HashTableAdd(typeTable,types->val.arr[i],name->val.str);
 														}
 
 														CFileDebugger *retval=malloc(sizeof(CFileDebugger));
 														retval->typeTable=typeTable;
+
+														U8i **list=(&HCC_DEBUG_FUNC_DATAS)(U8i**);
+														while(*list) {
+																											Print("\n\n\n%s\n\n\n",*list);
+																											FuncDebuggerCreate(retval,*list);
+																											list++;
+														}
 														return  retval;
 }
-CFuncDebugger *FuncDebuggerCreate(CFileDebugger *file,JsonNode *vars) {
-						
+CFuncDebugger *FuncDebuggerCreate(CFileDebugger *file,U8i *info) {
+														JsonNode *root=NULL;
+														JsonNode *framelayout=NULL;
+														JsonNode *name=NULL;
+														I32i c=0;
+														U8i *funcname=NULL;
+														CFuncDebugger *retval=malloc(sizeof(CFuncDebugger));
+														retval->varTable=HashTableCreate();
+														try {
+																		root=ParserJsonObject(info,0,NULL,NULL);
+																		framelayout=JsonNodeEntry(root->val.node,"frameLayout");
+																		if(framelayout) {
+																																		for(c=0;c!=framelayout->val.arr[c];c++) {
+																																																																										JsonNode *tmp=framelayout->val.arr[c];
+																																																																										name=JsonNodeEntry(tmp->val.node	,"name");
+																																																																										HashTableAdd(retval->varTable,tmp,name->val.str);
+																																		}
+																		}
+
+																		name=JsonNodeEntry(tmp->val.node	,"name");
+																		if(name) funcname=name->val.str;
+																		HashTableAdd(file->funcDebuggers,retval,funcname);
+														} catch {
+																Print("Failed to parse json for debugger");
+														}
 }
 U8i *DebuggerPrintVar(CFileDebugger *f,U0 *var,U8i *typeName=lastclass,I32i ptrLevel=0);
 static U8i *DebuggerPrintTypeFromJson(CFileDebugger *f,U0 *var,JsonNode *node) {

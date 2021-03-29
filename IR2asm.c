@@ -1499,9 +1499,10 @@ static strChar fromFmt(const char *fmt,...) {
 void IRCompile(graphNodeIR start, int isFunc) {
 		//debugShowGraphIR(start);
 		IR2AsmInit();
+		const char *funcName="__init$$$";
 		if (isFunc) {
 				struct IRNodeFuncStart *funcNode = (void *)graphNodeIRValuePtr(start);
-				X86EmitAsmEnterFunc(funcNode->func->name);
+				X86EmitAsmEnterFunc(funcName=funcNode->func->name);
 		} else {
 				X86EmitAsmEnterFileStartCode();
 		}
@@ -1682,7 +1683,7 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	// This computes calling information for the ABI
 
 	char *frameLayoutJson=emitDebufferFrameLayout(localVarFrameOffsets);
-	strChar debugInfo CLEANUP(strCharDestroy)=fromFmt("{%s}" , frameLayoutJson);
+	strChar debugInfo CLEANUP(strCharDestroy)=fromFmt("{\"name\":%s,\"frameLayout\":%s}" ,funcName, frameLayoutJson);
 	char *debugInfoStr=X86EmitAsmDebuggerInfo(debugInfo);
 	free(frameLayoutJson);
 	__auto_type olddebugInfoLab=debugInfoLab;
