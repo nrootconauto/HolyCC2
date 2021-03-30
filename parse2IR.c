@@ -9,6 +9,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <setjmp.h>
+#include "diagMsg.h"
 #include "preprocessor.h"
 typedef int (*gnIRCmpType)(const graphNodeIR *, const graphNodeIR *);
 typedef int (*pnCmpType)(const struct parserNode **, const struct parserNode **);
@@ -105,16 +106,21 @@ void IRGenInit(strFileMappings mappings) {
 }
 static struct enterExit insSrcMapping(long start,long end,struct enterExit pair) {
 		if(currFileMappings) { 
+				const char *fn; long line;
+				diagLineCol(&fn, start, &line, NULL);
+				__auto_type debug=IRCreateDebug(fn, line);
 				__auto_type mapping=IRCreateSourceMapping(start, end-start);
+				graphNodeIRConnect(debug, mapping, IR_CONN_FLOW);
 				graphNodeIRConnect(mapping, pair.enter, IR_CONN_FLOW);
-				pair.enter=mapping;
+				pair.enter=debug;
 		}
 		return pair;
 }
 static struct enterExit insSrcMappingsForBody(struct parserNode *node,struct enterExit pair) {
 		if(node)
-				if(node->type==NODE_BINOP||node->type==NODE_UNOP||node->type==NODE_FUNC_CALL||node->type==NODE_VAR_DECLS||node->type==NODE_VAR_DECL)
-						return insSrcMapping(node->pos.start, node->pos.end, pair);
+				if(node->type==NODE_BINOP||node->type==NODE_UNOP||node->type==NODE_FUNC_CALL||node->type==NODE_VAR_DECLS||node->type==NODE_VAR_DECL) {
+						pair=insSrcMapping(node->pos.start, node->pos.end, pair);
+				}
 		return pair;
 }
 static struct IRGenScopeStack *IRGenScopePush(enum scopeType type) {

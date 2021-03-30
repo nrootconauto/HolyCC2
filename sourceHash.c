@@ -100,7 +100,7 @@ long hashSource(llLexerItem start,llLexerItem end,const char *name,long *fileExi
 						}
 				} else if(item->template==&strTemplate) {
 						struct parsedString *str=lexerItemValuePtr(item);
-						char *text=escapeString((char*)str->text);
+						char *text=escapeString((char*)str->text,strlen((char*)str->text));
 						if(str->isChar) fprintf(f, "\'%s\'", text);
 						else fprintf(f, "\"%s\"", text);
 						free(text);

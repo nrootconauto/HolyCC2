@@ -111,7 +111,9 @@ struct object *__IRNodeType(graphNodeIR node) {
 			struct IRNodeArrayDecl *decl=(void*)nodeVal;
 			return decl->itemType;
 	} else if (nodeVal->base.type == IR_VALUE) {
-			if(nodeVal->val.type==IR_VAL_STR_LIT) {
+			if(nodeVal->val.type==__IR_VAL_ADDR_MODE) {
+					return nodeVal->val.value.addrMode->valueType;
+			} else if(nodeVal->val.type==IR_VAL_STR_LIT) {
 					return objectPtrCreate(&typeU8i);
 			} else if(nodeVal->val.type==IR_VAL_FLT_LIT) {
 					return &typeF64;
@@ -299,7 +301,7 @@ void IRInsertImplicitTypecasts(graphNodeIR start) {
 										struct object *toType2=func->args[argi].type;		
 										__auto_type inNode=graphEdgeIRIncoming(in[i]);
 										__auto_type inType=IRNodeType(inNode);
-										if(toType2!=inType) {
+										if(toType2!=inType&&inType!=NULL) {
 												__auto_type tc=IRCreateTypecast(inNode, IRNodeType(inNode), toType2);
 												graphNodeIRConnect(tc,exprNodes[e], edgeValue);
 												graphEdgeIRKill(inNode, exprNodes[e], NULL, NULL, NULL);

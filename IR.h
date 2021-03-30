@@ -288,6 +288,7 @@ enum IRValueType {
 	IR_VAL_INT_LIT,
 	IR_VAL_STR_LIT,
 	IR_VAL_FLT_LIT,
+	__IR_VAL_ADDR_MODE,
 };
 struct IRValue;
 struct IRValOpResult {
@@ -324,6 +325,7 @@ struct IRValue {
 		double fltLit;
 		struct __vec *strLit;
 		graphNodeIR memLabel;
+			struct X86AddressingMode *addrMode;
 	} value;
 };
 struct IRNodeSizeof {
@@ -569,3 +571,4 @@ graphNodeIR IRCreateSizeof(struct object *obj);
 graphNodeIR IRCreateGlobalLabel(const char *name);
 graphNodeIR IRCreateFuncRef(struct parserFunction *func);
 graphNodeIR IRCreateDebug(const char *fn,long line);
+graphNodeIR IRCreateAddrMode(struct X86AddressingMode *addrMode);

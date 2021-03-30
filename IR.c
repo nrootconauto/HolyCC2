@@ -348,6 +348,9 @@ struct object *IRValueGetType(struct IRValue *node) {
 	case IR_VAL_VAR_REF: {
 		return node->value.var.var->type;
 	}
+	case __IR_VAL_ADDR_MODE: {
+			return node->value.addrMode->valueType;
+	}
 	case IR_VAL_FLT_LIT:
 		return &typeF64;
 	case IR_VAL_STR_LIT:
@@ -523,7 +526,7 @@ int IRIsDeadExpression(graphNodeIR end) {
 	// Check for function call with starts
 	for (long i = 0; i != strGraphNodeIRPSize(starts); i++) {
 		if (graphNodeIRValuePtr(starts[i])->type == IR_FUNC_CALL) {
-			isDead = 0;
+ 			isDead = 0;
 			break;
 		}
 	}
@@ -803,6 +806,9 @@ MAP_TYPE_FUNCS(int, LabelNum);
 static char *IRValue2GraphVizLabel(struct IRValue *val) {
 		// Choose a label based on type
 	switch (val->type) {
+	case __IR_VAL_ADDR_MODE: {
+			return FROM_FORMAT("VAL:%s","ADDR_MODE");
+	}
 	case IR_VAL_FUNC: {
 		const char *name = val->value.func->name;
 
@@ -1820,6 +1826,8 @@ void IRNodeDestroy(struct IRNode *node) {
 					break;
 				}
 			}
+		} else if(valueNode->val.type==__IR_VAL_ADDR_MODE) {
+				X86AddrModeDestroy(&valueNode->val.value.addrMode);
 		}
 	}
 }
@@ -1924,4 +1932,12 @@ graphNodeIR IRCreateFuncVaArgArgv() {
 		argv.attrs=NULL;
 		argv.type=IR_FUNC_VAARG_ARGV;
 		return GRAPHN_ALLOCATE(argv);
+}
+graphNodeIR IRCreateAddrMode(struct X86AddressingMode *addrMode) {
+		struct IRNodeValue val;
+		val.base. attrs=NULL;
+		val.base.type=IR_VALUE;
+		val.val.type=__IR_VAL_ADDR_MODE;
+		val.val.value.addrMode=X86AddrModeClone(addrMode);
+		return GRAPHN_ALLOCATE(val);
 }

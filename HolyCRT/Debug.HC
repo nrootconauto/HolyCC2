@@ -120,3 +120,5 @@ U8i *DebuggerPrintVar(CFileDebugger *f,U0 *var,U8i *typeName=lastclass,I32i ptrL
 				retval=StrCat(retval,StrDupLen("}",1));
 				return retval;
 }
+U0 HCC_DebugAtLine(U8i *fn,I32i ln) {
+}

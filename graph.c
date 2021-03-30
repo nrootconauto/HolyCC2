@@ -647,7 +647,7 @@ static int llGVEdgeCmp(const struct graphVizEdge *ed, const struct graphVizEdge 
 	return 0;
 }
 static char *stringify(const char *text) {
-	char *escaped = escapeString((char *)text);
+		char *escaped = escapeString((char *)text,strlen(text));
 	long size = snprintf(NULL, 0, "\"%s\"", escaped);
 	char buffer[size + 1];
 	sprintf(buffer, "\"%s\"", escaped);

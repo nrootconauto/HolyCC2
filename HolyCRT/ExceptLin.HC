@@ -70,3 +70,8 @@ U0 throw(I32i msg) {
 			curExceptFrame->msg=msg;
 			HCRT_ExceptRestoreState();
 }
+extern I32i signal(I32i sig,U0(*func)(I32i));
+static U0 *throwSegfault(I32i num,I32i code) {
+							throw(code);
+}
+signal(11,&throwSegfault);

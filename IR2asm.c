@@ -53,7 +53,6 @@ static __thread ptrMapLabelNames asmLabelNames;
 static __thread ptrMapCompiledNodes compiledNodes;
 static __thread int insertLabelsForAsmCalled = 0;
 static __thread long frameSize=0;
-static __thread char *debugInfoLab=NULL;
 static void assembleInst(const char *name, strX86AddrMode args) {
 	__auto_type template  = X86OpcodeByArgs(name, args);
  	assert(template);
@@ -356,6 +355,8 @@ static struct X86AddressingMode *__node2AddrMode(graphNodeIR start) {
 	if (graphNodeIRValuePtr(start)->type == IR_VALUE) {
 		struct IRNodeValue *value = (void *)graphNodeIRValuePtr(start);
 		switch (value->val.type) {
+		case __IR_VAL_ADDR_MODE:
+				return X86AddrModeClone(value->val.value.addrMode);
 		case __IR_VAL_MEM_FRAME: {
 			if (getCurrentArch() == ARCH_TEST_SYSV || getCurrentArch() == ARCH_X86_SYSV || getCurrentArch() == ARCH_X64_SYSV) {
 					return X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer(),getTypeForSize(ptrSize())), X86AddrModeSint(-value->val.value.__frame.offset), IRNodeType(start));
@@ -1457,6 +1458,23 @@ static void insertImplicitFuncs(graphNodeIR start) {
 						graphNodeIRKill(&allNodes[n], (void(*)(void*))IRNodeDestroy, NULL);
 						continue;
 				}
+				//Debug
+				else if(graphNodeIRValuePtr(allNodes[n])->type==IR_DEBUG) {
+						struct IRNodeDebug *dbg=(void*)graphNodeIRValuePtr(allNodes[n]);
+						__auto_type routine=includeHCRTFunc("HCC_DebugAtLine");
+						struct X86AddressingMode *dbgInfoMode CLEANUP(X86AddrModeDestroy)=X86EmitAsmStrLit(dbg->fn, strlen(dbg->fn));
+						__auto_type call=IRCreateFuncCall(IRCreateFuncRef(routine), IRCreateAddrMode(dbgInfoMode),IRCreateIntLit(dbg->line),NULL);
+						__auto_type start=IRStmtStart(call); //Start node will be created
+						
+						strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(allNodes[n]);
+						for(long i=0;i!=strGraphEdgeIRPSize(in);i++)
+								graphNodeIRConnect(graphEdgeIRIncoming(in[i]), start, *graphEdgeIRValuePtr(in[i]));
+						strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(allNodes[n]);
+						for(long o=0;o!=strGraphEdgeIRPSize(out);o++)
+								graphNodeIRConnect(call, graphEdgeIROutgoing(out[o]), *graphEdgeIRValuePtr(out[o]));
+
+						graphNodeIRKill(&allNodes[n],(void*)(IRNodeDestroy), NULL);
+				}
 		}
 } 
 static strChar fromFmt(const char *fmt,...) {
@@ -1663,15 +1681,10 @@ void IRCompile(graphNodeIR start, int isFunc) {
 
 	char *frameLayoutJson=emitDebufferFrameLayout(localVarFrameOffsets);
 	strChar debugInfo CLEANUP(strCharDestroy)=fromFmt("{\"name\":\"%s\",\"frameLayout\":%s}" ,funcName, frameLayoutJson);
-	char *debugInfoStr=X86EmitAsmDebuggerInfo(debugInfo);
+	free(X86EmitAsmDebuggerInfo(debugInfo));
 	free(frameLayoutJson);
-	__auto_type olddebugInfoLab=debugInfoLab;
-	debugInfoLab=debugInfoStr;
 	
 	IR2Asm(start);
-	
-	debugInfoLab=olddebugInfoLab;
-	free(debugInfoStr);
 	
 	if(!isFunc)
 			IRABIReturn2Asm(NULL, frameSize);

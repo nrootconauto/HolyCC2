@@ -9,6 +9,7 @@
 #include "parserB.h"
 #include "ptrMap.h"
 #include "registers.h"
+#include "escaper.h"
 #include <stdio.h>
 #include "cacheDir.h"
 #include <unistd.h>
@@ -23,6 +24,8 @@ STR_TYPE_DEF(strChar, StartCodeName);
 STR_TYPE_FUNCS(strChar, StartCodeName);
 STR_TYPE_DEF(strChar, StrChar);
 STR_TYPE_FUNCS(strChar, StrChar);
+MAP_TYPE_DEF(struct X86AddressingMode *,AddrMode);
+MAP_TYPE_FUNCS(struct X86AddressingMode *,AddrMode);
 static void strStrCharDestroy2(strStrChar *str) {
 		for(long s=0;s!=strStrCharSize(*str);s++)
 				strCharDestroy(&str[0][s]);
@@ -38,6 +41,7 @@ static __thread struct asmFileSet {
 		FILE *initSymbolsTmpFile;
 		FILE *codeTmpFile;;
 		long labelCount;
+		mapAddrMode strings;
 		strChar funcName;
 		struct asmFileSet *parent;
 } *currentFileSet=NULL;
@@ -677,10 +681,21 @@ void X86EmitAsmComment(const char *text) {
 		fprintf(currentFileSet->codeTmpFile, " ;%s\n", text);
 }
 struct X86AddressingMode *X86EmitAsmStrLit(const char *text,long size) {
-		strChar unes CLEANUP(strCharDestroy) = dumpStrLit(text,size);
+		char *unes CLEANUP(free2)=escapeString((char*)text,size);
+		__auto_type find=mapAddrModeGet(currentFileSet->strings,unes);
+		if(find) {
+				return X86AddrModeClone(*find);
+		}
+		
+		strChar unes2 CLEANUP(strCharDestroy) = dumpStrLit(text,size);
 		char *buffer CLEANUP(free2)=fromFmt( "%s_STR_%li", currentFileSet->funcName,++currentFileSet->labelCount);
-	fprintf(currentFileSet->constsTmpFile, "%s: DB %s\n", buffer, unes);
-	return X86AddrModeLabel(buffer);
+	fprintf(currentFileSet->constsTmpFile, "%s: DB %s\n", buffer, unes2);
+
+	__auto_type retVal=X86AddrModeLabel(buffer);
+	retVal->valueType=objectPtrCreate(&typeU8i);
+	mapAddrModeInsert(currentFileSet->strings, unes,X86AddrModeClone(retVal));
+
+	return retVal;
 }
 static strChar file2Str(FILE *f) {
 	fseek(f, 0, SEEK_END);
@@ -691,7 +706,6 @@ static strChar file2Str(FILE *f) {
 	fread(retVal, end - start, 1, f);
 	return retVal;
 }
-#include "escaper.h"
 void X86EmitAsmAddCachedFuncIfExists(const char *funcName,int *success) {
 		//
 		char *buffer CLEANUP(free2) =fromFmt("%s/%s.s", cacheDirLocation,funcName);
@@ -718,7 +732,7 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 				const char *fmt="%s";
 				char *buffer CLEANUP(free2)=fromFmt(fmt, fn);
 				
-				char *escaped=escapeString(buffer);
+				char *escaped=escapeString(buffer,strlen(buffer));
 				fprintf(writeTo, "%%include \"%s\"\n", escaped);
 				free(escaped);
 		}
@@ -784,6 +798,7 @@ void X86EmitAsmEnterFunc(const char *funcName) {
 		set->parent=currentFileSet;
 		set->symbolsTmpFile=tmpfile();
 		set->funcName=strClone(funcName);
+		set->strings=mapAddrModeCreate();
 		currentFileSet=set;
 }
 void X86EmitAsmLeaveFunc(const char *cacheDir) {
