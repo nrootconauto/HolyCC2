@@ -53,6 +53,7 @@ static __thread ptrMapLabelNames asmLabelNames;
 static __thread ptrMapCompiledNodes compiledNodes;
 static __thread int insertLabelsForAsmCalled = 0;
 static __thread long frameSize=0;
+static __thread int disableDebug=0;
 static void assembleInst(const char *name, strX86AddrMode args) {
 	__auto_type template  = X86OpcodeByArgs(name, args);
  	assert(template);
@@ -1460,20 +1461,25 @@ static void insertImplicitFuncs(graphNodeIR start) {
 				}
 				//Debug
 				else if(graphNodeIRValuePtr(allNodes[n])->type==IR_DEBUG) {
-						struct IRNodeDebug *dbg=(void*)graphNodeIRValuePtr(allNodes[n]);
-						__auto_type routine=includeHCRTFunc("HCC_DebugAtLine");
-						struct X86AddressingMode *dbgInfoMode CLEANUP(X86AddrModeDestroy)=X86EmitAsmStrLit(dbg->fn, strlen(dbg->fn));
-						__auto_type call=IRCreateFuncCall(IRCreateFuncRef(routine), IRCreateAddrMode(dbgInfoMode),IRCreateIntLit(dbg->line),NULL);
-						__auto_type start=IRStmtStart(call); //Start node will be created
+						if(!disableDebug) {
+								struct IRNodeDebug *dbg=(void*)graphNodeIRValuePtr(allNodes[n]);
+								__auto_type routine=includeHCRTFunc("HCC_DebugAtLine");
+								struct X86AddressingMode *dbgInfoMode CLEANUP(X86AddrModeDestroy)=X86EmitAsmStrLit(dbg->fn, strlen(dbg->fn));
+								__auto_type call=IRCreateFuncCall(IRCreateFuncRef(routine), IRCreateAddrMode(dbgInfoMode),IRCreateIntLit(dbg->line),NULL);
+								__auto_type start=IRStmtStart(call); //Start node will be created
 						
-						strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(allNodes[n]);
-						for(long i=0;i!=strGraphEdgeIRPSize(in);i++)
-								graphNodeIRConnect(graphEdgeIRIncoming(in[i]), start, *graphEdgeIRValuePtr(in[i]));
-						strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(allNodes[n]);
-						for(long o=0;o!=strGraphEdgeIRPSize(out);o++)
-								graphNodeIRConnect(call, graphEdgeIROutgoing(out[o]), *graphEdgeIRValuePtr(out[o]));
+								strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(allNodes[n]);
+								for(long i=0;i!=strGraphEdgeIRPSize(in);i++)
+										graphNodeIRConnect(graphEdgeIRIncoming(in[i]), start, *graphEdgeIRValuePtr(in[i]));
+								strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(allNodes[n]);
+								for(long o=0;o!=strGraphEdgeIRPSize(out);o++)
+										graphNodeIRConnect(call, graphEdgeIROutgoing(out[o]), *graphEdgeIRValuePtr(out[o]));
 
-						graphNodeIRKill(&allNodes[n],(void*)(IRNodeDestroy), NULL);
+								graphNodeIRKill(&allNodes[n],(void*)(IRNodeDestroy), NULL);
+						} else {
+								strGraphNodeIRP toReplace CLEANUP(strGraphNodeIRPDestroy)=strGraphNodeIRPAppendItem(NULL, allNodes[n]);
+								graphIRReplaceNodes(toReplace, IRCreateLabel(), NULL, (void(*)(void*))IRNodeDestroy);
+						}
 				}
 		}
 } 
@@ -1503,7 +1509,9 @@ void IRCompile(graphNodeIR start, int isFunc) {
 		} else {
 				X86EmitAsmEnterFileStartCode();
 		}
-
+		disableDebug=0==strcmp(funcName, "HCC_DebugAtLine");
+	
+		
 	__auto_type originalStart = start;
 	__auto_type entry = IRCreateLabel();
 	graphNodeIRConnect(entry, start, IR_CONN_FLOW);
