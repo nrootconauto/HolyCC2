@@ -156,6 +156,8 @@ class fooP {
 						I32i a,b,c;
 } FOOP;
 I32i main() {
+					HCC_ThisFileDebugger=FileDebuggerCreate();
+					FileDebuggerBreak(HCC_ThisFileDebugger,HCC_DbgCurrentFunc,161);
 					FOOP.a=10;
 					FOOP.b=11;
 					FOOP.c=12;
