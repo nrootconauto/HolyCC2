@@ -1662,7 +1662,7 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	// This computes calling information for the ABI
 
 	char *frameLayoutJson=emitDebufferFrameLayout(localVarFrameOffsets);
-	strChar debugInfo CLEANUP(strCharDestroy)=fromFmt("{\"name\":%s,\"frameLayout\":%s}" ,funcName, frameLayoutJson);
+	strChar debugInfo CLEANUP(strCharDestroy)=fromFmt("{\"name\":\"%s\",\"frameLayout\":%s}" ,funcName, frameLayoutJson);
 	char *debugInfoStr=X86EmitAsmDebuggerInfo(debugInfo);
 	free(frameLayoutJson);
 	__auto_type olddebugInfoLab=debugInfoLab;

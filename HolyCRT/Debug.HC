@@ -28,10 +28,12 @@ CFileDebugger *FileDebuggerCreate() {
 
 														CFileDebugger *retval=malloc(sizeof(CFileDebugger));
 														retval->typeTable=typeTable;
+														retval->funcDebuggers=HashTableCreate();
 
 														U8i **list=(&HCC_DEBUG_FUNC_DATAS)(U8i**);
 														while(*list) {
 																											Print("\n\n\n%s\n\n\n",*list);
+																											Print("Toads\n");
 																											FuncDebuggerCreate(retval,*list);
 																											list++;
 														}
@@ -49,14 +51,14 @@ CFuncDebugger *FuncDebuggerCreate(CFileDebugger *file,U8i *info) {
 																		root=ParserJsonObject(info,0,NULL,NULL);
 																		framelayout=JsonNodeEntry(root->val.node,"frameLayout");
 																		if(framelayout) {
-																																		for(c=0;c!=framelayout->val.arr[c];c++) {
-																																																																										JsonNode *tmp=framelayout->val.arr[c];
-																																																																										name=JsonNodeEntry(tmp->val.node	,"name");
-																																																																										HashTableAdd(retval->varTable,tmp,name->val.str);
+																																		for(c=0;framelayout->val.arr[c];c++) {
+																																																																							JsonNode *tmp=framelayout->val.arr[c];
+																																																																							name=JsonNodeEntry(tmp->val.node	,"name");
+																																																																							HashTableAdd(retval->varTable,tmp,name->val.str);
 																																		}
 																		}
 
-																		name=JsonNodeEntry(tmp->val.node	,"name");
+																		name=JsonNodeEntry(root->val.node	,"name");
 																		if(name) funcname=name->val.str;
 																		HashTableAdd(file->funcDebuggers,retval,funcname);
 														} catch {

@@ -25,10 +25,10 @@ static strChar fromFmt(const char *fmt,...) {
 		free(retVal);
 		return str;
 }
-static strChar emitTypeRef(struct object *obj) {
+static char * emitTypeRef(struct object *obj) {
 		strChar baseType CLEANUP(strCharDestroy)=NULL;
 		long ptrLevel=0;
-		strChar retVal=NULL;
+		strChar retVal CLEANUP(strCharDestroy)=NULL;
 		for(;;) {
 				switch(obj->type) {
 				case TYPE_ARRAY:;
@@ -67,8 +67,10 @@ static strChar emitTypeRef(struct object *obj) {
 	emit:
 		retVal=fromFmt("{\n\t\"base\":\"%s\",\n",baseType);
 		retVal=strCharConcat(retVal, fromFmt("\t\"ptrLevel\":%li,\n", ptrLevel));
-		retVal=strCharConcat(retVal,fromFmt("}\n\0"));
-		return retVal;
+		retVal=strCharConcat(retVal,fromFmt("}\n"));
+		retVal=strCharAppendItem(retVal, '\0');
+		
+		return strcpy(calloc(1, strlen(retVal)+1), retVal);
 }
 STR_TYPE_DEF(struct parserVar *,PVar);
 STR_TYPE_FUNCS(struct parserVar *,PVar);
@@ -87,9 +89,9 @@ static strChar emitVarFrameOffsets(ptrMapFrameOffset offsets) {
 		strChar retVal=fromFmt("[\n");
 		for(long v=0;v!=strPVarSize(named);v++) {
 				retVal=strCharConcat(retVal, fromFmt("{\n\t\"name\":\"%s\",\n", named[v]->name));
-				strChar typeStr CLEANUP(strCharDestroy)=emitTypeRef(named[v]->type);
-				typeStr=strCharAppendItem(typeStr, '\0');
+				char *typeStr=emitTypeRef(named[v]->type);
 				retVal=strCharConcat(retVal, fromFmt("\t\"type\":%s,\n",typeStr));
+				free(typeStr);
 				retVal=strCharConcat(retVal, fromFmt("\t\"offset\":%li,\n",*ptrMapFrameOffsetGet(offsets, named[v])));
 				retVal=strCharConcat(retVal,fromFmt("},\n"));
 		}
@@ -143,9 +145,9 @@ static strChar emitDebuggerTypeDefintion(struct object *obj) {
 		for(long m=0;m!=strObjectMemberSize(members);m++) {
 				retVal=strCharConcat(retVal, fromFmt("{\n\t\"name\":\"%s\",\n",members[m].name));
 				retVal=strCharConcat(retVal, fromFmt("\t\"offset\":%li,\n",members[m].offset));
-				strChar typeStr CLEANUP(strCharDestroy)=emitTypeRef(members[m].type);
-				typeStr=strCharAppendItem(typeStr, '\0');
+				char *typeStr =emitTypeRef(members[m].type);
 				retVal=strCharConcat(retVal, fromFmt("\t\"type\":%s,\n",typeStr));
+				free(typeStr);
 				retVal=strCharConcat(retVal, fromFmt("},\n"));
 		}
 		retVal=strCharConcat(retVal, fromFmt("],\n}\n"));
@@ -181,10 +183,11 @@ char *emitDebufferFrameLayout(ptrMapFrameOffset offsets) {
 		for(long k=0;k!=size;k++) {
 				if(!keys[k]->name) continue;
 				total=strCharConcat(total, fromFmt("\t{"));
-				strChar typeRef CLEANUP(strCharDestroy)=emitTypeRef(keys[k]->type);
+				char *typeRef =emitTypeRef(keys[k]->type);
 				total=strCharConcat(total, fromFmt("\t\"name\":\"%s\",",keys[k]->name));
 				total=strCharConcat(total, fromFmt("\t\"offset\":%li,",*ptrMapFrameOffsetGet(offsets, keys[k])));
 				total=strCharConcat(total, fromFmt("\t\"type\":%s,",typeRef));
+				free(typeRef);
 				total=strCharConcat(total, fromFmt("\t},\n"));
 		}
 		total=strCharConcat(total, fromFmt("]"));

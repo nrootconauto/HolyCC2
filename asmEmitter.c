@@ -748,7 +748,7 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 		char *debugSymbolText CLEANUP(free2)=emitDebuggerTypeDefinitions();
 		
 		fprintf(writeTo, "\nSECTION .data\n");
-		strChar symsText CLEANUP(strCharDestroy)=dumpStrLit(debugSymbolText,strlen(debugSymbolText));
+		strChar symsText CLEANUP(strCharDestroy)=dumpStrLit(debugSymbolText,strlen(debugSymbolText)+1);
 		fprintf(writeTo, "HCC_DEBUG_SYMS: DB %s \n",symsText);
 		const char *ddType=(ptrSize()==4)?"DD":"DQ";
 		fprintf(writeTo, "HCC_DEBUG_FUNC_DATAS:%s ",ddType);
@@ -768,7 +768,7 @@ void X86EmitAsmEnterFileStartCode() {
 		initCodeNames=strStartCodeNameAppendItem(initCodeNames, strClone(name));
 }
 char *X86EmitAsmDebuggerInfo(char *data) {
-		strChar dumped CLEANUP(strCharDestroy)=dumpStrLit(data, strlen(data));
+		strChar dumped CLEANUP(strCharDestroy)=dumpStrLit(data, strlen(data)+1);
 		char *labNam CLEANUP(free2)=fromFmt("DBG_%ss@%li",currentFileSet->funcName,++currentFileSet->labelCount);
 		fprintf(currentFileSet->constsTmpFile, "%s:DB %s\n",labNam,dumped);
 
