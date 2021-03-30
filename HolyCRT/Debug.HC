@@ -3,11 +3,36 @@ class CFuncDebugger;
 class CFileDebugger {
 						CHashTable *typeTable; //JsonNode *
 						CHashTable *funcDebuggers; // CFuncDebugger *
+						CHashTable *fileBps; //CBreakpointsArr *
+};
+class CBreakpointsArr {
+						I32i len;
+						I32i *lines; 
 };
 class CFuncDebugger {
 						CHashTable *varTable; //JsonNode *
-						I32i lineStart,lineEnd;
 };
+U0 FileDebuggerBreak(CFileDebugger *dbg,U8i *fn,I32i line) {
+			loop:
+			CBreakpointsArr *arr=HashTableGet(dbg->fileBps,fn);
+			if(!arr) {
+												arr=malloc(sizeof(CBreakpointsArr));
+												arr->len=1;
+												arr->lines=NULL;
+												HashTableAdd(dbg->fileBps,fn,arr);
+												goto loop;
+			}
+			I32i c;
+			for(c=0;c!=arr->len;c++) {
+																												if(arr->lines[c]>line) break;
+																												if(arr->lines[c]==line) return;
+			}
+			arr->len+=1;
+			arr->lines=realloc(arr->lines,sizeof(I32i)*arr->len);
+			I32i end=arr->len-1;
+			for(;end!=c;end--) arr->lines[end]=arr->lines[end-1];
+			arr->lines[c]=line;
+}
 internal U8i HCC_DEBUG_SYMS;
 internal U8i HCC_DEBUG_FUNC_DATAS;
 #define DEBUGGER_INIT_ERR -1
@@ -120,5 +145,8 @@ U8i *DebuggerPrintVar(CFileDebugger *f,U0 *var,U8i *typeName=lastclass,I32i ptrL
 				retval=StrCat(retval,StrDupLen("}",1));
 				return retval;
 }
+static CFileDebugger *HCC_ThisFileDebugger=NULL;
 U0 HCC_DebugAtLine(U8i *fn,I32i ln) {
+			if(!HCC_ThisFileDebugger)
+			return;
 }

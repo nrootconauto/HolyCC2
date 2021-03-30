@@ -1992,6 +1992,8 @@ static void compileX87Expr(graphNodeIR node) {
 		}
 }
 static strGraphNodeIRP nextNodesToCompile(graphNodeIR node) {
+		if(!node) return NULL;
+		
 	strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy) = graphNodeIROutgoing(node);
 	strGraphNodeIRP retVal = NULL;
 	for (long e = 0; e != strGraphEdgeIRPSize(out); e++)

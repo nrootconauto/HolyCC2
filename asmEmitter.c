@@ -334,6 +334,22 @@ static void X86EmitSymbolTable(FILE *dumpTo) {
 static strChar emitMode(struct X86AddressingMode **args, long i) {
 	switch (args[i]->type) {
 	case X86ADDRMODE_SIZEOF: {
+			switch(args[i]->value.objSizeof->type) {
+			case TYPE_U0:
+			case TYPE_U8i:
+			case TYPE_U16i:
+			case TYPE_U32i:
+			case TYPE_U64i:
+			case TYPE_I8i:
+			case TYPE_I16i:
+			case TYPE_I32i:
+			case TYPE_I64i:
+			case TYPE_Bool: {
+					char *str CLEANUP(free2)= fromFmt("%li", objectSize(args[i]->value.objSizeof, NULL));
+					return strClone(str);
+			}
+			default:;
+			}
 			char *szofStr CLEANUP(free2)=sizeofName(args[i]->value.objSizeof);
 			return  strClone(szofStr);
 			break;
