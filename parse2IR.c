@@ -1011,7 +1011,7 @@ static struct enterExit varDecl2IR(const struct parserNode *node) {
 }
 static struct enterExit __parserNode2IRStmt(const struct parserNode *node) {
 		__auto_type retVal = __parserNode2IRNoStmt(node);
-	return retVal;
+ 	return retVal;
 }
 static void debugShowGraphIR(graphNodeIR enter) {
 		const char *name = tmpnam(NULL);

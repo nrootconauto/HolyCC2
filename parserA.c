@@ -470,7 +470,7 @@ success:
 }
 struct parserNode *parseExpression(llLexerItem start, llLexerItem end, llLexerItem *result) {
 	__auto_type res = precCommaRecur(start, end, result);
-	if (res)
+	if (res!=0)
 		assignTypeToOp(res);
 
 	return res;

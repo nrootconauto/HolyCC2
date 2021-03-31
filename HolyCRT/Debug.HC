@@ -3,11 +3,7 @@ class CFuncDebugger;
 class CFileDebugger {
 						CHashTable *typeTable; //JsonNode *
 						CHashTable *funcDebuggers; // CFuncDebugger *
-						CHashTable *fileBps; //CBreakpointsArr *
-};
-class CBreakpointsArr {
-						I32i len;
-						I32i *lines; 
+						JsonNode *bpData;
 };
 class CFuncDebugger {
 						CHashTable *varTable; //JsonNode *
@@ -21,8 +17,7 @@ internal U8i HCC_DEBUG_BREAKPOINTS_ARRAY;
 CFuncDebugger *FuncDebuggerCreate(CFileDebugger *file,U8i *info);
 CFileDebugger *FileDebuggerCreate() {
 														printf("%s",&HCC_DEBUG_BREAKPOINTS_INFO);
-														JsonNode *parse0=ParserJsonObject(&HCC_DEBUG_BREAKPOINTS_INFO,0,NULL,NULL);
-														JsonNodePrint(parse0);
+														JsonNode *bps=ParserJsonObject(&HCC_DEBUG_BREAKPOINTS_INFO,0,NULL,NULL);
 														JsonNode *parse=ParserJsonObject(&HCC_DEBUG_SYMS,0,NULL,NULL);
 														JsonNodePrint(parse);
 														JsonNode *types=JsonNodeEntry(parse->val.node,"Types");
@@ -38,8 +33,8 @@ CFileDebugger *FileDebuggerCreate() {
 														CFileDebugger *retval=malloc(sizeof(CFileDebugger));
 														retval->typeTable=typeTable;
 														retval->funcDebuggers=HashTableCreate();
-														retval->fileBps=HashTableCreate();
-
+														retval->bpData=bps;
+														
 														U8i **list=(&HCC_DEBUG_FUNC_DATAS)(U8i**);
 														while(*list) {
 																											FuncDebuggerCreate(retval,*list);
@@ -133,48 +128,42 @@ static U8i *HCC_DbgCurrentFunc=NULL;
 U0 FileDebuggerBreak(CFileDebugger *dbg,U8i *fn,I32i line) {
 			if(!fn) fn=HCC_DbgCurrentFunc;
 			loop:
-			CBreakpointsArr *arr=HashTableGet(dbg->fileBps,fn);
-			if(!arr) {
-												arr=malloc(sizeof(CBreakpointsArr));
-												arr->len=0;
-												arr->lines=NULL;
-												HashTableAdd(dbg->fileBps,arr,fn);
-												goto loop;
+			JsonNode *bps=JsonNodeEntry(HCC_ThisFileDebugger->bpData->val.node,"breakpoints");
+			Print("bps:%p\b",bps);
+			I32i c=0;
+			JsonNode *node;
+			for(;bps->val.arr[c];c++) {
+																														node=JsonNodeEntry(bps->val.arr[c]->val.node,"filename");
+																														if(0!=StrCmp(node->val.str,fn)) goto next;
+																														node=JsonNodeEntry(bps->val.arr[c]->val.node,"lines");
+																														goto found;
+																														next:
 			}
-			I32i c;
-			for(c=0;c!=arr->len;c++) {
-																												if(arr->lines[c]>line) break;
-																												if(arr->lines[c]==line) return;
+			Print("File \"%q\" not found!!!\n",fn);
+			return;
+			found:
+			Print("node:%p\b",node);
+			I32i lastBpOff=-1; //See HCC_DEBUG_BREAKPOINTS_ARRAY
+			for(c=0;node->val.arr[c];c++) {
+																																	JsonNode *lineNode=JsonNodeEntry(node->val.arr[c]->val.node,"line");
+																																	lastBpOff=JsonNodeEntry(node->val.arr[c]->val.node,"offset")->val.sint;
+																																	if(lineNode->val.sint>=line) break;
 			}
-			arr->len+=1;
-			arr->lines=realloc(arr->lines,sizeof(I32i)*arr->len);
-			I32i end=arr->len-1;
-			for(;end>c;end--) arr->lines[end]=arr->lines[end-1];
-			arr->lines[c]=line;
+			if(lastBpOff==-1) return;
+			(&HCC_DEBUG_BREAKPOINTS_ARRAY)(U8i*)[lastBpOff]=1;
 }
 static U0 DbgEnter() {
-							
 }
 static U8i HCC_DebugAtLineDisable=0;
-U0 HCC_DebugAtLine(U8i *fn,I32i ln) {
-			return;
+U0 HCC_DebugAtLine(U8i *fn,I32i ln,I32i bpOff) {
+			if(!(&HCC_DEBUG_BREAKPOINTS_ARRAY)(U8i*)[bpOff]) return;
 			if(!HCC_ThisFileDebugger) return;
 		
 			if(HCC_DebugAtLineDisable) return;
 			U8i oldDisable=HCC_DebugAtLineDisable;
 			HCC_DebugAtLineDisable=1;
 			HCC_DbgCurrentFunc=fn;
-		
-			CBreakpointsArr *arr=HashTableGet(HCC_ThisFileDebugger->fileBps,fn);
-			if(!arr) goto ret;
-			I32i c=0;
-			for(;c!=arr->len;c++) {
-																									if(c>arr->lines[c]) goto ret;
-																									if(ln==arr->lines[c]) goto found;
-			}
-			goto ret;
-			found:
-
+			
 			Print("Hello World:%d,%d\n",c,ln);
 
 			ret:

@@ -398,8 +398,6 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 		return unop->type;
 	} else if (node->type == NODE_FUNC_CALL) {
 		struct parserNodeFuncCall *call = (void *)node;
-		if (call->type != NULL)
-			return call->type;
 
 		__auto_type funcType = assignTypeToOp(call->func);
 		if(funcType->type==TYPE_PTR)
@@ -440,8 +438,8 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 			}
 
 			// Check args
-			for (long i = 0; i != strFuncArgSize(func->args); i++) {
-				__auto_type expected = &func->args[i];
+			for (long i = 0; i != strParserNodeSize(call->args); i++) {
+					__auto_type have = assignTypeToOp(call->args[i]);
 				// If past provided args,check for defualt
 				if (strParserNodeSize(call->args) <= i&&!func->hasVarLenArgs) {
  						if (func->args[i].dftVal == NULL)
@@ -449,6 +447,8 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 						else
 								continue;
 				}
+				struct object *expected = objectPtrCreate(&typeU0);
+				if(strFuncArgSize(func->args)>i) expected=func->args[i].type;
 				if(strFuncArgSize(func->args) <= i&&!func->hasVarLenArgs) {
 						// Whine about no defualt
 						diagErrorStart(call->func->pos.start, call->func->pos.end);
@@ -476,24 +476,21 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 						goto callFail;
 					}
 				}
-
-				__auto_type have = assignTypeToOp(call->args[i]);
-
 				// If both are arithmetic,can be used
-				int expectedArith = isArith(expected->type);
+				int expectedArith = isArith(expected);
 				int haveArith = isArith(have);
 				if (expectedArith && haveArith) {
 						//validatePtrPass(expected->type,call->args[i]);
 				} else if (expectedArith || haveArith) {
 					// One is arithmetic and one isn't
-					incompatTypes(call->args[i], expected->type);
+					incompatTypes(call->args[i], expected);
 					noteItem(call->func);
 
 					goto callFail;
 				} else {
 					// Both are non-arithmetic(class/union),so check if types are equal
-					if (!objectEqual(expected->type, assignTypeToOp(call->args[i]))) {
-						incompatTypes(call->args[i], expected->type);
+					if (!objectEqual(expected, assignTypeToOp(call->args[i]))) {
+						incompatTypes(call->args[i], expected);
 						noteItem(call->func);
 
 						goto callFail;
@@ -509,7 +506,10 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 			call->type = func->retType;
 			return func->retType;
 		}
-
+		
+		if (call->type != NULL)
+			return call->type;
+		
 	} else if (node->type == NODE_TYPE_CAST) {
 		struct parserNodeTypeCast *cast = (void *)node;
 		if (!isArith(cast->type)) {
