@@ -98,6 +98,7 @@ static U8i *JsonParseString(U8i *str,U8i **end) {
 							U8i startChr=*str;
 							I32i run=0;
 							I32i index=-1;
+							I32i chrCount=0;
 							loop:
 							if(run) index+=1;
 							str+=1;
@@ -138,14 +139,18 @@ static U8i *JsonParseString(U8i *str,U8i **end) {
 																												break;
 																							}					
 																						}
+																						if(run) retVal[index]=toAddChr;
+																						chrCount++;
+																						goto loop;
 							} else if(*str==startChr) {
 									if(!run) {
-											retVal=malloc(str-originalStr+1-1);
-											retVal[str-originalStr-1]=0;
+											retVal=malloc(chrCount+1);
+											retVal[chrCount]=0;
 											run=1;
 											
 											if(end) *end=str+1;
 
+											chrCount=0;
 											str=originalStr;
 											goto loop;
 									} else {
@@ -158,6 +163,7 @@ static U8i *JsonParseString(U8i *str,U8i **end) {
 							if(run) {
 															retVal[index]=toAddChr;
 							}
+							chrCount++;
 							goto loop;
 							end:
 

@@ -168,10 +168,9 @@ I32i main() {
 					Print("%d\n",(PTR+0)->a);
 					Print("%d\n",PTR.a);
 I32i end;
-					ParserJsonLiteral("123",0,NULL,&end);
+					ParserJsonLiteral("\"123\"",0,NULL,&end);
 					printf("%li\n",end);
-					U8i *str=__UnescapeStr("Hello World\n");
-					printf("%s\n",str);
+					"%q\n","2\n2";
 try {
 				throw(1);
 				} catch {
@@ -188,7 +187,7 @@ try {
 					"Hello Wolrd:%.6n\n",15.500;
 					"Hello Wolrd:%.6n\n",15.500;
 					
-					str="{'ABC':[1,\"2\\n2\",3],abc:{b:1,},}";
+					U8i *str="{'ABC':[1,\"2\\n2\",3],abc:{b:1,},}";
 					JsonNode *node=ParserJsonLiteral(str,0,&end,NULL);
 					JsonNodePrint(node);
 					printf("%li\n",end);
