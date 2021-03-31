@@ -48,12 +48,12 @@ CKeyValPair *KeyValPairInsert(CKeyValPair *table,U8i *ptr,U8i *text) {
 
 											loop:
 											if(table==NULL) goto insert;
-											I32i cmp=StrCmp(table->text,text);
+											I32i cmp=StrCmp(text,table->text);
 											if(cmp==0) {throw(KEY_EXISTS);};
-											else if(cmp<0) {
+											else if(cmp>0) {
 																nextItem=table;
 																table=table->prev;
-											} else if(cmp>0) {
+											} else if(cmp<0) {
 											     insert:
 																CKeyValPair *next=nextItem;
 																CKeyValPair new;
@@ -103,16 +103,13 @@ U0 *KeyValPairGet(CKeyValPair *table,U8i *text) {
 			while(table->next) table=table->next;
 
 			loop:
-			I32i curLen=StrLen(table->text);
-			I32i min;
-			if(curLen>hasLen) min=hasLen; else min=curLen;
-			min+=1; //Account for NULL byte
-			I32i cmp=StrNCmp(table->text,text,min);
+			if(!table) return NULL;
+			I32i cmp=StrCmp(table->text,text);
 			if(cmp==0)  {
 															return table->ptr;
-			} else if(cmp<0) {
+			} else if(cmp>0) {
 			table=table->prev;
-			} else if(cmp>0) return NULL;
+			} else if(cmp<0) return NULL;
 			goto loop;
 }
 CHashTable *HashTableCreate() {
@@ -153,4 +150,24 @@ U0 HashTableDestroy(CHashTable *table) {
 			}
 			free(table->buckets);
 			free(table);
+}
+
+I32i HashTableSize(CHashTable *table) {
+				I32i size=0;
+				for(I32i c=0;c!=table->bucketCount;c++) {
+													size+=KeyValPairSize(table->buckets[c]);
+				}
+				return size;
+}
+U8i **HashTableKeys(CHashTable *table) {
+				U8i **keys=malloc(sizeof(I32i)*HashTableSize(table));
+				I32i i=0;
+				for(I32i b=0;b!=table->bucketCount;b++) {
+													U8i **tmp=KeyValPairKeys(table->buckets[b]);
+													for(I32i c=0;c!=KeyValPairSize(table->buckets[b]);c++,i++) {
+																						keys[i]=tmp[c];
+													}
+													free(tmp);
+				}
+				return keys;
 }

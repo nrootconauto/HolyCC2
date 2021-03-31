@@ -92,6 +92,18 @@ U8i *DebuggerPrintVar(CFileDebugger *f,U0 *var,U8i *typeName=lastclass,I32i ptrL
 				} else if(0==StrCmp(typeName,"I32i")) {
 				                               return MStrPrint("%d",*var(I32i*));
 				} else if(0==StrCmp(typeName,"U8i")) {
+																																			if(ptrLevel==1) {
+																																																			I32i strlen=1024;
+																																																			try {
+																																																							strlen=StrLen(*var(U8i**)); //Dummy run for segfualt check
+																																																			} catch {
+																																																					return MStrPrint("U8i*:UNACC");
+																																																			};
+																																																			U8i *str=StrDupLen(*var(U8i**),strlen);
+																																																			U8i *escaped=MStrPrint("\"%q\"",str);
+																																																			free(str);
+																																																			return escaped;
+																																			}						
 																																			return MStrPrint("%u",*var(U32i*));
 				} else if(0==StrCmp(typeName,"U16i")) {
 				                               return MStrPrint("%u",*var(U32i*));
@@ -190,6 +202,13 @@ static U0 DbgEnter(U8i *func,U8i *funcBp) {
 									goto ret;
 							} else if(0==StrNCmp(buffer,"p",1)) {
 									U8i *pVar=__dbgGetNextWord(buffer+1);
+									
+									I32i varCount=HashTableSize(fdbg->varTable);
+									U8i **keys=HashTableKeys(fdbg->varTable);
+									for(c=0;c!=varCount;c++) {
+																																		"%s\n",keys[c];
+									}
+
 									JsonNode *pVarNode=HashTableGet(fdbg->varTable,pVar);
 									if(!pVarNode) {
 																							Print("Var \"%s\" not found!\n",pVar);
