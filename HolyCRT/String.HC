@@ -13,6 +13,11 @@ I32i StrLen(U8i *str) {
 					}
 				return len;
 }
+U8i *StrRChr(U8i *str,U8i chr) {
+				U8i *end=str+StrLen(str);
+				for(end=end-1;end>=str;end--) if(*end==chr) return end;
+				return NULL;
+}
 U0 StrCpy(U8i *dst,U8i *src) {
 			I32i len=StrLen(src);
 			dst[len]='\0';

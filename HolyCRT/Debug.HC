@@ -165,6 +165,53 @@ U8i *DebuggerPrintVar(CFileDebugger *f,U0 *var,U8i *typeName=lastclass,I32i ptrL
 }
 static CFileDebugger *HCC_ThisFileDebugger=NULL;
 static U8i *HCC_DbgCurrentFunc=NULL; 
+static I32i LinumFromLoc(U8i *loc,U8i **end) {
+							I32i pos=StrLen(loc)-1;
+							for(;pos>=0;pos--) {
+																										if('9'>=loc[pos]>='0') ; else break; 
+							}
+							if(pos==-1) return -1;
+							if(loc[pos]!=':') return -1;
+							I32i ln=Str2I32i(&loc[pos+1]);
+							if(end) *end=&loc[pos];
+							return ln;
+}
+static U8i *DbgMatchFile(U8i *fn) {
+							JsonNode *root=JsonNodeEntry(HCC_ThisFileDebugger->bpData->val.node,"breakpoints")->val.node;
+							I32i c=0,chr=0,cmp;
+							I32i *matches=malloc(0);
+							I32i matchcount=0;
+							JsonNode *filename;
+							for(;root->val.arr[c];c++) {
+																																		filename=JsonNodeEntry(root->val.arr[c]->val.node,"filename");
+																																		U8i *str=filename->val.str;
+																																		chr=StrLen(str);
+																																		loop:
+																																		U8i *res=StrRChr(&str[chr],'/');
+																																		if(!res) {chr=0;goto foundFn;}
+																																		chr=res-str;
+																																		if(chr!=0) if(str[chr-1]=='\\') { chr--;goto loop;}
+
+																																		foundFn:
+																																		if(0==StrCmp(fn,&str[chr])) {
+																																													matches=realloc(matches,matchcount*sizeof(I32i));
+																																													matches[matchCount++]=c;											
+																																		}
+				  }
+						U8i *retval=NULL;
+						if(matchcount==0) goto ret;
+						else if(matchcount==1) retval=matches[0];
+						else {
+											"Ambigious filename,canidates are:\n";
+											while(--matchcount>=0) {
+																																		filename=JsonNodeEntry(root->val.arr[matchcount]->val.node,"filename");
+																																		"%q\n",filename;
+											}
+						}	
+						ret:
+						free(matches);
+						return retval;
+}
 U0 FileDebuggerBreak(CFileDebugger *dbg,U8i *fn,I32i line) {
 			if(!fn) fn=HCC_DbgCurrentFunc;
 			loop:
@@ -207,18 +254,22 @@ static U8i *__dbgGetNextWord( U8i *buffer) {
 																		break;
 																		valid:
 							}
-							U8i *retval=malloc(c-start+1);
-							I32i off=0;
-							for(;start!=c;start++) retval[off++]=buffer[start];
-							retval[off]='\0';
-							return retval;
+							//Ensure next charactor is end or whitespace
+							if(buffer[c]=='\0'||buffer[c]==' '||buffer[c]=='\t') {
+																																								U8i *retval=malloc(c-start+1);
+																																								I32i off=0;
+																																								for(;start!=c;start++) retval[off++]=buffer[start];
+																																								retval[off]='\0';
+																																								return retval;
+							}
+							return NULL;
 }
 static U0 DbgEnter(U8i *func,U8i *funcBp) {
 							CFuncDebugger *fdbg=HashTableGet(HCC_ThisFileDebugger->funcDebuggers,func);
-
+							
 							U8i *buffer=malloc(1024);
 							I32i c,offset;
-							U8i *printed;
+							U8i *printed,*endpos,*filename;
 							
 							loop:
 							Print("BSAT >>>(%s):",func);
@@ -230,12 +281,13 @@ static U0 DbgEnter(U8i *func,U8i *funcBp) {
 																																				Print("c -- continue\n");
 																																				Print("p -- print a variable(not an expression)\n");
 																																				Print("lv -- list visible variables\n");
+																																				Print("b -- break at a function,or file location.\n");
 																																				goto loop;
 							} else if(0==StrCmp(buffer,"c")) {
 									goto ret;
 							} else if(0==StrNCmp(buffer,"p",1)) {
 									U8i *pVar=__dbgGetNextWord(buffer+1);
-
+									
 									JsonNode *pVarNode=HashTableGet(fdbg->varTable,pVar);
 									if(!pVarNode) {
 																							//Look for global
@@ -276,6 +328,23 @@ static U0 DbgEnter(U8i *func,U8i *funcBp) {
 														}
 														free(keys);
 														goto loop;
+							} else if(0==StrNCmp(buffer,"b",1)) {
+									//__dbgGetNextWord Ensures result is a word and not a combination of alnums and others(will be a function name if not NULL)
+									U8i *next=__dbgGetNextWord(buffer+1);
+									if(!next) {
+																			I32i linenum=LinumFromLoc(buffer+1,&endpos);
+																			if(linenum==-1) {
+																																			invalidLoc:
+																																			Print("Unable to make sense of provided location!!!\n");
+																			} else {
+																					*endpos='\0';
+																					filename=DbgMatchFile(buffer+1);
+																					if(!filename) goto invalidLoc;
+																					FileDebuggerBreak(HCC_ThisFileDebugger,filename,linenum);
+																					free(filename);
+																					goto loop;
+																			}
+									}
 							}
 							Print("Invalid command \"%q\"\n",buffer);
 							goto help

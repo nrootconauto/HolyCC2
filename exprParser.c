@@ -602,6 +602,7 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 			return objectPtrCreate(&typeU0);	
 	} else if (node->type == NODE_ARRAY_ACCESS) {
 		struct parserNodeArrayAccess *arrAcc = (void *)node;
+		assignTypeToOp(arrAcc->index);
 		__auto_type baseType = objectBaseType(assignTypeToOp(arrAcc->exp));
 		struct object *retVal = NULL;
 		if (baseType->type == TYPE_PTR) {
