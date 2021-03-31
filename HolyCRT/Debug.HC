@@ -199,17 +199,13 @@ static U0 DbgEnter(U8i *func,U8i *funcBp) {
 																																				Print("Commands:\n");
 																																				Print("help -- display this message\n");
 																																				Print("c -- continue\n");
+																																				Print("p -- print a variable(not an expression)\n");
+																																				Print("lv -- list visible variables\n");
 																																				goto loop;
 							} else if(0==StrCmp(buffer,"c")) {
 									goto ret;
 							} else if(0==StrNCmp(buffer,"p",1)) {
 									U8i *pVar=__dbgGetNextWord(buffer+1);
-									
-									I32i varCount=HashTableSize(fdbg->varTable);
-									U8i **keys=HashTableKeys(fdbg->varTable);
-									for(c=0;c!=varCount;c++) {
-																																		"%s\n",keys[c];
-									}
 
 									JsonNode *pVarNode=HashTableGet(fdbg->varTable,pVar);
 									if(!pVarNode) {
@@ -225,6 +221,14 @@ static U0 DbgEnter(U8i *func,U8i *funcBp) {
 									"%s:%s\n",pVar,printed;
 									free(pVar),free(printed);
 									goto loop;
+							} else if(0==StrNCmp(buffer,"lv",2)) {
+														I32i varCount=HashTableSize(fdbg->varTable);
+														U8i **keys=HashTableKeys(fdbg->varTable);
+														for(c=0;c!=varCount;c++) {
+																																							"%s\n",keys[c];
+														}
+														free(keys);
+														goto loop;
 							}
 							Print("Invalid command \"%q\"\n",buffer);
 							goto help

@@ -67,6 +67,8 @@ static strParserNode parseFile(const char *fn,strFileMappings *fMappings2) {
 		return NULL;
 }
 void compileFile(const char *fn, const char *dumpTo) {
+		//Move symbols from previous compile to extern
+		parserMoveGlobals2Extern();
 		X86EmitAsmInit();
 			strFileMappings fMappings = NULL;
 			strParserNode stmts CLEANUP(strParserNodeDestroy2)=parseFile(fn,&fMappings);

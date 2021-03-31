@@ -427,3 +427,17 @@ loop:;
 
 	find[0]->refs = strParserNodeAppendItem(find[0]->refs, (struct parserNode *)name);
 }
+void parserMoveGlobals2Extern() {
+		long count;
+		parserSymTableNames(NULL, &count);
+		const char *names[count];
+		parserSymTableNames(names, NULL);
+		for(long n=0;n!=count;n++) {
+				__auto_type find=parserGetGlobalSym(names[n]);
+				if(find->link.type==LINKAGE_STATIC||find->link.type==LINKAGE_INTERNAL) {
+						mapSymbolRemove(symbolTable, names[n], (void(*)(void*))parserSymbolDestroy);
+				} else if(find->link.type==LINKAGE_LOCAL||find->link.type==LINKAGE_PUBLIC) {
+						find->link.type=LINKAGE_IMPORT;
+				}
+		}
+}

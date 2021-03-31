@@ -809,6 +809,23 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 
 		long len=breakPointCount;
 		fprintf(writeTo, "SECTION .bss\nHCC_DEBUG_BREAKPOINTS_ARRAY: resb %li\n ",len);		
+
+		{
+		//(GlobalPtr,json),(GlobalPtr,json)...0
+				fprintf(writeTo, "SECTION .data\nHCC_DEBUG_GLOBALS_INFO: ");
+				long count;
+				parserSymTableNames(NULL, &count);
+				const char *names[count];
+				parserSymTableNames(names,NULL);
+				for(long k=0;k!=count;k++) {
+						__auto_type find=parserGetGlobalSym(names[k]);
+						if(!find->var) continue;
+						fprintf(writeTo, "%s %s\n", ddType,parserGetGlobalSymLinkageName(names[k]));
+						char *text CLEANUP(free2)=emitDebuggerGlobalVarInfo((char*)names[k]);
+						strChar infoStr CLEANUP(strCharDestroy)=dumpStrLit(text, strlen(text)+1);
+						fprintf(writeTo,"DB %s\n",infoStr);
+				}
+		}
 		
 		fclose(writeTo);
 }

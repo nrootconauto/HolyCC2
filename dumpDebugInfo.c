@@ -174,6 +174,14 @@ char *emitDebuggerTypeDefinitions() {
 
 		return strcpy(calloc(strlen(total)+1, 1), total);
 }
+char *emitDebuggerGlobalVarInfo(char *name) {
+		__auto_type find=parserGetGlobalSym(name);
+		if(!find->var) return NULL;
+		char *ti=emitTypeRef(find->type);
+		strChar str CLEANUP(strCharDestroy)=fromFmt("{name:\"%s\",\ntype:%s}", name,ti);
+		str=strCharAppendItem(str, '\0');
+		return strcpy(calloc(strlen(str)+1, 1), str);
+}
 char *emitDebufferFrameLayout(ptrMapFrameOffset offsets) {
 		long size=ptrMapFrameOffsetSize(offsets);
 		struct parserVar *keys[size];

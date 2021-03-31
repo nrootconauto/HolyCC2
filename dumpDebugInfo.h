@@ -5,3 +5,4 @@
 PTR_MAP_FUNCS(struct reg *, struct IRVar, IRVarByReg);
 char *emitDebuggerTypeDefinitions();
 char *emitDebufferFrameLayout(ptrMapFrameOffset offsets);
+char *emitDebuggerGlobalVarInfo(char *name);
