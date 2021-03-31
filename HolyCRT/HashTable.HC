@@ -104,7 +104,7 @@ U0 *KeyValPairGet(CKeyValPair *table,U8i *text) {
 
 			loop:
 			if(!table) return NULL;
-			I32i cmp=StrCmp(table->text,text);
+			I32i cmp=StrCmp(text,table->text);
 			if(cmp==0)  {
 															return table->ptr;
 			} else if(cmp>0) {
