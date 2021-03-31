@@ -2,6 +2,7 @@
 #include "asmEmitter.h"
 #include <assert.h>
 #include "cleanup.h"
+#include <limits.h>
 #include <ctype.h>
 #include "frameLayout.h"
 #include "opcodesParser.h"
@@ -35,6 +36,17 @@ static void strStrCharDestroy2(strStrChar *str) {
 #define OBJECT_SIZE_FMT "%s$_Size"
 static __thread strStartCodeName initCodeNames=NULL;
 static __thread strStrChar debugInfoLabels=NULL;
+static __thread long breakPointCount=0;
+STR_TYPE_DEF(long,Long);
+STR_TYPE_FUNCS(long,Long);
+#define FUNC_BREAKPOINTS_LAB_FMT "DBG_BP@%s-%li"
+struct breakPoint {
+		long line;
+		long bpOffset;
+};
+MAP_TYPE_DEF(struct breakPoint,BreakLines);
+MAP_TYPE_FUNCS(struct breakPoint,BreakLines);
+static __thread mapBreakLines breakpoints;
 static __thread struct asmFileSet {
 		FILE *constsTmpFile;
 		FILE *symbolsTmpFile;
@@ -174,6 +186,8 @@ __attribute__((constructor)) static void init() {
 	ptrMapRegNameAdd(regNames, &regX86GS, strClone("GS"));
 }
 void X86EmitAsmInit() {
+		breakPointCount=0;
+		breakpoints=mapBreakLinesCreate();
 		strStrCharDestroy2(&debugInfoLabels);
 		debugInfoLabels=NULL;
 		funcFiles=mapFuncFilesCreate();
@@ -733,6 +747,7 @@ void X86EmitAsmAddCachedFuncIfExists(const char *funcName,int *success) {
 				if(success) *success=0;
 		}
 }
+static char *createBreakPointInfo();
 void X86EmitAsm2File(const char *name,const char *cacheDir) {
 		long fCount;
 		mapFuncFilesKeys(funcFiles, NULL, &fCount);
@@ -786,6 +801,15 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 				fprintf(writeTo,"%s,",debugInfoLabels[d]);
 		}
 		fprintf(writeTo,"0 \n"); //NULL TERMINATE LIST
+		
+		char *info=createBreakPointInfo();
+		strChar infoStr CLEANUP(strCharDestroy)=dumpStrLit(info, strlen(info)+1);
+		free(info);
+		fprintf(writeTo, "\nHCC_DEBUG_BREAKPOINTS_INFO: DB %s \n",infoStr);
+
+		long len=breakPointCount;
+		fprintf(writeTo, "SECTION .bss\nHCC_HCC_DEBUG_BREAKPOINTS_ARRAY: resb %li\n ",len);		
+		
 		fclose(writeTo);
 }
 void X86EmitAsmEnterFileStartCode() {
@@ -797,11 +821,80 @@ void X86EmitAsmEnterFileStartCode() {
 		X86EmitAsmEnterFunc(name);
 		initCodeNames=strStartCodeNameAppendItem(initCodeNames, strClone(name));
 }
+struct minMax {
+		long min,max;
+};
+MAP_TYPE_DEF(struct minMax,MinMax);
+MAP_TYPE_FUNCS(struct minMax,MinMax);
+static char *createBreakPointInfo() {
+		long count;
+		mapBreakLinesKeys(breakpoints,NULL, &count);
+		const char *keys[count];
+		mapBreakLinesKeys(breakpoints,keys,NULL);
+
+		mapMinMax funcLineRanges=mapMinMaxCreate();
+		for(long k=0;k!=count;k++) {
+				//Have format file:line
+				char *last=strrchr(keys[k], ':');
+				char fn[last-keys[k]+1];
+				fn[last-keys[k]]='\0';
+				strncpy(fn, keys[k],last-keys[k]);
+
+				long line;
+				sscanf(last+1, "%li",&line) ;
+		loop:;
+				__auto_type mm=mapMinMaxGet(funcLineRanges, fn);
+				if(!mm) {
+						struct minMax tmp={INT_MAX,INT_MIN};
+						mapMinMaxInsert(funcLineRanges, fn, tmp);
+						goto loop;
+				}
+				__auto_type find= mapBreakLinesGet(breakpoints, keys[k]);
+				if(line<mm->min) mm->min=line;
+				if(line>mm->max) mm->max=line;
+		}
+
+		/*
+				{"breakpoints":[
+				[[filename]]: {
+				    "lines":[
+             ({firstlinnum:bpOffset})...(last linnum:bpOffset) //Only valid linums
+								]
+				}
+				]}
+			*/
+		strChar total CLEANUP(strCharDestroy)=NULL;
+		mapMinMaxKeys(funcLineRanges, NULL, &count);
+		const char *keys2[count];
+		mapMinMaxKeys(funcLineRanges, keys2, &count);
+		
+		for(long k=0;k!=count;k++) {
+				strChar allLines CLEANUP(strCharDestroy)=NULL;
+				__auto_type find=mapMinMaxGet(funcLineRanges, keys2[k]);
+				for(long l=find->min;l<=find->max;l++) {
+						char *fmt CLEANUP(free2)=fromFmt("%s:%li", keys2[k],l);
+						__auto_type find2=mapBreakLinesGet(breakpoints, fmt);
+						if(!find2) continue;
+						char *ln CLEANUP(free2)=fromFmt("{line:%li,offset:%li},\n",l,find2->bpOffset);
+						allLines=strCharAppendData(allLines, ln, strlen(ln));;
+				}
+				allLines=strCharAppendItem(allLines,'\0');
+
+				char *esc CLEANUP(free2)=escapeString((char*)keys2[k], strlen(keys2[k]));
+				char *json CLEANUP(free2)=fromFmt("{filename:\"%s\",\"lines\":[%s]},",esc,allLines);
+				total=strCharAppendData(total, json,strlen(json));
+		}
+		
+		mapMinMaxDestroy(funcLineRanges, NULL);
+		return fromFmt("{breakpoints:[%s]}", total);
+}
 char *X86EmitAsmDebuggerInfo(char *data) {
+		
+		
 		strChar dumped CLEANUP(strCharDestroy)=dumpStrLit(data, strlen(data)+1);
 		char *labNam CLEANUP(free2)=fromFmt("DBG_%ss@%li",currentFileSet->funcName,++currentFileSet->labelCount);
 		fprintf(currentFileSet->constsTmpFile, "%s:DB %s\n",labNam,dumped);
-
+		
 		debugInfoLabels=strStrCharAppendItem(debugInfoLabels, strClone(labNam));
 		return strcpy(calloc(strlen(labNam)+1, 1), labNam);
 }
@@ -855,4 +948,23 @@ char *X86EmitAsmUniqueLabName(const char *head) {
 		if (!head)
 		head = "";
 		return fromFmt(fmt, currentFileSet->funcName,head, ++currentFileSet->labelCount);
+}
+int longCmp(const long *a,const long *b) {
+		if(*a>*b) return 1;
+		else if(*a<*b) return -1;
+		return 0;
+}
+long X86EmitAsmBreakpoint(const char *fn,long line) {
+		char *fmt CLEANUP(free2)=fromFmt("%s:%li", fn,line);
+	loop:;
+		__auto_type find=mapBreakLinesGet(breakpoints,fmt);
+		if(!find) {
+				struct breakPoint bp;
+				bp.line=line;
+				bp.bpOffset=breakPointCount++;
+				
+				mapBreakLinesInsert(breakpoints, fmt,bp);
+				goto loop;
+		}
+		return find->bpOffset;
 }

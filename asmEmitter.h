@@ -22,3 +22,4 @@ void X86EmitAsmEnterFileStartCode();
 char *X86EmitAsmUniqueLabName(const char *head);
 void X86EmitAsmAddCachedFuncIfExists(const char *funcName,int *success);
 char *X86EmitAsmDebuggerInfo(char *data);
+long X86EmitAsmBreakpoint(const char *fn,long line);

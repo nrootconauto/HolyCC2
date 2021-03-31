@@ -1465,7 +1465,7 @@ static void insertImplicitFuncs(graphNodeIR start) {
 								struct IRNodeDebug *dbg=(void*)graphNodeIRValuePtr(allNodes[n]);
 								__auto_type routine=includeHCRTFunc("HCC_DebugAtLine");
 								struct X86AddressingMode *dbgInfoMode CLEANUP(X86AddrModeDestroy)=X86EmitAsmStrLit(dbg->fn, strlen(dbg->fn)+1);
-								__auto_type call=IRCreateFuncCall(IRCreateFuncRef(routine), IRCreateAddrMode(dbgInfoMode),IRCreateIntLit(dbg->line),NULL);
+								__auto_type call=IRCreateFuncCall(IRCreateFuncRef(routine), IRCreateAddrMode(dbgInfoMode),IRCreateIntLit(dbg->line),IRCreateIntLit(X86EmitAsmBreakpoint(dbg->fn, dbg->line)),NULL);
 								__auto_type start=IRStmtStart(call); //Start node will be created
 						
 								strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(allNodes[n]);

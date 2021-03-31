@@ -14,11 +14,17 @@ class CFuncDebugger {
 };
 internal U8i HCC_DEBUG_SYMS;
 internal U8i HCC_DEBUG_FUNC_DATAS;
+internal U8i HCC_DEBUG_BREAKPOINTS_INFO;
+internal U8i HCC_DEBUG_BREAKPOINTS_ARRAY;
 #define DEBUGGER_INIT_ERR -1
 #define DEBUGGER_TYPE_NO_EXIST -2
 CFuncDebugger *FuncDebuggerCreate(CFileDebugger *file,U8i *info);
 CFileDebugger *FileDebuggerCreate() {
+														printf("%s",&HCC_DEBUG_BREAKPOINTS_INFO);
+														JsonNode *parse0=ParserJsonObject(&HCC_DEBUG_BREAKPOINTS_INFO,0,NULL,NULL);
+														JsonNodePrint(parse0);
 														JsonNode *parse=ParserJsonObject(&HCC_DEBUG_SYMS,0,NULL,NULL);
+														JsonNodePrint(parse);
 														JsonNode *types=JsonNodeEntry(parse->val.node,"Types");
 														if(!types) throw(DEBUGGER_INIT_ERR);
 
@@ -151,6 +157,7 @@ static U0 DbgEnter() {
 }
 static U8i HCC_DebugAtLineDisable=0;
 U0 HCC_DebugAtLine(U8i *fn,I32i ln) {
+			return;
 			if(!HCC_ThisFileDebugger) return;
 		
 			if(HCC_DebugAtLineDisable) return;
