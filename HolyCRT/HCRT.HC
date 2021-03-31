@@ -157,7 +157,8 @@ class fooP {
 } FOOP;
 I32i main() {
 					HCC_ThisFileDebugger=FileDebuggerCreate();
-					//FileDebuggerBreak(HCC_ThisFileDebugger,HCC_DbgCurrentFunc,161);
+					Print("Exit\n");
+					FileDebuggerBreak(HCC_ThisFileDebugger,HCC_DbgCurrentFunc,161);
 					FOOP.b=11;
 					FOOP.c=12;
 					fooP *PTR=&FOOP;
@@ -327,7 +328,5 @@ try {
 					Print("%d\n",dec);
 					Print("%d\n",--dec);
 
-										JsonNode *lit=ParserJsonLiteral("\"CKeyValPaie\"",0,NULL,&end);
-					printf("%s\n",lit->val.str);
 					return 0;
 }

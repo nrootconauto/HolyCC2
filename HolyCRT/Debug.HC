@@ -16,10 +16,9 @@ internal U8i HCC_DEBUG_BREAKPOINTS_ARRAY;
 #define DEBUGGER_TYPE_NO_EXIST -2
 CFuncDebugger *FuncDebuggerCreate(CFileDebugger *file,U8i *info);
 CFileDebugger *FileDebuggerCreate() {
-														printf("%s",&HCC_DEBUG_BREAKPOINTS_INFO);
 														JsonNode *bps=ParserJsonObject(&HCC_DEBUG_BREAKPOINTS_INFO,0,NULL,NULL);
+														Print("%p\n",bps);
 														JsonNode *parse=ParserJsonObject(&HCC_DEBUG_SYMS,0,NULL,NULL);
-														JsonNodePrint(parse);
 														JsonNode *types=JsonNodeEntry(parse->val.node,"Types");
 														if(!types) throw(DEBUGGER_INIT_ERR);
 
@@ -129,7 +128,6 @@ U0 FileDebuggerBreak(CFileDebugger *dbg,U8i *fn,I32i line) {
 			if(!fn) fn=HCC_DbgCurrentFunc;
 			loop:
 			JsonNode *bps=JsonNodeEntry(HCC_ThisFileDebugger->bpData->val.node,"breakpoints");
-			Print("bps:%p\b",bps);
 			I32i c=0;
 			JsonNode *node;
 			for(;bps->val.arr[c];c++) {
@@ -142,7 +140,6 @@ U0 FileDebuggerBreak(CFileDebugger *dbg,U8i *fn,I32i line) {
 			Print("File \"%q\" not found!!!\n",fn);
 			return;
 			found:
-			Print("node:%p\b",node);
 			I32i lastBpOff=-1; //See HCC_DEBUG_BREAKPOINTS_ARRAY
 			for(c=0;node->val.arr[c];c++) {
 																																	JsonNode *lineNode=JsonNodeEntry(node->val.arr[c]->val.node,"line");
@@ -153,18 +150,37 @@ U0 FileDebuggerBreak(CFileDebugger *dbg,U8i *fn,I32i line) {
 			(&HCC_DEBUG_BREAKPOINTS_ARRAY)(U8i*)[lastBpOff]=1;
 }
 static U0 DbgEnter() {
+							
+							U8i *buffer=malloc(1024);
+							loop:
+							Print("BSAT >>>:");
+							gets(buffer);
+							if(0==StrCmp(buffer,"help")) {
+																																				help:
+																																				Print("Commands:\n");
+																																				Print("help -- display this message\n");
+																																				Print("c -- continue\n");
+																																				goto loop;
+							} else if(0==StrCmp(buffer,"c")) {
+									goto ret;
+							}
+							Print("Invalid command \"%q\"",buffer);
+							goto help
+							ret:
+							free(buffer);
 }
 static U8i HCC_DebugAtLineDisable=0;
 U0 HCC_DebugAtLine(U8i *fn,I32i ln,I32i bpOff) {
+			if(HCC_DebugAtLineDisable) return;
+			
+			HCC_DbgCurrentFunc=fn;
 			if(!(&HCC_DEBUG_BREAKPOINTS_ARRAY)(U8i*)[bpOff]) return;
 			if(!HCC_ThisFileDebugger) return;
 		
-			if(HCC_DebugAtLineDisable) return;
 			U8i oldDisable=HCC_DebugAtLineDisable;
 			HCC_DebugAtLineDisable=1;
-			HCC_DbgCurrentFunc=fn;
 			
-			Print("Hello World:%d\n",ln);
+			DbgEnter();
 
 			ret:
 			HCC_DebugAtLineDisable=oldDisable;
