@@ -76,6 +76,20 @@ static U8i *DebuggerPrintTypeFromJson(CFileDebugger *f,U0 *var,JsonNode *node) {
 U8i *DebuggerPrintVar(CFileDebugger *f,U0 *var,U8i *typeName=lastclass,I32i ptrLevel=0) {
 				U8i *retval=NULL;
 				if(ptrLevel) {
+																	if(ptrLevel==1&&0==StrCmp(typeName,"U8i")) {
+																																	I32i strlen=1024;
+																																	U8i **strPtr=var(U8i**);
+																																	Print("%p\n",*strPtr);
+																																	try {
+																																						strlen=StrLen(*strPtr); //Dummy run for segfualt check
+																																		} catch {
+																																				return MStrPrint("U8i*:UNACC");
+																																		};
+																																		U8i *str=StrDupLen(*strPtr,strlen);
+																																		U8i *escaped=MStrPrint("\"%q\"",str);
+																																		free(str);
+																																		return escaped;
+																	}						
 																	U8i *name=StrDupLen(typeName,StrLen(typeName));
 																	while((ptrLevel-=1)>=0) {
 																																									name=StrCat(name,StrDupLen("*",1));
@@ -86,27 +100,15 @@ U8i *DebuggerPrintVar(CFileDebugger *f,U0 *var,U8i *typeName=lastclass,I32i ptrL
 				}
 
 				if(0==StrCmp(typeName,"I8i")) {
-																																			return MStrPrint("%d",*var(I32i*));
+																																			return MStrPrint("%d",*var(I8i*));
 				} else if(0==StrCmp(typeName,"I16i")) {
-				                               return MStrPrint("%d",*var(I32i*));
+				                               return MStrPrint("%d",*var(I16i*));
 				} else if(0==StrCmp(typeName,"I32i")) {
 				                               return MStrPrint("%d",*var(I32i*));
 				} else if(0==StrCmp(typeName,"U8i")) {
-																																			if(ptrLevel==1) {
-																																																			I32i strlen=1024;
-																																																			try {
-																																																							strlen=StrLen(*var(U8i**)); //Dummy run for segfualt check
-																																																			} catch {
-																																																					return MStrPrint("U8i*:UNACC");
-																																																			};
-																																																			U8i *str=StrDupLen(*var(U8i**),strlen);
-																																																			U8i *escaped=MStrPrint("\"%q\"",str);
-																																																			free(str);
-																																																			return escaped;
-																																			}						
-																																			return MStrPrint("%u",*var(U32i*));
+																																			return MStrPrint("%u",*var(U8i*));
 				} else if(0==StrCmp(typeName,"U16i")) {
-				                               return MStrPrint("%u",*var(U32i*));
+				                               return MStrPrint("%u",*var(U16i*));
 				} else if(0==StrCmp(typeName,"U32i")) {
 				                               return MStrPrint("%u",*var(U32i*));
 				} else if(0==StrCmp(typeName,"F64")) {
@@ -219,7 +221,7 @@ static U0 DbgEnter(U8i *func,U8i *funcBp) {
 									offset=JsonNodeEntry(pVarNode->val.node,"offset")->val.sint;
 									pVarNode=JsonNodeEntry(pVarNode->val.node,"type")->val.node;
 
-									U8i *printed=DebuggerPrintTypeFromJson(HCC_ThisFileDebugger,funcBp+offset,pVarNode);
+									U8i *printed=DebuggerPrintTypeFromJson(HCC_ThisFileDebugger,funcBp-offset,pVarNode);
 									"%s:%s\n",pVar,printed;
 									free(pVar),free(printed);
 									goto loop;

@@ -2125,82 +2125,80 @@ static graphNodeIR assembleOpPtrArith(graphNodeIR start) {
 		struct X86AddressingMode *bMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(b);
 		struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(out);
 		if(graphNodeIRValuePtr(start)->type==IR_SUB) {
-				if(isPtrNode(a)&&isPtrNode(b)) {
-						//Is checking the distance in items between 2 pointers.
-						long scale=0;
-						if(aMode->valueType->type==TYPE_PTR) {
-								struct objectPtr *ptr=(void*)aMode->valueType;
-								scale=objectSize(ptr->type, NULL);
-						} else if(aMode->valueType->type==TYPE_ARRAY) {
-								struct objectArray *arr=(void*)aMode->valueType;
-								scale=objectSize(arr->type, NULL);
-						}
-						{
-								AUTO_LOCK_MODE_REGS(aMode);
-								AUTO_LOCK_MODE_REGS(bMode);
-								AUTO_LOCK_MODE_REGS(oMode);
-								struct X86AddressingMode *tmpRegMode CLEANUP(X86AddrModeDestroy)=getAccumulatorForType(getTypeForSize(ptrSize()));
-								asmAssign(start,tmpRegMode, aMode, ptrSize(), 0);
-								strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
-								addArgs=strX86AddrModeAppendItem(addArgs,X86AddrModeClone(tmpRegMode));
-								addArgs=strX86AddrModeAppendItem(addArgs,X86AddrModeClone(bMode));
-								assembleInst("SUB", addArgs);
+				//Is checking the distance in items between 2 pointers.
+				long scale=0;
+				if(aMode->valueType->type==TYPE_PTR) {
+						struct objectPtr *ptr=(void*)aMode->valueType;
+						scale=objectSize(ptr->type, NULL);
+				} else if(aMode->valueType->type==TYPE_ARRAY) {
+						struct objectArray *arr=(void*)aMode->valueType;
+						scale=objectSize(arr->type, NULL);
+				}
+				{
+						AUTO_LOCK_MODE_REGS(aMode);
+						AUTO_LOCK_MODE_REGS(bMode);
+						AUTO_LOCK_MODE_REGS(oMode);
+						struct X86AddressingMode *tmpRegMode CLEANUP(X86AddrModeDestroy)=getAccumulatorForType(getTypeForSize(ptrSize()));
+						asmAssign(start,tmpRegMode, aMode, ptrSize(), 0);
+						strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+						addArgs=strX86AddrModeAppendItem(addArgs,X86AddrModeClone(tmpRegMode));
+						addArgs=strX86AddrModeAppendItem(addArgs,X86AddrModeClone(bMode));
+						assembleInst("SUB", addArgs);
 
-								long shift=3;
-								switch(scale) {
-								case 1:
+						long shift=3;
+						switch(scale) {
+						case 1:
+								asmAssign(start,oMode, tmpRegMode, ptrSize(), 0);
+								break;
+						case 2:
+								shift=1;
+								goto shift;
+						case 4:
+								shift=2;
+								goto shift;
+						case 8:
+								shift=3;
+								goto shift;
+						shift: {
+										strX86AddrMode sarArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+										sarArgs=strX86AddrModeAppendItem(sarArgs,X86AddrModeClone(tmpRegMode));
+										sarArgs=strX86AddrModeAppendItem(sarArgs,X86AddrModeSint(shift));
+										assembleOpcode(start,"SAR",sarArgs);
 										asmAssign(start,oMode, tmpRegMode, ptrSize(), 0);
 										break;
-								case 2:
-										shift=1;
-										goto shift;
-								case 4:
-										shift=2;
-										goto shift;
-								case 8:
-										shift=3;
-										goto shift;
-								shift: {
-												strX86AddrMode sarArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
-												sarArgs=strX86AddrModeAppendItem(sarArgs,X86AddrModeClone(tmpRegMode));
-												sarArgs=strX86AddrModeAppendItem(sarArgs,X86AddrModeSint(shift));
-												assembleOpcode(start,"SAR",sarArgs);
-												asmAssign(start,oMode, tmpRegMode, ptrSize(), 0);
-												break;
-										}
-								default: {
-										__auto_type rdx=subRegOfType(&regAMD64RDX, getTypeForSize(ptrSize()));
-										//Make room for dummy value
-										pushReg(rdx);
-										pushReg(rdx);
-										//pushReg(rax); //Is accumulator
-										struct X86AddressingMode *raxMode CLEANUP(X86AddrModeDestroy)=X86AddrModeClone(tmpRegMode);
-										struct X86AddressingMode *scaleMode CLEANUP(X86AddrModeDestroy)=X86AddrModeSint(scale);
-										//rax=tmpReg
-										//tmpReg=scale
-										//IDIV tmpReg
-										//mov [ESP+2*ptrSize],rax
-										asmAssign(start,raxMode, tmpRegMode, ptrSize(), 0);
-										asmAssign(start,tmpRegMode, scaleMode, ptrSize(), 0);
-										
-										strX86AddrMode idivArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
-										idivArgs=strX86AddrModeAppendItem(idivArgs,tmpRegMode);
-										assembleInst("IDIV", idivArgs);
-
-										struct X86AddressingMode *dummyLoc CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())), X86AddrModeSint(2*ptrSize()), objectPtrCreate(&typeU0));
-										asmAssign(start,dummyLoc, raxMode, ptrSize(), 0);
-										
-										//popReg(rax); //Is accumulator
-										popReg(rdx);
-
-										//Pop dummy location
-										popMode(oMode);
-										break;
 								}
-								}
+						default: {
+								__auto_type rdx=subRegOfType(&regAMD64RDX, getTypeForSize(ptrSize()));
+								//Make room for dummy value
+								pushReg(rdx);
+								pushReg(rdx);
+								//pushReg(rax); //Is accumulator
+								struct X86AddressingMode *raxMode CLEANUP(X86AddrModeDestroy)=X86AddrModeClone(tmpRegMode);
+								struct X86AddressingMode *scaleMode CLEANUP(X86AddrModeDestroy)=X86AddrModeSint(scale);
+								//rax=tmpReg
+								//tmpReg=scale
+								//IDIV tmpReg
+								//mov [ESP+2*ptrSize],rax
+								asmAssign(start,raxMode, tmpRegMode, ptrSize(), 0);
+								asmAssign(start,tmpRegMode, scaleMode, ptrSize(), 0);
+										
+								strX86AddrMode idivArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+								idivArgs=strX86AddrModeAppendItem(idivArgs,tmpRegMode);
+								assembleInst("IDIV", idivArgs);
+
+								struct X86AddressingMode *dummyLoc CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())), X86AddrModeSint(2*ptrSize()), objectPtrCreate(&typeU0));
+								asmAssign(start,dummyLoc, raxMode, ptrSize(), 0);
+										
+								//popReg(rax); //Is accumulator
+								popReg(rdx);
+
+								//Pop dummy location
+								popMode(oMode);
+								break;
 						}
-						return out;
+						}
 				}
+				return out;
 		}
 		
 	swapLoop:;
