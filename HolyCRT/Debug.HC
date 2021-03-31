@@ -171,11 +171,11 @@ static U8i *__dbgGetNextWord( U8i *buffer) {
 							retval[off]='\0';
 							return retval;
 }
-static U0 DbgEnter(U8i *func) {
+static U0 DbgEnter(U8i *func,U8i *funcBp) {
 							CFuncDebugger *fdbg=HashTableGet(HCC_ThisFileDebugger->funcDebuggers,func);
 
 							U8i *buffer=malloc(1024);
-							I32i c;
+							I32i c,offset;
 							
 							loop:
 							Print("BSAT >>>(%s):",func);
@@ -188,7 +188,7 @@ static U0 DbgEnter(U8i *func) {
 																																				goto loop;
 							} else if(0==StrCmp(buffer,"c")) {
 									goto ret;
-							} else if(0==StrNCmp(buffer,"p")) {
+							} else if(0==StrNCmp(buffer,"p",1)) {
 									U8i *pVar=__dbgGetNextWord(buffer+1);
 									JsonNode *pVarNode=HashTableGet(fdbg->varTable,pVar);
 									if(!pVarNode) {
@@ -196,7 +196,14 @@ static U0 DbgEnter(U8i *func) {
 																							free(pVar);
 																							goto loop;
 									}
-									free(pVar);
+									Print("%p\n",funcBp);
+									offset=JsonNodeEntry(pVarNode->val.node,"offset")->val.sint;
+									pVarNode=JsonNodeEntry(pVarNode->val.node,"type")->val.node;
+
+									U8i *printed=DebuggerPrintTypeFromJson(HCC_ThisFileDebugger,funcBp+offset,pVarNode);
+									"%s:%s\n",pVar,printed;
+									free(pVar),free(printed);
+									goto loop;
 							}
 							Print("Invalid command \"%q\"\n",buffer);
 							goto help
@@ -206,7 +213,16 @@ static U0 DbgEnter(U8i *func) {
 static U8i HCC_DebugAtLineDisable=0;
 U0 HCC_DebugAtLine(U8i *fn,U8i *func,I32i ln,I32i bpOff) {
 			if(HCC_DebugAtLineDisable) return;
-			
+
+			U8i *parBP=NULL;
+			asm {
+							IMPORT parBP;
+							PUSH EDI
+							MOV EDI, [EBP]
+							MOV I32i[parBP], EDI
+							POP EDI
+			};
+
 			HCC_DbgCurrentFunc=fn;
 			if(!(&HCC_DEBUG_BREAKPOINTS_ARRAY)(U8i*)[bpOff]) return;
 			if(!HCC_ThisFileDebugger) return;
@@ -214,7 +230,7 @@ U0 HCC_DebugAtLine(U8i *fn,U8i *func,I32i ln,I32i bpOff) {
 			U8i oldDisable=HCC_DebugAtLineDisable;
 			HCC_DebugAtLineDisable=1;
 			
-			DbgEnter(func);
+			DbgEnter(func,parBP);
 
 			ret:
 			HCC_DebugAtLineDisable=oldDisable;
