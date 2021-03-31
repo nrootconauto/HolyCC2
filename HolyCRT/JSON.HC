@@ -140,8 +140,8 @@ static U8i *JsonParseString(U8i *str,U8i **end) {
 																						}
 							} else if(*str==startChr) {
 									if(!run) {
-											retVal=malloc(str-originalStr+1);
-											retVal[str-originalStr]=0;
+											retVal=malloc(str-originalStr+1-1);
+											retVal[str-originalStr-1]=0;
 											run=1;
 											
 											if(end) *end=str+1;

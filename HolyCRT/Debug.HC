@@ -164,7 +164,7 @@ U0 HCC_DebugAtLine(U8i *fn,I32i ln,I32i bpOff) {
 			HCC_DebugAtLineDisable=1;
 			HCC_DbgCurrentFunc=fn;
 			
-			Print("Hello World:%d,%d\n",c,ln);
+			Print("Hello World:%d\n",ln);
 
 			ret:
 			HCC_DebugAtLineDisable=oldDisable;

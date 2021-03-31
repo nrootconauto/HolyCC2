@@ -808,7 +808,7 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 		fprintf(writeTo, "\nHCC_DEBUG_BREAKPOINTS_INFO: DB %s \n",infoStr);
 
 		long len=breakPointCount;
-		fprintf(writeTo, "SECTION .bss\nHCC_HCC_DEBUG_BREAKPOINTS_ARRAY: resb %li\n ",len);		
+		fprintf(writeTo, "SECTION .bss\nHCC_DEBUG_BREAKPOINTS_ARRAY: resb %li\n ",len);		
 		
 		fclose(writeTo);
 }
@@ -884,7 +884,7 @@ static char *createBreakPointInfo() {
 				char *json CLEANUP(free2)=fromFmt("{filename:\"%s\",\"lines\":[%s]},",esc,allLines);
 				total=strCharAppendData(total, json,strlen(json));
 		}
-		
+		total=strCharAppendItem(total, '\0');
 		mapMinMaxDestroy(funcLineRanges, NULL);
 		return fromFmt("{breakpoints:[%s]}", total);
 }

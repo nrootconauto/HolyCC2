@@ -326,5 +326,8 @@ try {
 					Print("%d\n",dec--);
 					Print("%d\n",dec);
 					Print("%d\n",--dec);
+
+										JsonNode *lit=ParserJsonLiteral("\"CKeyValPaie\"",0,NULL,&end);
+					printf("%s\n",lit->val.str);
 					return 0;
 }
