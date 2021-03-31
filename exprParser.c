@@ -437,6 +437,26 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 				goto callFail;
 			}
 
+			if (!func->hasVarLenArgs&&strFuncArgSize(func->args) > strParserNodeSize(call->args)) {
+					int hasDfts=1;
+					for(long a=strParserNodeSize(call->args);a!=strFuncArgSize(func->args);a++) {
+							if(!func->args[a].dftVal) hasDfts=0;
+					}
+					if(!hasDfts) {
+							// Error excess args
+							diagErrorStart(call->func->pos.start, call->func->pos.end);
+
+							char buffer[1024];
+							char *name = object2Str((void *)func);
+							sprintf(buffer, "Too few args to function of type '%s'.", name);
+							diagPushText(buffer);
+							diagEndMsg();
+							noteItem(call->func);
+
+							goto callFail;
+					}
+			}
+			
 			// Check args
 			for (long i = 0; i != strParserNodeSize(call->args); i++) {
 					__auto_type have = assignTypeToOp(call->args[i]);

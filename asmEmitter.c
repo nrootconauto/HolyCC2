@@ -889,8 +889,6 @@ static char *createBreakPointInfo() {
 		return fromFmt("{breakpoints:[%s]}", total);
 }
 char *X86EmitAsmDebuggerInfo(char *data) {
-		
-		
 		strChar dumped CLEANUP(strCharDestroy)=dumpStrLit(data, strlen(data)+1);
 		char *labNam CLEANUP(free2)=fromFmt("DBG_%ss@%li",currentFileSet->funcName,++currentFileSet->labelCount);
 		fprintf(currentFileSet->constsTmpFile, "%s:DB %s\n",labNam,dumped);

@@ -54,6 +54,7 @@ static __thread ptrMapCompiledNodes compiledNodes;
 static __thread int insertLabelsForAsmCalled = 0;
 static __thread long frameSize=0;
 static __thread int disableDebug=0;
+static __thread char *functionName=NULL;
 static void assembleInst(const char *name, strX86AddrMode args) {
 	__auto_type template  = X86OpcodeByArgs(name, args);
  	assert(template);
@@ -1464,8 +1465,7 @@ static void insertImplicitFuncs(graphNodeIR start) {
 						if(!disableDebug) {
 								struct IRNodeDebug *dbg=(void*)graphNodeIRValuePtr(allNodes[n]);
 								__auto_type routine=includeHCRTFunc("HCC_DebugAtLine");
-								struct X86AddressingMode *dbgInfoMode CLEANUP(X86AddrModeDestroy)=X86EmitAsmStrLit(dbg->fn, strlen(dbg->fn)+1);
-								__auto_type call=IRCreateFuncCall(IRCreateFuncRef(routine), IRCreateAddrMode(dbgInfoMode),IRCreateIntLit(dbg->line),IRCreateIntLit(X86EmitAsmBreakpoint(dbg->fn, dbg->line)),NULL);
+								__auto_type call=IRCreateFuncCall(IRCreateFuncRef(routine), IRCreateStrLit(dbg->fn),IRCreateStrLit(functionName),IRCreateIntLit(dbg->line),IRCreateIntLit(X86EmitAsmBreakpoint(dbg->fn, dbg->line)),NULL);
 								__auto_type start=IRStmtStart(call); //Start node will be created
 						
 								strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(allNodes[n]);
@@ -1509,6 +1509,7 @@ void IRCompile(graphNodeIR start, int isFunc) {
 		} else {
 				X86EmitAsmEnterFileStartCode();
 		}
+		functionName=(char*)funcName;
 		disableDebug=0==strcmp(funcName, "HCC_DebugAtLine");
 	
 		

@@ -149,11 +149,36 @@ U0 FileDebuggerBreak(CFileDebugger *dbg,U8i *fn,I32i line) {
 			if(lastBpOff==-1) return;
 			(&HCC_DEBUG_BREAKPOINTS_ARRAY)(U8i*)[lastBpOff]=1;
 }
-static U0 DbgEnter() {
-							
+static U8i *__dbgGetNextWord( U8i *buffer) {
+							I32i c;
+							for(c=1;;c++) {
+																					if(buffer[c]==' ') goto next;
+																					if(buffer[c]=='\t') goto next;
+																					break;
+																					next:
+						 }
+							I32i start=c;
+							for(;;c++) {
+																		if('z'>=buffer[c]>='a') goto valid;
+																		if('9'>=buffer[c]>='0') goto valid;
+																		if('Z'>=buffer[c]>='A') goto valid;
+																		break;
+																		valid:
+							}
+							U8i *retval=malloc(c-start+1);
+							I32i off=0;
+							for(;start!=c;start++) retval[off++]=buffer[start];
+							retval[off]='\0';
+							return retval;
+}
+static U0 DbgEnter(U8i *func) {
+							CFuncDebugger *fdbg=HashTableGet(HCC_ThisFileDebugger->funcDebuggers,func);
+
 							U8i *buffer=malloc(1024);
+							I32i c;
+							
 							loop:
-							Print("BSAT >>>:");
+							Print("BSAT >>>(%s):",func);
 							gets(buffer);
 							if(0==StrCmp(buffer,"help")) {
 																																				help:
@@ -163,14 +188,23 @@ static U0 DbgEnter() {
 																																				goto loop;
 							} else if(0==StrCmp(buffer,"c")) {
 									goto ret;
+							} else if(0==StrNCmp(buffer,"p")) {
+									U8i *pVar=__dbgGetNextWord(buffer+1);
+									JsonNode *pVarNode=HashTableGet(fdbg->varTable,pVar);
+									if(!pVarNode) {
+																							Print("Var \"%s\" not found!\n",pVar);
+																							free(pVar);
+																							goto loop;
+									}
+									free(pVar);
 							}
-							Print("Invalid command \"%q\"",buffer);
+							Print("Invalid command \"%q\"\n",buffer);
 							goto help
 							ret:
 							free(buffer);
 }
 static U8i HCC_DebugAtLineDisable=0;
-U0 HCC_DebugAtLine(U8i *fn,I32i ln,I32i bpOff) {
+U0 HCC_DebugAtLine(U8i *fn,U8i *func,I32i ln,I32i bpOff) {
 			if(HCC_DebugAtLineDisable) return;
 			
 			HCC_DbgCurrentFunc=fn;
@@ -180,7 +214,7 @@ U0 HCC_DebugAtLine(U8i *fn,I32i ln,I32i bpOff) {
 			U8i oldDisable=HCC_DebugAtLineDisable;
 			HCC_DebugAtLineDisable=1;
 			
-			DbgEnter();
+			DbgEnter(func);
 
 			ret:
 			HCC_DebugAtLineDisable=oldDisable;
