@@ -825,6 +825,7 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 						strChar infoStr CLEANUP(strCharDestroy)=dumpStrLit(text, strlen(text)+1);
 						fprintf(writeTo,"DB %s\n",infoStr);
 				}
+				fprintf(writeTo, "%s 0\n",ddType); 
 		}
 		
 		fclose(writeTo);

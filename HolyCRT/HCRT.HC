@@ -161,7 +161,6 @@ I32i main() {
 					U8i *hello="Hello World\n";
 					hello+=1;
 					Print("%p\n",&hello);
-					FileDebuggerBreak(HCC_ThisFileDebugger,HCC_DbgCurrentFunc,164);
 					FOOP.b=11;
 					FOOP.c=12;
 					fooP *PTR=&FOOP;
@@ -330,5 +329,6 @@ try {
 					Print("%d\n",dec);
 					Print("%d\n",--dec);
 
+					FileDebuggerBreak(HCC_ThisFileDebugger,HCC_DbgCurrentFunc,333);
 					return 0;
 }

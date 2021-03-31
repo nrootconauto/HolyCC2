@@ -1,8 +1,13 @@
 extern U8i *gets(U8i *buffer);;
 class CFuncDebugger;
+class CGlobalVarInfo {
+						U0 *ptr;
+						JsonNode *info;
+};
 class CFileDebugger {
 						CHashTable *typeTable; //JsonNode *
 						CHashTable *funcDebuggers; // CFuncDebugger *
+						CHashTable *varTable; //CGlobalVarInfo *
 						JsonNode *bpData;
 };
 class CFuncDebugger {
@@ -12,6 +17,7 @@ internal U8i HCC_DEBUG_SYMS;
 internal U8i HCC_DEBUG_FUNC_DATAS;
 internal U8i HCC_DEBUG_BREAKPOINTS_INFO;
 internal U8i HCC_DEBUG_BREAKPOINTS_ARRAY;
+internal U8i HCC_DEBUG_GLOBALS_INFO;
 #define DEBUGGER_INIT_ERR -1
 #define DEBUGGER_TYPE_NO_EXIST -2
 CFuncDebugger *FuncDebuggerCreate(CFileDebugger *file,U8i *info);
@@ -29,10 +35,32 @@ CFileDebugger *FileDebuggerCreate() {
 																							HashTableAdd(typeTable,types->val.arr[i],name->val.str);
 														}
 
+														CHashTable *glbls=HashTableCreate();
+														I32i infoOff=0;
+														JsonNode *infoJson=NULL;
+														glblLoop:
+														if(*(&HCC_DEBUG_GLOBALS_INFO+infoOff)(U0**)!=0) {
+																																																															U0 *glblptr=*(&HCC_DEBUG_GLOBALS_INFO+infoOff)(U0**);
+																																																															infoOff+=sizeof(glblptr);
+
+																																																															infoJson=ParserJsonObject(&HCC_DEBUG_GLOBALS_INFO+infoOff,0,NULL,NULL);
+																																																															name=JsonNodeEntry(infoJson->val.node,"name");
+
+																																																															infoOff+=StrLen(&HCC_DEBUG_GLOBALS_INFO+infoOff)+1;
+
+																																																															CGlobalVarInfo *global=malloc(sizeof(CGlobalVarInfo));
+																																																															global->ptr=glblptr;
+																																																															global->info=infoJson;
+																																																															HashTableAdd(glbls,global,name->val.str);
+
+																																																															goto glblLoop;
+														}
+
 														CFileDebugger *retval=malloc(sizeof(CFileDebugger));
 														retval->typeTable=typeTable;
 														retval->funcDebuggers=HashTableCreate();
 														retval->bpData=bps;
+														retval->varTable=glbls;
 														
 														U8i **list=(&HCC_DEBUG_FUNC_DATAS)(U8i**);
 														while(*list) {
@@ -79,7 +107,6 @@ U8i *DebuggerPrintVar(CFileDebugger *f,U0 *var,U8i *typeName=lastclass,I32i ptrL
 																	if(ptrLevel==1&&0==StrCmp(typeName,"U8i")) {
 																																	I32i strlen=1024;
 																																	U8i **strPtr=var(U8i**);
-																																	Print("%p\n",*strPtr);
 																																	try {
 																																						strlen=StrLen(*strPtr); //Dummy run for segfualt check
 																																		} catch {
@@ -176,6 +203,7 @@ static U8i *__dbgGetNextWord( U8i *buffer) {
 																		if('z'>=buffer[c]>='a') goto valid;
 																		if('9'>=buffer[c]>='0') goto valid;
 																		if('Z'>=buffer[c]>='A') goto valid;
+																		if(buffer[c]=='_') goto valid;
 																		break;
 																		valid:
 							}
@@ -190,6 +218,7 @@ static U0 DbgEnter(U8i *func,U8i *funcBp) {
 
 							U8i *buffer=malloc(1024);
 							I32i c,offset;
+							U8i *printed;
 							
 							loop:
 							Print("BSAT >>>(%s):",func);
@@ -209,23 +238,41 @@ static U0 DbgEnter(U8i *func,U8i *funcBp) {
 
 									JsonNode *pVarNode=HashTableGet(fdbg->varTable,pVar);
 									if(!pVarNode) {
-																							Print("Var \"%s\" not found!\n",pVar);
-																							free(pVar);
+																							//Look for global
+																							CGlobalVarInfo *ginfo=HashTableGet(HCC_ThisFileDebugger->varTable,pVar);
+																							if(!ginfo) {
+																																					Print("Var \"%s\" not found!\n",pVar);
+																																					free(pVar);
+																																					goto loop;
+																							}
+
+																							pVarNode=JsonNodeEntry(ginfo->info->val.node,"type")->val.node;
+																							printed=DebuggerPrintTypeFromJson(HCC_ThisFileDebugger,ginfo->ptr,pVarNode);
+																							"%s:%s\n",pVar,printed;
+																							free(pVar),free(printed);
 																							goto loop;
 									}
 									Print("%p\n",funcBp);
 									offset=JsonNodeEntry(pVarNode->val.node,"offset")->val.sint;
 									pVarNode=JsonNodeEntry(pVarNode->val.node,"type")->val.node;
 
-									U8i *printed=DebuggerPrintTypeFromJson(HCC_ThisFileDebugger,funcBp-offset,pVarNode);
+									printed=DebuggerPrintTypeFromJson(HCC_ThisFileDebugger,funcBp-offset,pVarNode);
 									"%s:%s\n",pVar,printed;
 									free(pVar),free(printed);
 									goto loop;
 							} else if(0==StrNCmp(buffer,"lv",2)) {
 														I32i varCount=HashTableSize(fdbg->varTable);
 														U8i **keys=HashTableKeys(fdbg->varTable);
+														"=====[LOCALS]====\n";
 														for(c=0;c!=varCount;c++) {
 																																							"%s\n",keys[c];
+														}
+														free(keys);
+														"=====[GLOBALS]====\n";
+														varCount=HashTableSize(HCC_ThisFileDebugger->varTable);
+														keys=HashTableKeys(HCC_ThisFileDebugger->varTable);
+														for(c=0;c!=varCount;c++) {
+																																							if(!HashTableGet(fdbg->varTable,keys[c])) "%s\n",keys[c];
 														}
 														free(keys);
 														goto loop;
