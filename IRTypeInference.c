@@ -194,11 +194,9 @@ struct object *__IRNodeType(graphNodeIR node) {
 				int aPtr=aType->type==TYPE_PTR||aType->type==TYPE_ARRAY;
 				int bPtr=bType->type==TYPE_PTR||bType->type==TYPE_ARRAY;
 				if(aPtr&&bPtr) {
-						if(graphNodeIRValuePtr(node)->type!=IR_SUB) {
-								fputs("2 Pointer argumenrs to non \"-\".\n", stderr);
-								abort();
+						if(graphNodeIRValuePtr(node)->type==IR_SUB) {
+								return (dataSize()==4)?&typeI32i:&typeI64i;
 						}
-						return (dataSize()==4)?&typeI32i:&typeI64i;
 				}
 				return getHigherType(aType, bType);
 		}
@@ -374,9 +372,9 @@ void IRInsertImplicitTypecasts(graphNodeIR start) {
 								int aPtr=aType->type==TYPE_PTR||aType->type==TYPE_ARRAY;
 								int bPtr=bType->type==TYPE_PTR||bType->type==TYPE_ARRAY;
 								if(aPtr&&bPtr) {
-										if(graphNodeIRValuePtr(exprNodes[e])->type!=IR_SUB) {
-												fputs("2 Pointer argumenrs to non \"-\".\n", stderr);
-												abort();
+										if(graphNodeIRValuePtr(exprNodes[e])->type==IR_SUB) {
+												toType=(dataSize()==4)?&typeI32i:&typeI64i;
+												goto end;
 										}
 										strGraphEdgeIRP inA CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_SOURCE_A);
 										strGraphEdgeIRP inB CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_SOURCE_B);

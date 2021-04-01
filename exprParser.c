@@ -196,6 +196,10 @@ static void incompatTypes(struct parserNode *node, struct object *expected) {
 	diagHighlight(node->pos.start, node->pos.end);
 	diagEndMsg();
 }
+static int isPtr(struct object *type) {
+		__auto_type base=objectBaseType(type);
+		return base->type==TYPE_PTR||base->type==TYPE_ARRAY;
+}
 struct object *assignTypeToOp(const struct parserNode *node) {
 
 		if(node->type == NODE_NAME) {
@@ -286,7 +290,7 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 
 		__auto_type aType = assignTypeToOp(binop->a);
 		__auto_type bType = assignTypeToOp(binop->b);
-
+		
 		int aArih = isArith(aType);
 		int bArih = isArith(bType);
 		if (aArih && bArih) {

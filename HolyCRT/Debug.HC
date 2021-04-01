@@ -179,24 +179,44 @@ static I32i LinumFromLoc(U8i *loc,U8i **end) {
 static U8i *DbgMatchFile(U8i *fn) {
 							JsonNode *root=JsonNodeEntry(HCC_ThisFileDebugger->bpData->val.node,"breakpoints")->val.node;
 							I32i c=0,chr=0,cmp;
+							U8i *res;
+
+							I32i dircount=0;
+							for(c=0;;) {
+															res=StrChr(&fn[c],'/');
+															if(!res) break;
+															c=res+1-fn;
+															if(res!=fn) {
+																												if(fn[res-1]=='\\') goto next;
+															}
+															dircount++;
+															next:
+							}
+
 							I32i *matches=malloc(0);
 							I32i matchcount=0;
 							JsonNode *filename;
-							for(;root->val.arr[c];c++) {
+							I32i curdircount;
+							for(curdircount=c=0;root->val.arr[c];c++) {
 																																		filename=JsonNodeEntry(root->val.arr[c]->val.node,"filename");
 																																		U8i *str=filename->val.str;
 																																		chr=StrLen(str);
+
 																																		loop:
-																																		U8i *res=StrRChr(&str[chr],'/');
-																																		if(!res) {chr=0;goto foundFn;}
+																																		res=StrRChr(&str[chr],'/');
+																																		if(!res) {chr=0;goto foundFn;} else {
+																																											curdircount++;
+																																		}
 																																		chr=res-str;
 																																		if(chr!=0) if(str[chr-1]=='\\') { chr--;goto loop;}
 
 																																		foundFn:
-																																		"%s\n",&str[chr];
-																																		if(0==StrCmp(fn,&str[chr])) {
-																																													matches=realloc(matches,matchcount*sizeof(I32i));
-																																													matches[matchcount++]=c;											
+																																		if(curdircount>=dircount) {
+																																							"%s\n",&str[chr];
+																																							if(0==StrCmp(fn,&str[chr])) {
+																																																																			matches=realloc(matches,matchcount*sizeof(I32i));
+																																																																			matches[matchcount++]=c;											
+																																		     }
 																																		}
 				  }
 						U8i *retval=NULL;
@@ -238,14 +258,18 @@ U0 FileDebuggerBreak(CFileDebugger *dbg,U8i *fn,I32i line) {
 			if(lastBpOff==-1) return;
 			(&HCC_DEBUG_BREAKPOINTS_ARRAY)(U8i*)[lastBpOff]=1;
 }
-static U8i *__dbgGetNextWord( U8i *buffer) {
+static U8i *__dbgSkipWhitespace(U8i *buffer) {
 							I32i c;
-							for(c=1;;c++) {
+							for(c=0;;c++) {
 																					if(buffer[c]==' ') goto next;
 																					if(buffer[c]=='\t') goto next;
 																					break;
 																					next:
 						 }
+							return buffer[c];
+}
+static U8i *__dbgGetNextWord( U8i *buffer) {
+							I32i c=__dbgSkipWhitespace(buffer)-buffer;
 							I32i start=c;
 							for(;;c++) {
 																		if('z'>=buffer[c]>='a') goto valid;
@@ -335,13 +359,13 @@ static U0 DbgEnter(U8i *func,U8i *funcBp) {
 									"%p\n",next;
 									if(!next) {
 																			I32i linenum=LinumFromLoc(buffer+1,&endpos);
-																			"%d\n",linenum;
 																			if(linenum==-1) {
 																																			invalidLoc:
 																																			Print("Unable to make sense of provided location!!!\n");
 																			} else {
 																					*endpos='\0';
 																					"%s\n",buffer+1;
+																					buffer=__dbgSkipWhitespace(buffer);
 																					filename=DbgMatchFile(buffer+1);
 																					if(!filename) goto invalidLoc;
 																					FileDebuggerBreak(HCC_ThisFileDebugger,filename,linenum);
