@@ -193,9 +193,10 @@ static U8i *DbgMatchFile(U8i *fn) {
 																																		if(chr!=0) if(str[chr-1]=='\\') { chr--;goto loop;}
 
 																																		foundFn:
+																																		"%s\n",&str[chr];
 																																		if(0==StrCmp(fn,&str[chr])) {
 																																													matches=realloc(matches,matchcount*sizeof(I32i));
-																																													matches[matchCount++]=c;											
+																																													matches[matchcount++]=c;											
 																																		}
 				  }
 						U8i *retval=NULL;
@@ -331,13 +332,16 @@ static U0 DbgEnter(U8i *func,U8i *funcBp) {
 							} else if(0==StrNCmp(buffer,"b",1)) {
 									//__dbgGetNextWord Ensures result is a word and not a combination of alnums and others(will be a function name if not NULL)
 									U8i *next=__dbgGetNextWord(buffer+1);
+									"%p\n",next;
 									if(!next) {
 																			I32i linenum=LinumFromLoc(buffer+1,&endpos);
+																			"%d\n",linenum;
 																			if(linenum==-1) {
 																																			invalidLoc:
 																																			Print("Unable to make sense of provided location!!!\n");
 																			} else {
 																					*endpos='\0';
+																					"%s\n",buffer+1;
 																					filename=DbgMatchFile(buffer+1);
 																					if(!filename) goto invalidLoc;
 																					FileDebuggerBreak(HCC_ThisFileDebugger,filename,linenum);
@@ -345,6 +349,7 @@ static U0 DbgEnter(U8i *func,U8i *funcBp) {
 																					goto loop;
 																			}
 									}
+									"Here:\n";
 							}
 							Print("Invalid command \"%q\"\n",buffer);
 							goto help
