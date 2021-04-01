@@ -177,7 +177,7 @@ static I32i LinumFromLoc(U8i *loc,U8i **end) {
 							return ln;
 }
 static U8i *DbgMatchFile(U8i *fn) {
-							JsonNode *root=JsonNodeEntry(HCC_ThisFileDebugger->bpData->val.node,"breakpoints")->val.node;
+							JsonNode *root=JsonNodeEntry(HCC_ThisFileDebugger->bpData->val.node,"breakpoints");
 							I32i c=0,chr=0,cmp;
 							U8i *res;
 
@@ -192,43 +192,48 @@ static U8i *DbgMatchFile(U8i *fn) {
 															dircount++;
 															next:
 							}
-
 							I32i *matches=malloc(0);
 							I32i matchcount=0;
 							JsonNode *filename;
-							I32i curdircount;
+							I32i curdircount=0;
 							for(curdircount=c=0;root->val.arr[c];c++) {
+																																		curdircount=0;
 																																		filename=JsonNodeEntry(root->val.arr[c]->val.node,"filename");
 																																		U8i *str=filename->val.str;
 																																		chr=StrLen(str);
 
 																																		loop:
-																																		res=StrRChr(&str[chr],'/');
-																																		if(!res) {chr=0;goto foundFn;} else {
-																																											curdircount++;
+																																		for(;chr>=0;chr--) {
+																																																					if(str[chr]=='/') break;
 																																		}
-																																		chr=res-str;
 																																		if(chr!=0) if(str[chr-1]=='\\') { chr--;goto loop;}
 
+																																		if(chr==-1) res=NULL; else res=&str[chr];
+																																		if(!res) {chr=0;goto foundFn;} else {
+																																											if(curdircount++==dircount) {
+																																																																							chr++; //Move past "/"
+																																																																							goto foundFn;
+																																											}
+																																											res--;
+																																		}
+																																		chr=res-str;
+
 																																		foundFn:
-																																		if(curdircount>=dircount) {
-																																							"%s\n",&str[chr];
-																																							if(0==StrCmp(fn,&str[chr])) {
-																																																																			matches=realloc(matches,matchcount*sizeof(I32i));
-																																																																			matches[matchcount++]=c;											
-																																		     }
+																																		if(0==StrCmp(fn,&str[chr])) {
+																																																														matches=realloc(matches,(matchcount+1)*sizeof(I32i));
+																																																														matches[matchcount++]=c;
 																																		}
 				  }
 						U8i *retval=NULL;
 						if(matchcount==0) goto ret;
-						else if(matchcount==1) retval=matches[0];
+						else if(matchcount==1) retval=JsonNodeEntry(root->val.arr[matches[0]]->val.node,"filename")->val.str;
 						else {
 											"Ambigious filename,canidates are:\n";
 											while(--matchcount>=0) {
 																																		filename=JsonNodeEntry(root->val.arr[matchcount]->val.node,"filename");
 																																		"%q\n",filename;
 											}
-						}	
+						}
 						ret:
 						free(matches);
 						return retval;
@@ -266,7 +271,7 @@ static U8i *__dbgSkipWhitespace(U8i *buffer) {
 																					break;
 																					next:
 						 }
-							return buffer[c];
+							return &buffer[c];
 }
 static U8i *__dbgGetNextWord( U8i *buffer) {
 							I32i c=__dbgSkipWhitespace(buffer)-buffer;
@@ -291,8 +296,8 @@ static U8i *__dbgGetNextWord( U8i *buffer) {
 }
 static U0 DbgEnter(U8i *func,U8i *funcBp) {
 							CFuncDebugger *fdbg=HashTableGet(HCC_ThisFileDebugger->funcDebuggers,func);
-							
 							U8i *buffer=malloc(1024);
+							U8i *str;
 							I32i c,offset;
 							U8i *printed,*endpos,*filename;
 							
@@ -364,9 +369,9 @@ static U0 DbgEnter(U8i *func,U8i *funcBp) {
 																																			Print("Unable to make sense of provided location!!!\n");
 																			} else {
 																					*endpos='\0';
-																					"%s\n",buffer+1;
-																					buffer=__dbgSkipWhitespace(buffer);
-																					filename=DbgMatchFile(buffer+1);
+																					str=__dbgSkipWhitespace(buffer+1);
+																					"%s\n",buffer;
+																					filename=DbgMatchFile(str);
 																					if(!filename) goto invalidLoc;
 																					FileDebuggerBreak(HCC_ThisFileDebugger,filename,linenum);
 																					free(filename);
