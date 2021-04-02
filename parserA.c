@@ -1703,6 +1703,9 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end, int allowForw
 					fwd.base.type = NODE_CLASS_FORWARD_DECL;
 					fwd.name = nameParse(name2Pos, NULL, NULL);
 					fwd.type = forwardType;
+					fwd.base.pos.start=originalStart;
+					fwd.base.pos.end=start;
+
 					retVal = ALLOCATE(fwd);
 				} else if (un) {
 					struct parserNodeUnionFwd fwd;
@@ -1710,6 +1713,9 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end, int allowForw
 					fwd.base.type = NODE_UNION_FORWARD_DECL;
 					fwd.name = nameParse(name2Pos, NULL, NULL);;
 					fwd.type = forwardType;
+					fwd.base.pos.start=originalStart;
+					fwd.base.pos.end=start;
+					
 					retVal = ALLOCATE(fwd);
 				}
 			}
@@ -1755,6 +1761,8 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end, int allowForw
 		def.base.type = (retValObj) ? NODE_CLASS_DEF : NODE_CLASS_FORWARD_DECL;
 		def.name = refNode(name2);
 		def.type = retValObj;
+		def.base.pos.start=originalStart;
+		def.base.pos.end=start;
 
 		retVal = ALLOCATE(def);
 	} else if (un) {
@@ -1764,7 +1772,9 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end, int allowForw
 		def.base.type = (retValObj) ? NODE_UNION_DEF : NODE_UNION_FORWARD_DECL;
 		def.name = refNode(name2);
 		def.type = retValObj;
-
+		def.base.pos.start=originalStart;
+		def.base.pos.end=start;
+		
 		retVal = ALLOCATE(def);
 	}
 end:

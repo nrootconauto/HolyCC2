@@ -981,7 +981,7 @@ void X86AddrModeDestroy(struct X86AddressingMode **mode) {
 			break;
 	}
 	case X86ADDRMODE_STR:
-		free(mode[0]->value.text);
+		__vecDestroy(&mode[0]->value.text);
 		break;
 	case X86ADDRMODE_SIZEOF:
 	case X86ADDRMODE_UINT:

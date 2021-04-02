@@ -406,7 +406,7 @@ static int longCmp(const void *a,const void *b) {
 }
 static long tokOffset(llLexerItem start,llLexerItem item) {
 		long offset=0;
-		for(;start!=item;start=llLexerItemPrev(start)) offset++;
+		for(;start!=item;start=llLexerItemNext(start)) offset++;
 		return offset;
 }
 STR_TYPE_DEF(struct tokenInfo,TokenInfo);
@@ -1074,6 +1074,7 @@ void X86EmitAsmEnterFunc(struct parserFunction *func) {
 		set->labelCount=0;
 		set->parent=currentFileSet;
 		set->symbolsTmpFile=tmpfile();
+		set->token2Line=ptrMapToken2LineCreate();
 		set->func=func;
 		set->strings=mapAddrModeCreate();
 		currentFileSet=set;
@@ -1142,7 +1143,7 @@ static void __registerToken(llLexerItem token) {
 				startNode=currentFileSet->func->__cacheStartToken;
 		registerTok:;
 				const char *fn;
-				long line;
+ 				long line;
 				diagLineCol(&fn, llLexerItemValuePtr(token)->start, &line, NULL);
 				struct tokenInfo info;
 				info.ln=line;
