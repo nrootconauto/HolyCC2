@@ -45,6 +45,8 @@ STR_TYPE_DEF(long,Long);
 STR_TYPE_FUNCS(long,Long);
 #define FUNC_BREAKPOINTS_LAB_FMT_LN "DBG_BP@%s-%li$ln"
 #define FUNC_BREAKPOINTS_LAB_FMT_FN "DBG_BP@%s-%li$fn"
+#define FILE_BREAKPOINTS_MAC_FMT_BPOFF "DBG_BP@%s-%li$bp"
+
 #define OBJECT_OFFSET_FMT "%s$%s_Offset"
 #define OBJECT_SIZE_FMT "%s$_Size" 
 #define DBG_TOKEN_FILE_SUFFIX ".tokInfo"
@@ -317,9 +319,9 @@ static char *sizeofName(struct object *type) {
 		return  fromFmt(OBJECT_SIZE_FMT,name);
 }
 static void __emitFuncTokenLines(FILE *dumpTo,struct parserFunction *func,long *tokenIndexes,long len) {
-		char *fn=func->name;
+		char *funcNam=func->name;
 		long offset=0;
-				for(__auto_type item=func->__cacheStartToken;item!=func->__cacheEndToken;item=llLexerItemNext(item),offset++) {
+		for(__auto_type item=func->__cacheStartToken;item!=func->__cacheEndToken;item=llLexerItemNext(item),offset++) {
 						long line;
 						const char *fn;
 						diagLineCol(&fn, llLexerItemValuePtr(item)->start, &line, NULL);
@@ -330,11 +332,24 @@ static void __emitFuncTokenLines(FILE *dumpTo,struct parserFunction *func,long *
 								else goto next;
 						}
 						
-						char *macro1 =fromFmt("%%define " FUNC_BREAKPOINTS_LAB_FMT_LN " %li\n", fn, tokenIndexes[i], line);
+						char *macro1 =fromFmt("%%define " FUNC_BREAKPOINTS_LAB_FMT_LN " %li\n", funcNam, tokenIndexes[i], line);
 						fprintf(dumpTo, "%s", macro1);free(macro1);
 						strChar fnLab =__getFilenameLabel((char*)fn);
-						char *macro2=fromFmt("%%define " FUNC_BREAKPOINTS_LAB_FMT_FN "%s\n", fn, tokenIndexes[i], fnLab);
+						char *macro2=fromFmt("%%define " FUNC_BREAKPOINTS_LAB_FMT_FN "%s\n", funcNam, tokenIndexes[i], fnLab);
 						fprintf(dumpTo, "%s", macro2);free(macro1);strCharDestroy(&fnLab);
+
+						{
+								char *fmted CLEANUP(free2)=fromFmt("%s:%li", fn,line);
+						bpLoop:;
+								__auto_type find=mapBreakLinesGet(breakpoints,  fmted);
+								if(!find) {
+										struct breakPoint bp={line,breakPointCount++};
+										mapBreakLinesInsert(breakpoints, fmted, bp);
+										goto bpLoop;
+								}
+								char *fmted2 CLEANUP(free2)=fromFmt(FILE_BREAKPOINTS_MAC_FMT_BPOFF, funcNam,line);
+								fprintf(dumpTo, "%%define %s [HCC_DEBUG_BREAKPOINTS_ARRAY+%li]\n", fmted2,find->bpOffset);
+						}
 				next:;
 				}
 }
@@ -398,32 +413,6 @@ STR_TYPE_DEF(struct tokenInfo,TokenInfo);
 STR_TYPE_FUNCS(struct tokenInfo,TokenInfo);
 static int tokenInfoCmp(struct tokenInfo *a,struct tokenInfo *b) {
 		return longCmp(&a->tokIndex, &b->tokIndex);
-}
-static void X86EmitFuncTokenLines2Cache(long *tokenIndexes,long len,int *existsInCache) {
-		long size=ptrMapToken2LineSize(currentFileSet->token2Line);
-		llLexerItem tokensPtrs[size];
-		ptrMapToken2LineKeys(currentFileSet->token2Line, tokensPtrs);
-		strTokenInfo tokens CLEANUP(strTokenInfoDestroy)=strTokenInfoResize(NULL, size);
-
-		for(long k=0;k!=size;k++) {
-				tokens[k]=*ptrMapToken2LineGet(currentFileSet->token2Line, tokensPtrs[k]);
-		}
-		qsort(tokens, strTokenInfoSize(tokens), sizeof(*tokens), (int(*)(const void*,const void*))tokenInfoCmp);
-		
-		char *tokinfo CLEANUP(free2)=__getUpdatedTokenLinesFromCache(currentFileSet->func);
-		if(!tokinfo) {
-				char *fn CLEANUP(free2)=hashSource(currentFileSet->func->__cacheStartToken,currentFileSet->func->__cacheEndToken,currentFileSet->func->name,NULL);
-				const char *suffix=DBG_TOKEN_FILE_SUFFIX;
-				fn=realloc(fn, strlen(fn)+strlen(suffix)+1);
-				fn=strcat(fn, suffix);
-				FILE *dumpTo=fopen(fn, "r");
-				
-				strLong tIndexes CLEANUP(strLongDestroy)=strLongResize(NULL, size);
-				for(long t=0;t!=size;t++) tIndexes[t]=tokens[t].tokIndex;
-				__emitFuncTokenLines(dumpTo, currentFileSet->func, tIndexes, size);
-
-				fclose(dumpTo);
-		}
 }
 /*
 	* Emits member offsets/size macros
@@ -894,7 +883,7 @@ void X86EmitAsmAddCachedFuncIfExists(const char *funcName,int *success) {
 				if(success) *success=0;
 		}
 }
-static char *createBreakPointInfo();
+static void createBreakPointInfo(FILE *writrTo);
 void X86EmitAsm2File(const char *name,const char *cacheDir) {
 		long fCount;
 		mapFuncFilesKeys(funcFiles, NULL, &fCount);
@@ -959,11 +948,7 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 		}
 		fprintf(writeTo,"0 \n"); //NULL TERMINATE LIST
 		
-		char *info=createBreakPointInfo();
-		strChar infoStr CLEANUP(strCharDestroy)=dumpStrLit(info, strlen(info)+1);
-		free(info);
-		fprintf(writeTo, "\nHCC_DEBUG_BREAKPOINTS_INFO: DB %s \n",infoStr);
-
+		createBreakPointInfo(writeTo);
 		long len=breakPointCount;
 		fprintf(writeTo, "SECTION .bss\nHCC_DEBUG_BREAKPOINTS_ARRAY: resb %li\n ",len);		
 
@@ -1001,14 +986,14 @@ struct minMax {
 };
 MAP_TYPE_DEF(struct minMax,MinMax);
 MAP_TYPE_FUNCS(struct minMax,MinMax);
-static char *createBreakPointInfo() {
-		long count;
-		mapBreakLinesKeys(breakpoints,NULL, &count);
-		const char *keys[count];
+static void createBreakPointInfo(FILE *writeTo) {
+		long bpCount;
+		mapBreakLinesKeys(breakpoints,NULL, &bpCount);
+		const char *keys[bpCount];
 		mapBreakLinesKeys(breakpoints,keys,NULL);
 
 		mapMinMax funcLineRanges=mapMinMaxCreate();
-		for(long k=0;k!=count;k++) {
+		for(long k=0;k!=bpCount;k++) {
 				//Have format file:line
 				char *last=strrchr(keys[k], ':');
 				char fn[last-keys[k]+1];
@@ -1038,6 +1023,7 @@ static char *createBreakPointInfo() {
 				}
 				]}
 			*/
+		long count;
 		strChar total CLEANUP(strCharDestroy)=NULL;
 		mapMinMaxKeys(funcLineRanges, NULL, &count);
 		const char *keys2[count];
@@ -1061,7 +1047,12 @@ static char *createBreakPointInfo() {
 		}
 		total=strCharAppendItem(total, '\0');
 		mapMinMaxDestroy(funcLineRanges, NULL);
-		return fromFmt("{breakpoints:[%s]}", total);
+		
+		char *json CLEANUP(free2)=fromFmt("{breakpoints:[%s]}", total);
+		strChar infoStr CLEANUP(strCharDestroy)=dumpStrLit(json, strlen(json)+1);
+		fprintf(writeTo, "\nHCC_DEBUG_BREAKPOINTS_INFO: DB %s \n",infoStr);
+
+		
 }
 struct X86AddressingMode *X86EmitAsmDebuggerLine(llLexerItem item) {
 		if(!currentFileSet->func) {
@@ -1127,48 +1118,77 @@ char *X86EmitAsmUniqueLabName(const char *head) {
 		strChar funcNam CLEANUP(strCharDestroy)=getCurrFuncName();
 		return fromFmt(fmt, funcNam,head, ++currentFileSet->labelCount);
 }
-long X86EmitAsmBreakpoint(const char *fn,long line) {
-		char *fmt CLEANUP(free2)=fromFmt("%s:%li", fn,line);
-	loop:;
-		__auto_type find=mapBreakLinesGet(breakpoints,fmt);
-		if(!find) {
-				struct breakPoint bp;
-				bp.line=line;
-				bp.bpOffset=breakPointCount++;
-				
-				mapBreakLinesInsert(breakpoints, fmt,bp);
-				goto loop;
-		}
-		return find->bpOffset;
-}
 void X86EmitAsmDebuggerInfo(char *text) {
 		strChar unes CLEANUP(strCharDestroy)=dumpStrLit(text, strlen(text)+1); 
 		char *lab CLEANUP(free2)= fromFmt("DBG_INFO$%s",currentFileSet->func->name);
 		fprintf(currentFileSet->constsTmpFile,"%s: %s\n",lab,unes);
 		debugInfoLabels=strStrCharAppendItem(debugInfoLabels, strClone(lab));
+
+		if(currentFileSet->token2Line) {
+				long tokCount=ptrMapToken2LineSize(currentFileSet->token2Line);
+				llLexerItem tokens[tokCount];
+				ptrMapToken2LineKeys(currentFileSet->token2Line, tokens);
+				qsort(tokens, tokCount, sizeof(*tokens), (int(*)(const void*,const void*))tokenInfoCmp);
+				long indexes[tokCount];
+				for(long t=0;t!=tokCount;t++)
+						indexes[t]=ptrMapToken2LineGet(currentFileSet->token2Line, tokens[t])->tokIndex;
+				__emitFuncTokenLines(NULL, currentFileSet->func, indexes, tokCount);
+		}
 }
 static void __registerToken(llLexerItem token) {
 		__auto_type find=ptrMapToken2LineGet(currentFileSet->token2Line, token);
-		if(!find) {
+		llLexerItem startNode=NULL;
+		if(!find&&currentFileSet->func) {
+				startNode=currentFileSet->func->__cacheStartToken;
+		registerTok:;
 				const char *fn;
 				long line;
 				diagLineCol(&fn, llLexerItemValuePtr(token)->start, &line, NULL);
 				struct tokenInfo info;
 				info.ln=line;
-				info.tokIndex=tokOffset(currentFileSet->func->__cacheStartToken,  token);
+				info.tokIndex=tokOffset(startNode,  token);
 				info.fn=fn;
 				ptrMapToken2LineAdd(currentFileSet->token2Line, token, info);
+
+				char *bp CLEANUP(free2)=fromFmt("%s:%li", fn,line);
+				__auto_type find=mapBreakLinesGet(breakpoints, bp);
+				if(!find) {
+						struct breakPoint toIns;
+						toIns.bpOffset=breakPointCount++;
+						toIns.line=line;
+						mapBreakLinesInsert(breakpoints, bp,toIns);
+				}
+		} else if(!find&&!currentFileSet->func) {
+				startNode=llLexerItemFirst(token);
+				goto  registerTok;
 		}
 }
 struct X86AddressingMode *X86EmitAsmDebuggerTokenLine(llLexerItem token) {
 		__registerToken(token);
 		__auto_type find=ptrMapToken2LineGet(currentFileSet->token2Line, token);
-		char *fmted CLEANUP(free2)=fromFmt(FUNC_BREAKPOINTS_LAB_FMT_LN, currentFileSet->func->name,find->tokIndex);
-		return X86AddrModeMacro(fmted, dftValType());
+		if(currentFileSet->func) {
+				strChar funcNm CLEANUP(strCharDestroy)=getCurrFuncName();
+				char *fmted CLEANUP(free2)=fromFmt(FUNC_BREAKPOINTS_LAB_FMT_LN, funcNm,find->tokIndex);
+				return X86AddrModeMacro(fmted, dftValType());
+		} else {
+				return X86AddrModeSint(find->ln);
+		}
 }
 struct X86AddressingMode *X86EmitAsmDebuggerTokenFn(llLexerItem token) {
 		__registerToken(token);
 		__auto_type find=ptrMapToken2LineGet(currentFileSet->token2Line, token);
-		char *fmted CLEANUP(free2)=fromFmt(FUNC_BREAKPOINTS_LAB_FMT_FN, currentFileSet->func->name,find->tokIndex);
-		return X86AddrModeMacro(fmted, dftValType());
+		if(currentFileSet->func) {
+				strChar funcNm CLEANUP(strCharDestroy)=getCurrFuncName();
+				char *fmted CLEANUP(free2)=fromFmt(FUNC_BREAKPOINTS_LAB_FMT_FN, funcNm,find->tokIndex);
+				return X86AddrModeMacro(fmted, objectPtrCreate(&typeU8i));
+		} else {
+				return X86AddrModeStr(find->fn,strlen(find->fn)+1);
+		}
+}
+struct X86AddressingMode *X86EmitAsmDebuggerBreakpoint(llLexerItem token) {
+		__registerToken(token);
+		__auto_type find=ptrMapToken2LineGet(currentFileSet->token2Line, token);
+		strChar funcNm CLEANUP(strCharDestroy)=getCurrFuncName();
+		char *fmted CLEANUP(free2)=fromFmt(FILE_BREAKPOINTS_MAC_FMT_BPOFF, funcNm,find->tokIndex);
+		return X86AddrModeMacro(fmted, objectPtrCreate(&typeU8i));
 }

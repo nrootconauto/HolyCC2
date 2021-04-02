@@ -22,6 +22,6 @@ void X86EmitAsmEnterFileStartCode();
 char *X86EmitAsmUniqueLabName(const char *head);
 void X86EmitAsmAddCachedFuncIfExists(const char *funcName,int *success);
 void X86EmitAsmDebuggerInfo(char *item);
-long X86EmitAsmBreakpoint(const char *fn,long line);
 struct X86AddressingMode *X86EmitAsmDebuggerTokenFn(llLexerItem token);
 struct X86AddressingMode *X86EmitAsmDebuggerTokenLine(llLexerItem token);
+struct X86AddressingMode *X86EmitAsmDebuggerBreakpoint(llLexerItem token);

@@ -138,26 +138,31 @@ static struct parserNode *promoteIfNeeded(struct parserNode *node, struct object
 	return node;
 }
 static void noteItem(struct parserNode *node) {
-	if (node->type == NODE_FUNC_REF) {
-		struct parserNodeFuncRef *ref = (void *)node;
-		const struct parserFunction *func = ref->func;
-
-		__auto_type from = func->refs[0];
-		diagNoteStart(from->pos.start, from->pos.end);
-		diagPushText("Function declared here:");
-		diagHighlight(from->pos.start, from->pos.end);
-		diagEndMsg();
+		long _start,_end;
+		parserNodeStartEndPos(node->pos.start, node->pos.end, &_start, &_end);
+		if (node->type == NODE_FUNC_REF) {
+				struct parserNodeFuncRef *ref = (void *)node;
+				const struct parserFunction *func = ref->func;
+				
+				__auto_type from = func->refs[0];
+				diagNoteStart(_start, _end);
+				diagPushText("Function declared here:");
+				diagHighlight(_start, _end);
+				diagEndMsg();
 	} else if (node->type == NODE_VAR) {
 		struct parserNodeVar *var = (void *)node;
 		__auto_type from = var->var->refs[0];
 
-		diagNoteStart(from->pos.start, from->pos.end);
+		diagNoteStart(_start, _end);
 		diagPushText("Variable declared here:");
-		diagHighlight(from->pos.start, from->pos.end);
+		diagHighlight(_start, _end);
 		diagEndMsg();
 	}
 }
 static void validatePtrPass(struct object *expected,struct parserNode *node) {
+		long _start,_end;
+		parserNodeStartEndPos(node->pos.start, node->pos.end, &_start, &_end);
+		
 		__auto_type type=assignTypeToOp(node);
 		if(objectEqual(expected,objectPtrCreate(&typeU0))||objectEqual(type,objectPtrCreate(&typeU0))) {
 				if(type->type==TYPE_CLASS||type->type==TYPE_UNION)
@@ -168,7 +173,7 @@ static void validatePtrPass(struct object *expected,struct parserNode *node) {
 						int isNumeric=t==TYPE_I8i||t==TYPE_I16i||t==TYPE_I32i||t==TYPE_I64i||t==TYPE_U8i||t==TYPE_U16i||t==TYPE_U32i||t==TYPE_U64i;
 						if(!isNumeric) {
 						invalidPass:
-								diagNoteStart(node->pos.start, node->pos.end);
+								diagNoteStart(_start, _end);
 
 								char *expStr=object2Str(expected);
 								char *gotStr=object2Str(objectBaseType(type));
@@ -185,15 +190,19 @@ static void validatePtrPass(struct object *expected,struct parserNode *node) {
 		}
 }
 static void incompatTypes(struct parserNode *node, struct object *expected) {
+		long _start,_end;
+		parserNodeStartEndPos(node->pos.start, node->pos.end, &_start, &_end);
+
+		
 	char *haveName = NULL, *expectedName = NULL;
 	haveName = object2Str(assignTypeToOp(node));
 	expectedName = object2Str(expected);
 
 	char buffer[1024];
-	diagErrorStart(node->pos.start, node->pos.end);
+	diagErrorStart(_start, _end);
 	sprintf(buffer, "Incompatible types '%s' and '%s'.", haveName, expectedName);
 	diagPushText(buffer);
-	diagHighlight(node->pos.start, node->pos.end);
+	diagHighlight(_start, _end);
 	diagEndMsg();
 }
 static int isPtr(struct object *type) {
@@ -201,11 +210,13 @@ static int isPtr(struct object *type) {
 		return base->type==TYPE_PTR||base->type==TYPE_ARRAY;
 }
 struct object *assignTypeToOp(const struct parserNode *node) {
-
+		long _start,_end;
+		parserNodeStartEndPos(node->pos.start, node->pos.end, &_start, &_end);
+		
 		if(node->type == NODE_NAME) {
-				diagErrorStart(node->pos.start, node->pos.end);
+				diagErrorStart(_start, _end);
 				diagPushText("Unknown symbol ");
-				diagPushQoutedText(node->pos.start, node->pos.end);
+				diagPushQoutedText(_start, _end);
 				diagPushText(".");
 				diagEndMsg();
 		} else if (node->type == NODE_FUNC_REF) {
@@ -240,8 +251,11 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 		struct parserNodeOpTerm *op = (void *)access->op;
 		if (0 == strcmp(op->text, ".") || 0 == strcmp(op->text, "->")) {
 			if (aType->type != TYPE_PTR && 0 == strcmp(op->text, "->")) {
-				diagErrorStart(op->base.pos.start, op->base.pos.end);
-				diagPushQoutedText(access->op->pos.start, access->op->pos.end);
+					long _ostart,_oend;
+					parserNodeStartEndPos(op->base.pos.start, op->base.pos.end, &_ostart, &_oend);
+		
+				diagErrorStart(_ostart, _oend);
+				diagPushQoutedText(_ostart, _oend);
 				diagPushText(" needs a pointer operand.");
 				diagEndMsg();
 				goto fail;
@@ -254,11 +268,16 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 					aType=objectBaseType(aType);
 			if (aType->type != TYPE_CLASS && aType->type != TYPE_UNION) {
 			failMember:;
-				diagErrorStart(op->base.pos.start, op->base.pos.end);
+					long _ostart,_oend;
+					parserNodeStartEndPos(op->base.pos.start, op->base.pos.end, &_ostart, &_oend);
+		
+					diagErrorStart(_ostart,_oend);
 				diagPushText("Type ");
 				diagPushText(aType->name);
 				diagPushText(" doesn't have member ");
-				diagPushQoutedText(nm->base.pos.start, nm->base.pos.end);
+					long _nstart,_nend;
+					parserNodeStartEndPos(nm->base.pos.start, nm->base.pos.end, &_nstart, &_nend);
+				diagPushQoutedText(_nstart, _nend);
 				diagPushText(".");
 				diagEndMsg();
 				goto fail;
@@ -321,14 +340,16 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 			struct parserNodeOpTerm *op = (void *)binop->op;
 			assert(op->base.type == NODE_OP);
 
-			diagErrorStart(op->base.pos.start, op->base.pos.end);
+				long _ostart,_oend;
+					parserNodeStartEndPos(op->base.pos.start, op->base.pos.end, &_ostart, &_oend);
+			diagErrorStart(_ostart, _oend);
 			diagPushText("Invalid operands to operator ");
-			diagPushQoutedText(op->base.pos.start, op->base.pos.end);
+			diagPushQoutedText(_ostart,_oend);
 			char buffer[1024];
 			char *aName = object2Str(aType), *bName = object2Str(bType);
 			sprintf(buffer, ". Operands are type '%s' and '%s'.", aName, bName);
 			diagPushText(buffer);
-			diagHighlight(op->base.pos.start, op->base.pos.end);
+			diagHighlight(_ostart,_oend);
 			diagEndMsg();
 
 			noteItem(binop->a);
@@ -360,7 +381,7 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 					struct objectArray *arr = (void *)aType;
 					return arr->type;
 				} else {
-					diagErrorStart(node->pos.start, node->pos.end);
+					diagErrorStart(_start, _end);
 					diagPushText("Attempting to der-refference a non-pointer/array type.");
 					diagEndMsg();
 					goto fail;
@@ -376,9 +397,11 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 
 				assert(op->base.type == NODE_OP);
 
-				diagErrorStart(op->base.pos.start, op->base.pos.end);
+					long _ostart,_oend;
+					parserNodeStartEndPos(op->base.pos.start, op->base.pos.end, &_ostart, &_oend);
+				diagErrorStart(_ostart, _oend);
 				diagPushText("Invalid operands to operator.");
-				diagHighlight(op->base.pos.start, op->base.pos.end);
+				diagHighlight(_ostart,_oend);
 
 				char buffer[1024];
 				char *name = object2Str(aType);
@@ -402,18 +425,20 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 		return unop->type;
 	} else if (node->type == NODE_FUNC_CALL) {
 		struct parserNodeFuncCall *call = (void *)node;
-
+					long _cstart,_cend;
+					parserNodeStartEndPos(call->base.pos.start, call->base.pos.end, &_cstart, &_cend);
+					
 		__auto_type funcType = assignTypeToOp(call->func);
 		if(funcType->type==TYPE_PTR)
 				funcType=((struct objectPtr*)funcType)->type;
 		if (funcType->type != TYPE_FUNCTION) {
-		nonCallable:
+		nonCallable:;
 			// Isn't callable
-			diagErrorStart(call->func->pos.start, call->func->pos.end);
+					diagErrorStart(_cstart,_cend);
 			char buffer[1024];
 			char *typeName = object2Str(funcType);
 			sprintf(buffer, "Type '%s' isn't callable.", typeName);
-			diagHighlight(call->func->pos.start, call->func->pos.end);
+			diagHighlight(_cstart,_cend);
 			diagPushText(buffer);
 			diagEndMsg();
 			noteItem(call->func);
@@ -424,12 +449,13 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 			struct objectFunction *func = (void *)funcType;
 			if (!func->hasVarLenArgs&&strFuncArgSize(func->args) < strParserNodeSize(call->args)) {
 				// Error excess args
-				diagErrorStart(call->func->pos.start, call->func->pos.end);
+					diagErrorStart(_cstart,_cend);
 
 				// Get start/end of excess arguments
-				long excessS = call->args[strFuncArgSize(func->args)]->pos.start;
-				long excessE = call->args[strParserNodeSize(call->args) - 1]->pos.end;
-
+					long excessS;
+					long excessE;
+					parserNodeStartEndPos(call->args[strFuncArgSize(func->args)]->pos.start, call->args[strParserNodeSize(call->args) - 1]->pos.end, &excessS, &excessE);
+				
 				char buffer[1024];
 				char *name = object2Str((void *)func);
 				sprintf(buffer, "Too many args to function of type '%s'.", name);
@@ -448,7 +474,7 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 					}
 					if(!hasDfts) {
 							// Error excess args
-							diagErrorStart(call->func->pos.start, call->func->pos.end);
+							diagErrorStart(_cstart,_cend);
 
 							char buffer[1024];
 							char *name = object2Str((void *)func);
@@ -475,7 +501,7 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 				if(strFuncArgSize(func->args)>i) expected=func->args[i].type;
 				if(strFuncArgSize(func->args) <= i&&!func->hasVarLenArgs) {
 						// Whine about no defualt
-						diagErrorStart(call->func->pos.start, call->func->pos.end);
+						diagErrorStart(_cstart,_cend);
 						char buffer[1024];
 						sprintf(buffer, "Too many aruments for function.");
 						diagPushText(buffer);
@@ -490,7 +516,7 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 					noDft:
 
 						// Whine about no defualt
-						diagErrorStart(call->func->pos.start, call->func->pos.end);
+							diagErrorStart(_cstart,_cend);
 						char buffer[1024];
 						sprintf(buffer, "No defualt value for arguement '%li'.", i);
 						diagPushText(buffer);
@@ -537,8 +563,10 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 	} else if (node->type == NODE_TYPE_CAST) {
 		struct parserNodeTypeCast *cast = (void *)node;
 		if (!isArith(cast->type)) {
+				long _cstart,_cend;
+				parserNodeStartEndPos(cast->base.pos.start, cast->base.pos.end, &_cstart, &_cend);
 			// Cant convert to non-arithmetic
-			diagErrorStart(cast->base.pos.start, cast->base.pos.end);
+			diagErrorStart(_cstart,_cend);
 			diagPushText("Can't cast to non-arithmetic type!.");
 			diagEndMsg();
 
@@ -571,7 +599,7 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 		int success;
 		objectSize(t->type, &success);
 		if (!success) {
-			diagErrorStart(node->pos.start, node->pos.end);
+				diagErrorStart(_start,_end);
 			diagPushText("Unable to detirmine size of type.");
 			diagEndMsg();
 		}
@@ -581,7 +609,7 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 		int success;
 		objectSize(assignTypeToOp(e->exp), &success);
 		if (!success) {
-			diagErrorStart(node->pos.start, node->pos.end);
+			diagErrorStart(_start,_end);
 			diagPushText("Unable to detirmine size of type.");
 			diagEndMsg();
 		}
@@ -608,7 +636,7 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 		struct parserNodeArrayAccess *arrAcc = (void *)node;
 		__auto_type indexType=assignTypeToOp(arrAcc->index);
 		if(!isArith(indexType)) {
-				diagErrorStart(arrAcc->index->pos.start, arrAcc->index->pos.end);
+				diagErrorStart(_start,_end);
 				diagPushText("Expected arithmetic type for array index.");
 				diagEndMsg();
 		}
@@ -621,7 +649,7 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 			struct objectArray *array = (void *)baseType;
 			retVal = array->type;
 		} else {
-			diagErrorStart(node->pos.start, node->pos.end);
+				diagErrorStart(_start,_end);
 			diagPushText("Attempting to der-refference a non-pointer/array type.");
 			diagEndMsg();
 			goto fail;

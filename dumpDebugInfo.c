@@ -108,20 +108,6 @@ static int longCmp(const long *a,const long *b) {
 }
 FILE *emitFuncInfo(graphNodeIR start,ptrMapFrameOffset offsets) {
 		strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIRAllNodes(start);
-		strLong breakpointLines CLEANUP(strLongDestroy)=NULL;
-		for(long n=0;n!=strGraphNodeIRPSize(allNodes);n++) {
-				if(graphNodeIRValuePtr(allNodes[n])->type!=IR_SOURCE_MAPPING) continue;
-				struct IRNodeSourceMapping *mapping=(void*)graphNodeIRValuePtr(allNodes[n]);
-
-				long line;
-				const char *fn;
-				diagLineCol(&fn, mapping->start, &line, NULL);
-				if(!strLongSortedFind(breakpointLines, line, longCmp))
-						breakpointLines=strLongSortedInsert(breakpointLines, line, longCmp);
-
-				__auto_type bp=IRCreateDebug(fn,line);
-				IRInsertAfter(allNodes[n], bp, bp, IR_CONN_FLOW);
-		}
 		strChar layoutJson CLEANUP(strCharDestroy)=emitVarFrameOffsets(offsets);
 		return NULL;
 } 
