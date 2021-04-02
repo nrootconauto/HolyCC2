@@ -43,9 +43,9 @@ static void strStrCharDestroy2(strStrChar *str) {
 }
 STR_TYPE_DEF(long,Long);
 STR_TYPE_FUNCS(long,Long);
-#define FUNC_BREAKPOINTS_LAB_FMT_LN "DBG_BP@%s-%li$ln"
-#define FUNC_BREAKPOINTS_LAB_FMT_FN "DBG_BP@%s-%li$fn"
-#define FILE_BREAKPOINTS_MAC_FMT_BPOFF "DBG_BP@%s-%li$bp"
+#define FUNC_BREAKPOINTS_LAB_FMT_LN "DBG_BP@%s_$ln%li"
+#define FUNC_BREAKPOINTS_LAB_FMT_FN "DBG_BP@%s_$fn%li"
+#define FILE_BREAKPOINTS_MAC_FMT_BPOFF "DBG_BP@%s_$bp%li"
 
 #define OBJECT_OFFSET_FMT "%s$%s_Offset"
 #define OBJECT_SIZE_FMT "%s$_Size" 
@@ -75,10 +75,24 @@ static __thread struct asmFileSet {
 		struct asmFileSet *parent;
 		ptrMapToken2Line token2Line;
 } *currentFileSet=NULL;
+long initFileNum;
+static char *fromFmt(const char *fmt,...) {
+		va_list list,list2;
+		va_start(list, fmt);
+		va_copy(list2, list);
+		long len=vsnprintf(NULL, 0, fmt, list);
+		char buffer[len+1];
+		vsprintf(buffer,fmt, list2);
+		char *retVal=strcpy(calloc( len+1, 1),buffer);
+		va_end(list);
+		va_end(list2);
+
+		return retVal;
+}
 static strChar getCurrFuncName() {
 		if(currentFileSet->func)
 				return strClone(currentFileSet->func->name);
-		return strClone("__init$$$");
+		return strClone(fromFmt("__init%li",initFileNum));
 }
 MAP_TYPE_DEF(strChar,FuncFiles);
 MAP_TYPE_FUNCS(strChar,FuncFiles);
@@ -203,19 +217,6 @@ __attribute__((constructor)) static void init() {
 	ptrMapRegNameAdd(regNames, &regX86FS, strClone("FS"));
 	ptrMapRegNameAdd(regNames, &regX86GS, strClone("GS"));
 }
-static char *fromFmt(const char *fmt,...) {
-		va_list list,list2;
-		va_start(list, fmt);
-		va_copy(list2, list);
-		long len=vsnprintf(NULL, 0, fmt, list);
-		char buffer[len+1];
-		vsprintf(buffer,fmt, list2);
-		char *retVal=strcpy(calloc( len+1, 1),buffer);
-		va_end(list);
-		va_end(list2);
-
-		return retVal;
-}
 static strChar __getFilenameLabel(char *name) {
 	loop:;
 		__auto_type find=mapFnLabelGet(filenameStrLabels, name);
@@ -319,24 +320,28 @@ static char *sizeofName(struct object *type) {
 		return  fromFmt(OBJECT_SIZE_FMT,name);
 }
 static void __emitFuncTokenLines(FILE *dumpTo,struct parserFunction *func,long *tokenIndexes,long len) {
-		char *funcNam=func->name;
+		const char *funcNam=func->name;
 		long offset=0;
-		for(__auto_type item=func->__cacheStartToken;item!=func->__cacheEndToken;item=llLexerItemNext(item),offset++) {
+		long count=0;
+		for(__auto_type item=func->__cacheStartToken;item!=func->__cacheEndToken;offset++) {
+				if(count==len) break;
+				long i;
+						for( i=0;i!=len;i++) {
+								if(offset<tokenIndexes[i]) continue;
+								else if(offset==tokenIndexes[i]) goto found;
+						}
+						item=llLexerItemNext(item);
+						goto next;
+		found:;
 						long line;
 						const char *fn;
 						diagLineCol(&fn, llLexerItemValuePtr(item)->start, &line, NULL);
-						long i;
-						for( i=0;i!=len;i++) {
-								if(offset>tokenIndexes[i]) continue;
-								else if(offset==tokenIndexes[i]) break;
-								else goto next;
-						}
 						
 						char *macro1 =fromFmt("%%define " FUNC_BREAKPOINTS_LAB_FMT_LN " %li\n", funcNam, tokenIndexes[i], line);
 						fprintf(dumpTo, "%s", macro1);free(macro1);
-						strChar fnLab =__getFilenameLabel((char*)fn);
-						char *macro2=fromFmt("%%define " FUNC_BREAKPOINTS_LAB_FMT_FN "%s\n", funcNam, tokenIndexes[i], fnLab);
-						fprintf(dumpTo, "%s", macro2);free(macro1);strCharDestroy(&fnLab);
+						strChar fnLab  =__getFilenameLabel((char*)fn);
+						char *macro2=fromFmt("%%define " FUNC_BREAKPOINTS_LAB_FMT_FN " %s\n", funcNam, tokenIndexes[i], fnLab);
+						fprintf(dumpTo, "%s", macro2);free(macro2);strCharDestroy(&fnLab);
 
 						{
 								char *fmted CLEANUP(free2)=fromFmt("%s:%li", fn,line);
@@ -350,6 +355,7 @@ static void __emitFuncTokenLines(FILE *dumpTo,struct parserFunction *func,long *
 								char *fmted2 CLEANUP(free2)=fromFmt(FILE_BREAKPOINTS_MAC_FMT_BPOFF, funcNam,line);
 								fprintf(dumpTo, "%%define %s [HCC_DEBUG_BREAKPOINTS_ARRAY+%li]\n", fmted2,find->bpOffset);
 						}
+						++count;
 				next:;
 				}
 }
@@ -365,7 +371,6 @@ static char *__getUpdatedTokenLinesFromCache(struct parserFunction *func) {
 		fn=strcat(fn, suffix);
 		
 		FILE *file =fopen(fn, "r");
-		if(!file) return NULL;
 		strLong tokenOffs CLEANUP(strLongDestroy)=NULL;
 		if(!file) {
 				fprintf(stderr, "File \"%s%s\" not found,dumping all token lines,clear your cache and recompile to generate the missing file.\n", fn,suffix);
@@ -379,23 +384,26 @@ static char *__getUpdatedTokenLinesFromCache(struct parserFunction *func) {
 		
 		char *line=__builtin_alloca(256);
 		size_t count=256;
-		while(getline(&line, &count, file)) {
+		while(-1!=getline(&line, &count, file)) {
 				count=256;
 				
 				char *find=strrchr(line, '$');
-				if(find) continue;
+				if(!find) continue;
+				if(0!=strncmp(find+1, "ln", 2)) continue;
+				
 				long tokOff;
-				sscanf(find+1, "%li", &tokOff);
+				sscanf(find+1+2, "%li", &tokOff);
 				
 				tokenOffs=strLongAppendItem(tokenOffs, tokOff);
 		}
-		__emitFuncTokenLines(dumpTo, func, tokenOffs ,  strLongSize(tokenOffs));
+ 		__emitFuncTokenLines(dumpTo, func, tokenOffs ,  strLongSize(tokenOffs));
 		fclose(file);
 
 	ret: {
 				fclose(dumpTo);
 				rename(tmp, fn);
 		}
+		printf("%s",fn);
 		return strcpy(calloc(strlen(fn)+1,1), fn);
 }
 static int longCmp(const void *a,const void *b) {
@@ -868,8 +876,9 @@ static strChar file2Str(FILE *f) {
 	long end = ftell(f);
 	fseek(f, 0, SEEK_SET);
 	long start = ftell(f);
-	strChar retVal = strCharResize(NULL, end - start);
+	strChar retVal = strCharResize(NULL, end - start+1);
 	fread(retVal, end - start, 1, f);
+	retVal[end-start]='\0';
 	return retVal;
 }
 void X86EmitAsmAddCachedFuncIfExists(const char *funcName,int *success) {
@@ -898,7 +907,9 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 		cacheDir=(!cacheDir)?cacheDirLocation:cacheDir;
 		for(long f=0;f!=fCount;f++) {
 				char *fn=*mapFuncFilesGet(funcFiles, funcs[f]);
-				__auto_type func=parserGetFuncByName(fn);
+				__auto_type func=parserGetFuncByName(funcs[f]);
+				if(!func) continue; //Init function
+				if(func->isForwardDecl) continue;
 				char *tokensFile CLEANUP(free2)=__getUpdatedTokenLinesFromCache(func);
 				char *escaped CLEANUP(free2)=escapeString(tokensFile,strlen(tokensFile));
 				fprintf(writeTo, "%%include \"%s\"\n", escaped);
@@ -910,7 +921,7 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 				char *buffer CLEANUP(free2)=fromFmt(fmt, fn);
 				
 				char *escaped=escapeString(buffer,strlen(buffer));
-				fprintf(writeTo, "%%include \"%s\"\n", escaped);
+				fprintf(writeTo, "%%include \"/%s\"\n",escaped);
 				free(escaped);
 		}
 
@@ -953,7 +964,7 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 		fprintf(writeTo, "SECTION .bss\nHCC_DEBUG_BREAKPOINTS_ARRAY: resb %li\n ",len);		
 
 		{
-		//(GlobalPtr,json),(GlobalPtr,json)...0
+				//(GlobalPtr,json),(GlobalPtr,json)...0
 				fprintf(writeTo, "SECTION .data\nHCC_DEBUG_GLOBALS_INFO: ");
 				long count;
 				parserSymTableNames(NULL, &count);
@@ -969,16 +980,27 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 				}
 				fprintf(writeTo, "%s 0\n",ddType); 
 		}
+
+		{
+				//
+				long count;
+				mapFnLabelKeys(filenameStrLabels, NULL, &count);
+				const char *keys[count];
+				mapFnLabelKeys(filenameStrLabels,keys,NULL);
+				for(long f=0;f!=count;f++) {
+						strChar fn CLEANUP(strCharDestroy)=dumpStrLit(keys[f], strlen(keys[f])+1);
+						fprintf(writeTo, "%s: DB %s\n", *mapFnLabelGet(filenameStrLabels, keys[f]),fn);
+				}
+		}
 		
 		fclose(writeTo);
 }
 void X86EmitAsmEnterFileStartCode(llLexerItem first) {
 		long count=strStartCodeNameSize(initCodeNames);
-		long r=rand();
-		const char *fmt="__init$%li";
-		char *name CLEANUP(free2)=fromFmt(fmt,r);
+		initFileNum=rand();
 		
 		X86EmitAsmEnterFunc(NULL);
+		strChar name CLEANUP(strCharDestroy)=getCurrFuncName();
 		initCodeNames=strStartCodeNameAppendItem(initCodeNames, strClone(name));
 }
 struct minMax {
@@ -1090,15 +1112,18 @@ void X86EmitAsmLeaveFunc(const char *cacheDir) {
 		strChar code CLEANUP(strCharDestroy) = file2Str(currentFileSet->codeTmpFile);
 		strChar consts CLEANUP(strCharDestroy) = file2Str(currentFileSet->constsTmpFile);
 		strChar initSyms CLEANUP(strCharDestroy) = file2Str(currentFileSet->initSymbolsTmpFile);
-		fwrite(symbols, strCharSize(symbols), 1, fn);
+		fwrite(symbols, strlen(symbols), 1, fn);
 		fprintf(fn, "SECTION .text\n");
 		fprintf(fn, "%s:\n", funcNam);
-		fwrite(code, strCharSize(code), 1, fn);
-		fprintf(fn, "SECTION .data\n");
-		fwrite(consts, strCharSize(consts), 1, fn);
-		fprintf(fn, "SECTION .bss\n");
-		fwrite(initSyms, strCharSize(initSyms), 1, fn);
-
+		fwrite(code, strlen(code), 1, fn);
+		if(strlen(consts)) {
+				fprintf(fn, "SECTION .data\n");
+				fwrite(consts, strCharSize(consts)-1, 1, fn);
+		}
+		if(strlen(initSyms)) {
+				fprintf(fn, "SECTION .bss\n");
+				fwrite(initSyms, strCharSize(initSyms)-1, 1, fn);
+		}
 		fclose(fn);
 
 		mapFuncFilesInsert(funcFiles, funcNam,  strClone(name));
@@ -1120,20 +1145,35 @@ char *X86EmitAsmUniqueLabName(const char *head) {
 		return fromFmt(fmt, funcNam,head, ++currentFileSet->labelCount);
 }
 void X86EmitAsmDebuggerInfo(char *text) {
+		strChar funNam CLEANUP(strCharDestroy)=getCurrFuncName();
 		strChar unes CLEANUP(strCharDestroy)=dumpStrLit(text, strlen(text)+1); 
-		char *lab CLEANUP(free2)= fromFmt("DBG_INFO$%s",currentFileSet->func->name);
-		fprintf(currentFileSet->constsTmpFile,"%s: %s\n",lab,unes);
+		char *lab CLEANUP(free2)= fromFmt("DBG_INFO$%s",funNam);
+		fprintf(currentFileSet->constsTmpFile,"%s:DB  %s\n",lab,unes);
 		debugInfoLabels=strStrCharAppendItem(debugInfoLabels, strClone(lab));
 
 		if(currentFileSet->token2Line) {
 				long tokCount=ptrMapToken2LineSize(currentFileSet->token2Line);
 				llLexerItem tokens[tokCount];
 				ptrMapToken2LineKeys(currentFileSet->token2Line, tokens);
-				qsort(tokens, tokCount, sizeof(*tokens), (int(*)(const void*,const void*))tokenInfoCmp);
+				struct tokenInfo tInfos[tokCount];
+				for(long t=0;t!=tokCount;t++)
+						tInfos[t]=*ptrMapToken2LineGet(currentFileSet->token2Line, tokens[t]);
+
+				qsort(tInfos, tokCount, sizeof(*tInfos), (int(*)(const void*,const void*))tokenInfoCmp);
 				long indexes[tokCount];
 				for(long t=0;t!=tokCount;t++)
-						indexes[t]=ptrMapToken2LineGet(currentFileSet->token2Line, tokens[t])->tokIndex;
-				__emitFuncTokenLines(NULL, currentFileSet->func, indexes, tokCount);
+						indexes[t]=tInfos[t].tokIndex;
+
+				if(currentFileSet->func) {
+						char *fn CLEANUP(free2)=hashSource(currentFileSet->func->__cacheStartToken,currentFileSet->func->__cacheEndToken,currentFileSet->func->name,NULL);
+						const char *suffix=DBG_TOKEN_FILE_SUFFIX;
+						fn=realloc(fn, strlen(fn)+strlen(suffix)+1);
+						fn=strcat(fn, suffix);
+
+						FILE *f=fopen(fn, "w");
+						__emitFuncTokenLines(f, currentFileSet->func, indexes, tokCount);
+						fclose(f);
+				}
 		}
 }
 static void __registerToken(llLexerItem token) {

@@ -514,6 +514,7 @@ static int sizeMatchSigned(const struct X86AddressingMode *mode, long size) {
 	return 0;
 }
 int opcodeTemplateArgAcceptsAddrMode(const struct opcodeTemplateArg *arg, const struct X86AddressingMode *mode) {
+		if(mode->type==X86ADDRMODE_MACRO) return 1;
 	switch (arg->type) {
 	case OPC_TEMPLATE_ARG_M16:
 		if (mode->type == X86ADDRMODE_MEM || mode->type == X86ADDRMODE_ITEM_ADDR||mode->type==X86ADDRMODE_VAR_ADDR) {
