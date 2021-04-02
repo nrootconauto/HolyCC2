@@ -642,6 +642,7 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 				strRegP consumedRegs CLEANUP(strRegPDestroy)=NULL;
 				for(long a=0;a!=strOpcodeTemplateArgSize(opsByName[t]->args);a++) {
 						switch(args[a]->type) {
+						case X86ADDRMODE_MACRO:
 						case X86ADDRMODE_SIZEOF:
 						case X86ADDRMODE_VAR_ADDR:
 						case X86ADDRMODE_ITEM_ADDR:
@@ -833,6 +834,7 @@ static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode ar
 		
 		for(long a=0;a!=strOpcodeTemplateArgSize(opsByName[lowestValidI]->args);a++) {
 				switch(args[a]->type) {
+				case X86ADDRMODE_MACRO:
 				case X86ADDRMODE_SIZEOF:
 				case X86ADDRMODE_VAR_ADDR:
 				case X86ADDRMODE_ITEM_ADDR:
@@ -1145,6 +1147,7 @@ void asmAssign(graphNodeIR atNode,struct X86AddressingMode *a, struct X86Address
 						fputs("Can't assign this into floating point.\n", stderr);
 						abort();
 				}
+				case X86ADDRMODE_MACRO:
 				case X86ADDRMODE_VAR_ADDR:
 				case X86ADDRMODE_ITEM_ADDR:
 				case X86ADDRMODE_LABEL:
@@ -1464,8 +1467,11 @@ static void insertImplicitFuncs(graphNodeIR start) {
 				else if(graphNodeIRValuePtr(allNodes[n])->type==IR_DEBUG) {
 						if(!disableDebug) {
 								struct IRNodeDebug *dbg=(void*)graphNodeIRValuePtr(allNodes[n]);
+								
 								__auto_type routine=includeHCRTFunc("HCC_DebugAtLine");
-								__auto_type call=IRCreateFuncCall(IRCreateFuncRef(routine), IRCreateStrLit(dbg->fn),IRCreateStrLit(functionName),IRCreateIntLit(dbg->line),IRCreateIntLit(X86EmitAsmBreakpoint(dbg->fn, dbg->line)),NULL);
+								struct X86AddressingMode *fnMode CLEANUP(X86AddrModeDestroy)=X86EmitAsmDebuggerTokenFn(dbg->start);
+								struct X86AddressingMode *lnMode CLEANUP(X86AddrModeDestroy)=X86EmitAsmDebuggerTokenLine(dbg->start);
+								__auto_type call=IRCreateFuncCall(IRCreateFuncRef(routine), IRCreateAddrMode(fnMode),IRCreateStrLit(functionName),IRCreateAddrMode(fnMode),IRCreateIntLit(X86EmitAsmBreakpoint(fn, line)),NULL);
 								__auto_type start=IRStmtStart(call); //Start node will be created
 						
 								strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(allNodes[n]);
@@ -1505,7 +1511,8 @@ void IRCompile(graphNodeIR start, int isFunc) {
 		const char *funcName="__init$$$";
 		if (isFunc) {
 				struct IRNodeFuncStart *funcNode = (void *)graphNodeIRValuePtr(start);
-				X86EmitAsmEnterFunc(funcName=funcNode->func->name);
+				X86EmitAsmEnterFunc(funcNode->func);
+				funcName=funcNode->func->name;
 		} else {
 				X86EmitAsmEnterFileStartCode();
 		}
@@ -1690,7 +1697,7 @@ void IRCompile(graphNodeIR start, int isFunc) {
 
 	char *frameLayoutJson=emitDebufferFrameLayout(localVarFrameOffsets);
 	strChar debugInfo CLEANUP(strCharDestroy)=fromFmt("{\"name\":\"%s\",\"frameLayout\":%s}" ,funcName, frameLayoutJson);
-	free(X86EmitAsmDebuggerInfo(debugInfo));
+	X86EmitAsmDebuggerInfo(debugInfo);
 	free(frameLayoutJson);
 	
 	IR2Asm(start);
@@ -1747,6 +1754,7 @@ static struct X86AddressingMode *demoteAddrMode(struct X86AddressingMode *addr, 
 	case X86ADDRMODE_UINT:
 	case X86ADDRMODE_SIZEOF:
 	case X86ADDRMODE_VAR_ADDR:
+	case X86ADDRMODE_MACRO:
 		mode->valueType = type;
 		break;
 	}

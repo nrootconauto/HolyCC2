@@ -371,12 +371,11 @@ struct object *IRValueGetType(struct IRValue *node) {
 static int ptrEqual(void *a,void* b) {
 		return a==b;
 }
-graphNodeIR IRCreateDebug(const char *fn,long line) {
+graphNodeIR IRCreateDebug(llLexerItem start,llLexerItem end) {
 		struct IRNodeDebug debug;
 		debug.base.attrs=NULL;
 		debug.base.type=IR_DEBUG;
-		debug.line=line;
-		debug.fn=strcpy(calloc(strlen(fn)+1, 1), fn);
+		debug.start=start,debug.end=end;
 		return GRAPHN_ALLOCATE(debug);
 }
 void IRInsertBefore(graphNodeIR insertBefore, graphNodeIR entry, graphNodeIR exit, enum IRConnType connType) {

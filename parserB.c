@@ -172,7 +172,9 @@ static void __addGlobalSymbol(struct parserNode *node, const char *name, struct 
 		toInsert.var=var;
 		toInsert.shadowPrec=shadowPrecedence(node);
 		const char *fn;
-		diagLineCol(&fn, node->pos.start, &toInsert.ln,  &toInsert.col);
+		long _start;
+		parserNodeStartEndPos(node->pos.start,node->pos.end , &_start, NULL);
+		diagLineCol(&fn, _start, &toInsert.ln,  &toInsert.col);
 		toInsert.fn=strcpy(calloc(strlen(fn)+1,1), fn);
 		
 		if (name) {
@@ -288,10 +290,12 @@ void parserAddVar(const struct parserNode *name, struct object *type,struct reg 
 	loop:;
 	__auto_type find = mapVarGet(scope->vars, var.name);
 	if (find) {
-		// TODO whine about re-declaration
-			diagErrorStart(name->pos.start, name->pos.end);
+			long _start,_end;
+			parserNodeStartEndPos(name->pos.start,name->pos.end , &_start, &_end);
+			// TODO whine about re-declaration
+			diagErrorStart(_start, _end);
 			diagPushText("Redeclaration of variable ");
-			diagPushQoutedText(name->pos.start, name->pos.end);
+			diagPushQoutedText(_start, _end);
 			diagPushText(".");
 			mapVarRemove(scope->vars, var.name,NULL);
 			diagEndMsg();
@@ -370,39 +374,45 @@ struct parserFunction *parserGetFuncByName(const char *name) {
 	}
 	return NULL;
 }
-void parserAddFunc(const struct parserNode *name, const struct object *type, struct parserNode *func) {
+void parserAddFunc(const struct parserNode *name, const struct object *type, struct parserNode *func,llLexerItem start,llLexerItem end) {
 	struct parserNodeName *name2 = (void *)name;
 	__auto_type currentScopeFuncs = llScopeValuePtr(currentScope)->funcs;
 
 	__auto_type conflict = mapFuncGet(currentScopeFuncs, name2->text);
 	if (conflict) {
 		if (!conflict[0]->isForwardDecl) {
-			// Whine about redeclaration
-			diagErrorStart(name2->base.pos.start, name2->base.pos.end);
+			long _start,_end;
+			parserNodeStartEndPos(name2->base.pos.start,name2->base.pos.end , &_start, &_end);
+				// Whine about redeclaration
+			diagErrorStart(_start, _end);
 			char buffer[1024];
 			sprintf(buffer, "Redeclaration of function '%s'.", name2->text);
 			diagPushText(buffer);
-			diagHighlight(name2->base.pos.start, name2->base.pos.end);
+			diagHighlight(_start, _end);
 			diagEndMsg();
 
 			__auto_type firstRef = conflict[0]->refs[0];
-			diagNoteStart(firstRef->pos.start, firstRef->pos.end);
+			parserNodeStartEndPos(firstRef->pos.start,firstRef->pos.end , &_start, &_end);
+			diagNoteStart(_start, _end);
 			diagPushText("Declared here:");
-			diagHighlight(firstRef->pos.start, firstRef->pos.end);
+			diagHighlight(_start, _end);
 			diagEndMsg();
 		} else if (conflict[0]->isForwardDecl) {
 			if (!objectEqual(conflict[0]->type, type)) {
-				// Whine about conflicting type
-				diagErrorStart(name2->base.pos.start, name2->base.pos.end);
+					long _start,_end;
+					parserNodeStartEndPos(name2->base.pos.start,name2->base.pos.end , &_start, &_end);
+				// Whine about conflicting type		
+				diagErrorStart(_start, _end);
 				diagPushText("Conflicting types for ");
-				diagPushQoutedText(name2->base.pos.start, name2->base.pos.end);
+				diagPushQoutedText(_start, _end);
 				diagPushText(".");
-				diagEndMsg();
-
+				diagEndMsg();	
+			
 				__auto_type firstRef = conflict[0]->refs[0];
-				diagNoteStart(firstRef->pos.start, firstRef->pos.end);
+				parserNodeStartEndPos(firstRef->pos.start,firstRef->pos.end , &_start, &_end);
+				diagNoteStart(_start, _end);
 				diagPushText("Declared here:");
-				diagHighlight(firstRef->pos.start, firstRef->pos.end);
+				diagHighlight(_start, _end);
 				diagEndMsg();
 			}
 			mapFuncRemove(currentScopeFuncs, name2->text, NULL);
@@ -419,6 +429,8 @@ loop:;
 		dummy.node = func;
 		dummy.name = calloc(strlen(name2->text) + 1,1);
 		dummy.parentFunction = NULL;
+		dummy.__cacheEndToken=end;
+		dummy.__cacheStartToken=start;
 		strcpy(dummy.name, name2->text);
 
 		mapFuncInsert(currentScopeFuncs, name2->text, ALLOCATE(dummy));

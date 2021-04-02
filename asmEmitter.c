@@ -2,6 +2,7 @@
 #include "asmEmitter.h"
 #include <assert.h>
 #include "cleanup.h"
+#include "diagMsg.h"
 #include <limits.h>
 #include <ctype.h>
 #include "frameLayout.h"
@@ -15,6 +16,7 @@
 #include "cacheDir.h"
 #include <unistd.h>
 #include "dumpDebugInfo.h"
+#include "sourceHash.h"
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
 PTR_MAP_FUNCS(struct parserNode *, strChar, LabelNames);
@@ -27,36 +29,55 @@ STR_TYPE_DEF(strChar, StrChar);
 STR_TYPE_FUNCS(strChar, StrChar);
 MAP_TYPE_DEF(struct X86AddressingMode *,AddrMode);
 MAP_TYPE_FUNCS(struct X86AddressingMode *,AddrMode);
+MAP_TYPE_DEF(strChar, FnLabel);
+MAP_TYPE_FUNCS(strChar, FnLabel);
+static strChar strClone(const char *text) {
+	__auto_type retVal = strCharAppendData(NULL, text, strlen(text) + 1);
+	strcpy(retVal, text);
+	return retVal;
+}
 static void strStrCharDestroy2(strStrChar *str) {
 		for(long s=0;s!=strStrCharSize(*str);s++)
 				strCharDestroy(&str[0][s]);
 		strStrCharDestroy(str);
 }
+STR_TYPE_DEF(long,Long);
+STR_TYPE_FUNCS(long,Long);
+#define FUNC_BREAKPOINTS_LAB_FMT_LN "DBG_BP@%s-%li$ln"
+#define FUNC_BREAKPOINTS_LAB_FMT_FN "DBG_BP@%s-%li$fn"
 #define OBJECT_OFFSET_FMT "%s$%s_Offset"
-#define OBJECT_SIZE_FMT "%s$_Size"
+#define OBJECT_SIZE_FMT "%s$_Size" 
+#define DBG_TOKEN_FILE_SUFFIX ".tokInfo"
 static __thread strStartCodeName initCodeNames=NULL;
 static __thread strStrChar debugInfoLabels=NULL;
 static __thread long breakPointCount=0;
-STR_TYPE_DEF(long,Long);
-STR_TYPE_FUNCS(long,Long);
-#define FUNC_BREAKPOINTS_LAB_FMT "DBG_BP@%s-%li"
+static __thread mapFnLabel filenameStrLabels=NULL;
 struct breakPoint {
 		long line;
 		long bpOffset;
 };
 MAP_TYPE_DEF(struct breakPoint,BreakLines);
 MAP_TYPE_FUNCS(struct breakPoint,BreakLines);
+PTR_MAP_DEF(Token2Line);
+struct tokenInfo  {const char *fn;long ln;long tokIndex;};
+PTR_MAP_FUNCS(llLexerItem,struct tokenInfo,Token2Line);
 static __thread mapBreakLines breakpoints;
 static __thread struct asmFileSet {
 		FILE *constsTmpFile;
 		FILE *symbolsTmpFile;
 		FILE *initSymbolsTmpFile;
-		FILE *codeTmpFile;;
+		FILE *codeTmpFile;
 		long labelCount;
 		mapAddrMode strings;
-		strChar funcName;
+		struct parserFunction *func;
 		struct asmFileSet *parent;
+		ptrMapToken2Line token2Line;
 } *currentFileSet=NULL;
+static strChar getCurrFuncName() {
+		if(currentFileSet->func)
+				return strClone(currentFileSet->func->name);
+		return strClone("__init$$$");
+}
 MAP_TYPE_DEF(strChar,FuncFiles);
 MAP_TYPE_FUNCS(strChar,FuncFiles);
 static __thread mapFuncFiles funcFiles=NULL;
@@ -66,11 +87,6 @@ static void strCharDestroy2(strChar *str) {
 }
 static void free2(char **str) {
 		free(*str);
-}
-static strChar strClone(const char *text) {
-	__auto_type retVal = strCharAppendData(NULL, text, strlen(text) + 1);
-	strcpy(retVal, text);
-	return retVal;
 }
 __attribute__((destructor)) static void deinit() {
 	ptrMapRegNameDestroy(regNames, (void (*)(void *))strCharDestroy2);
@@ -185,6 +201,31 @@ __attribute__((constructor)) static void init() {
 	ptrMapRegNameAdd(regNames, &regX86FS, strClone("FS"));
 	ptrMapRegNameAdd(regNames, &regX86GS, strClone("GS"));
 }
+static char *fromFmt(const char *fmt,...) {
+		va_list list,list2;
+		va_start(list, fmt);
+		va_copy(list2, list);
+		long len=vsnprintf(NULL, 0, fmt, list);
+		char buffer[len+1];
+		vsprintf(buffer,fmt, list2);
+		char *retVal=strcpy(calloc( len+1, 1),buffer);
+		va_end(list);
+		va_end(list2);
+
+		return retVal;
+}
+static strChar __getFilenameLabel(char *name) {
+	loop:;
+		__auto_type find=mapFnLabelGet(filenameStrLabels, name);
+		if(!find) {
+				long size;
+				mapFnLabelKeys(filenameStrLabels, NULL, &size);
+				char *fmted CLEANUP(free2)=fromFmt("fn$%li", size);
+				mapFnLabelInsert(filenameStrLabels, name, strClone(fmted));
+				goto loop;
+		}
+		return strClone(*find);
+}
 void X86EmitAsmInit() {
 		breakPointCount=0;
 		breakpoints=mapBreakLinesCreate();
@@ -193,6 +234,7 @@ void X86EmitAsmInit() {
 		funcFiles=mapFuncFilesCreate();
 		strStartCodeNameDestroy(&initCodeNames);
 		initCodeNames=NULL;
+		filenameStrLabels=mapFnLabelCreate();
 }
 static strChar int64ToStr(int64_t value) {
 	strChar retVal = NULL;
@@ -239,19 +281,6 @@ static strChar getSizeStr(struct object *obj) {
 		return NULL;
 	}
 }
-static char *fromFmt(const char *fmt,...) {
-		va_list list,list2;
-		va_start(list, fmt);
-		va_copy(list2, list);
-		long len=vsnprintf(NULL, 0, fmt, list);
-		char buffer[len+1];
-		vsprintf(buffer,fmt, list2);
-		char *retVal=strcpy(calloc( len+1, 1),buffer);
-		va_end(list);
-		va_end(list2);
-
-		return retVal;
-}
 static char *offsetName(struct objectMember *mem) {
 		char *name CLEANUP(free2)=object2Str(mem->belongsTo);
 		__auto_type retVal=fromFmt(OBJECT_OFFSET_FMT,name,mem->name);
@@ -286,6 +315,115 @@ static char *sizeofName(struct object *type) {
 		}
 		char *name CLEANUP(free2)=object2Str(type);
 		return  fromFmt(OBJECT_SIZE_FMT,name);
+}
+static void __emitFuncTokenLines(FILE *dumpTo,struct parserFunction *func,long *tokenIndexes,long len) {
+		char *fn=func->name;
+		long offset=0;
+				for(__auto_type item=func->__cacheStartToken;item!=func->__cacheEndToken;item=llLexerItemNext(item),offset++) {
+						long line;
+						const char *fn;
+						diagLineCol(&fn, llLexerItemValuePtr(item)->start, &line, NULL);
+						long i;
+						for( i=0;i!=len;i++) {
+								if(offset>tokenIndexes[i]) continue;
+								else if(offset==tokenIndexes[i]) break;
+								else goto next;
+						}
+						
+						char *macro1 =fromFmt("%%define " FUNC_BREAKPOINTS_LAB_FMT_LN " %li\n", fn, tokenIndexes[i], line);
+						fprintf(dumpTo, "%s", macro1);free(macro1);
+						strChar fnLab =__getFilenameLabel((char*)fn);
+						char *macro2=fromFmt("%%define " FUNC_BREAKPOINTS_LAB_FMT_FN "%s\n", fn, tokenIndexes[i], fnLab);
+						fprintf(dumpTo, "%s", macro2);free(macro1);strCharDestroy(&fnLab);
+				next:;
+				}
+}
+static char *__getUpdatedTokenLinesFromCache(struct parserFunction *func) {
+		char tmp[TMP_MAX];
+		tmpnam(tmp);
+		
+		FILE *dumpTo=fopen(tmp, "w");
+
+		char *fn CLEANUP(free2)=hashSource(func->__cacheStartToken,func->__cacheEndToken,func->name,NULL);
+		const char *suffix=DBG_TOKEN_FILE_SUFFIX;
+		fn=realloc(fn, strlen(fn)+strlen(suffix)+1);
+		fn=strcat(fn, suffix);
+		
+		FILE *file =fopen(fn, "r");
+		if(!file) return NULL;
+		strLong tokenOffs CLEANUP(strLongDestroy)=NULL;
+		if(!file) {
+				fprintf(stderr, "File \"%s%s\" not found,dumping all token lines,clear your cache and recompile to generate the missing file.\n", fn,suffix);
+				long count=0;
+				for(__auto_type item=func->__cacheStartToken;item!=func->__cacheEndToken;item=llLexerItemNext(item)) count++;
+				tokenOffs=strLongResize(tokenOffs, count);
+				for(long l=0;l!=count;l++)  tokenOffs[l]=l;
+				__emitFuncTokenLines(dumpTo, func, tokenOffs ,  count);
+				goto ret;
+		}
+		
+		char *line=__builtin_alloca(256);
+		size_t count=256;
+		while(getline(&line, &count, file)) {
+				count=256;
+				
+				char *find=strrchr(line, '$');
+				if(find) continue;
+				long tokOff;
+				sscanf(find+1, "%li", &tokOff);
+				
+				tokenOffs=strLongAppendItem(tokenOffs, tokOff);
+		}
+		__emitFuncTokenLines(dumpTo, func, tokenOffs ,  strLongSize(tokenOffs));
+		fclose(file);
+
+	ret: {
+				fclose(dumpTo);
+				rename(tmp, fn);
+		}
+		return strcpy(calloc(strlen(fn)+1,1), fn);
+}
+static int longCmp(const void *a,const void *b) {
+		long A=*(long*)a,B=*(long*)b;
+		if(A>B) return 1;
+		else if(A<B) return -1;
+		return 0;
+}
+static long tokOffset(llLexerItem start,llLexerItem item) {
+		long offset=0;
+		for(;start!=item;start=llLexerItemPrev(start)) offset++;
+		return offset;
+}
+STR_TYPE_DEF(struct tokenInfo,TokenInfo);
+STR_TYPE_FUNCS(struct tokenInfo,TokenInfo);
+static int tokenInfoCmp(struct tokenInfo *a,struct tokenInfo *b) {
+		return longCmp(&a->tokIndex, &b->tokIndex);
+}
+static void X86EmitFuncTokenLines2Cache(long *tokenIndexes,long len,int *existsInCache) {
+		long size=ptrMapToken2LineSize(currentFileSet->token2Line);
+		llLexerItem tokensPtrs[size];
+		ptrMapToken2LineKeys(currentFileSet->token2Line, tokensPtrs);
+		strTokenInfo tokens CLEANUP(strTokenInfoDestroy)=strTokenInfoResize(NULL, size);
+
+		for(long k=0;k!=size;k++) {
+				tokens[k]=*ptrMapToken2LineGet(currentFileSet->token2Line, tokensPtrs[k]);
+		}
+		qsort(tokens, strTokenInfoSize(tokens), sizeof(*tokens), (int(*)(const void*,const void*))tokenInfoCmp);
+		
+		char *tokinfo CLEANUP(free2)=__getUpdatedTokenLinesFromCache(currentFileSet->func);
+		if(!tokinfo) {
+				char *fn CLEANUP(free2)=hashSource(currentFileSet->func->__cacheStartToken,currentFileSet->func->__cacheEndToken,currentFileSet->func->name,NULL);
+				const char *suffix=DBG_TOKEN_FILE_SUFFIX;
+				fn=realloc(fn, strlen(fn)+strlen(suffix)+1);
+				fn=strcat(fn, suffix);
+				FILE *dumpTo=fopen(fn, "r");
+				
+				strLong tIndexes CLEANUP(strLongDestroy)=strLongResize(NULL, size);
+				for(long t=0;t!=size;t++) tIndexes[t]=tokens[t].tokIndex;
+				__emitFuncTokenLines(dumpTo, currentFileSet->func, tIndexes, size);
+
+				fclose(dumpTo);
+		}
 }
 /*
 	* Emits member offsets/size macros
@@ -347,6 +485,9 @@ static void X86EmitSymbolTable(FILE *dumpTo) {
 }
 static strChar emitMode(struct X86AddressingMode **args, long i) {
 	switch (args[i]->type) {
+	case X86ADDRMODE_MACRO: {
+			return strClone(args[i]->value.macroName);
+	}
 	case X86ADDRMODE_SIZEOF: {
 			switch(args[i]->value.objSizeof->type) {
 			case TYPE_U0:
@@ -623,8 +764,9 @@ void X86EmitAsmIncludeBinfile(const char *fileName) {
 	fprintf(currentFileSet->codeTmpFile, "\"\n");
 }
 char *X86EmitAsmLabel(const char *name) {
+		strChar funcNam CLEANUP(strCharDestroy)=getCurrFuncName();
 	if (!name) {
-		char *buffer CLEANUP(free2)=fromFmt( "%s_LBL_%li$", currentFileSet->funcName,++currentFileSet->labelCount);
+		char *buffer CLEANUP(free2)=fromFmt( "%s_LBL_%li$", funcNam,++currentFileSet->labelCount);
 		fprintf(currentFileSet->codeTmpFile, "%s:\n", buffer);
 		char *retVal = calloc(strlen(buffer) + 1,1);
 		strcpy(retVal, buffer);
@@ -660,7 +802,9 @@ static strChar dumpStrLit(const char *str,long len) {
 	return retVal;
 }
 struct X86AddressingMode *X86EmitAsmDU64(strX86AddrMode data, long len) {
-		char *buffer CLEANUP(free2)=fromFmt("%s_DU64_%li", currentFileSet->funcName,++currentFileSet->labelCount);
+		strChar funcNam CLEANUP(strCharDestroy)=getCurrFuncName();
+		
+		char *buffer CLEANUP(free2)=fromFmt("%s_DU64_%li", funcNam,++currentFileSet->labelCount);
 	fprintf(currentFileSet->constsTmpFile, "%s: DQ ", buffer);
 	for (long i = 0; i != len; i++) {
 		if (i != 0)
@@ -672,7 +816,8 @@ struct X86AddressingMode *X86EmitAsmDU64(strX86AddrMode data, long len) {
 	return X86AddrModeLabel(buffer);
 }
 struct X86AddressingMode *X86EmitAsmDU32(strX86AddrMode data, long len) {
-	char *buffer CLEANUP(free2)=fromFmt("%s_DU32_%li", currentFileSet->funcName,++currentFileSet->labelCount);
+		strChar funcNam CLEANUP(strCharDestroy)=getCurrFuncName();
+		char *buffer CLEANUP(free2)=fromFmt("%s_DU32_%li", funcNam,++currentFileSet->labelCount);
 	fprintf(currentFileSet->constsTmpFile, "%s: DD ", buffer);
 	for (long i = 0; i != len; i++) {
 		if (i != 0)
@@ -684,7 +829,8 @@ struct X86AddressingMode *X86EmitAsmDU32(strX86AddrMode data, long len) {
 	return X86AddrModeLabel(buffer);
 }
 struct X86AddressingMode *X86EmitAsmDU16(strX86AddrMode data, long len) {
-	char *buffer CLEANUP(free2)=fromFmt("%s_DU16_%li", currentFileSet->funcName,++currentFileSet->labelCount);
+		strChar funcNam CLEANUP(strCharDestroy)=getCurrFuncName();
+		char *buffer CLEANUP(free2)=fromFmt("%s_DU16_%li", funcNam,++currentFileSet->labelCount);
 	fprintf(currentFileSet->constsTmpFile, "%s: DW ", buffer);
 	for (long i = 0; i != len; i++) {
 		if (i != 0)
@@ -696,7 +842,8 @@ struct X86AddressingMode *X86EmitAsmDU16(strX86AddrMode data, long len) {
 	return X86AddrModeLabel(buffer);
 }
 struct X86AddressingMode *X86EmitAsmDU8(strX86AddrMode data, long len) {
-	char *buffer CLEANUP(free2)=fromFmt("%s_DU8_%li", currentFileSet->funcName,++currentFileSet->labelCount);
+		strChar funcNam CLEANUP(strCharDestroy)=getCurrFuncName();
+		char *buffer CLEANUP(free2)=fromFmt("%s_DU8_%li", funcNam,++currentFileSet->labelCount);
 	fprintf(currentFileSet->constsTmpFile, "%s: DB ", buffer);
 	for (long i = 0; i != len; i++) {
 		if (i != 0)
@@ -716,9 +863,9 @@ struct X86AddressingMode *X86EmitAsmStrLit(const char *text,long size) {
 		if(find) {
 				return X86AddrModeClone(*find);
 		}
-		
+		strChar funcNam CLEANUP(strCharDestroy)=getCurrFuncName();
 		strChar unes2 CLEANUP(strCharDestroy) = dumpStrLit(text,size);
-		char *buffer CLEANUP(free2)=fromFmt( "%s_STR_%li", currentFileSet->funcName,++currentFileSet->labelCount);
+		char *buffer CLEANUP(free2)=fromFmt( "%s_STR_%li", funcNam,++currentFileSet->labelCount);
 	fprintf(currentFileSet->constsTmpFile, "%s: DB %s\n", buffer, unes2);
 
 	__auto_type retVal=X86AddrModeLabel(buffer);
@@ -757,7 +904,17 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 		FILE *writeTo=fopen(name, "w");
 		X86EmitClassMetaData(writeTo);
 		X86EmitSymbolTable(writeTo);
+
+		//Emit token line macros
 		cacheDir=(!cacheDir)?cacheDirLocation:cacheDir;
+		for(long f=0;f!=fCount;f++) {
+				char *fn=*mapFuncFilesGet(funcFiles, funcs[f]);
+				__auto_type func=parserGetFuncByName(fn);
+				char *tokensFile CLEANUP(free2)=__getUpdatedTokenLinesFromCache(func);
+				char *escaped CLEANUP(free2)=escapeString(tokensFile,strlen(tokensFile));
+				fprintf(writeTo, "%%include \"%s\"\n", escaped);
+		}
+		
 		for(long f=0;f!=fCount;f++) {
 				char *fn=*mapFuncFilesGet(funcFiles, funcs[f]);
 				const char *fmt="%s";
@@ -830,13 +987,13 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 		
 		fclose(writeTo);
 }
-void X86EmitAsmEnterFileStartCode() {
+void X86EmitAsmEnterFileStartCode(llLexerItem first) {
 		long count=strStartCodeNameSize(initCodeNames);
 		long r=rand();
 		const char *fmt="__init$%li";
 		char *name CLEANUP(free2)=fromFmt(fmt,r);
 		
-		X86EmitAsmEnterFunc(name);
+		X86EmitAsmEnterFunc(NULL);
 		initCodeNames=strStartCodeNameAppendItem(initCodeNames, strClone(name));
 }
 struct minMax {
@@ -906,15 +1063,19 @@ static char *createBreakPointInfo() {
 		mapMinMaxDestroy(funcLineRanges, NULL);
 		return fromFmt("{breakpoints:[%s]}", total);
 }
-char *X86EmitAsmDebuggerInfo(char *data) {
-		strChar dumped CLEANUP(strCharDestroy)=dumpStrLit(data, strlen(data)+1);
-		char *labNam CLEANUP(free2)=fromFmt("DBG_%ss@%li",currentFileSet->funcName,++currentFileSet->labelCount);
-		fprintf(currentFileSet->constsTmpFile, "%s:DB %s\n",labNam,dumped);
+struct X86AddressingMode *X86EmitAsmDebuggerLine(llLexerItem item) {
+		if(!currentFileSet->func) {
+				long line;
+				diagLineCol(NULL, llLexerItemValuePtr(item)->start, &line,NULL);
+				return X86AddrModeSint(line);
+		}
 		
-		debugInfoLabels=strStrCharAppendItem(debugInfoLabels, strClone(labNam));
-		return strcpy(calloc(strlen(labNam)+1, 1), labNam);
+		long offset=tokOffset(currentFileSet->func->__cacheStartToken, item);
+		strChar funcNam CLEANUP(strCharDestroy)=getCurrFuncName();
+		char *macro CLEANUP(free2)=fromFmt(FUNC_BREAKPOINTS_LAB_FMT_LN, funcNam,offset);
+		return X86AddrModeMacro(macro, dftValType());
 }
-void X86EmitAsmEnterFunc(const char *funcName) {
+void X86EmitAsmEnterFunc(struct parserFunction *func) {
 		struct asmFileSet *set=calloc(sizeof(struct asmFileSet), 1);
 		set->codeTmpFile=tmpfile();
 		set->constsTmpFile=tmpfile();
@@ -922,14 +1083,15 @@ void X86EmitAsmEnterFunc(const char *funcName) {
 		set->labelCount=0;
 		set->parent=currentFileSet;
 		set->symbolsTmpFile=tmpfile();
-		set->funcName=strClone(funcName);
+		set->func=func;
 		set->strings=mapAddrModeCreate();
 		currentFileSet=set;
 }
 void X86EmitAsmLeaveFunc(const char *cacheDir) {
 		cacheDir=(!cacheDir)?cacheDirLocation:cacheDir;
 		const char *fmt="%s/%s.s";
-		char *name CLEANUP(free2)=fromFmt(fmt, cacheDir,currentFileSet->funcName);
+		strChar funcNam CLEANUP(strCharDestroy)=getCurrFuncName();
+		char *name CLEANUP(free2)=fromFmt(fmt, cacheDir,funcNam);
 		
 		FILE *fn = fopen(name, "w");
 		strChar symbols CLEANUP(strCharDestroy) = file2Str(currentFileSet->symbolsTmpFile);
@@ -938,7 +1100,7 @@ void X86EmitAsmLeaveFunc(const char *cacheDir) {
 		strChar initSyms CLEANUP(strCharDestroy) = file2Str(currentFileSet->initSymbolsTmpFile);
 		fwrite(symbols, strCharSize(symbols), 1, fn);
 		fprintf(fn, "SECTION .text\n");
-		fprintf(fn, "%s:\n", currentFileSet->funcName);
+		fprintf(fn, "%s:\n", funcNam);
 		fwrite(code, strCharSize(code), 1, fn);
 		fprintf(fn, "SECTION .data\n");
 		fwrite(consts, strCharSize(consts), 1, fn);
@@ -947,11 +1109,10 @@ void X86EmitAsmLeaveFunc(const char *cacheDir) {
 
 		fclose(fn);
 
-		mapFuncFilesInsert(funcFiles, currentFileSet->funcName,  strClone(name));
+		mapFuncFilesInsert(funcFiles, funcNam,  strClone(name));
 		
 		fclose(currentFileSet->codeTmpFile);
 		fclose(currentFileSet->constsTmpFile);
-		strCharDestroy(&currentFileSet->funcName);
 		fclose(currentFileSet->initSymbolsTmpFile);
 		fclose(currentFileSet->symbolsTmpFile);
 		
@@ -963,12 +1124,8 @@ char *X86EmitAsmUniqueLabName(const char *head) {
 		const char *fmt="%s_%s_%li$";
 		if (!head)
 		head = "";
-		return fromFmt(fmt, currentFileSet->funcName,head, ++currentFileSet->labelCount);
-}
-int longCmp(const long *a,const long *b) {
-		if(*a>*b) return 1;
-		else if(*a<*b) return -1;
-		return 0;
+		strChar funcNam CLEANUP(strCharDestroy)=getCurrFuncName();
+		return fromFmt(fmt, funcNam,head, ++currentFileSet->labelCount);
 }
 long X86EmitAsmBreakpoint(const char *fn,long line) {
 		char *fmt CLEANUP(free2)=fromFmt("%s:%li", fn,line);
@@ -983,4 +1140,35 @@ long X86EmitAsmBreakpoint(const char *fn,long line) {
 				goto loop;
 		}
 		return find->bpOffset;
+}
+void X86EmitAsmDebuggerInfo(char *text) {
+		strChar unes CLEANUP(strCharDestroy)=dumpStrLit(text, strlen(text)+1); 
+		char *lab CLEANUP(free2)= fromFmt("DBG_INFO$%s",currentFileSet->func->name);
+		fprintf(currentFileSet->constsTmpFile,"%s: %s\n",lab,unes);
+		debugInfoLabels=strStrCharAppendItem(debugInfoLabels, strClone(lab));
+}
+static void __registerToken(llLexerItem token) {
+		__auto_type find=ptrMapToken2LineGet(currentFileSet->token2Line, token);
+		if(!find) {
+				const char *fn;
+				long line;
+				diagLineCol(&fn, llLexerItemValuePtr(token)->start, &line, NULL);
+				struct tokenInfo info;
+				info.ln=line;
+				info.tokIndex=tokOffset(currentFileSet->func->__cacheStartToken,  token);
+				info.fn=fn;
+				ptrMapToken2LineAdd(currentFileSet->token2Line, token, info);
+		}
+}
+struct X86AddressingMode *X86EmitAsmDebuggerTokenLine(llLexerItem token) {
+		__registerToken(token);
+		__auto_type find=ptrMapToken2LineGet(currentFileSet->token2Line, token);
+		char *fmted CLEANUP(free2)=fromFmt(FUNC_BREAKPOINTS_LAB_FMT_LN, currentFileSet->func->name,find->tokIndex);
+		return X86AddrModeMacro(fmted, dftValType());
+}
+struct X86AddressingMode *X86EmitAsmDebuggerTokenFn(llLexerItem token) {
+		__registerToken(token);
+		__auto_type find=ptrMapToken2LineGet(currentFileSet->token2Line, token);
+		char *fmted CLEANUP(free2)=fromFmt(FUNC_BREAKPOINTS_LAB_FMT_FN, currentFileSet->func->name,find->tokIndex);
+		return X86AddrModeMacro(fmted, dftValType());
 }

@@ -396,8 +396,8 @@ struct IRNodePtrRef {
 };
 struct IRNodeDebug {
 		struct IRNode base;
-		char *fn;
-		long line;
+		llLexerItem start;
+		llLexerItem end;
 };
 struct IRNodeFuncCall {
 	struct IRNode base;
@@ -570,5 +570,5 @@ graphNodeIR IRCreateFuncVaArgArgc();
 graphNodeIR IRCreateSizeof(struct object *obj);
 graphNodeIR IRCreateGlobalLabel(const char *name);
 graphNodeIR IRCreateFuncRef(struct parserFunction *func);
-graphNodeIR IRCreateDebug(const char *fn,long line);
+graphNodeIR IRCreateDebug(llLexerItem start,llLexerItem end);
 graphNodeIR IRCreateAddrMode(struct X86AddressingMode *addrMode);

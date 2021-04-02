@@ -19,7 +19,7 @@ static void strParserNodeDestroy2(strParserNode *str) {
 				;//parserNodeDestroy(&str[0][s]);
 	strParserNodeDestroy(str);
 }
-static strParserNode parseFile(const char *fn,strFileMappings *fMappings2) {
+static strParserNode parseFile(const char *fn,strFileMappings *fMappings2,llLexerItem *items2) {
 		setArch(ARCH_X86_SYSV);
 		{
 				int err;
@@ -38,7 +38,7 @@ static strParserNode parseFile(const char *fn,strFileMappings *fMappings2) {
 				fText[end - start] = '\0';
 
 				long atPos;
-				llLexerItem items CLEANUP(llLexerItemDestroy2) = lexText((struct __vec *)fText, &atPos,&err);
+				llLexerItem items = lexText((struct __vec *)fText, &atPos,&err);
 
 				diagInstCreate(DIAG_ANSI_TERM, fMappings, tMods, fn, stderr);
 				if (err) {
@@ -60,18 +60,24 @@ static strParserNode parseFile(const char *fn,strFileMappings *fMappings2) {
 				if(fMappings2)
 						*fMappings2=strFileMappingsClone(fMappings);
 
+				if(items2)
+						*items2=items;
 				return stmts;
 		}
 	fail:
 		abort();
 		return NULL;
 }
+static void free2(char **str) {
+		free(*str);
+}
 void compileFile(const char *fn, const char *dumpTo) {
 		//Move symbols from previous compile to extern
 		parserMoveGlobals2Extern();
 		X86EmitAsmInit();
 			strFileMappings fMappings = NULL;
-			strParserNode stmts CLEANUP(strParserNodeDestroy2)=parseFile(fn,&fMappings);
+			llLexerItem items CLEANUP(llLexerItemDestroy2);
+			strParserNode stmts CLEANUP(strParserNodeDestroy2)=parseFile(fn,&fMappings,&items);
 
 			//
 			// Look for cached functions
@@ -86,11 +92,8 @@ void compileFile(const char *fn, const char *dumpTo) {
 							continue;
 					long existsInCache=0;
 					long hashedFileSize=0;
-					hashSource(def->__cacheStartToken, def->__cacheEndToken, nm->text, &existsInCache,NULL,&hashedFileSize);
+					char *fnBuffer CLEANUP(free2)=hashSource(def->func->__cacheStartToken, def->func->__cacheEndToken, nm->text, &existsInCache);
 					if(existsInCache) {
-							char *fnBuffer=__builtin_alloca(hashedFileSize+1);
-							hashSource(def->__cacheStartToken, def->__cacheEndToken, nm->text, &existsInCache,(char**)&fnBuffer,&hashedFileSize);
-
 							int existsInCache;
 							X86EmitAsmAddCachedFuncIfExists(nm->text, &existsInCache);
 

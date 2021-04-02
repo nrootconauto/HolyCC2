@@ -408,9 +408,11 @@ objectClassCreate(const struct parserNode *name, const struct objectMember *memb
 	int alreadyExists;
 	hashObject((void *)newClass, &alreadyExists);
 	if(alreadyExists) {
-			diagErrorStart(name->pos.start, name->pos.end);
+			long start,end;
+			parserNodeStartEndPos(name->pos.start, name->pos.end,&start,&end );
+			diagErrorStart(start, end);
 			diagPushText("Object ");
-			diagPushQoutedText(name->pos.start, name->pos.end);
+			diagPushQoutedText(start, end);
 			diagPushText(" already exists.");
 			diagEndMsg();
 	}
@@ -465,9 +467,11 @@ objectUnionCreate(const struct parserNode *name /*Can be `NULL` for empty union.
 	int alreadyExists;
 	hashObject((void *)newUnion, &alreadyExists);
 	if(alreadyExists) {
-			diagErrorStart(name->pos.start, name->pos.end);
+			long start,end;
+			parserNodeStartEndPos(name->pos.start, name->pos.end,&start,&end );
+			diagErrorStart(start, end);
 			diagPushText("Object ");
-			diagPushQoutedText(name->pos.start, name->pos.end);
+			diagPushQoutedText(start, end);
 			diagPushText(" already exists.");
 			diagEndMsg();
 	}

@@ -78,11 +78,8 @@ static char *strCopy(const char *text) {
 		$retVal;                                                                                                                                                       \
 	})
 static void assignPosByLexerItems(struct parserNode *node, llLexerItem start, llLexerItem end) {
-	node->pos.start = llLexerItemValuePtr(start)->start;
-	if (end)
-		node->pos.end = llLexerItemValuePtr(end)->end;
-	else
-		node->pos.end = llLexerItemValuePtr(llLexerItemLast(start))->end;
+		node->pos.start=start;
+		node->pos.end=end;
 }
 static char *strClone(const char *str) {
 	if (!str)
@@ -92,8 +89,7 @@ static char *strClone(const char *str) {
 	strcpy(retVal, str);
 	return retVal;
 }
-// Expected a type that can used as a condition
-static void getStartEndPos(llLexerItem start, llLexerItem end, long *startP, long *endP) {
+void parserNodeStartEndPos(llLexerItem start, llLexerItem end, long *startP, long *endP) {
 	long endI, startI;
 	if (end == NULL)
 		endI = llLexerItemValuePtr(llLexerItemLast(start))->end;
@@ -108,7 +104,7 @@ static void getStartEndPos(llLexerItem start, llLexerItem end, long *startP, lon
 }
 static void whineExpectedCondExpr(llLexerItem start, llLexerItem end, struct object *type) {
 	long startI, endI;
-	getStartEndPos(start, end, &startI, &endI);
+	parserNodeStartEndPos(start, end, &startI, &endI);
 
 	__auto_type typeText = object2Str(type);
 
@@ -176,8 +172,7 @@ static struct parserNode *expectOp(llLexerItem _item, const char *text) {
 			struct parserNodeOpTerm term;
 			term.base.refCount=1;
 			term.base.type = NODE_OP;
-			term.base.pos.start = item->start;
-			term.base.pos.end = item->end;
+			assignPosByLexerItems((void*)&term, _item, llLexerItemNext(_item));
 			term.text = text;
 
 			return ALLOCATE(term);
@@ -203,8 +198,7 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end, llLex
 				lit.base.refCount=1;
 				lit.base.type = NODE_LIT_FLT;
 				lit.value = ((struct lexerFloating *)lexerItemValuePtr(item))->value;
-				lit.base.pos.start = item->start;
-				lit.base.pos.end = item->end;
+				assignPosByLexerItems((void*)&lit, start, llLexerItemNext(start));
 
 				return ALLOCATE(lit);
 		} else if (item->template == &intTemplate) {
@@ -215,8 +209,7 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end, llLex
 				lit.base.refCount=1;
 				lit.base.type = NODE_LIT_INT;
 				lit.value = *(struct lexerInt *)lexerItemValuePtr(item);
-				lit.base.pos.start = item->start;
-				lit.base.pos.end = item->end;
+				assignPosByLexerItems((void*)&lit, start, llLexerItemNext(start));
 
 				return ALLOCATE(lit);
 		} else if (item->template == &opTemplate) {
@@ -227,7 +220,7 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end, llLex
 								if(next->type==NODE_LIT_INT) {
 										struct parserNodeLitInt i=*(struct parserNodeLitInt*)next;
 										i.base.refCount=1;
-										i.base.pos.start=item->start;
+										i.base.pos.start=start;
 										i.base.pos.end=next->pos.end;
 										i.base.type=NODE_LIT_INT;
 										i.value.value.sLong*=-1;
@@ -245,8 +238,8 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end, llLex
 				lit.str=str;
 				//Clone the string,lexer item string will be free'd
 				lit.str.text=__vecAppendItem(NULL, lit.str.text, __vecSize(lit.str.text));
-				lit.base.pos.start = item->start;
-				lit.base.pos.end = item->end;
+				lit.base.pos.start = start;
+				lit.base.pos.end = llLexerItemNext(start);
 		
 				return ALLOCATE(lit);
 		} else if (item->template == &nameTemplate) {
@@ -262,8 +255,8 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end, llLex
 						var.base.refCount=1;
 						var.base.type = NODE_VAR;
 						var.var = findVar;
-						var.base.pos.start = name->pos.start;
-						var.base.pos.end = name->pos.end;
+						var.base.pos.start = start;
+						var.base.pos.end = llLexerItemNext(start);
 						findVar->refCount++;
 						
 						return ALLOCATE(var);
@@ -274,8 +267,8 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end, llLex
 				if (findFunc) {
 						struct parserNodeFuncRef ref;
 						ref.base.refCount=1;
-						ref.base.pos.start = name->pos.start;
-						ref.base.pos.end = name->pos.end;
+						ref.base.pos.start = start;
+						ref.base.pos.end = llLexerItemNext(start);
 						ref.base.type = NODE_FUNC_REF;
 						ref.func = findFunc;
 						ref.name = name;
@@ -393,7 +386,7 @@ static struct parserNode *precCommaRecur(llLexerItem start, llLexerItem end, llL
 	seq.base.type = NODE_COMMA_SEQ;
 	seq.items = NULL;
 	seq.type = NULL;
-	seq.base.pos.start = llLexerItemValuePtr(start)->start;
+	seq.base.pos.start = start;
 
 	__auto_type node = NULL;
 	for (; start != NULL && start != end;) {
@@ -420,9 +413,9 @@ static struct parserNode *precCommaRecur(llLexerItem start, llLexerItem end, llL
 		seq.items = strParserNodeAppendItem(seq.items, node);
 
 		if (start)
-			seq.base.pos.end = llLexerItemValuePtr(start)->end;
+			seq.base.pos.end=llLexerItemNext(start);
 		else
-			seq.base.pos.end = llLexerItemValuePtr(llLexerItemLast(originalStart))->end;
+			seq.base.pos.end = llLexerItemLast(originalStart);
 		return ALLOCATE(seq);
 	}
 }
@@ -523,16 +516,15 @@ static struct parserNode *nameParse(llLexerItem start, llLexerItem end, llLexerI
 		struct parserNodeName retVal;
 		retVal.base.refCount=1;
 		retVal.base.type = NODE_NAME;
-		retVal.base.pos.start = item->start;
-		retVal.base.pos.end = item->end;
+		retVal.base.pos.start = start;
+		retVal.base.pos.end = llLexerItemNext(start);
 		retVal.text = ptr;
 
 		return ALLOCATE(retVal);
 	}
 	return NULL;
 }
-static struct parserNode *pairOperator(const char *left, const char *right, llLexerItem start, llLexerItem end, llLexerItem *result, int *success, long *startP,
-                                       long *endP) {
+static struct parserNode *pairOperator(const char *left, const char *right, llLexerItem start, llLexerItem end, llLexerItem *result, int *success, llLexerItem *startPos,llLexerItem *endPos) {
 	if (success != NULL)
 		*success = 0;
 
@@ -569,10 +561,10 @@ end:
 	if (r == NULL)
 		exp = NULL;
 
-	if (l && startP)
-		*startP = l->pos.start;
-	if (r && endP)
-		*endP = r->pos.end;
+	if (l && startPos)
+		*startPos = l->pos.start;
+	if (r && endPos)
+		*endPos = r->pos.end;
 
 	return refNode(exp);
 }
@@ -590,8 +582,8 @@ static struct parserNode *expectKeyword(llLexerItem __item, const char *text) {
 			struct parserNodeKeyword kw;
 			kw.base.refCount=1;
 			kw.base.type = NODE_KW;
-			kw.base.pos.start = item->start;
-			kw.base.pos.end = item->end;
+			kw.base.pos.start = __item;
+			kw.base.pos.end = llLexerItemNext(__item);
 			kw.text = text;
 
 			return ALLOCATE(kw);
@@ -740,7 +732,7 @@ static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end, llLexer
 												cast.exp = head;
 												cast.type = type;
 												cast.base.pos.start = lP->pos.start;
-												cast.base.pos.end = llLexerItemValuePtr(end2)->end;
+												cast.base.pos.end = llLexerItemNext(end2);
 
 												head = ALLOCATE(cast);
 
@@ -753,7 +745,7 @@ static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end, llLexer
 				}
 		}
 		int success;
-		long startP, endP;
+		llLexerItem startP, endP;
 		if(head) {
 				__auto_type funcCallArgs = pairOperator("(", ")", result2, end, &result2, &success, &startP, &endP);
 				if (success) {
@@ -1306,7 +1298,10 @@ static llLexerItem findEndOfExpression(llLexerItem start, int stopAtComma) {
 	}
 
 	return NULL;
-} 
+}
+#define NODE_START_END_POS(node,_start,_end)  \
+		long _start=llLexerItemValuePtr(((struct parserNode*)(node))->pos.start)->start; \
+		long _end=llLexerItemValuePtr(((struct parserNode*)(node))->pos.end)->end;
 static int64_t intLitValue(struct parserNode *lit) {
 	__auto_type node = (struct parserNodeLitInt *)lit;
 	int64_t retVal;
@@ -1340,9 +1335,10 @@ static int validateArrayDim(struct object *obj,struct parserNode *parent,strPars
 						struct parserNodeLitStr *str=(void*)toValidate[v];
 						len=__vecSize(str->str.text);
 				} if(toValidate[v]->type!=NODE_ARRAY_LITERAL) {
-						diagErrorStart(toValidate[v]->pos.start, toValidate[v]->pos.end);
+						NODE_START_END_POS(toValidate[v],start,end);
+						diagErrorStart(start,end);
 						diagPushText("Expected an array literal.");
-						diagPushQoutedText(toValidate[v]->pos.start, toValidate[v]->pos.end);
+						diagPushQoutedText(start,end);
 						diagEndMsg();
 						return 1;
 				} else if(toValidate[v]->type==NODE_ARRAY_LITERAL) {
@@ -1350,18 +1346,20 @@ static int validateArrayDim(struct object *obj,struct parserNode *parent,strPars
 						len=strParserNodeSize(lit->items);
 				}
 				if(expectedDim!=-1&&len!=expectedDim) {
-								diagErrorStart(toValidate[v]->pos.start, toValidate[v]->pos.end);
+						NODE_START_END_POS(toValidate[v],start,end);
+						diagErrorStart(start,end);
 								diagPushText("Dimension mismatch in array literal");
-								diagPushQoutedText(toValidate[v]->pos.start, toValidate[v]->pos.end);
+								diagPushQoutedText(start,end);
 								diagEndMsg();
 								return 1;
 						}
 				if(v==0) {
 						firstLen=len;
 				} else if(firstLen!=len) {
-						diagErrorStart(toValidate[v]->pos.start, toValidate[v]->pos.end);
+						NODE_START_END_POS(toValidate[v],start,end);
+						diagErrorStart(start, end);
 						diagPushText("Inconsistent array dim size.");
-						diagPushQoutedText(toValidate[v]->pos.start, toValidate[v]->pos.end);
+						diagPushQoutedText(start, end);
 						diagEndMsg();
 						return 1;
 				}
@@ -1618,9 +1616,10 @@ static void referenceType(struct object *type) {
 
 	if (existingName) {
 		assert(existingName->base.type == NODE_NAME);
-		diagNoteStart(existingName->base.pos.start, existingName->base.pos.end);
+		NODE_START_END_POS(existingName,start,end);
+		diagNoteStart(start, end);
 		diagPushText("Previous definition here:");
-		diagHighlight(existingName->base.pos.start, existingName->base.pos.end);
+		diagHighlight(start, end);
 		diagEndMsg();
 	}
 }
@@ -1688,11 +1687,12 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end, int allowForw
 					// Whine about forward declaration of incompatible existing type
 
 				incompat:;
-					diagErrorStart(name->base.pos.start, name->base.pos.end);
+						NODE_START_END_POS(name, start, end);
+						diagErrorStart(start,end);
 					diagPushText("Forward declaration ");
-					diagPushQoutedText(name->base.pos.start, name->base.pos.end);
+					diagPushQoutedText(start,end);
 					diagPushText(" conflicts with existing type.");
-					diagHighlight(name->base.pos.start, name->base.pos.end);
+					diagHighlight(start,end);
 					diagEndMsg();
 
 					referenceType(type);
@@ -1824,8 +1824,8 @@ struct parserNode *parseScope(llLexerItem start, llLexerItem *end, struct object
 	
 	struct parserNodeScope *retVal = calloc(sizeof(struct parserNodeScope),1);
 	retVal->base.refCount=1;
-	retVal->base.pos.start = -1;
-	retVal->base.pos.end = -1;
+	retVal->base.pos.start = NULL;
+	retVal->base.pos.end = NULL;
 	retVal->base.type = NODE_SCOPE;
 	retVal->stmts = NULL;
 	// Enter new scope
@@ -1863,9 +1863,10 @@ struct parserNode *parseScope(llLexerItem start, llLexerItem *end, struct object
 
 		if (!foundOtherSide) {
 			struct parserNodeKeyword *kw = (void *)lC;
-			diagErrorStart(kw->base.pos.start, kw->base.pos.end);
+			NODE_START_END_POS(kw->base.pos.start, start, end);
+			diagErrorStart(start,end);
 			diagPushText("Expecte other '}'.");
-			diagHighlight(kw->base.pos.start, kw->base.pos.end);
+			diagHighlight(start,end);
 			diagEndMsg();
 		}
 	}
@@ -1895,7 +1896,8 @@ static void getSubswitchStartCode(struct parserNodeSubSwitch *sub) {
 		}
 
 		if (nodes[0][i]->type == NODE_SUBSWITCH) {
-			diagErrorStart(sub->base.pos.start, sub->base.pos.end);
+				NODE_START_END_POS(sub,start,end);
+				diagErrorStart(start,end);
 			diagPushText("Nested sub-switches are require cases between them.");
 			diagEndMsg();
 			return;
@@ -1945,7 +1947,7 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 	
 	__auto_type asmBlock = parseAsm(originalStart, end);
 	if (asmBlock)
-		return asmBlock;
+			return asmBlock;
 
 	__auto_type funcStart=originalStart;
 	struct linkage link = getLinkage(originalStart, &funcStart);
@@ -2078,7 +2080,8 @@ struct parserNode *parseBreak(llLexerItem item, llLexerItem *end) {
 		__auto_type next = llLexerItemNext(item);
 		assignPosByLexerItems((struct parserNode *)&retVal, item, next);
 		if (!currentLoop && strParserNodeSize(switchStack) == 0) {
-			diagErrorStart(retVal.base.pos.start, retVal.base.pos.end);
+				NODE_START_END_POS(&retVal,start,end);
+				diagErrorStart(start,end);
 			diagPushText("Break appears in non-loop!");
 			diagEndMsg();
 		}
@@ -2479,15 +2482,17 @@ struct parserNode *parseSwitch(llLexerItem start, llLexerItem *end) {
 			struct parserNodeLabel *lab = (void *)sub->start;
 			struct parserNodeName *name = (void *)lab->name;
 
-			diagErrorStart(name->base.pos.start, name->base.pos.end);
+			NODE_START_END_POS(name,start,end);
+			diagErrorStart(start,end);
 			diagPushText("Unterminated sub-switch.");
-			diagHighlight(name->base.pos.start, name->base.pos.end);
+			diagHighlight(start,end);
 			diagEndMsg();
 
+			NODE_START_END_POS(kw,start2,end2);
 			struct parserNodeKeyword *kw2 = (void *)kw;
-			diagNoteStart(kw2->base.pos.start, kw2->base.pos.end);
+			diagNoteStart(start2,end2);
 			diagPushText("From here:");
-			diagHighlight(kw2->base.pos.start, kw2->base.pos.end);
+			diagHighlight(start2,end2);
 			diagEndMsg();
 		}
 
@@ -2526,7 +2531,6 @@ static void __parserMapLabels2Refs(int failOnNotFound) {
 		__auto_type refs = *mapParserNodesGet(labelReferences, keys[i]);
 		__auto_type lab = mapParserNodeGet(labels, keys[i]);
 		for (long g = 0; g != strParserNodeSize(refs); g++) {
-			long start = refs[g]->pos.start, end = refs[g]->pos.end;
 			switch (refs[g]->type) {
 			case NODE_GOTO: {
 				if (!lab)
@@ -2541,6 +2545,7 @@ static void __parserMapLabels2Refs(int failOnNotFound) {
 		undefinedRef:
 			if (!failOnNotFound)
 				continue;
+			NODE_START_END_POS(*lab,start,end);
 			diagErrorStart(start, end);
 			diagPushText("Undefined reference to label ");
 			diagPushQoutedText(start, end);
@@ -2578,21 +2583,24 @@ struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 		if (end)
 			*end = start;
 		if (!isAsmMode) {
-			diagErrorStart(atAt->pos.start, atAt->pos.end);
+				NODE_START_END_POS(atAt,start,end);
+			diagErrorStart(start, end);
 			diagPushText("Local labels must appear in asm statement.");
 			diagEndMsg();
 		}
 		if (mapParserNodeGet(localLabels, nameNode->text)) {
-			diagErrorStart(atAt->pos.start, atAt->pos.end);
+				NODE_START_END_POS(atAt,start,end);
+				diagErrorStart(start, end);
 			diagPushText("Redefinition of local symbol ");
-			diagPushQoutedText(name->pos.start, name->pos.end);
+			diagPushQoutedText(start, end);
 			diagPushText(".");
 			diagEndMsg();
 			return NULL;
 		} else {
 			struct parserNodeLabelLocal local;
 			local.base.refCount=1;
-			getStartEndPos(originalStart, start, &local.base.pos.start, &local.base.pos.end);
+			local.base.pos.start=originalStart;
+			local.base.pos.end=start;
 			local.base.type = NODE_ASM_LABEL_LOCAL;
 			local.name = refNode(name);
 			__auto_type node = ALLOCATE(local);
@@ -2642,7 +2650,8 @@ struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 				parserAddGlobalSym(glblNode, (struct linkage){LINKAGE_LOCAL, NULL});
 				addLabel(glblNode, nameNode->text);
 				if (!isAsmMode) {
-					diagErrorStart(atAt->pos.start, atAt->pos.end);
+						NODE_START_END_POS(atAt,start,end);
+					diagErrorStart(start, end);
 					diagPushText("Local labels must appear in asm statement.");
 					diagEndMsg();
 				}
@@ -2730,7 +2739,7 @@ end:
 
 	return retVal;
 }
-static void ensureCaseDoesntExist(long valueLow, long valueHigh, long rangeStart, long rangeEnd) {
+static void ensureCaseDoesntExist(long valueLow, long valueHigh, llLexerItem rangeStart,llLexerItem rangeEnd) {
 	long len = strParserNodeSize(switchStack);
 	for (long i = len - 1; i >= 0; i--) {
 		strParserNode cases = NULL;
@@ -2754,14 +2763,18 @@ static void ensureCaseDoesntExist(long valueLow, long valueHigh, long rangeStart
 				consumed |= valueHigh >= cs->valueUpper && valueLow <= cs->valueLower;
 				if (consumed) {
 					struct parserNodeKeyword *kw = (void *)cs->label;
-					diagErrorStart(rangeStart, rangeEnd);
+					long s,e;
+					parserNodeStartEndPos(rangeStart, rangeEnd, &s, &e);
+					diagErrorStart(s,e);
 					diagPushText("Conflicting case statements.");
-					diagHighlight(rangeStart, rangeEnd);
+					diagHighlight(s,e);
 					diagEndMsg();
 
-					diagNoteStart(kw->base.pos.start, kw->base.pos.end);
+
+					NODE_START_END_POS(kw,start,end);
+					diagNoteStart(start, end);
 					diagPushText("Previous case here: ");
-					diagHighlight(kw->base.pos.start, kw->base.pos.end);
+					diagHighlight(start, end);
 					diagEndMsg();
 					goto end;
 				}
@@ -2850,13 +2863,13 @@ struct parserNode *parseCase(llLexerItem start, llLexerItem *end) {
 		}
 
 		long startP, endP;
-		getStartEndPos(valueStart, start, &startP, &endP);
+		parserNodeStartEndPos(valueStart, start, &startP, &endP);
 		if (parent == NULL)
 			whineCaseNoSwitch(kwCase, startP, endP);
 
 		caseValueUpper = (caseValueUpper == -1) ? caseValue  : caseValueUpper;
 
-		ensureCaseDoesntExist(caseValue, caseValueUpper, startP, endP);
+		ensureCaseDoesntExist(caseValue, caseValueUpper, valueStart, start);
 
 		struct parserNodeCase caseNode;
 		caseNode.base.refCount=1;
@@ -2905,7 +2918,7 @@ struct parserNode *parseCase(llLexerItem start, llLexerItem *end) {
 		;
 
 		long startP, endP;
-		getStartEndPos(start, start, &startP, &endP);
+		parserNodeStartEndPos(start, start, &startP, &endP);
 		if (parent == NULL) {
 			whineCaseNoSwitch(kwCase, startP, endP);
 		} else {
@@ -2945,9 +2958,10 @@ struct parserNode *parseGoto(llLexerItem start, llLexerItem *end) {
 		struct parserNode *nm CLEANUP(parserNodeDestroy) = nameParse(start, NULL, &start);
 		if (!nm) {
 			// Whine about expected name
-			diagErrorStart(gt->pos.start, gt->pos.end);
+				NODE_START_END_POS(gt, start, end)
+				diagErrorStart(start, end);
 			diagPushText("Expected name after goto.");
-			diagHighlight(gt->pos.start, gt->pos.end);
+			diagHighlight(start, end);
 			;
 			diagEndMsg();
 			goto end;
@@ -2977,9 +2991,10 @@ struct parserNode *parseReturn(llLexerItem start, llLexerItem *end) {
 		start = llLexerItemNext(start);
 		// Ensrue if in function
 		if (strFuncInfoStackSize(currentFuncsStack) == 0) {
-			diagErrorStart(ret->pos.start, ret->pos.end);
+				NODE_START_END_POS(ret,_start,_end);
+				diagErrorStart(_start, _end);
 			diagPushText("Return appearing in non-function.");
-			diagHighlight(ret->pos.start, ret->pos.end);
+			diagHighlight(_start, _end);
 			diagEndMsg();
 
 			// Expect expression then semi
@@ -3001,9 +3016,10 @@ struct parserNode *parseReturn(llLexerItem start, llLexerItem *end) {
 
 			// Warn if current return type isn't void
 			if (top->retType != &typeU0) {
-				diagWarnStart(ret->pos.start, ret->pos.end);
+					NODE_START_END_POS(ret,_start,_end);
+					diagWarnStart(_start, _end);
 				diagPushText("Empty return on non-U0 function.");
-				diagHighlight(ret->pos.start, ret->pos.end);
+				diagHighlight(_start, _end);
 				diagEndMsg();
 			}
 
@@ -3011,20 +3027,22 @@ struct parserNode *parseReturn(llLexerItem start, llLexerItem *end) {
 		} else {
 			// Ensure if current function inst void
 			if (top->retType == &typeU0) {
-				diagErrorStart(ret->pos.start, ret->pos.end);
+					NODE_START_END_POS(ret,_start,_end);
+					diagErrorStart(_start, _end);
 				diagPushText("Attempting to return a value when the return type is U0.");
-				diagHighlight(ret->pos.start, ret->pos.end);
+				diagHighlight(_start, _end);
 				diagEndMsg();
 
 				// Goto end(because fail)
 				goto end;
 			} else if (!objectIsCompat(top->retType, assignTypeToOp(retVal))) {
-				// Whine because types are compable
+					NODE_START_END_POS(ret,_start,_end);
+					// Whine because types are compable
 				// Error
-				diagErrorStart(ret->pos.start, ret->pos.end);
+				diagErrorStart(_start, _end);
 				__auto_type res = object2Str(assignTypeToOp(retVal));
 				diagPushText("Attempting to return incompatable type '%s'.");
-				diagHighlight(retVal->pos.start, retVal->pos.end);
+				diagHighlight(_start, _end);
 				diagEndMsg();
 
 				// Note
@@ -3155,8 +3173,7 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 	// Enter the function
 	//
 	struct currentFunctionInfo info;
-	info.retTypeBegin = nm->base.pos.start;
-	info.retTypeEnd = name2->pos.start;
+	parserNodeStartEndPos((void*)nm, (void*)name2, &info.retTypeBegin, &info.retTypeEnd);
 	info.retType = retType;
 	info.insideFunctions = NULL;
 	currentFuncsStack = strFuncInfoStackAppendItem(currentFuncsStack, info);
@@ -3174,7 +3191,7 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 		forward.funcType = funcType;
 		forward.name = refNode(name2);
 		struct parserNode *fwdAlloced = ALLOCATE(forward);
-		parserAddFunc(name2, funcType, fwdAlloced);
+		parserAddFunc(name2, funcType, fwdAlloced,NULL,NULL);
 		parserNodeDestroy(&fwdAlloced);
 	
 	struct parserNode *retVal = NULL;
@@ -3205,8 +3222,6 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 		func.funcType = funcType;
 		func.name = refNode(name2);
 		func.args = args;
-		func.__cacheEndToken=start;
-		func.__cacheStartToken=originalStart;
 		retVal = ALLOCATE(func);
 		scope=NULL; //Mark for non-deleteion
 	}
@@ -3244,7 +3259,7 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 	else
 		assignPosByLexerItems(retVal, originalStart, NULL);
 
-	parserAddFunc(name2, funcType, retVal);
+	parserAddFunc(name2, funcType, retVal,originalStart,start);
 	
 	
 	if (retVal->type == NODE_FUNC_DEF)
@@ -3274,8 +3289,8 @@ struct parserNode *parseAsmRegister(llLexerItem start, llLexerItem *end) {
 					*end = llLexerItemNext(start);
 				struct parserNodeAsmReg reg;
 				reg.base.refCount=1;
-				reg.base.pos.start = item->start;
-				reg.base.pos.end = item->end;
+				reg.base.pos.start = start;
+				reg.base.pos.end = llLexerItemNext(start);
 				reg.base.type = NODE_ASM_REG;
 				reg.reg = regs[i];
 				return ALLOCATE(reg);
@@ -3850,12 +3865,13 @@ static struct X86AddressingMode *x86ItemAddr(llLexerItem start, llLexerItem *end
 				struct parserNodeName *nm=(void*)access->name;
 				struct objectMember *member = objectMemberGet(aType,nm);
 				if(!member) {
-						diagErrorStart(nm->base.pos.start, nm->base.pos.end);
+						NODE_START_END_POS(nm,_start,_end);
+						diagErrorStart(_start, _end);
 						char *str=object2Str(aType);
 						diagPushText("Type ");
 						diagPushText(str);
 						diagPushText(" doesn't have member");
-						diagPushQoutedText(nm->base.pos.start, nm->base.pos.end);
+						diagPushQoutedText(_start, _end);
 						diagPushText(".");
 						free(str);
 						diagEndMsg();
@@ -3949,15 +3965,17 @@ struct parserNode *parseAsmInstructionX86(llLexerItem start, llLexerItem *end) {
 			if (end)
 				*end = start;
 			if (ambiguous) {
-				diagErrorStart(name->pos.start, name->pos.end);
+					NODE_START_END_POS(name,_start,_end);
+				diagErrorStart(_start, _end);
 				diagPushText("Ambiuous operands for opcode ");
-				diagPushQoutedText(name->pos.start, name->pos.end);
+				diagPushQoutedText(_start, _end);
 				diagPushText(".");
 				diagEndMsg();
 			} else if (!valid) {
-				diagErrorStart(name->pos.start, name->pos.end);
+					NODE_START_END_POS(name,_start,_end);
+				diagErrorStart(_start, _end);
 				diagPushText("Invalid arguments for opcode ");
-				diagPushQoutedText(name->pos.start, name->pos.end);
+				diagPushQoutedText(_start, _end);
 				diagPushText(".");
 				diagEndMsg();
 			} else {
@@ -3976,7 +3994,8 @@ struct parserNode *parseAsmInstructionX86(llLexerItem start, llLexerItem *end) {
 				inst.args = addrModeArgs;
 				inst.name = nameParse(originalStart, NULL, NULL);
 				inst.base.type = NODE_ASM_INST;
-				getStartEndPos(originalStart, start, &inst.base.pos.start, &inst.base.pos.end);
+				inst.base.pos.start=originalStart;
+				inst.base.pos.end=originalStart;
 				return ALLOCATE(inst);
 			}
 		}
@@ -4079,7 +4098,8 @@ struct parserNode *parseAsm(llLexerItem start, llLexerItem *end) {
 					break;
 				}
 			}
-			getStartEndPos(originalStart, start, &define.base.pos.start, &define.base.pos.end);
+			define.base.pos.start=originalStart;
+			define.base.pos.end=start;
 			switch (duSize) {
 			case 1:
 				define.base.type = NODE_ASM_DU8;
@@ -4105,8 +4125,9 @@ struct parserNode *parseAsm(llLexerItem start, llLexerItem *end) {
 			__auto_type originalStart = start;
 			struct parserNodeAsmUseXX use;
 			use.base.refCount=1;
-			getStartEndPos(originalStart, start, &use.base.pos.start, &use.base.pos.end);
+			use.base.pos.start=originalStart;
 			start = llLexerItemNext(start);
+			use.base.pos.end=start;
 			if (use16)
 				use.base.type = NODE_ASM_USE16;
 			else if (use32)
@@ -4132,8 +4153,9 @@ struct parserNode *parseAsm(llLexerItem start, llLexerItem *end) {
 			struct parserNodeAsmOrg org;
 			org.base.refCount=1;
 			org.base.type = NODE_ASM_ORG;
-			getStartEndPos(originalStart, start, &org.base.pos.start, &org.base.pos.end);
+			org.base.pos.start=originalStart;
 			start = llLexerItemNext(start);
+			org.base.pos.end=start;
 			org.org = uintLitValue(where);
 			body = strParserNodeAppendItem(body, ALLOCATE(org));
 			continue;
@@ -4155,30 +4177,32 @@ struct parserNode *parseAsm(llLexerItem start, llLexerItem *end) {
 			struct parserNodeAsmBinfile binfile;
 			binfile.base.type = NODE_ASM_BINFILE;
 			binfile.fn = fn;
-			getStartEndPos(originalStart, start, &binfile.base.pos.start, &binfile.base.pos.end);
+			binfile.base.pos.start=originalStart;
+			binfile.base.pos.end=start;
 			body = strParserNodeAppendItem(body, ALLOCATE(binfile));
 			// Ensure file exists
 			struct parserNodeLitStr *str = (void *)fn;
 			FILE *file = fopen((char*)str->str.text, "rb");
 			fclose(file);
 			if (!file) {
-				diagErrorStart(fn->pos.start, fn->pos.end);
-				diagPushText("File ");
-				diagPushQoutedText(fn->pos.start, fn->pos.end);
-				diagPushText(" not found.");
-				diagEndMsg();
+					NODE_START_END_POS(fn,_start,_end);
+					diagErrorStart(_start, _end);
+					diagPushText("File ");
+					diagPushQoutedText(_start, _end);
+					diagPushText(" not found.");
+					diagEndMsg();
 			}
 			continue;
 		}
 		struct parserNode *list CLEANUP(parserNodeDestroy) = expectKeyword(start, "LIST");
 		struct parserNode *nolist CLEANUP(parserNodeDestroy) = expectKeyword(start, "NOLIST");
 		if (list || nolist)
-			continue;
+				continue;
 		struct parserNode *import CLEANUP(parserNodeDestroy) = expectKeyword(start, "IMPORT");
 		if (import) {
-			__auto_type originalStart = start;
-			start = llLexerItemNext(start);
-			for (int firstRun = 1; start; firstRun = 0) {
+				__auto_type originalStart = start;
+				start = llLexerItemNext(start);
+			for(int firstRun = 1; start; firstRun = 0) {
 				struct parserNode *semi CLEANUP(parserNodeDestroy) = expectKeyword(start, ";");
 				if (semi)
 					break;
@@ -4201,9 +4225,10 @@ struct parserNode *parseAsm(llLexerItem start, llLexerItem *end) {
 				if (!find) {
 					__auto_type findVar = parserGetVar((const struct parserNode *)name2);
 					if (!findVar) {
-						diagErrorStart(name->pos.start, name->pos.end);
+							NODE_START_END_POS(name, _start, _end);
+							diagErrorStart(_start, _end);
 						diagPushText("Global symbol ");
-						diagPushQoutedText(name->pos.start, name->pos.end);
+						diagPushQoutedText(_start, _end);
 						diagPushText(" wasn't found.");
 						diagEndMsg();
 					} else {
@@ -4215,7 +4240,8 @@ struct parserNode *parseAsm(llLexerItem start, llLexerItem *end) {
 			struct parserNodeAsmImport import;
 			import.base.refCount=1;
 			import.base.type = NODE_ASM_IMPORT;
-			getStartEndPos(originalStart, start, &import.base.pos.start, &import.base.pos.end);
+			import.base.pos.start=originalStart;
+			import.base.pos.end=start;
 			start = llLexerItemNext(start);
 			body = strParserNodeAppendItem(body, ALLOCATE(import));
 			continue;
@@ -4254,7 +4280,8 @@ struct parserNode *parseAsm(llLexerItem start, llLexerItem *end) {
 			align.base.type = NODE_ASM_ALIGN;
 			align.count = uintLitValue(num);
 			align.fill = intLitValue(fill);
-			getStartEndPos(originalStart, start, &align.base.pos.start, &align.base.pos.end);
+			align.base.pos.start=originalStart;
+			align.base.pos.end=start;
 			body = strParserNodeAppendItem(body, ALLOCATE(align));
 			continue;
 		}
@@ -4266,7 +4293,8 @@ struct parserNode *parseAsm(llLexerItem start, llLexerItem *end) {
 	asmBlock.base.refCount=1;
 	asmBlock.body = body;
 	asmBlock.base.type = NODE_ASM;
-	getStartEndPos(originalStart, start, &asmBlock.base.pos.start, &asmBlock.base.pos.end);
+	asmBlock.base.pos.start=originalStart;
+	asmBlock.base.pos.end=start;
 	// Move past "}"
 	start = llLexerItemNext(start);
 	if (end)
@@ -4362,8 +4390,9 @@ struct parserNode *parseLastclass(llLexerItem start, llLexerItem *end) {
 		assignPosByLexerItems((struct parserNode*)&lc, llLexerItemPrev(start), start);
 
 		if(!lastclassAllowed) {
-				diagErrorStart(lc.base.pos.start, lc.base.pos.end);
-				diagPushQoutedText(lc.base.pos.start, lc.base.pos.end);
+				NODE_START_END_POS(&lc,_start,_end);
+				diagErrorStart(_start,_end);
+				diagPushQoutedText(_start,_end);
 				diagPushText(" is only allowed as a function argument.");
 				diagEndMsg();
 		}

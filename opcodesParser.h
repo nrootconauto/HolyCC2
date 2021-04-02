@@ -39,6 +39,7 @@ struct X86AddressingMode {
 			X86ADDRMODE_VAR_ADDR,
 			X86ADDRMODE_STR,
 			X86ADDRMODE_SIZEOF,
+			X86ADDRMODE_MACRO,
 	} type;
 	union {
 			struct object *objSizeof;
@@ -58,6 +59,7 @@ struct X86AddressingMode {
 			} varAddr;
 			char *label;
 			struct __vec *text;
+			char *macroName;
 	} value;
 		struct object *valueType;
 };
@@ -147,3 +149,4 @@ struct opcodeTemplate {
 long opcodeTemplateArgSize(struct opcodeTemplateArg arg);
 void X86AddrModeIndirSIBAddOffset(struct X86AddressingMode *addrMode,int32_t offset);
 void X86AddrModeIndirSIBAddMemberOffset(struct X86AddressingMode *addrMode,struct objectMember *mem);
+struct X86AddressingMode *X86AddrModeMacro(const char *name,struct object *type);

@@ -921,6 +921,11 @@ struct X86AddressingMode *X86AddrModeLabel(const char *name) {
 }
 struct X86AddressingMode *X86AddrModeClone(struct X86AddressingMode *mode) {
 	switch (mode->type) {
+	case X86ADDRMODE_MACRO: {
+			__auto_type clone=*mode;
+			clone.value.macroName=strcpy(calloc(strlen(clone.value.macroName)+1, 1), clone.value.macroName);
+			return ALLOCATE(clone);
+	}
 	case X86ADDRMODE_SIZEOF: {
 			__auto_type clone=*mode;
 			return ALLOCATE(clone);
@@ -967,6 +972,10 @@ void X86AddrModeDestroy(struct X86AddressingMode **mode) {
 		return;
 
 	switch (mode[0]->type) {
+	case X86ADDRMODE_MACRO: {
+			free(mode[0]->value.macroName);
+			break;
+	}
 	case X86ADDRMODE_VAR_ADDR: {
 			variableDestroy(mode[0]->value.varAddr.var);
 			break;
@@ -1052,5 +1061,12 @@ struct X86AddressingMode *X86AddrModeSizeofObj(struct object *type) {
 		mode.type=X86ADDRMODE_SIZEOF;
 		mode.value.objSizeof=type;
 		mode.valueType=dftValType();
+		return ALLOCATE(mode);
+}
+struct X86AddressingMode *X86AddrModeMacro(const char *name,struct object *type) {
+		struct X86AddressingMode mode;
+		mode.type=X86ADDRMODE_MACRO;
+		mode.value.macroName=strcpy(calloc(strlen(name)+1, 1), name);
+		mode.valueType=type;
 		return ALLOCATE(mode);
 }

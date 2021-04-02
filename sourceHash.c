@@ -67,7 +67,7 @@ static void copy(FILE *out,FILE *in) {
 		for(long c=0;c!=size;c++)
 				fputc(fgetc(in),out);
 }
-long hashSource(llLexerItem start,llLexerItem end,const char *name,long *fileExists,char **fileName,long *nameLen) {
+char *hashSource(llLexerItem start,llLexerItem end,const char *name,long *fileExists) {
 		if(fileExists)
 				*fileExists=0;
 		
@@ -136,13 +136,7 @@ long hashSource(llLexerItem start,llLexerItem end,const char *name,long *fileExi
 		const char *fmt="%s/%s.%li.s";
 		long len=snprintf(NULL, 0, fmt, cacheDirLocation,name,retVal);
 		char buffer[len+1];
-		sprintf(buffer, fmt, cacheDirLocation,name,retVal);
-		
-		if(fileName)
-				strcpy(*fileName, buffer);
-		if(nameLen)
-				*nameLen=strlen(buffer);
-		
+		sprintf(buffer, fmt, cacheDirLocation,name,retVal);		
 		{
 				if(0==access(buffer,F_OK)) {
 						//Check if files are the same
@@ -167,7 +161,7 @@ long hashSource(llLexerItem start,llLexerItem end,const char *name,long *fileExi
 				if(fileExists)
 						if(*fileExists) {
 								fclose(f);
-								return retVal;
+								return strcpy(calloc(strlen(buffer)+1, 1), buffer);
 						}
 
 				FILE *out=fopen(buffer, "w");
@@ -176,5 +170,5 @@ long hashSource(llLexerItem start,llLexerItem end,const char *name,long *fileExi
 		}
 
 		fclose(f);
-		return retVal;
+		return strcpy(calloc(strlen(buffer)+1, 1), buffer);
 }

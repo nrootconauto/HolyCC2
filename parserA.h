@@ -106,11 +106,13 @@ struct parserFunction {
 	int isForwardDecl;
 	struct parserNode *node;
 	struct parserNode *parentFunction;
+		llLexerItem __cacheStartToken;
+		llLexerItem __cacheEndToken;
 };
 void variableDestroy(struct parserVar *var);
 struct parserSourcePos {
-	long start;
-	long end;
+		llLexerItem start;
+		llLexerItem end;
 };
 struct parserNode {
 	enum parserNodeType type;
@@ -315,8 +317,6 @@ struct parserNodeFuncDef {
 	struct parserNode *name;
 	struct parserFunction *func;
 	struct parserNode *bodyScope;
-		llLexerItem __cacheStartToken;
-		llLexerItem __cacheEndToken;
 };
 struct parserNodeFuncRef {
 	struct parserNode base;
@@ -438,3 +438,4 @@ void __initParserA();
 struct X86AddressingMode *parserNode2X86AddrMode(struct parserNode *node);
 void parserMapGotosToLabels();
 struct parserNode *parseAsm(llLexerItem start, llLexerItem *end);
+void parserNodeStartEndPos(llLexerItem start, llLexerItem end, long *startP, long *endP);
