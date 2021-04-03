@@ -243,9 +243,11 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end, llLex
 		
 				return ALLOCATE(lit);
 		} else if (item->template == &nameTemplate) {
-				__auto_type reg = parseAsmRegister(start, result);
-				if (reg)
-						return reg;
+				if(isAsmMode) {
+						__auto_type reg = parseAsmRegister(start, result);
+						if (reg)
+								return reg;
+				}
 
 				__auto_type name = nameParse(start, end, result);
 				// Look for var
@@ -3917,6 +3919,7 @@ static struct X86AddressingMode *x86ItemAddr(llLexerItem start, llLexerItem *end
 		return NULL;
 }
 struct parserNode *parseAsmInstructionX86(llLexerItem start, llLexerItem *end) {
+		isAsmMode=1;
 	if (llLexerItemValuePtr(start)->template == &nameTemplate) {
 		__auto_type originalStart = start;
 		struct parserNode *name CLEANUP(parserNodeDestroy) = nameParse(start, NULL, &start);
@@ -4007,12 +4010,14 @@ struct parserNode *parseAsmInstructionX86(llLexerItem start, llLexerItem *end) {
 				inst.base.type = NODE_ASM_INST;
 				inst.base.pos.start=originalStart;
 				inst.base.pos.end=originalStart;
+				isAsmMode=0;
 				return ALLOCATE(inst);
 			}
 		}
 	}
 	if (end)
 		*end = start;
+	isAsmMode=0;
 	return NULL;
 }
 
