@@ -32,6 +32,8 @@ U8i *StrDupLen(U8i *str,I32i len) {
 				return retVal;
 }
 I32i StrNCmp(U8i *a,U8i *b,I32i len) {
+					if(!a) a="";
+					if(!b) b="";
 					while((len-=1)>=0) {
 																						if(*a!=*b) return *a(I8i*)-*b(I8i*);
 																						a+=1;
@@ -123,6 +125,8 @@ U8i *StrCat(U8i *a,U8i *b) {
 				return retval;
 }
 I32i StrCmp(U8i *a,U8i *b) {
+					if(!a) a="";
+					if(!b) b="";
 					for(;;) {
 													if(*a-*b!=0) return *a-*b;
 													if((*a==0)&&(*b==0)) {return 0;}

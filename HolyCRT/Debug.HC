@@ -272,7 +272,9 @@ static U8i *DbgMatchFile(U8i *fn) {
 						free(matches);
 						return StrDupLen(retval,StrLen(retval));
 }
-static U0 FileDebuggerBreak(CFileDebugger *dbg,U8i *fn,I32i line) {
+#define DBG_BREAKPOINT_NORM 1
+#define DBG_BREAKPOINT_TMP 2
+static U8i *FileDebuggerGetBreakPtr(CFileDebugger *dbg,U8i *fn,I32i line) {
 			if(!fn) fn=HCC_DbgCurrentFunc;
 			loop:
 			JsonNode *bps=JsonNodeEntry(HCC_ThisFileDebugger->bpData->val.node,"breakpoints");
@@ -286,7 +288,7 @@ static U0 FileDebuggerBreak(CFileDebugger *dbg,U8i *fn,I32i line) {
 																														next:
 			}
 			Print("File \"%q\" not found!!!\n",fn);
-			return;
+			return NULL;
 			found:
 			I32i lastBpOff=-1; //See HCC_DEBUG_BREAKPOINTS_ARRAY
 			for(c=0;node->val.arr[c];c++) {
@@ -294,19 +296,38 @@ static U0 FileDebuggerBreak(CFileDebugger *dbg,U8i *fn,I32i line) {
 																																	lastBpOff=JsonNodeEntry(node->val.arr[c]->val.node,"offset")->val.sint;
 																																	if(lineNode->val.sint>=line) break;
 			}
-			if(lastBpOff==-1) return;
-			"%d\n",lastBpOff;
-			(&HCC_DEBUG_BREAKPOINTS_ARRAY)(U8i*)[lastBpOff]=1;
+			if(lastBpOff==-1) return NULL;
+			return &((&HCC_DEBUG_BREAKPOINTS_ARRAY)(U8i*)[lastBpOff]);
+}
+static U0 FileDebuggerBreak(CFileDebugger *dbg,U8i *fn,I32i line) {
+							if(!FileDebuggerGetBreakPtr(dbg,fn,line)) throw (1);
+							*FileDebuggerGetBreakPtr(dbg,fn,line)=DBG_BREAKPOINT_NORM;
 
-			++HCC_ThisFileDebugger->bpCount;
-			U8i *bptext=MStrPrint("%d",HCC_ThisFileDebugger->bpCount);
-			"Added breakpoint %d\n",HCC_ThisFileDebugger->bpCount;
+							++HCC_ThisFileDebugger->bpCount;
+							U8i *bptext=MStrPrint("%d",HCC_ThisFileDebugger->bpCount);
+							"Added breakpoint %d\n",HCC_ThisFileDebugger->bpCount;
 
-			CBreakpoint *bp=malloc(sizeof(CBreakpoint));
-			bp->fn=StrDupLen(fn,StrLen(fn));
-			bp->ln=line;
-			HashTableAdd(HCC_ThisFileDebugger->bpByNum,bp,bptext);
-			free(bptext);
+								CBreakpoint *bp=malloc(sizeof(CBreakpoint));
+								bp->fn=StrDupLen(fn,StrLen(fn));
+								bp->ln=line;
+								HashTableAdd(HCC_ThisFileDebugger->bpByNum,bp,bptext);
+								free(bptext);
+}
+static U0 FileDebuggerBreakTmp(CFileDebugger *dbg,U8i *fn,I32i line,U8i silent=0) {
+							if(!FileDebuggerGetBreakPtr(dbg,fn,line)) throw (1);
+							*FileDebuggerGetBreakPtr(dbg,fn,line)=DBG_BREAKPOINT_TMP;
+
+							if(silent) {
+																		++HCC_ThisFileDebugger->bpCount;
+																		U8i *bptext=MStrPrint("%d",HCC_ThisFileDebugger->bpCount);
+																		"Added tmp-breakpoint %d\n",HCC_ThisFileDebugger->bpCount;
+
+																		CBreakpoint *bp=malloc(sizeof(CBreakpoint));
+																		bp->fn=StrDupLen(fn,StrLen(fn));
+																		bp->ln=line;
+																		HashTableAdd(HCC_ThisFileDebugger->bpByNum,bp,bptext);
+																		free(bptext);
+							}
 }
 static U0 FileDebuggerRemoveBreak(CFileDebugger *dbg,I32i bpnum) {
 			U8i *bptext=MStrPrint("%d",bpnum);
@@ -319,28 +340,7 @@ static U0 FileDebuggerRemoveBreak(CFileDebugger *dbg,I32i bpnum) {
 			I32i line=bp->ln;
 			U8i *fn=bp->fn;
 
-			loop:
-			JsonNode *bps=JsonNodeEntry(HCC_ThisFileDebugger->bpData->val.node,"breakpoints");
-			I32i c=0;
-			JsonNode *node;
-			for(;bps->val.arr[c];c++) {
-																														node=JsonNodeEntry(bps->val.arr[c]->val.node,"filename");
-																														if(0!=StrCmp(node->val.str,fn)) goto next;
-																														node=JsonNodeEntry(bps->val.arr[c]->val.node,"lines");
-																														goto found;
-																														next:
-			}
-			Print("File \"%q\" not found!!!\n",fn);
-			return;
-			found:
-			I32i lastBpOff=-1; //See HCC_DEBUG_BREAKPOINTS_ARRAY
-			for(c=0;node->val.arr[c];c++) {
-																																	JsonNode *lineNode=JsonNodeEntry(node->val.arr[c]->val.node,"line");
-																																	lastBpOff=JsonNodeEntry(node->val.arr[c]->val.node,"offset")->val.sint;
-																																	if(lineNode->val.sint>=line) break;
-			}
-			if(lastBpOff==-1) return;
-			(&HCC_DEBUG_BREAKPOINTS_ARRAY)(U8i*)[lastBpOff]=0;
+			*FileDebuggerGetBreakPtr(dbg,fn,line)=0;
 
 			"Removing breakpoint %d\n",bpnum;
 			
@@ -475,6 +475,10 @@ static U8i *FileAndLine(U8i *str,I32i *ln,U8i *dftfn=NULL) {
 							}
 							goto invalidLoc;
 }
+static U8i HCC_DebugAtLineDisable=0;
+static U8i DebugStep=0;
+static U8i *DebugNextFunc=NULL;
+static U8i *DebugLastCom=NULL;
 static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 							CFuncDebugger *fdbg=HashTableGet(HCC_ThisFileDebugger->funcDebuggers,func);
 							U8i *buffer=malloc(1024);
@@ -483,17 +487,16 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 							U8i *printed,*endpos,*filename,*bpText;
 							I32i listln=atln;
 							U8i *listfn=HCC_DbgCurrentFunc;
-							U8i *lastcom=NULL;
 							U8i **keys;
 
 							loop:
 							Print("BSAT >>>(%s):",func);
 							gets(buffer);
 							if (StrLen(buffer)!=0) {
-										free(lastcom);
-										lastcom=__dbgGetNextWord(buffer);
+										free(DebugLastCom);
+										DebugLastCom=__dbgGetNextWord(buffer);
 							}
-							if(0==StrCmp(lastcom,"help")) {
+							if(0==StrCmp(DebugLastCom,"help")) {
 																																				help:
 																																				Print("Commands:\n");
 																																				Print("help -- display this message\n");
@@ -504,10 +507,17 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 																																				Print("lv -- list visible variables\n");
 																																				Print("b -- break at a function,or file location.\n");
 																																				Print("d -- remove a breakpoint.\n");
+																																				Print("s -- step.\n");
 																																				goto loop;
-							} else if(0==StrCmp(lastcom,"c")) {
+							} else if(0==StrCmp(DebugLastCom,"n")) {
+									DebugNextFunc=func;
 									goto ret;
-							} else if(0==StrCmp(lastcom,"p")) {
+							} else if(0==StrCmp(DebugLastCom,"s")) {
+									DebugStep=1;
+									goto ret;
+							} else if(0==StrCmp(DebugLastCom,"c")) {
+									goto ret;
+							} else if(0==StrCmp(DebugLastCom,"p")) {
 									U8i *pVar=__dbgGetNextWord(buffer+1);
 									
 									JsonNode *pVarNode=HashTableGet(fdbg->varTable,pVar);
@@ -533,7 +543,7 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 									"%s:%s\n",pVar,printed;
 									free(pVar),free(printed);
 									goto loop;
-							} else if(0==StrCmp(lastcom,"lv")) {
+							} else if(0==StrCmp(DebugLastCom,"lv")) {
 														I32i varCount=HashTableSize(fdbg->varTable);
 														keys=HashTableKeys(fdbg->varTable);
 														"=====[LOCALS]====\n";
@@ -549,7 +559,7 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 														}
 														free(keys);
 														goto loop;
-							} else if(0==StrCmp(lastcom,"breaks")) {
+							} else if(0==StrCmp(DebugLastCom,"breaks")) {
 									keys=HashTableKeys(HCC_ThisFileDebugger->bpByNum);
 									c=HashTableSize(HCC_ThisFileDebugger->bpByNum);
 									while (--c>=0) {
@@ -558,23 +568,22 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 									}
 									free(keys);
 									goto loop;
-							} else if(0==StrCmp(lastcom,"b")) {
+							} else if(0==StrCmp(DebugLastCom,"b")) {
 									//__dbgGetNextWord Ensures result is a word and not a combination of alnums and others(will be a function name if not NULL)
 									U8i *next=__dbgSkipWhitespace(buffer+1);
 									try {
 												filename=FileAndLine(next,&linum,dftfn);
-												"LINEL:%d\n",linum;
 												FileDebuggerBreak(HCC_ThisFileDebugger,filename,linum);
 												free(filename);
 									} catch {
 											Print("Unable to make sense of provided location!!!\n");
 									}
 									goto loop;
-							} else if(0==StrCmp("d",lastcom)) {
+							} else if(0==StrCmp("d",DebugLastCom)) {
 									I32i num=Str2I32i(__dbgSkipWhitespace(buffer+1));
 									FileDebuggerRemoveBreak(HCC_ThisFileDebugger,num);
 									goto loop;
-							} else if(0==StrCmp(lastcom,"list")) {
+							} else if(0==StrCmp(DebugLastCom,"list")) {
 									next=__dbgSkipWhitespace(buffer+StrLen("list"));
 									if (*next=='\0') {
 												DbgFileList(HCC_ThisFileDebugger,listfn,listln);
@@ -599,10 +608,11 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 							ret:
 							free(buffer);
 }
-static U8i HCC_DebugAtLineDisable=0;
-static U8i HCC_DebugStopAtNext=0;
 U0 HCC_DebugAtLine(U8i *fn,U8i *func,I32i ln,I32i bpOff) {
 			if(HCC_DebugAtLineDisable) return;
+			U8i oldDisable=HCC_DebugAtLineDisable;
+			HCC_DebugAtLineDisable=1;
+
 			U8i *parBP=NULL;
 			asm {
 							IMPORT parBP;
@@ -613,12 +623,14 @@ U0 HCC_DebugAtLine(U8i *fn,U8i *func,I32i ln,I32i bpOff) {
 			};
 
 			HCC_DbgCurrentFunc=fn;
-			if(!(&HCC_DEBUG_BREAKPOINTS_ARRAY)(U8i*)[bpOff]) return;
-			printf("%li\n",bpOff);
-		
-			U8i oldDisable=HCC_DebugAtLineDisable;
-			HCC_DebugAtLineDisable=1;
 
+			if(DebugNextFunc) if(0==StrCmp(DebugNextFunc,func)) { DebugNextFunc=NULL;goto enter;}
+			if(DebugStep) goto enter;
+			if(!(&HCC_DEBUG_BREAKPOINTS_ARRAY)(U8i*)[bpOff]) goto ret;
+
+			enter:
+			DebugStep=0;
+			
 			"\nWelocme to %s:%d\n",fn,ln;
 			DbgEnter(func,parBP,fn,ln);
 
