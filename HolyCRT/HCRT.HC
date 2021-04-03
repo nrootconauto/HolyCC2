@@ -340,6 +340,8 @@ try {
 							"Unable to read\n";
 					}
 
+					CbgListAdjLines("hello\nworld",0,100);
+
 					return 0;
 }
 Print("Trump\n");

@@ -375,7 +375,7 @@ graphNodeIR IRCreateDebug(llLexerItem start,llLexerItem end) {
 		struct IRNodeDebug debug;
 		debug.base.attrs=NULL;
 		debug.base.type=IR_DEBUG;
-		debug.start=start,debug.end=end;
+		debug.start=start;debug.end=end;
 		return GRAPHN_ALLOCATE(debug);
 }
 void IRInsertBefore(graphNodeIR insertBefore, graphNodeIR entry, graphNodeIR exit, enum IRConnType connType) {

@@ -19,7 +19,7 @@ static U8i *ReadFile(U8i *file,I32i *size) {
 							I32i succ;
 							while(succ=fread(retval+written,1,1,f)) {
 																																																	written+=succ;
-																																																	if(written+1>=bufferSdz) {
+																																																	if(written+1>=bufferSz) {
 																																																																											retval=realloc(retval,written+bufferSz);																									
 																																																	}
 							}
@@ -317,6 +317,44 @@ static U8i *__dbgGetNextWord( U8i *buffer) {
 																																								return retval;
 							}
 							return NULL;
+}
+static U8i **CbgListAdjLines(U8i *str,I32i startln,I32i hgt) {
+							U8i **retval=NULL;
+							
+							I32i chr=0;
+							U8i *endings="\n\r\c";
+							I32i curln=0;
+							I32i len=StrLen(str);
+
+							U8i *startpos=NULL;
+							U8i *endpos=NULL;
+loop:
+       I32i i;
+							U8i *lnend=&str[len];
+       for(i=0;i!=3;i++) {
+																									U8i *find=StrChr(&str[chr],endings[i]);
+																									if(lnend>find&&find)	lnend=find;
+							}
+							"%p,%p\n",lnend,str;
+							if(startln==curln) startpos=&str[chr];
+							//Will be non-NULL if encontered first line
+							if(startpos) {
+																			U8i *slice=StrDupLen(&str[chr],lnend-&str[chr]);
+																			"%d:%s\n",startln,slice;
+																			retval=realloc(retval,curln-startln+1);
+																			retval[curln-startln]=slice;
+							}
+							if(startln+hgt==curln) {
+																														endpos=&str[chr];
+																														return retval;
+							}
+							curln++;
+							chr=lnend-str;
+							
+							for(;StrChr(endings,str[chr]);chr++);
+							if(str[chr]!='\0') goto loop;
+
+							return retval;
 }
 static U0 DbgEnter(U8i *func,U8i *funcBp) {
 							CFuncDebugger *fdbg=HashTableGet(HCC_ThisFileDebugger->funcDebuggers,func);

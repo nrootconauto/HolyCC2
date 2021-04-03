@@ -321,14 +321,13 @@ static void __emitFuncTokenLines(FILE *dumpTo,struct parserFunction *func,long *
 		const char *funcNam=func->name;
 		long offset=0;
 		long count=0;
-		for(__auto_type item=func->__cacheStartToken;item!=func->__cacheEndToken;offset++) {
+		for(__auto_type item=func->__cacheStartToken;item!=func->__cacheEndToken;item=llLexerItemNext(item),offset++) {
 				if(count==len) break;
 				long i;
 						for( i=0;i!=len;i++) {
 								if(offset<tokenIndexes[i]) continue;
 								else if(offset==tokenIndexes[i]) goto found;
 						}
-						item=llLexerItemNext(item);
 						goto next;
 		found:;
 						long line;
