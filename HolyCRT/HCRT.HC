@@ -157,10 +157,12 @@ class fooP {
 } FOOP;
 I32i main() {
 					HCC_ThisFileDebugger=FileDebuggerCreate();
-					FileDebuggerBreak(HCC_ThisFileDebugger,HCC_DbgCurrentFunc,163);
+					"%p\n",HCC_ThisFileDebugger;
+					FileDebuggerBreak(HCC_ThisFileDebugger,HCC_DbgCurrentFunc,166);
 					Print("Exitdgsdg\n");
 					U8i *hello="Hello World\n";
 					hello+=1;
+					;
 					Print("%p\n",&hello);
 					FOOP.b=11;
 					FOOP.c=12;
@@ -332,3 +334,4 @@ try {
 
 					return 0;
 }
+Print("Trump\n");

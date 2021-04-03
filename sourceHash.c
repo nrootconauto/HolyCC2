@@ -133,7 +133,7 @@ char *hashSource(llLexerItem start,llLexerItem end,const char *name,long *fileEx
 		}
 		long retVal=hash(f);
 		
-		const char *fmt="%s/%s.%li.s";
+		const char *fmt="%s/%s.%li";
 		long len=snprintf(NULL, 0, fmt, cacheDirLocation,name,retVal);
 		char buffer[len+1];
 		sprintf(buffer, fmt, cacheDirLocation,name,retVal);		

@@ -334,7 +334,6 @@ static U0 DbgEnter(U8i *func,U8i *funcBp) {
 																							free(pVar),free(printed);
 																							goto loop;
 									}
-									Print("%p\n",funcBp);
 									offset=JsonNodeEntry(pVarNode->val.node,"offset")->val.sint;
 									pVarNode=JsonNodeEntry(pVarNode->val.node,"type")->val.node;
 
@@ -404,7 +403,8 @@ U0 HCC_DebugAtLine(U8i *fn,U8i *func,I32i ln,I32i bpOff) {
 		
 			U8i oldDisable=HCC_DebugAtLineDisable;
 			HCC_DebugAtLineDisable=1;
-			
+
+			"\nWelocme to %s:%d\n",fn,ln;
 			DbgEnter(func,parBP);
 
 			ret:
