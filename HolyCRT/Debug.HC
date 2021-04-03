@@ -41,7 +41,7 @@ class CFileDebugger {
 						CHashTable *sourceFileCache; //U8i *
 						JsonNode *bpData;
 						I32i bpCount;
-						CHashTable *bpsByNum; //CBreakpoint *
+						CHashTable *bpByNum; //CBreakpoint *
 };
 class CFuncDebugger {
 						CHashTable *varTable; //JsonNode *
@@ -96,6 +96,7 @@ CFileDebugger *FileDebuggerCreate() {
 														retval->varTable=glbls;
 														retval->sourceFileCache=HashTableCreate();
 														retval->bpCount=0;
+														retval->bpByNum=HashTableCreate();
 														
 														U8i **list=(&HCC_DEBUG_FUNC_DATAS)(U8i**);
 														while(*list) {
@@ -205,8 +206,6 @@ static I32i LinumFromLoc(U8i *loc,U8i **end) {
 							for(;pos>=0;pos--) {
 																										if('9'>=loc[pos]>='0') ; else break; 
 							}
-							if(pos==-1) return -1;
-							if(loc[pos]!=':') return -1;
 							I32i ln=Str2I32i(&loc[pos+1]);
 							if(end) *end=&loc[pos];
 							return ln;
@@ -296,6 +295,7 @@ static U0 FileDebuggerBreak(CFileDebugger *dbg,U8i *fn,I32i line) {
 																																	if(lineNode->val.sint>=line) break;
 			}
 			if(lastBpOff==-1) return;
+			"%d\n",lastBpOff;
 			(&HCC_DEBUG_BREAKPOINTS_ARRAY)(U8i*)[lastBpOff]=1;
 
 			++HCC_ThisFileDebugger->bpCount;
@@ -454,23 +454,28 @@ static U0 DbgFileList(CFileDebugger *dbg,U8i *fn,I32i line) {
 							}
 							free(lines);
 }
-static U8i *FileAndLine(U8i *str,I32i *ln) {
+static U8i *FileAndLine(U8i *str,I32i *ln,U8i *dftfn=NULL) {
 							str=StrDupLen(str,StrLen(str));
 							U8i *endpos;
 							I32i linenum=LinumFromLoc(str,&endpos);
+							if(ln) *ln=linenum;
+							"%d\n",linenum;
 							if(linenum==-1) {
 																							invalidLoc:
 																							free(str);
 																							throw(-1);
-							} else {
+							} else if(*endpos==':') {
 									*endpos='\0';
 									U8i *filename=DbgMatchFile(str);
 									if(!filename) goto invalidLoc;
 									free(str);
 									return filename;
+							} else if(dftfn) {
+									return StrDupLen(dftfn,StrLen(dftfn));
 							}
+							goto invalidLoc;
 }
-static U0 DbgEnter(U8i *func,U8i *funcBp,I32i atln=0) {
+static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 							CFuncDebugger *fdbg=HashTableGet(HCC_ThisFileDebugger->funcDebuggers,func);
 							U8i *buffer=malloc(1024);
 							U8i *str;
@@ -479,6 +484,7 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,I32i atln=0) {
 							I32i listln=atln;
 							U8i *listfn=HCC_DbgCurrentFunc;
 							U8i *lastcom=NULL;
+							U8i **keys;
 
 							loop:
 							Print("BSAT >>>(%s):",func);
@@ -493,8 +499,11 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,I32i atln=0) {
 																																				Print("help -- display this message\n");
 																																				Print("c -- continue\n");
 																																				Print("p -- print a variable(not an expression)\n");
+																																				Print("list -- Lists the area around the current line,or next. Can list a location.\n");
+																																				Print("breaks -- lists breakpoints.\n");
 																																				Print("lv -- list visible variables\n");
 																																				Print("b -- break at a function,or file location.\n");
+																																				Print("d -- remove a breakpoint.\n");
 																																				goto loop;
 							} else if(0==StrCmp(lastcom,"c")) {
 									goto ret;
@@ -526,7 +535,7 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,I32i atln=0) {
 									goto loop;
 							} else if(0==StrCmp(lastcom,"lv")) {
 														I32i varCount=HashTableSize(fdbg->varTable);
-														U8i **keys=HashTableKeys(fdbg->varTable);
+														keys=HashTableKeys(fdbg->varTable);
 														"=====[LOCALS]====\n";
 														for(c=0;c!=varCount;c++) {
 																																							"%s\n",keys[c];
@@ -540,22 +549,32 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,I32i atln=0) {
 														}
 														free(keys);
 														goto loop;
+							} else if(0==StrCmp(lastcom,"breaks")) {
+									keys=HashTableKeys(HCC_ThisFileDebugger->bpByNum);
+									c=HashTableSize(HCC_ThisFileDebugger->bpByNum);
+									while (--c>=0) {
+															CBreakpoint *bp=HashTableGet(HCC_ThisFileDebugger->bpByNum,keys[c]);
+															"%s> %s:%d\n",keys[c],bp->fn,bp->ln;
+									}
+									free(keys);
+									goto loop;
 							} else if(0==StrCmp(lastcom,"b")) {
 									//__dbgGetNextWord Ensures result is a word and not a combination of alnums and others(will be a function name if not NULL)
-									U8i *next=__dbgGetNextWord(buffer+1);
-									if(!next) {
-																			try {
-																							filename=FileAndLine(__dbgSkipWhitespace(buffer+1),&linum);
-																							FileDebuggerBreak(HCC_ThisFileDebugger,filename,linum);
-																							free(filename);
-																			} catch {
-																					Print("Unable to make sense of provided location!!!\n");
-																			}
-																			goto loop;
+									U8i *next=__dbgSkipWhitespace(buffer+1);
+									try {
+												filename=FileAndLine(next,&linum,dftfn);
+												"LINEL:%d\n",linum;
+												FileDebuggerBreak(HCC_ThisFileDebugger,filename,linum);
+												free(filename);
+									} catch {
+											Print("Unable to make sense of provided location!!!\n");
 									}
+									goto loop;
 							} else if(0==StrCmp("d",lastcom)) {
-									FileDebuggerRemoveBreak();
-							} else if(0==StrNCmp(lastcom,"list")) {
+									I32i num=Str2I32i(__dbgSkipWhitespace(buffer+1));
+									FileDebuggerRemoveBreak(HCC_ThisFileDebugger,num);
+									goto loop;
+							} else if(0==StrCmp(lastcom,"list")) {
 									next=__dbgSkipWhitespace(buffer+StrLen("list"));
 									if (*next=='\0') {
 												DbgFileList(HCC_ThisFileDebugger,listfn,listln);
@@ -563,11 +582,12 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,I32i atln=0) {
 												goto loop;
 									} else {
 											try {
-															filename=FileAndLine(next,&linum);
+															filename=FileAndLine(next,&linum,dftfn);
 															listln=linum;
 															listfn=filename;
 															DbgFileList(HCC_ThisFileDebugger,listfn,listln);
 															free(filename);
+															listfn=dftfn;
 															goto loop;
 											} catch {
 													Print("Unable to make sense of provided location!!!\n");
@@ -593,15 +613,14 @@ U0 HCC_DebugAtLine(U8i *fn,U8i *func,I32i ln,I32i bpOff) {
 			};
 
 			HCC_DbgCurrentFunc=fn;
-			if(!HCC_DebugStopAtNext)
 			if(!(&HCC_DEBUG_BREAKPOINTS_ARRAY)(U8i*)[bpOff]) return;
-			if(!HCC_ThisFileDebugger) return;
+			printf("%li\n",bpOff);
 		
 			U8i oldDisable=HCC_DebugAtLineDisable;
 			HCC_DebugAtLineDisable=1;
 
 			"\nWelocme to %s:%d\n",fn,ln;
-			DbgEnter(func,parBP,ln);
+			DbgEnter(func,parBP,fn,ln);
 
 			ret:
 			HCC_DebugAtLineDisable=oldDisable;
