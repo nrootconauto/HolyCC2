@@ -10,7 +10,7 @@ extern U0 fclose(FILE *f);
 extern I32i fread(U0 *ptr,I32i nmem,I32i sz,FILE *f);
 extern U0 fwrite(U0 *ptr,I32i nmem,I32i sz,FILE *f);
 #define FILE_NONEXIST -1
-static U8i *ReadFile(U8i *file,I32i *size) {
+static U8i *ReadFile(U8i *file,I32i *size=NULL) {
 							FILE *f=fopen(file,"r");
 							if(!f) throw(FILE_NONEXIST);
 							I32i bufferSz=1<<15;
@@ -27,11 +27,12 @@ static U8i *ReadFile(U8i *file,I32i *size) {
 							fclose(f);
 							return retval;
 }
+#define DBG_SOURCE_CACHE_SIZE (16)
 class CFileDebugger {
 						CHashTable *typeTable; //JsonNode *
 						CHashTable *funcDebuggers; // CFuncDebugger *
 						CHashTable *varTable; //CGlobalVarInfo *
-						CHashTable *fileInfos; //CDebuggerFileInfo*
+						CHashTable *sourceFileCache; //U8i *
 						JsonNode *bpData;
 };
 class CFuncDebugger {
@@ -85,6 +86,7 @@ CFileDebugger *FileDebuggerCreate() {
 														retval->funcDebuggers=HashTableCreate();
 														retval->bpData=bps;
 														retval->varTable=glbls;
+														retval->sourceFileCache=HashTableCreate();
 														
 														U8i **list=(&HCC_DEBUG_FUNC_DATAS)(U8i**);
 														while(*list) {
@@ -318,7 +320,7 @@ static U8i *__dbgGetNextWord( U8i *buffer) {
 							}
 							return NULL;
 }
-static U8i **CbgListAdjLines(U8i *str,I32i startln,I32i hgt) {
+static U8i **DbgListAdjLines(U8i *str,I32i startln,I32i hgt,I32i *read=NULL) {
 							U8i **retval=NULL;
 							
 							I32i chr=0;
@@ -335,17 +337,16 @@ loop:
 																									U8i *find=StrChr(&str[chr],endings[i]);
 																									if(lnend>find&&find)	lnend=find;
 							}
-							"%p,%p\n",lnend,str;
 							if(startln==curln) startpos=&str[chr];
 							//Will be non-NULL if encontered first line
 							if(startpos) {
 																			U8i *slice=StrDupLen(&str[chr],lnend-&str[chr]);
-																			"%d:%s\n",startln,slice;
-																			retval=realloc(retval,curln-startln+1);
+																			retval=realloc(retval,(curln-startln+1)*sizeof(I32i));
 																			retval[curln-startln]=slice;
 							}
 							if(startln+hgt==curln) {
 																														endpos=&str[chr];
+																														if(read) *read=curln-startln;
 																														return retval;
 							}
 							curln++;
@@ -354,13 +355,67 @@ loop:
 							for(;StrChr(endings,str[chr]);chr++);
 							if(str[chr]!='\0') goto loop;
 
+							if(read) *read=curln-startln;
 							return retval;
+}
+#define DBG_LIST_SIZE (25)
+static U0 DbgFileList(CFileDebugger *dbg,U8i *fn,I32i line) {
+							loop:
+							U8i *text=HashTableGet(dbg->sourceFileCache,fn);
+							if(!text) {
+																	if(DBG_SOURCE_CACHE_SIZE<=HashTableSize(dbg->sourceFileCache)) {
+																			I32i count=HashTableSize(dbg->sourceFileCache);
+																			U8i **keys=HashTableKeys(dbg->sourceFileCache);
+																			I32i maxsize=0,maxsizeidx=0;
+																			while ((count-=1)>=0) {
+																									I32i size=StrLen(HashTableGet(dbg->sourceFileCache,keys[count]));
+																									if (maxsize<size) maxsize=size,maxsizeidx=count;
+																			}
+																			free(HashTableGet(dbg->sourceFileCache,keys[maxsizeidx]));
+																	}
+
+																	HashTableAdd(dbg->sourceFileCache,ReadFile(fn),fn);
+																	goto loop;
+							}
+							if(line-DBG_LIST_SIZE/2<0) line=0; else line-=DBG_LIST_SIZE/2;
+							I32i read;
+							U8i **lines=DbgListAdjLines(text,DBG_LIST_SIZE,&read);
+							I32i maxlinumwidth=ceil(Log10((line+read)(F64)));
+							I32i curln;
+							for (curln=line;curln!=line+read;curln++) {
+											U8i *linetext=MStrPrint("%d",curln);
+											I32i toadd=maxlinumwidth-StrLen(linetext);
+											linetext=realloc(linetext,maxlinumwidth+1+1);
+											I32i c;
+											for(c=StrLen(linetext);c!=maxlinumwidth;c++) linetext[c]=' ';
+											linetext[maxlinumwidth]='|';
+											linetext[maxlinumwidth+1]='\0';
+											"%s%s\n",linetext,lines[curln-line];
+											free(lines[curln-line]);
+							}
+							free(lines);
+}
+static U8i *FileAndLine(U8i *str,I32i *ln) {
+							str=StrDupLen(str,StrLen(str));
+							U8i *endpos;
+							I32i linenum=LinumFromLoc(str,&endpos);
+							if(linenum==-1) {
+																							invalidLoc:
+																							free(str);
+																							throw(-1);
+							} else {
+									*endpos='\0';
+									U8i *filename=DbgMatchFile(str);
+									if(!filename) goto invalidLoc;
+									free(str);
+									return filename;
+							}
 }
 static U0 DbgEnter(U8i *func,U8i *funcBp) {
 							CFuncDebugger *fdbg=HashTableGet(HCC_ThisFileDebugger->funcDebuggers,func);
 							U8i *buffer=malloc(1024);
 							U8i *str;
-							I32i c,offset;
+							I32i c,offset,linum;
 							U8i *printed,*endpos,*filename;
 							
 							loop:
@@ -422,24 +477,23 @@ static U0 DbgEnter(U8i *func,U8i *funcBp) {
 							} else if(0==StrNCmp(buffer,"b",1)) {
 									//__dbgGetNextWord Ensures result is a word and not a combination of alnums and others(will be a function name if not NULL)
 									U8i *next=__dbgGetNextWord(buffer+1);
-									"%p\n",next;
 									if(!next) {
-																			I32i linenum=LinumFromLoc(buffer+1,&endpos);
-																			if(linenum==-1) {
-																																			invalidLoc:
-																																			Print("Unable to make sense of provided location!!!\n");
-																			} else {
-																					*endpos='\0';
-																					str=__dbgSkipWhitespace(buffer+1);
-																					"%s\n",buffer;
-																					filename=DbgMatchFile(str);
-																					if(!filename) goto invalidLoc;
-																					FileDebuggerBreak(HCC_ThisFileDebugger,filename,linenum);
-																					free(filename);
-																					goto loop;
+																			try {
+																							filename=FileAndLine(__dbgSkipWhitespace(buffer+1),&linum);
+																							FileDebuggerBreak(HCC_ThisFileDebugger,filename,linum);
+																							free(filename);
+																			} catch {
+																					Print("Unable to make sense of provided location!!!\n");
 																			}
 									}
-									"Here:\n";
+							} else if(0==StrNCmp(buffer,"list",4)) {
+									next=__dbgSkipWhitespace(buffer+StrLen("list"));
+									if (*next=='\0') {
+												
+									} else {
+											filename=FileAndLine(next,&linum);
+											free(filename);
+									}
 							}
 							Print("Invalid command \"%q\"\n",buffer);
 							goto help

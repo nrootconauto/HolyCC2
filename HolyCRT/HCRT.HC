@@ -159,6 +159,8 @@ I32i main() {
 					HCC_ThisFileDebugger=FileDebuggerCreate();
 					"%p\n",HCC_ThisFileDebugger;
 					FileDebuggerBreak(HCC_ThisFileDebugger,HCC_DbgCurrentFunc,166);
+					DbgFileList(HCC_ThisFileDebugger,HCC_DbgCurrentFunc,0);
+
 					Print("Exitdgsdg\n");
 					U8i *hello="Hello World\n";
 					hello+=1;
@@ -340,7 +342,7 @@ try {
 							"Unable to read\n";
 					}
 
-					CbgListAdjLines("hello\nworld",0,100);
+					DbgListAdjLines("hello\nworld",0,100);
 
 					return 0;
 }

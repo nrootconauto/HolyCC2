@@ -1023,6 +1023,7 @@ struct parserNode *parsePrint(llLexerItem start,llLexerItem end,llLexerItem *res
 				start=llLexerItemNext(start);
 				//Ignore comma
 				struct parserNode *expr=prec13Recur(start, end, &start);
+				assignTypeToOp(expr);
 				if(!expr) break;
 				print.args=strParserNodeAppendItem(print.args, expr);
 		}
