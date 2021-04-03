@@ -4,10 +4,34 @@ class CGlobalVarInfo {
 						U0 *ptr;
 						JsonNode *info;
 };
+class FILE;
+extern FILE *fopen(U8i *fn,U8i *f);
+extern U0 fclose(FILE *f);
+extern I32i fread(U0 *ptr,I32i nmem,I32i sz,FILE *f);
+extern U0 fwrite(U0 *ptr,I32i nmem,I32i sz,FILE *f);
+#define FILE_NONEXIST -1
+static U8i *ReadFile(U8i *file,I32i *size) {
+							FILE *f=fopen(file,"r");
+							if(!f) throw(FILE_NONEXIST);
+							I32i bufferSz=1<<15;
+							I32i written=0;
+							U8i *retval=malloc(bufferSz);
+							I32i succ;
+							while(succ=fread(retval+written,1,1,f)) {
+																																																	written+=succ;
+																																																	if(written+1>=bufferSdz) {
+																																																																											retval=realloc(retval,written+bufferSz);																									
+																																																	}
+							}
+							if(size) *size=written;
+							fclose(f);
+							return retval;
+}
 class CFileDebugger {
 						CHashTable *typeTable; //JsonNode *
 						CHashTable *funcDebuggers; // CFuncDebugger *
 						CHashTable *varTable; //CGlobalVarInfo *
+						CHashTable *fileInfos; //CDebuggerFileInfo*
 						JsonNode *bpData;
 };
 class CFuncDebugger {

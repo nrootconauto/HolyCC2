@@ -332,6 +332,14 @@ try {
 					Print("%d\n",dec);
 					Print("%d\n",--dec);
 
+					try {
+					I32i size;
+					ReadFile("/tmp/main.s",&size);
+					"%d\n",size;
+					} catch {
+							"Unable to read\n";
+					}
+
 					return 0;
 }
 Print("Trump\n");

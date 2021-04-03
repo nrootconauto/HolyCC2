@@ -213,7 +213,19 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 		long _start,_end;
 		parserNodeStartEndPos(node->pos.start, node->pos.end, &_start, &_end);
 		
-		if(node->type == NODE_NAME) {
+		if(node->type == NODE_RANGES) {
+				struct parserNodeRanges *ranges=(void*)node;
+				for(long e=0;e!=strParserNodeSize(ranges->exprs);e++) {
+						if(!isArith(assignTypeToOp(ranges->exprs[e]))) {
+								long start,end;
+								parserNodeStartEndPos(ranges->exprs[e]->pos.start, ranges->exprs[e]->pos.end, &start, &end);
+								diagErrorStart(start, end);
+								diagPushText("Expected arithmetic type:");
+								diagHighlight(start, end);
+								diagEndMsg();
+						}
+				}
+		} else if(node->type == NODE_NAME) {
 				diagErrorStart(_start, _end);
 				diagPushText("Unknown symbol ");
 				diagPushQoutedText(_start, _end);
