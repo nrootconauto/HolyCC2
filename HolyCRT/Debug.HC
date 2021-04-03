@@ -23,6 +23,8 @@ static U8i *ReadFile(U8i *file,I32i *size=NULL) {
 																																																																											retval=realloc(retval,written+bufferSz);																									
 																																																	}
 							}
+							retval=realloc(retval,written+1);
+							retval[written]='\0';
 							if(size) *size=written;
 							fclose(f);
 							return retval;
@@ -262,7 +264,7 @@ static U8i *DbgMatchFile(U8i *fn) {
 						}
 						ret:
 						free(matches);
-						return retval;
+						return StrDupLen(retval,StrLen(retval));
 }
 U0 FileDebuggerBreak(CFileDebugger *dbg,U8i *fn,I32i line) {
 			if(!fn) fn=HCC_DbgCurrentFunc;
@@ -358,7 +360,7 @@ loop:
 							if(read) *read=curln-startln;
 							return retval;
 }
-#define DBG_LIST_SIZE (25)
+#define DBG_LIST_SIZE (16)
 static U0 DbgFileList(CFileDebugger *dbg,U8i *fn,I32i line) {
 							loop:
 							U8i *text=HashTableGet(dbg->sourceFileCache,fn);
@@ -379,10 +381,10 @@ static U0 DbgFileList(CFileDebugger *dbg,U8i *fn,I32i line) {
 							}
 							if(line-DBG_LIST_SIZE/2<0) line=0; else line-=DBG_LIST_SIZE/2;
 							I32i read;
-							U8i **lines=DbgListAdjLines(text,DBG_LIST_SIZE,&read);
+							U8i **lines=DbgListAdjLines(text,line,DBG_LIST_SIZE,&read);
 							I32i maxlinumwidth=ceil(Log10((line+read)(F64)));
 							I32i curln;
-							for (curln=line;curln!=line+read;curln++) {
+							for (curln=line;curln<line+read;curln++) {
 											U8i *linetext=MStrPrint("%d",curln);
 											I32i toadd=maxlinumwidth-StrLen(linetext);
 											linetext=realloc(linetext,maxlinumwidth+1+1);
@@ -411,17 +413,24 @@ static U8i *FileAndLine(U8i *str,I32i *ln) {
 									return filename;
 							}
 }
-static U0 DbgEnter(U8i *func,U8i *funcBp) {
+static U0 DbgEnter(U8i *func,U8i *funcBp,I32i atln=0) {
 							CFuncDebugger *fdbg=HashTableGet(HCC_ThisFileDebugger->funcDebuggers,func);
 							U8i *buffer=malloc(1024);
 							U8i *str;
 							I32i c,offset,linum;
 							U8i *printed,*endpos,*filename;
-							
+							I32i listln=atln;
+							U8i *listfn=HCC_DbgCurrentFunc;
+							U8i *lastcom=NULL;
+
 							loop:
 							Print("BSAT >>>(%s):",func);
 							gets(buffer);
-							if(0==StrCmp(buffer,"help")) {
+							if (StrLen(buffer)!=0) {
+										free(lastcom);
+										lastcom=__dbgGetNextWord(buffer);
+							}
+							if(0==StrCmp(lastcom,"help")) {
 																																				help:
 																																				Print("Commands:\n");
 																																				Print("help -- display this message\n");
@@ -430,9 +439,9 @@ static U0 DbgEnter(U8i *func,U8i *funcBp) {
 																																				Print("lv -- list visible variables\n");
 																																				Print("b -- break at a function,or file location.\n");
 																																				goto loop;
-							} else if(0==StrCmp(buffer,"c")) {
+							} else if(0==StrCmp(lastcom,"c")) {
 									goto ret;
-							} else if(0==StrNCmp(buffer,"p",1)) {
+							} else if(0==StrNCmp(lastcom,"p",1)) {
 									U8i *pVar=__dbgGetNextWord(buffer+1);
 									
 									JsonNode *pVarNode=HashTableGet(fdbg->varTable,pVar);
@@ -458,7 +467,7 @@ static U0 DbgEnter(U8i *func,U8i *funcBp) {
 									"%s:%s\n",pVar,printed;
 									free(pVar),free(printed);
 									goto loop;
-							} else if(0==StrNCmp(buffer,"lv",2)) {
+							} else if(0==StrNCmp(lastcom,"lv",2)) {
 														I32i varCount=HashTableSize(fdbg->varTable);
 														U8i **keys=HashTableKeys(fdbg->varTable);
 														"=====[LOCALS]====\n";
@@ -474,7 +483,7 @@ static U0 DbgEnter(U8i *func,U8i *funcBp) {
 														}
 														free(keys);
 														goto loop;
-							} else if(0==StrNCmp(buffer,"b",1)) {
+							} else if(0==StrNCmp(lastcom,"b",1)) {
 									//__dbgGetNextWord Ensures result is a word and not a combination of alnums and others(will be a function name if not NULL)
 									U8i *next=__dbgGetNextWord(buffer+1);
 									if(!next) {
@@ -485,14 +494,25 @@ static U0 DbgEnter(U8i *func,U8i *funcBp) {
 																			} catch {
 																					Print("Unable to make sense of provided location!!!\n");
 																			}
+																			goto loop;
 									}
-							} else if(0==StrNCmp(buffer,"list",4)) {
+							} else if(0==StrNCmp(lastcom,"list",4)) {
 									next=__dbgSkipWhitespace(buffer+StrLen("list"));
 									if (*next=='\0') {
-												
+												DbgFileList(HCC_ThisFileDebugger,listfn,listln);
+												listln+=DBG_LIST_SIZE;
+												goto loop;
 									} else {
-											filename=FileAndLine(next,&linum);
-											free(filename);
+											try {
+															filename=FileAndLine(next,&linum);
+															listln=linum;
+															listfn=filename;
+															DbgFileList(HCC_ThisFileDebugger,listfn,listln);
+															free(filename);
+															goto loop;
+											} catch {
+													Print("Unable to make sense of provided location!!!\n");
+											}
 									}
 							}
 							Print("Invalid command \"%q\"\n",buffer);
@@ -501,9 +521,9 @@ static U0 DbgEnter(U8i *func,U8i *funcBp) {
 							free(buffer);
 }
 static U8i HCC_DebugAtLineDisable=0;
+static U8i HCC_DebugStopAtNext=0;
 U0 HCC_DebugAtLine(U8i *fn,U8i *func,I32i ln,I32i bpOff) {
 			if(HCC_DebugAtLineDisable) return;
-
 			U8i *parBP=NULL;
 			asm {
 							IMPORT parBP;
@@ -514,6 +534,7 @@ U0 HCC_DebugAtLine(U8i *fn,U8i *func,I32i ln,I32i bpOff) {
 			};
 
 			HCC_DbgCurrentFunc=fn;
+			if(!HCC_DebugStopAtNext)
 			if(!(&HCC_DEBUG_BREAKPOINTS_ARRAY)(U8i*)[bpOff]) return;
 			if(!HCC_ThisFileDebugger) return;
 		
@@ -521,7 +542,7 @@ U0 HCC_DebugAtLine(U8i *fn,U8i *func,I32i ln,I32i bpOff) {
 			HCC_DebugAtLineDisable=1;
 
 			"\nWelocme to %s:%d\n",fn,ln;
-			DbgEnter(func,parBP);
+			DbgEnter(func,parBP,ln);
 
 			ret:
 			HCC_DebugAtLineDisable=oldDisable;
