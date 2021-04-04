@@ -155,6 +155,9 @@ U0 testRange() {
 class fooP {
 						I32i a,b,c;
 } FOOP;
+static U0 bar() {
+							throw(12);
+} 
 I32i main() {
 					HCC_ThisFileDebugger=FileDebuggerCreate();
 					"%p\n",HCC_ThisFileDebugger;

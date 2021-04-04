@@ -71,8 +71,22 @@ U0 throw(I32i msg) {
 			HCRT_ExceptRestoreState();
 }
 extern I32i signal(I32i sig,U0(*func)(I32i));
+
+//From musl libc
+#define SIG_BLOCK     0
+#define SIG_UNBLOCK   1
+#define SIG_SETMASK   2
+class sigset_t {
+						U8i bytes[128]; //musl libc alltypes.h.in
+};
+extern U0 sigemptyset (sigset_t *x);
+extern U0 sigaddset (sigset_t *x,I32i code);
+extern I32i sigprocmask(I32i,sigset_t *set,sigset_t *old);
 static U0 *throwSegfault(I32i num,I32i code) {
-							"SWG\n";
+							sigset_t set;
+							sigemptyset(&set);
+							sigaddset(&set,11);
+							sigprocmask(SIG_UNBLOCK,&set,0);
 							throw(code);
 }
 signal(11,&throwSegfault);
