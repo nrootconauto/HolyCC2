@@ -47,7 +47,6 @@ static char * emitTypeRef(struct object *obj) {
 				case TYPE_UNION:
 				case TYPE_F64:
 				case TYPE_FORWARD:
-				case TYPE_FUNCTION:
 				case TYPE_I16i:
 				case TYPE_I32i:
 				case TYPE_I64i:
@@ -61,8 +60,28 @@ static char * emitTypeRef(struct object *obj) {
 						baseType=fromFmt("%s",tn);
 						baseType=strCharAppendItem(baseType, '\0');
 						free(tn);
-						goto emit;
+						goto emit;			
+				case TYPE_FUNCTION: {
+						struct objectFunction *func=(void*)obj;
+						char * rettype=emitTypeRef(func->retType);
+						retVal=fromFmt("{\n\t\"retType\":%s,\n",rettype);free(rettype);
+						retVal=strCharConcat(retVal, fromFmt("\t\"ptrLevel\":%li,\n", ptrLevel));
+						retVal=strCharConcat(retVal, fromFmt("\t\"args\":[\n", ptrLevel));
+						for(long a=0;a!=strFuncArgSize(func->args);a++) {
+								char * argType=emitTypeRef(func->args[a].type);
+								retVal=strCharConcat(retVal, fromFmt("%s,\n",argType));
+								free(argType);
+						}
+						if(func->hasVarLenArgs) retVal=strCharConcat(retVal, fromFmt("\"...\"\n"));
+						retVal=strCharConcat(retVal, fromFmt("\t],\n", ptrLevel));
+						retVal=strCharConcat(retVal,fromFmt("}\n"));
+						retVal=strCharAppendItem(retVal, '\0');
+
+						printf("%s\n",retVal);
+						return strcpy(calloc(1, strlen(retVal)+1), retVal);
 				}
+				}
+
 		}
 	emit:
 		retVal=fromFmt("{\n\t\"base\":\"%s\",\n",baseType);

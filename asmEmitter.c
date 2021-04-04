@@ -957,9 +957,8 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 				__auto_type func=parserGetFuncByName(funcs[f]);
 				if(!func) continue; //Init function
 				if(func->isForwardDecl) continue;
-				
 				char *fmted CLEANUP(free2)=fromFmt(FUNC_BREAKPOINTS_LAB_INFO, funcs[f]);
-				fprintf(writeTo, "%s, ", fmted);
+				fprintf(writeTo, " %s, %s, ", funcs[f],fmted);
 		}
 		fprintf(writeTo,"0 \n"); //NULL TERMINATE LIST
 		
@@ -976,7 +975,7 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 				parserSymTableNames(names,NULL);
 				for(long k=0;k!=count;k++) {
 						__auto_type find=parserGetGlobalSym(names[k]);
-						if(!find->var) continue;
+						if(!find->var)continue;
 						fprintf(writeTo, "%s %s\n", ddType,parserGetGlobalSymLinkageName(names[k]));
 						char *text CLEANUP(free2)=emitDebuggerGlobalVarInfo((char*)names[k]);
 						strChar infoStr CLEANUP(strCharDestroy)=dumpStrLit(text, strlen(text)+1);

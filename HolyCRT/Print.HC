@@ -383,9 +383,18 @@ U0 __Print(U0(*putChar)(U8i,U0 *),U0 *data,U8i *fmt,I32i *argv) {
 																													argi+=1;
 																													break;
 																								}
-																								case 'p':
+																								case 'p': {
+																													U8i *HexStr=__PrintU32i(argv[argi],16,"0123456789ABCDEF");
+																													len=StrLen(HexStr);
+																													for(c=0;c!=len;c+=1) {
+																																						putChar(HexStr[c],data);
+																													}
+																													free(HexStr);
+																													argi+=1;
+																													break;
+																								}
 																								case 'X': {
-																													U8i *HexStr=__PrintI32i(argv[argi],16,"0123456789ABCDEF");
+																													HexStr=__PrintI32i(argv[argi],16,"0123456789ABCDEF");
 																													len=StrLen(HexStr);
 																													for(c=0;c!=len;c+=1) {
 																																						putChar(HexStr[c],data);

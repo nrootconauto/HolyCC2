@@ -42,6 +42,7 @@ class CFileDebugger {
 						JsonNode *bpData;
 						I32i bpCount;
 						CHashTable *bpByNum; //CBreakpoint *
+						CHashTable *funcNmByPtr; //U8i *
 };
 class CFuncDebugger {
 						CHashTable *varTable; //JsonNode *
@@ -53,7 +54,7 @@ internal U8i HCC_DEBUG_BREAKPOINTS_ARRAY;
 internal U8i HCC_DEBUG_GLOBALS_INFO;
 #define DEBUGGER_INIT_ERR -1
 #define DEBUGGER_TYPE_NO_EXIST -2
-CFuncDebugger *FuncDebuggerCreate(CFileDebugger *file,U8i *info);
+CFuncDebugger *FuncDebuggerCreate(CFileDebugger *file,U0 *funcPtr,U8i *info);
 CFileDebugger *FileDebuggerCreate() {
 														JsonNode *bps=ParserJsonObject(&HCC_DEBUG_BREAKPOINTS_INFO,0,NULL,NULL);
 														Print("%p\n",bps);
@@ -97,15 +98,16 @@ CFileDebugger *FileDebuggerCreate() {
 														retval->sourceFileCache=HashTableCreate();
 														retval->bpCount=0;
 														retval->bpByNum=HashTableCreate();
+														retval->funcNmByPtr=HashTableCreate();
 														
 														U8i **list=(&HCC_DEBUG_FUNC_DATAS)(U8i**);
 														while(*list) {
-																											FuncDebuggerCreate(retval,*list);
-																											list++;
+																											FuncDebuggerCreate(retval,list[0],list[1]);
+																											list+=2;
 														}
 														return  retval;
 }
-CFuncDebugger *FuncDebuggerCreate(CFileDebugger *file,U8i *info) {
+CFuncDebugger *FuncDebuggerCreate(CFileDebugger *file,U0 *funcptr,U8i *info) {
 														JsonNode *root=NULL;
 														JsonNode *framelayout=NULL;
 														JsonNode *name=NULL;
@@ -127,6 +129,10 @@ CFuncDebugger *FuncDebuggerCreate(CFileDebugger *file,U8i *info) {
 																		name=JsonNodeEntry(root->val.node	,"name");
 																		if(name) funcname=name->val.str;
 																		HashTableAdd(file->funcDebuggers,retval,funcname);
+
+																		U8i *ptrstr=MStrPrint("%p",funcptr);
+																		HashTableAdd(file->funcNmByPtr,funcname,ptrstr);
+																		free(ptrstr);
 														} catch {
 																Print("Failed to parse json for debugger");
 														}
@@ -608,6 +614,25 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 							ret:
 							free(buffer);
 }
+static U0 DebugStackTrace(U0 *bp) {
+							U0 *calledfrom=*((bp(U8i*)+4)(U0**));
+							loop:
+							U8i *ptrstr=MStrPrint("%p",calledfrom);
+							try {
+											U0 *nm=HashTableGet(HCC_ThisFileDebugger->funcNmByPtr,ptrstr);
+											if(!nm) "%p\n",calledfrom; else "%s\n",nm;
+											bp=*(bp(U8i*))(U0**);
+											"%p\n",bp;
+											calledfrom=*((bp(U8i*)+4)(U0**));
+							} catch {
+									"HERE\n";
+									free(ptrstr);
+									goto exit;
+							}
+							free(ptrstr);
+							goto loop;
+							exit:
+}
 U0 HCC_DebugAtLine(U8i *fn,U8i *func,I32i ln,I32i bpOff) {
 			if(HCC_DebugAtLineDisable) return;
 			U8i oldDisable=HCC_DebugAtLineDisable;
@@ -628,6 +653,9 @@ U0 HCC_DebugAtLine(U8i *fn,U8i *func,I32i ln,I32i bpOff) {
 			if(DebugStep) goto enter;
 			if(!(&HCC_DEBUG_BREAKPOINTS_ARRAY)(U8i*)[bpOff]) goto ret;
 
+			"%p",parBP;
+			DebugStackTrace(parBP);
+			
 			enter:
 			DebugStep=0;
 			
