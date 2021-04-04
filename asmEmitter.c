@@ -46,6 +46,7 @@ STR_TYPE_FUNCS(long,Long);
 #define FUNC_BREAKPOINTS_LAB_FMT_LN "DBG_BP@%s_$ln%li"
 #define FUNC_BREAKPOINTS_LAB_FMT_FN "DBG_BP@%s_$fn%li"
 #define FUNC_BREAKPOINTS_LAB_INFO "DBG_INFO@%s"
+#define FUNC_CODE_END_LAB_FMT "%s@$end"
 #define FILE_BREAKPOINTS_MAC_FMT_BPOFF "DBG_BP@%s_$bp%li"
 
 #define OBJECT_OFFSET_FMT "%s$%s_Offset"
@@ -958,7 +959,7 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 				if(!func) continue; //Init function
 				if(func->isForwardDecl) continue;
 				char *fmted CLEANUP(free2)=fromFmt(FUNC_BREAKPOINTS_LAB_INFO, funcs[f]);
-				fprintf(writeTo, " %s, %s, ", funcs[f],fmted);
+				fprintf(writeTo, " %s," FUNC_CODE_END_LAB_FMT",  %s, ", funcs[f],funcs[f],fmted);
 		}
 		fprintf(writeTo,"0 \n"); //NULL TERMINATE LIST
 		
@@ -1122,6 +1123,7 @@ void X86EmitAsmLeaveFunc(const char *cacheDir) {
 		fprintf(fn, "SECTION .text\n");
 		fprintf(fn, "%s:\n", funcNam);
 		fwrite(code, strlen(code), 1, fn);
+		fprintf(fn, FUNC_CODE_END_LAB_FMT ": \n",funcNam);
 		if(strlen(consts)) {
 				fprintf(fn, "SECTION .data\n");
 				fwrite(consts, strCharSize(consts)-1, 1, fn);

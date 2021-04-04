@@ -279,7 +279,7 @@ void objectArrayDimValues(struct object *type,long *dimCount,long *values) {
 }
 long objectArrayIsConstSz(struct object *type) {
 		assert(type->type==TYPE_ARRAY);
-		return 0;
+		return 0!=dontTreatArraysAsPtrs;
 			//
 			// If cant detirmine size and is a variable length array,just return pointer size;
 			//

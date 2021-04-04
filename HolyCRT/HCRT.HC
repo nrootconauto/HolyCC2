@@ -160,14 +160,14 @@ static U0 bar() {
 } 
 I32i main() {
 					HCC_ThisFileDebugger=FileDebuggerCreate();
-					"%p\n",HCC_ThisFileDebugger;
-					FileDebuggerBreak(HCC_ThisFileDebugger,HCC_DbgCurrentFunc,162);
+					FileDebuggerBreak(HCC_ThisFileDebugger,HCC_DbgCurrentFunc,172);
 					DbgFileList(HCC_ThisFileDebugger,HCC_DbgCurrentFunc,0);
 
 					Print("Exitdgsdg\n");
 					U8i *hello="Hello World\n";
 					hello+=1;
 					;
+					"%d\n",sizeof(sigset_t);
 					Print("%p\n",&hello);
 					FOOP.b=11;
 					FOOP.c=12;
@@ -321,15 +321,6 @@ try {
 					Print("%q\n",r);
 					free(r);
 					
-					try {
-									CFileDebugger *dbg=FileDebuggerCreate();
-																			F64 examp=123.4;
-																			U8i *text=DebuggerPrintVar(dbg,&FOOP);
-																			Print("%q\n",text);
-																			free(text);
-					} catch {
-							Print("Fuck\n");
-					}
 					I32i inc=0;
 					Print("%d\n",inc++);
 					Print("%d\n",inc);
