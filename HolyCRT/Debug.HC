@@ -69,7 +69,7 @@ CFileDebugger *FileDebuggerCreate() {
 														CHashTable *typeTable=HashTableCreate();
 														for(I32i i=0;types->val.arr[i]!=NULL;i+=1) {
 																							JsonNode *name=JsonNodeEntry(types->val.arr[i]->val.node,"name");
-																							if(!name) throw(DEBUGGER_INIT_ERR);
+																							"%s\n",name->val.str;
 																							HashTableAdd(typeTable,types->val.arr[i],name->val.str);
 														}
 

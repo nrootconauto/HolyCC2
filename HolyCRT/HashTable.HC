@@ -44,7 +44,7 @@ CKeyValPair *KeyValPairInsert(CKeyValPair *table,U8i *ptr,U8i *text) {
 											I32i hasLen=StrLen(text);
 
 											//Move all the way to the right
-											while(table->next) table=table->next;
+											while(table->next) {table=table->next;}
 
 											loop:
 											if(table==NULL) goto insert;
@@ -64,8 +64,8 @@ CKeyValPair *KeyValPairInsert(CKeyValPair *table,U8i *ptr,U8i *text) {
 																CKeyValPair *New=malloc(sizeof(CKeyValPair));
 																*New=new;
 
-																if(table) table->next=New;
-																if(next) next->prev=New;
+																if(table) {table->next=New;}
+																if(next) {next->prev=New; }
 																return New;
 										}
 										goto loop;
@@ -116,6 +116,8 @@ CHashTable *HashTableCreate() {
 											CHashTable table;
 											table.buckets=malloc(8*sizeof(CKeyValPair*));
 											table.bucketCount=8;
+											I32i c=0;
+											for(;c!=8;c++) table.buckets[c]=NULL;
 											CHashTable *retval=malloc(sizeof(CHashTable));
 											*retval=table;
 											return retval;
