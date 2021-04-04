@@ -221,6 +221,9 @@ struct object *__IRNodeType(graphNodeIR node) {
 		} else if (op == IR_MEMBERS) {
 			struct IRNodeMembers *mems = (void *)graphNodeIRValuePtr(node);
 			return mems->members[strObjectMemberSize(mems->members) - 1].type;
+		} else if(op==IR_MEMBERS_ADDR_OF) {
+				struct IRNodeMembers *mems = (void *)graphNodeIRValuePtr(node);
+				return objectPtrCreate(mems->members[strObjectMemberSize(mems->members) - 1].type);
 		}
 		return aType;
 	} else if(graphNodeIRValuePtr(node)->type==IR_FUNC_CALL) {

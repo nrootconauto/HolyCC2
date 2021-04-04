@@ -35,7 +35,7 @@ void fuzzTestBinops();
 int main() {
 		init();
 		//ropeTests();
- 		compileTests();
-			//fuzzTestBinops();
+		compileTests();
+		//	fuzzTestBinops();
 		return 0;
 }
