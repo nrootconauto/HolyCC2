@@ -121,6 +121,32 @@ static graphNodeIR genBinop(struct opTextPair pair,graphNodeIR connectTo,struct 
 		graphNodeIRConnect(connectTo, lab, IR_CONN_FLOW);
 		return dstAsn;
 }
+static graphNodeIR genTypecast(graphNodeIR connectTo,struct object *from,struct object *to,graphNodeIR value,graphNodeIR expected,struct reg *src1,struct reg *dst) {
+		struct regSlice reg;
+		reg.offset=0,reg.reg=src1,reg.type=from,reg.widthInBits=objectSize(from, NULL);
+		__auto_type Src=IRCreateRegRef(&reg);
+		reg.offset=0,reg.reg=dst,reg.type=to,reg.widthInBits=objectSize(to, NULL);
+		__auto_type Dst=IRCreateRegRef(&reg);
+
+		__auto_type eq=IRCreateBinop(IRCreateAssign(IRCreateTypecast(IRCreateAssign(value, Src), from, to),Dst), expected, IR_EQ) ;
+		consumeRegister(src1),consumeRegister(dst);
+		struct reg *tmp=regForTypeExcludingConsumed(&typeI32i);
+		reg.offset=0,reg.reg=tmp,reg.type=&typeI32i,reg.widthInBits=32;
+		unconsumeRegister(src1),unconsumeRegister(dst);
+		eq=IRCreateAssign(eq, IRCreateRegRef(&reg));
+		
+		__auto_type funcRef=IRCreateFuncRef(includeHCRTFunc("printf"));
+
+		char *fromStr=object2Str(from);
+		char *toStr=object2Str(to);
+		long len=snprintf(NULL, 0, "(%s->%s) %%li\n", fromStr,toStr);
+		char buffer[len+1];
+		sprintf(buffer,"(%s->%s) %%li\n", fromStr,toStr);
+		__auto_type retval= IRCreateFuncCall(funcRef,IRCreateStrLit(buffer),eq,NULL);
+		graphNodeIRConnect(connectTo, IRStmtStart(retval),IR_CONN_FLOW);
+
+		return retval;
+}
 static graphNodeIR genBinopPtrArith(struct opTextPair pair,graphNodeIR connectTo,struct object *obj,long a,long b,long res,struct reg *src1,struct reg *src2,struct reg *dst) {
 		__auto_type funcRef=IRCreateFuncRef(includeHCRTFunc("printf"));
 
@@ -173,15 +199,15 @@ static void assembleTest(graphNodeIR start) {
 		IRABIReturn2Asm(NULL, 0);
 		X86EmitAsmLeaveFunc(NULL);
 										
-		{
-				X86EmitAsmEnterFunc("main");
+		/*{
+				X86EmitAsmEnterFunc(includeHCRTFunc("main"));
 				IRABIAsmPrologue(0);
 				IRABIReturn2Asm(NULL, 0);
 				X86EmitAsmLeaveFunc(NULL);
-		}
+				}*/
 										
 		X86EmitAsm2File("/tmp/binopTests.s",NULL);
-		system("yasm -g dwarf2 -f elf32 /tmp/binopTests.s -o /tmp/test.o && gcc -m32 -lm /tmp/test.o -o /tmp/test &&/tmp/test");
+		system("yasm -g dwarf2 -f elf32 /tmp/binopTests.s -o /tmp/test.o && gcc -m32 /tmp/test.o -o /tmp/test &&/tmp/test");
 		graphNodeIRKill(&start, (void(*)(void*))IRNodeDestroy, NULL);
 }
 void fuzzTestBinops() {
@@ -217,7 +243,7 @@ void fuzzTestBinops() {
 										//__auto_type res=genBinop((struct opTextPair){IR_MULT,"MULT"},start, types[t], a, b, a*b, regs[r1],regs[r2],regs[r3]);
 										//__auto_type res=genBinop((struct opTextPair){IR_DIV,"DIV"},start, types[t], a, b, a/b, regs[r1],regs[r2],regs[r3]);
 										//__auto_type res=genBinop((struct opTextPair){IR_MOD,"MOD"},start, types[t], a, b, a%b, regs[r1],regs[r2],regs[r3]);
-										__auto_type res=genBinop((struct opTextPair){IR_RSHIFT,"RSHIFT"},start, types[t], a, b, a>>b, regs[r1],regs[r2],regs[r3]);
+										//__auto_type res=genBinop((struct opTextPair){IR_RSHIFT,"RSHIFT"},start, types[t], a, b, a>>b, regs[r1],regs[r2],regs[r3]);
 										//__auto_type res=genBinop((struct opTextPair){IR_BAND,"BAND"}, start, types[t], a, b, a&b, regs[r1], regs[r2], regs[r3]);
 										//__auto_type res=genBinop((struct opTextPair){IR_BOR,"BOR"}, start, types[t], a, b, a|b, regs[r1], regs[r2], regs[r3]);
 										//__auto_type res=genBinop((struct opTextPair){IR_BXOR,"XOR"}, start, types[t], a, b, a^b, regs[r1], regs[r2], regs[r3]);
@@ -235,7 +261,7 @@ void fuzzTestBinops() {
 										//__auto_type res=genUnop((struct opTextPair){IR_LNOT,"LNOT"}, start, types[t], a, !a, regs[r1], regs[r3]);
 										//	assembleTest(res);
 										//}
-										assembleTest(res);
+										//assembleTest(res);
 								}
 						}
 				}
@@ -257,4 +283,26 @@ void fuzzTestBinops() {
 						}
 				}
 				}*/
+		{
+				struct object *types[]={&typeI8i,&typeI16i,&typeI32i,&typeU8i,&typeU16i,&typeU32i,&typeF64};
+				long len=sizeof(types)/sizeof(*types);
+				for(long t1=0;t1!=len;t1++) {
+						for(long t2=0;t2!=len;t2++) {
+								strRegP regs1 CLEANUP(strRegPDestroy)=regGetForType(types[t1]);
+								for(long r1=0;r1!=strRegPSize(regs1);r1++) {
+										strRegP regs2 CLEANUP(strRegPDestroy)=regGetForType(types[t2]);
+										for(long r2=0;r2!=strRegPSize(regs2);r2++)  {
+												graphNodeIR src,dst;
+												if(types[t1]==&typeF64) src=IRCreateFloat(32); else src=IRCreateIntLit(32);
+												if(types[t2]==&typeF64) dst=IRCreateFloat(32); else dst=IRCreateIntLit(32);
+												if(types[t1]==&typeF64&&regs1[r1]!=&regX86ST0) continue; 
+												if(types[t2]==&typeF64&&regs2[r2]!=&regX86ST0) continue; 
+												__auto_type start=IRCreateLabel();
+												genTypecast(start, types[t1], types[t2], src, dst, regs1[r1], regs2[r2]);
+												assembleTest(start);
+										}
+								}
+						}
+				}
+		}
 }
