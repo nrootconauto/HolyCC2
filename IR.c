@@ -1649,11 +1649,19 @@ graphNodeIR IRCreateDerref(graphNodeIR input) {
 }
 graphNodeIR IRCreateMemberAccess(graphNodeIR input, const char *name) {
 	__auto_type type = IRNodeType(input);
+
+	if(graphNodeIRValuePtr(input)->type==IR_DERREF&&type->type!=TYPE_PTR) {
+			input=IRCreateAddrOf(input);
+			printf("GERE\n");
+			return IRCreateMemberAccess(input,name);
+	}
+
 	__auto_type originalType = type;
 	if (type->type == TYPE_PTR) {
 		struct objectPtr *ptr = (void *)type;
 		type = ptr->type;
 	}
+	
 	if(type->type==TYPE_FORWARD)
 			type=objectBaseType(type);
 	struct objectMember *member = NULL;

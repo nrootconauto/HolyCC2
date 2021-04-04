@@ -169,8 +169,11 @@ I32i main() {
 					FOOP.b=11;
 					FOOP.c=12;
 					fooP *PTR=&FOOP;
-					Print("%d\n",(PTR+0)->a);
-					Print("%d\n",PTR.a);
+					Print("%p,%p\n",&PTR[0].a,&FOOP);
+					Print("%d\n",PTR->a);
+					(*PTR).a=-12;
+					*(&(PTR[0].a))=12;
+					"%d\n",FOOP.a;
 I32i end;
 					ParserJsonLiteral("\"123\"",0,NULL,&end);
 					printf("%li\n",end);
