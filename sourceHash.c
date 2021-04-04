@@ -106,7 +106,8 @@ static void cacheCheckForTypeChanges() {
 		if(!f) goto writeOut;
 		for(long k=0;k!=count;k++) {
 				__auto_type find=parserGetGlobalSym(keys[k]);
-				if(!find->var) continue;
+				if(!find->var)
+						if(find->type->type!=TYPE_FUNCTION) continue;
 				mapCharPInsert(curGVarsType, keys[k],  object2Str(find->type));
 		}
 		
