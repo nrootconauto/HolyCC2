@@ -5,6 +5,19 @@
 #include "cacheDir.h"
 #include <unistd.h>
 #include "sourceHash.h"
+#include "parserB.h"
+#include "object.h"
+#include "cacheDir.h"
+#include "filePath.h"
+#include <string.h>
+#include <assert.h>
+MAP_TYPE_DEF(int , Changed);
+MAP_TYPE_FUNCS(int , Changed);
+static __thread mapChanged changedGVars=NULL;
+static __thread char *basefile=NULL;
+static int charPCmp(const char **a,const char **b) {
+		return strcmp(*a, *b);
+}
 static void printSInt(FILE *dumpTo,int64_t value,int base,const char *chars) {
 		if(value<0) {
 				fputc('-', dumpTo);
@@ -67,9 +80,82 @@ static void copy(FILE *out,FILE *in) {
 		for(long c=0;c!=size;c++)
 				fputc(fgetc(in),out);
 }
+MAP_TYPE_DEF(char *, CharP);
+MAP_TYPE_FUNCS(char *, CharP);
+static void free2(char **str) {
+		free(*str);
+}
+/*
+	* Types file has format 
+ * name1:typestr
+	* ...
+	* namen:typestr
+	*/
+static void cacheCheckForTypeChanges() {
+		long len=snprintf(NULL, 0,  "%s/%s.gVarTypes",cacheDirLocation,basefile);
+		char buffer[len+1];
+		snprintf(buffer, len+1,"%s/%s.gVarTypes",cacheDirLocation,basefile);
+		FILE *f=fopen(buffer, "r");
+		
+		mapCharP curGVarsType=mapCharPCreate();
+		long count;
+		parserSymTableNames(NULL, &count);
+		const char *keys[count];
+		parserSymTableNames(keys,NULL);
+
+		if(!f) goto writeOut;
+		for(long k=0;k!=count;k++) {
+				__auto_type find=parserGetGlobalSym(keys[k]);
+				if(!find->var) continue;
+				mapCharPInsert(curGVarsType, keys[k],  object2Str(find->type));
+		}
+		
+		size_t lineLen=1024;
+		char *linebuffer=__builtin_alloca(lineLen);
+		while(-1!=getline(&linebuffer, &lineLen, f)) {
+				char *colon=strchr(linebuffer, ':');
+				assert(colon);
+				
+				char gVarNm[colon-linebuffer+1];
+				strncpy(gVarNm, linebuffer, colon-linebuffer);
+				gVarNm[colon-linebuffer]='\0';
+
+				if(!mapCharPGet(curGVarsType, gVarNm)) continue;
+				//getline includes newlines
+				const char *endlnChars="\n\r";
+				for(long i=0;i!=3;i++)
+						if(strchr(colon+1, endlnChars[i])) *strchr(colon+1, endlnChars[i])='\0';
+
+				if(0==strcmp(*mapCharPGet(curGVarsType, gVarNm),colon+1)) continue;
+				printf("Changed gvar:%s\n",gVarNm);
+				mapChangedInsert(changedGVars, gVarNm, 1);
+		}
+		
+		mapCharPDestroy(curGVarsType, (void(*)(void*))free2);
+		fclose(f);
+		remove(buffer);
+
+	writeOut:
+		f=fopen(buffer, "w");
+		for(long k=0;k!=count;k++) {
+				__auto_type find=parserGetGlobalSym(keys[k]);
+				if(!find->var) continue;
+				char *p=object2Str(find->type);
+				fprintf(f, "%s:%s\n", keys[k],p);
+		}
+		fclose(f);
+}
+void sourceCacheInitAfterParse(const char *fn) {
+		basefile=fnFromPath(fn);
+		changedGVars=mapChangedCreate();
+		cacheCheckForTypeChanges();
+} 
 char *hashSource(llLexerItem start,llLexerItem end,const char *name,long *fileExists) {
 		if(fileExists)
 				*fileExists=0;
+
+		//If contains a changed global,delete the cached file. If a type changes a recompile must occur
+		int containsChanged=0;
 		
 		long tabLevel=0;
 		FILE *f=tmpfile();
@@ -110,6 +196,7 @@ char *hashSource(llLexerItem start,llLexerItem end,const char *name,long *fileEx
 				} else if(item->template==&nameTemplate) {
 						char *nm=lexerItemValuePtr(item);
 						fprintf(f, "%s", nm);
+						if(mapChangedGet(changedGVars, nm)) containsChanged=1;
 				} else if(item->template==&opTemplate) {
 						const char **op=lexerItemValuePtr(item);
 						fprintf(f, "%s", *op);
@@ -138,7 +225,7 @@ char *hashSource(llLexerItem start,llLexerItem end,const char *name,long *fileEx
 		char buffer[len+1];
 		sprintf(buffer, fmt, cacheDirLocation,name,retVal);		
 		{
-				if(0==access(buffer,F_OK)) {
+				if(0==access(buffer,F_OK)&&!containsChanged) {
 						//Check if files are the same
 						FILE *existing=fopen(buffer, "r");
 						long existingSize=fileSize(existing);

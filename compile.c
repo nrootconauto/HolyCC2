@@ -78,6 +78,7 @@ void compileFile(const char *fn, const char *dumpTo) {
 			strFileMappings fMappings = NULL;
 			llLexerItem items CLEANUP(llLexerItemDestroy2);
 			strParserNode stmts CLEANUP(strParserNodeDestroy2)=parseFile(fn,&fMappings,&items);
+			sourceCacheInitAfterParse(fn);
 
 			//
 			// Look for cached functions
