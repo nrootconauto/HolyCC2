@@ -440,7 +440,7 @@ loop:
 							return retval;
 }
 #define DBG_LIST_SIZE (16)
-static U0 DbgFileList(CFileDebugger *dbg,U8i *fn,I32i line) {
+static U0 DbgFileList(CFileDebugger *dbg,U8i *fn,I32i line,I32i atln=-1) {
 							loop:
 							U8i *text=HashTableGet(dbg->sourceFileCache,fn);
 							if(!text) {
@@ -458,6 +458,7 @@ static U0 DbgFileList(CFileDebugger *dbg,U8i *fn,I32i line) {
 																	HashTableAdd(dbg->sourceFileCache,ReadFile(fn),fn);
 																	goto loop;
 							}
+							I32i origln=line;
 							if(line-DBG_LIST_SIZE/2<0) line=0; else line-=DBG_LIST_SIZE/2;
 							I32i read;
 							U8i **lines=DbgListAdjLines(text,line,DBG_LIST_SIZE,&read);
@@ -466,12 +467,19 @@ static U0 DbgFileList(CFileDebugger *dbg,U8i *fn,I32i line) {
 							for (curln=line;curln<line+read;curln++) {
 											U8i *linetext=MStrPrint("%d",curln);
 											I32i toadd=maxlinumwidth-StrLen(linetext);
-											linetext=realloc(linetext,maxlinumwidth+1+1);
+											linetext=realloc(linetext,maxlinumwidth+1+1); 
 											I32i c;
 											for(c=StrLen(linetext);c!=maxlinumwidth;c++) linetext[c]=' ';
 											linetext[maxlinumwidth]='|';
 											linetext[maxlinumwidth+1]='\0';
-											"%s%s\n",linetext,lines[curln-line];
+											U8i chrbp=' ';
+											U8i chratln=' ';
+
+											U8i *bpptr=FileDebuggerGetBreakPtr(HCC_ThisFileDebugger,fn,curln);
+											if(bpptr) if(*bpptr) chrbp='B';
+											if(curln==atln) chratln='*';
+
+											"%c%c%s%s\n",chratln,chrbp,linetext,lines[curln-line];
 											free(lines[curln-line]);
 							}
 							free(lines);
@@ -667,7 +675,7 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 							} else if(0==StrCmp(DebugLastCom,"list")) {
 									next=__dbgSkipWhitespace(buffer+StrLen("list"));
 									if (*next=='\0') {
-												DbgFileList(HCC_ThisFileDebugger,listfn,listln);
+												DbgFileList(HCC_ThisFileDebugger,listfn,listln,atln);
 												listln+=DBG_LIST_SIZE;
 												goto loop;
 									} else {
@@ -675,7 +683,7 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 															filename=FileAndLine(next,&linum,dftfn);
 															listln=linum;
 															listfn=filename;
-															DbgFileList(HCC_ThisFileDebugger,listfn,listln);
+															DbgFileList(HCC_ThisFileDebugger,listfn,listln,atln);
 															free(filename);
 															listfn=dftfn;
 															goto loop;
