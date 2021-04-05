@@ -2558,7 +2558,7 @@ static void __parserMapLabels2Refs(int failOnNotFound) {
 		undefinedRef:
 			if (!failOnNotFound)
 				continue;
-			NODE_START_END_POS(*lab,start,end);
+			NODE_START_END_POS(refs[0],start,end);
 			diagErrorStart(start, end);
 			diagPushText("Undefined reference to label ");
 			diagPushQoutedText(start, end);

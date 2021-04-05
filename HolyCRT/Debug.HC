@@ -1,3 +1,7 @@
+#define DBG_BREAKPOINT_NORM 1
+#define DBG_BREAKPOINT_TMP 2
+#define DBG_BREAKPOINT_FUNC 4
+
 extern U8i *gets(U8i *buffer);;
 class CFuncDebugger;
 class CGlobalVarInfo {
@@ -31,22 +35,24 @@ static U8i *ReadFile(U8i *file,I32i *size=NULL) {
 }
 #define DBG_SOURCE_CACHE_SIZE (16)
 class CBreakpoint {
-						U8i *fn;
+						U8i *fn,*funcNm;  //const,dont free
 						I32i ln;
 };
 class CFuncRange {
 						U0 *start,*end;
-						U8i *name;
+						U8i *name; //const,dont free
+						U8i *funcName;
 };
 class CFileDebugger {
 						CHashTable *typeTable; //JsonNode *
 						CHashTable *funcDebuggers; // CFuncDebugger *
 						CHashTable *varTable; //CGlobalVarInfo *
 						CHashTable *sourceFileCache; //U8i *
-						JsonNode *bpData;
-						I32i bpCount;
 						CHashTable *bpByNum; //CBreakpoint *
 						CFuncRange **funcNmByPtr; //NULL terminated
+						CHashTable *breakAtFuncs; //1  as dummy;
+						JsonNode *bpData;
+						I32i bpCount;
 };
 class CFuncDebugger {
 						CHashTable *varTable; //JsonNode *
@@ -103,7 +109,8 @@ CFileDebugger *FileDebuggerCreate() {
 														retval->bpByNum=HashTableCreate();
 														retval->funcNmByPtr=malloc(sizeof(CFuncRange*));
 														retval->funcNmByPtr[0]=NULL;
-														
+														retval->breakAtFuncs=HashTableCreate();
+
 														U8i **list=(&HCC_DEBUG_FUNC_DATAS)(U8i**);
 														while(*list) {
 																											FuncDebuggerCreate(retval,list[0],list[1],list[2]);
@@ -295,8 +302,6 @@ static U8i *DbgMatchFile(U8i *fn) {
 						free(matches);
 						return StrDupLen(retval,StrLen(retval));
 }
-#define DBG_BREAKPOINT_NORM 1
-#define DBG_BREAKPOINT_TMP 2
 static U8i *FileDebuggerGetBreakPtr(CFileDebugger *dbg,U8i *fn,I32i line) {
 			if(!fn) fn=HCC_DbgCurrentFunc;
 			loop:
@@ -330,11 +335,11 @@ static U0 FileDebuggerBreak(CFileDebugger *dbg,U8i *fn,I32i line) {
 							U8i *bptext=MStrPrint("%d",HCC_ThisFileDebugger->bpCount);
 							"Added breakpoint %d\n",HCC_ThisFileDebugger->bpCount;
 
-								CBreakpoint *bp=malloc(sizeof(CBreakpoint));
-								bp->fn=StrDupLen(fn,StrLen(fn));
-								bp->ln=line;
-								HashTableAdd(HCC_ThisFileDebugger->bpByNum,bp,bptext);
-								free(bptext);
+							CBreakpoint *bp=malloc(sizeof(CBreakpoint));
+							bp->fn=StrDupLen(fn,StrLen(fn));
+							bp->ln=line;
+							HashTableAdd(HCC_ThisFileDebugger->bpByNum,bp,bptext);
+							free(bptext);
 }
 U0 DebugBreakAtFunc(U8i *funcnm) {
 			"%s\n",funcnm;
@@ -347,24 +352,36 @@ U0 DebugBreakAtFunc(U8i *funcnm) {
 			}
 			U8i *fn=JsonNodeEntry(node->val.node,"filename")->val.str;
 			I32i ln=JsonNodeEntry(node->val.node,"line")->val.sint;
-			"%s,%d\n",fn,ln;
-			FileDebuggerBreak(HCC_ThisFileDebugger,fn,ln);
+			U0 *find=HashTableGet(HCC_ThisFileDebugger->breakAtFuncs,funcnm);
+			if (!find)
+						HashTableAdd(HCC_ThisFileDebugger->breakAtFuncs,1,funcnm);
+			*FileDebuggerGetBreakPtr(HCC_ThisFileDebugger,fn,ln)|=DBG_BREAKPOINT_FUNC;
+
+			++HCC_ThisFileDebugger->bpCount;
+			U8i *bptext=MStrPrint("%d",HCC_ThisFileDebugger->bpCount);
+			"Added tmp-breakpoint %d\n",HCC_ThisFileDebugger->bpCount;
+
+			CBreakpoint *bp=malloc(sizeof(CBreakpoint));
+			bp->fn=StrDupLen(fn,StrLen(fn));
+			bp->ln=ln;
+			bp->funcNm=funcnm;
+			HashTableAdd(HCC_ThisFileDebugger->bpByNum,bp,bptext);
+			free(bptext);
 }
 static U0 FileDebuggerBreakTmp(CFileDebugger *dbg,U8i *fn,I32i line,U8i silent=0) {
 							if(!FileDebuggerGetBreakPtr(dbg,fn,line)) throw (1);
-							*FileDebuggerGetBreakPtr(dbg,fn,line)=DBG_BREAKPOINT_TMP;
+							*FileDebuggerGetBreakPtr(dbg,fn,line)|=DBG_BREAKPOINT_TMP;
+							
+							++HCC_ThisFileDebugger->bpCount;
+							U8i *bptext=MStrPrint("%d",HCC_ThisFileDebugger->bpCount);
+							"Added tmp-breakpoint %d\n",HCC_ThisFileDebugger->bpCount;
 
-							if(silent) {
-																		++HCC_ThisFileDebugger->bpCount;
-																		U8i *bptext=MStrPrint("%d",HCC_ThisFileDebugger->bpCount);
-																		"Added tmp-breakpoint %d\n",HCC_ThisFileDebugger->bpCount;
-
-																		CBreakpoint *bp=malloc(sizeof(CBreakpoint));
-																		bp->fn=StrDupLen(fn,StrLen(fn));
-																		bp->ln=line;
-																		HashTableAdd(HCC_ThisFileDebugger->bpByNum,bp,bptext);
-																		free(bptext);
-							}
+							CBreakpoint *bp=malloc(sizeof(CBreakpoint));
+							bp->fn=StrDupLen(fn,StrLen(fn));
+							bp->ln=line;
+							bp->funcNm=NULL;
+							HashTableAdd(HCC_ThisFileDebugger->bpByNum,bp,bptext);
+							free(bptext);
 }
 static U0 FileDebuggerRemoveBreak(CFileDebugger *dbg,I32i bpnum) {
 			U8i *bptext=MStrPrint("%d",bpnum);
@@ -687,7 +704,6 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 											} else {
 													tmpdbg=HashTableGet(HCC_ThisFileDebugger->funcDebuggers,next);
 													if(!tmpdbg) goto bInvalidLoc;
-													"HERE\n";
 													DebugBreakAtFunc(next);
 													free(next);
 											}
@@ -779,7 +795,17 @@ U0 HCC_DebugAtLine(U8i *fn,U8i *func,I32i ln,I32i bpOff) {
 			if(DebugNextFunc) if(0==StrCmp(DebugNextFunc,func)) { DebugNextFunc=NULL;goto enter;}
 			if(DebugStep) goto enter;
 			if(!(&HCC_DEBUG_BREAKPOINTS_ARRAY)(U8i*)[bpOff]) goto ret;
-			
+			U8i bpval=(&HCC_DEBUG_BREAKPOINTS_ARRAY)(U8i*)[bpOff];
+			if(bpval&DBG_BREAKPOINT_NORM) goto enter;
+			if(bpval&DBG_BREAKPOINT_TMP) {
+																																bpval&=~DBG_BREAKPOINT_TMP;
+																																goto enter;
+			}
+			if (bpval&DBG_BREAKPOINT_FUNC) {
+			 		if (HashTableGet(HCC_ThisFileDebugger->breakAtFuncs,func)) goto enter;
+						goto enter;
+			}
+			return;
 			enter:
 			DebugStep=0;
 			
