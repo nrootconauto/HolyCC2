@@ -87,16 +87,28 @@ strParserSymbol parserSymbolTableSyms() {
 	return retVal;
 }
 /**
-	* Lesser items get replaced
+	* Lesser items get replaced,negative items can be repeated
 	*/
-static int shadowPrecedence(struct parserNode *node) {
+static const char *getSymbolName(struct parserNode *node);
+#define SHADOW_FORWARD_DECL (-1)
+static double shadowPrecedence(struct parserNode *node,struct linkage *link) {
+		if(link) {
+				__auto_type type=link->type;
+				switch(type) {
+				case LINKAGE_EXTERN:
+				case LINKAGE_IMPORT:
+						return SHADOW_FORWARD_DECL;
+				default:;
+				}
+		}
+		
 		switch(node->type) {
 		case NODE_ASM_LABEL_GLBL:
-				return -1;
+				return SHADOW_FORWARD_DECL-1; //Is a forward decl essentially
 		case NODE_CLASS_FORWARD_DECL:
 		case NODE_UNION_FORWARD_DECL:
 		case NODE_FUNC_FORWARD_DECL:
-				return 1;
+				return SHADOW_FORWARD_DECL;
 		case NODE_VAR_DECL:
 		case NODE_FUNC_DEF:
 		case NODE_CLASS_DEF:
@@ -170,7 +182,15 @@ static void __addGlobalSymbol(struct parserNode *node, const char *name, struct 
 		toInsert.link=linkageClone(link);
 		toInsert.version=0;
 		toInsert.var=var;
-		toInsert.shadowPrec=shadowPrecedence(node);
+		if(node->type==NODE_FUNC_DEF) {
+				struct parserNodeFuncDef *def=(void*)node;
+				toInsert.function=def->func;
+		} else if(node->type==NODE_FUNC_FORWARD_DECL) {
+				struct parserNodeFuncForwardDec *fwd=(void*)node;
+				toInsert.function=fwd->func;
+		} else
+				toInsert.function=NULL;
+		toInsert.shadowPrec=shadowPrecedence(node,&link);
 		const char *fn;
 		long _start;
 		parserNodeStartEndPos(node->pos.start,node->pos.end , &_start, NULL);
@@ -183,7 +203,7 @@ static void __addGlobalSymbol(struct parserNode *node, const char *name, struct 
 						long count = snprintf(NULL, 0, "%s_$%li", name, ++find[0]->version);
 						char buffer[count + 1];
 						sprintf(buffer, "%s_$%li", name, find[0]->version);
-						if(toInsert.shadowPrec>find[0]->shadowPrec) {
+						if(toInsert.shadowPrec>=find[0]->shadowPrec) {
 								// If we find a conflicting symbol,"version" the older symbol(give it a unique name).
 								toInsert.version = find[0]->version;
 								// Remove the current symbol(We backed it up as "name:VER")
@@ -191,9 +211,19 @@ static void __addGlobalSymbol(struct parserNode *node, const char *name, struct 
 								mapSymbolRemove(symbolTable, name, NULL);
 								mapSymbolInsert(symbolTable, name, ALLOCATE(toInsert));
 								return;
+						}
+						//Items with negative shadow preceence can be repeated see shadowPrecedence
+						if(find[0]->shadowPrec==SHADOW_FORWARD_DECL||toInsert.shadowPrec==SHADOW_FORWARD_DECL) {
+								return;
 						} else {
-								toInsert.version = find[0]->version;
-								mapSymbolInsert(symbolTable, buffer, ALLOCATE(toInsert));
+								long _start,_end;
+								parserNodeStartEndPos(node->pos.start,node->pos.end , &_start, &_end);
+								// TODO whine about re-declaration
+								diagErrorStart(_start, _end);
+								diagPushText("Redeclaration of variable ");
+								diagPushQoutedText(_start, _end);
+								diagPushText(".");
+								diagEndMsg();
 								return;
 						}
 				}
@@ -202,6 +232,12 @@ static void __addGlobalSymbol(struct parserNode *node, const char *name, struct 
 }
 void parserAddGlobalSym(struct parserNode *node, struct linkage link) {
 	__auto_type name = getSymbolName(node);
+	if(node->type==NODE_FUNC_FORWARD_DECL||node->type==NODE_FUNC_DEF) {
+			struct parserNode *nm=NULL;
+			if(node->type==NODE_FUNC_FORWARD_DECL) nm=((struct parserNodeFuncForwardDec*)node)->name;
+			else nm=((struct parserNodeFuncDef*)node)->name;
+			return parserAddFunc(nm, symbolType(node), node, node->pos.start, node->pos.end, link);
+	}
 	__addGlobalSymbol(node, name, linkageClone(link));
 }
 void enterScope() {
@@ -209,7 +245,6 @@ void enterScope() {
 	new.parent = currentScope;
 	new.subScopes = NULL;
 	new.vars = mapVarCreate();
-	new.funcs = mapFuncCreate();
 
 	__auto_type newNode = llScopeCreate(new);
 	if (currentScope == NULL) {
@@ -223,7 +258,6 @@ void enterScope() {
 }
 void leaveScope() {
 	__auto_type par = llScopeValuePtr(currentScope)->parent;
-	assert(par);
 	currentScope = par;
 }
 void parserAddVarLenArgsVars2Func(struct parserVar **Argc,struct parserVar **Argv) {
@@ -290,15 +324,7 @@ void parserAddVar(const struct parserNode *name, struct object *type,struct reg 
 	loop:;
 	__auto_type find = mapVarGet(scope->vars, var.name);
 	if (find) {
-			long _start,_end;
-			parserNodeStartEndPos(name->pos.start,name->pos.end , &_start, &_end);
-			// TODO whine about re-declaration
-			diagErrorStart(_start, _end);
-			diagPushText("Redeclaration of variable ");
-			diagPushQoutedText(_start, _end);
-			diagPushText(".");
 			mapVarRemove(scope->vars, var.name,NULL);
-			diagEndMsg();
 			goto loop;
 	} else {
 			mapVarInsert(scope->vars, var.name, ALLOCATE(var));
@@ -352,35 +378,23 @@ void initParserData() {
 struct parserFunction *parserGetFunc(const struct parserNode *name) {
 	struct parserNodeName *name2 = (void *)name;
 	assert(name2->base.type == NODE_NAME);
-
-	for (llScope scope = currentScope; scope != NULL; scope = llScopeValuePtr(scope)->parent) {
-		__auto_type find = mapFuncGet(llScopeValuePtr(scope)->funcs, name2->text);
-		if (!find)
-			continue;
-
-		find[0]->refs = strParserNodeAppendItem(find[0]->refs, (struct parserNode *)name);
-		return *find;
-	}
-	return NULL;
+	__auto_type nameText=((struct parserNodeName *)name)->text;
+	__auto_type find=parserGetFuncByName(nameText);
+	if(!find) return NULL;
+	if(find) find->refs=strParserNodeAppendItem(find->refs, (struct parserNode*)name);
+	return find;
 }
 struct parserFunction *parserGetFuncByName(const char *name) {
-	for (llScope scope = currentScope; scope != NULL; scope = llScopeValuePtr(scope)->parent) {
-		__auto_type find = mapFuncGet(llScopeValuePtr(scope)->funcs, name);
-		if (!find)
-			continue;
-
-		find[0]->refs = strParserNodeAppendItem(find[0]->refs, (struct parserNode *)name);
-		return *find;
-	}
-	return NULL;
+		__auto_type find=mapSymbolGet(symbolTable, name);
+		if(!find) return NULL;
+		return find[0]->function;
 }
-void parserAddFunc(const struct parserNode *name, const struct object *type, struct parserNode *func,llLexerItem start,llLexerItem end) {
+void parserAddFunc(const struct parserNode *name, const struct object *type, struct parserNode *func,llLexerItem start,llLexerItem end,struct linkage link) {
 	struct parserNodeName *name2 = (void *)name;
-	__auto_type currentScopeFuncs = llScopeValuePtr(currentScope)->funcs;
 
-	__auto_type conflict = mapFuncGet(currentScopeFuncs, name2->text);
+	__auto_type conflict = parserGetFunc(name);
 	if (conflict) {
-		if (!conflict[0]->isForwardDecl) {
+		if (!conflict->isForwardDecl&&func->type!=NODE_FUNC_FORWARD_DECL) {
 			long _start,_end;
 			parserNodeStartEndPos(name2->base.pos.start,name2->base.pos.end , &_start, &_end);
 				// Whine about redeclaration
@@ -391,14 +405,14 @@ void parserAddFunc(const struct parserNode *name, const struct object *type, str
 			diagHighlight(_start, _end);
 			diagEndMsg();
 
-			__auto_type firstRef = conflict[0]->refs[0];
+			__auto_type firstRef = conflict->refs[0];
 			parserNodeStartEndPos(firstRef->pos.start,firstRef->pos.end , &_start, &_end);
 			diagNoteStart(_start, _end);
 			diagPushText("Declared here:");
 			diagHighlight(_start, _end);
 			diagEndMsg();
-		} else if (conflict[0]->isForwardDecl) {
-			if (!objectEqual(conflict[0]->type, type)) {
+		} else if (conflict->isForwardDecl) {
+			if (!objectEqual(conflict->type, type)) {
 					long _start,_end;
 					parserNodeStartEndPos(name2->base.pos.start,name2->base.pos.end , &_start, &_end);
 				// Whine about conflicting type		
@@ -408,23 +422,21 @@ void parserAddFunc(const struct parserNode *name, const struct object *type, str
 				diagPushText(".");
 				diagEndMsg();	
 			
-				__auto_type firstRef = conflict[0]->refs[0];
+				__auto_type firstRef = conflict->refs[0];
 				parserNodeStartEndPos(firstRef->pos.start,firstRef->pos.end , &_start, &_end);
 				diagNoteStart(_start, _end);
 				diagPushText("Declared here:");
 				diagHighlight(_start, _end);
 				diagEndMsg();
 			}
-			mapFuncRemove(currentScopeFuncs, name2->text, NULL);
 		}
 	}
 
 loop:;
-	__auto_type find = mapFuncGet(currentScopeFuncs, name2->text);
-	if (!find) {
+	
 		struct parserFunction dummy;
 		dummy.isForwardDecl = func->type == NODE_FUNC_FORWARD_DECL;
-		dummy.refs = NULL;
+		dummy.refs = strParserNodeAppendItem(NULL, (struct parserNode *)name);;
 		dummy.type = (struct object *)type;
 		dummy.node = func;
 		dummy.name = calloc(strlen(name2->text) + 1,1);
@@ -433,11 +445,14 @@ loop:;
 		dummy.__cacheStartToken=start;
 		strcpy(dummy.name, name2->text);
 
-		mapFuncInsert(currentScopeFuncs, name2->text, ALLOCATE(dummy));
-		goto loop;
-	}
-
-	find[0]->refs = strParserNodeAppendItem(find[0]->refs, (struct parserNode *)name);
+		if(func->type==NODE_FUNC_DEF) {
+				struct parserNodeFuncDef *def=(void*)func;
+				def->func=ALLOCATE(dummy);
+		} else if(func->type==NODE_FUNC_FORWARD_DECL) {
+				struct parserNodeFuncForwardDec *fwd=(void*)func;
+				fwd->func=ALLOCATE(dummy);
+		}
+		__addGlobalSymbol(func, name2->text, link);
 }
 void parserMoveGlobals2Extern() {
 		long count;
@@ -452,4 +467,6 @@ void parserMoveGlobals2Extern() {
 						find->link.type=LINKAGE_IMPORT;
 				}
 		}
+		leaveScope();
+		enterScope();
 }

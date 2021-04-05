@@ -438,9 +438,6 @@ static struct X86AddressingMode *__node2AddrMode(graphNodeIR start) {
 struct X86AddressingMode *IRNode2AddrMode(graphNodeIR start) {
 	struct IRNode *node = graphNodeIRValuePtr(start);
 	__auto_type find = llIRAttrFind(node->attrs, IR_ATTR_ADDR_MODE, IRAttrGetPred);
-	if(start==0x7fd430) {
-			printf("GERE\n");
-	}
 	if (find)
 			return X86AddrModeClone(((struct IRAttrAddrMode *)llIRAttrValuePtr(find))->mode);
 

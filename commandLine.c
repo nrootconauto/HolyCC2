@@ -5,6 +5,7 @@
 #include "str.h"
 #include "cleanup.h"
 #include <assert.h>
+#include "hcrtLocation.h"
 void init();
 //
 // argi,moves the argument index to adavance the consumed arguments
@@ -146,7 +147,7 @@ void parseCommandLineArgs(int argc,const char **argv) {
 				}
 		}
 		
-		const char *hcrt="/home/tc/projects/holycc2/HolyCRT/HCRT.HC";
+		const char *hcrt=HCRT_LOCATION "/HCRT.HC";
 		strConstChar hcrtSources CLEANUP(strConstCharDestroy)=strConstCharAppendItem(NULL, hcrt);
 		strStrChar toLink CLEANUP(strStrCharDestroy2)=assembleSources(hcrtSources);
 		assert(strStrCharSize(toLink)==1);

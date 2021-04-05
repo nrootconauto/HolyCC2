@@ -44,7 +44,10 @@ static HCRT_Except *HCRT_ExceptPop() {
 							curExceptFrame=curExceptFrame->parent;
 							free(old);
 }
+
+
 U0 HCRT_ExceptRestoreState();
+U0 BAAAR() {};
 asm {
 HCRT_ExceptRestoreState::
 	IMPORT tmpExcept;

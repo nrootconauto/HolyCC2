@@ -8,6 +8,7 @@
 #include "preprocessor.h"
 #include "cacheDir.h"
 #include "filePath.h"
+#include "hcrtLocation.h"
 #include "sourceHash.h"
 static void fclose2(FILE **f) {
 	fclose(*f);
@@ -109,11 +110,15 @@ void compileFile(const char *fn, const char *dumpTo) {
 							continue;
 					}
 			}
-			
+
+			//
+			strParserNode stmts2 CLEANUP(strParserNodeDestroy2)=parseFile(HCRT_LOCATION "/LoadDbgInfo.HC",NULL,NULL);	
 		if(dumpTo) {
 				IRGenInit(fMappings);
 				initIR();
 				struct enterExit ee = parserNodes2IR(stmts);
+				struct enterExit eeDbg = parserNodes2IR(stmts2);
+				graphNodeIRConnect(ee.exit, eeDbg.enter, IR_CONN_FLOW);
 				
 				IR2AsmInit();
 				IRCompile(ee.enter, 0);

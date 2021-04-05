@@ -58,11 +58,11 @@ class CFileDebugger {
 class CFuncDebugger {
 						CHashTable *varTable; //JsonNode *
 };
-internal U8i HCC_DEBUG_SYMS;
-internal U8i HCC_DEBUG_FUNC_DATAS;
-internal U8i HCC_DEBUG_BREAKPOINTS_INFO;
-internal U8i HCC_DEBUG_BREAKPOINTS_ARRAY;
-internal U8i HCC_DEBUG_GLOBALS_INFO;
+extern U8i HCC_DEBUG_SYMS;
+extern U8i HCC_DEBUG_FUNC_DATAS;
+extern U8i HCC_DEBUG_BREAKPOINTS_INFO;
+extern U8i HCC_DEBUG_BREAKPOINTS_ARRAY;
+extern U8i HCC_DEBUG_GLOBALS_INFO;
 #define DEBUGGER_INIT_ERR -1
 #define DEBUGGER_TYPE_NO_EXIST -2
 CFuncDebugger *FuncDebuggerCreate(CFileDebugger *file,U0 *funcPtr,U0 *funcptrend,U8i *info);
@@ -236,7 +236,7 @@ U8i *DebuggerPrintVar(CFileDebugger *f,U0 *var,U8i *typeName=lastclass,I32i ptrL
 				retval=StrCat(retval,StrDupLen("}",1));
 				return retval;
 }
-static CFileDebugger *HCC_ThisFileDebugger=NULL;
+CFileDebugger *HCC_ThisFileDebugger=NULL;
 static U8i *HCC_DbgCurrentFunc=NULL; 
 static I32i LinumFromLoc(U8i *loc,U8i **end) {
 							I32i pos=StrLen(loc)-1;

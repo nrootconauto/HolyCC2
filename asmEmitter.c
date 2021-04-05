@@ -465,7 +465,7 @@ static void X86EmitSymbolTable(FILE *dumpTo) {
 		strChar name CLEANUP(strCharDestroy2) = strClone(parserGetGlobalSymLinkageName(keys[i]));
 		if(!name)
 				continue;
-		__auto_type link = parserGlobalSymLinkage(keys[i]);
+		__auto_type link = parserGlobalSymLinkage(keys[i]); 
 		if ((link->type & LINKAGE__EXTERN) || (link->type & LINKAGE__IMPORT)) {
 			fprintf(dumpTo, "EXTERN %s ; Appears as %s in src.\n", name, keys[i]);
 		} else if ((link->type & LINKAGE_STATIC)||(link->type & LINKAGE_INTERNAL)) {
@@ -1001,7 +1001,7 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 }
 void X86EmitAsmEnterFileStartCode(llLexerItem first) {
 		long count=strStartCodeNameSize(initCodeNames);
-		initFileNum=rand();
+		initFileNum=count;
 		
 		X86EmitAsmEnterFunc(NULL);
 		strChar name CLEANUP(strCharDestroy)=getCurrFuncName();

@@ -10,7 +10,6 @@ MAP_TYPE_FUNCS(struct parserFunction*, Func);
 LL_TYPE_DEF(struct scope, Scope);
 struct scope {
 	mapVar vars;
-	mapFunc funcs;
 	llScope subScopes;
 	llScope parent;
 };
@@ -21,8 +20,9 @@ struct parserSymbol {
 		char *name;
 		struct linkage link;
 		long version;
-		long shadowPrec;
+		double shadowPrec;
 		struct parserVar *var;
+		struct parserFunction *function;
 };
 STR_TYPE_DEF(struct parserSymbol *,ParserSymbol);
 STR_TYPE_FUNCS(struct parserSymbol *,ParserSymbol);
@@ -33,7 +33,7 @@ void leaveScope();
 void parserAddVar(const struct parserNode *name, struct object *type,struct reg *inReg,int isNoReg);
 struct parserVar *parserGetVar(const struct parserNode *name);
 struct parserFunction *parserGetFunc(const struct parserNode *name);
-void parserAddFunc(const struct parserNode *name, const struct object *type, struct parserNode *func,llLexerItem start,llLexerItem end);
+void parserAddFunc(const struct parserNode *name, const struct object *type, struct parserNode *func,llLexerItem start,llLexerItem end,struct linkage link);
 void initParserData();
 void killParserData();
 struct parserSymbol *parserGetGlobalSym(const char *name);

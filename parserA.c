@@ -2670,7 +2670,7 @@ struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 				}
 				struct linkage link;
 				link.fromSymbol=NULL;
-				link.type=LINKAGE_EXTERN;
+				link.type=LINKAGE_LOCAL;
 				parserAddGlobalSym(glblNode, link);
 				return glblNode;
 			}
@@ -3199,12 +3199,14 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 
 	//Add func before use to allow calling function from within function
 	struct parserNodeFuncForwardDec forward;
-		forward.base.refCount=1;
-		forward.base.type = NODE_FUNC_FORWARD_DECL;
-		forward.funcType = funcType;
-		forward.name = refNode(name2);
-		struct parserNode *fwdAlloced = ALLOCATE(forward);
-		parserAddFunc(name2, funcType, fwdAlloced,NULL,NULL);
+	forward.base.pos=name2->pos;
+	forward.base.refCount=1;
+	forward.base.type = NODE_FUNC_FORWARD_DECL;
+	forward.funcType = funcType;
+	forward.name = refNode(name2);
+	forward.func=NULL;
+	struct parserNode *fwdAlloced = ALLOCATE(forward);
+		parserAddFunc(name2, funcType, fwdAlloced,NULL,NULL,(struct linkage){LINKAGE_LOCAL,NULL});
 		parserNodeDestroy(&fwdAlloced);
 	
 	struct parserNode *retVal = NULL;
@@ -3224,7 +3226,7 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 		forward.base.type  = NODE_FUNC_FORWARD_DECL;
 		forward.funcType = funcType;
 		forward.name = refNode(name2);
-		
+		forward.func=NULL;
 		retVal = ALLOCATE(forward);
 	} else {
 			// Has a function body
@@ -3234,22 +3236,16 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 		func.bodyScope = scope;
 		func.funcType = funcType;
 		func.name = refNode(name2);
+		func.func=NULL;
 		func.args = args;
 		retVal = ALLOCATE(func);
 		scope=NULL; //Mark for non-deleteion
 	}
 
-	// Assign parent function to functions within function
-	info = currentFuncsStack[strFuncInfoStackSize(currentFuncsStack) - 1];
-	for (long i = 0; i != strParserNodeSize(info.insideFunctions); i++) {
-		assert(info.insideFunctions[i]->type == NODE_FUNC_DEF);
-		((struct parserNodeFuncDef *)info.insideFunctions[i])->func->parentFunction = retVal;
-	}
-	strParserNodeDestroy(&info.insideFunctions);
 	//
 	// Leave the function
 	//
-	currentFuncsStack = strFuncInfoStackPop(currentFuncsStack, NULL);
+	
 	//!!! restore the old labels too
 	parserMapGotosToLabels();
 	mapParserNodeDestroy(labels, NULL);
@@ -3258,12 +3254,6 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 	labelReferences = oldLabelRefs;
 	//
 
-	// Assign parent to functions inside function (if in a function)
-	if (strFuncInfoStackSize(currentFuncsStack)) {
-		__auto_type appendTo = &currentFuncsStack[strFuncInfoStackSize(currentFuncsStack) - 1].insideFunctions;
-		*appendTo = strParserNodeAppendItem(*appendTo, retVal);
-	}
-
 	if (end)
 		*end = start;
 
@@ -3271,13 +3261,12 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 		assignPosByLexerItems(retVal, originalStart, *end);
 	else
 		assignPosByLexerItems(retVal, originalStart, NULL);
-
-	parserAddFunc(name2, funcType, retVal,originalStart,start);
 	
-	
-	if (retVal->type == NODE_FUNC_DEF)
-		((struct parserNodeFuncDef *)retVal)->func = parserGetFunc(name2);
-	else if (retVal->type == NODE_FUNC_FORWARD_DECL)
+	if (retVal->type == NODE_FUNC_DEF) {
+ 		((struct parserNodeFuncDef *)retVal)->func = parserGetFunc(name2);
+			((struct parserNodeFuncDef *)retVal)->func->__cacheStartToken=originalStart;
+			((struct parserNodeFuncDef *)retVal)->func->__cacheEndToken=start;
+	} else if (retVal->type == NODE_FUNC_FORWARD_DECL)
 		((struct parserNodeFuncForwardDec *)retVal)->func = parserGetFunc(name2);
 	name2=NULL; //Mark as no destroy
 	
