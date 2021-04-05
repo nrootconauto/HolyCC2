@@ -69,7 +69,6 @@ CFileDebugger *FileDebuggerCreate() {
 														CHashTable *typeTable=HashTableCreate();
 														for(I32i i=0;types->val.arr[i]!=NULL;i+=1) {
 																							JsonNode *name=JsonNodeEntry(types->val.arr[i]->val.node,"name");
-																							"%s\n",name->val.str;
 																							HashTableAdd(typeTable,types->val.arr[i],name->val.str);
 														}
 
@@ -136,7 +135,6 @@ CFuncDebugger *FuncDebuggerCreate(CFileDebugger *file,U0 *funcptr,U0 *funcptrend
 																		HashTableAdd(file->funcDebuggers,retval,funcname);
 
 																		CFuncRange *range=malloc(sizeof(CFuncRange));
-																		"%p,%s\n",funcptr,funcname;
 																		range->start=funcptr,range->end=funcptrend,range->name=funcname;
 																		
 																		c=0;
@@ -499,12 +497,23 @@ static U8i *FileAndLine(U8i *str,I32i *ln,U8i *dftfn=NULL) {
 							}
 							goto invalidLoc;
 }
+static U0 *DebugGetFramePtr(U8i *bp,I32i lvl,U8i *fn);
+static U0 DebugStackTrace(U8i *bp);
+
 static U8i HCC_DebugAtLineDisable=0;
 static U8i DebugStep=0;
 static U8i *DebugNextFunc=NULL;
 static U8i *DebugLastCom=NULL;
 static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 							CFuncDebugger *fdbg=HashTableGet(HCC_ThisFileDebugger->funcDebuggers,func);
+
+							U8i *currfuncbp=funcBp;
+							U8i *currfuncnam=func;
+							I32i currframei=1;
+							CFuncDebugger *tmpdbg;
+							currfuncbp=DebugGetFramePtr(funcBp,currframei,&currfuncnam);
+
+							I32i i=0;
 							U8i *buffer=malloc(1024);
 							U8i *str;
 							I32i c,offset,linum;
@@ -532,7 +541,42 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 																																				Print("b -- break at a function,or file location.\n");
 																																				Print("d -- remove a breakpoint.\n");
 																																				Print("s -- step.\n");
+																																				Print("bt -- backtrace.\n");
+																																				Print("up -- go up a stack frame.\n");
+																																				Print("down -- go up a stack frame.\n");
 																																				goto loop;
+							} else if(0==StrCmp(DebugLastCom,"down")) {
+									if (currframei==1) {
+												"At bottomost frame\n";
+												goto loop;
+									}
+									currframei--;
+									U8i *tmpfn;
+									U0 *tmpbp;
+									try {
+													tmpbp=DebugGetFramePtr(funcBp,currframei,&tmpfn);
+													currfuncnam=tmpfn;
+													currfuncbp=tmpbp;
+									} catch {
+											"Cant move to frame %d\n",currframei++;
+									}
+									goto loop;
+							} else if(0==StrCmp(DebugLastCom,"up")) {
+									currframei++;
+									tmpfn;
+									tmpbp;
+									try {
+													tmpbp=DebugGetFramePtr(funcBp,currframei,&tmpfn);
+													currfuncnam=tmpfn;
+													currfuncbp=tmpbp;
+													"%s:\n",tmpfn;
+									} catch {
+											"Cant move to frame %d\n",currframei--;
+									}
+									goto loop;
+							} else if(0==StrCmp(DebugLastCom,"bt")) {
+									DebugStackTrace(funcBp);
+									goto loop;
 							} else if(0==StrCmp(DebugLastCom,"n")) {
 									DebugNextFunc=func;
 									goto ret;
@@ -543,8 +587,16 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 									goto ret;
 							} else if(0==StrCmp(DebugLastCom,"p")) {
 									U8i *pVar=__dbgGetNextWord(buffer+1);
-									
-									JsonNode *pVarNode=HashTableGet(fdbg->varTable,pVar);
+
+									"%s:\n",currfuncnam;
+									tmpdbg=HashTableGet(HCC_ThisFileDebugger->funcDebuggers,currfuncnam);
+									if(!tmpdbg) {
+														free(pVar);
+														"Unkown function at frame %d\n",currframei;
+														goto loop;
+									}
+
+									JsonNode *pVarNode=HashTableGet(tmpdbg->varTable,pVar);
 									if(!pVarNode) {
 																							//Look for global
 																							CGlobalVarInfo *ginfo=HashTableGet(HCC_ThisFileDebugger->varTable,pVar);
@@ -563,13 +615,18 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 									offset=JsonNodeEntry(pVarNode->val.node,"offset")->val.sint;
 									pVarNode=JsonNodeEntry(pVarNode->val.node,"type")->val.node;
 
-									printed=DebuggerPrintTypeFromJson(HCC_ThisFileDebugger,funcBp-offset,pVarNode);
+									printed=DebuggerPrintTypeFromJson(HCC_ThisFileDebugger,currfuncbp-offset,pVarNode);
 									"%s:%s\n",pVar,printed;
 									free(pVar),free(printed);
 									goto loop;
 							} else if(0==StrCmp(DebugLastCom,"lv")) {
-														I32i varCount=HashTableSize(fdbg->varTable);
-														keys=HashTableKeys(fdbg->varTable);
+														tmpdbg=HashTableGet(HCC_ThisFileDebugger->funcDebuggers,currfuncnam);
+														if(!tmpdbg) {
+																										"Unable to find function at frame %d\n",currframei;
+																										goto loop;
+														}
+														I32i varCount=HashTableSize(tmpdbg->varTable);
+														keys=HashTableKeys(tmpdbg->varTable);
 														"=====[LOCALS]====\n";
 														for(c=0;c!=varCount;c++) {
 																																							"%s\n",keys[c];
@@ -632,7 +689,24 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 							ret:
 							free(buffer);
 }
-static U0 DebugStackTrace(U8i **bp) {
+static U0 *DebugGetFramePtr(U8i *bp,I32i lvl,U8i **fn) {
+							U0 *calledfrom=*((bp)(U8i*)+4)(U8i **);
+							if(fn) *fn=NULL;
+							while (--lvl>=0) {
+													I32i c=0;
+													for (;HCC_ThisFileDebugger->funcNmByPtr[c];c++) {
+																	CFuncRange *r=HCC_ThisFileDebugger->funcNmByPtr[c];
+																	if (r->start<=calledfrom<=r->end) {
+																				if(fn) *fn=r->name;
+																				break;
+																	}
+											  }
+													bp=*(bp(U8i*))(U0**);
+													calledfrom=*((bp(U8i*)+4)(U0**));
+							}
+							return bp;
+}
+static U0 DebugStackTrace(U8i *bp) {
 							U0 *calledfrom=*((bp)(U8i*)+4)(U8i **);
 							I32i frame=0;
 							loop:
@@ -672,8 +746,6 @@ U0 HCC_DebugAtLine(U8i *fn,U8i *func,I32i ln,I32i bpOff) {
 			if(DebugNextFunc) if(0==StrCmp(DebugNextFunc,func)) { DebugNextFunc=NULL;goto enter;}
 			if(DebugStep) goto enter;
 			if(!(&HCC_DEBUG_BREAKPOINTS_ARRAY)(U8i*)[bpOff]) goto ret;
-
-			DebugStackTrace(parBP);
 			
 			enter:
 			DebugStep=0;
