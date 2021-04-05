@@ -160,7 +160,12 @@ static U0 bar() {
 } 
 I32i main() {
 					"TRUMP\n";
-					HCC_ThisFileDebugger=FileDebuggerCreate();
+					HCC_ThisFileDebugger=FileDebuggerCreate(
+					&HCC_DEBUG_SYMS,
+														&HCC_DEBUG_FUNC_DATAS,
+														&HCC_DEBUG_BREAKPOINTS_INFO,
+														&HCC_DEBUG_BREAKPOINTS_ARRAY,
+														&HCC_DEBUG_GLOBALS_INFO);
 					FileDebuggerBreak(HCC_ThisFileDebugger,HCC_DbgCurrentFunc,172);
 					DbgFileList(HCC_ThisFileDebugger,HCC_DbgCurrentFunc,0);
 

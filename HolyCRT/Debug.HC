@@ -52,6 +52,7 @@ class CFileDebugger {
 						CFuncRange **funcNmByPtr; //NULL terminated
 						CHashTable *breakAtFuncs; //1  as dummy;
 						JsonNode *bpData;
+						U8i *bpArray;
 						I32i bpCount;
 };
 class CFuncDebugger {
@@ -65,10 +66,16 @@ internal U8i HCC_DEBUG_GLOBALS_INFO;
 #define DEBUGGER_INIT_ERR -1
 #define DEBUGGER_TYPE_NO_EXIST -2
 CFuncDebugger *FuncDebuggerCreate(CFileDebugger *file,U0 *funcPtr,U0 *funcptrend,U8i *info);
-CFileDebugger *FileDebuggerCreate() {
-														JsonNode *bps=ParserJsonObject(&HCC_DEBUG_BREAKPOINTS_INFO,0,NULL,NULL);
+CFileDebugger *FileDebuggerCreate(
+														U8i *HCC_DEBUG_SYMS,
+														U8i *HCC_DEBUG_FUNC_DATAS,
+														U8i *HCC_DEBUG_BREAKPOINTS_INFO,
+														U8i *HCC_DEBUG_BREAKPOINTS_ARRAY,
+														U8i *HCC_DEBUG_GLOBALS_INFO
+														) {
+														JsonNode *bps=ParserJsonObject(HCC_DEBUG_BREAKPOINTS_INFO,0,NULL,NULL);
 														Print("%p\n",bps);
-														JsonNode *parse=ParserJsonObject(&HCC_DEBUG_SYMS,0,NULL,NULL);
+														JsonNode *parse=ParserJsonObject(HCC_DEBUG_SYMS,0,NULL,NULL);
 														JsonNode *types=JsonNodeEntry(parse->val.node,"Types");
 														if(!types) throw(DEBUGGER_INIT_ERR);
 
@@ -82,14 +89,14 @@ CFileDebugger *FileDebuggerCreate() {
 														I32i infoOff=0;
 														JsonNode *infoJson=NULL;
 														glblLoop:
-														if(*(&HCC_DEBUG_GLOBALS_INFO+infoOff)(U0**)!=0) {
-																																																															U0 *glblptr=*(&HCC_DEBUG_GLOBALS_INFO+infoOff)(U0**);
+														if(*(HCC_DEBUG_GLOBALS_INFO+infoOff)(U0**)!=0) {
+																																																															U0 *glblptr=*(HCC_DEBUG_GLOBALS_INFO+infoOff)(U0**);
 																																																															infoOff+=sizeof(glblptr);
 
-																																																															infoJson=ParserJsonObject(&HCC_DEBUG_GLOBALS_INFO+infoOff,0,NULL,NULL);
+																																																															infoJson=ParserJsonObject(HCC_DEBUG_GLOBALS_INFO+infoOff,0,NULL,NULL);
 																																																															name=JsonNodeEntry(infoJson->val.node,"name");
 
-																																																															infoOff+=StrLen(&HCC_DEBUG_GLOBALS_INFO+infoOff)+1;
+																																																															infoOff+=StrLen(HCC_DEBUG_GLOBALS_INFO+infoOff)+1;
 
 																																																															CGlobalVarInfo *global=malloc(sizeof(CGlobalVarInfo));
 																																																															global->ptr=glblptr;
@@ -110,8 +117,9 @@ CFileDebugger *FileDebuggerCreate() {
 														retval->funcNmByPtr=malloc(sizeof(CFuncRange*));
 														retval->funcNmByPtr[0]=NULL;
 														retval->breakAtFuncs=HashTableCreate();
+														retval->bpArray=HCC_DEBUG_BREAKPOINTS_ARRAY;
 
-														U8i **list=(&HCC_DEBUG_FUNC_DATAS)(U8i**);
+														U8i **list=(HCC_DEBUG_FUNC_DATAS)(U8i**);
 														while(*list) {
 																											FuncDebuggerCreate(retval,list[0],list[1],list[2]);
 																											list+=3;
@@ -325,7 +333,7 @@ static U8i *FileDebuggerGetBreakPtr(CFileDebugger *dbg,U8i *fn,I32i line) {
 																																	if(lineNode->val.sint>=line) break;
 			}
 			if(lastBpOff==-1) return NULL;
-			return &((&HCC_DEBUG_BREAKPOINTS_ARRAY)(U8i*)[lastBpOff]);
+			return &((HCC_ThisFileDebugger->bpArray)(U8i*)[lastBpOff]);
 }
 static U0 FileDebuggerBreak(CFileDebugger *dbg,U8i *fn,I32i line) {
 							if(!FileDebuggerGetBreakPtr(dbg,fn,line)) throw (1);
@@ -777,6 +785,7 @@ static U0 DebugStackTrace(U8i *bp) {
 							exit:
 }
 U0 HCC_DebugAtLine(U8i *fn,U8i *func,I32i ln,I32i bpOff) {
+			if(!HCC_ThisFileDebugger) return;
 			if(HCC_DebugAtLineDisable) return;
 			U8i oldDisable=HCC_DebugAtLineDisable;
 			HCC_DebugAtLineDisable=1;
@@ -794,8 +803,8 @@ U0 HCC_DebugAtLine(U8i *fn,U8i *func,I32i ln,I32i bpOff) {
 
 			if(DebugNextFunc) if(0==StrCmp(DebugNextFunc,func)) { DebugNextFunc=NULL;goto enter;}
 			if(DebugStep) goto enter;
-			if(!(&HCC_DEBUG_BREAKPOINTS_ARRAY)(U8i*)[bpOff]) goto ret;
-			U8i bpval=(&HCC_DEBUG_BREAKPOINTS_ARRAY)(U8i*)[bpOff];
+			if(!(HCC_ThisFileDebugger->bpArray)(U8i*)[bpOff]) goto ret;
+			U8i bpval=(HCC_ThisFileDebugger->bpArray)(U8i*)[bpOff];
 			if(bpval&DBG_BREAKPOINT_NORM) goto enter;
 			if(bpval&DBG_BREAKPOINT_TMP) {
 																																bpval&=~DBG_BREAKPOINT_TMP;
