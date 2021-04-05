@@ -229,6 +229,7 @@ static I32i LinumFromLoc(U8i *loc,U8i **end) {
 																										if('9'>=loc[pos]>='0') ; else break; 
 							}
 							I32i ln=Str2I32i(&loc[pos+1]);
+							if(pos==StrLen(loc)-1) ln=-1;
 							if(end) *end=&loc[pos];
 							return ln;
 }
@@ -334,6 +335,20 @@ static U0 FileDebuggerBreak(CFileDebugger *dbg,U8i *fn,I32i line) {
 								bp->ln=line;
 								HashTableAdd(HCC_ThisFileDebugger->bpByNum,bp,bptext);
 								free(bptext);
+}
+U0 DebugBreakAtFunc(U8i *funcnm) {
+			"%s\n",funcnm;
+			JsonNode *node=JsonNodeEntry(HCC_ThisFileDebugger->bpData->val.node,"funcLines");
+			if(!node) throw(1);
+			node=JsonNodeEntry(node->val.node,funcnm);
+			if (!node) {
+						"Function %s not found\n.",funcnm;
+						throw(1);
+			}
+			U8i *fn=JsonNodeEntry(node->val.node,"filename")->val.str;
+			I32i ln=JsonNodeEntry(node->val.node,"line")->val.sint;
+			"%s,%d\n",fn,ln;
+			FileDebuggerBreak(HCC_ThisFileDebugger,fn,ln);
 }
 static U0 FileDebuggerBreakTmp(CFileDebugger *dbg,U8i *fn,I32i line,U8i silent=0) {
 							if(!FileDebuggerGetBreakPtr(dbg,fn,line)) throw (1);
@@ -489,21 +504,20 @@ static U8i *FileAndLine(U8i *str,I32i *ln,U8i *dftfn=NULL) {
 							U8i *endpos;
 							I32i linenum=LinumFromLoc(str,&endpos);
 							if(ln) *ln=linenum;
-							"%d\n",linenum;
-							if(linenum==-1) {
-																							invalidLoc:
-																							free(str);
-																							throw(-1);
-							} else if(*endpos==':') {
+							U8i *filename=NULL;
+							if(*endpos==':') {
 									*endpos='\0';
-									U8i *filename=DbgMatchFile(str);
+									filename=DbgMatchFile(str);
 									if(!filename) goto invalidLoc;
-									free(str);
 									return filename;
-							} else if(dftfn) {
+							} else if(dftfn&&linenum!=-1) {
 									return StrDupLen(dftfn,StrLen(dftfn));
 							}
 							goto invalidLoc;
+							invalidLoc:
+							free(str);
+							free(filename);
+							throw(-1);
 }
 static U0 *DebugGetFramePtr(U8i *bp,I32i lvl,U8i *fn);
 static U0 DebugStackTrace(U8i *bp);
@@ -665,7 +679,18 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 												FileDebuggerBreak(HCC_ThisFileDebugger,filename,linum);
 												free(filename);
 									} catch {
-											Print("Unable to make sense of provided location!!!\n");
+											next=__dbgGetNextWord(next);
+											if (!next) {
+														bInvalidLoc:
+														free(next);
+														Print("Unable to make sense of provided location!!!\n");
+											} else {
+													tmpdbg=HashTableGet(HCC_ThisFileDebugger->funcDebuggers,next);
+													if(!tmpdbg) goto bInvalidLoc;
+													"HERE\n";
+													DebugBreakAtFunc(next);
+													free(next);
+											}
 									}
 									goto loop;
 							} else if(0==StrCmp("d",DebugLastCom)) {

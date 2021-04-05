@@ -31,6 +31,8 @@ MAP_TYPE_DEF(struct X86AddressingMode *,AddrMode);
 MAP_TYPE_FUNCS(struct X86AddressingMode *,AddrMode);
 MAP_TYPE_DEF(strChar, FnLabel);
 MAP_TYPE_FUNCS(strChar, FnLabel);
+STR_TYPE_DEF(long, Long);
+STR_TYPE_FUNCS(long, Long);
 static strChar strClone(const char *text) {
 	__auto_type retVal = strCharAppendData(NULL, text, strlen(text) + 1);
 	strcpy(retVal, text);
@@ -41,8 +43,6 @@ static void strStrCharDestroy2(strStrChar *str) {
 				strCharDestroy(&str[0][s]);
 		strStrCharDestroy(str);
 }
-STR_TYPE_DEF(long,Long);
-STR_TYPE_FUNCS(long,Long);
 #define FUNC_BREAKPOINTS_LAB_FMT_LN "DBG_BP@%s_$ln%li"
 #define FUNC_BREAKPOINTS_LAB_FMT_FN "DBG_BP@%s_$fn%li"
 #define FUNC_BREAKPOINTS_LAB_INFO "DBG_INFO@%s"
@@ -1073,8 +1073,26 @@ static void createBreakPointInfo(FILE *writeTo) {
 		}
 		total=strCharAppendItem(total, '\0');
 		mapMinMaxDestroy(funcLineRanges, NULL);
+
+		//Create json of function first lines 
+		strChar funcFirstLns CLEANUP(strCharDestroy)=NULL;
+		{
+				long count;
+				parserSymTableNames(NULL, &count);
+				const char *keys[count];
+				parserSymTableNames(keys,NULL);
+				
+				for(long f=0;f!=count;f++) {
+						__auto_type find=parserGetGlobalSym(keys[f]);
+						if(find->var) continue;
+						if(find->type->type!=TYPE_FUNCTION) continue;
+						char *buffer CLEANUP(free2)=fromFmt("\"%s\":{\"filename\":\"%s\",\"line\":%li},\n",keys[f],find->fn,find->ln);
+						funcFirstLns=strCharAppendData(funcFirstLns,buffer,strlen(buffer));
+				}
+		}
+		funcFirstLns=strCharAppendItem(funcFirstLns, '\0');
 		
-		char *json CLEANUP(free2)=fromFmt("{breakpoints:[%s]}", total);
+		char *json CLEANUP(free2)=fromFmt("{breakpoints:[%s],funcLines:{%s}}", total,funcFirstLns);
 		strChar infoStr CLEANUP(strCharDestroy)=dumpStrLit(json, strlen(json)+1);
 		fprintf(writeTo, "\nHCC_DEBUG_BREAKPOINTS_INFO: DB %s \n",infoStr);
 
