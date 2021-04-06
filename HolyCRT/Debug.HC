@@ -58,6 +58,7 @@ class CFileDebugger {
 class CFuncDebugger {
 						CHashTable *varTable; //JsonNode *
 };
+CFileDebugger *HCC_ThisFileDebugger=NULL;
 extern U8i HCC_DEBUG_SYMS;
 extern U8i HCC_DEBUG_FUNC_DATAS;
 extern U8i HCC_DEBUG_BREAKPOINTS_INFO;
@@ -124,8 +125,9 @@ CFileDebugger *FileDebuggerCreate(
 																											FuncDebuggerCreate(retval,list[0],list[1],list[2]);
 																											list+=3;
 														}
-														return  retval;
+														return retval;
 }
+extern I32i getchar();
 CFuncDebugger *FuncDebuggerCreate(CFileDebugger *file,U0 *funcptr,U0 *funcptrend,U8i *info) {
 														JsonNode *root=NULL;
 														JsonNode *framelayout=NULL;
@@ -139,19 +141,18 @@ CFuncDebugger *FuncDebuggerCreate(CFileDebugger *file,U0 *funcptr,U0 *funcptrend
 																		framelayout=JsonNodeEntry(root->val.node,"frameLayout");
 																		if(framelayout) {
 																																		for(c=0;framelayout->val.arr[c];c++) {
-																																																																							JsonNode *tmp=framelayout->val.arr[c];
-																																																																							name=JsonNodeEntry(tmp->val.node	,"name");
-																																																																							HashTableAdd(retval->varTable,tmp,name->val.str);
+																																																																							JsonNode *tmpnode=framelayout->val.arr[c];
+																																																																							name=JsonNodeEntry(tmpnode->val.node	,"name");
+																																																																							HashTableAdd(retval->varTable,tmpnode,name->val.str);
 																																		}
 																		}
 
 																		name=JsonNodeEntry(root->val.node	,"name");
 																		if(name) funcname=name->val.str;
 																		HashTableAdd(file->funcDebuggers,retval,funcname);
-
+																
 																		CFuncRange *range=malloc(sizeof(CFuncRange));
 																		range->start=funcptr,range->end=funcptrend,range->name=funcname;
-																		
 																		c=0;
 																		I32i funccount=0;
 																		for (;file->funcNmByPtr[c];c++) funccount++;
@@ -159,13 +160,16 @@ CFuncDebugger *FuncDebuggerCreate(CFileDebugger *file,U0 *funcptr,U0 *funcptrend
 																		for (;file->funcNmByPtr[c];c++) {
 																						if(file->funcNmByPtr[c].start>funcptr) break;
 																		}
+																		file->funcNmByPtr=realloc(file->funcNmByPtr,(++funccount+1)*sizeof(CFuncRange));
 																		I32i rev=funccount;
 																		for (;rev>c;rev--) file->funcNmByPtr[rev]=file->funcNmByPtr[rev-1];
 																		file->funcNmByPtr[c]=range;
-																		file->funcNmByPtr=realloc(file->funcNmByPtr,(++funccount+1)*sizeof(CFuncRange));
 																		file->funcNmByPtr[funccount]=NULL;
 														} catch {
+																getchar();
 																Print("Failed to parse json for debugger");
+																
+																getchar();
 														}
 }
 U8i *DebuggerPrintVar(CFileDebugger *f,U0 *var,U8i *typeName=lastclass,I32i ptrLevel=0);
@@ -235,9 +239,7 @@ U8i *DebuggerPrintVar(CFileDebugger *f,U0 *var,U8i *typeName=lastclass,I32i ptrL
 				}
 				retval=StrCat(retval,StrDupLen("}",1));
 				return retval;
-}
-CFileDebugger *HCC_ThisFileDebugger=NULL;
-static U8i *HCC_DbgCurrentFunc=NULL; 
+}static U8i *HCC_DbgCurrentFunc=NULL; 
 static I32i LinumFromLoc(U8i *loc,U8i **end) {
 							I32i pos=StrLen(loc)-1;
 							for(;pos>=0;pos--) {

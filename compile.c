@@ -10,6 +10,7 @@
 #include "filePath.h"
 #include "hcrtLocation.h"
 #include "sourceHash.h"
+#include "escaper.h"
 static void fclose2(FILE **f) {
 	fclose(*f);
 }
@@ -20,13 +21,28 @@ static void strParserNodeDestroy2(strParserNode *str) {
 				;//parserNodeDestroy(&str[0][s]);
 	strParserNodeDestroy(str);
 }
-static strParserNode parseFile(const char *fn,strFileMappings *fMappings2,llLexerItem *items2) {
+static void deleteFile(char **fn) {
+		remove(*fn);
+}
+static strParserNode parseFile(const char *fn,strFileMappings *fMappings2,llLexerItem *items2,int silent) {
 		setArch(ARCH_X86_SYSV);
+
+		char *tmpName CLEANUP(deleteFile)=__builtin_alloca(TMP_MAX);
+		tmpnam(tmpName);
+
+		char *es=escapeString((char*)fn, strlen(fn));
+		FILE *f=fopen(tmpName, "w");
+		const char *dbgInfoLoader=HCRT_LOCATION "/LoadDbgInfo.HC";
+		fprintf(f, "#include \"%s\"\n", es);
+		fprintf(f, "#include \"%s\"\n", dbgInfoLoader);
+		free(es);
+		fclose(f);
+		
 		{
 				int err;
 				strFileMappings fMappings  = NULL;
 				strTextModify tMods = NULL;
-				FILE *resultFile CLEANUP(fclose2) = createPreprocessedFile(fn, &tMods, &fMappings, &err);
+				FILE *resultFile CLEANUP(fclose2) = createPreprocessedFile(tmpName, &tMods, &fMappings, &err);
 				if (err)
 						goto fail;
 
@@ -40,7 +56,7 @@ static strParserNode parseFile(const char *fn,strFileMappings *fMappings2,llLexe
 
 				long atPos;
 				llLexerItem items = lexText((struct __vec *)fText, &atPos,&err);
-
+				
 				diagInstCreate(DIAG_ANSI_TERM, fMappings, tMods, fn, stderr);
 				if (err) {
 						diagErrorStart(atPos, atPos+1);
@@ -78,7 +94,7 @@ void compileFile(const char *fn, const char *dumpTo) {
 		X86EmitAsmInit();
 			strFileMappings fMappings = NULL;
 			llLexerItem items CLEANUP(llLexerItemDestroy2);
-			strParserNode stmts CLEANUP(strParserNodeDestroy2)=parseFile(fn,&fMappings,&items);
+			strParserNode stmts CLEANUP(strParserNodeDestroy2)=parseFile(fn,&fMappings,&items,0);
 			sourceCacheInitAfterParse(fn);
 
 			//
@@ -110,18 +126,15 @@ void compileFile(const char *fn, const char *dumpTo) {
 							continue;
 					}
 			}
-
-			//
-			strParserNode stmts2 CLEANUP(strParserNodeDestroy2)=parseFile(HCRT_LOCATION "/LoadDbgInfo.HC",NULL,NULL);	
+			
 		if(dumpTo) {
 				IRGenInit(fMappings);
 				initIR();
 				struct enterExit ee = parserNodes2IR(stmts);
-				struct enterExit eeDbg = parserNodes2IR(stmts2);
-				graphNodeIRConnect(ee.exit, eeDbg.enter, IR_CONN_FLOW);
 				
 				IR2AsmInit();
 				IRCompile(ee.enter, 0);
+				
 				X86EmitAsm2File(dumpTo,NULL);
 		return;
 	}

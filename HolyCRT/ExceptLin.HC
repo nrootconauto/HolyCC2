@@ -90,6 +90,7 @@ static U0 *throwSegfault(I32i num,I32i code) {
 							sigemptyset(&set);
 							sigaddset(&set,11);
 							sigprocmask(SIG_UNBLOCK,&set,0);
+							"SEGFLT\n";
 							throw(code);
 }
 signal(11,&throwSegfault);

@@ -220,7 +220,7 @@ static void __addGlobalSymbol(struct parserNode *node, const char *name, struct 
 								parserNodeStartEndPos(node->pos.start,node->pos.end , &_start, &_end);
 								// TODO whine about re-declaration
 								diagErrorStart(_start, _end);
-								diagPushText("Redeclaration of variable ");
+								diagPushText("Redeclaration of symbol ");
 								diagPushQoutedText(_start, _end);
 								diagPushText(".");
 								diagEndMsg();
@@ -319,16 +319,32 @@ void parserAddVar(const struct parserNode *name, struct object *type,struct reg 
 	struct parserNodeName *name2 = (void *)name;
 	var.name = calloc(strlen(name2->text) + 1,1);
 	strcpy(var.name, name2->text);
-
+	
 	__auto_type scope = llScopeValuePtr(currentScope);
-	loop:;
-	__auto_type find = mapVarGet(scope->vars, var.name);
-	if (find) {
-			mapVarRemove(scope->vars, var.name,NULL);
-			goto loop;
+	
+	if(scope->parent==NULL) {
+			__auto_type find=parserGetGlobalSym(var.name);
+			if(find)
+					if(find->shadowPrec>SHADOW_FORWARD_DECL)
+							goto whineRepeat;
 	} else {
-			mapVarInsert(scope->vars, var.name, ALLOCATE(var));
+	loop:;
+			__auto_type findLoc = mapVarGet(scope->vars, var.name);
+			if (findLoc) {
+			whineRepeat:;
+					long _start,_end;
+					parserNodeStartEndPos(name2->base.pos.start, name2->base.pos.end, &_start, &_end);
+					diagErrorStart(_start,_end);
+					diagPushText("Redeclaration of variable ");
+					diagPushQoutedText(_start, _end);
+					diagPushText(".");
+					diagHighlight(_start, _end);
+					diagEndMsg();
+					mapVarRemove(scope->vars, var.name,NULL);
+					goto loop;
+			}
 	}
+	mapVarInsert(scope->vars, var.name, ALLOCATE(var));
 }
 struct parserVar *parserGetVarByText(const char *name) {
 	for (__auto_type scope = currentScope; scope != NULL; scope = llScopeValuePtr(scope)->parent) {

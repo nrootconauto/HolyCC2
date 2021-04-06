@@ -157,12 +157,13 @@ class fooP {
 } FOOP;
 static U0 bar() {
 							throw(12);
-} 
+}
+extern CFileDebugger *HCC_LocalFileDebugger; 
 I32i main() {
+					HCC_ThisFileDebugger=HCC_LocalFileDebugger;
 					"TRUMP\n";
-					FileDebuggerBreak(HCC_ThisFileDebugger,HCC_DbgCurrentFunc,172);
-					DbgFileList(HCC_ThisFileDebugger,HCC_DbgCurrentFunc,0);
-
+					FileDebuggerBreak(HCC_ThisFileDebugger,HCC_DbgCurrentFunc,166);
+					DbgFileList(HCC_ThisFileDebugger,HCC_DbgCurrentFunc,185);
 					Print("Exitdgsdg\n");
 					U8i *hello="Hello World\n";
 					hello+=1;
