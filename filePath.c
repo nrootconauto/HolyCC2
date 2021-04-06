@@ -2,7 +2,7 @@
 #include <string.h>
 #include "cleanup.h"
 #include "filePath.h"
-static int pathIsAbsolute(const char *path) {
+int pathIsAbsolute(const char *path) {
 #ifdef __unix__
 		return path[0]=='/';
 #endif

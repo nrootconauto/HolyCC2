@@ -11,6 +11,8 @@
 #include "hcrtLocation.h"
 #include "sourceHash.h"
 #include "escaper.h"
+#include "filePath.h"
+__thread int HCC_Debug_Enable=1;
 static void fclose2(FILE **f) {
 	fclose(*f);
 }
@@ -18,11 +20,14 @@ STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
 static void strParserNodeDestroy2(strParserNode *str) {
 		for (long s = 0; s != strParserNodeSize(*str); s++)
-				;//parserNodeDestroy(&str[0][s]);
-	strParserNodeDestroy(str);
+				parserNodeDestroy(&str[0][s]);
+		strParserNodeDestroy(str);
 }
 static void deleteFile(char **fn) {
 		remove(*fn);
+}
+static void free2(char **str) {
+		free(*str);
 }
 static strParserNode parseFile(const char *fn,strFileMappings *fMappings2,llLexerItem *items2,int silent) {
 		setArch(ARCH_X86_SYSV);
@@ -32,10 +37,17 @@ static strParserNode parseFile(const char *fn,strFileMappings *fMappings2,llLexe
 
 		char *es=escapeString((char*)fn, strlen(fn));
 		FILE *f=fopen(tmpName, "w");
-		const char *dbgInfoLoader=HCRT_LOCATION "/LoadDbgInfo.HC";
-		fprintf(f, "#include \"%s\"\n", es);
-		fprintf(f, "#include \"%s\"\n", dbgInfoLoader);
+		char *dbgInfoLoader CLEANUP(free2)=HCRTFile("LoadDbgInfo.HC");
+		char * cwd=getcwd(NULL, 0);
+		if(!pathIsAbsolute(fn))
+				fprintf(f, "#include \"%s/%s\"\n",cwd, es);
+		else
+				fprintf(f, "#include \"%s\"\n", es);
+
+		if(HCC_Debug_Enable)
+				fprintf(f, "#include \"%s\"\n", dbgInfoLoader);
 		free(es);
+		free(cwd);
 		fclose(f);
 		
 		{
@@ -84,9 +96,6 @@ static strParserNode parseFile(const char *fn,strFileMappings *fMappings2,llLexe
 	fail:
 		abort();
 		return NULL;
-}
-static void free2(char **str) {
-		free(*str);
 }
 void compileFile(const char *fn, const char *dumpTo) {
 		//Move symbols from previous compile to extern

@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include "dumpDebugInfo.h"
 #include "sourceHash.h"
+#include "compile.h"
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
 PTR_MAP_FUNCS(struct parserNode *, strChar, LabelNames);
@@ -887,7 +888,6 @@ void X86EmitAsmAddCachedFuncIfExists(const char *funcName,int *success) {
 		if(0==access(name, F_OK)) {
 				mapFuncFilesInsert(funcFiles, funcName, strClone(name));
 				if(success) *success=1;
-				printf("CAHCED\n");
 		}  else {
 				if(success) *success=0;
 		}
@@ -903,16 +903,18 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 		X86EmitClassMetaData(writeTo);
 		X86EmitSymbolTable(writeTo);
 
-		//Emit token line macros
-		cacheDir=(!cacheDir)?cacheDirLocation:cacheDir;
-		for(long f=0;f!=fCount;f++) {
-				char *fn=*mapFuncFilesGet(funcFiles, funcs[f]);
-				__auto_type func=parserGetFuncByName(funcs[f]);
-				if(!func) continue; //Init function
-				if(func->isForwardDecl) continue;
-				char *tokensFile CLEANUP(free2)=__getUpdatedTokenLinesFromCache(func);
-				char *escaped CLEANUP(free2)=escapeString(tokensFile,strlen(tokensFile));
-				fprintf(writeTo, "%%include \"%s\"\n", escaped);
+		if(HCC_Debug_Enable) {
+				//Emit token line macros
+				cacheDir=(!cacheDir)?cacheDirLocation:cacheDir;
+				for(long f=0;f!=fCount;f++) {
+						char *fn=*mapFuncFilesGet(funcFiles, funcs[f]);
+						__auto_type func=parserGetFuncByName(funcs[f]);
+						if(!func) continue; //Init function
+						if(func->isForwardDecl) continue;
+						char *tokensFile CLEANUP(free2)=__getUpdatedTokenLinesFromCache(func);
+						char *escaped CLEANUP(free2)=escapeString(tokensFile,strlen(tokensFile));
+						fprintf(writeTo, "%%include \"%s\"\n", escaped);
+				}
 		}
 		
 		for(long f=0;f!=fCount;f++) {
@@ -946,54 +948,55 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 				break;
 		}
 		
+		if(HCC_Debug_Enable) {
+				char *debugSymbolText CLEANUP(free2)=emitDebuggerTypeDefinitions();
 		
-		char *debugSymbolText CLEANUP(free2)=emitDebuggerTypeDefinitions();
-		
-		fprintf(writeTo, "\nSECTION .data\n");
-		strChar symsText CLEANUP(strCharDestroy)=dumpStrLit(debugSymbolText,strlen(debugSymbolText)+1);
-		fprintf(writeTo, "HCC_DEBUG_SYMS: DB %s \n",symsText);
-		const char *ddType=(ptrSize()==4)?"DD":"DQ";
-		fprintf(writeTo, "HCC_DEBUG_FUNC_DATAS:%s ",ddType);
-		for(long f=0;f!=fCount;f++) {
-				__auto_type func=parserGetFuncByName(funcs[f]);
-				if(!func) continue; //Init function
-				if(func->isForwardDecl) continue;
-				char *fmted CLEANUP(free2)=fromFmt(FUNC_BREAKPOINTS_LAB_INFO, funcs[f]);
-				fprintf(writeTo, " %s," FUNC_CODE_END_LAB_FMT",  %s, ", funcs[f],funcs[f],fmted);
-		}
-		fprintf(writeTo,"0 \n"); //NULL TERMINATE LIST
-		
-		createBreakPointInfo(writeTo);
-		long len=breakPointCount;
-		fprintf(writeTo, "SECTION .bss\nHCC_DEBUG_BREAKPOINTS_ARRAY: resb %li\n ",len);		
-
-		{
-				//(GlobalPtr,json),(GlobalPtr,json)...0
-				fprintf(writeTo, "SECTION .data\nHCC_DEBUG_GLOBALS_INFO: ");
-				long count;
-				parserSymTableNames(NULL, &count);
-				const char *names[count];
-				parserSymTableNames(names,NULL);
-				for(long k=0;k!=count;k++) {
-						__auto_type find=parserGetGlobalSym(names[k]);
-						if(!find->var)continue;
-						fprintf(writeTo, "%s %s\n", ddType,parserGetGlobalSymLinkageName(names[k]));
-						char *text CLEANUP(free2)=emitDebuggerGlobalVarInfo((char*)names[k]);
-						strChar infoStr CLEANUP(strCharDestroy)=dumpStrLit(text, strlen(text)+1);
-						fprintf(writeTo,"DB %s\n",infoStr);
+				fprintf(writeTo, "\nSECTION .data\n");
+				strChar symsText CLEANUP(strCharDestroy)=dumpStrLit(debugSymbolText,strlen(debugSymbolText)+1);
+				fprintf(writeTo, "HCC_DEBUG_SYMS: DB %s \n",symsText);
+				const char *ddType=(ptrSize()==4)?"DD":"DQ";
+				fprintf(writeTo, "HCC_DEBUG_FUNC_DATAS:%s ",ddType);
+				for(long f=0;f!=fCount;f++) {
+						__auto_type func=parserGetFuncByName(funcs[f]);
+						if(!func) continue; //Init function
+						if(func->isForwardDecl) continue;
+						char *fmted CLEANUP(free2)=fromFmt(FUNC_BREAKPOINTS_LAB_INFO, funcs[f]);
+						fprintf(writeTo, " %s," FUNC_CODE_END_LAB_FMT",  %s, ", funcs[f],funcs[f],fmted);
 				}
-				fprintf(writeTo, "%s 0\n",ddType); 
-		}
+				fprintf(writeTo,"0 \n"); //NULL TERMINATE LIST
+		
+				createBreakPointInfo(writeTo);
+				long len=breakPointCount;
+				fprintf(writeTo, "SECTION .bss\nHCC_DEBUG_BREAKPOINTS_ARRAY: resb %li\n ",len);		
 
-		{
-				//
-				long count;
-				mapFnLabelKeys(filenameStrLabels, NULL, &count);
-				const char *keys[count];
-				mapFnLabelKeys(filenameStrLabels,keys,NULL);
-				for(long f=0;f!=count;f++) {
-						strChar fn CLEANUP(strCharDestroy)=dumpStrLit(keys[f], strlen(keys[f])+1);
-						fprintf(writeTo, "%s: DB %s\n", *mapFnLabelGet(filenameStrLabels, keys[f]),fn);
+				{
+						//(GlobalPtr,json),(GlobalPtr,json)...0
+						fprintf(writeTo, "SECTION .data\nHCC_DEBUG_GLOBALS_INFO: ");
+						long count;
+						parserSymTableNames(NULL, &count);
+						const char *names[count];
+						parserSymTableNames(names,NULL);
+						for(long k=0;k!=count;k++) {
+								__auto_type find=parserGetGlobalSym(names[k]);
+								if(!find->var)continue;
+								fprintf(writeTo, "%s %s\n", ddType,parserGetGlobalSymLinkageName(names[k]));
+								char *text CLEANUP(free2)=emitDebuggerGlobalVarInfo((char*)names[k]);
+								strChar infoStr CLEANUP(strCharDestroy)=dumpStrLit(text, strlen(text)+1);
+								fprintf(writeTo,"DB %s\n",infoStr);
+						}
+						fprintf(writeTo, "%s 0\n",ddType); 
+				}
+
+				{
+						//
+						long count;
+						mapFnLabelKeys(filenameStrLabels, NULL, &count);
+						const char *keys[count];
+						mapFnLabelKeys(filenameStrLabels,keys,NULL);
+						for(long f=0;f!=count;f++) {
+								strChar fn CLEANUP(strCharDestroy)=dumpStrLit(keys[f], strlen(keys[f])+1);
+								fprintf(writeTo, "%s: DB %s\n", *mapFnLabelGet(filenameStrLabels, keys[f]),fn);
+						}
 				}
 		}
 		
@@ -1171,6 +1174,8 @@ char *X86EmitAsmUniqueLabName(const char *head) {
 		return fromFmt(fmt, funcNam,head, ++currentFileSet->labelCount);
 }
 void X86EmitAsmDebuggerInfo(char *text) {
+		if(!HCC_Debug_Enable) return;
+		
 		strChar funNam CLEANUP(strCharDestroy)=getCurrFuncName();
 		strChar unes CLEANUP(strCharDestroy)=dumpStrLit(text, strlen(text)+1); 
 		char *lab CLEANUP(free2)= fromFmt(FUNC_BREAKPOINTS_LAB_INFO,funNam);

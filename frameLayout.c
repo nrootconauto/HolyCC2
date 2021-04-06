@@ -199,7 +199,6 @@ void IRComputeFrameLayout(graphNodeIR start, long *frameSize,ptrMapFrameOffset *
 			}
 			llVertexColorDestroy(&colors, NULL);
 	}
-	//strIRVarRefsDestroy2(&allRefs);
 	
 	long kCount;
 	mapRefsPairKeys(byColor, NULL, &kCount);

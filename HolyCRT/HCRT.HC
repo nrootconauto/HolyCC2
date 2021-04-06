@@ -15,8 +15,6 @@ static I32i foo() {
 							return 1;
 }
 U0 testNoDest() {
-			loop:
-			loop:
 			Print("No-Dest\n");
 			I32i a=10; 
 			I32i b=3;
@@ -163,6 +161,7 @@ static U0 bar() {
 extern CFileDebugger *HCC_LocalFileDebugger; 
 I32i main() {
 					HCC_ThisFileDebugger=HCC_LocalFileDebugger;
+					return 0;
 					"TRUMP\n";
 					FileDebuggerBreak(HCC_ThisFileDebugger,HCC_DbgCurrentFunc,166);
 					DbgFileList(HCC_ThisFileDebugger,HCC_DbgCurrentFunc,185);
@@ -346,4 +345,3 @@ try {
 
 					return 0;
 }
-Print("Trump\n");

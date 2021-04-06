@@ -75,7 +75,6 @@ CFileDebugger *FileDebuggerCreate(
 														U8i *HCC_DEBUG_GLOBALS_INFO
 														) {
 														JsonNode *bps=ParserJsonObject(HCC_DEBUG_BREAKPOINTS_INFO,0,NULL,NULL);
-														Print("%p\n",bps);
 														JsonNode *parse=ParserJsonObject(HCC_DEBUG_SYMS,0,NULL,NULL);
 														JsonNode *types=JsonNodeEntry(parse->val.node,"Types");
 														if(!types) throw(DEBUGGER_INIT_ERR);

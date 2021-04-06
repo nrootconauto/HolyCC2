@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.0)
 project(holycc2 LANGUAGES C)
 set (CMAKE_C_FLAGS_DEBUG "-Wuninitialized -g")
+include(GNUInstallDirs)
+
 if(ENABLE_ASAN)
     set (CMAKE_C_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address -O0")
 				set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address -O0")
@@ -54,6 +56,7 @@ list(APPEND sources "commandLine.c")
 list(APPEND sources "rope.c")
 list(APPEND sources "filePath.c")
 list(APPEND sources "dumpDebugInfo.c")
+list(APPEND sources "hcrtLocation.h")
 
 set(tests "")
 list(APPEND tests "tests/compileTests.c")
@@ -85,6 +88,16 @@ foreach(file ${sources})
 	get_filename_component(dir ${file} DIRECTORY)
  
 file(MAKE_DIRECTORY "${CMAKE_SOURCE_DIR}/doc/${dir}")
+
+install(TARGETS hcc DESTINATION bin)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/HolyCRT" DESTINATION ${CMAKE_INSTALL_DATADIR})
+
+set(HCRT_LOCATION "${CMAKE_SOURCE_DIR}/HolyCRT/")
+message("${CMAKE_INSTALL_DATADIR}")
+set(HCRT_LOCATION_INSTALLED "${CMAKE_INSTALL_DATADIR}/HolyCRT")
+configure_file("${CMAKE_SOURCE_DIR}/hcrtLocation.h.in" "${CMAKE_SOURCE_DIR}/hcrtLocation.h" @ONLY)
+
+
 if(EXISTS "${CMAKE_SOURCE_DIR}/doc/${file}.md")
  add_custom_command(TARGET doc COMMAND codedoc --title "HolyCC:${file}" --body ${CMAKE_SOURCE_DIR}/doc/${file}.md ${CMAKE_SOURCE_DIR}/${file}>${CMAKE_SOURCE_DIR}/doc/${file}.html DEPENDS ${file})
 	else ()

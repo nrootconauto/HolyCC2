@@ -11,6 +11,7 @@
 #include <setjmp.h>
 #include "diagMsg.h"
 #include "preprocessor.h"
+#include "compile.h"
 typedef int (*gnIRCmpType)(const graphNodeIR *, const graphNodeIR *);
 typedef int (*pnCmpType)(const struct parserNode **, const struct parserNode **);
 static int ptrPtrCmp(const void *a, const void *b) {
@@ -111,11 +112,17 @@ static struct enterExit insSrcMapping(struct parserNode *node,struct enterExit p
 				
 				const char *fn; long line;
 				diagLineCol(&fn, _start, &line, NULL);
-				__auto_type debug=IRCreateDebug(node->pos.start,node->pos.end);
-				__auto_type mapping=IRCreateSourceMapping(_start, _end-_start);
-				graphNodeIRConnect(debug, mapping, IR_CONN_FLOW);
-				graphNodeIRConnect(mapping, pair.enter, IR_CONN_FLOW);
-				pair.enter=debug;
+				if(HCC_Debug_Enable) {
+						__auto_type debug=IRCreateDebug(node->pos.start,node->pos.end);
+						__auto_type mapping=IRCreateSourceMapping(_start, _end-_start);
+						graphNodeIRConnect(debug, mapping, IR_CONN_FLOW);
+						graphNodeIRConnect(mapping, pair.enter, IR_CONN_FLOW);
+						pair.enter=debug;
+				} else {
+						__auto_type mapping=IRCreateSourceMapping(_start, _end-_start);
+						graphNodeIRConnect(mapping, pair.enter, IR_CONN_FLOW);
+						pair.enter=mapping;
+				}
 		}
 		return pair;
 }

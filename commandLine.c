@@ -68,9 +68,15 @@ static void outputCallback(int *argi,int argc,const char **argv) {
 		outputFile=argv[*argi+1];
 		*argi=end;
 }
+static void debugDisableCallback(int *argi,int argc,const char **argv) {
+		HCC_Debug_Enable=0;
+		++*argi;
+}
 static void registerCLIFlag(struct commlFlag *f) {
-		mapFlagsInsert(clFlagsShort, f->shortName, *f);
-		mapFlagsInsert(clFlagsLong, f->longName, *f);
+		if(f->shortName)
+				mapFlagsInsert(clFlagsShort, f->shortName, *f);
+		if(f->longName)
+				mapFlagsInsert(clFlagsLong, f->longName, *f);
 }
 STR_TYPE_DEF(char,Char);
 STR_TYPE_FUNCS(char,Char);
@@ -83,6 +89,9 @@ static void strStrCharDestroy2(strStrChar *str) {
 }
 static strChar strCharDup(const char *text) {
 		return strCharAppendData(NULL, text, strlen(text)+1);
+}
+static void free2(char **str) {
+		free(*str);
 }
 static strStrChar assembleSources(strConstChar sources) {
 		strStrChar toAssemble=NULL;
@@ -127,7 +136,14 @@ void parseCommandLineArgs(int argc,const char **argv) {
 				outputCallback,
 		};
 		registerCLIFlag(&output);
-
+		struct commlFlag debugDisable={
+				"dd",
+				NULL,
+				"This disables debugger info.",
+				debugDisableCallback,
+		};
+		registerCLIFlag(&debugDisable);
+		
 		strConstChar sources CLEANUP(strConstCharDestroy)=NULL;
 		
 		for(int i=1;i!=argc;) {
@@ -147,7 +163,7 @@ void parseCommandLineArgs(int argc,const char **argv) {
 				}
 		}
 		
-		const char *hcrt=HCRT_LOCATION "/HCRT.HC";
+		char *hcrt CLEANUP(free2)=HCRTFile("HCRT.HC");
 		strConstChar hcrtSources CLEANUP(strConstCharDestroy)=strConstCharAppendItem(NULL, hcrt);
 		strStrChar toLink CLEANUP(strStrCharDestroy2)=assembleSources(hcrtSources);
 		assert(strStrCharSize(toLink)==1);

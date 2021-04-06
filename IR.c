@@ -1652,7 +1652,6 @@ graphNodeIR IRCreateMemberAccess(graphNodeIR input, const char *name) {
 
 	if(graphNodeIRValuePtr(input)->type==IR_DERREF&&type->type!=TYPE_PTR) {
 			input=IRCreateAddrOf(input);
-			printf("GERE\n");
 			return IRCreateMemberAccess(input,name);
 	}
 

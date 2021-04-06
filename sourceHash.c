@@ -11,6 +11,7 @@
 #include "filePath.h"
 #include <string.h>
 #include <assert.h>
+#include "compile.h"
 MAP_TYPE_DEF(int , Changed);
 MAP_TYPE_FUNCS(int , Changed);
 static __thread mapChanged changedGVars=NULL;
@@ -221,7 +222,7 @@ char *hashSource(llLexerItem start,llLexerItem end,const char *name,long *fileEx
 		}
 		long retVal=hash(f);
 		
-		const char *fmt="%s/%s.%li";
+		const char *fmt=(HCC_Debug_Enable)?"%s/%s.d.%li":"%s/%s.%li";
 		long len=snprintf(NULL, 0, fmt, cacheDirLocation,name,retVal);
 		char buffer[len+1];
 		sprintf(buffer, fmt, cacheDirLocation,name,retVal);		
