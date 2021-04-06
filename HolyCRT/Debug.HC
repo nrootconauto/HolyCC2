@@ -550,7 +550,7 @@ static U0 *DebugGetFramePtr(U8i *bp,I32i lvl,U8i *fn);
 static U0 DebugStackTrace(U8i *bp);
 
 static U8i HCC_DebugAtLineDisable=0;
-static U8i DebugStep=0;
+U8i DebugStep=0;
 static U8i *DebugNextFunc=NULL;
 static U8i *DebugLastCom=NULL;
 static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {

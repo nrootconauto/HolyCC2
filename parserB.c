@@ -485,4 +485,13 @@ void parserMoveGlobals2Extern() {
 		}
 		leaveScope();
 		enterScope();
+
+		parserSymTableNames(NULL, &count);
+		const char *names2[count];
+		parserSymTableNames(names2, NULL);
+		for(long v=0;v!=count;v++) {
+				__auto_type find=parserGetGlobalSym(names2[v]);
+				if(!find->var) continue;
+				mapVarInsert(llScopeValuePtr(currentScope)->vars,names2[v],find->var);
+		}
 }

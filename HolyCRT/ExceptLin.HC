@@ -85,12 +85,13 @@ class sigset_t {
 extern U0 sigemptyset (sigset_t *x);
 extern U0 sigaddset (sigset_t *x,I32i code);
 extern I32i sigprocmask(I32i,sigset_t *set,sigset_t *old);
+extern U0 printf(U8i*,...);
 static U0 *throwSegfault(I32i num,I32i code) {
 							sigset_t set;
 							sigemptyset(&set);
 							sigaddset(&set,11);
 							sigprocmask(SIG_UNBLOCK,&set,0);
-							"SEGFLT\n";
+							printf("SEGFLT\n");
 							throw(code);
 }
 signal(11,&throwSegfault);

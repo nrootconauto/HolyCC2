@@ -1713,11 +1713,9 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	strChar debugInfo CLEANUP(strCharDestroy)=fromFmt("{\"name\":\"%s\",\"frameLayout\":%s}" ,funcName, frameLayoutJson);
 	X86EmitAsmDebuggerInfo(debugInfo);
 	free(frameLayoutJson);
-	
+
 	IR2Asm(start);
-	
-	if(!isFunc)
-			IRABIReturn2Asm(NULL, frameSize);
+	IRABIReturn2Asm(NULL, frameSize);
 	
 	X86EmitAsmLeaveFunc(NULL);
 	
@@ -3882,6 +3880,14 @@ void IR2Asm(graphNodeIR start) {
 	} else {
 		__next = __IR2Asm(start);
 	}
+
+		if(!strGraphNodeIRPSize(__next)) {
+				if(graphNodeIRValuePtr(start)->type!=IR_FUNC_RETURN) {
+						IRABIReturn2Asm(NULL, frameSize);
+						return;
+				}
+		}
+		
 		graphNodeIR next[strGraphNodeIRPSize(__next)];
 		long len=strGraphNodeIRPSize(__next);
 		qsort(__next, len, sizeof(*__next), ptrPtrCmp);
@@ -3889,7 +3895,7 @@ void IR2Asm(graphNodeIR start) {
 		len=strGraphNodeIRPSize(__next);
 		memcpy(next, __next, len*sizeof(*next));
 		strGraphNodeIRPDestroy(&__next);
-
+		
 	for (long n = 0; n != len; n++)
 		IR2Asm(next[n]);
 }
