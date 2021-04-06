@@ -37,6 +37,7 @@ MAP_TYPE_DEF(struct parserSymbol*,ParserSymbol);
 MAP_TYPE_FUNCS(struct parserSymbol*,ParserSymbol);
 static __thread mapParserSymbol asmImports = NULL;
 static __thread int allowsArrayLiterals = 0;
+static __thread llLexerItem prevParserPos=NULL;
 static int isGlobalScope() {
 	return currentScope == NULL;
 }
@@ -94,7 +95,7 @@ void parserNodeStartEndPos(llLexerItem start, llLexerItem end, long *startP, lon
 	if (end == NULL)
 		endI = llLexerItemValuePtr(llLexerItemLast(start))->end;
 	else
-		endI = llLexerItemValuePtr(end)->start;
+			endI = llLexerItemValuePtr(llLexerItemPrev(end))->end;
 	startI = llLexerItemValuePtr(start)->start;
 
 	if (startP)
@@ -1921,6 +1922,15 @@ failLexical:
 	return;
 }
 struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
+		if(prevParserPos==start) {
+				long _start,_end;
+				parserNodeStartEndPos(start, llLexerItemNext(start) ,  &_start,&_end);
+				diagErrorStart(_start,_end);
+				diagPushText("Parsing stopped here:");
+				diagHighlight(_start, _end);
+				diagEndMsg();
+		}
+		prevParserPos=start;
 	// If end is NULL,make a dummy version for testing for ";" ahead
 	llLexerItem endDummy;
 	if (!end)
@@ -2751,7 +2761,7 @@ struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 	} else {
 			if (retVal) {
 					if (end)
-							assignPosByLexerItems(retVal, originalStart, *end);
+							assignPosByLexerItems(retVal, originalStart, start);
 					else
 							assignPosByLexerItems(retVal, originalStart, NULL);
 			}
@@ -3201,7 +3211,7 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 	// Enter the function
 	//
 	struct currentFunctionInfo info;
-	parserNodeStartEndPos((void*)nm, (void*)name2, &info.retTypeBegin, &info.retTypeEnd);
+	parserNodeStartEndPos(nm->base.pos.start, name2->pos.end, &info.retTypeBegin, &info.retTypeEnd);
 	info.retType = retType;
 	info.insideFunctions = NULL;
 	currentFuncsStack = strFuncInfoStackAppendItem(currentFuncsStack, info);
