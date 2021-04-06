@@ -786,7 +786,8 @@ static U0 DebugStackTrace(U8i *bp) {
 							goto loop;
 							exit:
 }
-U0 HCC_DebugAtLine(U8i *fn,U8i *func,I32i ln,I32i bpOff) {
+U0 HCC_DebugAtLine(CFileDebugger **dbg,U8i *fn,U8i *func,I32i ln,I32i bpOff) {
+			HCC_ThisFileDebugger=*dbg;
 			if(!HCC_ThisFileDebugger) return;
 			if(HCC_DebugAtLineDisable) return;
 			U8i oldDisable=HCC_DebugAtLineDisable;

@@ -36,7 +36,7 @@ struct X86AddressingMode {
 			X86ADDRMODE_MEM,
 			X86ADDRMODE_LABEL,
 			X86ADDRMODE_ITEM_ADDR,
-			X86ADDRMODE_VAR_ADDR,
+			X86ADDRMODE_VAR_VALUE,
 			X86ADDRMODE_STR,
 			X86ADDRMODE_SIZEOF,
 			X86ADDRMODE_MACRO,
@@ -71,7 +71,7 @@ struct X86AddressingMode *X86AddrModeIndirMem(uint64_t where, struct object *typ
 struct X86AddressingMode *X86AddrModeLabel(const char *name);
 struct X86AddressingMode *X86AddrModeIndirReg(struct reg *where, struct object *type);
 struct X86AddressingMode *X86AddrModeIndirSIB(long scale, struct X86AddressingMode *index, struct X86AddressingMode *base, struct X86AddressingMode *offset, struct object *type);
-struct X86AddressingMode *X86AddrModeItemAddrOf(struct parserSymbol *item,long offset, struct object *type);
+struct X86AddressingMode *X86AddrModeItemValue(struct parserSymbol *item,long offset, struct object *type);
 struct X86AddressingMode *X86AddrModeSizeofObj(struct object *type);
 struct opcodeTemplateArg {
 	enum {
@@ -129,7 +129,7 @@ struct X86AddressingMode *X86AddrModeClone(struct X86AddressingMode *mode);
 void X86AddrModeDestroy(struct X86AddressingMode **mode);
 struct X86AddressingMode *X86AddrModeIndirLabel(const char *text, struct object *type);
 struct X86AddressingMode *X86AddrModeStr(const char *text,long len);
-struct X86AddressingMode *X86AddrModeGlblVar(struct parserVar *var);
+struct X86AddressingMode *X86AddrModeGlblVarAddr(struct parserVar *var);
 struct X86AddressingMode *X86AddrModeFunc(struct parserFunction *func);
 int opcodeTemplateArgAcceptsAddrMode(const struct opcodeTemplateArg *arg, const struct X86AddressingMode *mode);
 STR_TYPE_DEF(uint8_t, OpcodeBytes);

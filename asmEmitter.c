@@ -513,7 +513,7 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 		assert(0);
 		break;
 	}
-	case X86ADDRMODE_VAR_ADDR: {
+	case X86ADDRMODE_VAR_VALUE: {
 			__auto_type find = ptrMapFrameOffsetGet(localVarFrameOffsets, args[i]->value.varAddr.var);
 			if (find) {
 					assert(!args[i]->value.varAddr.var->isGlobal);
@@ -559,9 +559,10 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 				long offset=args[i]->value.itemAddr.offset;
 				char *buffer CLEANUP(free2)=fromFmt("%+li", offset);
 				offsetStr=strClone(buffer);
-		}
+		} else
+				offsetStr=strClone("");
 		
-		char *buffer CLEANUP(free2)=fromFmt( "[$%s%s] ", name,offsetStr);
+		char *buffer CLEANUP(free2)=fromFmt( "$%s%s ", name,offsetStr);
 		return strClone(buffer); 
 	}
 	case X86ADDRMODE_LABEL: {
