@@ -2532,7 +2532,22 @@ static long searchForNode(const strParserNode nodes, const struct parserNode *no
 }
 static void addLabel(struct parserNode *node, const char *name) {
 	__auto_type find = mapParserNodeGet(labels, name);
-	assert(!find);
+	if(find) {
+			long _start,_end;
+			parserNodeStartEndPos(node->pos.start, node->pos.end, &_start, &_end);
+			diagErrorStart(_start, _end);
+			diagPushText("Repeat label ");
+			diagPushQoutedText(_start, _end);
+			diagPushText(".");
+			diagHighlight(_start, _end);
+			diagEndMsg();
+			
+			parserNodeStartEndPos(find[0]->pos.start, find[0]->pos.end, &_start, &_end);
+			diagNoteStart(_start, _end);
+			diagPushText("From here:");
+			diagHighlight(_start, _end);
+			diagEndMsg();
+	}
 	mapParserNodeInsert(labels, name, node);
 }
 static void __parserMapLabels2Refs(int failOnNotFound) {
@@ -2734,6 +2749,13 @@ struct parserNode *parseLabel(llLexerItem start, llLexerItem *end) {
 		getSubswitchStartCode((struct parserNodeSubSwitch *)retVal);
 		switchStack = strParserNodePop(switchStack, NULL);
 	} else {
+			if (retVal) {
+					if (end)
+							assignPosByLexerItems(retVal, originalStart, *end);
+					else
+							assignPosByLexerItems(retVal, originalStart, NULL);
+			}
+			
 		addLabel(retVal, ((struct parserNodeName *)name)->text);
 	};
 end:
@@ -2742,13 +2764,6 @@ end:
 		start = originalStart;
 	if (end != NULL)
 		*end = start;
-
-	if (retVal) {
-		if (end)
-			assignPosByLexerItems(retVal, originalStart, *end);
-		else
-			assignPosByLexerItems(retVal, originalStart, NULL);
-	}
 
 	return retVal;
 }

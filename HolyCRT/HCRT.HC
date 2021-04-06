@@ -15,6 +15,8 @@ static I32i foo() {
 							return 1;
 }
 U0 testNoDest() {
+			loop:
+			loop:
 			Print("No-Dest\n");
 			I32i a=10; 
 			I32i b=3;
