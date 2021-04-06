@@ -475,7 +475,8 @@ loop:
 							curln++;
 							chr=lnend-str;
 							
-							for(;StrChr(endings,str[chr]);chr++);
+							chr++;
+							
 							if(str[chr]!='\0') goto loop;
 
 							if(read) *read=curln-startln;
@@ -674,18 +675,18 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 																										"Unable to find function at frame %d\n",currframei;
 																										goto loop;
 														}
-														I32i varCount=HashTableSize(tmpdbg->varTable);
+														"=====[GLOBALS]====\n";
+														I32i varCount=HashTableSize(HCC_ThisFileDebugger->varTable);
+														keys=HashTableKeys(HCC_ThisFileDebugger->varTable);
+														for(c=0;c!=varCount;c++) {
+																																							if(!HashTableGet(fdbg->varTable,keys[c])) "%s\n",keys[c];
+														}
+														free(keys);
+														 varCount=HashTableSize(tmpdbg->varTable);
 														keys=HashTableKeys(tmpdbg->varTable);
 														"=====[LOCALS]====\n";
 														for(c=0;c!=varCount;c++) {
 																																							"%s\n",keys[c];
-														}
-														free(keys);
-														"=====[GLOBALS]====\n";
-														varCount=HashTableSize(HCC_ThisFileDebugger->varTable);
-														keys=HashTableKeys(HCC_ThisFileDebugger->varTable);
-														for(c=0;c!=varCount;c++) {
-																																							if(!HashTableGet(fdbg->varTable,keys[c])) "%s\n",keys[c];
 														}
 														free(keys);
 														goto loop;
