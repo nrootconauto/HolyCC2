@@ -22,18 +22,19 @@ static struct parserNode *refNode(struct parserNode *node) {
 				return node;
 		return node->refCount++,node;
 }
-static __thread int lastclassAllowed=0;
-static __thread struct parserNode *currentLoop = NULL;
 MAP_TYPE_DEF(struct parserNode *, ParserNode);
 MAP_TYPE_FUNCS(struct parserNode *, ParserNode);
 MAP_TYPE_DEF(strParserNode, ParserNodes);
 MAP_TYPE_FUNCS(strParserNode, ParserNodes);
+MAP_TYPE_DEF(struct parserSymbol*,ParserSymbol);
+MAP_TYPE_FUNCS(struct parserSymbol*,ParserSymbol);
+static __thread int lastclassAllowed=0;
+static __thread struct parserNode *currentLoop = NULL;
 static __thread mapParserNode localLabels = NULL;
 static __thread mapParserNode labels = NULL;
 static __thread mapParserNodes labelReferences = NULL;
 static __thread int isAsmMode = 0;
-MAP_TYPE_DEF(struct parserSymbol*,ParserSymbol);
-MAP_TYPE_FUNCS(struct parserSymbol*,ParserSymbol);
+static __thread int allowCallWithoutParen=1;
 static __thread mapParserSymbol asmImports = NULL;
 static __thread int allowsArrayLiterals = 0;
 static __thread llLexerItem prevParserPos=NULL;
@@ -285,7 +286,7 @@ static struct parserNode *literalRecur(llLexerItem start, llLexerItem end, llLex
 		// TODO add float template.
 		return NULL;
 }
-static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end, llLexerItem *result);
+static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end, llLexerItem *result,int allCallWithoutParen);
 static struct parserNode *prec1Recur(llLexerItem start, llLexerItem end, llLexerItem *result);
 static struct parserNode *prec2Recur(llLexerItem start, llLexerItem end, llLexerItem *result);
 static struct parserNode *prec3Recur(llLexerItem start, llLexerItem end, llLexerItem *result);
@@ -639,7 +640,7 @@ static struct parserNode *parseSizeof(llLexerItem start, llLexerItem end, llLexe
 	return retVal;
 }
 
-static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end, llLexerItem *result) {
+static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end, llLexerItem *result,int allowCallWithoutParen) {
 	if (start == NULL)
 		return NULL;
 
@@ -651,7 +652,25 @@ static struct parserNode *prec0Binop(llLexerItem start, llLexerItem end, llLexer
 		*result = start;
 
 	llLexerItem result2;
-	struct parserNode *head = parenRecur(start, end, &result2);
+	struct parserNode *head = literalRecur(start, end, &result2);
+	if(head) {
+			if(head->type==NODE_FUNC_REF&&allowCallWithoutParen) {
+					struct parserNode *lParen CLEANUP(parserNodeDestroy)=expectOp(result2, "(");
+					if(!lParen) {
+							struct parserNodeFuncRef *ref=(void*)head;
+
+							struct parserNodeFuncCall call;
+							call.func=head;
+							call.args=NULL;
+							call.type=NULL;
+							call.base.refCount=1;
+							call.base.type=NODE_FUNC_CALL;
+							call.base.pos=ref->base.pos;
+							head=ALLOCATE(call);
+					}
+			}
+	} else 
+			head=parenRecur(start, end, &result2);
  	if (head == NULL)
 		return NULL;
 	const char *binops[] = {".", "->"};
@@ -822,7 +841,13 @@ static struct parserNode *prec1Recur(llLexerItem start, llLexerItem end, llLexer
 		}
 		break;
 	}
-	struct parserNode *tail = prec0Binop(result2, end, &result2);
+
+	int addrOf=0;
+	if(strParserNodeSize(opStack)) {
+			struct parserNodeOpTerm *top=(void*)opStack[strParserNodeSize(opStack)-1];
+			if(0==strcmp(top->text,"&")) addrOf=1;
+	}
+	struct parserNode *tail = prec0Binop(result2, end, &result2,!addrOf);
 	if (opStack != NULL) {
 		if (tail == NULL) {
 			goto fail;
