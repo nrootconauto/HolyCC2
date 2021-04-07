@@ -644,6 +644,9 @@ static strChar getObjectClassName(struct object *type) {
 }
 static void debugShowGraphIR(graphNodeIR enter);
 static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node);
+static int isPtrType(struct object *obj) {
+		return obj->type==TYPE_PTR||obj->type==TYPE_ARRAY;
+}
 graphNodeIR parserNode2Expr(const struct parserNode *node) {
 	switch (node->type) {
 	default:
@@ -833,17 +836,28 @@ graphNodeIR parserNode2Expr(const struct parserNode *node) {
 		// Compute args
 		__auto_type aVal = parserNode2Expr(binop->a);
 		__auto_type bVal = parserNode2Expr(binop->b);
-
+		
+		__auto_type aType=assignTypeToOp(binop->a);
+		__auto_type bType=assignTypeToOp(binop->b);
+		int isPtrArith=isPtrType(aType)||isPtrType(bType);
+		
 		// If non-assign binop
 		__auto_type b = mapIRNodeTypeGet(binop2IRType, op->text);
 		if (b) {
-			__auto_type retVal = IRCreateBinop(aVal, bVal, *b);
+				__auto_type resType=assignTypeToOp(node);
+				if((aType!=resType)&&!isPtrArith) aVal=IRCreateTypecast(aVal, aType, resType);
+				if((bType!=resType)&&!isPtrArith) bVal=IRCreateTypecast(bVal, bType, resType);
+				__auto_type retVal = IRCreateBinop(aVal, bVal, *b);
 
 			return retVal;
 		}
 
 		__auto_type assign = mapIRNodeTypeGet(assign2IRType, op->text);
 		if (assign) {
+				if(aType!=bType&&!isPtrArith) {
+						aVal=IRCreateTypecast(aVal, aType, bType);
+						printf("%s\n",op->text);
+				}
 			retVal = IRCreateAssign(IRCreateBinop(aVal, bVal, *assign), parserNode2Expr(binop->a));
 			return retVal;
 		} else if (0 == strcmp(op->text, "=")) {
@@ -896,6 +910,11 @@ graphNodeIR parserNode2Expr(const struct parserNode *node) {
 					__auto_type find = mapIRNodeTypeGet(unop2IRType, op->text);
 					graphNodeIR newNode;
 					if (find) {
+							if(*find!=IR_DERREF) {
+									__auto_type sourceType=assignTypeToOp(unop->a);
+									__auto_type resType=assignTypeToOp(node);
+									if(sourceType!=resType) in=IRCreateTypecast(in, sourceType, resType);
+							}
 							struct IRNodeUnop unop;
 							unop.base.type = *find;
 							unop.base.attrs = NULL;

@@ -160,7 +160,7 @@ static U0 bar() {
 }
 extern CFileDebugger *HCC_LocalFileDebugger; 
 I32i main() {
-					HCC_ThisFileDebugger=HCC_LocalFileDebugger;
+					//					HCC_ThisFileDebugger=HCC_LocalFileDebugger;
 					return 0;
 					"TRUMP\n";
 					FileDebuggerBreak(HCC_ThisFileDebugger,HCC_DbgCurrentFunc,166);

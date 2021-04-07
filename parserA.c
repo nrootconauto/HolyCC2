@@ -1942,6 +1942,7 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 				diagPushText("Parsing stopped here:");
 				diagHighlight(_start, _end);
 				diagEndMsg();
+				abort();
 		}
 		prevParserPos=start;
 	// If end is NULL,make a dummy version for testing for ";" ahead

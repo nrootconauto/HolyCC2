@@ -82,6 +82,7 @@ CFileDebugger *FileDebuggerCreate(
 														CHashTable *typeTable=HashTableCreate();
 														for(I32i i=0;types->val.arr[i]!=NULL;i+=1) {
 																							JsonNode *name=JsonNodeEntry(types->val.arr[i]->val.node,"name");
+																							"%s\n",name->val.str;
 																							HashTableAdd(typeTable,types->val.arr[i],name->val.str);
 														}
 
@@ -120,9 +121,9 @@ CFileDebugger *FileDebuggerCreate(
 														retval->bpArray=HCC_DEBUG_BREAKPOINTS_ARRAY;
 
 														U8i **list=(HCC_DEBUG_FUNC_DATAS)(U8i**);
-														while(*list) {
-																											FuncDebuggerCreate(retval,list[0],list[1],list[2]);
-																											list+=3;
+														while (*list) {
+																				FuncDebuggerCreate(retval,list[0],list[1],list[2]);
+																				list+=3;
 														}
 														return retval;
 }
@@ -159,13 +160,13 @@ CFuncDebugger *FuncDebuggerCreate(CFileDebugger *file,U0 *funcptr,U0 *funcptrend
 																		for (;file->funcNmByPtr[c];c++) {
 																						if(file->funcNmByPtr[c].start>funcptr) break;
 																		}
-																		file->funcNmByPtr=realloc(file->funcNmByPtr,(++funccount+1)*sizeof(CFuncRange));
-																		I32i rev=funccount;
+																		file->funcNmByPtr=realloc(file->funcNmByPtr,(++funccount+1)*sizeof(CFuncRange*));
+																		I32i rev=funccount-1;
 																		for (;rev>c;rev--) file->funcNmByPtr[rev]=file->funcNmByPtr[rev-1];
 																		file->funcNmByPtr[c]=range;
 																		file->funcNmByPtr[funccount]=NULL;
 														} catch {
-																getchar();
+																"info:%p\n",info;
 																Print("Failed to parse json for debugger");
 																
 																getchar();
