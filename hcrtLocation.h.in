@@ -14,8 +14,6 @@ __attribute__((always_inline)) inline char *HCRTFile(const char *file) {
 		len=snprintf(NULL, 0, "%s/%s", HCRT_LOC_INSTALLED,file);
 		char installed[len+1];
 		sprintf(installed, "%s/%s", HCRT_LOC_INSTALLED,file);
-
-		printf("LOCAL:%s,INST:%s\n",local,installed);
 		
 		if(0==access(local, F_OK))
 				return strcpy(calloc(strlen(local)+1, 1), local);
