@@ -196,6 +196,17 @@ void parseCommandLineArgs(int argc,const char **argv) {
 
 						linkCommand=strCharAppendData(linkCommand, buffer, len);
 				}
+
+				//Add in linked libraries
+				for(long l=0;l!=strLinkFnsSize(HCC_Link_To);l++) {
+						const char *fmt=" -l%s";
+						long len=snprintf(NULL, 0, fmt, HCC_Link_To[l]);
+						char buffer[len+1];
+						sprintf(buffer, fmt, HCC_Link_To[l]);
+						
+						linkCommand=strCharAppendData(linkCommand, buffer, len);
+				}
+				
 				linkCommand=strCharAppendItem(linkCommand, '\0');
 				system(linkCommand);
 		}

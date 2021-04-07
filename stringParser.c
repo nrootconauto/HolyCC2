@@ -155,3 +155,6 @@ malformed : {
 	return 0;
 }
 }
+void parsedStringDestroy(struct parsedString *str) {
+		return __vecDestroy(&str->text);
+}

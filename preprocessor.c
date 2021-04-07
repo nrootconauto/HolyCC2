@@ -9,6 +9,7 @@
 #include "stringParser.h"
 #include <unistd.h>
 #include "filePath.h"
+#include "compile.h"
 // TODO implement exe,if,ifdef,ifndef
 static void fileDestroy(FILE **file) {
 	fclose(*file);
@@ -232,6 +233,31 @@ malformed : {
 	return 0;
 }
 }
+static int linkFnCmp(const char **a,const char **b) {
+		return strcmp(*a, *b);
+}
+static int linkMacroLex(struct __vec **text_, FILE **prependLinesTo, mapDefineMacro defines, long pos, long *end, int *err)  {
+		if(!expectMacroAndSkip("link", text_, prependLinesTo, defines, pos, &pos, err))
+				return 0;
+		if(err) if(*err) return 0;
+		expandNextWord(text_, prependLinesTo, defines, pos, NULL, 1, err);
+		if(err) if(*err) return 0;
+		
+		struct __vec *text = *text_;
+		pos = skipWhitespace(text, pos) - (void *)text;
+		struct parsedString str;
+		stringParse(text, pos, &pos, &str, err);
+		if(err) if(*err) return 0;
+		
+		if(!strLinkFnsSortedFind(HCC_Link_To, (char*)str.text, linkFnCmp)) {
+				HCC_Link_To=strLinkFnsSortedInsert(HCC_Link_To, strcpy(calloc(strlen((char*)str.text)+1, 1), (char*)str.text), linkFnCmp);
+		}
+		if(end) *end=pos;
+		parsedStringDestroy(&str);
+		return 1;
+}
+
+
 static int defineMacroLex(struct __vec **text_, FILE **prependLinesTo, mapDefineMacro defines, long pos, long *end, struct defineMacro *result, int *err) {
 	if (!expectMacroAndSkip("define", text_, prependLinesTo, defines, pos, &pos, err))
 		return 0;
@@ -707,6 +733,10 @@ static FILE *createPreprocessedFileLine(mapDefineMacro defines, struct __vec *te
 
 			// endPos-at is deleted text,so start at at
 			where = at;
+		} else if(linkMacroLex(&retVal, &afterLines, defines, nextMacro-(void*)retVal, &endPos, err)) {
+				long at=nextMacro-(void*)retVal;
+				insertMacroText(&retVal, NULL, at, endPos-at);
+				where=at;
 		} else if (includeMacroLex(&retVal, &afterLines, defines, nextMacro - (void *)retVal, &endPos, &include, err)) {
 			struct includeMacro includeClone;
 			includeClone = include;

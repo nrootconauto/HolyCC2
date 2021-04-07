@@ -12,7 +12,9 @@
 #include "sourceHash.h"
 #include "escaper.h"
 #include "filePath.h"
+#include "compile.h"
 __thread int HCC_Debug_Enable=1;
+__thread  strLinkFns HCC_Link_To=NULL;
 static void fclose2(FILE **f) {
 	fclose(*f);
 }
@@ -98,6 +100,7 @@ static strParserNode parseFile(const char *fn,strFileMappings *fMappings2,llLexe
 		return NULL;
 }
 void compileFile(const char *fn, const char *dumpTo) {
+		HCC_Link_To=NULL;
 		//Move symbols from previous compile to extern
 		parserMoveGlobals2Extern();
 		X86EmitAsmInit();
@@ -145,6 +148,7 @@ void compileFile(const char *fn, const char *dumpTo) {
 				IRCompile(ee.enter, 0);
 				
 				X86EmitAsm2File(dumpTo,NULL);
+				
 		return;
 	}
 fail:

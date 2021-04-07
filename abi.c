@@ -650,6 +650,7 @@ static void abiI386LoadPreservedRegs(long frameSize) {
 }
 static void IR_ABI_I386_SYSV_Return(graphNodeIR start,long frameSize) {
 		if(!start) {
+				printf("GERE\n");
 				abiI386LoadPreservedRegs(frameSize);
 				assembleInst("LEAVE", NULL);
 				assembleInst("RET", NULL);
