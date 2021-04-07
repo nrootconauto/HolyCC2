@@ -234,6 +234,10 @@ static int includeMacroLex(struct __vec **text_, FILE **prependLinesTo, mapDefin
 		*result = retVal;
 	return 1;
 malformed : {
+			const char *fmt="Malformed include.";
+			currErrMsg=strcpy(calloc(strlen(fmt)+1, 1),fmt);
+			longjmp(errLandingPad, 1);
+			
 			*err = 1;
 			return 1;
 }
@@ -393,11 +397,7 @@ MAP_TYPE_FUNCS(void *, UsedDefines);
 static void expandDefinesInRangeRecur(struct __vec **retVal, mapDefineMacro defines, long where, long end, int *expanded, mapUsedDefines *used, int *err) {
 	__auto_type prev = *(void **)retVal + where;
 
-	for (;;) {
-			//Clear used each run
-			mapUsedDefinesDestroy(*used ,  NULL);
-			*used=mapUsedDefinesCreate();
-			
+	for (;;) {		
 		void *nextReplacement = findNextWord(*retVal, where);
 		void *nextMacroStart = strchr(where + *(char **)retVal, '#');
 		long newEnd = (nextMacroStart == NULL) ? end : nextMacroStart - *(void **)retVal;
@@ -429,8 +429,12 @@ static void expandDefinesInRangeRecur(struct __vec **retVal, mapDefineMacro defi
 			 * x //x will infinitly recur
 			 */
 			if (mapDefineMacroGet(*used, (char *)slice) != NULL) {
-				if (err != NULL)
-					*err = 1;
+					if (err != NULL) {
+							const char *fmt="Infinite macro recrusion.";
+							currErrMsg=strcpy(calloc(strlen(fmt)+1, 1),fmt);
+							longjmp(errLandingPad, 1);
+							*err = 1;
+					}
 				return;
 			}
 			mapUsedDefinesInsert(*used, (char *)slice, NULL);
@@ -450,6 +454,10 @@ static void expandDefinesInRangeRecur(struct __vec **retVal, mapDefineMacro defi
 						return;
 			} while (expanded2);
 
+			//Clear used each run
+			mapUsedDefinesDestroy(*used ,  NULL);
+			*used=mapUsedDefinesCreate();
+			
 			long oldWhere = where;
 			where = where + strlen((char *)replacement->text);
 
