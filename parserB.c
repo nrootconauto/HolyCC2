@@ -34,6 +34,10 @@ const char  *parserGetGlobalSymLinkageName(const char *name) {
 }
 static struct object *symbolType(struct parserNode *find) {
 		switch(find->type) {
+		case NODE_VAR_DECL: {
+				struct parserNodeVarDecl *decl=(void*)find;
+				return decl->type;
+		}
 		case NODE_CLASS_DEF: {
 				struct parserNodeClassDef *def=(void*)find;
 				return def->type;
@@ -141,6 +145,10 @@ static const char *getSymbolName(struct parserNode *node) {
 		struct parserNodeVar *var = (void *)node;
 		return var->var->name;
 	}
+	case NODE_VAR_DECL: {
+			struct parserNodeVarDecl *decl=(void*)node;
+			return ((struct parserNodeName*)decl->name)->text;
+	}
 	case NODE_FUNC_DEF: {
 		struct parserNodeFuncDef *def = (void *)node;
 		struct parserNodeName *name = (void *)def->name;
@@ -174,7 +182,9 @@ static void parserSymbolDestroy(struct parserSymbol **sym) {
 }
 static void __addGlobalSymbol(struct parserNode *node, const char *name, struct linkage link) {
 		struct parserVar *var=NULL;
-		if(node->type==NODE_VAR)
+		if(node->type==NODE_VAR_DECL) {
+				return __addGlobalSymbol(((struct parserNodeVarDecl*)node)->var,name,link);
+		} else if(node->type==NODE_VAR)
 				var=((struct parserNodeVar*)node)->var;
 		struct parserSymbol toInsert;
 		toInsert.type = symbolType(node);
@@ -303,6 +313,9 @@ void parserAddVarLenArgsVars2Func(struct parserVar **Argc,struct parserVar **Arg
 								*Argv=*mapVarGet(scope->vars, argv.name);
 				}
 		}
+}
+int isGlobalScope() {
+		return llScopeValuePtr(currentScope)->parent==NULL;
 }
 void parserAddVar(const struct parserNode *name, struct object *type,struct reg *inReg,int isNoReg) {
 	struct parserVar var;

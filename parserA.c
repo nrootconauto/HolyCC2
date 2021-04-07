@@ -23,7 +23,6 @@ static struct parserNode *refNode(struct parserNode *node) {
 		return node->refCount++,node;
 }
 static __thread int lastclassAllowed=0;
-static __thread struct parserNode *currentScope = NULL;
 static __thread struct parserNode *currentLoop = NULL;
 MAP_TYPE_DEF(struct parserNode *, ParserNode);
 MAP_TYPE_FUNCS(struct parserNode *, ParserNode);
@@ -38,9 +37,6 @@ MAP_TYPE_FUNCS(struct parserSymbol*,ParserSymbol);
 static __thread mapParserSymbol asmImports = NULL;
 static __thread int allowsArrayLiterals = 0;
 static __thread llLexerItem prevParserPos=NULL;
-static int isGlobalScope() {
-	return currentScope == NULL;
-}
 static void addLabelRef(struct parserNode *node, const char *name) {
 loop:;
 	__auto_type find = mapParserNodesGet(labelReferences, name);
@@ -53,7 +49,6 @@ loop:;
 void __initParserA() {
 		allowsArrayLiterals=0;
 		isAsmMode = 0;
-	currentScope = NULL;
 	currentLoop = NULL;
 	mapParserNodeDestroy(asmImports, NULL);
 	mapParserNodeDestroy(labels, NULL);
@@ -1784,7 +1779,7 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end, int allowForw
 end:
 	if (end != NULL)
 		*end = start;
-	if (retVal && (link.type != LINKAGE_LOCAL || isGlobalScope())) {
+	if (retVal) {
 			parserAddGlobalSym(retVal, link);
 	}
 
@@ -1807,9 +1802,8 @@ static void addDeclsToScope(struct parserNode *varDecls, struct linkage link) {
 		var.var=parserGetVar(decl->name);
 		struct parserNode *varNode=ALLOCATE(var);
 		decl->var=varNode;
-		
-		if (link.type != LINKAGE_LOCAL || isGlobalScope())
-			parserAddGlobalSym(varNode, link);
+		if(isGlobalScope())
+				parserAddGlobalSym((void*)decl, link);
 	} else if (varDecls->type == NODE_VAR_DECLS) {
 		struct parserNodeVarDecls *decls = (void *)varDecls;
 		for (long i = 0; i != strParserNodeSize(decls->decls); i++) {
@@ -1822,14 +1816,12 @@ static void addDeclsToScope(struct parserNode *varDecls, struct linkage link) {
 			var.var=parserGetVar(decl->name);
 			struct parserNode *varNode=ALLOCATE(var);
 			decl->var = varNode;
-			
-			if (link.type != LINKAGE_LOCAL || isGlobalScope())
-				parserAddGlobalSym(varNode, link);
+			if(isGlobalScope())
+					parserAddGlobalSym(decls->decls[i], link);
 		}
 	}
 }
 struct parserNode *parseScope(llLexerItem start, llLexerItem *end, struct objectFunction *func) {
-		struct parserNodeScope *oldScope = (void *)currentScope;
 		struct parserNode *lC CLEANUP(parserNodeDestroy)=NULL;
 		struct parserNode *rC CLEANUP(parserNodeDestroy)= NULL;
 		lC = expectKeyword(start, "{");
@@ -1842,9 +1834,7 @@ struct parserNode *parseScope(llLexerItem start, llLexerItem *end, struct object
 	retVal->base.pos.end = NULL;
 	retVal->base.type = NODE_SCOPE;
 	retVal->stmts = NULL;
-	// Enter new scope
-	currentScope = (void *)retVal;
-
+	
 	__auto_type originalStart = start;	
 	if (lC) {
 		if(func)
@@ -1892,8 +1882,6 @@ struct parserNode *parseScope(llLexerItem start, llLexerItem *end, struct object
 			assignPosByLexerItems((struct parserNode *)retVal, originalStart, *end);
 	else
 			assignPosByLexerItems((struct parserNode *)retVal, originalStart, NULL);
-	
-	currentScope = (void *)oldScope;
 	return (void *)retVal;
 }
 static void getSubswitchStartCode(struct parserNodeSubSwitch *sub) {
