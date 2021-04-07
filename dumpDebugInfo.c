@@ -1,6 +1,7 @@
 #include "dumpDebugInfo.h"
 #include "cleanup.h"
 #include "diagMsg.h"
+#include <stdarg.h>
 STR_TYPE_DEF(char,Char);
 STR_TYPE_FUNCS(char,Char);
 static int ptrPtrCmp(const void *a, const void *b) {

@@ -188,7 +188,7 @@ static const void *skipWhitespace(const struct __vec *text, long from) {
 						ptr=skipComment(ptr, (char*)text+__vecSize(text));
 						goto loop;
 				}
-				if (!isblank(*(char *)ptr) && *(char *)ptr != '\n' && *(char *)ptr != '\r' && ptr != '\0')
+				if (!isblank(*(char *)ptr) && *(char *)ptr != '\n' && *(char *)ptr != '\r' && *(char*)ptr != '\0')
 						return ptr;
 		}
 	return __vecSize(text) + (void *)text;

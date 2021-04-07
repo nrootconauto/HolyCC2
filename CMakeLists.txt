@@ -89,15 +89,6 @@ foreach(file ${sources})
  
 file(MAKE_DIRECTORY "${CMAKE_SOURCE_DIR}/doc/${dir}")
 
-install(TARGETS hcc DESTINATION bin)
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/HolyCRT" DESTINATION ${CMAKE_INSTALL_DATADIR})
-
-set(HCRT_LOCATION "${CMAKE_SOURCE_DIR}/HolyCRT/")
-message("${CMAKE_INSTALL_DATADIR}")
-set(HCRT_LOCATION_INSTALLED "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/HolyCRT")
-configure_file("${CMAKE_SOURCE_DIR}/hcrtLocation.h.in" "${CMAKE_SOURCE_DIR}/hcrtLocation.h" @ONLY)
-
-
 if(EXISTS "${CMAKE_SOURCE_DIR}/doc/${file}.md")
  add_custom_command(TARGET doc COMMAND codedoc --title "HolyCC:${file}" --body ${CMAKE_SOURCE_DIR}/doc/${file}.md ${CMAKE_SOURCE_DIR}/${file}>${CMAKE_SOURCE_DIR}/doc/${file}.html DEPENDS ${file})
 	else ()
@@ -105,3 +96,12 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/doc/${file}.md")
 	endif()	
 	endforeach()
 endif()
+
+
+install(TARGETS hcc DESTINATION bin)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/HolyCRT" DESTINATION ${CMAKE_INSTALL_DATADIR})
+
+set(HCRT_LOCATION "${CMAKE_SOURCE_DIR}/HolyCRT/")
+message("${CMAKE_INSTALL_DATADIR}")
+set(HCRT_LOCATION_INSTALLED "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/HolyCRT")
+configure_file("${CMAKE_SOURCE_DIR}/hcrtLocation.h.in" "${CMAKE_SOURCE_DIR}/hcrtLocation.h" @ONLY)

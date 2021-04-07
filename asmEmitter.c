@@ -10,6 +10,7 @@
 #include "parserA.h"
 #include "parserB.h"
 #include "ptrMap.h"
+#include "stdarg.h"
 #include "registers.h"
 #include "escaper.h"
 #include <stdio.h>

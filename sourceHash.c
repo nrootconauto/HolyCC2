@@ -108,7 +108,7 @@ static void cacheCheckForTypeChanges() {
 		for(long k=0;k!=count;k++) {
 				__auto_type find=parserGetGlobalSym(keys[k]);
 				if(!find->var)
-						if(find->type->type!=TYPE_FUNCTION) continue;
+						if(!find->function) continue;
 				mapCharPInsert(curGVarsType, keys[k],  object2Str(find->type));
 		}
 		
@@ -141,7 +141,8 @@ static void cacheCheckForTypeChanges() {
 		f=fopen(buffer, "w");
 		for(long k=0;k!=count;k++) {
 				__auto_type find=parserGetGlobalSym(keys[k]);
-				if(!find->var) continue;
+				if(!find->var)
+						if(!find->function) continue;
 				char *p=object2Str(find->type);
 				fprintf(f, "%s:%s\n", keys[k],p);
 		}

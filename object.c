@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "diagMsg.h"
+#include "sourceHash.h"
 MAP_TYPE_DEF(struct object *, Object);
 MAP_TYPE_FUNCS(struct object *, Object);
 STR_TYPE_DEF(char, Char);
@@ -677,6 +678,30 @@ char *object2Str(struct object *obj) {
 						char *typeStr=object2Str(func->args[a].type);
 						argsStr=strCharAppendData(argsStr, typeStr, strlen(typeStr));
 						free(typeStr);
+						
+						if(func->args[a].dftVal) {
+								long len=snprintf(NULL, 0, "DFT_ARG_%li", a);
+								char dftArgHashNm[len+1];
+								snprintf(dftArgHashNm, len+1, "DFT_ARG_%li", a);
+
+								char *fn=hashSource(func->args[a].dftVal->pos.start, func->args[a].dftVal->pos.end, dftArgHashNm, NULL);
+
+								FILE *txt=fopen(fn, "r");
+								long start=ftell(txt);
+								fseek(txt, 0,  SEEK_END);
+								long end=ftell(txt);
+								rewind(txt);
+
+								argsStr=strCharAppendItem(argsStr, '=');
+								char buffer[end-start+1];
+								buffer[end-start]='\0';
+								fread(buffer, end-start, 1, txt);
+								argsStr=strCharAppendData(argsStr, buffer,end-start);
+								
+								fclose(txt);
+								remove(fn);
+								free(fn);
+						}
 				}
 				argsStr=strCharAppendItem(argsStr, '\0');
 				
