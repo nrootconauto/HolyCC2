@@ -10,6 +10,8 @@
 #include <unistd.h>
 #include "filePath.h"
 #include "compile.h"
+#include "diagMsg.h"
+#include <setjmp.h>
 // TODO implement exe,if,ifdef,ifndef
 static void fileDestroy(FILE **file) {
 	fclose(*file);
@@ -21,7 +23,10 @@ static __thread long lineStart;
 static __thread strTextModify sourceMappings = NULL;
 static __thread strFileMappings allFileMappings = NULL;
 __thread strFileMappings currentFileMappings;
-static __thread const char *currentFile=NULL;
+static __thread const char *currentFileName=NULL;
+static __thread const char *baseFileName=NULL;
+static __thread char  * currErrMsg=NULL;
+static __thread jmp_buf errLandingPad;
 static FILE *createPreprocessedFileLine(mapDefineMacro defines, struct __vec *text_, int *err);
 static void expandDefinesInRange(struct __vec **retVal, mapDefineMacro defines, long where, long end, int *expanded, int *err);
 static void expandNextWord(struct __vec **retVal, FILE **prependLinesTo, mapDefineMacro defines, long where, int *expanded, int recur, int *err);
@@ -224,13 +229,13 @@ static int includeMacroLex(struct __vec **text_, FILE **prependLinesTo, mapDefin
 	fwrite(*(char **)text_ + *end, 1, lineLen - *end, after);
 	concatFile(after, *prependLinesTo);
 	*prependLinesTo = after;
-
+	
 	if (result != NULL)
 		*result = retVal;
 	return 1;
 malformed : {
-	*err = 1;
-	return 0;
+			*err = 1;
+			return 1;
 }
 }
 static int linkFnCmp(const char **a,const char **b) {
@@ -604,13 +609,13 @@ static char *stringClone(const char *str) {
 	return retVal;
 }
 static FILE *includeFile(const char *fromFile,const char *_fileName, mapDefineMacro defines, struct __vec *textFollowingInclude, int *err) {
-		__auto_type oldCurrentFile=currentFile;
+		__auto_type oldCurrentFile=currentFileName;
 		
 		char *fromFilePath=dirFromPath(fromFile, "");
 		char* dirName=dirFromPath(fromFile, _fileName);
 		char* fn=fnFromPath(_fileName);
 		char *fileName=calloc(strlen(fn)+strlen(dirName)+1,1);
-		currentFile=fileName;
+		currentFileName=fileName;
 		strcpy(fileName, dirName);
 		
 		strcat(fileName, fn);
@@ -619,17 +624,25 @@ static FILE *includeFile(const char *fromFile,const char *_fileName, mapDefineMa
 		free(dirName);
 		
 		FILE *readFrom = fopen(fileName, "r");
-	fseek(readFrom, 0, SEEK_END);
-	long fileEnd = ftell(readFrom);
-	fseek(readFrom, 0, SEEK_SET);
-	long fileStart = ftell(readFrom);
+		if(!readFrom) {
+			const char *fmt="Couldn't find file \"%s\" for include.";
+			long len=snprintf(NULL, 0, fmt,fileName);
+			currErrMsg=calloc(len+1, 1);
+			sprintf(currErrMsg, fmt, fileName);
+			longjmp(errLandingPad, 1);
+		}
+		
+		fseek(readFrom, 0, SEEK_END);
+		long fileEnd = ftell(readFrom);
+		fseek(readFrom, 0, SEEK_SET);
+		long fileStart = ftell(readFrom);
 	long fileSize = fileEnd - fileStart;
-
+	
 	// Insert the file text
 	struct textModify wholeFileInsert;
 	wholeFileInsert.len = fileSize, wholeFileInsert.where = lineStart, wholeFileInsert.type = MODIFY_INSERT;
 	sourceMappings = strTextModifyAppendItem(sourceMappings, wholeFileInsert);
-
+	
 	struct fileMapping __newFileMappping;
 	__newFileMappping.fileOffset = lineStart;
 	__newFileMappping.fileName = stringClone(fileName);
@@ -639,6 +652,18 @@ static FILE *includeFile(const char *fromFile,const char *_fileName, mapDefineMa
 	long t = sizeof(struct fileMapping);
 	long newFileMappingPos = strFileMappingsSize(allFileMappings) - 1;
 
+	if(setjmp(errLandingPad)) {
+			allFileMappings[newFileMappingPos].mappingIndexEnd = strTextModifySize(sourceMappings);
+			// Set end relative to included file size
+			allFileMappings[newFileMappingPos].fileEndOffset =100000;	
+			
+			diagInstCreate(DIAG_ANSI_TERM, allFileMappings, sourceMappings, baseFileName, stderr);
+			diagErrorStart(lineStart, lineStart+1);
+			diagPushText(currErrMsg);
+			diagEndMsg();
+			abort();
+	}
+	
 	__auto_type retValFile = tmpfile();
 	long retValStart = ftell(retValFile);
 
@@ -681,7 +706,7 @@ static FILE *includeFile(const char *fromFile,const char *_fileName, mapDefineMa
 	fclose(readFrom);
 	free(fileName);
 	
-	currentFile=oldCurrentFile;
+	currentFileName=oldCurrentFile;
 	return retValFile;
 }
 static FILE *createPreprocessedFileLine(mapDefineMacro defines, struct __vec *text_, int *err) {
@@ -738,7 +763,8 @@ static FILE *createPreprocessedFileLine(mapDefineMacro defines, struct __vec *te
 				insertMacroText(&retVal, NULL, at, endPos-at);
 				where=at;
 		} else if (includeMacroLex(&retVal, &afterLines, defines, nextMacro - (void *)retVal, &endPos, &include, err)) {
-			struct includeMacro includeClone;
+				
+				struct includeMacro includeClone;
 			includeClone = include;
 
 			struct textModify destroy;
@@ -759,7 +785,7 @@ static FILE *createPreprocessedFileLine(mapDefineMacro defines, struct __vec *te
 			fwrite(retVal, 1, __vecSize(retVal), writeTo);
 			lineStart += __vecSize(retVal);
 
-			__auto_type included = includeFile(currentFile,(char *)include.fileName, defines, textFollowingInclude, err);
+			__auto_type included = includeFile(currentFileName,(char *)include.fileName, defines, textFollowingInclude, err);
 			if (err != NULL)
 				if (*err)
 					goto fail;
@@ -792,6 +818,8 @@ FILE *createPreprocessedFile(const char *fileName, strTextModify *mappings, strF
 	if (err != NULL)
 		*err = 0;
 
+
+	baseFileName=fileName;
 	sourceMappings = NULL;
 	allFileMappings = NULL;
 	lineStart = 0;
@@ -799,7 +827,7 @@ FILE *createPreprocessedFile(const char *fileName, strTextModify *mappings, strF
 	mapDefineMacro defines = mapDefineMacroCreate();
 
 	char *cwd=getcwd(NULL, 0);
-	currentFile=cwd;
+	currentFileName=cwd;
 	__auto_type preprocessedSource = includeFile(cwd,fileName, defines, NULL, err);
 	free(cwd);
 	
