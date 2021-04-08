@@ -1029,6 +1029,7 @@ struct linkagePair {
 	const char *text;
 };
 struct parserNode *parsePrint(llLexerItem start,llLexerItem end,llLexerItem *result) {
+		__auto_type originalStart=start;
 		struct parserNode *str CLEANUP(parserNodeDestroy)=literalRecur(start, end, &start);
 		if(!str)
 				return NULL;
@@ -1056,6 +1057,7 @@ struct parserNode *parsePrint(llLexerItem start,llLexerItem end,llLexerItem *res
 
 		if(result) *result=start;
 		__auto_type retVal=ALLOCATE(print);
+		assignPosByLexerItems(retVal, originalStart, start);
 		return retVal;
 }
 static struct linkage getLinkage(llLexerItem start, llLexerItem *result) {

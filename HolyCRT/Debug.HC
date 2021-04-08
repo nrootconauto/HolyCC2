@@ -553,7 +553,6 @@ static U8i HCC_DebugAtLineDisable=0;
 U8i DebugStep=0;
 static U8i *DebugNextFunc=NULL;
 static U8i *DebugNextFramePtr=0xffffffff;
-"HERETWT:%d\n",DebugNextFramePtr==0;
 static U8i *DebugLastCom=NULL;
 static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 							CFuncDebugger *fdbg=HashTableGet(HCC_ThisFileDebugger->funcDebuggers,func);
@@ -648,13 +647,12 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 									"%s:\n",currfuncnam;
 									tmpdbg=HashTableGet(HCC_ThisFileDebugger->funcDebuggers,currfuncnam);
 									if(!tmpdbg) {
-														free(pVar);
-														"Unkown function at frame %d\n",currframei;
-														goto loop;
+														goto lookForGlobal;
 									}
 
 									JsonNode *pVarNode=HashTableGet(tmpdbg->varTable,pVar);
-									if(!pVarNode) {
+									if (!pVarNode) {
+												lookForGlobal:
 																							//Look for global
 																							CGlobalVarInfo *ginfo=HashTableGet(HCC_ThisFileDebugger->varTable,pVar);
 																							if(!ginfo) {

@@ -128,7 +128,7 @@ static struct enterExit insSrcMapping(struct parserNode *node,struct enterExit p
 }
 static struct enterExit insSrcMappingsForBody(struct parserNode *node,struct enterExit pair) {
 		if(node)
-				if(node->type==NODE_BINOP||node->type==NODE_UNOP||node->type==NODE_FUNC_CALL||node->type==NODE_VAR_DECLS||node->type==NODE_VAR_DECL) {
+				if(node->type==NODE_BINOP||node->type==NODE_UNOP||node->type==NODE_FUNC_CALL||node->type==NODE_VAR_DECLS||node->type==NODE_VAR_DECL||node->type==NODE_PRINT) {
 						pair=insSrcMapping(node, pair);
 				}
 		return pair;
