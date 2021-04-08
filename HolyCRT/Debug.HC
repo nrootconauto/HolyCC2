@@ -368,7 +368,7 @@ U0 DebugBreakAtFunc(U8i *funcnm) {
 
 			++HCC_ThisFileDebugger->bpCount;
 			U8i *bptext=MStrPrint("%d",HCC_ThisFileDebugger->bpCount);
-			"Added tmp-breakpoint %d\n",HCC_ThisFileDebugger->bpCount;
+			"Added breakpoint %d\n",HCC_ThisFileDebugger->bpCount;
 
 			CBreakpoint *bp=malloc(sizeof(CBreakpoint));
 			bp->fn=StrDupLen(fn,StrLen(fn));

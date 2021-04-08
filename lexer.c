@@ -361,9 +361,7 @@ dot : {
 	slice = __vecAppendItem(slice, "\0", 1);
 
 	currPtr += digitCount;
-
-	if (currPtr < endPtr)
-		goto returnLabel;
+	
 	if (*currPtr == 'e' || *currPtr == 'E') {
 		currPtr++;
 		goto exponet;

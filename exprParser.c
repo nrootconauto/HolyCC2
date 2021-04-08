@@ -670,5 +670,5 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 	}
 fail:
 	// Couldn't detirmine type
-	return &typeI64i;
+	return dftValType();
 }
