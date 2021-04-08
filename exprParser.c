@@ -225,6 +225,7 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 								diagEndMsg();
 						}
 				}
+				return dftValType();
 		} else if(node->type == NODE_NAME) {
 				diagErrorStart(_start, _end);
 				diagPushText("Unknown symbol ");
@@ -344,7 +345,7 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 			binop->b = promoteIfNeeded(binop->b, resType);
 			binop->a = promoteIfNeeded(binop->a, resType);
 
-			binop->type = assignTypeToOp(binop->a);
+			binop->type = resType;
 			return binop->type;
 		} else if (aArih || bArih) {
 		binopInvalid:;
