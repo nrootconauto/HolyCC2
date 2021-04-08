@@ -82,7 +82,6 @@ CFileDebugger *FileDebuggerCreate(
 														CHashTable *typeTable=HashTableCreate();
 														for(I32i i=0;types->val.arr[i]!=NULL;i+=1) {
 																							JsonNode *name=JsonNodeEntry(types->val.arr[i]->val.node,"name");
-																							"%s\n",name->val.str;
 																							HashTableAdd(typeTable,types->val.arr[i],name->val.str);
 														}
 
@@ -553,6 +552,8 @@ static U0 DebugStackTrace(U8i *bp);
 static U8i HCC_DebugAtLineDisable=0;
 U8i DebugStep=0;
 static U8i *DebugNextFunc=NULL;
+static U8i *DebugNextFramePtr=0xffffffff;
+"HERETWT:%d\n",DebugNextFramePtr==0;
 static U8i *DebugLastCom=NULL;
 static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 							CFuncDebugger *fdbg=HashTableGet(HCC_ThisFileDebugger->funcDebuggers,func);
@@ -562,6 +563,7 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 							I32i currframei=1;
 							CFuncDebugger *tmpdbg;
 							currfuncbp=DebugGetFramePtr(funcBp,currframei,&currfuncnam);
+							if(currfuncnam==NULL) {currfuncnam=func;currfuncbp=funcBp;}
 
 							I32i i=0;
 							U8i *buffer=malloc(1024);
@@ -629,11 +631,16 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 									goto loop;
 							} else if(0==StrCmp(DebugLastCom,"n")) {
 									DebugNextFunc=func;
+									DebugNextFramePtr=funcBp;
 									goto ret;
 							} else if(0==StrCmp(DebugLastCom,"s")) {
+									DebugNextFunc=NULL; //Set to NULL to disable next 
+									DebugNextFramePtr=0xffffffff;
 									DebugStep=1;
 									goto ret;
 							} else if(0==StrCmp(DebugLastCom,"c")) {
+									DebugNextFunc=NULL; //Set to NULL to disable next
+									DebugNextFramePtr=0xffffffff;
 									goto ret;
 							} else if(0==StrCmp(DebugLastCom,"p")) {
 									U8i *pVar=__dbgGetNextWord(buffer+1);
@@ -671,17 +678,20 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 									goto loop;
 							} else if(0==StrCmp(DebugLastCom,"lv")) {
 														tmpdbg=HashTableGet(HCC_ThisFileDebugger->funcDebuggers,currfuncnam);
+														"=====[GLOBALS]====\n";
+														I32i varCount=HashTableSize(HCC_ThisFileDebugger->varTable);
+														keys=HashTableKeys(HCC_ThisFileDebugger->varTable);
+														for (c=0;c!=varCount;c++) {
+																																							if (fdbg) {
+																																							 		if (!HashTableGet(fdbg->varTable,keys[c]))
+																																													"%s\n",keys[c];
+																																							} else 	"%s\n",keys[c];
+														}
+														free(keys);
 														if(!tmpdbg) {
 																										"Unable to find function at frame %d\n",currframei;
 																										goto loop;
 														}
-														"=====[GLOBALS]====\n";
-														I32i varCount=HashTableSize(HCC_ThisFileDebugger->varTable);
-														keys=HashTableKeys(HCC_ThisFileDebugger->varTable);
-														for(c=0;c!=varCount;c++) {
-																																							if(!HashTableGet(fdbg->varTable,keys[c])) "%s\n",keys[c];
-														}
-														free(keys);
 														 varCount=HashTableSize(tmpdbg->varTable);
 														keys=HashTableKeys(tmpdbg->varTable);
 														"=====[LOCALS]====\n";
@@ -788,9 +798,9 @@ static U0 DebugStackTrace(U8i *bp) {
 							exit:
 }
 U0 HCC_DebugAtLine(CFileDebugger **dbg,U8i *fn,U8i *func,I32i ln,I32i bpOff) {
+			if(HCC_DebugAtLineDisable) return;
 			HCC_ThisFileDebugger=*dbg;
 			if(!HCC_ThisFileDebugger) return;
-			if(HCC_DebugAtLineDisable) return;
 			U8i oldDisable=HCC_DebugAtLineDisable;
 			HCC_DebugAtLineDisable=1;
 
@@ -805,8 +815,12 @@ U0 HCC_DebugAtLine(CFileDebugger **dbg,U8i *fn,U8i *func,I32i ln,I32i bpOff) {
 
 			HCC_DbgCurrentFunc=fn;
 
-			if(DebugNextFunc) if(0==StrCmp(DebugNextFunc,func)) { DebugNextFunc=NULL;goto enter;}
-			if(DebugStep) goto enter;
+			if(DebugNextFunc) if(0==StrCmp(DebugNextFunc,func)&&DebugNextFramePtr==parBP) {goto enter;}
+			if (DebugNextFramePtr<parBP&&DebugNextFramePtr) {
+						DebugNextFramePtr=parBP;
+						goto enter;
+			}
+			if(DebugStep) {DebugStep=0; goto enter;}
 			if(!(HCC_ThisFileDebugger->bpArray)(U8i*)[bpOff]) goto ret;
 			U8i bpval=(HCC_ThisFileDebugger->bpArray)(U8i*)[bpOff];
 			if(bpval&DBG_BREAKPOINT_NORM) goto enter;
@@ -821,7 +835,6 @@ U0 HCC_DebugAtLine(CFileDebugger **dbg,U8i *fn,U8i *func,I32i ln,I32i bpOff) {
 			return;
 			enter:
 			DebugStep=0;
-			
 			"\nWelocme to %s:%d,%p\n",fn,ln,parBP;
 			DbgEnter(func,parBP,fn,ln);
 

@@ -41,13 +41,13 @@ static strParserNode parseFile(const char *fn,strFileMappings *fMappings2,llLexe
 		FILE *f=fopen(tmpName, "w");
 		char *dbgInfoLoader CLEANUP(free2)=HCRTFile("LoadDbgInfo.HC");
 		char * cwd=getcwd(NULL, 0);
+		if(HCC_Debug_Enable)
+				fprintf(f, "#include \"%s\"\n", dbgInfoLoader);
+		
 		if(!pathIsAbsolute(fn))
 				fprintf(f, "#include \"%s/%s\"\n",cwd, es);
 		else
 				fprintf(f, "#include \"%s\"\n", es);
-
-		if(HCC_Debug_Enable)
-				fprintf(f, "#include \"%s\"\n", dbgInfoLoader);
 		free(es);
 		free(cwd);
 		fclose(f);

@@ -317,7 +317,7 @@ void parserAddVarLenArgsVars2Func(struct parserVar **Argc,struct parserVar **Arg
 int isGlobalScope() {
 		return llScopeValuePtr(currentScope)->parent==NULL;
 }
-void parserAddVar(const struct parserNode *name, struct object *type,struct reg *inReg,int isNoReg) {
+void parserAddVar(const struct parserNode *name, struct object *type,struct reg *inReg,int isNoReg,struct linkage *glblLinkage) {
 	struct parserVar var;
 	var.type = type;
 	var.refs = strParserNodeAppendItem(NULL, (struct parserNode *)name);
@@ -336,9 +336,12 @@ void parserAddVar(const struct parserNode *name, struct object *type,struct reg 
 	__auto_type scope = llScopeValuePtr(currentScope);
 	
 	if(scope->parent==NULL) {
+			int isForwardDecl=0;
+			if(glblLinkage)
+					isForwardDecl=glblLinkage->type==LINKAGE_IMPORT||glblLinkage->type==LINKAGE_EXTERN;
 			__auto_type find=parserGetGlobalSym(var.name);
 			if(find)
-					if(find->shadowPrec>SHADOW_FORWARD_DECL)
+					if(find->shadowPrec>SHADOW_FORWARD_DECL&&!isForwardDecl)
 							goto whineRepeat;
 	} else {
 	loop:;

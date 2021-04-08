@@ -22,3 +22,7 @@ static CFileDebugger *HCC_LocalFileDebugger=FileDebuggerCreate(
 							"FAILED;\n";
 					}
 extern U8i *getenv(U8i *var);
+extern U8i DebugStep;
+if(getenv("HCC_DEBUG")) {
+			DebugStep=1;																					
+}

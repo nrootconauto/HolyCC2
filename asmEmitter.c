@@ -95,7 +95,7 @@ static char *fromFmt(const char *fmt,...) {
 static strChar getCurrFuncName() {
 		if(currentFileSet->func)
 				return strClone(currentFileSet->func->name);
-		return strClone(fromFmt("__init%li",initFileNum));
+		return strClone(fromFmt("__init$$$",initFileNum));
 }
 MAP_TYPE_DEF(strChar,FuncFiles);
 MAP_TYPE_FUNCS(strChar,FuncFiles);

@@ -1819,7 +1819,7 @@ end:
 static void addDeclsToScope(struct parserNode *varDecls, struct linkage link) {
 	if (varDecls->type == NODE_VAR_DECL) {
 		struct parserNodeVarDecl *decl = (void *)varDecls;
-		parserAddVar(decl->name, decl->type,decl->inReg,decl->isNoReg);
+		parserAddVar(decl->name, decl->type,decl->inReg,decl->isNoReg,&link);
 		struct parserNodeVar var;
 		var.base.refCount=1;
 		var.base.pos=decl->name->pos;
@@ -1833,7 +1833,7 @@ static void addDeclsToScope(struct parserNode *varDecls, struct linkage link) {
 		struct parserNodeVarDecls *decls = (void *)varDecls;
 		for (long i = 0; i != strParserNodeSize(decls->decls); i++) {
 			struct parserNodeVarDecl *decl = (void *)decls->decls[i];
-			parserAddVar(decl->name, decl->type,decl->inReg,decl->isNoReg);
+			parserAddVar(decl->name, decl->type,decl->inReg,decl->isNoReg,&link);
 			struct parserNodeVar var;
 			var.base.refCount=1;
 			var.base.pos=decl->name->pos;
@@ -1869,7 +1869,7 @@ struct parserNode *parseScope(llLexerItem start, llLexerItem *end, struct object
 		// Add vars to scope
 		if(func)
 				for (long i = 0; i != strFuncArgSize(func->args); i++) {
-						parserAddVar(func->args[i].name, func->args[i].type,NULL,0);
+						parserAddVar(func->args[i].name, func->args[i].type,NULL,0,NULL);
 						func->args[i].var=parserGetVarByText(((struct parserNodeName*)func->args[i].name)->text);
 				}
 
