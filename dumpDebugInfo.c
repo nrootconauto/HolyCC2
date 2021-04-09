@@ -78,7 +78,6 @@ static char * emitTypeRef(struct object *obj) {
 						retVal=strCharConcat(retVal,fromFmt("}\n"));
 						retVal=strCharAppendItem(retVal, '\0');
 
-						printf("%s\n",retVal);
 						return strcpy(calloc(1, strlen(retVal)+1), retVal);
 				}
 				}

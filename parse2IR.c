@@ -857,7 +857,6 @@ graphNodeIR parserNode2Expr(const struct parserNode *node) {
 				if(aType!=bType&&!isPtrArith) {
 						//bType=Atype;
 						bVal=IRCreateTypecast(bVal, bType, aType);
-						printf("%s,%s\n",op->text,object2Str(aType));
 				}
 			retVal = IRCreateAssign(IRCreateBinop(aVal, bVal, *assign), parserNode2Expr(binop->a));
 			return retVal;

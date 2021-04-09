@@ -245,6 +245,13 @@ static I32i LinumFromLoc(U8i *loc,U8i **end) {
 																										if('9'>=loc[pos]>='0') ; else break; 
 							}
 							I32i ln=Str2I32i(&loc[pos+1]);
+							//Ensure is ':' or whitespace
+							if (pos>=0) {
+										if(loc[pos]==':') goto succ;
+										if(loc[pos]==' '||loc[pos]=='\t') goto succ;
+										ln=-1;
+										 succ:
+							}
 							if(pos==StrLen(loc)-1) ln=-1;
 							if(end) *end=&loc[pos];
 							return ln;
@@ -351,7 +358,6 @@ static U0 FileDebuggerBreak(CFileDebugger *dbg,U8i *fn,I32i line) {
 							free(bptext);
 }
 U0 DebugBreakAtFunc(U8i *funcnm) {
-			"%s\n",funcnm;
 			JsonNode *node=JsonNodeEntry(HCC_ThisFileDebugger->bpData->val.node,"funcLines");
 			if(!node) throw(1);
 			node=JsonNodeEntry(node->val.node,funcnm);
@@ -363,7 +369,7 @@ U0 DebugBreakAtFunc(U8i *funcnm) {
 			I32i ln=JsonNodeEntry(node->val.node,"line")->val.sint;
 			U0 *find=HashTableGet(HCC_ThisFileDebugger->breakAtFuncs,funcnm);
 			if (!find)
-						HashTableAdd(HCC_ThisFileDebugger->breakAtFuncs,1,funcnm);
+						HashTableAdd(HCC_ThisFileDebugger->breakAtFuncs,1,funcnm);	
 			*FileDebuggerGetBreakPtr(HCC_ThisFileDebugger,fn,ln)|=DBG_BREAKPOINT_FUNC;
 
 			++HCC_ThisFileDebugger->bpCount;
@@ -536,6 +542,7 @@ static U8i *FileAndLine(U8i *str,I32i *ln,U8i *dftfn=NULL) {
 									*endpos='\0';
 									filename=DbgMatchFile(str);
 									if(!filename) goto invalidLoc;
+									if(0==StrLen(filename)) goto invalidLoc;
 									return filename;
 							} else if(dftfn&&linenum!=-1) {
 									return StrDupLen(dftfn,StrLen(dftfn));
@@ -644,7 +651,6 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 							} else if(0==StrCmp(DebugLastCom,"p")) {
 									U8i *pVar=__dbgGetNextWord(buffer+1);
 
-									"%s:\n",currfuncnam;
 									tmpdbg=HashTableGet(HCC_ThisFileDebugger->funcDebuggers,currfuncnam);
 									if(!tmpdbg) {
 														goto lookForGlobal;
@@ -712,6 +718,7 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 									U8i *next=__dbgSkipWhitespace(buffer+1);
 									try {
 												filename=FileAndLine(next,&linum,dftfn);
+												"filename:%s\n",filename;
 												FileDebuggerBreak(HCC_ThisFileDebugger,filename,linum);
 												free(filename);
 									} catch {
