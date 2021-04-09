@@ -43,11 +43,47 @@ class CFuncRange {
 						U8i *name; //const,dont free
 						U8i *funcName;
 };
+class __CSourceFile {
+  U8i *source;
+		I32i *lineStarts;
+		I32i lineCount;
+};
+static __CSourceFile *SourceFileCreate(U8 *fn) {
+							U8 *src=ReadFile(fn);
+							I32 len=StrLen(src);
+							I32 run=0;
+							I32 linecount=1;
+							I32 *linestarts=NULL;
+							loop:
+							for(I32i c=0;;) {
+																U8 *find=StrChr(&src[c],'\n');
+																if	(!find) {
+																			if (run==0) {
+																						linestarts=malloc(sizeof(I32)*linecount);
+																						run=1;
+																						linecount=1;
+																						linestarts[0]=0;
+																						goto loop;
+																			} else break;
+																}
+																if (!run)
+																			linecount++;
+																else
+																	linestarts[linecount++]=c;
+
+															c=find+1-src;		
+							}
+							__CSourceFile *retval=malloc(sizeof(__CSourceFile));
+							retval->source=src;
+							retval->lineStarts=linestarts;
+							retval->lineCount=linecount;
+							return retval;
+}
 class CFileDebugger {
 						CHashTable *typeTable; //JsonNode *
 						CHashTable *funcDebuggers; // CFuncDebugger *
 						CHashTable *varTable; //CGlobalVarInfo *
-						CHashTable *sourceFileCache; //U8i *
+						CHashTable *sourceFileCache; //__CSourceFile *
 						CHashTable *bpByNum; //CBreakpoint *
 						CFuncRange **funcNmByPtr; //NULL terminated
 						CHashTable *breakAtFuncs; //1  as dummy;
@@ -448,68 +484,31 @@ static U8i *__dbgGetNextWord( U8i *buffer) {
 							}
 							return NULL;
 }
-static U8i **DbgListAdjLines(U8i *str,I32i startln,I32i hgt,I32i *read=NULL) {
-							U8i **retval=NULL;
-							
-							I32i chr=0;
-							U8i *endings="\n\r\c";
-							I32i curln=0;
-							I32i len=StrLen(str);
-
-							U8i *startpos=NULL;
-							U8i *endpos=NULL;
-loop:
-       I32i i;
-							U8i *lnend=&str[len];
-       for(i=0;i!=3;i++) {
-																									U8i *find=StrChr(&str[chr],endings[i]);
-																									if(lnend>find&&find)	lnend=find;
-							}
-							if(startln==curln) startpos=&str[chr];
-							//Will be non-NULL if encontered first line
-							if(startpos) {
-																			U8i *slice=StrDupLen(&str[chr],lnend-&str[chr]);
-																			retval=realloc(retval,(curln-startln+1)*sizeof(I32i));
-																			retval[curln-startln]=slice;
-							}
-							if(startln+hgt==curln) {
-																														endpos=&str[chr];
-																														if(read) *read=curln-startln;
-																														return retval;
-							}
-							curln++;
-							chr=lnend-str;
-							
-							chr++;
-							
-							if(str[chr]!='\0') goto loop;
-
-							if(read) *read=curln-startln;
-							return retval;
-}
 #define DBG_LIST_SIZE (16)
 static U0 DbgFileList(CFileDebugger *dbg,U8i *fn,I32i line,I32i atln=-1) {
 							loop:
-							U8i *text=HashTableGet(dbg->sourceFileCache,fn);
+							 __CSourceFile *text=HashTableGet(dbg->sourceFileCache,fn);
 							if(!text) {
-																	if(DBG_SOURCE_CACHE_SIZE<=HashTableSize(dbg->sourceFileCache)) {
-																			I32i count=HashTableSize(dbg->sourceFileCache);
-																			U8i **keys=HashTableKeys(dbg->sourceFileCache);
-																			I32i maxsize=0,maxsizeidx=0;
-																			while ((count-=1)>=0) {
-																									I32i size=StrLen(HashTableGet(dbg->sourceFileCache,keys[count]));
-																									if (maxsize<size) maxsize=size,maxsizeidx=count;
-																			}
-																			free(HashTableGet(dbg->sourceFileCache,keys[maxsizeidx]));
-																	}
-
-																	HashTableAdd(dbg->sourceFileCache,ReadFile(fn),fn);
+																	HashTableAdd(dbg->sourceFileCache,SourceFileCreate(fn),fn);
 																	goto loop;
 							}
 							I32i origln=line;
 							if(line-DBG_LIST_SIZE/2<0) line=0; else line-=DBG_LIST_SIZE/2;
 							I32i read;
-							U8i **lines=DbgListAdjLines(text,line,DBG_LIST_SIZE,&read);
+							
+							U8i **lines=malloc(sizeof(U8*)*(text->lineCount+DBG_LIST_SIZE));
+							I32 endline=line+DBG_LIST_SIZE;
+							for (read=0;line!=endline&&line<text->lineCount;++read,line++) {
+											U8 *linestartpos=&text->source[text->lineStarts[line]];
+											U8 *lineendpos=NULL;
+											if(line+1>=text->lineCount) {lineendpos=StrLen(linestartpos)+linestartpos;} 
+											else lineendpos=&text->source[text->lineStarts[line+1]]-1; //-1 ignores newline
+											lines[read]=StrDupLen(linestartpos,lineendpos-linestartpos);
+							}
+
+							line=origln;
+							if(line-DBG_LIST_SIZE/2<0) line=0; else line-=DBG_LIST_SIZE/2;
+
 							I32i maxlinumwidth=ceil(Log10((line+read)(F64)));
 							I32i curln;
 							for (curln=line;curln<line+read;curln++) {
@@ -558,6 +557,7 @@ static U0 DebugStackTrace(U8i *bp);
 
 static U8i HCC_DebugAtLineDisable=0;
 U8i DebugStep=0;
+static U8i DebugAutolist=0;
 static U8i *DebugNextFunc=NULL;
 static U8i *DebugNextFramePtr=0xffffffff;
 static U8i *DebugLastCom=NULL;
@@ -579,6 +579,10 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 							I32i listln=atln;
 							U8i *listfn=HCC_DbgCurrentFunc;
 							U8i **keys;
+
+							if (DebugAutolist) {
+										DbgFileList(HCC_ThisFileDebugger,dftfn,atln,atln);
+							}
 
 							loop:
 							Print("BSAT >>>(%s):",func);
@@ -602,7 +606,12 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 																																				Print("bt -- backtrace.\n");
 																																				Print("up -- go up a stack frame.\n");
 																																				Print("down -- go up a stack frame.\n");
+																																				Print("tautolist -- toggle auto-list.\n");
 																																				goto loop;
+							} else if(0==StrCmp(DebugLastCom,"tautolist")) {
+									DebugAutolist=!DebugAutolist;
+									"%d",DebugAutolist;
+									goto loop;
 							} else if(0==StrCmp(DebugLastCom,"down")) {
 									if (currframei==1) {
 												"At bottomost frame\n";
