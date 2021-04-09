@@ -250,6 +250,11 @@ static strGraphNodeIRP removeNeedlessLabels(graphNodeIR start) {
 			continue;
 		if (strGraphEdgeIRPSize(out) > 1)
 			continue;
+		//Make sure incomings are all flows
+		strGraphEdgeIRP inFlow CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_FLOW);
+		if(strGraphEdgeIRPSize(inFlow)!=strGraphEdgeIRPSize(in))
+				continue;
+		
 		//"Transparently" remove
 		for (long i = 0; i != strGraphEdgeIRPSize(in); i++)
 			for (long o = 0; o != strGraphEdgeIRPSize(out); o++)
