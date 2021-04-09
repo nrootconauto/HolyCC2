@@ -96,7 +96,8 @@ struct objectFunction {
 struct object;
 struct object *objectArrayCreate(struct object *baseType, struct parserNode *dim,void *dimIR);
 struct object *objectPtrCreate(struct object *baseType);
-struct object *objectUnionCreate(const struct parserNode *name, const struct objectMember *members, long count);
+struct object *
+objectUnionCreate(const struct parserNode *name , const struct objectMember *members, long count,struct object *baseType);
 struct object *objectClassCreate(const struct parserNode *name, const struct objectMember *members, long count);
 long objectSize(const struct object *type, int *success);
 void objectMemberDestroy(struct objectMember *member);

@@ -1203,13 +1203,7 @@ struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end) {
 	struct parserNode *cls CLEANUP(parserNodeDestroy) = NULL;
 	struct parserNode *un CLEANUP(parserNodeDestroy)= NULL;
 	int foundType = 0;
-	base = nameParse(start, NULL, &start);
-
-	if (base) {
-		struct parserNodeName *baseName = (void *)base;
-		baseType = objectByName(baseName->text);
-		foundType = baseType != NULL;
-	}
+	
 	__auto_type backupStart=start;
 	cls = parseClass(start, &start, 0);
 	if(!cls)
@@ -1220,17 +1214,23 @@ struct parserNode *parseVarDecls(llLexerItem start, llLexerItem *end) {
 			if (cls->type == NODE_CLASS_DEF) {
 					struct parserNodeClassDef *clsDef = (void *)cls;
 					struct objectClass *cls=(void*)clsDef->type;
-					cls->baseType=baseType;
 					baseType = clsDef->type;
 			} else if (cls->type == NODE_UNION_DEF) {
 					struct parserNodeUnionDef *unDef = (void *)cls;
 					struct objectUnion *un=(void*)unDef->type;
-					un->baseType=baseType;
 					baseType = unDef->type;
 			}
 	}
-
-	if (foundType) {
+	
+	{
+			if(!baseType) {
+					struct parserNode *nm CLEANUP(parserNodeDestroy)=nameParse(start, NULL, &start);
+					if(!nm)
+							return NULL;
+					baseType=objectByName(((struct parserNodeName*)nm)->text);
+			}
+			if(!baseType) return NULL;
+			
 		strParserNode decls;
 		decls = NULL;
 
@@ -1777,7 +1777,7 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end, int allowForw
 		if (cls) {
 				retValObj = objectClassCreate(refNode(className), members, strObjectMemberSize(members));
 		} else if (un) {
-				retValObj = objectUnionCreate(refNode(className), members, strObjectMemberSize(members));
+				retValObj = objectUnionCreate(refNode(className), members, strObjectMemberSize(members),baseType);
 		}
 	}
 	if (cls) {

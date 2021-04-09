@@ -429,44 +429,58 @@ fail:
  * This creates a union and registers it too.
  */
 struct object * /*The union being returned. */
-objectUnionCreate(const struct parserNode *name /*Can be `NULL` for empty union.*/, const struct objectMember *members, long count) {
+objectUnionCreate(const struct parserNode *name /*Can be `NULL` for empty union.*/, const struct objectMember *members, long count,struct object *baseType) {
 	int success;
 	dontTreatArraysAsPtrs++;
 	
 	struct objectUnion *newUnion = calloc(sizeof(struct objectUnion),1);
 	newUnion->name = (struct parserNode *)name;
 	newUnion->base.type = TYPE_UNION;
-	newUnion->baseType=NULL;
+	newUnion->baseType=baseType;
 	newUnion->members = NULL;
 	newUnion->__cacheStart=newUnion->__cacheEnd=NULL;
-	
-	long largestMemberAlign = 0;
-	long largestSize = 0;
-	for (long i = 0; i != count; i++) {
-		struct objectMember clone = members[i];
-		clone.offset = 0;
 
-		__auto_type align = objectAlign(members[i].type, &success);
-		if (!success)
-			goto fail;
-		__auto_type size = objectSize(members[i].type, &success);
-		if (!success)
-			goto fail;
+	if(!baseType) {	
+			long largestMemberAlign = 0;
+			long largestSize = 0;
+			for (long i = 0; i != count; i++) {
+					struct objectMember clone = members[i];
+					clone.offset = 0;
+					
+					clone.name = strClone(clone.name);
+					newUnion->members = strObjectMemberAppendItem(newUnion->members, clone);
+					long index=strObjectMemberSize(newUnion->members)-1;
+					newUnion->members[index].belongsTo=(struct object*)newUnion;
+					
+					__auto_type align = objectAlign(members[i].type, &success);
+					if (!success)
+							goto fail;
+					__auto_type size = objectSize(members[i].type, &success);
+					if (!success)
+							goto fail;
 
-		if (align > largestMemberAlign)
-			largestMemberAlign = align;
-		if (size > largestSize)
-			largestSize = size;
-
-		clone.name = strClone(clone.name);
-		newUnion->members = strObjectMemberAppendItem(newUnion->members, clone);
-		long index=strObjectMemberSize(newUnion->members)-1;
-		newUnion->members[index].belongsTo=(struct object*)newUnion;
+					if (align > largestMemberAlign)
+							largestMemberAlign = align;
+					if (size > largestSize)
+							largestSize = size;
+			}
+			largestSize += largestSize % largestMemberAlign;
+			
+			newUnion->size = largestSize;
+			newUnion->align = largestMemberAlign;
+	} else {
+			for (long i = 0; i != count; i++) {
+					struct objectMember clone = members[i];
+					clone.offset = 0;
+					clone.name = strClone(clone.name);
+					newUnion->members = strObjectMemberAppendItem(newUnion->members, clone);
+					long index=strObjectMemberSize(newUnion->members)-1;
+					newUnion->members[index].belongsTo=(struct object*)newUnion;
+			}
+			
+			newUnion->size=objectSize(baseType, NULL);
+			newUnion->align=objectAlign(baseType, NULL);
 	}
-	largestSize += largestSize % largestMemberAlign;
-	newUnion->size = largestSize;
-	newUnion->align = largestMemberAlign;
-
 	int alreadyExists;
 	hashObject((void *)newUnion, &alreadyExists);
 	if(alreadyExists) {
