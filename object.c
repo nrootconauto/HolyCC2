@@ -375,6 +375,7 @@ objectClassCreate(const struct parserNode *name, const struct objectMember *memb
 	newClass->base.name = NULL;
 	newClass->members = NULL;
 	newClass->baseType = NULL;
+	newClass->__cacheStart=newClass->__cacheEnd=NULL;
 	
 	long largestMemberAlign = 0;
 	int success;
@@ -437,7 +438,8 @@ objectUnionCreate(const struct parserNode *name /*Can be `NULL` for empty union.
 	newUnion->base.type = TYPE_UNION;
 	newUnion->baseType=NULL;
 	newUnion->members = NULL;
-
+	newUnion->__cacheStart=newUnion->__cacheEnd=NULL;
+	
 	long largestMemberAlign = 0;
 	long largestSize = 0;
 	for (long i = 0; i != count; i++) {

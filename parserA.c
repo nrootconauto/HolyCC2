@@ -1789,6 +1789,8 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end, int allowForw
 		def.type = retValObj;
 		def.base.pos.start=originalStart;
 		def.base.pos.end=start;
+		((struct objectClass*)retValObj)->__cacheStart=originalStart;
+		((struct objectClass*)retValObj)->__cacheEnd=start;
 
 		retVal = ALLOCATE(def);
 	} else if (un) {
@@ -1800,7 +1802,8 @@ struct parserNode *parseClass(llLexerItem start, llLexerItem *end, int allowForw
 		def.type = retValObj;
 		def.base.pos.start=originalStart;
 		def.base.pos.end=start;
-		
+		((struct objectUnion*)retValObj)->__cacheStart=originalStart;
+		((struct objectUnion*)retValObj)->__cacheEnd=start;
 		retVal = ALLOCATE(def);
 	}
 end:

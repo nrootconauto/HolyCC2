@@ -51,6 +51,7 @@ struct objectClass {
 	strObjectMember members;
 	long align;
 	long size;
+		llLexerItem __cacheStart,__cacheEnd;
 };
 struct objectUnion {
 	struct object base;
@@ -59,6 +60,7 @@ struct objectUnion {
 	strObjectMember members;
 	long align;
 	long size;
+		llLexerItem __cacheStart,__cacheEnd;
 };
 struct objectPtr {
 	struct object base;

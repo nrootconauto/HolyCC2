@@ -108,8 +108,24 @@ static void cacheCheckForTypeChanges() {
 		for(long k=0;k!=count;k++) {
 				__auto_type find=parserGetGlobalSym(keys[k]);
 				if(!find->var)
-						if(!find->function) continue;
+						if(!find->function) goto check4Class;
 				mapCharPInsert(curGVarsType, keys[k],  object2Str(find->type));
+				continue;
+		check4Class:;
+				long sameFile;
+				if(find->type->type==TYPE_CLASS) {
+						struct objectClass *cls=(void*)find->type;
+						if(cls->__cacheStart==NULL) continue;
+						char *nm=hashSource(cls->__cacheStart, cls->__cacheEnd, keys[k], &sameFile);
+						if(!sameFile) mapChangedInsert(changedGVars, keys[k], 1);
+						mapCharPInsert(curGVarsType, keys[k],nm);
+				} else if(find->type->type==TYPE_UNION) {
+						struct objectUnion *un=(void*)find->type;
+						if(un->__cacheStart==NULL) continue;
+						char *nm=hashSource(un->__cacheStart, un->__cacheEnd, keys[k], &sameFile);
+						if(!sameFile) mapChangedInsert(changedGVars, keys[k], 1);
+						mapCharPInsert(curGVarsType, keys[k],nm);
+				}
 		}
 		
 		size_t lineLen=1024;
@@ -129,24 +145,27 @@ static void cacheCheckForTypeChanges() {
 						if(strchr(colon+1, endlnChars[i])) *strchr(colon+1, endlnChars[i])='\0';
 
 				if(0==strcmp(*mapCharPGet(curGVarsType, gVarNm),colon+1)) continue;
-				printf("Changed gvar:%s\n",gVarNm);
 				mapChangedInsert(changedGVars, gVarNm, 1);
 		}
 		
-		mapCharPDestroy(curGVarsType, (void(*)(void*))free2);
 		fclose(f);
 		remove(buffer);
 
 	writeOut:
 		f=fopen(buffer, "w");
-		for(long k=0;k!=count;k++) {
-				__auto_type find=parserGetGlobalSym(keys[k]);
-				if(!find->var)
-						if(!find->function) continue;
-				char *p=object2Str(find->type);
-				fprintf(f, "%s:%s\n", keys[k],p);
+		{
+				long count;
+				mapCharPKeys(curGVarsType, NULL, &count);
+				const char *keys[count];
+				mapCharPKeys(curGVarsType, keys,NULL);
+				
+				for(long k=0;k!=count;k++) {
+						__auto_type find=*mapCharPGet(curGVarsType,keys[k]);
+						fprintf(f, "%s:%s\n", keys[k],find);
+				}
 		}
 		fclose(f);
+		mapCharPDestroy(curGVarsType, (void(*)(void*))free2);
 }
 void sourceCacheInitAfterParse(const char *fn) {
 		basefile=fnFromPath(fn);
