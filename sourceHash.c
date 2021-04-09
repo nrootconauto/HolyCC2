@@ -86,6 +86,38 @@ MAP_TYPE_FUNCS(char *, CharP);
 static void free2(char **str) {
 		free(*str);
 }
+static int funcTypeRefsChangedType(struct object *type) {
+		switch(type->type) {
+		case TYPE_ARRAY: {
+				struct objectArray *arr=(void*)type;
+				return funcTypeRefsChangedType(arr->type);
+		}
+		case TYPE_PTR: {
+				struct objectPtr *ptr=(void*)type;
+				return funcTypeRefsChangedType(ptr->type);
+		}
+		case TYPE_FUNCTION: {
+				struct objectFunction *func=(void*)type;
+				if(funcTypeRefsChangedType(func->retType))
+						return 1;
+				for(long a=0;a!=strFuncArgSize(func->args);a++) {
+						if(funcTypeRefsChangedType(func->args[a].type))
+								return 1;
+				}
+				return 0;
+		}
+		case TYPE_CLASS: {
+				struct objectClass *cls=(void*)type;
+				return NULL!=mapChangedGet(changedGVars,((struct parserNodeName*)cls->name)->text);
+		}
+		case TYPE_UNION: {
+				struct objectUnion *un=(void*)type;
+				return NULL!=mapChangedGet(changedGVars,((struct parserNodeName*)un->name)->text);
+		}
+		default:;
+						return 0;
+		}
+}
 /*
 	* Types file has format 
  * name1:typestr
@@ -104,7 +136,6 @@ static void cacheCheckForTypeChanges() {
 		const char *keys[count];
 		parserSymTableNames(keys,NULL);
 
-		if(!f) goto writeOut;
 		for(long k=0;k!=count;k++) {
 				__auto_type find=parserGetGlobalSym(keys[k]);
 				if(!find->var)
@@ -127,6 +158,13 @@ static void cacheCheckForTypeChanges() {
 						mapCharPInsert(curGVarsType, keys[k],nm);
 				}
 		}
+
+		//Check if functions reference changed types
+		for(long k=0;k!=count;k++) {
+						__auto_type find=parserGetFuncByName(keys[k]);
+						if(!find) continue;
+						if(funcTypeRefsChangedType(find->type)) mapChangedInsert(changedGVars, keys[k], 1);
+				}
 		
 		size_t lineLen=1024;
 		char *linebuffer=__builtin_alloca(lineLen);

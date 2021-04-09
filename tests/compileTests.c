@@ -795,7 +795,7 @@ void compileTests() {
 						const char *argv[]={
 								"hcc",
 								"-c",
-								"/home/tc/projects/holycc2/HolyCTests/HelloLin.HC",
+								"/home/tc/projects/HI.HC",
 								"-o",
 								"/tmp/HCRT.o"
 						};

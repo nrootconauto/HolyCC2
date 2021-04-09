@@ -427,7 +427,7 @@ static void IR_ABI_I386_SYSV_2Asm(graphNodeIR start ,struct X86AddressingMode *f
 		
 		strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
 		leaArgs = strX86AddrModeAppendItem(leaArgs, X86AddrModeReg(&regX86EAX,&typeI32i));
-		leaArgs = strX86AddrModeAppendItem(leaArgs, outMode);
+		leaArgs = strX86AddrModeAppendItem(leaArgs, X86AddrModeClone(outMode));
 		leaArgs[1]->valueType=NULL;
 		assembleInst("LEA", leaArgs);
 
@@ -538,7 +538,7 @@ static strVar IR_ABI_I386_SYS_InsertLoadArgs(graphNodeIR start) {
 	if (fType->retType->type == TYPE_CLASS || fType->retType->type == TYPE_UNION)
 		returnsStruct = 1;
 
-	strVar args = strVarResize(NULL, strFuncArgSize(fType->args));
+	strVar args = strVarResize(NULL, strFuncArgSize(fType->args)+returnsStruct);
 
 	//
 	// This is a chain of assigning a function argument to it's variable
@@ -562,10 +562,10 @@ static strVar IR_ABI_I386_SYS_InsertLoadArgs(graphNodeIR start) {
 		argNodes = strGraphNodeIRPAppendItem(argNodes, arg);
 	}
 
-	for (long v = 0; v != strVarSize(args); v++) {
+	for (long v = returnsStruct; v != strVarSize(args); v++) {
 		struct IRVar ir;
 		ir.SSANum = 0;
-		ir.var = fType->args[v].var;
+		ir.var = fType->args[v-returnsStruct].var;
 		args[v] = ir;
 
 		__auto_type arg = abiI386AddrModeNode(fType, v+((returnsStruct)?1:0));
@@ -607,7 +607,7 @@ static strVar IR_ABI_I386_SYS_InsertLoadArgs(graphNodeIR start) {
 	for (long n = 0; n != strGraphNodeIRPSize(nodes); n++) {
 		struct IRNodeFuncArg *arg = (void *)graphNodeIRValuePtr(nodes[n]);
 		if (arg->base.type == IR_FUNC_ARG) {
-				__auto_type ref = IRCreateVarRef(args[arg->argIndex].var);
+				__auto_type ref = IRCreateVarRef(args[arg->argIndex+returnsStruct].var);
 				strGraphNodeIRP toReplace CLEANUP(strGraphNodeIRPDestroy) = strGraphNodePAppendItem(NULL, nodes[n]);
 				graphIRReplaceNodes(toReplace, ref, NULL, (void (*)(void *))IRNodeDestroy);
 		} else if(arg->base.type==IR_FUNC_VAARG_ARGC) {
