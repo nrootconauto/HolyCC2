@@ -359,6 +359,9 @@ loop:;
 }
 static void debugShowGraphIR(graphNodeIR enter);
 static struct X86AddressingMode *__node2AddrMode(graphNodeIR start) {
+		if(start==0x555555b25920l) {
+				printf("gEEW\n");
+		}
 	if (graphNodeIRValuePtr(start)->type == IR_VALUE) {
 		struct IRNodeValue *value = (void *)graphNodeIRValuePtr(start);
 		switch (value->val.type) {
@@ -366,7 +369,7 @@ static struct X86AddressingMode *__node2AddrMode(graphNodeIR start) {
 				return X86AddrModeClone(value->val.value.addrMode);
 		case __IR_VAL_MEM_FRAME: {
 			if (getCurrentArch() == ARCH_TEST_SYSV || getCurrentArch() == ARCH_X86_SYSV || getCurrentArch() == ARCH_X64_SYSV) {
-					return X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer(),getTypeForSize(ptrSize())), X86AddrModeSint(-value->val.value.__frame.offset), IRNodeType(start));
+ 					return X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer(),getTypeForSize(ptrSize())), X86AddrModeSint(-value->val.value.__frame.offset), IRNodeType(start));
 			} else {
 					assert(0); // TODO  implement
 			}
@@ -1541,7 +1544,7 @@ void IRCompile(graphNodeIR start, int isFunc) {
 
 	strGraphNodeIRP nodes CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRAllNodes(start);
 	{
-		strGraphNodeIRP removed CLEANUP(strGraphNodeIRPDestroy) = removeNeedlessLabels(start);
+ 		strGraphNodeIRP removed CLEANUP(strGraphNodeIRPDestroy) = removeNeedlessLabels(start);
 		nodes = strGraphNodeIRPSetDifference(nodes, removed, (gnCmpType)ptrPtrCmp);
 		}
 
@@ -1731,7 +1734,7 @@ void IRCompile(graphNodeIR start, int isFunc) {
 }
 static int isPtrType(struct object *obj) {
 	__auto_type type = objectBaseType(obj)->type;
-	return type == TYPE_PTR ||type==TYPE_FUNCTION;
+	return type == TYPE_PTR ||type==TYPE_FUNCTION||type==TYPE_ARRAY;
 }
 
 static int isPtrNode(graphNodeIR start) {

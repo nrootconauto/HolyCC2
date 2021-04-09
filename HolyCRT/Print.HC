@@ -71,19 +71,11 @@ static U8i *__PrintF64(F64 f,F64 e,F64 p,I32i digits) {
 								return retval;
 							}
 
-							//printf("%lf\n",e-p);
 							F64 R=__PrintF64Shift(f,Max(0.0,e-p));
-							//printf("%lf\n",R);
 							F64 S=__PrintF64Shift(1.0,Max(0.0,-(e-p)));
-							//printf("%lf\n",S);
-							//printf("%lf,%lf\n",R/S,value);
-
+							
 							F64 mA=__PrintF64Shift(1.0,Max(0.0,e-p));
 							F64 mB=mA;
-							//printf("%lf,%lf,%lf\n",mA,mB,e-p);
-							//printf("%lf,%lf,%lf\n",mA/S,mB/S,2.0`(e-p));
-							//printf("p-1:%lf\n",p-1);
-							//printf("FLOO:%lf,%lf\n",floor(f),ceil(__PrintF64Shift(1.0,p-1.0)));
 							if(floor(f)==floor(__PrintF64Shift(1.0,p-1))) {
 																																																					//																																					printf("HERE\n");
 																											mA=__PrintF64Shift(mA,1.0);
@@ -91,20 +83,15 @@ static U8i *__PrintF64(F64 f,F64 e,F64 p,I32i digits) {
 																											S=__PrintF64Shift(S,1.0);
 							}
 							I32i k=0;
-							//printf("%lf\n",R);
-							//printf("%lf,%lf\n",S,S/10.0);
 							while(R<ceil(S/10)) {
-																											//printf("%lf=%lf\n",(R/S)*10.0`(k(F64)),value);
 																											k-=1;
 																											R*=10.0;
 																											mA*=10.0;
 																											mB*=10.0;
-																											//printf("%lf,%lf,%lf\n",R,mA,mB);
 							}
 							while((2.0*R)+mA>=2.0*S) {
 																			k+=1;
 																			S*=10;
-																			//printf("%lf,%lf,%li\n",R,S,k);
 							}
 							Bool ignoreDigits=digits==0;
 							for(I32i firstRun=1;;) {
