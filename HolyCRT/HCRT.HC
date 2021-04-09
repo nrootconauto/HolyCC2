@@ -345,4 +345,4 @@ try {
 
 					return 0;
 }
-"ONE\n";
+#include "Types.HC"

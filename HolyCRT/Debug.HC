@@ -180,7 +180,7 @@ static U8i *DebuggerPrintTypeFromJson(CFileDebugger *f,U0 *var,JsonNode *node) {
 U8i *DebuggerPrintVar(CFileDebugger *f,U0 *var,U8i *typeName=lastclass,I32i ptrLevel=0) {
 				U8i *retval=NULL;
 				if(ptrLevel) {
-																	if(ptrLevel==1&&0==StrCmp(typeName,"U8i")) {
+																	if(ptrLevel==1&&(0==StrCmp(typeName,"U8i")||0==StrCmp(typeName,"U8"))) {
 																																	I32i strlen=1024;
 																																	U8i **strPtr=var(U8i**);
 																																	try {
@@ -202,17 +202,17 @@ U8i *DebuggerPrintVar(CFileDebugger *f,U0 *var,U8i *typeName=lastclass,I32i ptrL
 																	return retval;
 				}
 
-				if(0==StrCmp(typeName,"I8i")) {
+				if(0==StrCmp(typeName,"I8i")||0==StrCmp(typeName,"I8")) {
 																																			return MStrPrint("%d",*var(I8i*));
-				} else if(0==StrCmp(typeName,"I16i")) {
+				} else if(0==StrCmp(typeName,"I16i")||0==StrCmp(typeName,"I16")) {
 				                               return MStrPrint("%d",*var(I16i*));
-				} else if(0==StrCmp(typeName,"I32i")) {
+				} else if(0==StrCmp(typeName,"I32i")||0==StrCmp(typeName,"I32")) {
 				                               return MStrPrint("%d",*var(I32i*));
-				} else if(0==StrCmp(typeName,"U8i")) {
+				} else if(0==StrCmp(typeName,"U8i")||0==StrCmp(typeName,"U8")) {
 																																			return MStrPrint("%u",*var(U8i*));
-				} else if(0==StrCmp(typeName,"U16i")) {
+				} else if(0==StrCmp(typeName,"U16i"||0==StrCmp(typeName,"U16"))) {
 				                               return MStrPrint("%u",*var(U16i*));
-				} else if(0==StrCmp(typeName,"U32i")) {
+				} else if(0==StrCmp(typeName,"U32i")||0==StrCmp(typeName,"U32")) {
 				                               return MStrPrint("%u",*var(U32i*));
 				} else if(0==StrCmp(typeName,"F64")) {
 				                               return MStrPrint("%n",*var(F64*));
