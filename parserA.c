@@ -3878,18 +3878,35 @@ struct X86AddressingMode *parserNode2X86AddrMode(struct parserNode *node) {
 		abort();
 }
 static struct X86AddressingMode *x86ItemAddr(llLexerItem start, llLexerItem *end) {
+		__auto_type originalStart=start;
 		struct parserNode *rB CLEANUP(parserNodeDestroy)=NULL;
 		struct parserNode *lB CLEANUP(parserNodeDestroy)=NULL;
 		struct parserNode *segment CLEANUP(parserNodeDestroy) = parseAsmRegister(start, &start);;
 		struct parserNode *typename CLEANUP(parserNodeDestroy) = nameParse(start, NULL, &start);
+		struct parserNode *offset2 CLEANUP(parserNodeDestroy)=literalRecur(start, NULL, &start);
 		struct object *valueType=NULL;
 		if (typename) {
 				struct parserNodeName *name = (void *)typename;
 				if (objectByName(name->text)) {
 						valueType = objectByName(name->text);
-				}
+				} else start=originalStart;
 		}
 
+		originalStart=start;
+		struct parserNode *tmp=literalRecur(start, NULL, &start);
+		if(tmp) if(tmp->type==NODE_ASM_REG) {
+				struct parserNode *op CLEANUP(parserNodeDestroy)=expectKeyword(start, ":");
+				if(!op) {start=originalStart;tmp=NULL;}
+				else {segment=tmp;tmp=literalRecur(start, NULL, &start);originalStart=start;}
+				
+		}
+		if(tmp) {
+				if(tmp->type==NODE_LIT_INT) {
+						offset2=tmp;
+						tmp=NULL;
+				}
+		} else start=originalStart;
+		
 		rB=expectOp(start, "[");
 		if(!rB)
 				return NULL;
@@ -3933,13 +3950,14 @@ static struct X86AddressingMode *x86ItemAddr(llLexerItem start, llLexerItem *end
 				retVal=X86AddrModeVar(((struct parserNodeVar*)currExprPart)->var, offset);
 				retVal->value.varAddr.memberOffsets=strObjectMemberPClone(members);
 				retVal->valueType=(valueType)?valueType:assignTypeToOp(expr);
-				retVal->value.m.segment=NULL;
+				retVal->value.varAddr.offset=0;
+				if(offset2) retVal->value.varAddr.offset=intLitValue(offset2);
 				if(segment)
 						retVal->value.m.segment=((struct parserNodeAsmReg*)segment)->reg;
 		} else 
 				goto fail;
 
-		lB=expectOp(start, "]");
+ 		lB=expectOp(start, "]");
 		if(!lB)
 				whineExpected(start, "]");
 		else

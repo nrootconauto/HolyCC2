@@ -507,7 +507,7 @@ static graphNodeIR abiI386AddrModeNode(struct objectFunction *func, long argI) {
 	}
 	for (long i = 0; i != strFuncArgSize(func->args); i++) {
 		long size = objectSize(func->args[i].type, NULL);
-		if (i == argI - (returnsStruct ? 1 : 0))
+		if (i+returnsStruct == argI)
 			return IRCreateFrameAddress(offset, func->args[i].type);
 		offset -= size / 4 * 4 + ((size % 4) ? 4 : 0);
 	}
@@ -523,7 +523,6 @@ static graphNodeIR abiI386AddrModeNode(struct objectFunction *func, long argI) {
 			//Pointer arithmetic will add the index*4 !!!
 			return IRCreateBinop(IRCreateIntLit(-offset/4),IRCreateRegRef(&slice),IR_ADD);
 	}
-	assert(argI < strFuncArgSize(func->args));
 	return NULL;
 }
 static strVar IR_ABI_I386_SYS_InsertLoadArgs(graphNodeIR start) {
@@ -562,13 +561,13 @@ static strVar IR_ABI_I386_SYS_InsertLoadArgs(graphNodeIR start) {
 		argNodes = strGraphNodeIRPAppendItem(argNodes, arg);
 	}
 
-	for (long v = returnsStruct; v != strVarSize(args); v++) {
+	for (long v = returnsStruct; v < strVarSize(args); v++) {
 		struct IRVar ir;
 		ir.SSANum = 0;
 		ir.var = fType->args[v-returnsStruct].var;
 		args[v] = ir;
 
-		__auto_type arg = abiI386AddrModeNode(fType, v+((returnsStruct)?1:0));
+		__auto_type arg = abiI386AddrModeNode(fType, v);
 		__auto_type var = IRCreateVarRef(ir.var);
 		argNodes = strGraphNodeIRPAppendItem(argNodes, arg);
 		if (!defineChainStart)

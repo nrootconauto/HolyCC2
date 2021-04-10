@@ -489,6 +489,7 @@ loop:;
 		__addGlobalSymbol(func, name2->text, link);
 }
 void parserMoveGlobals2Extern() {
+		initExprParser(); //CLEAR EXPR CACHE
 		long count;
 		parserSymTableNames(NULL, &count);
 		const char *names[count];

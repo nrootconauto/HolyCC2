@@ -527,6 +527,7 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 				
 				return emitMode(&offset, 0);
 			} else {
+					strChar typeStr CLEANUP(strCharDestroy) =getSizeStr(args[i]->valueType);
 					strChar name CLEANUP(strCharDestroy) = strClone(parserGetGlobalSymLinkageName(args[i]->value.varAddr.var->name));
 
 					strChar offsetStr CLEANUP(strCharDestroy)=NULL;
@@ -540,10 +541,10 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 					
 					if(args[i]->value.itemAddr.offset) {
 							long offset=args[i]->value.itemAddr.offset;
-							char *buffer CLEANUP(free2)=fromFmt("[$%s%s%+li] ", name,offsetStr,offset);
+							char *buffer CLEANUP(free2)=fromFmt("%s [$%s%s%+li] ",typeStr, name,offsetStr,offset);
 							return strClone(buffer);
 					} else {
-							char *buffer CLEANUP(free2) = fromFmt( "[$%s%s] ", name,offsetStr);
+							char *buffer CLEANUP(free2) = fromFmt( "%s [$%s%s] ", typeStr,name,offsetStr);
 							return strClone(buffer);
 					}
 			}
