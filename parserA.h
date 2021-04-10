@@ -4,6 +4,7 @@ struct object;
 #include "str.h"
 enum parserNodeType {
 	NODE_ASM_REG,
+	NODE_ASM_INVALID_INST,
 	NODE_ASM_ADDRMODE,
 	NODE_ASM_LABEL,
 	NODE_ASM_LABEL_GLBL,
@@ -118,6 +119,9 @@ struct parserNode {
 	enum parserNodeType type;
 	struct parserSourcePos pos;
 		long refCount;
+};
+struct parserNodeInvalidInst {
+			struct parserNode base;
 };
 struct parserNodeSizeofType {
 		struct parserNode base;

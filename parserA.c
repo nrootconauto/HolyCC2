@@ -1966,9 +1966,13 @@ struct parserNode *parseStatement(llLexerItem start, llLexerItem *end) {
 	
 	__auto_type opcode = parseAsmInstructionX86(start, &start);
 	if (opcode) {
-		if (end != NULL)
-			*end = start;
-		return opcode;
+			if(opcode->type==NODE_ASM_INVALID_INST) {
+					parserNodeDestroy(&opcode);
+			} else {
+					if (end != NULL)
+							*end = start;
+					return opcode;
+			}
 	}
 
 	__auto_type semi = expectKeyword(originalStart, ";");
@@ -3971,8 +3975,8 @@ static struct X86AddressingMode *x86ItemAddr(llLexerItem start, llLexerItem *end
 }
 struct parserNode *parseAsmInstructionX86(llLexerItem start, llLexerItem *end) {
 		isAsmMode=1;
-	if (llLexerItemValuePtr(start)->template == &nameTemplate) {
 		__auto_type originalStart = start;
+	if (llLexerItemValuePtr(start)->template == &nameTemplate) {
 		struct parserNode *name CLEANUP(parserNodeDestroy) = nameParse(start, NULL, &start);
 		__auto_type nameText = ((struct parserNodeName *)name)->text;
 		strOpcodeTemplate dummy CLEANUP(strOpcodeTemplateDestroy) = X86OpcodesByName(nameText);
@@ -4023,7 +4027,7 @@ struct parserNode *parseAsmInstructionX86(llLexerItem start, llLexerItem *end) {
 				diagErrorStart(llLexerItemValuePtr(start)->start, llLexerItemValuePtr(start)->end);
 				diagPushText("Invalid argument for opcode.");
 				diagEndMsg();
-				break;
+				goto invalidInst;
 			}
 			int ambiguous=0;
 			struct opcodeTemplate *valid  = X86OpcodeByArgs(nameText, args);
@@ -4036,6 +4040,7 @@ struct parserNode *parseAsmInstructionX86(llLexerItem start, llLexerItem *end) {
 				diagPushQoutedText(_start, _end);
 				diagPushText(".");
 				diagEndMsg();
+				goto invalidInst;
 			} else if (!valid) {
 					NODE_START_END_POS(name,_start,_end);
 				diagErrorStart(_start, _end);
@@ -4043,6 +4048,7 @@ struct parserNode *parseAsmInstructionX86(llLexerItem start, llLexerItem *end) {
 				diagPushQoutedText(_start, _end);
 				diagPushText(".");
 				diagEndMsg();
+				goto invalidInst;
 			} else {
 				struct parserNodeAsmInstX86 inst;
 				strParserNode addrModeArgs=strParserNodeResize(NULL, strX86AddrModeSize(args));
@@ -4070,6 +4076,15 @@ struct parserNode *parseAsmInstructionX86(llLexerItem start, llLexerItem *end) {
 		*end = start;
 	isAsmMode=0;
 	return NULL;
+	invalidInst:;
+	struct parserNodeInvalidInst inst;
+	inst.base.refCount=1;
+	inst.base.type=NODE_ASM_INVALID_INST;
+	inst.base.pos.start=originalStart;
+	inst.base.pos.end=start;
+	if (end)
+			*end = start;
+	return ALLOCATE(inst);
 }
 
 void parserMapGotosToLabels() {
