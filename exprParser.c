@@ -333,8 +333,28 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 				if(aPtr&&bPtr) {
 						validatePtrPass(aType, binop->b);
 				}
-				
-			// Dont promote left value on assign
+
+				if(aPtr||bPtr) {
+						if(0==strcmp(op->text,"+")) {
+								if(aPtr&&bPtr) {
+										diagErrorStart(	_start,_end);
+										diagPushText("Add operator expects a single pointer operand.");
+										diagHighlight(_start, _end);
+										diagEndMsg();
+								} else {
+										return (aPtr)?aType:bType; 
+								}
+						} else if(0==strcmp(op->text, "-")) {
+								if(aPtr&&bPtr) {
+										validatePtrPass(aType, binop->b);
+										return dftValType();
+								} else if(aPtr||bPtr) {
+										return (aPtr)?aType:bType;
+								} 
+						}
+				}
+
+				// Dont promote left value on assign
 			if (isAssignOp(binop->op)) {
 				binop->b = promoteIfNeeded(binop->b, assignTypeToOp(binop->a));
 
@@ -543,8 +563,9 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 				// If both are arithmetic,can be used
 				int expectedArith = isArith(expected);
 				int haveArith = isArith(have);
-				if (expectedArith && haveArith) {
-						//validatePtrPass(expected->type,call->args[i]);
+				if ((expectedArith && haveArith)&&(isPtr(expected) || isPtr(have))) {
+						validatePtrPass(expected,call->args[i]);
+				} else if(expectedArith && haveArith) {
 				} else if (expectedArith || haveArith) {
 					// One is arithmetic and one isn't
 					incompatTypes(call->args[i], expected);

@@ -210,7 +210,7 @@ CFuncDebugger *FuncDebuggerCreate(CFileDebugger *file,U0 *funcptr,U0 *funcptrend
 U8i *DebuggerPrintVar(CFileDebugger *f,U0 *var,U8i *typeName=lastclass,I32i ptrLevel=0);
 static U8i *DebuggerPrintTypeFromJson(CFileDebugger *f,U0 *var,JsonNode *node) {
 							U8i *typename=JsonNodeEntry(node,"base")->val.str;
-							U8i *ptrLevel=JsonNodeEntry(node,"ptrLevel")->val.sint;
+							I32 ptrLevel=JsonNodeEntry(node,"ptrLevel")->val.sint;
 							return DebuggerPrintVar(f,var,typename,ptrLevel);
 }
 U8i *DebuggerPrintVar(CFileDebugger *f,U0 *var,U8i *typeName=lastclass,I32i ptrLevel=0) {
@@ -552,7 +552,7 @@ static U8i *FileAndLine(U8i *str,I32i *ln,U8i *dftfn=NULL) {
 							free(filename);
 							throw(-1);
 }
-static U0 *DebugGetFramePtr(U8i *bp,I32i lvl,U8i *fn);
+static U0 *DebugGetFramePtr(U8i *bp,I32i lvl,U8i **fn);
 static U0 DebugStackTrace(U8i *bp);
 
 static U8i HCC_DebugAtLineDisable=0;
