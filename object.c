@@ -783,7 +783,7 @@ int /*Returns 0 if not equal.*/ objectEqual(const struct object *a, const struct
 		return 0;
 	if (a->type == TYPE_PTR) {
 		struct objectPtr *aBase = (void *)a, *bBase = (void *)b;
-		return objectEqual(aBase->type, bBase->type);
+		return objectEqual(objectBaseType(aBase->type), objectBaseType(bBase->type));
 	} else if (a->type == TYPE_CLASS) {
 		return a == b;
 	} else if (a->type == TYPE_UNION) {

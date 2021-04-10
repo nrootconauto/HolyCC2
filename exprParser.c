@@ -161,15 +161,16 @@ static void noteItem(struct parserNode *node) {
 }
 static void validatePtrPass(struct object *expected,struct parserNode *node) {
 		long _start,_end;
+		expected=objectBaseType(expected);
 		parserNodeStartEndPos(node->pos.start, node->pos.end, &_start, &_end);
 		
-		__auto_type type=assignTypeToOp(node);
+		__auto_type type=objectBaseType(assignTypeToOp(node));
 		if(objectEqual(expected,objectPtrCreate(&typeU0))||objectEqual(type,objectPtrCreate(&typeU0))) {
 				if(type->type==TYPE_CLASS||type->type==TYPE_UNION)
 						goto invalidPass;
 		} else {
 				if(!objectEqual(expected,type)) {
-						__auto_type t=objectBaseType(type)->type;
+						__auto_type t=type->type;
 						int isNumeric=t==TYPE_I8i||t==TYPE_I16i||t==TYPE_I32i||t==TYPE_I64i||t==TYPE_U8i||t==TYPE_U16i||t==TYPE_U32i||t==TYPE_U64i;
 						if(!isNumeric) {
 						invalidPass:
