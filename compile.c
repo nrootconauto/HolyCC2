@@ -8,6 +8,7 @@
 #include "preprocessor.h"
 #include "cacheDir.h"
 #include "filePath.h"
+#include "exprParser.h"
 #include "hcrtLocation.h"
 #include "sourceHash.h"
 #include "escaper.h"
@@ -39,11 +40,13 @@ static strParserNode parseFile(const char *fn,strFileMappings *fMappings2,llLexe
 
 		char *es=escapeString((char*)fn, strlen(fn));
 		FILE *f=fopen(tmpName, "w");
+		printf( "%s\n", tmpName);
 		char *dbgInfoLoader CLEANUP(free2)=HCRTFile("LoadDbgInfo.HC");
 		char * cwd=getcwd(NULL, 0);
-		if(HCC_Debug_Enable)
+		if(HCC_Debug_Enable) {
+				fprintf(f,"static U8i *HCC_DEBUGGER_FILE=\"%s\";\n", es);
 				fprintf(f, "#include \"%s\"\n", dbgInfoLoader);
-		
+		}
 		if(!pathIsAbsolute(fn))
 				fprintf(f, "#include \"%s/%s\"\n",cwd, es);
 		else
@@ -74,6 +77,7 @@ static strParserNode parseFile(const char *fn,strFileMappings *fMappings2,llLexe
 				diagInstCreate(DIAG_ANSI_TERM, fMappings, tMods, fn, stderr);
 				if (err) {
 						diagErrorStart(atPos, atPos+1);
+						diagHighlight(atPos, atPos+1);
 						diagPushText("Lexical error.");
 						diagEndMsg();
 						goto fail;
@@ -100,6 +104,7 @@ static strParserNode parseFile(const char *fn,strFileMappings *fMappings2,llLexe
 		return NULL;
 }
 void compileFile(const char *fn, const char *dumpTo) {
+		initExprParser();
 		HCC_Link_To=NULL;
 		//Move symbols from previous compile to extern
 		parserMoveGlobals2Extern();

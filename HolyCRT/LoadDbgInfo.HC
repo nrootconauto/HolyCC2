@@ -5,6 +5,7 @@ internal U8i HCC_DEBUG_BREAKPOINTS_ARRAY;
 internal U8i HCC_DEBUG_GLOBALS_INFO;
 class CFileDebugger;
 extern CFileDebugger *FileDebuggerCreate(
+							       U8i *HCC_DEBUGGER_FILE, //Is a macro,see compile.c
 														U8i *HCC_DEBUG_SYMS,
 														U8i *HCC_DEBUG_FUNC_DATAS,
 														U8i *HCC_DEBUG_BREAKPOINTS_INFO,
@@ -13,6 +14,7 @@ extern CFileDebugger *FileDebuggerCreate(
 														);
 try {
 static CFileDebugger *HCC_LocalFileDebugger=FileDebuggerCreate(
+							HCC_DEBUGGER_FILE, //Is a macro,see compile.c
 					&HCC_DEBUG_SYMS,
 					&HCC_DEBUG_FUNC_DATAS,
 					&HCC_DEBUG_BREAKPOINTS_INFO,

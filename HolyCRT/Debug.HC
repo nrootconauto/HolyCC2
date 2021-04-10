@@ -94,6 +94,7 @@ class CFileDebugger {
 class CFuncDebugger {
 						CHashTable *varTable; //JsonNode *
 };
+static CHashTable *HCC_FileDebuggers=HashTableCreate();
 CFileDebugger *HCC_ThisFileDebugger=NULL;
 extern U8i HCC_DEBUG_SYMS;
 extern U8i HCC_DEBUG_FUNC_DATAS;
@@ -104,6 +105,7 @@ extern U8i HCC_DEBUG_GLOBALS_INFO;
 #define DEBUGGER_TYPE_NO_EXIST -2
 CFuncDebugger *FuncDebuggerCreate(CFileDebugger *file,U0 *funcPtr,U0 *funcptrend,U8i *info);
 CFileDebugger *FileDebuggerCreate(
+														U8i *HCC_DEBUGGER_FILE,
 														U8i *HCC_DEBUG_SYMS,
 														U8i *HCC_DEBUG_FUNC_DATAS,
 														U8i *HCC_DEBUG_BREAKPOINTS_INFO,
@@ -160,6 +162,12 @@ CFileDebugger *FileDebuggerCreate(
 																				FuncDebuggerCreate(retval,list[0],list[1],list[2]);
 																				list+=3;
 														}
+
+														try {
+																		if(HCC_FileDebuggers) HashTableAdd(HCC_FileDebuggers,retval,HCC_DEBUGGER_FILE);
+														} catch {
+																//Silent fail
+														};
 														return retval;
 }
 extern I32i getchar();
@@ -579,6 +587,7 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 							I32i listln=atln;
 							U8i *listfn=HCC_DbgCurrentFunc;
 							U8i **keys;
+							U8i *next;
 
 							if (DebugAutolist) {
 										DbgFileList(HCC_ThisFileDebugger,dftfn,atln,atln);
@@ -605,9 +614,30 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 																																				Print("s -- step.\n");
 																																				Print("bt -- backtrace.\n");
 																																				Print("up -- go up a stack frame.\n");
-																																				Print("down -- go up a stack frame.\n");
+																																				Print("down -- go down a stack frame.\n");
 																																				Print("tautolist -- toggle auto-list.\n");
+																																				Print("lfdebuggers -- list the file debuggers.\n");
+																																				Print("fswitch -- switch the file debugger.\n");
 																																				goto loop;
+							} else if(0==StrCmp(DebugLastCom,"lfdebuggers")) {
+									c=HashTableSize(HCC_FileDebuggers);
+									keys=HashTableKeys(HCC_FileDebuggers);
+									"=====[FILE DEBUGGERS]=====\n";
+									while(--c>=0) {
+																							"%s\n",keys[c];
+																							free(keys[c]);
+									}
+									free(keys);
+									goto loop;
+							}  else if(0==StrCmp(DebugLastCom,"fswitch")) {
+											next=__dbgSkipWhitespace(buffer+StrLen("fswitch"));
+											CFileDebugger *fdbgfind=HashTableGet(HCC_FileDebuggers,next);
+											if (!fdbgfind) {
+														"File \"%s\" not found.\n",next;
+											} else {
+													HCC_ThisFileDebugger=fdbgfind;
+											}
+											goto loop;
 							} else if(0==StrCmp(DebugLastCom,"tautolist")) {
 									DebugAutolist=!DebugAutolist;
 									"%d",DebugAutolist;
@@ -724,7 +754,7 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 									goto loop;
 							} else if(0==StrCmp(DebugLastCom,"b")) {
 									//__dbgGetNextWord Ensures result is a word and not a combination of alnums and others(will be a function name if not NULL)
-									U8i *next=__dbgSkipWhitespace(buffer+1);
+									next=__dbgSkipWhitespace(buffer+1);
 									try {
 												filename=FileAndLine(next,&linum,dftfn);
 												"filename:%s\n",filename;
