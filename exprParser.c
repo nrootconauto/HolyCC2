@@ -6,7 +6,15 @@
 #include "registers.h"
 #include <stdio.h>
 #include <stdlib.h>
-struct object *assignTypeToOp(const struct parserNode *node);
+#include "ptrMap.h"
+PTR_MAP_DEF(NodeType);
+PTR_MAP_FUNCS(struct parserNode *, struct object *, NodeType);
+static __thread ptrMapNodeType typeCache=NULL;
+void initExprParser() {
+		if(typeCache) ptrMapNodeTypeDestroy(typeCache, NULL);
+		typeCache=ptrMapNodeTypeCreate();
+}
+struct object *assignTypeToOp(struct parserNode *node);
 static int isArith(const struct object *type) {
 		type=objectBaseType(type);
 		if (type==&typeBool||type == &typeU8i || type == &typeU16i || type == &typeU32i || type == &typeU64i || type == &typeI8i || type == &typeI16i || type == &typeI32i ||
@@ -210,7 +218,7 @@ static int isPtr(struct object *type) {
 		__auto_type base=objectBaseType(type);
 		return base->type==TYPE_PTR||base->type==TYPE_ARRAY;
 }
-struct object *assignTypeToOp(const struct parserNode *node) {
+static struct object *__assignTypeToOp(const struct parserNode *node) {
 		long _start,_end;
 		parserNodeStartEndPos(node->pos.start, node->pos.end, &_start, &_end);
 		
@@ -694,4 +702,12 @@ struct object *assignTypeToOp(const struct parserNode *node) {
 fail:
 	// Couldn't detirmine type
 	return dftValType();
+}
+struct object *assignTypeToOp(struct parserNode *node) {
+		__auto_type find=ptrMapNodeTypeGet(typeCache, node);
+		if(find)
+				return *find;
+		__auto_type type=__assignTypeToOp(node);
+		ptrMapNodeTypeAdd(typeCache,node,type);
+		return type;
 }

@@ -844,7 +844,7 @@ graphNodeIR parserNode2Expr(const struct parserNode *node) {
 		// If non-assign binop
 		__auto_type b = mapIRNodeTypeGet(binop2IRType, op->text);
 		if (b) {
-				__auto_type resType=assignTypeToOp(node);
+				__auto_type resType=assignTypeToOp((struct parserNode*)node);
 				if((aType!=resType)&&!isPtrArith) aVal=IRCreateTypecast(aVal, aType, resType);
 				if((bType!=resType)&&!isPtrArith) bVal=IRCreateTypecast(bVal, bType, resType);
 				__auto_type retVal = IRCreateBinop(aVal, bVal, *b);
@@ -912,7 +912,7 @@ graphNodeIR parserNode2Expr(const struct parserNode *node) {
 					if (find) {
 							if(*find!=IR_DERREF) {
 									__auto_type sourceType=assignTypeToOp(unop->a);
-									__auto_type resType=assignTypeToOp(node);
+									__auto_type resType=assignTypeToOp((struct parserNode*)node);
 									if(sourceType!=resType) in=IRCreateTypecast(in, sourceType, resType);
 							}
 							struct IRNodeUnop unop;

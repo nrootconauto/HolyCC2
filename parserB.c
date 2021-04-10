@@ -5,6 +5,7 @@
 #include "string.h"
 #include "registers.h"
 #include "preprocessor.h"
+#include "exprParser.h"
 #define ALLOCATE(x)																																																					\
 	({                                                                                                                                                               \
 		__auto_type len = sizeof(x);                                                                                                                                   \
@@ -406,6 +407,7 @@ void initParserData() {
 	currentScope = NULL;
 	enterScope();
 	symbolTable = mapSymbolCreate();
+	initExprParser();
 }
 struct parserFunction *parserGetFunc(const struct parserNode *name) {
 	struct parserNodeName *name2 = (void *)name;
