@@ -12,6 +12,10 @@ libFunc();
 ## BSAT debugger(Before Space and Time)
 Compile your program,the debugger will be linked-into the program by default(disable it with `-dd`).
 Each file linked into the program will have it's own init code(Including the HolyC runtime (HCRT.HC)). Type`c` to contiue ,or `help` for fun.
+To luanch the debugger do 
+```
+HCC_DEBUG=1 ./prog
+```
 
 ## Odditidies
 Assembler statements in global scope are "skipped" across. This saves time for the programmer.
