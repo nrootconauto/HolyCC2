@@ -817,6 +817,9 @@ graphNodeIR parserNode2Expr(const struct parserNode *node) {
 		graphNodeIR callNode = GRAPHN_ALLOCATE(call);
 		assert(strGraphNodeIRPSize(args) <= 128);
 		for (long i = 0; i != strGraphNodeIRPSize(args); i++) {
+				__auto_type have=IRNodeType(args[i]);
+				if(funcType2->args[i].type!=have)
+						args[i]=IRCreateTypecast(args[i], funcType2->args[i].type,have);
 			graphNodeIRConnect(args[i], callNode, IR_CONN_FUNC_ARG_1 + i);
 		}
 
