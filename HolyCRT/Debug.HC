@@ -61,8 +61,7 @@ static __CSourceFile *SourceFileCreate(U8 *fn) {
 																			if (run==0) {
 																						linestarts=malloc(sizeof(I32)*linecount);
 																						run=1;
-																						linecount=1;
-																						linestarts[0]=0;
+																						linecount=0;
 																						goto loop;
 																			} else break;
 																}
@@ -511,8 +510,9 @@ static U0 DbgFileList(CFileDebugger *dbg,U8i *fn,I32i line,I32i atln=-1) {
 							for (read=0;line!=endline&&line<text->lineCount;++read,line++) {
 											U8 *linestartpos=&text->source[text->lineStarts[line]];
 											U8 *lineendpos=NULL;
-											if(line+1>=text->lineCount) {lineendpos=StrLen(linestartpos)+linestartpos;} 
+											if(line+1>=text->lineCount) {lineendpos=StrLen(linestartpos)+linestartpos;}
 											else lineendpos=&text->source[text->lineStarts[line+1]]-1; //-1 ignores newline
+											
 											lines[read]=StrDupLen(linestartpos,lineendpos-linestartpos);
 							}
 
@@ -534,7 +534,7 @@ static U0 DbgFileList(CFileDebugger *dbg,U8i *fn,I32i line,I32i atln=-1) {
 
 											U8i *bpptr=FileDebuggerGetBreakPtr(HCC_ThisFileDebugger,fn,curln);
 											if(bpptr) if(*bpptr) chrbp='B';
-											if(curln==atln) chratln='*';
+											if(curln==atln-1) chratln='*';
 
 											"%c%c%s%s\n",chratln,chrbp,linetext,lines[curln-line];
 											free(lines[curln-line]);
