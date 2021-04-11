@@ -10,7 +10,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "str.h"
-#define ALLOCATE(item)                                                                                                                                             \
+#include "hcrtLocation.h"
+#define ALLOCATE(item)																																																		\
 	({                                                                                                                                                               \
 			typeof(item) *ptr = calloc(sizeof(item),1);																											\
 		*ptr = item;                                                                                                                                                   \
@@ -21,7 +22,6 @@ const char *opcodeTemplateName(struct opcodeTemplate *template) {
 };
 MAP_TYPE_DEF(strOpcodeTemplate, OpcodeTemplates);
 MAP_TYPE_FUNCS(strOpcodeTemplate, OpcodeTemplates);
-#define OPCODES_FILE "/home/tc/projects/holycc2/OpCodes.txt"
 STR_TYPE_DEF(char, Char);
 STR_TYPE_FUNCS(char, Char);
 static int lexInt(strChar text, long *Pos, long *retVal) {
@@ -220,7 +220,9 @@ void parseOpcodeFile() {
 	};
 	qsort(keywords, sizeof(keywords) / sizeof(*keywords), sizeof(*keywords), strcmp2);
 
-	FILE *file = fopen(OPCODES_FILE, "r");
+	char *opcodesFile=HCRTFile("OpCodes.txt");
+	FILE *file = fopen(opcodesFile, "r");
+	free(opcodesFile);
 	fseek(file, 0, SEEK_END);
 	long end = ftell(file);
 	fseek(file, 0, SEEK_SET);
