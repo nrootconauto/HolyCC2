@@ -3,6 +3,10 @@
 This is a holyC compiler on a mission to keep the line-count down. Its goal is to compile TempleOS and its programs on linux ,**and** to also be an educational compiler designed to show how compilers are made. Now,
 
 ## Usage
+```
+hcc program.HC program2.HC #Sybols from program.HC will be visible from program2.HC 
+hcc --help
+```
 This compiler is currently for linux 32bit,and uses `yasm` to assemble the generated assembly. I will add 64bit and webassembly support later but i first want to create a HolyC texteditor. To link against libraries(make sure to install the 32bit version of the library), do
 ```
 #link "lib"
