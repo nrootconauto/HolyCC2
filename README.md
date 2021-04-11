@@ -24,5 +24,5 @@ asm {
 //x is 10
 ``` 
 
-##Contributing 
+## Contributing 
 I will handle adding the 64bit and webassembly support. You could help easily by adding to the HolyC runtime by aadding functions. If you want to get into the guts of the compiler,look at the developers manual that comes in the from of html. 
