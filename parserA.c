@@ -1833,6 +1833,8 @@ static void addDeclsToScope(struct parserNode *varDecls, struct linkage link) {
 		var.base.type=NODE_VAR;
 		var.var=parserGetVar(decl->name);
 		struct parserNode *varNode=ALLOCATE(var);
+
+		if(decl->dftVal) parserValidateAssign(varNode,decl->dftVal);
 		decl->var=varNode;
 		if(isGlobalScope())
 				parserAddGlobalSym((void*)decl, link);
@@ -1848,6 +1850,9 @@ static void addDeclsToScope(struct parserNode *varDecls, struct linkage link) {
 			var.var=parserGetVar(decl->name);
 			struct parserNode *varNode=ALLOCATE(var);
 			decl->var = varNode;
+
+			if(decl->dftVal) parserValidateAssign(varNode,decl->dftVal);
+
 			if(isGlobalScope())
 					parserAddGlobalSym(decls->decls[i], link);
 		}

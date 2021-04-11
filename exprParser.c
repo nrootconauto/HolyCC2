@@ -721,3 +721,30 @@ struct object *assignTypeToOp(struct parserNode *node) {
 		node->refCount++;
 		return type;
 }
+void parserValidateAssign(struct parserNode *a,struct parserNode *b) {
+		long _start,_end;
+		parserNodeStartEndPos(a->pos.start, a->pos.end, &_start, &_end);
+		
+		__auto_type aType=objectBaseType(assignTypeToOp(a));
+		__auto_type bType=objectBaseType(assignTypeToOp(b));
+		if(isArith(aType)^isArith(bType)) {
+		invalidAssign:
+				diagErrorStart(_start,_end);
+				diagPushText("Cannot assign type \"");
+				char *aNm=object2Str(aType);
+				diagPushText(aNm);free(aNm);
+
+				diagPushText("\" to type \"");
+				char *bNm=object2Str(aType);
+				diagPushText(bNm);free(bNm);
+				diagPushText("\".");
+
+				diagHighlight(_start, _end);
+				diagEndMsg();
+				return;
+		}
+		if(!isArith(aType)&&!isArith(bType))
+				if(aType!=bType) goto invalidAssign;
+		if(isPtr(aType)||isPtr(bType))
+				validatePtrPass(aType, b); 
+}
