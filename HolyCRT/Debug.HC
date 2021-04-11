@@ -534,7 +534,7 @@ static U0 DbgFileList(CFileDebugger *dbg,U8i *fn,I32i line,I32i atln=-1) {
 
 											U8i *bpptr=FileDebuggerGetBreakPtr(HCC_ThisFileDebugger,fn,curln);
 											if(bpptr) if(*bpptr) chrbp='B';
-											if(curln==atln-1) chratln='*';
+											if(curln==atln) chratln='*';
 
 											"%c%c%s%s\n",chratln,chrbp,linetext,lines[curln-line];
 											free(lines[curln-line]);

@@ -1496,7 +1496,8 @@ static struct object *parseVarDeclTail(llLexerItem start, llLexerItem *end, stru
 			arg.dftVal = argDecl->dftVal;
 			arg.name = argDecl->name;
 			arg.type = argDecl->type;
-
+			arg.var=NULL;
+			
 			args = strFuncArgAppendItem(args, arg);
 		}
 		retValType = objectFuncCreate(baseType, args,foundDotDotDot);
