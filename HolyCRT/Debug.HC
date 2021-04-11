@@ -561,8 +561,28 @@ static U8i *FileAndLine(U8i *str,I32i *ln,U8i *dftfn=NULL) {
 							throw(-1);
 }
 static U0 *DebugGetFramePtr(U8i *bp,I32i lvl,U8i **fn);
-static U0 DebugStackTrace(U8i *bp);
-
+static U0 DebugStackTrace(U8i *bp,U8i *currFn) {
+							"0:%s\n",currFn;
+							U0 *calledfrom=*((bp)(U8i*)+4)(U8i **);
+							I32i frame=1;
+							loop:
+							try {
+											I32i c=0;
+											for (;HCC_ThisFileDebugger->funcNmByPtr[c];c++) {
+															CFuncRange *r=HCC_ThisFileDebugger->funcNmByPtr[c];
+															if (r->start<=calledfrom<=r->end) {
+																		"%d:%s(bp:%p)\n",frame++,r->name,*(bp(U8i*))(U0**);
+																		break;
+															}
+											}
+											bp=*(bp(U8i*))(U0**);
+											calledfrom=*((bp(U8i*)+4)(U0**));
+							} catch {
+									goto exit;
+							}
+							goto loop;
+							exit:
+}
 static U8i HCC_DebugAtLineDisable=0;
 U8i DebugStep=0;
 static U8i DebugAutolist=0;
@@ -681,7 +701,7 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 									}
 									goto loop;
 							} else if(0==StrCmp(DebugLastCom,"bt")) {
-									DebugStackTrace(funcBp);
+									DebugStackTrace(funcBp,func);
 									goto loop;
 							} else if(0==StrCmp(DebugLastCom,"n")) {
 									DebugNextFunc=func;
@@ -828,27 +848,6 @@ static U0 *DebugGetFramePtr(U8i *bp,I32i lvl,U8i **fn) {
 													calledfrom=*((bp(U8i*)+4)(U0**));
 							}
 							return bp;
-}
-static U0 DebugStackTrace(U8i *bp) {
-							U0 *calledfrom=*((bp)(U8i*)+4)(U8i **);
-							I32i frame=0;
-							loop:
-							try {
-											I32i c=0;
-											for (;HCC_ThisFileDebugger->funcNmByPtr[c];c++) {
-															CFuncRange *r=HCC_ThisFileDebugger->funcNmByPtr[c];
-															if (r->start<=calledfrom<=r->end) {
-																		"%d:%s(bp:%p)\n",frame++,r->name,*(bp(U8i*))(U0**);
-																		break;
-															}
-											}
-											bp=*(bp(U8i*))(U0**);
-											calledfrom=*((bp(U8i*)+4)(U0**));
-							} catch {
-									goto exit;
-							}
-							goto loop;
-							exit:
 }
 U0 HCC_DebugAtLine(CFileDebugger **dbg,U8i *fn,U8i *func,I32i ln,I32i bpOff) {
 			if(HCC_DebugAtLineDisable) return;
