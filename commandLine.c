@@ -31,6 +31,7 @@ static struct commlFlag *getFlag(const char *text) {
 }
 static void helpCallback(int *argi,int argc,const char **argv) {
 		long count;
+		++*argi;
 		mapFlagsKeys(clFlagsLong, NULL, &count);
 		const char *keys[count];
 		mapFlagsKeys(clFlagsLong, keys, NULL);
