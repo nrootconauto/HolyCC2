@@ -43,3 +43,32 @@ cd build
 cmake ..
 sudo make install
 ```
+## Installing in a chroot on a 64bit system
+```
+mkdir chroot2
+sudo  debootstrap --arch amd64 buster chroot2 http://deb.debian.org/debian/
+echo "cp /etc/resolv.conf chroot2/etc/resolv.conf" >> holyChroot.sh
+echo "cp /etc/hosts chroot2/etc/hosts" >> holyChroot.sh
+echo "mount proc chroot2/proc -t proc" >> holyChroot.sh
+echo "mount sysfs chroot2/sys -t sysfs" >> holyChroot.sh
+echo "mount --rbind /dev chroot2/dev" >> holyChroot.sh
+echo "mount --rbind chroot2/ chroot2/" >> holyChroot.sh
+echo "mount --rbind /run chroot2/run/" >> holyChroot.sh
+echo "chroot chroot2 /bin/bash" >> holyChroot.sh 
+```
+
+Then within the chroot(`sudo sh ./holyChroot.sh`)
+```
+# Type `sudo sh ./holyChroot.sh` to enter the chroot,do this after install too
+# Do this within the chroot
+apt get install git cmake make  gcc yasm 
+cd
+git clone https://github.com/nrootconauto/HolyCC2
+mkdir build && cd build
+cmake ../HolyCC2/
+sudo make install
+dpkg --add-architecture i386
+apt install gcc-multilib
+nano HI.HC # "Put "Hello World\n"; " in here 
+hcc HI.HC
+```
