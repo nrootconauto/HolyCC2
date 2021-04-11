@@ -61,12 +61,12 @@ Then within the chroot(`sudo sh ./holyChroot.sh`)
 ```
 # Type `sudo sh ./holyChroot.sh` to enter the chroot,do this after install too
 # Do this within the chroot
-apt get install git cmake make  gcc yasm 
+apt install git cmake make  gcc yasm 
 cd
 git clone https://github.com/nrootconauto/HolyCC2
 mkdir build && cd build
 cmake ../HolyCC2/
-sudo make install
+make install
 dpkg --add-architecture i386
 apt install gcc-multilib
 nano HI.HC # "Put "Hello World\n"; " in here 
