@@ -574,7 +574,7 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 
 							U8i *currfuncbp=funcBp;
 							U8i *currfuncnam=func;
-							I32i currframei=1;
+							I32i currframei=0;
 							CFuncDebugger *tmpdbg;
 							currfuncbp=DebugGetFramePtr(funcBp,currframei,&currfuncnam);
 							if(currfuncnam==NULL) {currfuncnam=func;currfuncbp=funcBp;}
@@ -618,7 +618,16 @@ static U0 DbgEnter(U8i *func,U8i *funcBp,U8i *dftfn=NULL,I32i atln=0) {
 																																				Print("tautolist -- toggle auto-list.\n");
 																																				Print("lfdebuggers -- list the file debuggers.\n");
 																																				Print("fswitch -- switch the file debugger.\n");
+																																				Print("o -- step out of function.\n");
 																																				goto loop;
+							} else if(0==StrCmp(DebugLastCom,"o")) {
+							if (!DebugGetFramePtr(currfuncbp,1,NULL)) {
+												"Can't find frame pointer from here\n";
+									} else {
+											DebugNextFramePtr=DebugGetFramePtr(currfuncbp,1,NULL);
+											goto ret;
+									}
+									goto loop;
 							} else if(0==StrCmp(DebugLastCom,"lfdebuggers")) {
 									c=HashTableSize(HCC_FileDebuggers);
 									keys=HashTableKeys(HCC_FileDebuggers);
@@ -852,7 +861,7 @@ U0 HCC_DebugAtLine(CFileDebugger **dbg,U8i *fn,U8i *func,I32i ln,I32i bpOff) {
 			asm {
 							IMPORT parBP;
 							PUSH EDI
-							MOV EDI, EBP
+							MOV EDI, [EBP]
 							MOV I32i [parBP], EDI
 							POP EDI
 			};
@@ -860,7 +869,7 @@ U0 HCC_DebugAtLine(CFileDebugger **dbg,U8i *fn,U8i *func,I32i ln,I32i bpOff) {
 			HCC_DbgCurrentFunc=fn;
 
 			if(DebugNextFunc) if(0==StrCmp(DebugNextFunc,func)&&DebugNextFramePtr==parBP) {goto enter;}
-			if (DebugNextFramePtr<parBP&&DebugNextFramePtr) {
+			if ((DebugNextFramePtr<=parBP)&&DebugNextFramePtr) {
 						DebugNextFramePtr=parBP;
 						goto enter;
 			}

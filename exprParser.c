@@ -11,7 +11,16 @@ PTR_MAP_DEF(NodeType);
 PTR_MAP_FUNCS(struct parserNode *, struct object *, NodeType);
 static __thread ptrMapNodeType typeCache=NULL;
 void initExprParser() {
-		if(typeCache) ptrMapNodeTypeDestroy(typeCache, NULL);
+		if(typeCache) {
+				long count=ptrMapNodeTypeSize(typeCache);
+				struct parserNode *nodes[count];
+				ptrMapNodeTypeKeys(typeCache, nodes);
+				for(long c=0;c!=count;c++)
+						parserNodeDestroy(&nodes[c]);
+				ptrMapNodeTypeDestroy(typeCache, NULL);
+
+				typeCache=NULL;
+		}
 		typeCache=ptrMapNodeTypeCreate();
 }
 struct object *assignTypeToOp(struct parserNode *node);
@@ -704,10 +713,14 @@ fail:
 	return dftValType();
 }
 struct object *assignTypeToOp(struct parserNode *node) {
+		if(node==0x55555597b590l) {
+				printf("d");
+		}
 		__auto_type find=ptrMapNodeTypeGet(typeCache, node);
 		if(find)
 				return *find;
 		__auto_type type=__assignTypeToOp(node);
 		ptrMapNodeTypeAdd(typeCache,node,type);
+		node->refCount++;
 		return type;
 }
