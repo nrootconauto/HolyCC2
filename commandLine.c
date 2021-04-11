@@ -103,7 +103,7 @@ static strStrChar assembleSources(strConstChar sources) {
 		//Assemble the files 
 		for(long i=0;i!=strStrCharSize(toAssemble);i++) {
 				const char *assembler="yasm";
-				const char *commFmt="%s -g dwarf2 -f elf -o %s.o %s";
+				const char *commFmt="%s -g dwarf2 -f elf32 -o %s.o %s";
 				long len=snprintf(NULL,0, commFmt, assembler,toAssemble[i],toAssemble[i]);
 				char buffer[len+1];
 				sprintf(buffer, commFmt, assembler,toAssemble[i],toAssemble[i]);
