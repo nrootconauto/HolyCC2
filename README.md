@@ -1,6 +1,6 @@
 # HolyCC2
 ## Welcome
-This is a holyC compiler on a mission to keep the line-count down. Its goal is to compile TempleOS and its programs on linux ,**and** to also be an educational compiler designed to show how compilers are made. Now,
+This is a holyC compiler on a mission to keep the line-count down. Its goal is to compile TempleOS and its programs on linux ,**and** to also be an educational compiler designed to show how compilers are made. **This compiler caches,meaning it only recompiles the functions that change** Now,
 
 ## Usage
 ```
