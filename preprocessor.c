@@ -25,7 +25,7 @@ static __thread strFileMappings allFileMappings = NULL;
 __thread strFileMappings currentFileMappings;
 static __thread const char *currentFileName=NULL;
 static __thread const char *baseFileName=NULL;
-static __thread char  * currErrMsg=NULL;
+static __thread char  *currErrMsg=NULL;
 static __thread jmp_buf errLandingPad;
 static FILE *createPreprocessedFileLine(mapDefineMacro defines, struct __vec *text_, int *err);
 static void expandDefinesInRange(struct __vec **retVal, mapDefineMacro defines, long where, long end, int *expanded, int *err);
@@ -255,8 +255,13 @@ static int linkMacroLex(struct __vec **text_, FILE **prependLinesTo, mapDefineMa
 		struct __vec *text = *text_;
 		pos = skipWhitespace(text, pos) - (void *)text;
 		struct parsedString str;
+		long oldPos=pos;
 		stringParse(text, pos, &pos, &str, err);
-		if(err) if(*err) return 0;
+		if(oldPos==pos&&err) {*err=1;}
+		if(err) if(*err) {
+						currErrMsg="Expected link item in the form of a string\n";
+						longjmp(errLandingPad, 1);
+				}
 		
 		if(!strLinkFnsSortedFind(HCC_Link_To, (char*)str.text, linkFnCmp)) {
 				HCC_Link_To=strLinkFnsSortedInsert(HCC_Link_To, strcpy(calloc(strlen((char*)str.text)+1, 1), (char*)str.text), linkFnCmp);
