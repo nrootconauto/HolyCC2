@@ -128,7 +128,14 @@ static void cacheCheckForTypeChanges() {
 		long len=snprintf(NULL, 0,  "%s/%s.gVarTypes",cacheDirLocation,basefile);
 		char buffer[len+1];
 		snprintf(buffer, len+1,"%s/%s.gVarTypes",cacheDirLocation,basefile);
+	loop:;
 		FILE *f=fopen(buffer, "r");
+		if(!f) {
+				f=fopen(buffer, "w");
+				fwrite("", 0, 0, f);
+				fclose(f);
+				goto loop;
+		} 
 		
 		mapCharP curGVarsType=mapCharPCreate();
 		long count;
