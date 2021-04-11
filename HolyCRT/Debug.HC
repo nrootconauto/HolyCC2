@@ -222,6 +222,7 @@ static U8i *DebuggerPrintTypeFromJson(CFileDebugger *f,U0 *var,JsonNode *node) {
 							return DebuggerPrintVar(f,var,typename,ptrLevel);
 }
 U8i *DebuggerPrintVar(CFileDebugger *f,U0 *var,U8i *typeName=lastclass,I32i ptrLevel=0) {
+				U8i *errret=NULL;
 				U8i *retval=NULL;
 				if(ptrLevel) {
 																	if(ptrLevel==1&&(0==StrCmp(typeName,"U8i")||0==StrCmp(typeName,"U8"))) {
@@ -230,8 +231,9 @@ U8i *DebuggerPrintVar(CFileDebugger *f,U0 *var,U8i *typeName=lastclass,I32i ptrL
 																																	try {
 																																						strlen=StrLen(*strPtr); //Dummy run for segfualt check
 																																		} catch {
-																																				return MStrPrint("U8i*:UNACC");
+																																				errret=MStrPrint("U8i*:UNACC");
 																																		};
+																																		if(errret) return errret;
 																																		U8i *str=StrDupLen(*strPtr,strlen);
 																																		U8i *escaped=MStrPrint("\"%q\"",str);
 																																		free(str);
@@ -562,6 +564,7 @@ static U8i *FileAndLine(U8i *str,I32i *ln,U8i *dftfn=NULL) {
 }
 static U0 *DebugGetFramePtr(U8i *bp,I32i lvl,U8i **fn);
 static U0 DebugStackTrace(U8i *bp,U8i *currFn) {
+							I32 fin=0;
 							"0:%s\n",currFn;
 							U0 *calledfrom=*((bp)(U8i*)+4)(U8i **);
 							I32i frame=1;
@@ -578,8 +581,9 @@ static U0 DebugStackTrace(U8i *bp,U8i *currFn) {
 											bp=*(bp(U8i*))(U0**);
 											calledfrom=*((bp(U8i*)+4)(U0**));
 							} catch {
-									goto exit;
+									fin=1;
 							}
+							if(!fin)
 							goto loop;
 							exit:
 }

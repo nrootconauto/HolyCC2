@@ -713,9 +713,6 @@ fail:
 	return dftValType();
 }
 struct object *assignTypeToOp(struct parserNode *node) {
-		if(node==0x55555597b590l) {
-				printf("d");
-		}
 		__auto_type find=ptrMapNodeTypeGet(typeCache, node);
 		if(find)
 				return *find;

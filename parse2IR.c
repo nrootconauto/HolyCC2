@@ -1371,6 +1371,7 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 			// } else {
 			//     catch-body
 			// }
+			// HCRT_ExceptPop();
 			//
 			__auto_type run=IRCreateVirtVar(&typeI8i);
 			run->isNoreg=1;
@@ -1403,7 +1404,16 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 			__auto_type lab=IRCreateLabel();
 			graphNodeIRConnect(tryBody.exit, lab, IR_CONN_FLOW);
 			graphNodeIRConnect(catchBody.exit, lab, IR_CONN_FLOW);
-			retVal.exit=lab;
+
+			struct IRNodeX86Inst inst2;
+			inst2.base.attrs=NULL;
+			inst2.base.type=IR_X86_INST;
+			inst2.name=strClone("CALL");
+			inst2.args=strX86AddrModeAppendItem(NULL, X86AddrModeLabel("HCRT_ExceptPop"));
+			__auto_type instNode2=GRAPHN_ALLOCATE(inst2);
+			graphNodeIRConnect(lab, instNode2, IR_CONN_FLOW);
+			retVal.exit=instNode2;
+			
 			return retVal;
 	}
 	case NODE_FOR: {

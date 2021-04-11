@@ -36,7 +36,9 @@ static __thread mapParserNodes labelReferences = NULL;
 static __thread int isAsmMode = 0;
 static __thread int allowCallWithoutParen=1;
 static __thread mapParserSymbol asmImports = NULL;
-static __thread int allowsArrayLiterals = 0;
+static __thread int altlowsArrayLiterals = 0;
+static __thread int inCatchBlock=0;
+static __thread int allowsArrayLiterals=0;
 static __thread llLexerItem prevParserPos=NULL;
 static void addLabelRef(struct parserNode *node, const char *name) {
 loop:;
@@ -2606,12 +2608,19 @@ static void __parserMapLabels2Refs(int failOnNotFound) {
 		undefinedRef:
 			if (!failOnNotFound)
 				continue;
-			NODE_START_END_POS(refs[0],start,end);
+			NODE_START_END_POS(refs[g],start,end);
 			diagErrorStart(start, end);
 			diagPushText("Undefined reference to label ");
 			diagPushQoutedText(start, end);
+			diagHighlight(start,end);
 			diagPushText(".");
 			diagEndMsg();
+
+			if(inCatchBlock) {
+					diagNoteStart(start, end);
+					diagPushText("Only labels within catch block are valid to jump to.");
+					diagEndMsg();
+			}
 		}
 		if (lab) {
 			strParserNodeDestroy(&refs);
@@ -3117,6 +3126,19 @@ struct parserNode *parseReturn(llLexerItem start, llLexerItem *end) {
 			}
 		}
 
+		if(inCatchBlock) {
+				long _start,_end;
+				parserNodeStartEndPos(originalStart, start, &_start, &_end);
+				diagErrorStart(_start, _end);
+				diagPushText("Return statements are not allowed in catch blocks.");
+				diagHighlight(_start, _end);
+				diagEndMsg();
+
+				if (end)
+						*end = start;
+				return NULL;
+		}
+		
 		struct parserNodeReturn node;
 		node.base.refCount=1;
 		node.base.type = NODE_RETURN;
@@ -3424,6 +3446,7 @@ void parserNodeDestroy(struct parserNode **node) {
 	if(--node[0]->refCount>0)
 			return;
 	switch (node[0]->type) {
+	case NODE_ASM_INVALID_INST: break;
 	case NODE_LASTCLASS: break;
 	case NODE_PRINT: {
 			struct parserNodePrint *prn=(void*)node[0];
@@ -4441,7 +4464,19 @@ struct parserNode *parseTry(llLexerItem start, llLexerItem *end) {
 				whineExpected(start, "catch");
 		start=llLexerItemNext(start);
 
+		inCatchBlock++;
+		__auto_type shadow=labels; //Only labels within catch block are valid
+		__auto_type shadow2=labelReferences;
+		labels=mapParserNodeCreate();
+		labelReferences=mapParserNodesCreate();
 		struct parserNode *catchBlock=parseStatement(start, &start);
+		parserMapGotosToLabels();
+		inCatchBlock--;
+		mapParserNodeDestroy(labels, NULL);
+		mapParserNodeDestroy(labelReferences, NULL);
+		labels=shadow;
+		labelReferences=shadow2;
+
 		if(!catchBlock)
 				whineExpected(start, "body");
 		if(end)

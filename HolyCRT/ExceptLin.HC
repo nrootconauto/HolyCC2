@@ -10,7 +10,7 @@ import U0 *malloc(I32i len);
 import U0 *realloc(U0 *ptr,I32i len);
 import U0 free(U0 *ptr);
 
-static HCRT_Except *curExceptFrame;
+static HCRT_Except *curExceptFrame=0;
 static HCRT_Except tmpExcept;
 static HCRT_Except *HCRT_ExceptMAlloc();
 asm {
@@ -38,16 +38,13 @@ HCRT_ExceptStoreState::
 	CALL HCRT_ExceptMAlloc
 	RET
 };
-static HCRT_Except *HCRT_ExceptPop() {
+HCRT_Except *HCRT_ExceptPop() {
 							tmpExcept=*curExceptFrame;
 							HCRT_Except *old=curExceptFrame;
 							curExceptFrame=curExceptFrame->parent;
 							free(old);
 }
-
-
 U0 HCRT_ExceptRestoreState();
-U0 BAAAR() {};
 asm {
 HCRT_ExceptRestoreState::
 	IMPORT tmpExcept;
@@ -69,7 +66,12 @@ static HCRT_Except *HCRT_ExceptMAlloc() {
 								curExceptFrame=frame;
 								return frame;
 }
+extern U0 abort();
 U0 throw(I32i msg) {
+			if (curExceptFrame==0) {
+						"No exception frame to jump to,aborting\n";
+						abort();
+			}
 			curExceptFrame->msg=msg;
 			HCRT_ExceptRestoreState();
 }
