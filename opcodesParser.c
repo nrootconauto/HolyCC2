@@ -216,12 +216,12 @@ void parseOpcodeFile() {
 	    "RM32",   "RM64", "R8",     "R16",    "R32",     "R64",     "16", "32", "64", "IMM8", "IMM16", "IMM32", "IMM64", "UIMM8", "UIMM16", "UIMM32", "UIMM64",
 	    "OPCODE",
 	    "SREG", // Segment register
-	    ";",      ":",    "OPCODE", "MOFFS8", "MOFFS16", "MOFFS32", "CB", "CW", "CD", "REL8", "REL16", "REL32", "M8",    "M16",   "M32",    "M64",    "STI",
+	    ";",      ":",    "OPCODE", "MOFFS8", "MOFFS16", "MOFFS32", "CB", "CW", "CD", "REL8", "REL16", "REL32", "M8",    "M16",   "M32",    "M64",    "STI", "XMM"
 	};
 	qsort(keywords, sizeof(keywords) / sizeof(*keywords), sizeof(*keywords), strcmp2);
 
 	char *opcodesFile=HCRTFile("OpCodes.txt");
-	FILE *file = fopen(opcodesFile, "r");
+	FILE *file = fopen(o pcodesFile, "r");
 	free(opcodesFile);
 	fseek(file, 0, SEEK_END);
 	long end = ftell(file);
@@ -373,6 +373,7 @@ void parseOpcodeFile() {
 								ARG_BY_NAME(OPC_TEMPLATE_ARG_UINT16, "UIMM16")
 								ARG_BY_NAME(OPC_TEMPLATE_ARG_UINT32, "UIMM32")
 								ARG_BY_NAME(OPC_TEMPLATE_ARG_UINT64, "UIMM64")
+										ARG_BY_NAME(OPC_TEMPLATE_ARG_XMM, "XMM")
 								ARG_BY_NAME(OPC_TEMPLATE_ARG_M8, "M8")
 								ARG_BY_NAME(OPC_TEMPLATE_ARG_M16, "M16")
 								ARG_BY_NAME(OPC_TEMPLATE_ARG_M32, "M32")
