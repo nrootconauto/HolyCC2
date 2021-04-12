@@ -127,3 +127,4 @@ void initObjectRegistry();
 struct objectMember *objectMemberGet(struct object *aType,struct parserNodeName *nm);
 long objectArrayIsConstSz(struct object *type);
 void objectArrayDimValues(struct object *type,long *dimCount,long *values);
+#define OBJECT_ARRAY_DIM_UNDEF -1

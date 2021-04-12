@@ -221,7 +221,7 @@ void parseOpcodeFile() {
 	qsort(keywords, sizeof(keywords) / sizeof(*keywords), sizeof(*keywords), strcmp2);
 
 	char *opcodesFile=HCRTFile("OpCodes.txt");
-	FILE *file = fopen(o pcodesFile, "r");
+	FILE *file = fopen(opcodesFile, "r");
 	free(opcodesFile);
 	fseek(file, 0, SEEK_END);
 	long end = ftell(file);
@@ -538,20 +538,34 @@ int opcodeTemplateArgAcceptsAddrMode(const struct opcodeTemplateArg *arg, const 
 		} else
 			goto fail;
 	case OPC_TEMPLATE_ARG_MOFFS16:
-		if (mode->type == X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_MEM) {
-			int64_t value = mode->value.m.value.mem;
-			return INT16_MIN <= value && INT16_MAX >= value;
+			if (mode->type == X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_INDIR_SIB) {
+					if(mode->value.m.value.sib.base!=NULL||mode->value.m.value.sib.index!=NULL)
+							goto fail;
+					if(mode->value.m.value.sib.offset->type!=X86ADDRMODE_UINT&&mode->value.m.value.sib.offset->type!=X86ADDRMODE_SINT)
+							goto fail;
+					int64_t value = mode->value.m.value.sib.offset->value.sint;
+					return INT16_MIN <= value && INT16_MAX >= value;
 		} else
 			goto fail;
 	case OPC_TEMPLATE_ARG_MOFFS32:
-		if (mode->type == X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_MEM) {
-			int64_t value = mode->value.m.value.mem;
-			return INT32_MIN <= value && INT32_MAX >= value;
+		if (mode->type == X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_INDIR_SIB) {
+				if(mode->value.m.value.sib.base!=NULL||mode->value.m.value.sib.index!=NULL)
+						goto fail;
+				if(mode->value.m.value.sib.offset->type!=X86ADDRMODE_UINT&&mode->value.m.value.sib.offset->type!=X86ADDRMODE_SINT)
+						goto fail;
+				
+				int64_t value = mode->value.m.value.sib.offset->value.sint;
+				return INT32_MIN <= value && INT32_MAX >= value;
 		} else
 			goto fail;
 	case OPC_TEMPLATE_ARG_MOFFS8:
-		if (mode->type == X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_MEM) {
-			int64_t value = mode->value.m.value.mem;
+		if (mode->type == X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_INDIR_SIB) {
+				if(mode->value.m.value.sib.base!=NULL||mode->value.m.value.sib.index!=NULL)
+						goto fail;
+				if(mode->value.m.value.sib.offset->type!=X86ADDRMODE_UINT&&mode->value.m.value.sib.offset->type!=X86ADDRMODE_SINT)
+						goto fail;
+				
+				int64_t value = mode->value.m.value.sib.offset->value.sint;
 			return INT8_MIN <= value && INT8_MAX >= value;
 		} else
 			goto fail;

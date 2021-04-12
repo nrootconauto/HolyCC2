@@ -6,6 +6,7 @@
 #include "cleanup.h"
 #include <assert.h>
 #include "hcrtLocation.h"
+#include "registers.h"
 void init();
 //
 // argi,moves the argument index to adavance the consumed arguments
@@ -114,6 +115,7 @@ static strStrChar assembleSources(strConstChar sources) {
 } 
 void parseCommandLineArgs(int argc,const char **argv) {
 		init();
+		setArch(ARCH_X86_SYSV);
 		clFlagsLong=mapFlagsCreate();
 		clFlagsShort=mapFlagsCreate();
 		struct commlFlag help={

@@ -7,14 +7,10 @@
 struct X86AddressingMode;
 struct X86MemoryLoc {
 	enum {
-		x86ADDR_MEM,
-		x86ADDR_INDIR_REG, // Indirect register aka [REG]
 		x86ADDR_INDIR_SIB, // Indirect scale-index-base aka [SCALE*REG+off/REG]
 		x86ADDR_INDIR_LABEL,
 	} type;
 	union {
-		uint64_t mem;
-		struct reg *indirReg;
 		struct {
 				struct X86AddressingMode *index;
 				struct X86AddressingMode *base;

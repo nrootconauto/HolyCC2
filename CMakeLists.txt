@@ -57,6 +57,7 @@ list(APPEND sources "rope.c")
 list(APPEND sources "filePath.c")
 list(APPEND sources "dumpDebugInfo.c")
 list(APPEND sources "hcrtLocation.h")
+list(APPEND sources "abiSysVx64.c")
 
 set(tests "")
 list(APPEND tests "tests/compileTests.c")

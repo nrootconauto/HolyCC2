@@ -595,22 +595,6 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 			char *buffer CLEANUP(free2)= fromFmt( " %s [%s] ", sizeStr, labelStr);
 			return strClone(buffer);
 		}
-		case x86ADDR_INDIR_REG: {
-			__auto_type reg = ptrMapRegNameGet(regNames, args[i]->value.m.value.indirReg);
-			if (args[i]->valueType) {
-				strChar sizeStr CLEANUP(strCharDestroy) = getSizeStr(args[i]->valueType);
-				if (!sizeStr) {
-					fprintf(stderr, "That's one gaint register(%s)\n", *reg);
-					assert(0);
-				}
-				char *buffer CLEANUP(free2)=fromFmt(" %s [%s] ", sizeStr, *reg);
-				return strClone(buffer);
-			} else {
-					char * buffer CLEANUP(free2) = fromFmt("[%s] ", *reg);
-				return strClone(buffer);
-			}
-			break;
-		}
 		case x86ADDR_INDIR_SIB: {
 			strChar retVal CLEANUP(strCharDestroy) = NULL;
 
@@ -669,23 +653,6 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 			} else {
 					char *buffer CLEANUP(free2)=fromFmt( "[%s] ", retVal);
 					return strClone(buffer);
-			}
-			break;
-		}
-		case x86ADDR_MEM: {
-			if (args[i]->valueType) {
-				strChar addrStr CLEANUP(strCharDestroy) = uint64ToStr(args[i]->value.m.value.mem);
-				strChar sizeStr CLEANUP(strCharDestroy) = getSizeStr(args[i]->valueType);
-				if (!sizeStr) {
-					fprintf(stderr, "The size being addressed is weirder than a black rain frog.\n");
-					assert(0);
-				}
-				char *buffer CLEANUP(free2)=fromFmt("%s [%s] ", sizeStr, addrStr);
-				return strClone(buffer);
-			} else {
-				strChar addrStr CLEANUP(strCharDestroy) = uint64ToStr(args[i]->value.m.value.mem);
-				char *buffer CLEANUP(free2)=fromFmt( "[%s] ", addrStr);
-				return strClone(buffer);
 			}
 			break;
 		}

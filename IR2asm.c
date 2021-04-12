@@ -518,9 +518,7 @@ static strRegP regsFromMode(struct X86AddressingMode *mode) {
 	if (mode->type == X86ADDRMODE_REG) {
 		return strRegPAppendItem(NULL, mode->value.reg);
 	} else if (mode->type == X86ADDRMODE_MEM) {
-		if (mode->value.m.type == x86ADDR_INDIR_REG) {
-			return strRegPAppendItem(NULL, mode->value.m.value.indirReg);
-		} else if (mode->value.m.type == x86ADDR_INDIR_SIB) {
+		if (mode->value.m.type == x86ADDR_INDIR_SIB) {
 			strRegP retVal = NULL;
 			if (mode->value.m.value.sib.base)
 				retVal = regsFromMode(mode->value.m.value.sib.base);
@@ -538,9 +536,7 @@ static void consumeRegFromMode(struct X86AddressingMode *mode) {
 	if (mode->type == X86ADDRMODE_REG) {
 		consumeRegister(mode->value.reg);
 	} else if (mode->type == X86ADDRMODE_MEM) {
-		if (mode->value.m.type == x86ADDR_INDIR_REG)
-			consumeRegister(mode->value.m.value.indirReg);
-		else if (mode->value.m.type == x86ADDR_INDIR_SIB) {
+		if (mode->value.m.type == x86ADDR_INDIR_SIB) {
 			if (mode->value.m.value.sib.base)
 				consumeRegFromMode(mode->value.m.value.sib.base);
 			if (mode->value.m.value.sib.index)
@@ -557,9 +553,7 @@ static void unconsumeRegFromMode(struct X86AddressingMode *mode) {
 	if (mode->type == X86ADDRMODE_REG)
 		unconsumeRegister(mode->value.reg);
 	else if (mode->type == X86ADDRMODE_MEM) {
-		if (mode->value.m.type == x86ADDR_INDIR_REG)
-			consumeRegister(mode->value.m.value.indirReg);
-		else if (mode->value.m.type == x86ADDR_INDIR_SIB) {
+		 if (mode->value.m.type == x86ADDR_INDIR_SIB) {
 			if (mode->value.m.value.sib.base)
 				unconsumeRegFromMode(mode->value.m.value.sib.base);
 			if (mode->value.m.value.sib.index)
@@ -1136,12 +1130,8 @@ static struct X86AddressingMode *__mem2SIB(struct X86AddressingMode *a) {
 		if(a->type==X86ADDRMODE_MEM) {
 				if(a->value.m.type==x86ADDR_INDIR_LABEL)
 						aSIB=X86AddrModeIndirSIB(0, NULL, X86AddrModeClone(a->value.m.value.label), NULL, a->valueType);
-				else if(a->value.m.type==x86ADDR_INDIR_REG)
-						aSIB=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(a->value.m.value.indirReg,getTypeForSize(ptrSize())), NULL, a->valueType);
 				else if(a->value.m.type==x86ADDR_INDIR_SIB)
 						aSIB=X86AddrModeClone(a);
-				else if(a->value.m.type==x86ADDR_MEM)
-						aSIB=X86AddrModeIndirSIB(0, NULL, X86AddrModeUint(a->value.m.value.mem), 0, a->valueType);
 				aSIB->value.m.segment=a->value.m.segment;
 				return aSIB;
 		} else if(a->type==X86ADDRMODE_REG) {
