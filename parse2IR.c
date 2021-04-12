@@ -91,6 +91,7 @@ static __thread int funcDepth=0;
 static __thread struct IRGenInst *currentGen = NULL;
 static __thread strGraphNodeIRP currentStatement = NULL;
 static __thread ptrMapGNIRByParserNode labelsByPN = NULL;
+static __thread struct parserFunction *currentFunction=NULL;
 __thread strFileMappings currFileMappings;
 void IRGenInit(strFileMappings mappings) {
 	if (currentGen != NULL)
@@ -1273,6 +1274,12 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 			value = pair.exit;
 		}
 
+		struct objectFunction *fType=(void*)currentFunction->type;
+		if(pair.exit) {
+				__auto_type fromType=assignTypeToOp(retNode->value);
+				if(!objectEqual(fType->retType,fromType))
+						value=pair.exit=IRCreateTypecast(pair.exit,fromType,fType->retType);
+		}
 		pair.exit = IRCreateReturn(value, NULL); // TODO
 		if (!pair.enter)
 			pair.enter = pair.exit;
@@ -1329,11 +1336,14 @@ static struct enterExit __parserNode2IRNoStmt(const struct parserNode *node) {
 				graphNodeIRConnect(currentNode, argvNode, IR_CONN_FLOW);
 				currentNode=argvVar;
 		}
-
+		
+		__auto_type oldCurrFunc=currentFunction;
+		currentFunction=def->func;
 		// Compute body
 		__auto_type body = __parserNode2IRStmt(def->bodyScope);
 		graphNodeIRConnect(currentNode, body.enter, IR_CONN_FLOW);
 		//
+		currentFunction=oldCurrFunc;
 
 		struct IRNodeFuncEnd end;
 		end.base.attrs = NULL;
