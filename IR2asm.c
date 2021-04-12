@@ -619,7 +619,7 @@ strRegP deadRegsAtPoint(graphNodeIR atNode,struct object *type) {
 		regs=strRegPRemoveIf(regs, NULL, ifInLive);
 		return regs;
 }
-static void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode args) {
+ void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode args) {
 		long originalSize=strRegPSize(consumedRegisters);
 		strX86AddrMode toPushPop CLEANUP(strX86AddrModeDestroy2)=NULL;
 		strOpcodeTemplate opsByName CLEANUP(strOpcodeTemplateDestroy) = X86OpcodesByName(name);

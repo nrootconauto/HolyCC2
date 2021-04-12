@@ -5,6 +5,34 @@
 #include "cleanup.h"
 #include <assert.h>
 #include "IR2asm.h"
+static __thread struct parserVar *retVar=NULL;
+static int isIntType(struct object *obj) {
+	const struct object *intTypes[] = {
+	    &typeI8i, &typeI16i, &typeI32i, &typeI64i, &typeU8i, &typeU16i, &typeU32i, &typeU64i,
+	};
+	for (long i = 0; i != sizeof(intTypes) / sizeof(*intTypes); i++)
+		if (objectBaseType(obj) == intTypes[i])
+			return 1;
+	if(obj->type==TYPE_PTR||obj->type==TYPE_ARRAY) return 1;
+	return 0;
+}
+static struct object *promote(struct object *currType) {
+		if(isIntType(currType)) {
+				if(&typeU64i==currType) return &typeU64i;
+				else return &typeI64i;
+		} else {
+				return currType;
+		}
+}
+static void addOffsetIfIndir(struct X86AddressingMode *mode,long offset) {
+		if(mode->type==X86ADDRMODE_MEM) {
+				mode->value.m.value.sib.offset+=offset;
+		} else if(mode->type==X86ADDRMODE_ITEM_ADDR) {
+				mode->value.itemAddr.offset+=offset;
+		} else if(mode->type==X86ADDRMODE_VAR_VALUE) {
+				mode->value.varAddr.offset+=offset;
+		}
+}
 static strGraphNodeIRP getFuncArgs(graphNodeIR call) {
 	strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy) = IREdgesByPrec(call);
 	strGraphNodeIRP args = NULL;
@@ -229,31 +257,80 @@ static struct object *largestDataSizeInWidth(long width) {
 		if(width>=2) return &typeU16i;
 		return &typeU8i;
 }
-static void addOffsetIfIndir(struct X86AddressingMode *mode,long offset) {
-		if(mode->type==X86ADDRMODE_MEM) {
-				mode->value.m.value.sib.offset+=offset;
-		} else if(mode->type==X86ADDRMODE_ITEM_ADDR) {
-				mode->value.itemAddr.offset+=offset;
-		} else if(mode->type==X86ADDRMODE_VAR_VALUE) {
-				mode->value.varAddr.offset+=offset;
+static void strX86AddrModeDestroy2(strX86AddrMode *str) {
+		for (long i = 0; i != strX86AddrModeSize(*str); i++)
+				X86AddrModeDestroy(&str[0][i]);
+		strX86AddrModeDestroy(str);
+}
+void IR_ABI_SYS_X64_Return(graphNodeIR _ret) {
+		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=IREdgesByPrec(_ret);
+		if(!strGraphEdgeIRPSize(in)) {
+		leave:
+				assembleOpcode(_ret, "LEAVE", NULL);
+				assembleOpcode(_ret, "RET", NULL);
+				return;
+		}
+		struct reg *intRegs[]={
+				&regAMD64RAX,
+				&regAMD64RDX,
+		};
+		struct reg *sseRegs[]={
+				&regX86XMM0,
+				&regX86XMM1,
+		};
+		struct X86AddressingMode *retMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(graphEdgeIRIncoming(in[0]));
+		__auto_type retType=IRNodeType(graphEdgeIRIncoming(in[0]));
+		strObject _retType CLEANUP(strObjectDestroy)=strObjectAppendItem(NULL , retType);
+		strAbiType fields CLEANUP(strAbiTypeDestroy)=consider2Agg(_retType);
+		strLong _8byteFields CLEANUP(strLongDestroy)=NULL; 
+		get8byteFields(0, _retType, &_8byteFields, NULL);
+		
+		int consumedInts=0,consumedSses=0;
+		for(long c=0;c!=strLongSize(_8byteFields);) {
+				enum ABI_Type type=fields[c];
+				if(type==ABI_INTEGER) consumedInts++;
+				else if(type==ABI_SSE) consumedSses++;
+				else if(type==ABI_NO_CLASS) abort();
+				else if(type==ABI_MEMORY) goto retMemory;
+				
+				//Seek next field
+				long first=_8byteFields[c];
+				for(;c!=strLongSize(_8byteFields);c++)
+						if(_8byteFields[c]!=first) break;
+		}
+		if(consumedInts>2||consumedSses>2) goto retMemory;
+		{
+				for(long c=0;c!=strLongSize(_8byteFields);)  {
+						enum ABI_Type type=fields[c];
+						if(type==ABI_INTEGER) {
+								struct X86AddressingMode *r CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(intRegs[consumedInts++], &typeU64i);
+								retMode->valueType=&typeU64i;
+								asmTypecastAssign(_ret,  r, retMode, ASM_ASSIGN_X87FPU_POP);
+								addOffsetIfIndir(retMode, 8);
+						} else if(type==ABI_SSE) {
+								struct X86AddressingMode *r CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(sseRegs[consumedSses++], &typeF64);
+								asmTypecastAssign(_ret,  r, retMode, ASM_ASSIGN_X87FPU_POP);
+								addOffsetIfIndir(retMode, 8);
+						}
+						
+						//Seek next field
+						long first=_8byteFields[c];
+						for(;c!=strLongSize(_8byteFields);c++)
+								if(_8byteFields[c]!=first) break;
+				}
+		}
+		goto leave;
+	retMemory: {
+				assert(retVar);
+				struct X86AddressingMode *raxMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regAMD64RAX, objectPtrCreate(&typeU0));
+				struct X86AddressingMode *retVarMode CLEANUP(X86AddrModeDestroy)=X86AddrModeVar(retVar, 0);
+				asmTypecastAssign(_ret, raxMode, retVarMode, ASM_ASSIGN_X87FPU_POP);
+				struct X86AddressingMode *indirMode CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirReg(&regAMD64RAX, retType);
+				asmTypecastAssign(_ret, indirMode, retMode, ASM_ASSIGN_X87FPU_POP);
+
+				goto leave;
 		}
 }
-static void strX86AddrModeDestroy2(strX86AddrMode *str) {
-	for (long i = 0; i != strX86AddrModeSize(*str); i++)
-		X86AddrModeDestroy(&str[0][i]);
-	strX86AddrModeDestroy(str);
-}
-static int isIntType(struct object *obj) {
-	const struct object *intTypes[] = {
-	    &typeI8i, &typeI16i, &typeI32i, &typeI64i, &typeU8i, &typeU16i, &typeU32i, &typeU64i,
-	};
-	for (long i = 0; i != sizeof(intTypes) / sizeof(*intTypes); i++)
-		if (objectBaseType(obj) == intTypes[i])
-			return 1;
-	if(obj->type==TYPE_PTR||obj->type==TYPE_ARRAY) return 1;
-	return 0;
-}
-
 void IR_ABI_SYSV_X64_Call(graphNodeIR _call) {
 		struct IRNodeFuncCall *call=(void*)graphNodeIRValuePtr(_call);
 		assert(call->base.type==IR_FUNC_CALL);
@@ -305,12 +382,7 @@ void IR_ABI_SYSV_X64_Call(graphNodeIR _call) {
 				if(a<strFuncArgSize(fType->args)) {
 						argType=fType->args[a].type;
 				} else  {
-						if(isIntType(currType)) {
-								if(&typeU64i==currType) argType=&typeU64i;
-								else currType=&typeI64i;
-						} else {
-								argType=currType;
-						}
+						argType=promote(currType);
 				}
 				strObject types CLEANUP(strObjectDestroy)=strObjectAppendItem(NULL,argType);
 				strAbiType classes CLEANUP(strAbiTypeDestroy)=consider2Agg(types);
@@ -338,13 +410,13 @@ void IR_ABI_SYSV_X64_Call(graphNodeIR _call) {
 								//Stuff that stuff into a register
 								__auto_type r=subRegOfType(intRegs[stuffedInts++],largestDataSizeInWidth(currTypeSize-offset));
 								struct X86AddressingMode *rMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(r,largestDataSizeInWidth(currTypeSize-offset));
-								addOffsetIfIndir(aMode,8);
 								asmTypecastAssign(_call,rMode,aMode, ASM_ASSIGN_X87FPU_POP);
+								addOffsetIfIndir(aMode,8);
 						} else if(classes[c]==ABI_SSE) {
 								__auto_type r=subRegOfType(sseRegs[stuffedSses++],&typeF64);
 								struct X86AddressingMode *rMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(r,&typeF64);
-								addOffsetIfIndir(aMode,8);
 								asmTypecastAssign(_call,rMode,aMode, ASM_ASSIGN_X87FPU_POP);
+								addOffsetIfIndir(aMode,8);
 						} else if(classes[c]==ABI_MEMORY) {
 								abort();
 						} else if(classes[c]==ABI_NO_CLASS)
