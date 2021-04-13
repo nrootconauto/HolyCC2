@@ -52,29 +52,6 @@ static int ptrPtrCmp(const void *a, const void *b) {
 }
 typedef int (*regCmpType)(const struct reg **, const struct reg **);
 typedef int (*varCmpType)(const struct parserVar **, const struct parserVar **);
-static int containsRegister(struct reg *par, struct reg *r) {
-		if(par==r)
-				return 1;
-	for (long a = 0; a != strRegSliceSize(par->affects); a++) {
-		if (par->affects[a].reg == r)
-			return 1;
-	}
-	return 0;
-}
-static struct reg *__registerContainingBoth(struct reg *master, struct reg *a, struct reg *b) {
-		assert(a->masterReg == b->masterReg);
-	for (long c = 0; c != strRegSliceSize(master->affects); c++) {
-		if (containsRegister(master->affects[c].reg, a) && containsRegister(master->affects[c].reg, b))
-			return __registerContainingBoth(master->affects[c].reg, a, b);
-	}
-	return master;
-}
-/**
- * Finds (smallest) register containing both registers
- */
-static struct reg *smallestRegContainingBoth(struct reg *a, struct reg *b) {
-	return __registerContainingBoth(a->masterReg, a, b);
-}
 static int killEdgeIfEq(void *a, void *b) {
 		return *(enum IRConnType*)a == *(enum IRConnType*)b;
 }
@@ -110,31 +87,6 @@ static char *strDup(const char *txt) {
 }
 #define ARRAY_SIZE(array) (sizeof(array) / sizeof(*array))
 PTR_MAP_FUNCS(struct parserVar *, struct reg *, Var2Reg);
-static strRegP mergeConflictingRegs(strRegP conflicts) {
-	//
-	// If 2 items in conflicts have a common master register "merge" the registers and replace with the common register
-	// 2 birds 1 stone.
-	//
-mergeLoop:
-	for (long c1 = 0; c1 != strRegPSize(conflicts); c1++) {
-		for (long c2 = 0; c2 != strRegPSize(conflicts); c2++) {
-			if (conflicts[c1] == conflicts[c2])
-				continue;
-			if (conflicts[c1]->masterReg != conflicts[c2]->masterReg)
-				continue;
-			__auto_type common = smallestRegContainingBoth(conflicts[c1], conflicts[c2]);
-			// Do a set differnece,then insert the common register
-			strRegP dummy CLEANUP(strRegPDestroy) = NULL;
-			dummy = strRegPSortedInsert(dummy, conflicts[c1], (regCmpType)ptrPtrCmp);
-			dummy = strRegPSortedInsert(dummy, conflicts[c2], (regCmpType)ptrPtrCmp);
-			conflicts = strRegPSetDifference(conflicts, dummy, (regCmpType)ptrPtrCmp);
-			conflicts = strRegPSortedInsert(conflicts, common, (regCmpType)ptrPtrCmp);
-			goto mergeLoop;
-		}
-	}
-
-	return conflicts;
-}
 PTR_MAP_FUNCS(struct reg *, struct parserVar *, Reg2Var);
 void findRegisterLiveness(graphNodeIR start) {
 	strGraphNodeIRP allNodes CLEANUP(strGraphNodeIRPDestroy) = graphNodeIRAllNodes(start);

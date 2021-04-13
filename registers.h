@@ -155,3 +155,4 @@ long dataSize();
 struct object *dftValType();
 struct X86AddressingMode;
 struct X86AddressingMode *getAccumulatorForType(struct object *type);
+strRegP mergeConflictingRegs(strRegP conflicts);
