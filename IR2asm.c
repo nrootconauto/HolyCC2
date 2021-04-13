@@ -153,8 +153,15 @@ void pushMode(struct X86AddressingMode *mode) {
 							asmAssign(NULL,stackTop, aMode, 8, ASM_ASSIGN_X87FPU_POP);
 							return;
 					}
-					case ARCH_X64_SYSV:
+					case ARCH_X64_SYSV: {
+							strX86AddrMode subArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+							subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())));
+							subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeSint(8));
+							assembleInst("SUB", subArgs);
+							struct X86AddressingMode *stackTop CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirReg(stackPointer(),&typeF64);
+							asmAssign(NULL,stackTop, mode, 8, ASM_ASSIGN_X87FPU_POP);
 							return;
+					}
 					}
 			}
 			strX86AddrMode pushArgs CLEANUP(strX86AddrModeDestroy) = strX86AddrModeAppendItem(NULL, mode);
@@ -364,9 +371,6 @@ loop:;
 }
 static void debugShowGraphIR(graphNodeIR enter);
 static struct X86AddressingMode *__node2AddrMode(graphNodeIR start) {
-		if(start==0x555555b25920l) {
-				printf("gEEW\n");
-		}
 	if (graphNodeIRValuePtr(start)->type == IR_VALUE) {
 		struct IRNodeValue *value = (void *)graphNodeIRValuePtr(start);
 		switch (value->val.type) {
@@ -1209,7 +1213,7 @@ void asmAssign(graphNodeIR atNode,struct X86AddressingMode *a, struct X86Address
 		}
 	}
 	if (b->type == X86ADDRMODE_REG) {
-			if (isX87FltReg(b->value.reg)){
+			if (isX87FltReg(b->value.reg)) {
 					if(a->type==X86ADDRMODE_REG) {
 							if(isX87FltReg(a->value.reg)) {
 									assert(0);
@@ -1267,9 +1271,26 @@ void asmAssign(graphNodeIR atNode,struct X86AddressingMode *a, struct X86Address
 							abort();
 					}
 					return;
+			} else if(isFltType(b->valueType)&&getCurrentArch()==ARCH_X64_SYSV) {
+					if(isIntType(a->valueType)||isPtrType(a->valueType)) {
+					x64FltToIntAssign:;
+							//Only 32/64 allowed
+							long aSize=objectSize(a->valueType, NULL);
+							if(aSize==4||aSize==8) {
+									strX86AddrMode cvtArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+									cvtArgs=strX86AddrModeAppendItem(cvtArgs, X86AddrModeClone(a));
+									cvtArgs=strX86AddrModeAppendItem(cvtArgs, X86AddrModeClone(b));
+									assembleOpcode(atNode, "CVTSD2SI",  cvtArgs);
+							} else {
+									struct X86AddressingMode *raxMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regAMD64RAX, &typeI64i);
+									asmAssign(atNode, raxMode, b, 8, ASM_ASSIGN_X87FPU_POP);
+									asmTypecastAssign(atNode, a, raxMode, ASM_ASSIGN_X87FPU_POP);
+							}
+					}
 			}
 	} else if(b->valueType) {
 			if(isFltType(b->valueType)) {
+					if(getCurrentArch()==ARCH_X64_SYSV) goto x64FltToIntAssign;
 					struct X86AddressingMode *st0Mode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86ST0,&typeF64);
 					asmAssign(atNode,st0Mode, b, 8, flags);
 					asmAssign(atNode,a, st0Mode, size, 0);
@@ -1285,6 +1306,11 @@ void asmAssign(graphNodeIR atNode,struct X86AddressingMode *a, struct X86Address
 
 	if(a->valueType&&b->valueType)
 	if(isFltType(a->valueType)&&isFltType(b->valueType)) {
+			if(getCurrentArch()==ARCH_X64_SYSV) {
+					strX86AddrMode
+					assembleOpcode(atNode, "MOVSD2", strX86AddrMode args);
+					return;
+			}
 			struct X86AddressingMode *st0Mode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86ST0,&typeF64);
 			asmAssign(atNode,st0Mode, b, 8, flags);
 			asmAssign(atNode,a, st0Mode, 8, ASM_ASSIGN_X87FPU_POP);
