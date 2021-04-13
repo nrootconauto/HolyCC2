@@ -429,7 +429,16 @@ strRegP regGetForType(struct object *type) {
 	strRegP retVal = NULL;
 	strRegP avail CLEANUP(strRegPDestroy) = NULL;
 	switch (currentArch) {
-	case ARCH_X64_SYSV:
+	case ARCH_X64_SYSV: {
+		avail = regsForArch();
+		// Reserved registers
+		const struct reg *res[] = {&regX86XMM0,&regX86RSP,&regX86RBP,&regX86ESP, &regX86EBP, &regX86SP, &regX86BP, &regX86SPL, &regX86BPL,
+				&regX86SS,  &regX86CS,  &regX86DS, &regX86ES, &regX86FS,  &regX86GS,&regX86RAX,&regX86EAX,&regX86AX,&regX86AH,&regX86AL};
+		long len = sizeof(res) / sizeof(*res);
+		qsort(res, len, sizeof(*res), ptrPtrCmp);
+		strRegP reserved CLEANUP(strRegPDestroy) = strRegPAppendData(NULL, res, len);
+		avail = strRegPSetDifference(avail, reserved, (regPCmpType)ptrPtrCmp);
+	}
 	case ARCH_TEST_SYSV:
 	case ARCH_X86_SYSV: {
 		avail = regsForArch();
@@ -450,7 +459,7 @@ search:
 				retVal = strRegPSortedInsert(retVal, avail[i], (regPCmpType)ptrPtrCmp);
 			}
 			if (currentArch == ARCH_X64_SYSV) {
-				// Exclude x87FPU registets
+				// Exclude x87FPU registers
 				struct reg *fpu[] = {
 				    &regX86ST0, &regX86ST1, &regX86ST2, &regX86ST3, &regX86ST4, &regX86ST5, &regX86ST6, &regX86ST7,
 				};
@@ -567,6 +576,9 @@ struct object *dftValType() {
 	assert(0);
 }
 struct X86AddressingMode *getAccumulatorForType(struct object *type) {
+    if(getCurrentArch()==ARCH_X64_SYSV&&objectBaseType(type)==&typeF64) {
+      return &regX86XMM0;
+    }
 		__auto_type sub=subRegOfType(&regAMD64RAX, type);
 		if(!sub) return NULL;
 		return X86AddrModeReg(sub, type);
