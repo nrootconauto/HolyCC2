@@ -105,11 +105,22 @@ static strStrChar assembleSources(strConstChar sources) {
 		}
 		//Assemble the files 
 		for(long i=0;i!=strStrCharSize(toAssemble);i++) {
+				const char *objForm=NULL;
+				switch(getCurrentArch()) {
+				case ARCH_TEST_SYSV:
+				case ARCH_X86_SYSV:
+						objForm="elf32";
+						break;
+				case ARCH_X64_SYSV:
+						objForm="elf64";
+						break;
+				}
+				
 				const char *assembler="yasm";
-				const char *commFmt="%s -g dwarf2 -f elf32 -o %s.o %s";
-				long len=snprintf(NULL,0, commFmt, assembler,toAssemble[i],toAssemble[i]);
+				const char *commFmt="%s -g dwarf2 -f %s -o %s.o %s";
+				long len=snprintf(NULL,0, commFmt, assembler,objForm,toAssemble[i],toAssemble[i]);
 				char buffer[len+1];
-				sprintf(buffer, commFmt, assembler,toAssemble[i],toAssemble[i]);
+				sprintf(buffer, commFmt, assembler,objForm,toAssemble[i],toAssemble[i]);
 				system(buffer);
 		}
 		return toAssemble;
@@ -186,15 +197,33 @@ void parseCommandLineArgs(int argc,const char **argv) {
 				}
 				sources=strConstCharAppendData(sources, toCompile, strConstCharSize(toCompile));
 				strStrChar toAssemble CLEANUP(strStrCharDestroy2)=assembleSources(sources);
-				const char *commHeader="gcc -m32 -lm -o ";
+
+				const char *archStr=NULL;
+				switch(getCurrentArch()) {
+				case ARCH_TEST_SYSV:
+				case ARCH_X86_SYSV:
+						archStr="-m32";
+						break;
+				case ARCH_X64_SYSV:
+						archStr="-m64";
+						break;
+				}
+
+				const char *commHeader="gcc " ;
 				strChar linkCommand CLEANUP(strCharDestroy)=strCharAppendData(NULL,commHeader,strlen(commHeader));
+				linkCommand=strCharAppendData(linkCommand, archStr, strlen(archStr));
+				const char *commheader2=" -lm -o ";
+				linkCommand=strCharAppendData(linkCommand, commheader2, strlen(commheader2));
 				if(!outputFile)
 						outputFile="a.out";
 				linkCommand=strCharAppendData(linkCommand, outputFile,strlen(outputFile));
 
-				//Link in hcrt
-				linkCommand=strCharAppendItem(linkCommand, ' ');
-				linkCommand=strCharAppendData(linkCommand, toLink[0], strlen(toLink[0]));
+				
+				//Link in hcrt and other goodies
+				for(long l=0;l!=strStrCharSize(toLink);l++) {
+						linkCommand=strCharAppendItem(linkCommand, ' ');
+						linkCommand=strCharAppendData(linkCommand, toLink[l], strlen(toLink[l]));
+				}
 				
 				for(long i=0;i!=strStrCharSize(toAssemble);i++) {
 						linkCommand=strCharAppendItem(linkCommand, ' ');

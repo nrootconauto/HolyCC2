@@ -445,7 +445,7 @@ static struct X86AddressingMode *__node2AddrMode(graphNodeIR start) {
 	} else {
 			debugShowGraphIR(start);
 		fprintf(stderr, "Accessing member requires pointer source.\n");
-		abort();
+		assert(0);
 	}
 	assert(0);
 	return X86AddrModeSint(-1);
@@ -912,7 +912,7 @@ strRegP deadRegsAtPoint(graphNodeIR atNode,struct object *type) {
 								}
 								break;
 								default:
-												abort();
+												assert(0);
 								}
 						}
 						break;
@@ -1147,7 +1147,7 @@ static struct X86AddressingMode *__mem2SIB(struct X86AddressingMode *a) {
 				return aSIB;
 		} else {
 				fputs("Large assign must point to memory.", stderr);
-				abort();
+				assert(0);
 		}
 		return NULL;
 }
@@ -1160,7 +1160,7 @@ void asmAssign(graphNodeIR atNode,struct X86AddressingMode *a, struct X86Address
 				case X86ADDRMODE_FLT:
 				case X86ADDRMODE_STR: {
 						fputs("Can't assign this into floating point.\n", stderr);
-						abort();
+						assert(0);
 				}
 				case X86ADDRMODE_MACRO:
 				case X86ADDRMODE_VAR_VALUE:
@@ -1272,7 +1272,7 @@ void asmAssign(graphNodeIR atNode,struct X86AddressingMode *a, struct X86Address
 							}
 					} else {
 							fputs("Can't assign floating point into this\n", stderr);
-							abort();
+							assert(0);
 					}
 					return;
 			} else if(isFltType(b->valueType)&&getCurrentArch()==ARCH_X64_SYSV) {
@@ -1413,7 +1413,7 @@ static struct parserFunction *includeHCRTFunc(const char *name) {
 		__auto_type sym=parserGetFuncByName(name);
 		if(!sym) {
 				fprintf(stderr, "Include HCRT for PowF64");
-				abort();
+				assert(0);
 		}
 		return sym;
 }
@@ -2719,7 +2719,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 								asmTypecastAssign(start,oMode, iMode, ASM_ASSIGN_X87FPU_POP);
 						} else {
 								fputs("IR_ADDR_OF needs an item that points to something", stderr);
-								abort();
+								assert(0);
 						}
 				}
 		}

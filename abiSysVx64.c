@@ -36,7 +36,7 @@ static struct object *promote(struct object *currType) {
 }
 static void addOffsetIfIndir(struct X86AddressingMode *mode,long offset) {
 		if(mode->type==X86ADDRMODE_MEM) {
-				mode->value.m.value.sib.offset+=offset;
+				X86AddrModeIndirSIBAddOffset(mode, offset);
 		} else if(mode->type==X86ADDRMODE_ITEM_ADDR) {
 				mode->value.itemAddr.offset+=offset;
 		} else if(mode->type==X86ADDRMODE_VAR_VALUE) {
@@ -104,7 +104,11 @@ static strObject getSubTypes(struct object *obj) {
 static strObject flattenFields(strObject types) {
 		strObject retVal=NULL;
 		for(long t=0;t!=strObjectSize(types);t++) {
-				retVal=strObjectConcat(retVal,flattenFields(getSubTypes(types[t])));
+				__auto_type b=objectBaseType(types[t]);
+				if(b->type==TYPE_CLASS||b->type==TYPE_UNION)
+						retVal=strObjectConcat(retVal,flattenFields(getSubTypes(types[t])));
+				else
+						retVal=strObjectAppendItem(retVal,types[t]);
 		}
 		return retVal;
 }
@@ -157,9 +161,8 @@ static enum ABI_Type getAbiType(struct object *obj) {
 static long getConsecCount(strLong items,long offset) {
 		long first=items[offset];
 		long count=0;
-		for(long c=offset;c!=strLongSize(items);c++) {
+		for(long c=offset;c!=strLongSize(items);c++,count++) {
 				if(items[c]!=first) break;
-				c++;
 		}
 		return count;
 }
@@ -207,7 +210,7 @@ https://ntuck-neu.site/2020-09/cs3650/asm/x86-64-sysv-abi.pdf
 				return strAbiTypeAppendItem(NULL, ABI_MEMORY);
 		}
 
-		strAbiType _8byteTypes CLEANUP(strAbiTypeDestroy)=NULL;
+		strAbiType _8byteTypes =NULL;
 
 		long offset=0;
 		for(;offset!=strLongSize(groupings);) {
@@ -305,9 +308,12 @@ static void strX86AddrModeDestroy2(strX86AddrMode *str) {
 		strX86AddrModeDestroy(str);
 }
 void IR_ABI_SYSV_X64_Prologue(long frameSize) {
-		CLEANUP(X86AddrModeDestroy) struct X86AddressingMode *esp=X86AddrModeIndirReg(stackPointer(), objectPtrCreate(&typeU0));
-		CLEANUP(X86AddrModeDestroy) struct X86AddressingMode *ebpIndir=X86AddrModeIndirReg(basePointer(), &typeU64i);
+		CLEANUP(X86AddrModeDestroy) struct X86AddressingMode *esp=X86AddrModeReg(stackPointer(), objectPtrCreate(&typeU0));
+		struct X86AddressingMode *ebp CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(basePointer(),objectPtrCreate(&typeU0));
+		pushReg(basePointer());
+		asmAssign(NULL,ebp, esp, ptrSize(),0);
 
+		
 		CLEANUP(strX86AddrModeDestroy2) strX86AddrMode subArgs=NULL;
 		subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeClone(esp));
 		subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeSint(frameSize));
@@ -365,6 +371,7 @@ void IR_ABI_SYSV_X64_Return(graphNodeIR _ret,long frameSize) {
 		int consumedInts=getConsumedInts(fields, offsets),consumedSses=getConsumedSses(fields, offsets);
 		if(consumedInts>2||consumedSses>2||isMemory(fields)) goto retMemory;
 		{
+				consumedSses=consumedInts=0;
 				for(long c=0;c!=strLongSize(_8byteFields);)  {
 						enum ABI_Type type=fields[c];
 						if(type==ABI_INTEGER) {
