@@ -680,8 +680,8 @@ strVar IRABIInsertLoadArgs(graphNodeIR start) {
 		return IR_ABI_I386_SYS_InsertLoadArgs(start);
 	}
 	case ARCH_X64_SYSV:
-		assert(0);
-		return NULL;
+			IR_ABI_I386_SYS_InsertLoadArgs(start);
+			return NULL;
 	}
 }
 

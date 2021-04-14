@@ -1664,14 +1664,6 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	for (long i = 0; i != strPVarSize(noregs); i++)
 		noregs[i]->isNoreg = 1;
 
-	//
-	// ABI section requires args to be converted to variables for register allocator.
-	// This will also load the function arguments into the variables.
-	//
-	if (isFunc) {
-		IRABIInsertLoadArgs(originalStart);
-	}
-
 	//SYSV-i386 uses X87 registers for values,so if SYSV-i386 ABI,use a special register allocator for floating points
 	int allocateX87fpuRegs=0;
 	switch(getCurrentArch()) {
@@ -1736,7 +1728,8 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	IRComputeFrameLayout(start, &frameSize,&localVarFrameOffsets);
 
 	IRABIAsmPrologue(frameSize);
-	// This computes calling information for the ABI
+	if (isFunc)
+			IRABIInsertLoadArgs(originalStart);
 
 	char *frameLayoutJson=emitDebufferFrameLayout(localVarFrameOffsets);
 	strChar debugInfo CLEANUP(strCharDestroy)=fromFmt("{\"name\":\"%s\",\"frameLayout\":%s}" ,funcName, frameLayoutJson);
