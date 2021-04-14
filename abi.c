@@ -586,8 +586,8 @@ static strVar IR_ABI_I386_SYS_InsertLoadArgs(graphNodeIR start) {
 	return args;
 }
 static void abiI386LoadPreservedRegs(long frameSize) {
-		struct X86AddressingMode *ebpMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(basePointer(),NULL);
-		struct X86AddressingMode *espMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(stackPointer(),NULL);
+		struct X86AddressingMode *ebpMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(basePointer(),objectPtrCreate(&typeU0));
+		struct X86AddressingMode *espMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(stackPointer(),objectPtrCreate(&typeU0));
 		asmAssign(NULL,espMode, ebpMode, ptrSize(), 0);
 
 		strX86AddrMode subArgs CLEANUP(strX86AddrModeDestroy2)=NULL;

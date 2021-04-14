@@ -32,7 +32,8 @@ static struct commlFlag *getFlag(const char *text) {
 }
 static void helpCallback(int *argi,int argc,const char **argv) {
 		long count;
-		++*argi;
+		if(argi)
+				++*argi;
 		mapFlagsKeys(clFlagsLong, NULL, &count);
 		const char *keys[count];
 		mapFlagsKeys(clFlagsLong, keys, NULL);
@@ -165,13 +166,16 @@ void parseCommandLineArgs(int argc,const char **argv) {
 						abort();
 				}
 		}
-		
-		char *hcrt CLEANUP(free2)=HCRTFile("HCRT.HC");
-		strConstChar hcrtSources CLEANUP(strConstCharDestroy)=strConstCharAppendItem(NULL, hcrt);
-		strStrChar toLink CLEANUP(strStrCharDestroy2)=assembleSources(hcrtSources);
-		assert(strStrCharSize(toLink)==1);
-		toLink[0]=strCharAppendData(toLink[0], "\0\0\0", 3);
-		strcat(toLink[0], ".o");
+
+		strStrChar toLink CLEANUP(strStrCharDestroy2)=NULL;
+		if(strConstCharSize(sources)||strConstCharSize(toCompile))  {
+				char *hcrt CLEANUP(free2)=HCRTFile("HCRT.HC");
+				strConstChar hcrtSources CLEANUP(strConstCharDestroy)=strConstCharAppendItem(NULL, hcrt);
+				toLink=assembleSources(hcrtSources);
+				assert(strStrCharSize(toLink)==1);
+				toLink[0]=strCharAppendData(toLink[0], "\0\0\0", 3);
+				strcat(toLink[0], ".o");
+		}
 		
 		if(strConstCharSize(sources)||strConstCharSize(toCompile)) {
 				if(strConstCharSize(sources)&&strConstCharSize(toCompile)&&outputFile) {
@@ -214,7 +218,7 @@ void parseCommandLineArgs(int argc,const char **argv) {
 				system(linkCommand);
 		}
 		if(strConstCharSize(sources)==0) {
-				helpCallback(0, 0, NULL);
+				printf("No input files.\n");
 		}
 		
 		mapFlagsDestroy(clFlagsShort, NULL);
