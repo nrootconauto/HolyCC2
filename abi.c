@@ -4,6 +4,7 @@
 #include "asmEmitter.h"
 #include <assert.h>
 #include "cleanup.h"
+#include "abiSysVx64.h"
 #define DEBUG_PRINT_ENABLE 1
 void *IR_ATTR_ABI_INFO = "ABI_INFO";
 static void *IR_ATTR_FUNC = "FUNC";
@@ -683,6 +684,7 @@ strVar IRABIInsertLoadArgs(graphNodeIR start) {
 		return NULL;
 	}
 }
+
 void IRABIAsmPrologue(long frameSize) {
 	switch (getCurrentArch()) {
 	case ARCH_TEST_SYSV:
@@ -703,8 +705,8 @@ void IRABIAsmPrologue(long frameSize) {
 		return;
 	}
 	case ARCH_X64_SYSV:
-		assert(0);
-		return;
+			IR_ABI_SYSV_X64_Prologue(frameSize);
+			return;
 	}
 }
 void IRABIReturn2Asm(graphNodeIR start,long frameSize) {
@@ -714,7 +716,7 @@ void IRABIReturn2Asm(graphNodeIR start,long frameSize) {
 			return IR_ABI_I386_SYSV_Return(start,frameSize);
 	}
 	case ARCH_X64_SYSV:
-		assert(0);
+			return IR_ABI_SYSV_X64_Return(start,frameSize);
 	}
 }
 void IRABICall2Asm(graphNodeIR start ,struct X86AddressingMode *funcMode,strX86AddrMode args,struct X86AddressingMode *outMode) {
@@ -724,7 +726,7 @@ void IRABICall2Asm(graphNodeIR start ,struct X86AddressingMode *funcMode,strX86A
 			return IR_ABI_I386_SYSV_2Asm(start,funcMode,args,outMode);
 	}
 	case ARCH_X64_SYSV:
-		assert(0);
+			return IR_ABI_SYSV_X64_Call(start,funcMode,args,outMode);
 	}
 }
 void IRABIFuncNode2Asm(graphNodeIR start) {

@@ -6,6 +6,7 @@
 #include <assert.h>
 #include "IR2asm.h"
 #include "abi.h"
+#include "abiSysVx64.h"
 typedef int (*regCmpType)(const struct reg **, const struct reg **);
 static int ptrPtrCmp(const void *a, const void *b) {
 		if(*(void**)a>*(void**)b)
@@ -279,14 +280,48 @@ static void strX86AddrModeDestroy2(strX86AddrMode *str) {
 				X86AddrModeDestroy(&str[0][i]);
 		strX86AddrModeDestroy(str);
 }
-void IR_ABI_SYS_X64_Return(graphNodeIR _ret) {
-		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=IREdgesByPrec(_ret);
-		if(!strGraphEdgeIRPSize(in)) {
+void IR_ABI_SYSV_X64_Prologue(long frameSize) {
+		CLEANUP(X86AddrModeDestroy) struct X86AddressingMode *esp=X86AddrModeIndirReg(stackPointer(), objectPtrCreate(&typeU0));
+		CLEANUP(X86AddrModeDestroy) struct X86AddressingMode *ebpIndir=X86AddrModeIndirReg(basePointer(), &typeU64i);
+
+		CLEANUP(strX86AddrModeDestroy2) strX86AddrMode subArgs=NULL;
+		subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeClone(esp));
+		subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeSint(frameSize));
+		assembleOpcode(NULL, "SUB", subArgs);
+
+		pushReg(&regAMD64RBX);
+		pushReg(&regAMD64R12u64);
+		pushReg(&regAMD64R13u64);
+		pushReg(&regAMD64R14u64);
+		pushReg(&regAMD64R15u64);
+}
+static void loadPreservedRegs(long frameSize) {
+		struct X86AddressingMode *ebpMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(basePointer(),objectPtrCreate(&typeU0));
+		struct X86AddressingMode *espMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(stackPointer(),objectPtrCreate(&typeU0));
+		asmAssign(NULL,espMode, ebpMode, ptrSize(), 0);
+		
+		strX86AddrMode subArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+		subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeReg(stackPointer(),objectPtrCreate(&typeU0)));
+		subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeSint(frameSize+5*8));
+		assembleOpcode(NULL,"SUB", subArgs);
+
+		popReg(&regAMD64R15u64);
+		popReg(&regAMD64R14u64);
+		popReg(&regAMD64R13u64);
+		popReg(&regAMD64R12u64);
+		popReg(&regAMD64RBX);
+}
+void IR_ABI_SYSV_X64_Return(graphNodeIR _ret,long frameSize) {
+		if(!_ret) goto leave;
+		if(0) {
 		leave:
+				loadPreservedRegs(frameSize);
 				assembleOpcode(_ret, "LEAVE", NULL);
 				assembleOpcode(_ret, "RET", NULL);
 				return;
 		}
+		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=IREdgesByPrec(_ret);
+		if(!strGraphEdgeIRPSize(in)) goto leave;
 		struct reg *intRegs[]={
 				&regAMD64RAX,
 				&regAMD64RDX,
@@ -348,7 +383,7 @@ void IR_ABI_SYS_X64_Return(graphNodeIR _ret) {
 				goto leave;
 		}
 }
-void IR_ABI_SYSV_X64_Call(graphNodeIR _call) {
+void IR_ABI_SYSV_X64_Call(graphNodeIR _call,struct X86AddressingMode *funcMode,strX86AddrMode args,struct X86AddressingMode *outMode) {
 		struct IRNodeFuncCall *call=(void*)graphNodeIRValuePtr(_call);
 		__auto_type abiInfo=llIRAttrFind(graphNodeIRValuePtr(_call)->attrs,IR_ATTR_ABI_INFO,IRAttrGetPred);
 		assert(abiInfo);
@@ -378,11 +413,8 @@ void IR_ABI_SYSV_X64_Call(graphNodeIR _call) {
 				toBackup=strRegPRemoveItem(toBackup, calleeSaved[b], (regCmpType)ptrPtrCmp);
 		
 		assert(call->base.type==IR_FUNC_CALL);
-		strGraphNodeIRP args CLEANUP(strGraphNodeIRPDestroy)=getFuncArgs(_call);
-		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(_call);
-		strGraphEdgeIRP inFunc CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(in, IR_CONN_FUNC);
 
-		struct object *type=IRNodeType(graphEdgeIRIncoming(inFunc[0]));
+		struct object *type=funcMode->valueType;
 		if(type->type==TYPE_PTR)
 				type=((struct objectPtr*)type)->type;
 		assert(type->type==TYPE_FUNCTION);
@@ -413,13 +445,13 @@ void IR_ABI_SYSV_X64_Call(graphNodeIR _call) {
 		};
 		int stuffedSses=0;
 		strX86AddrMode  toPush CLEANUP(strX86AddrModeDestroy2)=NULL;
-		for(long a=0;a!=strGraphNodeIRPSize(args);a++) {
+		for(long a=0;a!=strX86AddrModeSize(args);a++) {
 				int consumedInts=0;
 				int consumedSses=0;
 				long offset=0;
-				struct X86AddressingMode *aMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(args[a]);
+				struct X86AddressingMode *aMode =args[a];
 				
-				__auto_type currType=objectBaseType(IRNodeType(args[a]));
+				__auto_type currType=objectBaseType(args[a]->valueType);
 				long currTypeSize=objectSize(currType, NULL);
 
 				struct object *argType=NULL;
@@ -485,16 +517,12 @@ void IR_ABI_SYSV_X64_Call(graphNodeIR _call) {
 
 		for(long b=0;b!=strRegPSize(toBackup);b++)
 				pushReg(toBackup[b]);
-		strX86AddrMode callArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, IRNode2AddrMode(graphEdgeIRIncoming(inFunc[0])));
+		strX86AddrMode callArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeClone(funcMode));
 		assembleOpcode(_call, "CALL",  callArgs);
 
-		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(_call);
-		strGraphEdgeIRP outAsn CLEANUP(strGraphEdgeIRPDestroy)=IRGetConnsOfType(out, IR_CONN_ASSIGN_FROM_PTR);
-		if(strGraphEdgeIRPSize(outAsn)==0) {
-		} else {
-				__auto_type out=graphEdgeIROutgoing(outAsn[0]);
-				__auto_type outType=objectBaseType(IRNodeType(out));
-				struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(out);
+		if(outMode){
+				struct X86AddressingMode *oMode =outMode;
+				__auto_type outType=oMode->valueType;
 				struct X86AddressingMode *raxMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regAMD64RAX, promote(fType->retType));
 				if(isIntType(outType)) {
 						asmTypecastAssign(_call, oMode, raxMode, ASM_ASSIGN_X87FPU_POP);

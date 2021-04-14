@@ -794,11 +794,12 @@ void compileTests() {
 		{
 						const char *argv[]={
 								"hcc",
+								"-dd",
 								"-c",
-								"/home/tc/projects/HI.HC",
+								"/home/tc/projects/HI64.HC",
 								"-o",
 								"/tmp/HCRT.o"
 						};
-						parseCommandLineArgs(5, argv);
+						parseCommandLineArgs(6, argv);
 		}
 }

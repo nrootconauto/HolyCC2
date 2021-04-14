@@ -1354,7 +1354,6 @@ void asmAssign(graphNodeIR atNode,struct X86AddressingMode *a, struct X86Address
 		args=strX86AddrModeAppendItem(NULL, A);
 		args=strX86AddrModeAppendItem(args, B);
 
-		assert(size!=8);
 		assembleOpcode(atNode,"MOV",args);
 		return;
 	} else {
