@@ -23,6 +23,10 @@
 #include "stdio.h"
 #include "x87fpu.h"
 #define DEBUG_PRINT_ENABLE 1
+static int isPtrType(struct object *obj) {
+	__auto_type type = objectBaseType(obj)->type;
+	return type == TYPE_PTR ||type==TYPE_FUNCTION||type==TYPE_ARRAY;
+}
 static void *IR_ATTR_ADDR_MODE = "ADDR_MODE";
 struct IRAttrAddrMode {
 	struct IRAttr base;
@@ -1309,11 +1313,11 @@ void asmAssign(graphNodeIR atNode,struct X86AddressingMode *a, struct X86Address
 			if(getCurrentArch()==ARCH_X64_SYSV) {
 					strX86AddrMode args CLEANUP(strX86AddrModeDestroy2)=NULL;
 					args=strX86AddrModeAppendItem(args,X86AddrModeClone(a));
-                    args=strX86AddrModeAppendItem(args,X86AddrModeClone(b));
-					assembleOpcode(atNode, "MOVSD2", strX86AddrMode args);
+          args=strX86AddrModeAppendItem(args,X86AddrModeClone(b));
+					assembleOpcode(atNode, "MOVSD2",args);
 					return;
 			}
-			struct X86AddressingMode *st0Mode CLEANUP(X86AddrModeDestroy)X86AddrModeReg(&regX86ST0,&typeF64);
+			struct X86AddressingMode *st0Mode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86ST0,&typeF64);
 			asmAssign(atNode,st0Mode, b,   8, flags);
 			asmAssign(atNode,a, st0Mode, 8, ASM_ASSIGN_X87FPU_POP);
 			return;
@@ -1755,11 +1759,6 @@ void IRCompile(graphNodeIR start, int isFunc) {
 	}
 	//graphNodeIRKillGraph(&start, (void(*)(void*))IRNodeDestroy, NULL);
 }
-static int isPtrType(struct object *obj) {
-	__auto_type type = objectBaseType(obj)->type;
-	return type == TYPE_PTR ||type==TYPE_FUNCTION||type==TYPE_ARRAY;
-}
-
 static int isPtrNode(graphNodeIR start) {
 	return isPtrType(IRNodeType(start));
 }
@@ -2609,8 +2608,8 @@ static graphNodeIR assembleOpSD(graphNodeIR start,const char *op) {
   __auto_type dst=nodeDest(start);
   if(dst) {
     struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(dst);
-    if(__ouputModeAffectsInput(aModes,oMode)||__ouputModeAffectsInput(aModes,oMode)) {
-      struct X86AddressingMode *accumMode CLEANUP(X86AddrModeDestroy)=getAccumulatorForType(&tpyeF64);
+    if(__ouputModeAffectsInput(aMode,oMode)||__ouputModeAffectsInput(aMode,oMode)) {
+      struct X86AddressingMode *accumMode CLEANUP(X86AddrModeDestroy)=getAccumulatorForType(&typeF64);
       asmTypecastAssign(start,accumMode,aMode,ASM_ASSIGN_X87FPU_POP);
     } else {
       asmTypecastAssign(start,oMode,aMode,ASM_ASSIGN_X87FPU_POP);
@@ -2622,8 +2621,7 @@ static graphNodeIR assembleOpSD(graphNodeIR start,const char *op) {
     }
   }
 
-  strGraphNodeIRP outNodes CLEANUP(strGraphNodeIRPDestroy)=graphNodeIROutgoingNodes(start);
-  return out;
+  return nodeDest(start);
 }
 static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 	if (ptrMapCompiledNodesGet(compiledNodes, start)) {
@@ -2835,7 +2833,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		binopArgs(start, &a, &b);
 		// Are assumed to be same type if valid IR graph
 		if (isIntNode(a) || isPtrNode(a)||IRNodeType(a)->type==TYPE_ARRAY)
-			return nextNodesToCompile(NULL, assembleOpInt(start, "SUB"));
+			return nextNodesToCompile(assembleOpInt(start, "SUB"));
     else if((isFltNode(a)||isFltNode(b))&&getCurrentArch()==ARCH_X64_SYSV)
       return  nextNodesToCompile(assembleOpSD(start,"SUBSD"));
 		assert(0);
@@ -2877,7 +2875,9 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 			struct X86AddressingMode *lab CLEANUP(X86AddrModeDestroy) = X86EmitAsmDU64(&encoded, 1);
 			struct X86AddressingMode *indir CLEANUP(X86AddrModeDestroy)= X86AddrModeIndirLabel(lab->value.label, &typeF64);
 
-      asmTypecastAssign(start,oMode,aMode,ASM_ASSIGN_X87FPU_POP);
+			struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(nodeDest(start));
+			struct X86AddressingMode *iMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(inNode);
+      asmTypecastAssign(start,oMode,iMode,ASM_ASSIGN_X87FPU_POP);
 
 			strX86AddrMode args CLEANUP(strX86AddrModeDestroy2)=NULL;
 			args=strX86AddrModeAppendItem(args,X86AddrModeClone(oMode));
@@ -3006,7 +3006,9 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 
 		COMPILE_87_IFN;
 
-    if((isFltNode(a)||isFltNode(b))&&getCurrentArch()==ARCH_X64_SYSV) {
+    graphNodeIR a, b;
+		binopArgs(start, &a, &b);
+		if((isFltNode(a)||isFltNode(b))&&getCurrentArch()==ARCH_X64_SYSV) {
       if(isDivOrMod)
         assembleOpSD(start,"DIVSD");
       else {
@@ -3019,8 +3021,8 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
           See https://www.intel.com/content/dam/www/public/us/en/documents/manuals/64-ia-32-architectures-software-developer-instruction-set-reference-manual-325383.pdf
           Table 4-18 for rounding information
           */
-        struct X86AddressingMode *accum CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(getAccumulatorForType(&typeF64),&typeF64);
-        asmAssign(start,accum,aMode);
+        struct X86AddressingMode *accum CLEANUP(X86AddrModeDestroy)=getAccumulatorForType(&typeF64);
+        asmAssign(start,accum,aMode,8,ASM_ASSIGN_X87FPU_POP);
         //Q=roundTowardsZero(a/b)
         {
           strX86AddrMode args CLEANUP(strX86AddrModeDestroy2)=NULL;
@@ -3069,8 +3071,6 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		if(!nodeDest(start))
 				return nextNodesToCompile(start);
 
-		graphNodeIR a, b;
-		binopArgs(start, &a, &b);
 		struct X86AddressingMode *outMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(graphEdgeIROutgoing(out[0]));
 		AUTO_LOCK_MODE_REGS(outMode);
 		struct reg *outReg = NULL;
