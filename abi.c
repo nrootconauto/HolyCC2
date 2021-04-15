@@ -755,5 +755,5 @@ void IRABIFuncNode2Asm(graphNodeIR start) {
 		if(outNode)
 				oMode=IRNode2AddrMode(outNode);
 		struct X86AddressingMode *funcMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(graphEdgeIRIncoming(inFunc[0]));
-		return IR_ABI_I386_SYSV_2Asm(start, funcMode, args, oMode);
+		return IRABICall2Asm(start, funcMode, args, oMode);
 }
