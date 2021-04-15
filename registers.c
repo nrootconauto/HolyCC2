@@ -170,14 +170,14 @@ struct reg regX86MM5;
 struct reg regX86MM6;
 struct reg regX86MM7;
 void initRegisters() {
-		createRegister(&regX86MM0,"MM0", NULL, 8, REG_TYPE_GP, 0);
-	 createRegister(&regX86MM1,"MM1", NULL, 8, REG_TYPE_GP, 0);
-	 createRegister(&regX86MM2,"MM2", NULL, 8, REG_TYPE_GP, 0);
-	 createRegister(&regX86MM3,"MM3", NULL, 8, REG_TYPE_GP, 0);
-	 createRegister(&regX86MM4,"MM4", NULL, 8, REG_TYPE_GP, 0);
-	 createRegister(&regX86MM5,"MM5", NULL, 8, REG_TYPE_GP, 0);
-	 createRegister(&regX86MM6,"MM6", NULL, 8, REG_TYPE_GP, 0);
-	 createRegister(&regX86MM7,"MM7", NULL, 8, REG_TYPE_GP, 0);
+		createRegister(&regX86MM0,"MM0", NULL, 8, REG_TYPE_UNUSED, 0);
+	 createRegister(&regX86MM1,"MM1", NULL, 8, REG_TYPE_UNUSED, 0);
+	 createRegister(&regX86MM2,"MM2", NULL, 8, REG_TYPE_UNUSED, 0);
+	 createRegister(&regX86MM3,"MM3", NULL, 8, REG_TYPE_UNUSED, 0);
+	 createRegister(&regX86MM4,"MM4", NULL, 8, REG_TYPE_UNUSED, 0);
+	 createRegister(&regX86MM5,"MM5", NULL, 8, REG_TYPE_UNUSED, 0);
+	 createRegister(&regX86MM6,"MM6", NULL, 8, REG_TYPE_UNUSED, 0);
+	 createRegister(&regX86MM7,"MM7", NULL, 8, REG_TYPE_UNUSED, 0);
 
 	 createRegister(&regX86ES,"ES", NULL, 2, REG_TYPE_GP, 0);
 	 createRegister(&regX86CS,"CS", NULL, 2, REG_TYPE_GP, 0);
@@ -209,7 +209,7 @@ void initRegisters() {
 		createRegister(&regAMD64R10u32,"R12u32", &regAMD64R10u64, 4, REG_TYPE_GP, 1, createRegSlice(&regAMD64R10u16, 0, 16));
 	 createRegister(&regAMD64R11u32,"R11u32", &regAMD64R11u64, 4, REG_TYPE_GP, 1, createRegSlice(&regAMD64R11u16, 0, 16));
 	 createRegister(&regAMD64R12u32,"R12u32", &regAMD64R12u64, 4, REG_TYPE_GP, 1, createRegSlice(&regAMD64R12u16, 0, 16));
-		createRegister(&regAMD64R13u32,"R13u32", &regAMD64R14u64, 4, REG_TYPE_GP, 1, createRegSlice(&regAMD64R13u16, 0, 16));
+		createRegister(&regAMD64R13u32,"R13u32", &regAMD64R13u64, 4, REG_TYPE_GP, 1, createRegSlice(&regAMD64R13u16, 0, 16));
 	 createRegister(&regAMD64R14u32,"R14u32", &regAMD64R14u64, 4, REG_TYPE_GP, 1, createRegSlice(&regAMD64R14u16, 0, 16));
 	 createRegister(&regAMD64R15u32,"R15u32", &regAMD64R15u64, 4, REG_TYPE_GP, 1, createRegSlice(&regAMD64R15u16, 0, 16));
 
@@ -375,7 +375,8 @@ int regSliceConflict(const struct regSlice *a, const struct regSlice *b) {
 	for (long i = 0; i != strRegSliceSize(aSuper->affects); i++)
 		if (aSuper->affects[i].reg == a->reg)
 			aRegOffsetInSuper = aSuper->affects[i].offset;
-	assert(aRegOffsetInSuper != -1);
+	if(aRegOffsetInSuper==-1)
+			assert(aRegOffsetInSuper != -1);
 	// Same with b
 	long bRegOffsetInSuper = -1;
 	// Registers inherit the slices of their "children" registers

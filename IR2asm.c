@@ -113,14 +113,14 @@ void pushReg(struct reg *r) {
 						return;
 				}
 	// Can't push 8-bit registers,so make room on the stack and assign
-	if (r->size == 1) {
+	if (r->size == 1||r->size!=dataSize()) {
 		strX86AddrMode subArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
 		subArgs = strX86AddrModeAppendItem(subArgs, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())));
 		subArgs = strX86AddrModeAppendItem(subArgs, X86AddrModeSint(1));
 		assembleInst("SUB", subArgs);
 
 		strX86AddrMode movArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
-		movArgs = strX86AddrModeAppendItem(movArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())), X86AddrModeSint(0), &typeU8i));
+		movArgs = strX86AddrModeAppendItem(movArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())), X86AddrModeSint(0), getTypeForSize(r->size)));
 		movArgs = strX86AddrModeAppendItem(movArgs, X86AddrModeReg(r,getTypeForSize(r->size)));
 		assembleInst("MOV", movArgs);
 		return;
@@ -179,10 +179,10 @@ void pushMode(struct X86AddressingMode *mode) {
 }
 void popReg(struct reg *r) {
 	// Can't pop 8-bit registers,so make room on the stack and assign
-	if (r->size == 1) {
+	if (r->size == 1||r->size!=dataSize()) {
 		strX86AddrMode movArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
 		movArgs = strX86AddrModeAppendItem(movArgs, X86AddrModeReg(r,getTypeForSize(r->size)));
-		movArgs = strX86AddrModeAppendItem(movArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())), X86AddrModeSint(0), &typeU8i));
+		movArgs = strX86AddrModeAppendItem(movArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())), X86AddrModeSint(0),getTypeForSize(r->size)));
 		assembleInst("MOV", movArgs);
 
 		strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
@@ -841,8 +841,8 @@ strRegP deadRegsAtPoint(graphNodeIR atNode,struct object *type) {
 				}else
 						continue;
 		}
-
-		assert(lowestValidI!=-1);
+		if(lowestValidI==-1)
+				assert(lowestValidI!=-1);
 
 		strLong argsToRestore CLEANUP(strLongDestroy)=NULL;
 

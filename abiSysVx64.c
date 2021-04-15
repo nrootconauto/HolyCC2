@@ -656,7 +656,7 @@ void IR_ABI_SYSV_X86_LoadArgs(graphNodeIR start) {
 				__auto_type var=fType->args[a].var;
 				if(isIntType(arg.type)) {
 						assert(consumedInts==1);
-						CLEANUP(X86AddrModeDestroy) struct X86AddressingMode *regMode=X86AddrModeReg(intRegs[stuffedInts], arg.type);
+						CLEANUP(X86AddrModeDestroy) struct X86AddressingMode *regMode=X86AddrModeReg(subRegOfType(intRegs[stuffedInts],arg.type), arg.type);
 						CLEANUP(X86AddrModeDestroy) struct X86AddressingMode *varMode=X86AddrModeVar(var, 0);
 						asmTypecastAssign(NULL,varMode, regMode,  ASM_ASSIGN_X87FPU_POP);
 						goto next;

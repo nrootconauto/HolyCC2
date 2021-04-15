@@ -12,6 +12,7 @@ enum regType {
 	REG_TYPE_STACK = 8,
 	REG_TYPE_FRAME_PTR = 16,
 	REG_TYPE_FRAME_SIMD = 32,
+	REG_TYPE_UNUSED = 64,
 };
 struct reg {
 	const char *name;
