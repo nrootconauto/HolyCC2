@@ -196,7 +196,7 @@ void initRegisters() {
 	 createRegister(&regAMD64R15u8,"R15u8", &regAMD64R15u64, 1, REG_TYPE_GP, 0);
 
 	 createRegister(&regAMD64R8u16,"R8u16", &regAMD64R8u64, 1, REG_TYPE_GP, 1, createRegSlice(&regAMD64R8u8, 0, 8));
-	 createRegister(&regAMD64R9u16,"R9u16", &regAMD64R8u64, 1, REG_TYPE_GP, 1, createRegSlice(&regAMD64R9u8, 0, 8));
+	 createRegister(&regAMD64R9u16,"R9u16", &regAMD64R9u64, 1, REG_TYPE_GP, 1, createRegSlice(&regAMD64R9u8, 0, 8));
 		createRegister(&regAMD64R10u16,"R12u16", &regAMD64R10u64, 1, REG_TYPE_GP, 1, createRegSlice(&regAMD64R10u8, 0, 8));
 	 createRegister(&regAMD64R11u16,"R11u16", &regAMD64R11u64, 1, REG_TYPE_GP, 1, createRegSlice(&regAMD64R11u8, 0, 8));
 	 createRegister(&regAMD64R12u16,"R12u16", &regAMD64R12u64, 1, REG_TYPE_GP, 1, createRegSlice(&regAMD64R12u8, 0, 8));
