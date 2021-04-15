@@ -446,6 +446,7 @@ strRegP regGetForType(struct object *type) {
 		qsort(res, len, sizeof(*res), ptrPtrCmp);
 		strRegP reserved CLEANUP(strRegPDestroy) = strRegPAppendData(NULL, res, len);
 		avail = strRegPSetDifference(avail, reserved, (regPCmpType)ptrPtrCmp);
+		break;
 	}
 	case ARCH_TEST_SYSV:
 	case ARCH_X86_SYSV: {
