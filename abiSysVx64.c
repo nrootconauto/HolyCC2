@@ -92,11 +92,11 @@ static strObject getSubTypes(struct object *obj) {
 		strObject retVal=NULL;
 		if(obj->type==TYPE_CLASS) {
 				struct objectClass *cls=(void*)obj;
-				for(long m=0;strObjectMemberSize(cls->members);m++)
+				for(long m=0;m!=strObjectMemberSize(cls->members);m++)
 						retVal=strObjectAppendItem(retVal, cls->members[m].type);
 		} else if(obj->type==TYPE_UNION) {
 				struct objectUnion *un=(void*)obj;
-				for(long m=0;strObjectMemberSize(un->members);m++)
+				for(long m=0;m!=strObjectMemberSize(un->members);m++)
 						retVal=strObjectAppendItem(retVal, un->members[m].type);
 		} else if(obj->type==TYPE_ARRAY) {
 				struct objectArray *arr=(void*)obj;
@@ -146,7 +146,7 @@ static long get8byteFields(long offset,strObject types,strLong *writeTo,strLong 
 				for(long f=0;f!=strObjectSize(flat);f++) {
 						if(writeTo) *writeTo=strLongAppendItem(*writeTo, offset/8);
 						if(offsets) *offsets=strLongAppendItem(*offsets, offset);
-						offset+=objectSize(flat[t], NULL);
+						offset+=objectSize(flat[f], NULL);
 				}
 		}
 		return offset;
@@ -706,19 +706,18 @@ void IR_ABI_SYSV_X64_Call(graphNodeIR _call,struct X86AddressingMode *funcMode,s
 		addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeReg(stackPointer(), objectPtrCreate(&typeU0)));
 		addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeSint(spillStackSize+pushedArgsSize));
 		assembleOpcode(_call, "ADD", addArgs);
-
-		for(long b=strRegPSize(toBackup)-1;b>=0;b--)
-				popReg(toBackup[b]);
 		
 		if(outMode) {
 				struct X86AddressingMode *oMode =outMode;
 				__auto_type outType=oMode->valueType;
 				struct X86AddressingMode *raxMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regAMD64RAX, promote(fType->retType));
-				if(isIntType(outType)) {
+				if(isIntType(outType)) {						
 						asmTypecastAssign(_call, oMode, raxMode, ASM_ASSIGN_X87FPU_POP);
+						goto pop;
 				} else if(outType==&typeF64) {
 						struct X86AddressingMode *xmm0Mode CLEANUP(X86AddrModeDestroy) =X86AddrModeReg(&regX86XMM0, &typeF64);
 						asmTypecastAssign(_call, oMode, xmm0Mode, ASM_ASSIGN_X87FPU_POP);
+						goto pop;
 				} else if(outType->type==TYPE_CLASS||outType->type==TYPE_UNION) {
 						struct reg *intRegs[]={
 								&regAMD64RAX,
@@ -735,16 +734,31 @@ void IR_ABI_SYSV_X64_Call(graphNodeIR _call,struct X86AddressingMode *funcMode,s
 						strLong offsets CLEANUP(strLongDestroy)=NULL;
 						strLong groupings CLEANUP(strLongDestroy)=NULL;
 						strAbiType fields CLEANUP(strAbiTypeDestroy)=consider2Agg(types);
-						get8byteFields(0, types, NULL,&offsets);
+						get8byteFields(0, types, &groupings,&offsets);
 
 						if(strAbiTypeSize(fields)==1) {
 								if(fields[0]==ABI_MEMORY) {
 										struct X86AddressingMode *indirRaxMode CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirReg(&regAMD64RAX, fType->retType);
 										asmTypecastAssign(_call, oMode, indirRaxMode, ASM_ASSIGN_X87FPU_POP);
-										return;
+										goto pop;
 								}
 						}
 
+						//Remove returned registers from backup
+						long __intRegsUsed=getConsumedInts(classes, groupings);
+						for(long i=0;i!=__intRegsUsed;i++)
+								toBackup=strRegPSortedInsert(toBackup,intRegs[i], (regCmpType)ptrPtrCmp);
+						toBackup=mergeConflictingRegs(toBackup);
+						for(long i=0;i!=__intRegsUsed;i++)
+								toBackup=strRegPRemoveItem(toBackup, intRegs[i], (regCmpType)ptrPtrCmp);
+						
+						long __sseRegsUsed=getConsumedSses(classes, groupings);
+						for(long s=0;s!=__sseRegsUsed;s++)
+								toBackup=strRegPSortedInsert(toBackup,intRegs[s], (regCmpType)ptrPtrCmp);
+						toBackup=mergeConflictingRegs(toBackup);
+						for(long s=0;s!=__sseRegsUsed;s++)
+								toBackup=strRegPRemoveItem(toBackup, sseRegs[s], (regCmpType)ptrPtrCmp);
+						
 						long totalWidth=objectSize(fType->retType, NULL);
 						for(long o=0;o!=strLongSize(offsets);) {
 								__auto_type field=fields[o];
@@ -753,12 +767,14 @@ void IR_ABI_SYSV_X64_Call(graphNodeIR _call,struct X86AddressingMode *funcMode,s
 										struct object *type=largestDataSizeInWidth(totalWidth-offsets[o]);
 										__auto_type r=subRegOfType(intRegs[intRegsUsed++], type);
 										struct X86AddressingMode *rMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(r, type);
-										asmTypecastAssign(_call, oMode, NULL, ASM_ASSIGN_X87FPU_POP);
+										oMode->valueType=type;
+										asmTypecastAssign(_call, oMode, rMode, ASM_ASSIGN_X87FPU_POP);
 										addOffsetIfIndir(oMode, 8);
 										break;
 								}
 								case ABI_SSE: {
 										struct X86AddressingMode *rMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(sseRegs[sseRegsUsed++], &typeF64);
+										oMode->valueType=type;
 										asmTypecastAssign(_call, oMode, rMode, ASM_ASSIGN_X87FPU_POP);
 										addOffsetIfIndir(oMode, 8);
 										break;
@@ -768,8 +784,15 @@ void IR_ABI_SYSV_X64_Call(graphNodeIR _call,struct X86AddressingMode *funcMode,s
 								}
 								o+=getConsecCount(groupings, o);
 						}
+
+						for(long b=strRegPSize(toBackup)-1;b>=0;b--)
+								popReg(toBackup[b]);
 				} else abort(); 
 		}
+		return;
+	pop:
+		for(long b=strRegPSize(toBackup)-1;b>=0;b--)
+								popReg(toBackup[b]);
 }
 static struct regSlice createRegSlice(struct reg *r,struct object *type) {
 		struct regSlice slice;
