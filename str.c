@@ -315,8 +315,8 @@ struct __vec *__vecReverse(struct __vec *str, long itemSize) {
 struct __vec* __vecMerge(struct __vec *a,struct __vec *b,long itemSize,int (*cmp)(const void *,const void *)) {
 		void *firstA=a;
 		void *firstB=b;
-		void *lastA=firstA+__vecSize(a)*itemSize;
-		void *lastB=firstB+__vecSize(b)*itemSize;
+		void *lastA=firstA+__vecSize(a);
+		void *lastB=firstB+__vecSize(b);
 		struct __vec *retVal=NULL;
 		while(1) {
 				if(firstA==lastA) {
