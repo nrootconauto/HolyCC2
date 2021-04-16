@@ -4,9 +4,11 @@
 #include "IR.h"
 #include "cleanup.h"
 #include <assert.h>
+#include <limits.h>
 #include "IR2asm.h"
 #include "abi.h"
 #include "abiSysVx64.h"
+#define ALLOCATE(x) ({typeof(x) *tmp=malloc(sizeof(x));*tmp=x;tmp;})
 typedef int (*regCmpType)(const struct reg **, const struct reg **);
 static int ptrPtrCmp(const void *a, const void *b) {
 		if(*(void**)a>*(void**)b)
@@ -14,6 +16,24 @@ static int ptrPtrCmp(const void *a, const void *b) {
 		else if(*(void**)a<*(void**)b)
 				return -1;
 		return 0;
+}
+static strRegP regsFromMode(struct X86AddressingMode *mode) {
+	if (mode->type == X86ADDRMODE_REG) {
+		return strRegPAppendItem(NULL, mode->value.reg);
+	} else if (mode->type == X86ADDRMODE_MEM) {
+		if (mode->value.m.type == x86ADDR_INDIR_SIB) {
+			strRegP retVal = NULL;
+			if (mode->value.m.value.sib.base)
+				retVal = regsFromMode(mode->value.m.value.sib.base);
+			if (mode->value.m.value.sib.index) {
+				__auto_type tmp = strRegPSetUnion(regsFromMode(mode->value.m.value.sib.index), retVal, (regCmpType)ptrPtrCmp);
+				strRegPDestroy(&retVal);
+				retVal = tmp;
+			}
+			return retVal;
+		}
+	}
+	return NULL;
 }
 static __thread struct parserVar *retVar=NULL;
 static int isIntType(struct object *obj) {
@@ -307,6 +327,100 @@ static void strX86AddrModeDestroy2(strX86AddrMode *str) {
 				X86AddrModeDestroy(&str[0][i]);
 		strX86AddrModeDestroy(str);
 }
+struct formulaPair {
+		struct reg *passInReg; //NULL for pass on stack
+		strRegP depends;
+		long argI;
+		struct X86AddressingMode *mode;
+};
+STR_TYPE_DEF(struct formulaPair*,FormulaPair);
+STR_TYPE_FUNCS(struct formulaPair*,FormulaPair);
+static void strFormulaPairDestroy2(strFormulaPair *toDestroy) {
+		for(long i=0;i!=strFormulaPairSize(*toDestroy);i++) {
+				strRegPDestroy(&toDestroy[0][i]->depends);
+				free(toDestroy[0][i]);
+		}
+		strFormulaPairDestroy(toDestroy);
+}
+static int formulaPairCmp(const struct formulaPair **a, const struct formulaPair **b) {
+		if(*a>*b) return 1;
+		else if(*a<*b) return -1;
+		return 0;
+}
+static int formulaPairArgiOrderCmp(const struct formulaPair **a, const struct formulaPair **b) {
+		return a[0]->argI-b[0]->argI;
+}
+STR_TYPE_DEF(strFormulaPair,StrFormulaPair);
+STR_TYPE_FUNCS(strFormulaPair,StrFormulaPair);
+static strFormulaPair canComeAhead(strFormulaPair in,struct formulaPair *have) {
+		if(!have->passInReg) return strFormulaPairClone(in);
+		strFormulaPair retVal=NULL;
+		for(long i=0;i!=strFormulaPairSize(in);i++) {
+				for(long d=0;d!=strRegPSize(in[i]->depends);d++)
+						if(regConflict(have->passInReg, in[i]->depends[d]))
+								goto next;
+				retVal=strFormulaPairSortedInsert(retVal, in[i], formulaPairCmp);
+		next:;
+		}
+		return retVal;
+}
+static void strStrFormulaPairDestroy2(strStrFormulaPair *toDestroy) {
+		for(long i=0;i!=strStrFormulaPairSize(*toDestroy);i++)
+				strFormulaPairDestroy(&toDestroy[0][i]);
+		strStrFormulaPairDestroy(toDestroy);
+}
+static void dependResolver(strFormulaPair _in,strFormulaPair *out,strFormulaPair *spill) {
+		strFormulaPair reversed =NULL,spilled=NULL;
+		strFormulaPair in CLEANUP(strFormulaPairDestroy)=strFormulaPairClone(_in);
+		
+		for(;;) {
+				strStrFormulaPair canComeAheads CLEANUP(strStrFormulaPairDestroy2)=strStrFormulaPairResize(NULL, strFormulaPairSize(in));
+				for(long i=0;i!=strFormulaPairSize(in);i++) {
+						canComeAheads[i]=canComeAhead(in, in[i]);
+				}
+		
+				strFormulaPair un CLEANUP(strFormulaPairDestroy)=strFormulaPairClone(canComeAheads[0]);
+				for(long i=1;i!=strFormulaPairSize(in);i++)
+						un=strFormulaPairSetUnion(un, canComeAheads[i], formulaPairCmp);
+				reversed=strFormulaPairAppendData(reversed, (const struct formulaPair**)un, strFormulaPairSize(un));
+
+				in=strFormulaPairSetDifference(in, un, formulaPairCmp);
+				if(0==strFormulaPairSize(in)) {
+						reversed=strFormulaPairReverse(reversed);
+						if(out) *out=reversed;
+						if(spill) *spill=spilled;
+
+						//Assert the items dont conflict
+						for(long r=0;r!=strFormulaPairSize(reversed);r++) {
+								strFormulaPair ahead CLEANUP(strFormulaPairDestroy)=canComeAhead(_in, reversed[r]);
+								for(long r2=r+1;r2!=strFormulaPairSize(reversed);r++) {
+										assert(strFormulaPairSortedInsert(ahead, reversed[r], formulaPairCmp));
+								}
+						}
+						return;
+				}
+		
+				strFormulaPair merged CLEANUP(strFormulaPairDestroy)= strFormulaPairClone(canComeAheads[0]);
+				for(long i=1;i!=strFormulaPairSize(in);i++)
+						merged=strFormulaPairMerge(merged, canComeAheads[i], formulaPairCmp);
+
+				strLong mostSame CLEANUP(strLongDestroy)=strLongResize(NULL, strFormulaPairSize(in));
+				for(long i=0;i!=strFormulaPairSize(in);i++)  {
+						mostSame[i]=0;
+						for(long p=0;i!=strFormulaPairSize(canComeAheads[i]);p++)
+								for(long s=0;s!=strFormulaPairSize(merged);s++)
+										if(regConflict(canComeAheads[i][p]->passInReg,merged[s]->passInReg))
+												mostSame[i]++;
+				}
+
+				long lowestI=0;
+				long lowestVal=LONG_MAX;
+				for(long i=0;i!=strStrFormulaPairSize(canComeAheads);i++)
+						if(lowestVal>mostSame[i]) lowestVal=mostSame[i],lowestI=i;
+				spilled=strFormulaPairAppendItem(spilled, in[lowestI]);
+				in=strFormulaPairRemoveItem(in, in[lowestI], formulaPairCmp);
+		}
+}
 void IR_ABI_SYSV_X64_Prologue(long frameSize) {
 		CLEANUP(X86AddrModeDestroy) struct X86AddressingMode *esp=X86AddrModeReg(stackPointer(), objectPtrCreate(&typeU0));
 		struct X86AddressingMode *ebp CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(basePointer(),objectPtrCreate(&typeU0));
@@ -403,6 +517,13 @@ void IR_ABI_SYSV_X64_Return(graphNodeIR _ret,long frameSize) {
 				goto leave;
 		}
 }
+static strX86AddrMode shuffleArgsByFormula(strX86AddrMode args,strFormulaPair order) {
+		strX86AddrMode retVal=strX86AddrModeResize(NULL, strFormulaPairSize(order));
+		for(long o=0;o!=strFormulaPairSize(order);o++)
+				retVal[o]=X86AddrModeClone(args[order[o]->argI]);
+		strX86AddrModeDestroy2(&args);
+		return retVal;
+}
 void IR_ABI_SYSV_X64_Call(graphNodeIR _call,struct X86AddressingMode *funcMode,strX86AddrMode args,struct X86AddressingMode *outMode) {
 		struct IRNodeFuncCall *call=(void*)graphNodeIRValuePtr(_call);
 		__auto_type abiInfo=llIRAttrFind(graphNodeIRValuePtr(_call)->attrs,IR_ATTR_ABI_INFO,IRAttrGetPred);
@@ -431,6 +552,9 @@ void IR_ABI_SYSV_X64_Call(graphNodeIR _call,struct X86AddressingMode *funcMode,s
 		toBackup=mergeConflictingRegs(toBackup);
 		for(long b=0;b!=sizeof(calleeSaved)/sizeof(*calleeSaved);b++)
 				toBackup=strRegPRemoveItem(toBackup, calleeSaved[b], (regCmpType)ptrPtrCmp);
+
+		for(long b=0;b!=strRegPSize(toBackup);b++)
+				pushReg(toBackup[b]);
 		
 		assert(call->base.type==IR_FUNC_CALL);
 
@@ -465,6 +589,12 @@ void IR_ABI_SYSV_X64_Call(graphNodeIR _call,struct X86AddressingMode *funcMode,s
 		};
 		int stuffedSses=0;
 		strX86AddrMode  toPush CLEANUP(strX86AddrModeDestroy2)=NULL;
+
+		strFormulaPair toPassFormula CLEANUP(strFormulaPairDestroy2)=NULL;
+
+		long spillStackSize=0;
+		strFormulaPair outFormula CLEANUP(strFormulaPairDestroy)=NULL;
+		strFormulaPair spillFormula CLEANUP(strFormulaPairDestroy)=NULL;
 		for(long a=0;a!=strX86AddrModeSize(args);a++) {
 				int consumedInts=0;
 				int consumedSses=0;
@@ -489,20 +619,28 @@ void IR_ABI_SYSV_X64_Call(graphNodeIR _call,struct X86AddressingMode *funcMode,s
 				consumedInts=getConsumedInts(classes, fields);
 				consumedSses=getConsumedSses(classes, fields);
 				
-				if(stuffedInts+consumedInts>=sizeof(intRegs)/sizeof(*intRegs)) goto pushToStack;
-				if(stuffedSses+consumedSses>=sizeof(sseRegs)/sizeof(*sseRegs)) goto pushToStack;
+				if(stuffedInts+consumedInts>sizeof(intRegs)/sizeof(*intRegs)) goto pushToStack;
+				if(stuffedSses+consumedSses>sizeof(sseRegs)/sizeof(*sseRegs)) goto pushToStack;
 				
 				for(long c=0;c<strAbiTypeSize(classes);) {
 						if(classes[c]==ABI_INTEGER) {
 								//Stuff that stuff into a register
 								__auto_type r=subRegOfType(intRegs[stuffedInts++],largestDataSizeInWidth(currTypeSize-offset));
-								struct X86AddressingMode *rMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(r,largestDataSizeInWidth(currTypeSize-offset));
-								asmTypecastAssign(_call,rMode,aMode, ASM_ASSIGN_X87FPU_POP);
+								struct formulaPair pair;
+								pair.depends=regsFromMode(args[a]);
+								pair.passInReg=r;
+								pair.argI=a;
+								pair.mode=X86AddrModeClone(args[a]);
+								toPassFormula=strFormulaPairSortedInsert(toPassFormula,ALLOCATE(pair),formulaPairCmp);
 								addOffsetIfIndir(aMode,8);
 						} else if(classes[c]==ABI_SSE) {
 								__auto_type r=subRegOfType(sseRegs[stuffedSses++],&typeF64);
-								struct X86AddressingMode *rMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(r,&typeF64);
-								asmTypecastAssign(_call,rMode,aMode, ASM_ASSIGN_X87FPU_POP);
+								struct formulaPair pair;
+								pair.depends=regsFromMode(args[a]);
+								pair.passInReg=r;
+								pair.mode=X86AddrModeClone(args[a]);
+								pair.argI=a;
+								toPassFormula=strFormulaPairSortedInsert(toPassFormula,ALLOCATE(pair),formulaPairCmp);
 								addOffsetIfIndir(aMode,8);
 						} else if(classes[c]==ABI_MEMORY) {
 								abort();
@@ -520,17 +658,43 @@ void IR_ABI_SYSV_X64_Call(graphNodeIR _call,struct X86AddressingMode *funcMode,s
 		pushToStack:
 				toPush=strX86AddrModeAppendItem(toPush,X86AddrModeClone(aMode));
 		}
+		{
+				dependResolver(toPassFormula, &outFormula,&spillFormula);
+				args=shuffleArgsByFormula(args, outFormula);
+				
+				for(long s=0;s!=strFormulaPairSize(spillFormula);s++) {
+						pushMode(args[spillFormula[s]->argI]);
+						spillStackSize+=objectSize(args[spillFormula[s]->argI]->valueType, NULL);
+				}
 
-		toPush=strX86AddrModeReverse(toPush);
-		for(long p=0;p!=strX86AddrModeSize(toPush);p++) {
-				pushMode(toPush[p]);
+				for(long p=0;p!=strFormulaPairSize(outFormula);p++) {
+						struct X86AddressingMode *rMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(outFormula[p]->passInReg, outFormula[p]->mode->valueType);
+						asmTypecastAssign(_call, rMode, outFormula[p]->mode, ASM_ASSIGN_X87FPU_POP);
+				}
+				for(long s=0;s!=strFormulaPairSize(spillFormula);s++) {
+						long currSpillStackOffset=0;
+						long addedOffset=0;
+						struct X86AddressingMode *stackPtr CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirReg(stackPointer(), spillFormula[s]->mode->valueType);
+						X86AddrModeIndirSIBAddOffset(stackPtr, spillStackSize+addedOffset-currSpillStackOffset);		
+						assert(spillFormula[s]->passInReg);
+						struct X86AddressingMode *rMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(spillFormula[s]->passInReg, spillFormula[s]->mode->valueType);
+						asmTypecastAssign(_call, rMode, stackPtr, ASM_ASSIGN_X87FPU_POP);
+				}
+				
+				toPush=strX86AddrModeReverse(toPush);
+				for(long p=0;p!=strX86AddrModeSize(toPush);p++)
+						pushMode(toPush[p]);
 		}
 
-		for(long b=0;b!=strRegPSize(toBackup);b++)
-				pushReg(toBackup[b]);
 		strX86AddrMode callArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeClone(funcMode));
 		assembleOpcode(_call, "CALL",  callArgs);
 
+		//Get Rid of the "spill" area
+		strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+		addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeReg(stackPointer(), objectPtrCreate(&typeU0)));
+		addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeSint(spillStackSize));
+		assembleOpcode(_call, "ADD", addArgs);
+		
 		if(outMode){
 				struct X86AddressingMode *oMode =outMode;
 				__auto_type outType=oMode->valueType;
@@ -593,7 +757,7 @@ void IR_ABI_SYSV_X64_Call(graphNodeIR _call,struct X86AddressingMode *funcMode,s
 		}
 	pop:
 		for(long b=strRegPSize(toBackup)-1;b>=0;b--)
-				pushReg(toBackup[b]);
+				popReg(toBackup[b]);
 }
 static struct regSlice createRegSlice(struct reg *r,struct object *type) {
 		struct regSlice slice;
@@ -636,7 +800,7 @@ void IR_ABI_SYSV_X86_LoadArgs(graphNodeIR start) {
 		};
 		
 		CLEANUP(strGraphNodeIRPDestroy) strGraphNodeIRP allNodes =graphNodeIRAllNodes(start);
-		long stackOffset=0;
+		long stackOffset=16;
 		int stuffedInts=0;
 		int stuffedSses=0;
 		for(long a=0;a!=strFuncArgSize(fType->args);a++) {
@@ -650,8 +814,8 @@ void IR_ABI_SYSV_X86_LoadArgs(graphNodeIR start) {
 
 				long consumedInts=getConsumedInts(classes, fields);
 				long consumedSses=getConsumedSses(classes, fields);
-				if(consumedInts+stuffedInts>=sizeof(intRegs)/sizeof(*intRegs)) goto mem;
-				if(consumedSses+stuffedSses>=sizeof(sseRegs)/sizeof(*sseRegs)) goto mem;
+				if(consumedInts+stuffedInts>sizeof(intRegs)/sizeof(*intRegs)) goto mem;
+				if(consumedSses+stuffedSses>sizeof(sseRegs)/sizeof(*sseRegs)) goto mem;
 				if(isMemory(classes)) goto mem;
 				__auto_type var=fType->args[a].var;
 				if(isIntType(arg.type)) {
@@ -701,6 +865,7 @@ void IR_ABI_SYSV_X86_LoadArgs(graphNodeIR start) {
 						__auto_type var=fType->args[a].var;
 						CLEANUP(X86AddrModeDestroy) struct X86AddressingMode *varMode=X86AddrModeVar(var, 0);
 						CLEANUP(X86AddrModeDestroy) struct X86AddressingMode *inMode=X86AddrModeIndirReg(basePointer(), var->type);
+						X86AddrModeIndirSIBAddOffset(inMode, stackOffset);
 						asmTypecastAssign(NULL, varMode, inMode, ASM_ASSIGN_X87FPU_POP);
 
 						long tSize=objectSize(var->type,NULL);

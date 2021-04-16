@@ -311,3 +311,30 @@ struct __vec *__vecReverse(struct __vec *str, long itemSize) {
 	}
 	return str;
 }
+//https://www.cplusplus.com/reference/algorithm/merge/
+struct __vec* __vecMerge(struct __vec *a,struct __vec *b,long itemSize,int (*cmp)(const void *,const void *)) {
+		void *firstA=a;
+		void *firstB=b;
+		void *lastA=firstA+__vecSize(a)*itemSize;
+		void *lastB=firstB+__vecSize(b)*itemSize;
+		struct __vec *retVal=NULL;
+		while(1) {
+				if(firstA==lastA) {
+						retVal=__vecAppendItem(retVal, firstB, lastB-firstB);
+						break;
+				}
+				if(firstB==lastB) {
+						retVal=__vecAppendItem(retVal, firstA, lastA-firstA);
+						break;
+				}
+				if(cmp(firstB,firstA)<0) {
+						retVal=__vecAppendItem(retVal, firstB, itemSize);
+						firstB+=itemSize;
+				} else {
+						retVal=__vecAppendItem(retVal, firstA, itemSize);
+						firstA+=itemSize;
+				}
+		}
+		__vecDestroy(&a);
+		return retVal;
+}

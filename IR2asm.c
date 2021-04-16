@@ -116,7 +116,7 @@ void pushReg(struct reg *r) {
 	if (r->size == 1||r->size!=dataSize()) {
 		strX86AddrMode subArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
 		subArgs = strX86AddrModeAppendItem(subArgs, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())));
-		subArgs = strX86AddrModeAppendItem(subArgs, X86AddrModeSint(1));
+		subArgs = strX86AddrModeAppendItem(subArgs, X86AddrModeSint(r->size));
 		assembleInst("SUB", subArgs);
 
 		strX86AddrMode movArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
@@ -187,7 +187,7 @@ void popReg(struct reg *r) {
 
 		strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
 		addArgs = strX86AddrModeAppendItem(addArgs, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())));
-		addArgs = strX86AddrModeAppendItem(addArgs, X86AddrModeSint(1));
+		addArgs = strX86AddrModeAppendItem(addArgs, X86AddrModeSint(r->size));
 		assembleInst("ADD", addArgs);
 		return;
 	}
@@ -661,7 +661,6 @@ strRegP deadRegsAtPoint(graphNodeIR atNode,struct object *type) {
 								continue;
 						}
 						case X86ADDRMODE_SIZEOF:
-						case X86ADDRMODE_VAR_VALUE:
 						case X86ADDRMODE_ITEM_ADDR:
 						case X86ADDRMODE_SINT:
 						case X86ADDRMODE_UINT:
@@ -764,6 +763,7 @@ strRegP deadRegsAtPoint(graphNodeIR atNode,struct object *type) {
 								}
 								break;
 						}
+						case X86ADDRMODE_VAR_VALUE:
 						case X86ADDRMODE_MEM: {
 								//Can be converted to register
 								long size=dataSize();
@@ -855,7 +855,6 @@ strRegP deadRegsAtPoint(graphNodeIR atNode,struct object *type) {
 						args2=strX86AddrModeAppendItem(args2, X86AddrModeClone(args[a]));
 						break;
 				case X86ADDRMODE_SIZEOF:
-				case X86ADDRMODE_VAR_VALUE:
 				case X86ADDRMODE_ITEM_ADDR:
 				case X86ADDRMODE_SINT:
 				case X86ADDRMODE_UINT:
@@ -954,6 +953,7 @@ strRegP deadRegsAtPoint(graphNodeIR atNode,struct object *type) {
 						}
 						break;
 				}
+				case X86ADDRMODE_VAR_VALUE:
 				case X86ADDRMODE_MEM: {
 						//Can be converted to register
 						long size=dataSize();
