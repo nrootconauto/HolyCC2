@@ -672,7 +672,7 @@ loadBasePtr : { assembleInst("LEAVE", NULL); }
 ret:
 	assembleInst("RET", NULL);
 }
-strVar IRABIInsertLoadArgs(graphNodeIR start) {
+strVar IRABIInsertLoadArgs(graphNodeIR start,long frameSize) {
 	calledInsertArgs = 1;
 	switch (getCurrentArch()) {
 	case ARCH_TEST_SYSV:
@@ -680,7 +680,7 @@ strVar IRABIInsertLoadArgs(graphNodeIR start) {
 		return IR_ABI_I386_SYS_InsertLoadArgs(start);
 	}
 	case ARCH_X64_SYSV:
-			IR_ABI_SYSV_X86_LoadArgs(start);
+			IR_ABI_SYSV_X64_LoadArgs(start,frameSize);
 			return NULL;
 	}
 }

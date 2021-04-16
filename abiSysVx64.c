@@ -35,7 +35,6 @@ static strRegP regsFromMode(struct X86AddressingMode *mode) {
 	}
 	return NULL;
 }
-static __thread struct parserVar *retVar=NULL;
 static int isIntType(struct object *obj) {
 	const struct object *intTypes[] = {
 	    &typeI8i, &typeI16i, &typeI32i, &typeI64i, &typeU8i, &typeU16i, &typeU32i, &typeU64i,
@@ -236,8 +235,8 @@ https://ntuck-neu.site/2020-09/cs3650/asm/x86-64-sysv-abi.pdf
 		for(;offset!=strLongSize(groupings);) {
 				long consec=getConsecCount(groupings, offset);
 				enum ABI_Type fields[consec];
-				for(long i=0;i<strObjectSize(types);i++) {
-						fields[i]=getAbiType(types[i]);
+				for(long i=0;i<consec;i++) {
+						fields[i]=getAbiType(types[offset+i]);
 				}
 
 		loop:
@@ -430,6 +429,10 @@ static void dependResolver(strFormulaPair _in,strFormulaPair *out,strFormulaPair
 				in=strFormulaPairRemoveItem(in, in[lowestI], formulaPairCmp);
 		}
 }
+/**
+	* Pushes RDI at end of frame if returns mem,THEREFORE MAKE ROOM FOR THIS "hidden" VALUE. 
+	*/
+
 void IR_ABI_SYSV_X64_Prologue(long frameSize) {
 		CLEANUP(X86AddrModeDestroy) struct X86AddressingMode *esp=X86AddrModeReg(stackPointer(), objectPtrCreate(&typeU0));
 		struct X86AddressingMode *ebp CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(basePointer(),objectPtrCreate(&typeU0));
@@ -439,7 +442,7 @@ void IR_ABI_SYSV_X64_Prologue(long frameSize) {
 		
 		CLEANUP(strX86AddrModeDestroy2) strX86AddrMode subArgs=NULL;
 		subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeClone(esp));
-		subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeSint(frameSize));
+		subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeSint(frameSize+8)); //+8 Makes room for structure return location 
 		assembleOpcode(NULL, "SUB", subArgs);
 
 		pushReg(&regAMD64RBX);
@@ -448,7 +451,11 @@ void IR_ABI_SYSV_X64_Prologue(long frameSize) {
 		pushReg(&regAMD64R14u64);
 		pushReg(&regAMD64R15u64);
 }
+/**
+	* We store a hidden 8 byte value at the end of the frame for the return addr,so add 8
+	*/
 static void loadPreservedRegs(long frameSize) {
+		frameSize+=8;
 		struct X86AddressingMode *ebpMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(basePointer(),objectPtrCreate(&typeU0));
 		struct X86AddressingMode *espMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(stackPointer(),objectPtrCreate(&typeU0));
 		asmAssign(NULL,espMode, ebpMode, ptrSize(), 0);
@@ -516,13 +523,14 @@ void IR_ABI_SYSV_X64_Return(graphNodeIR _ret,long frameSize) {
 		}
 		goto leave;
 	retMemory: {
-				assert(retVar);
 				struct X86AddressingMode *raxMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regAMD64RAX, objectPtrCreate(&typeU0));
-				struct X86AddressingMode *retVarMode CLEANUP(X86AddrModeDestroy)=X86AddrModeVar(retVar, 0);
+				/**
+					*Recall in IR_ABI_SYSV_X64_LoadArgs we pushed old RDI at end of stack freame
+					*/	
+				struct X86AddressingMode *retVarMode CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer(),objectPtrCreate(&typeU0)), X86AddrModeSint(-frameSize-8), objectPtrCreate(&typeU0));
 				asmTypecastAssign(_ret, raxMode, retVarMode, ASM_ASSIGN_X87FPU_POP);
 				struct X86AddressingMode *indirMode CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirReg(&regAMD64RAX, retType);
 				asmTypecastAssign(_ret, indirMode, retMode, ASM_ASSIGN_X87FPU_POP);
-
 				goto leave;
 		}
 }
@@ -585,6 +593,12 @@ void IR_ABI_SYSV_X64_Call(graphNodeIR _call,struct X86AddressingMode *funcMode,s
 				&regAMD64R9u64,
 		};
 		int stuffedInts=0;
+		int returnsMem=0;
+		{
+				strObject tmp CLEANUP(strObjectDestroy)=strObjectAppendItem(NULL, fType->retType); 
+				strAbiType classes CLEANUP(strAbiTypeDestroy)=consider2Agg(tmp);
+				returnsMem=stuffedInts=isMemory(classes)?1:0;
+		}
 		struct reg *sseRegs[]={
 				&regX86XMM0,
 				&regX86XMM1,
@@ -604,6 +618,14 @@ void IR_ABI_SYSV_X64_Call(graphNodeIR _call,struct X86AddressingMode *funcMode,s
 		long pushedArgsSize=0;
 		strFormulaPair outFormula CLEANUP(strFormulaPairDestroy)=NULL;
 		strFormulaPair spillFormula CLEANUP(strFormulaPairDestroy)=NULL;
+
+		if(returnsMem) {
+				strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+				leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeReg(&regAMD64RDI, objectPtrCreate(&typeU0)));
+				leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeClone(outMode));
+				leaArgs[1]->valueType=&typeU64i;
+				assembleOpcode(_call, "LEA",  leaArgs);
+		}
 		for(long a=0;a!=strX86AddrModeSize(args);a++) {
 				int consumedInts=0;
 				int consumedSses=0;
@@ -630,6 +652,7 @@ void IR_ABI_SYSV_X64_Call(graphNodeIR _call,struct X86AddressingMode *funcMode,s
 				
 				if(stuffedInts+consumedInts>sizeof(intRegs)/sizeof(*intRegs)) goto pushToStack;
 				if(stuffedSses+consumedSses>sizeof(sseRegs)/sizeof(*sseRegs)) goto pushToStack;
+				if(isMemory(classes)) goto pushToStack;
 				
 				for(long c=0;c<strAbiTypeSize(classes);) {
 						if(classes[c]==ABI_INTEGER) {
@@ -811,7 +834,10 @@ static void transparentKillNode(graphNodeIR node) {
 		}
 		graphNodeIRKill(&node ,(void(*)(void*))IRNodeDestroy, NULL);
 }
-void IR_ABI_SYSV_X86_LoadArgs(graphNodeIR start) {
+/**
+	* Stores RDI at end of frame if returns mem 
+	*/
+void IR_ABI_SYSV_X64_LoadArgs(graphNodeIR start,long frameSize) {
 		struct IRNodeFuncStart *fStart=(void*)graphNodeIRValuePtr(start);
 		struct objectFunction *fType=(void*)fStart->func->type;
 		
@@ -911,5 +937,13 @@ void IR_ABI_SYSV_X86_LoadArgs(graphNodeIR start) {
 				struct IRNodeFuncArg *arg=(void*)graphNodeIRValuePtr(allNodes[n]);
 				if(arg->base.type!=IR_FUNC_ARG) continue;
 				transparentKillNode(allNodes[n]);
+		}
+
+		strObject retType CLEANUP(strObjectDestroy)= strObjectAppendItem(NULL, fType->retType);
+		strAbiType classes CLEANUP(strAbiTypeDestroy)=consider2Agg(retType);
+		if(isMemory(classes)) {
+				struct X86AddressingMode *retAddr=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer(), &typeU64i), X86AddrModeSint(-frameSize-8), &typeU64i);
+				struct X86AddressingMode *rdiMode =X86AddrModeReg(&regAMD64RDI, &typeU64i);
+				asmTypecastAssign(NULL, retAddr, rdiMode, ASM_ASSIGN_X87FPU_POP);
 		}
 }

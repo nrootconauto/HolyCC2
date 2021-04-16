@@ -524,7 +524,10 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 				__auto_type members=args[i]->value.varAddr.memberOffsets;
 				for(long m=0;m!=strObjectMemberPSize(members);m++)
 						X86AddrModeIndirSIBAddMemberOffset(offset, members[m]);
-				
+
+				offset->valueType=args[i]->valueType;
+				if(strObjectMemberPSize(members))
+						offset->valueType=members[strObjectMemberPSize(members)-1]->type;
 				return emitMode(&offset, 0);
 			} else {
 					strChar typeStr CLEANUP(strCharDestroy) =getSizeStr(args[i]->valueType);
