@@ -7,7 +7,7 @@ This is a holyC compiler on a mission to keep the line-count down. Its goal is t
 hcc program.HC program2.HC #Sybols from program.HC will be visible from program2.HC 
 hcc --help
 ```
-**This compiler is currently for linux 32bit**(so if linking with libraries be sure to have the 32bit version installed),and uses `yasm` to assemble the generated assembly andd `gcc` to link agianst the c library . I will add 64bit and webassembly support later but i first want to create a HolyC texteditor. To link against libraries(make sure to install the 32bit version of the library), do
+**This compiler is currently for linux 32bit(64bit support has been implemented but is disabled as i have yet to write a runtime for it)**(so if linking with libraries be sure to have the 32bit version installed),and uses `yasm` to assemble the generated assembly andd `gcc` to link agianst the c library . I will add 64bit and webassembly support later but i first want to create a HolyC texteditor. To link against libraries(make sure to install the 32bit version of the library), do
 ```
 #link "lib"
 extern I32 libFunc();
