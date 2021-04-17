@@ -89,6 +89,7 @@ static graphNodeIR genBinopF64(struct opTextPair pair,graphNodeIR connectTo,stru
 		__auto_type src2Asn=IRCreateAssign(IRCreateFloat(b), IRCreateRegRef(&reg));
 
 		__auto_type binop=IRCreateBinop(src1Asn, src2Asn, pair.irType);
+		reg.offset=0,reg.reg=dst,reg.type=&typeF64,reg.widthInBits=64;
 		__auto_type dstAsn=IRCreateAssign(binop, IRCreateRegRef(&reg));
 		reg.offset=0,reg.reg=&regAMD64R8u64,reg.type=&typeI64i,reg.widthInBits=64;
 		__auto_type eq=IRCreateAssign(IRCreateBinop(dstAsn, IRCreateFloat(res), IR_EQ),IRCreateRegRef(&reg));

@@ -2685,9 +2685,15 @@ static graphNodeIR assembleOpSD(graphNodeIR start,const char *op) {
   __auto_type dst=nodeDest(start);
   if(dst) {
     struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(dst);
-    if(__ouputModeAffectsInput(aMode,oMode)||__ouputModeAffectsInput(aMode,oMode)) {
+    if(__ouputModeAffectsInput(aMode,oMode)||__ouputModeAffectsInput(bMode,oMode)) {
       struct X86AddressingMode *accumMode CLEANUP(X86AddrModeDestroy)=getAccumulatorForType(&typeF64);
       asmTypecastAssign(start,accumMode,aMode,ASM_ASSIGN_X87FPU_POP);
+						strX86AddrMode args CLEANUP(strX86AddrModeDestroy2)=NULL;
+      args=strX86AddrModeAppendItem(args,X86AddrModeClone(accumMode));
+      args=strX86AddrModeAppendItem(args,X86AddrModeClone(bMode));
+      assembleOpcode(start,op,args);
+
+						asmTypecastAssign(start,oMode,accumMode,ASM_ASSIGN_X87FPU_POP);
     } else {
       asmTypecastAssign(start,oMode,aMode,ASM_ASSIGN_X87FPU_POP);
 
