@@ -88,6 +88,22 @@ static void strX86AddrModeDestroy2(strX86AddrMode *str) {
 		X86AddrModeDestroy(&str[0][i]);
 	strX86AddrModeDestroy(str);
 }
+static int isXmmReg(struct reg *r) {
+		const struct reg *xmm[]={
+				&regX86XMM0,
+				&regX86XMM1,
+				&regX86XMM2,
+				&regX86XMM3,
+				&regX86XMM4,
+				&regX86XMM5,
+				&regX86XMM6,
+				&regX86XMM7,
+		};
+		for(long i=0;i!=8;i++)
+				if(xmm[i]==r)
+						return 1;
+		return 0;
+}
 static struct object *getTypeForSize(long size);
 void pushReg(struct reg *r) {
 		const struct reg *fpu[]={
@@ -112,20 +128,22 @@ void pushReg(struct reg *r) {
 						assembleInst("FSTP", movArgs);
 						return;
 				}
-	// Can't push 8-bit registers,so make room on the stack and assign
-	if (r->size == 1||r->size!=dataSize()) {
-		strX86AddrMode subArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
-		subArgs = strX86AddrModeAppendItem(subArgs, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())));
-		subArgs = strX86AddrModeAppendItem(subArgs, X86AddrModeSint(r->size));
-		assembleInst("SUB", subArgs);
-
-		strX86AddrMode movArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
-		movArgs = strX86AddrModeAppendItem(movArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())), X86AddrModeSint(0), getTypeForSize(r->size)));
-		movArgs = strX86AddrModeAppendItem(movArgs, X86AddrModeReg(r,getTypeForSize(r->size)));
-		assembleInst("MOV", movArgs);
-		return;
-	}
-	strX86AddrMode ppIndexArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeReg(r,getTypeForSize(r->size)));
+		__auto_type type=(isXmmReg(r))?&typeF64:getTypeForSize(r->size);
+		
+		// Can't push 8-bit registers,so make room on the stack and assign
+		if (r->size == 1||r->size!=dataSize()) {
+				strX86AddrMode subArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
+				subArgs = strX86AddrModeAppendItem(subArgs, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())));
+				subArgs = strX86AddrModeAppendItem(subArgs, X86AddrModeSint(r->size));
+				assembleInst("SUB", subArgs);
+				
+				strX86AddrMode movArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
+				movArgs = strX86AddrModeAppendItem(movArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())), X86AddrModeSint(0), type));
+				movArgs = strX86AddrModeAppendItem(movArgs, X86AddrModeReg(r,type));
+				asmAssign(NULL, movArgs[0], movArgs[1], r->size, ASM_ASSIGN_X87FPU_POP);
+				return;
+		}
+		strX86AddrMode ppIndexArgs CLEANUP(strX86AddrModeDestroy2) = strX86AddrModeAppendItem(NULL, X86AddrModeReg(r,getTypeForSize(r->size)));
 	assembleInst("PUSH", ppIndexArgs);
 }
 static struct X86AddressingMode *demoteAddrMode(struct X86AddressingMode *addr, struct object *type);
@@ -184,12 +202,14 @@ void pushMode(struct X86AddressingMode *mode) {
 	}
 }
 void popReg(struct reg *r) {
-	// Can't pop 8-bit registers,so make room on the stack and assign
+		// Can't pop 8-bit registers,so make room on the stack and assign
 	if (r->size == 1||r->size!=dataSize()) {
+			__auto_type type=(isXmmReg(r))?&typeF64:getTypeForSize(r->size);
+
 		strX86AddrMode movArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
-		movArgs = strX86AddrModeAppendItem(movArgs, X86AddrModeReg(r,getTypeForSize(r->size)));
-		movArgs = strX86AddrModeAppendItem(movArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())), X86AddrModeSint(0),getTypeForSize(r->size)));
-		assembleInst("MOV", movArgs);
+		movArgs = strX86AddrModeAppendItem(movArgs, X86AddrModeReg(r,type));
+		movArgs = strX86AddrModeAppendItem(movArgs, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())), X86AddrModeSint(0),type));
+		asmAssign(NULL, movArgs[0], movArgs[1], r->size, ASM_ASSIGN_X87FPU_POP);
 
 		strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
 		addArgs = strX86AddrModeAppendItem(addArgs, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())));
@@ -633,7 +653,7 @@ strRegP deadRegsAtPoint(graphNodeIR atNode,struct object *type) {
 		regs=strRegPRemoveIf(regs, NULL, ifInLive);
 		return regs;
 }
- void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode args) {
+void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode args) {
 		long originalSize=strRegPSize(consumedRegisters);
 		strX86AddrMode toPushPop CLEANUP(strX86AddrModeDestroy2)=NULL;
 		strOpcodeTemplate opsByName CLEANUP(strOpcodeTemplateDestroy) = X86OpcodesByName(name);
@@ -683,7 +703,7 @@ strRegP deadRegsAtPoint(graphNodeIR atNode,struct object *type) {
 
 								//Get list of dead registers,if has an availble dead register,add to consumed
 								int pushPop=1;
-								strRegP deadRegs CLEANUP(strRegPDestroy)=deadRegsAtPoint(atNode, getTypeForSize(size));
+								strRegP deadRegs CLEANUP(strRegPDestroy)=deadRegsAtPoint(atNode, args[a]->valueType);
 								if(strRegPSize(deadRegs)) {
 										consumeRegister(deadRegs[0]);
 										pushPop=0;
@@ -719,6 +739,7 @@ strRegP deadRegsAtPoint(graphNodeIR atNode,struct object *type) {
 										if(size!=4) templateIsValid[t]=0;
 										break;
 								case OPC_TEMPLATE_ARG_R64:
+								case OPC_TEMPLATE_ARG_XMM:
 								case OPC_TEMPLATE_ARG_RM64:
 										if(pushPop) {
 										case OPC_TEMPLATE_ARG_M64:
@@ -762,6 +783,7 @@ strRegP deadRegsAtPoint(graphNodeIR atNode,struct object *type) {
 										stackSizeTemplate[t]+=8;
 								case OPC_TEMPLATE_ARG_R64:
 								case OPC_TEMPLATE_ARG_RM64:
+								case OPC_TEMPLATE_ARG_XMM:
 										if(size!=8) templateIsValid[t]=0;
 										break;
 								default:
@@ -778,7 +800,7 @@ strRegP deadRegsAtPoint(graphNodeIR atNode,struct object *type) {
 
 								//Get list of dead registers,if has an availble dead register,add to consumed
 								int pushPop=1;
-								strRegP deadRegs CLEANUP(strRegPDestroy)=deadRegsAtPoint(atNode, getTypeForSize(size));
+								strRegP deadRegs CLEANUP(strRegPDestroy)=deadRegsAtPoint(atNode, args[a]->valueType);
 								if(strRegPSize(deadRegs)) {
 										consumeRegister(deadRegs[0]);
 										pushPop=0;
@@ -810,6 +832,7 @@ strRegP deadRegsAtPoint(graphNodeIR atNode,struct object *type) {
 								case OPC_TEMPLATE_ARG_RM32:
 										if(size!=4) templateIsValid[t]=0;
 										break;
+								case OPC_TEMPLATE_ARG_XMM:
 								case OPC_TEMPLATE_ARG_R64:
 										costPerTemplate[t]++;
 										if(pushPop)
@@ -877,11 +900,11 @@ strRegP deadRegsAtPoint(graphNodeIR atNode,struct object *type) {
 								//Get list of dead registers,if has an availble dead register,add to consumed
 								struct reg* reg=NULL;
 								int pushPop=0;
-								strRegP deadRegs CLEANUP(strRegPDestroy)=deadRegsAtPoint(atNode, getTypeForSize(size));
+								strRegP deadRegs CLEANUP(strRegPDestroy)=deadRegsAtPoint(atNode, args[a]->valueType);
 								if(strRegPSize(deadRegs)) {
 										reg=deadRegs[0];
 								} else {
-										reg=regForTypeExcludingConsumed(getTypeForSize(size));
+										reg=regForTypeExcludingConsumed(args[a]->valueType);
 										pushPop=1;
 								}
 
@@ -893,7 +916,8 @@ strRegP deadRegsAtPoint(graphNodeIR atNode,struct object *type) {
 								case OPC_TEMPLATE_ARG_R32:
 								case OPC_TEMPLATE_ARG_RM32:
 								case OPC_TEMPLATE_ARG_R64:
-								case OPC_TEMPLATE_ARG_RM64:;
+								case OPC_TEMPLATE_ARG_RM64:
+								case OPC_TEMPLATE_ARG_XMM:;
 										__auto_type mode=X86AddrModeReg(reg,args[a]->valueType);
 								if(pushPop) {
 										//Push
@@ -902,7 +926,7 @@ strRegP deadRegsAtPoint(graphNodeIR atNode,struct object *type) {
 										stackOffset-=size;
 								}
 								asmAssign(atNode,mode, args[a], size, ASM_ASSIGN_X87FPU_POP);
-								mode->valueType=getTypeForSize(size);
+								mode->valueType=args[a]->valueType;
 								args2=strX86AddrModeAppendItem(args2, mode);
 								break;
 								case OPC_TEMPLATE_ARG_M8:
@@ -911,7 +935,7 @@ strRegP deadRegsAtPoint(graphNodeIR atNode,struct object *type) {
 								case OPC_TEMPLATE_ARG_M64:; {
 										//Stack grows down
 										stackOffset-=size;
-										__auto_type mode=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())), X86AddrModeSint(stackOffset), getTypeForSize(size));
+										__auto_type mode=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())), X86AddrModeSint(stackOffset), args[a]->valueType);
 										pushMode(args[a]);
 										args2=strX86AddrModeAppendItem(args2, mode);
 								}
@@ -934,7 +958,7 @@ strRegP deadRegsAtPoint(graphNodeIR atNode,struct object *type) {
 										argsToRestore=strLongAppendItem(argsToRestore, a);
 								//Stack grows down
 								stackOffset-=size;
-								__auto_type mode=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())), X86AddrModeSint(stackOffset), getTypeForSize(size));
+								__auto_type mode=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())), X86AddrModeSint(stackOffset), args[a]->valueType);
 								pushMode(args[a]);
 								toPushPop=strX86AddrModeAppendItem(toPushPop, X86AddrModeClone(args[a]));
 								args2=strX86AddrModeAppendItem(args2, mode);
@@ -947,6 +971,7 @@ strRegP deadRegsAtPoint(graphNodeIR atNode,struct object *type) {
 						case OPC_TEMPLATE_ARG_RM32:
 						case OPC_TEMPLATE_ARG_R64:
 						case OPC_TEMPLATE_ARG_RM64:
+						case OPC_TEMPLATE_ARG_XMM:
 								args2=strX86AddrModeAppendItem(args2, X86AddrModeClone(args[a]));
 								break;
 						case OPC_TEMPLATE_ARG_REG: {
@@ -968,11 +993,11 @@ strRegP deadRegsAtPoint(graphNodeIR atNode,struct object *type) {
 
 						struct reg* reg=NULL;
 						int pushPop=0;
-						strRegP deadRegs CLEANUP(strRegPDestroy)=deadRegsAtPoint(atNode, getTypeForSize(size));
+						strRegP deadRegs CLEANUP(strRegPDestroy)=deadRegsAtPoint(atNode, args[a]->valueType);
 						if(strRegPSize(deadRegs)) {
 								reg=deadRegs[0];
 						} else {
-								reg=regForTypeExcludingConsumed(getTypeForSize(size));
+								reg=regForTypeExcludingConsumed(args[a]->valueType);
 								pushPop=1;
 						}
 
@@ -980,7 +1005,8 @@ strRegP deadRegsAtPoint(graphNodeIR atNode,struct object *type) {
 						case OPC_TEMPLATE_ARG_R8:
 						case OPC_TEMPLATE_ARG_R16:
 						case OPC_TEMPLATE_ARG_R32:
-						case OPC_TEMPLATE_ARG_R64:;
+						case OPC_TEMPLATE_ARG_R64:
+						case OPC_TEMPLATE_ARG_XMM:;
 								__auto_type mode=X86AddrModeReg(reg,args[a]->valueType);
 
 								if(pushPop) {
@@ -992,7 +1018,7 @@ strRegP deadRegsAtPoint(graphNodeIR atNode,struct object *type) {
 
 								asmAssign(atNode,mode, args[a], size, ASM_ASSIGN_X87FPU_POP);
 
-								mode->valueType=getTypeForSize(size);
+								mode->valueType=args[a]->valueType;
 								args2=strX86AddrModeAppendItem(args2, mode);
 								if(opsByName[lowestValidI]->args[a].isChangedByOp)
 										argsToRestore=strLongAppendItem(argsToRestore, a);
@@ -1005,7 +1031,6 @@ strRegP deadRegsAtPoint(graphNodeIR atNode,struct object *type) {
 						case OPC_TEMPLATE_ARG_RM32:
 						case OPC_TEMPLATE_ARG_M64:
 						case OPC_TEMPLATE_ARG_RM64:
-
 								args2=strX86AddrModeAppendItem(args2, X86AddrModeClone(args[a]));
 								break;
 						case OPC_TEMPLATE_ARG_STI: {
@@ -1281,30 +1306,25 @@ void asmAssign(graphNodeIR atNode,struct X86AddressingMode *a, struct X86Address
 							assert(0);
 					}
 					return;
-			} else if(isFltType(b->valueType)&&getCurrentArch()==ARCH_X64_SYSV) {
-					if(isIntType(a->valueType)||isPtrType(a->valueType)) {
-					x64FltToIntAssign:;
-							//Only 32/64 allowed
-							long aSize=objectSize(a->valueType, NULL);
-							if(aSize==4||aSize==8) {
-									strX86AddrMode cvtArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
-									cvtArgs=strX86AddrModeAppendItem(cvtArgs, X86AddrModeClone(a));
-									cvtArgs=strX86AddrModeAppendItem(cvtArgs, X86AddrModeClone(b));
-									assembleOpcode(atNode, "CVTSD2SI",  cvtArgs);
-							} else {
-									struct X86AddressingMode *raxMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regAMD64RAX, &typeI64i);
-									asmAssign(atNode, raxMode, b, 8, ASM_ASSIGN_X87FPU_POP);
-									asmTypecastAssign(atNode, a, raxMode, ASM_ASSIGN_X87FPU_POP);
-							}
-					}
 			}
-	} else if(b->valueType) {
-			if(isFltType(b->valueType)) {
-					if(getCurrentArch()==ARCH_X64_SYSV) goto x64FltToIntAssign;
-					struct X86AddressingMode *st0Mode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86ST0,&typeF64);
-					asmAssign(atNode,st0Mode, b, 8, flags);
-					asmAssign(atNode,a, st0Mode, size, 0);
-					return;
+	}
+	if(isFltType(b->valueType)&&getCurrentArch()==ARCH_X64_SYSV) {
+			if(isIntType(a->valueType)||isPtrType(a->valueType)) {
+			x64FltToIntAssign:;
+					//Only 32/64 allowed
+					long aSize=objectSize(a->valueType, NULL);
+					if(aSize==4||aSize==8) {
+							strX86AddrMode cvtArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+							cvtArgs=strX86AddrModeAppendItem(cvtArgs, X86AddrModeClone(a));
+							cvtArgs=strX86AddrModeAppendItem(cvtArgs, X86AddrModeClone(b));
+							assembleOpcode(atNode, "CVTSD2SI",  cvtArgs);
+							return ;
+					} else {
+							struct X86AddressingMode *raxMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regAMD64RAX, &typeI64i);
+							asmAssign(atNode, raxMode, b, 8, ASM_ASSIGN_X87FPU_POP);
+							asmTypecastAssign(atNode, a, raxMode, ASM_ASSIGN_X87FPU_POP);
+							return;
+					}
 			}
 	}
 	strX86AddrMode args CLEANUP(strX86AddrModeDestroy) = NULL;
@@ -1319,7 +1339,7 @@ void asmAssign(graphNodeIR atNode,struct X86AddressingMode *a, struct X86Address
 			if(getCurrentArch()==ARCH_X64_SYSV) {
 					strX86AddrMode args CLEANUP(strX86AddrModeDestroy2)=NULL;
 					args=strX86AddrModeAppendItem(args,X86AddrModeClone(a));
-          args=strX86AddrModeAppendItem(args,X86AddrModeClone(b));
+					args=strX86AddrModeAppendItem(args,X86AddrModeClone(b));
 					assembleOpcode(atNode, "MOVSD2",args);
 					return;
 			}
@@ -2429,105 +2449,129 @@ void asmTypecastAssign(graphNodeIR atNode,struct X86AddressingMode *outMode, str
 		} else if (isFltType(outMode->valueType)) {
 				asmAssign(atNode,outMode, inMode, objectSize(outMode->valueType, NULL),0);
 		} else if(objectBaseType(outMode->valueType)==&typeBool) {
-		flt2Bool:;
-				struct X86AddressingMode *st0Mode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86ST0,&typeF64);
-				asmAssign(atNode,st0Mode, inMode, 8, 0);
-				assembleInst("FLDZ", NULL);
+		flt2Bool:
+				switch(getCurrentArch()) {
+				case ARCH_TEST_SYSV:
+				case ARCH_X86_SYSV: {
+						struct X86AddressingMode *st0Mode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86ST0,&typeF64);
+						asmAssign(atNode,st0Mode, inMode, 8, 0);
+						assembleInst("FLDZ", NULL);
+						
+						strX86AddrMode fcomipArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+						fcomipArgs=strX86AddrModeAppendItem(fcomipArgs, X86AddrModeReg(&regX86ST0,&typeF64));
+						fcomipArgs=strX86AddrModeAppendItem(fcomipArgs, X86AddrModeReg(&regX86ST1,&typeF64));
+						assembleInst((flags&ASM_ASSIGN_X87FPU_POP)?"FCOMIP":"FCOMI",  NULL);
+						
+						setCond(atNode, "NZ",outMode);
+						return ;
+				}
+				case ARCH_X64_SYSV: {
+						strX86AddrMode uncomisdArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+						uncomisdArgs=strX86AddrModeAppendItem(uncomisdArgs, X86AddrModeClone(inMode));
+						uncomisdArgs=strX86AddrModeAppendItem(uncomisdArgs, X86AddrModeFlt(0.0));
+						assembleOpcode(atNode, "UCOMISD",  uncomisdArgs);
 
-				strX86AddrMode fcomipArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
-				fcomipArgs=strX86AddrModeAppendItem(fcomipArgs, X86AddrModeReg(&regX86ST0,&typeF64));
-				fcomipArgs=strX86AddrModeAppendItem(fcomipArgs, X86AddrModeReg(&regX86ST1,&typeF64));
-				assembleInst((flags&ASM_ASSIGN_X87FPU_POP)?"FCOMIP":"FCOMI",  NULL);
-
-				setCond(NULL, "NZ",outMode);
+						setCond(atNode, "NZ",outMode);
+						return ;
+				}
+				}
 		} else
-			assert(0);
+				assert(0);
 		return;
 	}
 	case X86ADDRMODE_VAR_VALUE:
 	case X86ADDRMODE_MEM:
 	case X86ADDRMODE_LABEL:
 	case X86ADDRMODE_REG: {
-		// If destination is bigger than source,sign extend if dest is signed
-		if (isPtrType(outMode->valueType) || isIntType(outMode->valueType)) {
-				if(isFltType(inMode->valueType)) {
-						asmAssign(atNode,outMode, inMode,  objectSize(outMode->valueType, NULL), flags);
-						return;
-				}
-			long iSize = objectSize(inMode->valueType, NULL);
-			long oSize = objectSize(outMode->valueType, NULL);
-			if (oSize > iSize) {
-				if (typeIsSigned(inMode->valueType)) {
-						__typecastSignExt(NULL,outMode, inMode);
-				} else {
-						struct X86AddressingMode *accum CLEANUP(X86AddrModeDestroy)=getAccumulatorForType(outMode->valueType);
-					struct reg *dumpToReg = accum->value.reg;
+			// If destination is bigger than source,sign extend if dest is signed
+			if (isPtrType(outMode->valueType) || isIntType(outMode->valueType)) {
+					if(isFltType(inMode->valueType)) {
+							asmAssign(atNode,outMode, inMode,  objectSize(outMode->valueType, NULL), flags);
+							return;
+					}
+					long iSize = objectSize(inMode->valueType, NULL);
+					long oSize = objectSize(outMode->valueType, NULL);
+					if (oSize > iSize) {
+							if (typeIsSigned(inMode->valueType)) {
+									__typecastSignExt(NULL,outMode, inMode);
+							} else {
+									struct X86AddressingMode *accum CLEANUP(X86AddrModeDestroy)=getAccumulatorForType(outMode->valueType);
+									struct reg *dumpToReg = accum->value.reg;
 
-					strX86AddrMode movzxArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
-					struct X86AddressingMode *dumpToRegMode CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(dumpToReg,outMode->valueType);
-					AUTO_LOCK_MODE_REGS(dumpToRegMode);
+									strX86AddrMode movzxArgs CLEANUP(strX86AddrModeDestroy2) = NULL;
+									struct X86AddressingMode *dumpToRegMode CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(dumpToReg,outMode->valueType);
+									AUTO_LOCK_MODE_REGS(dumpToRegMode);
 
-					movzxArgs = strX86AddrModeAppendItem(movzxArgs, X86AddrModeClone(dumpToRegMode));
-					movzxArgs = strX86AddrModeAppendItem(movzxArgs, X86AddrModeClone(inMode));
-					assembleInst("MOVZX", movzxArgs);
-					asmAssign(atNode,outMode, dumpToRegMode, objectSize(outMode->valueType, NULL),0);
-				}
-				return;
-			} else if (iSize > oSize) {
-				struct X86AddressingMode *mode CLEANUP(X86AddrModeDestroy) = demoteAddrMode(inMode, outMode->valueType);
-				if (!mode) {
-						AUTO_LOCK_MODE_REGS(outMode);
-						AUTO_LOCK_MODE_REGS(inMode);
-						// Cant demote current mode,so use RAX register as accumatior(which can be demoted)
-					struct X86AddressingMode *rax CLEANUP(X86AddrModeDestroy) = getAccumulatorForType(inMode->valueType);
-					struct X86AddressingMode *demoted2Out CLEANUP(X86AddrModeDestroy) = demoteAddrMode(rax, outMode->valueType);
-					struct X86AddressingMode *demoted2In CLEANUP(X86AddrModeDestroy) = X86AddrModeClone(rax);
+									movzxArgs = strX86AddrModeAppendItem(movzxArgs, X86AddrModeClone(dumpToRegMode));
+									movzxArgs = strX86AddrModeAppendItem(movzxArgs, X86AddrModeClone(inMode));
+									assembleInst("MOVZX", movzxArgs);
+									asmAssign(atNode,outMode, dumpToRegMode, objectSize(outMode->valueType, NULL),0);
+							}
+							return;
+					} else if (iSize > oSize) {
+							struct X86AddressingMode *mode CLEANUP(X86AddrModeDestroy) = demoteAddrMode(inMode, outMode->valueType);
+							if (!mode) {
+									AUTO_LOCK_MODE_REGS(outMode);
+									AUTO_LOCK_MODE_REGS(inMode);
+									// Cant demote current mode,so use RAX register as accumatior(which can be demoted)
+									struct X86AddressingMode *rax CLEANUP(X86AddrModeDestroy) = getAccumulatorForType(inMode->valueType);
+									struct X86AddressingMode *demoted2Out CLEANUP(X86AddrModeDestroy) = demoteAddrMode(rax, outMode->valueType);
+									struct X86AddressingMode *demoted2In CLEANUP(X86AddrModeDestroy) = X86AddrModeClone(rax);
 
 
-					struct X86AddressingMode *zero CLEANUP(X86AddrModeDestroy) = X86AddrModeSint(0);
-					asmAssign(atNode,demoted2In, inMode, objectSize(inMode->valueType, NULL),0);
-					asmAssign(atNode,outMode, demoted2Out, objectSize(outMode->valueType, NULL),0);
-				} else {
-					asmAssign(atNode,outMode, mode, objectSize(outMode->valueType, NULL),0);
-				}
-				return;
+									struct X86AddressingMode *zero CLEANUP(X86AddrModeDestroy) = X86AddrModeSint(0);
+									asmAssign(atNode,demoted2In, inMode, objectSize(inMode->valueType, NULL),0);
+									asmAssign(atNode,outMode, demoted2Out, objectSize(outMode->valueType, NULL),0);
+							} else {
+									asmAssign(atNode,outMode, mode, objectSize(outMode->valueType, NULL),0);
+							}
+							return;
+					} else {
+							asmAssign(atNode,outMode, inMode, iSize,0);
+					}
+			} else if (isFltType(outMode->valueType)) {
+					switch(getCurrentArch()) {
+					case ARCH_TEST_SYSV:
+					case ARCH_X86_SYSV: {
+							if(inMode->type==X86ADDRMODE_REG&&isFltType(inMode->valueType)) {} else {
+									long size=objectSize(inMode->valueType, NULL);
+									if(size==2||size==4||size==8) {
+											const char *op=isFltType(inMode->valueType)?"FLD":"FILD";
+											strX86AddrMode fildArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeClone(inMode));
+											assembleOpcode(NULL, op, fildArgs);
+									} else {
+											struct X86AddressingMode *axMode CLEANUP(X86AddrModeDestroy)=getAccumulatorForType(&typeI16i);
+											asmTypecastAssign(atNode,axMode, inMode , ASM_ASSIGN_X87FPU_POP);
+											asmTypecastAssign(atNode,outMode, axMode, flags);
+									}
+							}
+							struct X86AddressingMode *st0Mode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86ST0,&typeF64);
+							asmAssign(atNode,outMode, st0Mode, 8, ASM_ASSIGN_X87FPU_POP);
+					}
+					case ARCH_X64_SYSV: {
+							asmAssign(atNode, outMode, inMode, 8, ASM_ASSIGN_X87FPU_POP);
+							return ;
+					}
+					}
+			} else if(objectBaseType(outMode->valueType)==&typeBool) {
+					if(isIntType(inMode->valueType)||isPtrType(inMode->valueType)) {
+							strX86AddrMode cmpArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+							cmpArgs=strX86AddrModeAppendItem(cmpArgs, X86AddrModeClone(inMode));
+							cmpArgs=strX86AddrModeAppendItem(cmpArgs, X86AddrModeSint(0));
+							assembleInst("CMP", cmpArgs);
+
+							setCond(NULL,"NZ", outMode);
+					} else if(isFltType(inMode->valueType)) {
+							goto flt2Bool;
+					}
 			} else {
-				asmAssign(atNode,outMode, inMode, iSize,0);
-			}
-		} else if (isFltType(outMode->valueType)) {
-				if(inMode->type==X86ADDRMODE_REG&&isFltType(inMode->valueType)) {} else {
-						long size=objectSize(inMode->valueType, NULL);
-						if(size==2||size==4||size==8) {
-								const char *op=isFltType(inMode->valueType)?"FLD":"FILD";
-								strX86AddrMode fildArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeClone(inMode));
-								assembleOpcode(NULL, op, fildArgs);
-						} else {
-								struct X86AddressingMode *axMode CLEANUP(X86AddrModeDestroy)=getAccumulatorForType(&typeI16i);
-								asmTypecastAssign(atNode,axMode, inMode , ASM_ASSIGN_X87FPU_POP);
-								asmTypecastAssign(atNode,outMode, axMode, flags);
-						}
-				}
-				struct X86AddressingMode *st0Mode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86ST0,&typeF64);
-				asmAssign(atNode,outMode, st0Mode, 8, ASM_ASSIGN_X87FPU_POP);
-		} else if(objectBaseType(outMode->valueType)==&typeBool) {
-				if(isIntType(inMode->valueType)||isPtrType(inMode->valueType)) {
-						strX86AddrMode cmpArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
-						cmpArgs=strX86AddrModeAppendItem(cmpArgs, X86AddrModeClone(inMode));
-						cmpArgs=strX86AddrModeAppendItem(cmpArgs, X86AddrModeSint(0));
-						assembleInst("CMP", cmpArgs);
-
-						setCond(NULL,"NZ", outMode);
-				} else if(isFltType(inMode->valueType)) {
-						goto flt2Bool;
-				}
-		} else {
-			__auto_type base = objectBaseType(outMode->valueType);
-			if (base->type == TYPE_CLASS || base->type == TYPE_UNION) {
-				asmAssign(atNode,outMode, inMode, objectSize(base, NULL),0);
-			} else
-				assert(0);
-		};
-		return;
+					__auto_type base = objectBaseType(outMode->valueType);
+					if (base->type == TYPE_CLASS || base->type == TYPE_UNION) {
+							asmAssign(atNode,outMode, inMode, objectSize(base, NULL),0);
+					} else
+							assert(0);
+			};
+			return;
 	}
 	case X86ADDRMODE_ITEM_ADDR:
 	case X86ADDRMODE_MACRO:
@@ -2542,18 +2586,18 @@ void asmTypecastAssign(graphNodeIR atNode,struct X86AddressingMode *outMode, str
 					asmTypecastAssign(atNode,outMode,st0Mode,ASM_ASSIGN_X87FPU_POP);
 					return ;
 			}
-		asmAssign(atNode,outMode, inMode, objectSize(outMode->valueType, NULL),ASM_ASSIGN_X87FPU_POP);
-		return;
+			asmAssign(atNode,outMode, inMode, objectSize(outMode->valueType, NULL),ASM_ASSIGN_X87FPU_POP);
+			return;
 	}
 	return;
 }
 static int IRTableRangeCmp(const struct IRJumpTableRange *a, const struct IRJumpTableRange *b) {
-	if (a->start > b->start)
-		return 1;
-	else if (a->start < b->start)
-		return -1;
-	else
-		return 0;
+		if (a->start > b->start)
+				return 1;
+		else if (a->start < b->start)
+				return -1;
+		else
+				return 0;
 }
 static void __storeMemberPtrInRegLEA(struct reg *memReg,strObjectMember members){
 			strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2) = NULL;

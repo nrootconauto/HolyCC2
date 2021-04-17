@@ -517,6 +517,24 @@ static int sizeMatchSigned(const struct X86AddressingMode *mode, long size) {
 int opcodeTemplateArgAcceptsAddrMode(const struct opcodeTemplateArg *arg, const struct X86AddressingMode *mode) {
 		if(mode->type==X86ADDRMODE_MACRO) return 1;
 	switch (arg->type) {
+	case OPC_TEMPLATE_ARG_XMM: {
+			if(mode->type==X86ADDRMODE_REG) {
+					const struct reg *xmm[]={
+							&regX86XMM0,
+							&regX86XMM1,
+							&regX86XMM2,
+							&regX86XMM3,
+							&regX86XMM4,
+							&regX86XMM5,
+							&regX86XMM6,
+							&regX86XMM7,
+					};
+					for(long i=0;i!=8;i++)
+							if(xmm[i]==mode->value.reg)
+									return 1;
+			}
+			return 0;
+	}
 	case OPC_TEMPLATE_ARG_M16:
 		if (mode->type == X86ADDRMODE_MEM ||mode->type==X86ADDRMODE_VAR_VALUE) {
 			return sizeMatchUnsigned(mode, 2);
@@ -895,10 +913,10 @@ long X86OpcodesArgCount(const char *name) {
 	return strOpcodeTemplateArgSize(find[0][0]->args);
 }
 struct opcodeTemplate *X86OpcodeByArgs(const char *name, strX86AddrMode args) {
-	__auto_type find= __X86OpcodesByArgs(name, args);
-	if(find)
-			return find;
-	return NULL;
+		__auto_type find= __X86OpcodesByArgs(name, args);
+		if(find)
+				return find;
+		return NULL;
 }
 struct X86AddressingMode *X86AddrModeFlt(double value) {
 	struct X86AddressingMode flt;

@@ -873,6 +873,14 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 		mapFuncFilesKeys(funcFiles, funcs, &fCount);
 		
 		FILE *writeTo=fopen(name, "w");
+		switch(getCurrentArch()) {
+				case ARCH_TEST_SYSV:
+				case ARCH_X86_SYSV:
+						break;
+				case ARCH_X64_SYSV:
+						fprintf(writeTo, "DEFAULT REL\n");
+		}
+		
 		X86EmitClassMetaData(writeTo);
 		X86EmitSymbolTable(writeTo);
 

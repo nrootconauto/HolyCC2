@@ -212,7 +212,7 @@ void parseCommandLineArgs(int argc,const char **argv) {
 				const char *commHeader="gcc " ;
 				strChar linkCommand CLEANUP(strCharDestroy)=strCharAppendData(NULL,commHeader,strlen(commHeader));
 				linkCommand=strCharAppendData(linkCommand, archStr, strlen(archStr));
-				const char *commheader2=" -lm -o ";
+				const char *commheader2=" -fPIC -lm -o ";
 				linkCommand=strCharAppendData(linkCommand, commheader2, strlen(commheader2));
 				if(!outputFile)
 						outputFile="a.out";
