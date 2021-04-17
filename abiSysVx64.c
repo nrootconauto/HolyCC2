@@ -720,7 +720,12 @@ void IR_ABI_SYSV_X64_Call(graphNodeIR _call,struct X86AddressingMode *funcMode,s
 				for(long p=0;p!=strX86AddrModeSize(toPush);p++)
 						pushMode(toPush[p]);
 		}
-
+		
+		//AL holds number of floating points passed in registers
+		struct X86AddressingMode *alMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regAMD64RAX, &typeU64i);
+		struct X86AddressingMode *passedFltRegsMode CLEANUP(X86AddrModeDestroy)=X86AddrModeSint(stuffedSses);
+		asmTypecastAssign(_call, alMode, passedFltRegsMode, ASM_ASSIGN_X87FPU_POP);
+		
 		strX86AddrMode callArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeClone(funcMode));
 		assembleOpcode(_call, "CALL",  callArgs);
 
