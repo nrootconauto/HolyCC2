@@ -36,6 +36,6 @@ int main() {
 		init();
 		//ropeTests();
 		compileTests();
-		fuzzTestBinops();
+		//		fuzzTestBinops();
 		return 0;
 }

@@ -211,6 +211,9 @@ static int getConsumedSses(strAbiType classes,strLong groupings) {
 }
 //aggregate
 static strAbiType consider2Agg(strObject _types) {
+		if(strObjectSize(_types)==1)
+				if(_types[0]==&typeU0)
+						return NULL;
 		strObject types CLEANUP(strObjectDestroy)=flattenFields(_types);
 		strLong groupings CLEANUP(strLongDestroy)=NULL;
 		get8byteFields(0, types, &groupings,NULL);
