@@ -135,15 +135,15 @@ __attribute__((constructor)) static void init() {
 	ptrMapRegNameAdd(regNames, &regX86BPL, strClone("BPL"));
 	ptrMapRegNameAdd(regNames, &regX86SPL, strClone("SPL"));
 
-	ptrMapRegNameAdd(regNames, &regAMD64R8u8, strClone("R8L"));
-	ptrMapRegNameAdd(regNames, &regAMD64R9u8, strClone("R9L"));
-	ptrMapRegNameAdd(regNames, &regAMD64R10u8, strClone("R10L"));
-	ptrMapRegNameAdd(regNames, &regAMD64R11u8, strClone("R11L"));
-	ptrMapRegNameAdd(regNames, &regAMD64R12u8, strClone("R12L"));
-	ptrMapRegNameAdd(regNames, &regAMD64R13u8, strClone("R13L"));
-	ptrMapRegNameAdd(regNames, &regAMD64R14u8, strClone("R14L"));
-	ptrMapRegNameAdd(regNames, &regAMD64R15u8, strClone("R15L"));
-
+	ptrMapRegNameAdd(regNames, &regAMD64R8u8, strClone("R8B"));
+	ptrMapRegNameAdd(regNames, &regAMD64R9u8, strClone("R9B"));
+	ptrMapRegNameAdd(regNames, &regAMD64R10u8, strClone("R10B"));
+	ptrMapRegNameAdd(regNames, &regAMD64R11u8, strClone("R11B"));
+	ptrMapRegNameAdd(regNames, &regAMD64R12u8, strClone("R12B"));
+	ptrMapRegNameAdd(regNames, &regAMD64R13u8, strClone("R13B"));
+	ptrMapRegNameAdd(regNames, &regAMD64R14u8, strClone("R14B"));
+	ptrMapRegNameAdd(regNames, &regAMD64R15u8, strClone("R15B"));
+	
 	ptrMapRegNameAdd(regNames, &regX86AX, strClone("AX"));
 	ptrMapRegNameAdd(regNames, &regX86BX, strClone("BX"));
 	ptrMapRegNameAdd(regNames, &regX86CX, strClone("CX"));

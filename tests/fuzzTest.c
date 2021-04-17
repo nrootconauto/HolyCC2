@@ -80,6 +80,46 @@ static graphNodeIR genUnop(struct opTextPair pair,graphNodeIR connectTo,struct o
 		graphNodeIRConnect(connectTo, lab, IR_CONN_FLOW);
 		return dstAsn;
 }
+static graphNodeIR genBinopF64(struct opTextPair pair,graphNodeIR connectTo,struct object *obj,long a,long b,long res,struct reg *src1,struct reg *src2,struct reg *dst) {
+		struct regSlice reg;
+		reg.offset=0,reg.reg=src1,reg.type=obj,reg.widthInBits=objectSize(obj, NULL);
+		__auto_type src1Asn=IRCreateAssign(IRCreateFloat(a), IRCreateRegRef(&reg));
+
+		reg.offset=0,reg.reg=src2,reg.type=obj,reg.widthInBits=objectSize(obj, NULL);
+		__auto_type src2Asn=IRCreateAssign(IRCreateFloat(b), IRCreateRegRef(&reg));
+
+		__auto_type binop=IRCreateBinop(src1Asn, src2Asn, pair.irType);
+		__auto_type dstAsn=IRCreateAssign(binop, IRCreateRegRef(&reg));
+		reg.offset=0,reg.reg=&regAMD64R8u64,reg.type=&typeI64i,reg.widthInBits=64;
+		__auto_type eq=IRCreateAssign(IRCreateBinop(dstAsn, IRCreateFloat(res), IR_EQ),IRCreateRegRef(&reg));
+
+		graphNodeIR lab;
+		{
+				long len=snprintf(NULL, 0, "%s_%li", pair.text,a);
+				char buffer[len+1];
+				sprintf(buffer,"%s_%li", pair.text,a);
+				lab=IRCreateGlobalLabel(buffer);
+		}
+
+		graphNodeIR strLit;
+		{
+				char *typeName=object2Str(obj);
+				const char *fmt="\n%s_%s_%li(%s=%s) %%li\n";
+				long len=snprintf(NULL, 0, fmt, pair.text,typeName,a,dst->name,src1->name);
+				char buffer[len+1];
+				sprintf(buffer,fmt, pair.text,typeName,a,dst->name,src1->name);
+				__auto_type lab=IRCreateGlobalLabel(buffer);
+				strLit=IRCreateStrLit(buffer);
+				free(typeName);
+		}
+		
+		__auto_type funcRef=IRCreateFuncRef(includeHCRTFunc("printf"));
+		__auto_type retVal=IRCreateFuncCall(funcRef, strLit,eq,NULL);
+		graphNodeIRConnect(lab,IRStmtStart(retVal),IR_CONN_FLOW);
+		graphNodeIRConnect(connectTo, lab, IR_CONN_FLOW);
+		
+		return retVal;
+}
 static graphNodeIR genBinop(struct opTextPair pair,graphNodeIR connectTo,struct object *obj,long a,long b,long res,struct reg *src1,struct reg *src2,struct reg *dst) {
 		__auto_type funcRef=IRCreateFuncRef(includeHCRTFunc("printf"));
 
@@ -188,7 +228,6 @@ static graphNodeIR genBinopPtrArith(struct opTextPair pair,graphNodeIR connectTo
 		graphNodeIRConnect(connectTo, lab, IR_CONN_FLOW);
 		return dstAsn;
 }
-
 static void assembleTest(graphNodeIR start) {
 		X86EmitAsmInit();
 		X86EmitAsmEnterFileStartCode();
@@ -210,22 +249,31 @@ static void assembleTest(graphNodeIR start) {
 		system("yasm -g dwarf2 -f elf32 /tmp/binopTests.s -o /tmp/test.o && gcc -m32 /tmp/test.o -o /tmp/test &&/tmp/test");
 		graphNodeIRKill(&start, (void(*)(void*))IRNodeDestroy, NULL);
 }
+static void assembleTest64(graphNodeIR start) {
+		initIR();
+		X86EmitAsmInit();
+		X86EmitAsmEnterFileStartCode();
+		IR2AsmInit();
+		IRComputeABIInfo(start);
+		IRABIAsmPrologue(0);
+		IR2Asm(start);
+		IRABIReturn2Asm(NULL, 0);
+		X86EmitAsmLeaveFunc(NULL);
+										
+		{
+				X86EmitAsmEnterFunc(includeHCRTFunc("main"));
+				IRABIAsmPrologue(0);
+				IRABIReturn2Asm(NULL, 0);
+				X86EmitAsmLeaveFunc(NULL);
+		}
+										
+		X86EmitAsm2File("/tmp/binopTests.s",NULL);
+		system("yasm -g dwarf2 -f elf64 /tmp/binopTests.s -o /tmp/test.o && gcc -m64 /tmp/test.o -o /tmp/test &&/tmp/test && echo $?");
+		graphNodeIRKill(&start, (void(*)(void*))IRNodeDestroy, NULL);
+}
 void fuzzTestBinops() {
-		//Get non primtive size type for fuzz testing
-		__auto_type find=parserGetGlobalSym("JsonNode");
-		assert(find);
-		struct object *types[]={
-				&typeI8i,
-				&typeI16i,
-				&typeI32i,
-				&typeI64i,
-				&typeU8i,
-				&typeU16i,
-				&typeU32i,
-				&typeU64i,
-				find->type
-		};
 		long a=127,b=3;
+		/*
 		for(long t=0;t!=sizeof(types)/sizeof(*types);t++) {
 				strRegP regs CLEANUP(strRegPDestroy)=regGetForType(types[t]);
 				for(long r1=0;r1!=strRegPSize(regs);r1++) {
@@ -249,14 +297,14 @@ void fuzzTestBinops() {
 										//__auto_type res=genBinop((struct opTextPair){IR_BXOR,"XOR"}, start, types[t], a, b, a^b, regs[r1], regs[r2], regs[r3]);
 										//__auto_type res=genUnop((struct opTextPair){IR_NEG,"NEG"}, start, types[t], a, -a, regs[r1], regs[r3]);
 										//__auto_type res=genUnop((struct opTextPair){IR_BNOT,"BNOT"}, start, types[t], a, ~a, regs[r1], regs[r3]);
-										/*for(long a=0;a!=2;a++) {
+										/ *for(long a=0;a!=2;a++) {
 												for(long b=0;b!=2;b++) {
 														//__auto_type res=genBinop((struct opTextPair){IR_LXOR,"LXOR"}, start, types[t], a, b, a^b, regs[r1], regs[r2], regs[r3]);
 														//__auto_type res=genBinop((struct opTextPair){IR_LOR,"LOR"}, start, types[t], a, b, a|b, regs[r1], regs[r2], regs[r3]);
 														__auto_type res=genBinop((struct opTextPair){IR_LAND,"LAND"}, start, types[t], a, b, a&b, regs[r1], regs[r2], regs[r3]);
 														assembleTest(res);
 												}
-												}*/
+												}* /
 										//for(long a=0;a!=2;a++) {
 										//__auto_type res=genUnop((struct opTextPair){IR_LNOT,"LNOT"}, start, types[t], a, !a, regs[r1], regs[r3]);
 										//	assembleTest(res);
@@ -265,7 +313,7 @@ void fuzzTestBinops() {
 								}
 						}
 				}
-		}
+		}*/
 		/*
 		{
 				strRegP regs CLEANUP(strRegPDestroy)=regGetForType(objectPtrCreate(&typeU0)); 
@@ -283,7 +331,7 @@ void fuzzTestBinops() {
 						}
 				}
 				}*/
-		{
+		/*{
 				struct object *types[]={&typeI8i,&typeI16i,&typeI32i,&typeU8i,&typeU16i,&typeU32i,&typeF64};
 				long len=sizeof(types)/sizeof(*types);
 				for(long t1=0;t1!=len;t1++) {
@@ -301,6 +349,25 @@ void fuzzTestBinops() {
 												genTypecast(start, types[t1], types[t2], src, dst, regs1[r1], regs2[r2]);
 												assembleTest(start);
 										}
+								}
+						}
+				}
+				}*/
+		{
+				setArch(ARCH_X64_SYSV);
+				strRegP regs CLEANUP(strRegPDestroy)=regGetForType(&typeF64);
+				for(long r1=0;r1!=strRegPSize(regs);r1++) {
+						for(long r2=0;r2!=strRegPSize(regs);r2++)  {
+								for(long r3=0;r3!=strRegPSize(regs);r3++) {
+										if(r1==r2)
+												continue;
+										if(regConflict(&regX86XMM0, regs[r1]))continue;
+										if(regConflict(&regX86XMM0, regs[r2]))continue;
+										if(regConflict(&regX86XMM0, regs[r3]))continue;
+										__auto_type start=IRCreateLabel();
+										__auto_type res=genBinopF64((struct opTextPair){IR_ADD,"ADD"},start, &typeF64, a, b, a+b, regs[r1],regs[r2],regs[r3]);
+										assembleTest64(start);
+										
 								}
 						}
 				}

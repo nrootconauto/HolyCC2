@@ -2391,14 +2391,26 @@ static graphNodeIR assembleOpCmp(graphNodeIR start) {
 	struct X86AddressingMode *aMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(a);
 	struct X86AddressingMode *bMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(b);
 		struct X86AddressingMode *oMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(out);
-
-	if(objectBaseType(aMode->valueType)==&typeF64) {
-			strX86AddrMode fcomiArgs CLEANUP(strX86AddrModeDestroy2)=X87BinopArgs(start,&regX86ST0,&regX86ST1);
-			//
-			// FCOMI takes ST(0) first always
-			//
-			assembleOpcode(start, "FCOMIP", fcomiArgs);
-			X87PopFPU();
+		if(objectBaseType(aMode->valueType)==&typeF64) {
+				switch(getCurrentArch()) {
+				case ARCH_TEST_SYSV:
+				case ARCH_X86_SYSV: {
+						strX86AddrMode fcomiArgs CLEANUP(strX86AddrModeDestroy2)=X87BinopArgs(start,&regX86ST0,&regX86ST1);
+						//
+						// FCOMI takes ST(0) first always
+						//
+						assembleOpcode(start, "FCOMIP", fcomiArgs);
+						X87PopFPU();
+						break;
+				}
+				case ARCH_X64_SYSV: {
+						strX86AddrMode uncomisdArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+						uncomisdArgs=strX86AddrModeAppendItem(uncomisdArgs, X86AddrModeClone(aMode));
+						uncomisdArgs=strX86AddrModeAppendItem(uncomisdArgs, X86AddrModeClone(bMode));		
+						assembleOpcode(start, "UCOMISD", uncomisdArgs);
+						break;
+				}
+				}
 	} else {
 			strX86AddrMode cmpArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 			cmpArgs=strX86AddrModeAppendItem(cmpArgs, IRNode2AddrMode(a));
