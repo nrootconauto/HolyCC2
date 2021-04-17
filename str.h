@@ -82,6 +82,9 @@ struct __vec;
 	}                                                                                                                                                                \
 	__attribute__((always_inline)) inline str##suffix str##suffix##Reverse(str##suffix str) {                                                                        \
 		return (str##suffix)__vecReverse((struct __vec *)str, sizeof(type));                                                                                           \
+	 } \
+	__attribute__((always_inline)) inline str##suffix str##suffix##Merge(str##suffix str,str##suffix str2,int (*pred)(const type *, const type *)) {	\
+			return (str##suffix)__vecMerge((struct __vec *)str, (struct __vec *)str2,sizeof(type),(int(*)(const void *,const void*))pred);	\
 	}
 struct __vec *__vecAppendItem(struct __vec *a, const void *item, long itemSize);
 struct __vec *__vecReserve(struct __vec *a, long capacity);
@@ -99,3 +102,4 @@ struct __vec *__vecSetUnion(struct __vec *a, struct __vec *b, long itemSize, int
 void __vecDestroy(struct __vec **vec);
 struct __vec *__vecRemoveItem(struct __vec *str, long itemSize, const void *item, int (*pred)(const void *, const void *));
 struct __vec *__vecReverse(struct __vec *str, long itemSize);
+struct __vec* __vecMerge(struct __vec *a,struct __vec *b,long itemSize,int (*cmp)(const void *,const void *));

@@ -16,6 +16,115 @@ static char *text2File(const char *text) {
 		fclose(f);
 		return name;
 }
+static void registerInterfereTestX64() {
+		setArch(ARCH_X64_SYSV);
+		{
+				struct reg *a[]={&regAMD64RAX,&regX86EAX,&regX86AX,&regX86AH,&regX86AL};
+				for(long r=0;r!=3;r++)
+						for(long r2=0;r2!=5;r2++)
+								assert(regConflict(a[r], a[r2]));
+				assert(!regConflict(a[3], a[4]));
+				for(long r=3;r!=5;r++)
+						for(long r2=0;r2!=3;r2++)
+								assert(regConflict(a[r], a[r2]));
+		}
+		{
+				struct reg *b[]={&regAMD64RBX,&regX86EBX,&regX86BX,&regX86BH,&regX86BL};
+				for(long r=0;r!=3;r++)
+						for(long r2=0;r2!=5;r2++)
+								assert(regConflict(b[r], b[r2]));
+				assert(!regConflict(b[3], b[4]));
+				for(long r=3;r!=5;r++)
+						for(long r2=0;r2!=3;r2++)
+								assert(regConflict(b[r], b[r2]));
+		}
+		{
+				struct reg *c[]={&regAMD64RCX,&regX86ECX,&regX86CX,&regX86CH,&regX86CL};
+				for(long r=0;r!=3;r++)
+						for(long r2=0;r2!=5;r2++)
+								assert(regConflict(c[r], c[r2]));
+				assert(!regConflict(c[3], c[4]));
+				for(long r=3;r!=5;r++)
+						for(long r2=0;r2!=3;r2++)
+								assert(regConflict(c[r], c[r2]));
+		}
+		{
+				struct reg *d[]={&regAMD64RDX,&regX86EDX,&regX86DX,&regX86DH,&regX86DL};
+				for(long r=0;r!=3;r++)
+						for(long r2=0;r2!=5;r2++)
+								assert(regConflict(d[r], d[r2]));
+				assert(!regConflict(d[3], d[4]));
+				for(long r=3;r!=5;r++)
+						for(long r2=0;r2!=3;r2++)
+								assert(regConflict(d[r], d[r2]));
+		}
+		{
+				struct reg *sp[]={&regAMD64RSP,&regX86ESP,&regX86SP,&regX86SPL};
+				for(long r=0;r!=4;r++)
+						for(long r2=0;r2!=4;r2++)
+								assert(regConflict(sp[r], sp[r2]));
+		}
+		{
+				struct reg *bp[]={&regAMD64RBP,&regX86EBP,&regX86BP,&regX86BPL};
+				for(long r=0;r!=4;r++)
+						for(long r2=0;r2!=4;r2++)
+								assert(regConflict(bp[r], bp[r2]));
+		}
+		{
+				struct reg *si[]={&regAMD64RSI,&regX86ESI,&regX86SI,&regX86SIL};
+				for(long r=0;r!=4;r++)
+						for(long r2=0;r2!=4;r2++)
+								assert(regConflict(si[r], si[r2]));
+		}
+		{
+				struct reg *di[]={&regAMD64RDI,&regX86EDI,&regX86DI,&regX86DIL};
+				for(long r=0;r!=4;r++)
+						for(long r2=0;r2!=4;r2++)
+								assert(regConflict(di[r], di[r2]));
+		}
+		{
+				struct reg *di[]={&regAMD64R8u64,&regAMD64R8u32,&regAMD64R8u16,&regAMD64R8u8};
+				for(long r=0;r!=4;r++)
+						for(long r2=0;r2!=4;r2++)
+								assert(regConflict(di[r], di[r2]));
+		}
+		{
+				struct reg *r9[]={&regAMD64R9u64,&regAMD64R9u32,&regAMD64R9u16,&regAMD64R9u8};
+				for(long r=0;r!=4;r++)
+						for(long r2=0;r2!=4;r2++)
+								assert(regConflict(r9[r], r9[r2]));
+		}
+		{
+				struct reg *r10[]={&regAMD64R10u64,&regAMD64R10u32,&regAMD64R10u16,&regAMD64R10u8};
+				for(long r=0;r!=4;r++)
+						for(long r2=0;r2!=4;r2++)
+								assert(regConflict(r10[r], r10[r2]));
+		}
+		{
+				struct reg *r11[]={&regAMD64R11u64,&regAMD64R11u32,&regAMD64R11u16,&regAMD64R11u8};
+				for(long r=0;r!=4;r++)
+						for(long r2=0;r2!=4;r2++)
+								assert(regConflict(r11[r], r11[r2]));
+		}
+		{
+				struct reg *r12[]={&regAMD64R12u64,&regAMD64R12u32,&regAMD64R12u16,&regAMD64R12u8};
+				for(long r=0;r!=4;r++)
+						for(long r2=0;r2!=4;r2++)
+								assert(regConflict(r12[r], r12[r2]));
+		}
+		{
+				struct reg *r13[]={&regAMD64R13u64,&regAMD64R13u32,&regAMD64R13u16,&regAMD64R13u8};
+				for(long r=0;r!=4;r++)
+						for(long r2=0;r2!=4;r2++)
+								assert(regConflict(r13[r], r13[r2]));
+		}
+		{
+				struct reg *r14[]={&regAMD64R14u64,&regAMD64R14u32,&regAMD64R14u16,&regAMD64R14u8};
+				for(long r=0;r!=4;r++)
+						for(long r2=0;r2!=4;r2++)
+								assert(regConflict(r14[r], r14[r2]));
+		}
+}
 static void registerInterfereTestX86() {
 		setArch(ARCH_X86_SYSV);
 		struct reg *a[]={&regX86EAX,&regX86AX,&regX86AH,&regX86AL};
@@ -790,15 +899,17 @@ void compileTests() {
 						};
 						parseCommandLineArgs(5, argv);
 						}*/
-		registerInterfereTestX86();
+		//registerInterfereTestX86();
+		registerInterfereTestX64();
 		{
 						const char *argv[]={
 								"hcc",
+								"-dd",
 								"-c",
 								"/home/tc/projects/HI.HC",
 								"-o",
 								"/tmp/HCRT.o"
 						};
-						parseCommandLineArgs(5, argv);
+						parseCommandLineArgs(6, argv);
 		}
 }

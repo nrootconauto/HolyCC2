@@ -469,12 +469,14 @@ void IRRegisterAllocate(graphNodeIR start, double (*nodeWeight)(struct IRVar *,v
 			struct IRValue value;
 			value.type = IR_VAL_VAR_REF;
 			value.value.var = graphNodeIRLiveValuePtr(allColorNodes[i])->ref;
-			__auto_type type = IRValueGetType(&value);
+			__auto_type type = objectBaseType(IRValueGetType(&value));
 
 			int onlyInts=getCurrentArch()==ARCH_TEST_SYSV||getCurrentArch()==ARCH_X86_SYSV;
 				if(onlyInts)
 						if(!IsInteger(type)) continue;
-			
+				if(type->type==TYPE_CLASS) continue;
+				if(type->type==TYPE_UNION) continue;
+				
 			__auto_type regsForType = regGetForType(type);
 			struct regSlice slice ;
 			if(!value.value.var.var->inReg) {

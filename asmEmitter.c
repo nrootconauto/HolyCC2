@@ -135,15 +135,15 @@ __attribute__((constructor)) static void init() {
 	ptrMapRegNameAdd(regNames, &regX86BPL, strClone("BPL"));
 	ptrMapRegNameAdd(regNames, &regX86SPL, strClone("SPL"));
 
-	ptrMapRegNameAdd(regNames, &regAMD64R8u8, strClone("R8L"));
-	ptrMapRegNameAdd(regNames, &regAMD64R9u8, strClone("R9L"));
-	ptrMapRegNameAdd(regNames, &regAMD64R10u8, strClone("R10L"));
-	ptrMapRegNameAdd(regNames, &regAMD64R11u8, strClone("R11L"));
-	ptrMapRegNameAdd(regNames, &regAMD64R12u8, strClone("R12L"));
-	ptrMapRegNameAdd(regNames, &regAMD64R13u8, strClone("R13L"));
-	ptrMapRegNameAdd(regNames, &regAMD64R14u8, strClone("R14L"));
-	ptrMapRegNameAdd(regNames, &regAMD64R15u8, strClone("R15L"));
-
+	ptrMapRegNameAdd(regNames, &regAMD64R8u8, strClone("R8B"));
+	ptrMapRegNameAdd(regNames, &regAMD64R9u8, strClone("R9B"));
+	ptrMapRegNameAdd(regNames, &regAMD64R10u8, strClone("R10B"));
+	ptrMapRegNameAdd(regNames, &regAMD64R11u8, strClone("R11B"));
+	ptrMapRegNameAdd(regNames, &regAMD64R12u8, strClone("R12B"));
+	ptrMapRegNameAdd(regNames, &regAMD64R13u8, strClone("R13B"));
+	ptrMapRegNameAdd(regNames, &regAMD64R14u8, strClone("R14B"));
+	ptrMapRegNameAdd(regNames, &regAMD64R15u8, strClone("R15B"));
+	
 	ptrMapRegNameAdd(regNames, &regX86AX, strClone("AX"));
 	ptrMapRegNameAdd(regNames, &regX86BX, strClone("BX"));
 	ptrMapRegNameAdd(regNames, &regX86CX, strClone("CX"));
@@ -524,7 +524,10 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 				__auto_type members=args[i]->value.varAddr.memberOffsets;
 				for(long m=0;m!=strObjectMemberPSize(members);m++)
 						X86AddrModeIndirSIBAddMemberOffset(offset, members[m]);
-				
+
+				offset->valueType=args[i]->valueType;
+				if(strObjectMemberPSize(members))
+						offset->valueType=members[strObjectMemberPSize(members)-1]->type;
 				return emitMode(&offset, 0);
 			} else {
 					strChar typeStr CLEANUP(strCharDestroy) =getSizeStr(args[i]->valueType);
@@ -568,8 +571,22 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 		return strClone(buffer); 
 	}
 	case X86ADDRMODE_LABEL: {
-			char *buffer CLEANUP(free2)=fromFmt("$%s ", args[i]->value.label);
-		return strClone(buffer);
+			switch(getCurrentArch()) {
+			case ARCH_TEST_SYSV:
+			case ARCH_X86_SYSV: {
+					char *buffer CLEANUP(free2)=fromFmt("$%s ", args[i]->value.label);
+					return strClone(buffer);
+			}
+			case ARCH_X64_SYSV: {
+					if(!parserGetFuncByName(args[i]->value.label)) {
+							char *buffer CLEANUP(free2)=fromFmt("$%s ", args[i]->value.label);
+							return strClone(buffer);
+					} else {
+							char *buffer CLEANUP(free2)=fromFmt("%s WRT ..plt ", args[i]->value.label);
+							return strClone(buffer);
+					}
+			}
+	}
 	}
 	case X86ADDRMODE_REG: {
 		__auto_type find = ptrMapRegNameGet(regNames, args[i]->value.reg);
@@ -594,22 +611,6 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 			strChar labelStr CLEANUP(strCharDestroy) = emitMode(&args[i]->value.m.value.label, 0);
 			char *buffer CLEANUP(free2)= fromFmt( " %s [%s] ", sizeStr, labelStr);
 			return strClone(buffer);
-		}
-		case x86ADDR_INDIR_REG: {
-			__auto_type reg = ptrMapRegNameGet(regNames, args[i]->value.m.value.indirReg);
-			if (args[i]->valueType) {
-				strChar sizeStr CLEANUP(strCharDestroy) = getSizeStr(args[i]->valueType);
-				if (!sizeStr) {
-					fprintf(stderr, "That's one gaint register(%s)\n", *reg);
-					assert(0);
-				}
-				char *buffer CLEANUP(free2)=fromFmt(" %s [%s] ", sizeStr, *reg);
-				return strClone(buffer);
-			} else {
-					char * buffer CLEANUP(free2) = fromFmt("[%s] ", *reg);
-				return strClone(buffer);
-			}
-			break;
 		}
 		case x86ADDR_INDIR_SIB: {
 			strChar retVal CLEANUP(strCharDestroy) = NULL;
@@ -669,23 +670,6 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 			} else {
 					char *buffer CLEANUP(free2)=fromFmt( "[%s] ", retVal);
 					return strClone(buffer);
-			}
-			break;
-		}
-		case x86ADDR_MEM: {
-			if (args[i]->valueType) {
-				strChar addrStr CLEANUP(strCharDestroy) = uint64ToStr(args[i]->value.m.value.mem);
-				strChar sizeStr CLEANUP(strCharDestroy) = getSizeStr(args[i]->valueType);
-				if (!sizeStr) {
-					fprintf(stderr, "The size being addressed is weirder than a black rain frog.\n");
-					assert(0);
-				}
-				char *buffer CLEANUP(free2)=fromFmt("%s [%s] ", sizeStr, addrStr);
-				return strClone(buffer);
-			} else {
-				strChar addrStr CLEANUP(strCharDestroy) = uint64ToStr(args[i]->value.m.value.mem);
-				char *buffer CLEANUP(free2)=fromFmt( "[%s] ", addrStr);
-				return strClone(buffer);
 			}
 			break;
 		}
@@ -903,6 +887,14 @@ void X86EmitAsm2File(const char *name,const char *cacheDir) {
 		mapFuncFilesKeys(funcFiles, funcs, &fCount);
 		
 		FILE *writeTo=fopen(name, "w");
+		switch(getCurrentArch()) {
+				case ARCH_TEST_SYSV:
+				case ARCH_X86_SYSV:
+						break;
+				case ARCH_X64_SYSV:
+						fprintf(writeTo, "DEFAULT REL\n");
+		}
+		
 		X86EmitClassMetaData(writeTo);
 		X86EmitSymbolTable(writeTo);
 

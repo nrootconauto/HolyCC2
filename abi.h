@@ -12,7 +12,7 @@ struct IRAttrABIInfo {
 };
 void IR2ABI_i386(graphNodeIR start);
 void IRComputeABIInfo(graphNodeIR start);
-strVar IRABIInsertLoadArgs(graphNodeIR start);
+strVar IRABIInsertLoadArgs(graphNodeIR start,long frameSize);
 void IRABIAsmPrologue(long frameSize);
 void IRABICall2Asm(graphNodeIR start ,struct X86AddressingMode *funcMode,strX86AddrMode args,struct X86AddressingMode *outMode);
 void IRABIReturn2Asm(graphNodeIR start,long frameSize);

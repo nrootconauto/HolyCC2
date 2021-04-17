@@ -6,6 +6,7 @@
 #include "cleanup.h"
 #include <assert.h>
 #include "hcrtLocation.h"
+#include "registers.h"
 void init();
 //
 // argi,moves the argument index to adavance the consumed arguments
@@ -31,7 +32,8 @@ static struct commlFlag *getFlag(const char *text) {
 }
 static void helpCallback(int *argi,int argc,const char **argv) {
 		long count;
-		++*argi;
+		if(argi)
+				++*argi;
 		mapFlagsKeys(clFlagsLong, NULL, &count);
 		const char *keys[count];
 		mapFlagsKeys(clFlagsLong, keys, NULL);
@@ -103,17 +105,29 @@ static strStrChar assembleSources(strConstChar sources) {
 		}
 		//Assemble the files 
 		for(long i=0;i!=strStrCharSize(toAssemble);i++) {
+				const char *objForm=NULL;
+				switch(getCurrentArch()) {
+				case ARCH_TEST_SYSV:
+				case ARCH_X86_SYSV:
+						objForm="elf32";
+						break;
+				case ARCH_X64_SYSV:
+						objForm="elf64";
+						break;
+				}
+				
 				const char *assembler="yasm";
-				const char *commFmt="%s -g dwarf2 -f elf32 -o %s.o %s";
-				long len=snprintf(NULL,0, commFmt, assembler,toAssemble[i],toAssemble[i]);
+				const char *commFmt="%s -g dwarf2 -f %s -o %s.o %s";
+				long len=snprintf(NULL,0, commFmt, assembler,objForm,toAssemble[i],toAssemble[i]);
 				char buffer[len+1];
-				sprintf(buffer, commFmt, assembler,toAssemble[i],toAssemble[i]);
+				sprintf(buffer, commFmt, assembler,objForm,toAssemble[i],toAssemble[i]);
 				system(buffer);
 		}
 		return toAssemble;
 } 
 void parseCommandLineArgs(int argc,const char **argv) {
 		init();
+		setArch(ARCH_X86_SYSV);
 		clFlagsLong=mapFlagsCreate();
 		clFlagsShort=mapFlagsCreate();
 		struct commlFlag help={
@@ -163,13 +177,16 @@ void parseCommandLineArgs(int argc,const char **argv) {
 						abort();
 				}
 		}
-		
-		char *hcrt CLEANUP(free2)=HCRTFile("HCRT.HC");
-		strConstChar hcrtSources CLEANUP(strConstCharDestroy)=strConstCharAppendItem(NULL, hcrt);
-		strStrChar toLink CLEANUP(strStrCharDestroy2)=assembleSources(hcrtSources);
-		assert(strStrCharSize(toLink)==1);
-		toLink[0]=strCharAppendData(toLink[0], "\0\0\0", 3);
-		strcat(toLink[0], ".o");
+
+		strStrChar toLink CLEANUP(strStrCharDestroy2)=NULL;
+		if(strConstCharSize(sources)||strConstCharSize(toCompile))  {
+				char *hcrt CLEANUP(free2)=HCRTFile("HCRT.HC");
+				strConstChar hcrtSources CLEANUP(strConstCharDestroy)=strConstCharAppendItem(NULL, hcrt);
+				toLink=assembleSources(hcrtSources);
+				assert(strStrCharSize(toLink)==1);
+				toLink[0]=strCharAppendData(toLink[0], "\0\0\0", 3);
+				strcat(toLink[0], ".o");
+		}
 		
 		if(strConstCharSize(sources)||strConstCharSize(toCompile)) {
 				if(strConstCharSize(sources)&&strConstCharSize(toCompile)&&outputFile) {
@@ -178,15 +195,33 @@ void parseCommandLineArgs(int argc,const char **argv) {
 				}
 				sources=strConstCharAppendData(sources, toCompile, strConstCharSize(toCompile));
 				strStrChar toAssemble CLEANUP(strStrCharDestroy2)=assembleSources(sources);
-				const char *commHeader="gcc -m32 -lm -o ";
+
+				const char *archStr=NULL;
+				switch(getCurrentArch()) {
+				case ARCH_TEST_SYSV:
+				case ARCH_X86_SYSV:
+						archStr="-m32";
+						break;
+				case ARCH_X64_SYSV:
+						archStr="-m64";
+						break;
+				}
+
+				const char *commHeader="gcc " ;
 				strChar linkCommand CLEANUP(strCharDestroy)=strCharAppendData(NULL,commHeader,strlen(commHeader));
+				linkCommand=strCharAppendData(linkCommand, archStr, strlen(archStr));
+				const char *commheader2="  -lm -o ";
+				linkCommand=strCharAppendData(linkCommand, commheader2, strlen(commheader2));
 				if(!outputFile)
 						outputFile="a.out";
 				linkCommand=strCharAppendData(linkCommand, outputFile,strlen(outputFile));
 
-				//Link in hcrt
-				linkCommand=strCharAppendItem(linkCommand, ' ');
-				linkCommand=strCharAppendData(linkCommand, toLink[0], strlen(toLink[0]));
+				
+				//Link in hcrt and other goodies
+				for(long l=0;l!=strStrCharSize(toLink);l++) {
+						linkCommand=strCharAppendItem(linkCommand, ' ');
+						linkCommand=strCharAppendData(linkCommand, toLink[l], strlen(toLink[l]));
+				}
 				
 				for(long i=0;i!=strStrCharSize(toAssemble);i++) {
 						linkCommand=strCharAppendItem(linkCommand, ' ');
@@ -212,7 +247,7 @@ void parseCommandLineArgs(int argc,const char **argv) {
 				system(linkCommand);
 		}
 		if(strConstCharSize(sources)==0) {
-				helpCallback(0, 0, NULL);
+				printf("No input files.\n");
 		}
 		
 		mapFlagsDestroy(clFlagsShort, NULL);

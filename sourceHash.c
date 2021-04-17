@@ -12,6 +12,7 @@
 #include <string.h>
 #include <assert.h>
 #include "compile.h"
+#include "registers.h"
 MAP_TYPE_DEF(int , Changed);
 MAP_TYPE_FUNCS(int , Changed);
 static __thread mapChanged changedGVars=NULL;
@@ -214,13 +215,15 @@ static void cacheCheckForTypeChanges() {
 }
 void sourceCacheInitAfterParse(const char *fn) {
 		basefile=fnFromPath(fn);
+		if(changedGVars)
+				mapChangedDestroy(changedGVars, NULL);
 		changedGVars=mapChangedCreate();
 		cacheCheckForTypeChanges();
 } 
 char *hashSource(llLexerItem start,llLexerItem end,const char *name,long *fileExists) {
 		if(fileExists)
 				*fileExists=0;
-
+		
 		//If contains a changed global,delete the cached file. If a type changes a recompile must occur
 		int containsChanged=0;
 		
@@ -287,10 +290,17 @@ char *hashSource(llLexerItem start,llLexerItem end,const char *name,long *fileEx
 		}
 		long retVal=hash(f);
 		
-		const char *fmt=(HCC_Debug_Enable)?"%s/%s.d.%li":"%s/%s.%li";
-		long len=snprintf(NULL, 0, fmt, cacheDirLocation,name,retVal);
+		const char *archStr;
+		switch(getCurrentArch()) {
+		case ARCH_TEST_SYSV: archStr="tstSYSV";break;
+		case ARCH_X86_SYSV: archStr="x86SYSV";break;
+		case ARCH_X64_SYSV: archStr="x64SYSV";break;
+		}
+		
+		const char *fmt=(HCC_Debug_Enable)?"%s/%s.%s.d.%li":"%s/%s.%s.%li";
+		long len=snprintf(NULL, 0, fmt, cacheDirLocation,name,archStr,retVal);
 		char buffer[len+1];
-		sprintf(buffer, fmt, cacheDirLocation,name,retVal);		
+		sprintf(buffer, fmt, cacheDirLocation,name,archStr,retVal);		
 		{
 				if(0==access(buffer,F_OK)&&!containsChanged) {
 						//Check if files are the same

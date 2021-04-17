@@ -264,6 +264,7 @@ case TYPE_FUNCTION:
 	}
 	}
 }
+//values[0] is the dimension of the outermost array
 void objectArrayDimValues(struct object *type,long *dimCount,long *values) {
 		struct objectArray *arr=(void*)type;
 		long dimCount2=0;
@@ -272,7 +273,7 @@ void objectArrayDimValues(struct object *type,long *dimCount,long *values) {
 						if(arr->dim->type==NODE_LIT_INT) 
 								values[dimCount2]=((struct parserNodeLitInt*)arr->dim)->value.value.sLong;
 						else
-								values[dimCount2]=-1;
+								values[dimCount2]=OBJECT_ARRAY_DIM_UNDEF;
 				}
 				dimCount2++;
 		}

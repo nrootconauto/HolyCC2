@@ -33,8 +33,6 @@ static void free2(char **str) {
 		free(*str);
 }
 static strParserNode parseFile(const char *fn,strFileMappings *fMappings2,llLexerItem *items2,int silent) {
-		setArch(ARCH_X86_SYSV);
-
 		char *tmpName CLEANUP(deleteFile)=__builtin_alloca(TMP_MAX);
 		tmpnam(tmpName);
 

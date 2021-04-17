@@ -19,3 +19,4 @@ void asmAssignFromPtr(graphNodeIR atNode,struct X86AddressingMode *a,struct X86A
 void popMode(struct X86AddressingMode *mode);
 void popReg(struct reg *r);
 void pushReg(struct reg *r);
+void assembleOpcode(graphNodeIR atNode,const char *name,strX86AddrMode args);

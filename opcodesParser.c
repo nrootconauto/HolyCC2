@@ -216,7 +216,7 @@ void parseOpcodeFile() {
 	    "RM32",   "RM64", "R8",     "R16",    "R32",     "R64",     "16", "32", "64", "IMM8", "IMM16", "IMM32", "IMM64", "UIMM8", "UIMM16", "UIMM32", "UIMM64",
 	    "OPCODE",
 	    "SREG", // Segment register
-	    ";",      ":",    "OPCODE", "MOFFS8", "MOFFS16", "MOFFS32", "CB", "CW", "CD", "REL8", "REL16", "REL32", "M8",    "M16",   "M32",    "M64",    "STI",
+	    ";",      ":",    "OPCODE", "MOFFS8", "MOFFS16", "MOFFS32", "CB", "CW", "CD", "REL8", "REL16", "REL32", "M8",    "M16",   "M32",    "M64",    "STI", "XMM"
 	};
 	qsort(keywords, sizeof(keywords) / sizeof(*keywords), sizeof(*keywords), strcmp2);
 
@@ -373,6 +373,7 @@ void parseOpcodeFile() {
 								ARG_BY_NAME(OPC_TEMPLATE_ARG_UINT16, "UIMM16")
 								ARG_BY_NAME(OPC_TEMPLATE_ARG_UINT32, "UIMM32")
 								ARG_BY_NAME(OPC_TEMPLATE_ARG_UINT64, "UIMM64")
+										ARG_BY_NAME(OPC_TEMPLATE_ARG_XMM, "XMM")
 								ARG_BY_NAME(OPC_TEMPLATE_ARG_M8, "M8")
 								ARG_BY_NAME(OPC_TEMPLATE_ARG_M16, "M16")
 								ARG_BY_NAME(OPC_TEMPLATE_ARG_M32, "M32")
@@ -516,6 +517,24 @@ static int sizeMatchSigned(const struct X86AddressingMode *mode, long size) {
 int opcodeTemplateArgAcceptsAddrMode(const struct opcodeTemplateArg *arg, const struct X86AddressingMode *mode) {
 		if(mode->type==X86ADDRMODE_MACRO) return 1;
 	switch (arg->type) {
+	case OPC_TEMPLATE_ARG_XMM: {
+			if(mode->type==X86ADDRMODE_REG) {
+					const struct reg *xmm[]={
+							&regX86XMM0,
+							&regX86XMM1,
+							&regX86XMM2,
+							&regX86XMM3,
+							&regX86XMM4,
+							&regX86XMM5,
+							&regX86XMM6,
+							&regX86XMM7,
+					};
+					for(long i=0;i!=8;i++)
+							if(xmm[i]==mode->value.reg)
+									return 1;
+			}
+			return 0;
+	}
 	case OPC_TEMPLATE_ARG_M16:
 		if (mode->type == X86ADDRMODE_MEM ||mode->type==X86ADDRMODE_VAR_VALUE) {
 			return sizeMatchUnsigned(mode, 2);
@@ -537,20 +556,34 @@ int opcodeTemplateArgAcceptsAddrMode(const struct opcodeTemplateArg *arg, const 
 		} else
 			goto fail;
 	case OPC_TEMPLATE_ARG_MOFFS16:
-		if (mode->type == X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_MEM) {
-			int64_t value = mode->value.m.value.mem;
-			return INT16_MIN <= value && INT16_MAX >= value;
+			if (mode->type == X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_INDIR_SIB) {
+					if(mode->value.m.value.sib.base!=NULL||mode->value.m.value.sib.index!=NULL)
+							goto fail;
+					if(mode->value.m.value.sib.offset->type!=X86ADDRMODE_UINT&&mode->value.m.value.sib.offset->type!=X86ADDRMODE_SINT)
+							goto fail;
+					int64_t value = mode->value.m.value.sib.offset->value.sint;
+					return INT16_MIN <= value && INT16_MAX >= value;
 		} else
 			goto fail;
 	case OPC_TEMPLATE_ARG_MOFFS32:
-		if (mode->type == X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_MEM) {
-			int64_t value = mode->value.m.value.mem;
-			return INT32_MIN <= value && INT32_MAX >= value;
+		if (mode->type == X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_INDIR_SIB) {
+				if(mode->value.m.value.sib.base!=NULL||mode->value.m.value.sib.index!=NULL)
+						goto fail;
+				if(mode->value.m.value.sib.offset->type!=X86ADDRMODE_UINT&&mode->value.m.value.sib.offset->type!=X86ADDRMODE_SINT)
+						goto fail;
+				
+				int64_t value = mode->value.m.value.sib.offset->value.sint;
+				return INT32_MIN <= value && INT32_MAX >= value;
 		} else
 			goto fail;
 	case OPC_TEMPLATE_ARG_MOFFS8:
-		if (mode->type == X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_MEM) {
-			int64_t value = mode->value.m.value.mem;
+		if (mode->type == X86ADDRMODE_MEM&&mode->value.m.type==x86ADDR_INDIR_SIB) {
+				if(mode->value.m.value.sib.base!=NULL||mode->value.m.value.sib.index!=NULL)
+						goto fail;
+				if(mode->value.m.value.sib.offset->type!=X86ADDRMODE_UINT&&mode->value.m.value.sib.offset->type!=X86ADDRMODE_SINT)
+						goto fail;
+				
+				int64_t value = mode->value.m.value.sib.offset->value.sint;
 			return INT8_MIN <= value && INT8_MAX >= value;
 		} else
 			goto fail;
@@ -880,10 +913,10 @@ long X86OpcodesArgCount(const char *name) {
 	return strOpcodeTemplateArgSize(find[0][0]->args);
 }
 struct opcodeTemplate *X86OpcodeByArgs(const char *name, strX86AddrMode args) {
-	__auto_type find= __X86OpcodesByArgs(name, args);
-	if(find)
-			return find;
-	return NULL;
+		__auto_type find= __X86OpcodesByArgs(name, args);
+		if(find)
+				return find;
+		return NULL;
 }
 struct X86AddressingMode *X86AddrModeFlt(double value) {
 	struct X86AddressingMode flt;
