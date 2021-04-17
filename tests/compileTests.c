@@ -906,7 +906,7 @@ void compileTests() {
 								"hcc",
 								"-dd",
 								"-c",
-								"/home/tc/projects/HI64.HC",
+								"/home/tc/projects/HI.HC",
 								"-o",
 								"/tmp/HCRT.o"
 						};

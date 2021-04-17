@@ -371,9 +371,9 @@ void fuzzTestBinops() {
 										//__auto_type res=genBinopF64((struct opTextPair){IR_ADD,"ADD"},start, &typeF64, a, b, a+b, regs[r1],regs[r2],regs[r3]);
 										//__auto_type res=genBinopF64((struct opTextPair){IR_SUB,"SUB"},start, &typeF64, a, b, a-b, regs[r1],regs[r2],regs[r3]);
 										//__auto_type res=genBinopF64((struct opTextPair){IR_DIV,"DIV"},start, &typeF64, a, b, a/b, regs[r1],regs[r2],regs[r3]);
-										__auto_type res=genBinopF64((struct opTextPair){IR_MOD,"MOD"},start, &typeF64, a, b, 0.5, regs[r1],regs[r2],regs[r3]);
+										//__auto_type res=genBinopF64((struct opTextPair){IR_MOD,"MOD"},start, &typeF64, a, b, 0.5, regs[r1],regs[r2],regs[r3]);
+										__auto_type res=genBinopF64((struct opTextPair){IR_MULT,"MULT"},start, &typeF64, a, b, a*b, regs[r1],regs[r2],regs[r3]);
 										assembleTest64(start);
-										
 								}
 						}
 				}

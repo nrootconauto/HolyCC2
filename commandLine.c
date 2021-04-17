@@ -127,7 +127,7 @@ static strStrChar assembleSources(strConstChar sources) {
 } 
 void parseCommandLineArgs(int argc,const char **argv) {
 		init();
-		setArch(ARCH_X64_SYSV);
+		setArch(ARCH_X86_SYSV);
 		clFlagsLong=mapFlagsCreate();
 		clFlagsShort=mapFlagsCreate();
 		struct commlFlag help={
@@ -179,7 +179,6 @@ void parseCommandLineArgs(int argc,const char **argv) {
 		}
 
 		strStrChar toLink CLEANUP(strStrCharDestroy2)=NULL;
-		/*
 		if(strConstCharSize(sources)||strConstCharSize(toCompile))  {
 				char *hcrt CLEANUP(free2)=HCRTFile("HCRT.HC");
 				strConstChar hcrtSources CLEANUP(strConstCharDestroy)=strConstCharAppendItem(NULL, hcrt);
@@ -188,7 +187,6 @@ void parseCommandLineArgs(int argc,const char **argv) {
 				toLink[0]=strCharAppendData(toLink[0], "\0\0\0", 3);
 				strcat(toLink[0], ".o");
 		}
-		*/
 		
 		if(strConstCharSize(sources)||strConstCharSize(toCompile)) {
 				if(strConstCharSize(sources)&&strConstCharSize(toCompile)&&outputFile) {

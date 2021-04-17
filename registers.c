@@ -428,10 +428,10 @@ strRegP regGetForType(struct object *type) {
 	};
 	qsort(ints, sizeof(ints) / sizeof(*ints), sizeof(*ints), ptrPtrCmp);
 
-	__auto_type base = objectBaseType(type);
+	type = objectBaseType(type);
 
 	int success;
-	__auto_type size = objectSize(base, &success);
+	__auto_type size = objectSize(type, &success);
 	if (!success)
 		return NULL;
 
@@ -463,7 +463,7 @@ strRegP regGetForType(struct object *type) {
 	}
 
 search:
-	if (objectEqual(base, &typeF64)) {
+	if (objectEqual(type, &typeF64)) {
 		for (long i = 0; i != strRegPSize(avail); i++) {
 			if (avail[i]->type & REG_TYPE_FLOATING) {
 				retVal = strRegPSortedInsert(retVal, avail[i], (regPCmpType)ptrPtrCmp);
@@ -604,8 +604,10 @@ static int containsRegister(struct reg *par, struct reg *r) {
 static struct reg *__registerContainingBoth(struct reg *master, struct reg *a, struct reg *b) {
 		assert(a->masterReg == b->masterReg);
 	for (long c = 0; c != strRegSliceSize(master->affects); c++) {
-		if (containsRegister(master->affects[c].reg, a) && containsRegister(master->affects[c].reg, b))
-			return __registerContainingBoth(master->affects[c].reg, a, b);
+			if (containsRegister(master->affects[c].reg, a) && containsRegister(master->affects[c].reg, b)) {
+					if(master->affects[c].reg==master) continue;
+					return __registerContainingBoth(master->affects[c].reg, a, b);
+			}
 	}
 	return master;
 }

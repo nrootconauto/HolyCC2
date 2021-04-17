@@ -1280,7 +1280,7 @@ void asmAssign(graphNodeIR atNode,struct X86AddressingMode *a, struct X86Address
 											assembleInst("ADD", addArgs);
 									}
 							}
-					} else if(a->type==X86ADDRMODE_MEM) {
+					} else if(a->type==X86ADDRMODE_MEM||a->type==X86ADDRMODE_VAR_VALUE) {
 							if(objectBaseType(a->valueType)==&typeF64) {
 									const char *op=(flags&ASM_ASSIGN_X87FPU_POP)?"FSTP":"FSTP";
 									strX86AddrMode fistArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeClone(a));
@@ -1361,6 +1361,8 @@ void asmAssign(graphNodeIR atNode,struct X86AddressingMode *a, struct X86Address
 					assembleOpcode(atNode, "MOVSD2",args);
 					return;
 			}
+	}
+	if(isFltType(a->valueType)||isFltType(b->valueType)) {
 			struct X86AddressingMode *st0Mode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86ST0,&typeF64);
 			asmAssign(atNode,st0Mode, b,   8, flags);
 			asmAssign(atNode,a, st0Mode, 8, ASM_ASSIGN_X87FPU_POP);
@@ -1700,6 +1702,8 @@ void IRCompile(graphNodeIR start, int isFunc) {
 		if (value->val.value.var.var->isGlobal)
 			goto markAsNoreg;
 
+		if (value->val.value.var.var->name) goto markAsNoreg;
+		
 		if (!isPrimitiveType(objectBaseType(IRNodeType(nodes[i]))))
 			goto markAsNoreg;
 
@@ -2592,6 +2596,7 @@ void asmTypecastAssign(graphNodeIR atNode,struct X86AddressingMode *outMode, str
 							}
 							struct X86AddressingMode *st0Mode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86ST0,&typeF64);
 							asmAssign(atNode,outMode, st0Mode, 8, ASM_ASSIGN_X87FPU_POP);
+							break;
 					}
 					case ARCH_X64_SYSV: {
 							asmAssign(atNode, outMode, inMode, 8, ASM_ASSIGN_X87FPU_POP);
@@ -2822,7 +2827,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 								strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 								leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeClone(oMode));
 								leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeClone(iMode));
-								leaArgs[1]->valueType=NULL;
+								leaArgs[1]->valueType=objectPtrCreate(&typeU0);
 								assembleOpcode(start, "LEA",  leaArgs);
 						} else if(iMode->type==X86ADDRMODE_LABEL) {
 								asmTypecastAssign(start,oMode, iMode, ASM_ASSIGN_X87FPU_POP);
@@ -3856,6 +3861,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		pushReg(b);
 
 		//Load the jump-table address onto the stack,then pop
+		jmpTabLabMode->valueType=objectPtrCreate(objectPtrCreate(&typeU0));
 		asmAssign(start,regMode, jmpTabLabMode, ptrSize(),0);
 
 		struct reg *indexReg = regForTypeExcludingConsumed((struct object *)getTypeForSize(ptrSize()));

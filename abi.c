@@ -451,32 +451,32 @@ end:;
 	}
 	assert(stackSize == 0);
 }
-#define VA_ARG_LIST_ARGI -1
-static graphNodeIR abiI386AddrModeNode(struct objectFunction *func, long argI) {
+#define VA_ARG_LIST_ARGV -1
+static struct X86AddressingMode *abiI386AddrModeNode(struct objectFunction *func, long argI) {
 	int returnsStruct = func->retType->type == TYPE_CLASS || func->retType->type == TYPE_UNION;
 	long offset = returnsStruct ? -12 : -8;
 	if (returnsStruct&&argI==0) {
-		return IRCreateFrameAddress(-8, objectPtrCreate(func->retType));
+			return X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer(), objectPtrCreate(&typeU0)), X86AddrModeSint(8),  objectPtrCreate(&typeU0));
 	}
 	for (long i = 0; i != strFuncArgSize(func->args); i++) {
 		long size = objectSize(func->args[i].type, NULL);
 		if (i+returnsStruct == argI)
-			return IRCreateFrameAddress(offset, func->args[i].type);
+				return X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer(), objectPtrCreate(&typeU0)), X86AddrModeSint(-offset),  objectPtrCreate(&typeU0));
 		offset -= size / 4 * 4 + ((size % 4) ? 4 : 0);
 	}
-	if(argI==VA_ARG_LIST_ARGI) {
-			//
-			// EBP+offset
-			//
-			struct regSlice slice;
-			slice.offset=0;
-			slice.reg=&regX86EBP;
-			slice.type=objectPtrCreate(&typeI32i);
-			slice.widthInBits=32;
-			//Pointer arithmetic will add the index*4 !!!
-			return IRCreateBinop(IRCreateIntLit(-offset/4),IRCreateRegRef(&slice),IR_ADD);
+	if(argI==VA_ARG_LIST_ARGV) {
+			return X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer(), objectPtrCreate(&typeU0)), X86AddrModeSint(-offset), objectPtrCreate(&typeU0));
 	}
 	return NULL;
+}
+static void transparentKillNode(graphNodeIR node) {
+		strGraphEdgeIRP in CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIRIncoming(node);
+		strGraphEdgeIRP out CLEANUP(strGraphEdgeIRPDestroy)=graphNodeIROutgoing(node);
+		for(long i=0;i!=strGraphEdgeIRPSize(in);i++) {
+				for(long o=0;o!=strGraphEdgeIRPSize(out);o++)
+						graphNodeIRConnect(graphEdgeIRIncoming(in[i]), graphEdgeIROutgoing(out[o]), *graphEdgeIRValuePtr(in[i]));
+		}
+		graphNodeIRKill(&node ,(void(*)(void*))IRNodeDestroy, NULL);
 }
 static strVar IR_ABI_I386_SYS_InsertLoadArgs(graphNodeIR start) {
 	calledInsertArgs = 0;
@@ -489,102 +489,43 @@ static strVar IR_ABI_I386_SYS_InsertLoadArgs(graphNodeIR start) {
 	int returnsStruct = 0;
 	if (fType->retType->type == TYPE_CLASS || fType->retType->type == TYPE_UNION)
 		returnsStruct = 1;
-
-	strVar args = strVarResize(NULL, strFuncArgSize(fType->args)+returnsStruct);
-
-	//
-	// This is a chain of assigning a function argument to it's variable
-	// [arg1]->var1
-	// [arg2]->var2
-	//
-	graphNodeIR defineChain = NULL, defineChainStart = NULL;
-	strGraphNodeIRP argNodes CLEANUP(strGraphNodeIRPDestroy) = NULL;
-	if (returnsStruct) {
-		struct IRVar ir;
-		ir.SSANum = 0;
-		ir.var = IRCreateVirtVar(objectPtrCreate(fType->retType));
-		args[0] = ir;
-
-		__auto_type arg = abiI386AddrModeNode(fType, 0);
-		__auto_type var = IRCreateVarRef(ir.var);
-		graphNodeIRConnect(arg, var, IR_CONN_DEST);
-		
-		defineChainStart = arg;
-		defineChain = var;
-		argNodes = strGraphNodeIRPAppendItem(argNodes, arg);
-	}
-
-	for (long v = returnsStruct; v < strVarSize(args); v++) {
-		struct IRVar ir;
-		ir.SSANum = 0;
-		ir.var = fType->args[v-returnsStruct].var;
-		args[v] = ir;
-
-		__auto_type arg = abiI386AddrModeNode(fType, v);
-		__auto_type var = IRCreateVarRef(ir.var);
-		argNodes = strGraphNodeIRPAppendItem(argNodes, arg);
-		if (!defineChainStart)
-			defineChainStart = arg;
-		if (defineChain)
-				graphNodeIRConnect(defineChain, IRStmtStart(arg), IR_CONN_FLOW);
-		graphNodeIRConnect(arg, var, IR_CONN_DEST);
-		defineChain = var;
+	for (long v = 0; v < strFuncArgSize(fType->args); v++) {
+			struct X86AddressingMode *arg CLEANUP(X86AddrModeDestroy) = abiI386AddrModeNode(fType, v+returnsStruct);
+		__auto_type var = fType->args[v].var;
+		struct X86AddressingMode *varMode CLEANUP(X86AddrModeDestroy)=X86AddrModeVar(var, 0);
+		asmTypecastAssign(NULL, varMode, arg, ASM_ASSIGN_X87FPU_POP);
 	}
 
 	if(fType->hasVarLenArgs) {
 			//
 			// HolyC specific,ECX contains number of words 
 			//
-			struct regSlice slice;
-			slice.offset=0;
-			slice.reg=&regX86ECX;
-			slice.type=dftValType();
-			slice.widthInBits=32;
-			__auto_type ref = IRCreateRegRef(&slice);
-			__auto_type varC=IRCreateVarRef(fType->argcVar);
-			if(defineChain)
-					graphNodeIRConnect(defineChain,ref,IR_CONN_FLOW);
-			if (!defineChainStart)
-					defineChainStart=ref;
-			graphNodeIRConnect(ref, varC, IR_CONN_DEST);
-			defineChain=varC;
-
-			__auto_type argv=abiI386AddrModeNode(fType,VA_ARG_LIST_ARGI);
-			__auto_type varV=IRCreateVarRef(fType->argvVar);
-			graphNodeIRConnect(defineChain,  IRStmtStart(argv),  IR_CONN_FLOW);
-			graphNodeIRConnect(argv,  varV,  IR_CONN_DEST); 
-			defineChain=varV;
+			struct X86AddressingMode * argc CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regX86ECX, &typeI32i);
+			__auto_type varC=fType->argcVar;
+			struct X86AddressingMode *varCMode CLEANUP(X86AddrModeDestroy)=X86AddrModeVar(varC, 0);
+			asmTypecastAssign(NULL, varCMode, argc, ASM_ASSIGN_X87FPU_POP);
+			
+			struct X86AddressingMode * argv CLEANUP(X86AddrModeDestroy)=abiI386AddrModeNode(fType,VA_ARG_LIST_ARGV);
+			__auto_type varV=fType->argvVar;
+			struct X86AddressingMode *varMode CLEANUP(X86AddrModeDestroy)=X86AddrModeVar(varV, 0);
+			strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy)=NULL;
+			leaArgs=strX86AddrModeAppendItem(leaArgs, varMode);
+			leaArgs=strX86AddrModeAppendItem(leaArgs, argv);
+			assembleOpcode(NULL, "LEA", leaArgs);
 	}
 	
 	for (long n = 0; n != strGraphNodeIRPSize(nodes); n++) {
 		struct IRNodeFuncArg *arg = (void *)graphNodeIRValuePtr(nodes[n]);
 		if (arg->base.type == IR_FUNC_ARG) {
-				__auto_type ref = IRCreateVarRef(args[arg->argIndex+returnsStruct].var);
-				strGraphNodeIRP toReplace CLEANUP(strGraphNodeIRPDestroy) = strGraphNodePAppendItem(NULL, nodes[n]);
-				graphIRReplaceNodes(toReplace, ref, NULL, (void (*)(void *))IRNodeDestroy);
+				transparentKillNode(nodes[n]);
 		} else if(arg->base.type==IR_FUNC_VAARG_ARGC) {
-				__auto_type ref=IRCreateVarRef(fType->argcVar);
-				strGraphNodeIRP toReplace CLEANUP(strGraphNodeIRPDestroy) = strGraphNodePAppendItem(NULL, nodes[n]);
-				graphIRReplaceNodes(toReplace, ref, NULL, (void (*)(void *))IRNodeDestroy);
+				transparentKillNode(nodes[n]);
 		} else if(arg->base.type==IR_FUNC_VAARG_ARGV) {
-				__auto_type ref=IRCreateVarRef(fType->argvVar);
-				strGraphNodeIRP toReplace CLEANUP(strGraphNodeIRPDestroy) = strGraphNodePAppendItem(NULL, nodes[n]);
-				graphIRReplaceNodes(toReplace, ref, NULL, (void (*)(void *))IRNodeDestroy);
+				transparentKillNode(nodes[n]);
 		}
 	}
-
-	if (defineChainStart)
-		IRInsertAfter(start, defineChainStart, defineChain, IR_CONN_FLOW);	
 	
-	for (long n = 0; n != strGraphNodeIRPSize(argNodes); n++) {
-		struct IRAttrFunc funcAttr;
-		funcAttr.base.destroy = NULL;
-		funcAttr.base.name = IR_ATTR_FUNC;
-		funcAttr.func = funcStart->func;
-		IRAttrReplace(argNodes[n], __llCreate(&funcAttr, sizeof(funcAttr)));
-	}
-
-	return args;
+	return NULL;
 }
 static void abiI386LoadPreservedRegs(long frameSize) {
 		struct X86AddressingMode *ebpMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(basePointer(),objectPtrCreate(&typeU0));
