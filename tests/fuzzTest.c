@@ -80,7 +80,7 @@ static graphNodeIR genUnop(struct opTextPair pair,graphNodeIR connectTo,struct o
 		graphNodeIRConnect(connectTo, lab, IR_CONN_FLOW);
 		return dstAsn;
 }
-static graphNodeIR genBinopF64(struct opTextPair pair,graphNodeIR connectTo,struct object *obj,long a,long b,long res,struct reg *src1,struct reg *src2,struct reg *dst) {
+static graphNodeIR genBinopF64(struct opTextPair pair,graphNodeIR connectTo,struct object *obj,double a,double b,double res,struct reg *src1,struct reg *src2,struct reg *dst) {
 		struct regSlice reg;
 		reg.offset=0,reg.reg=src1,reg.type=obj,reg.widthInBits=objectSize(obj, NULL);
 		__auto_type src1Asn=IRCreateAssign(IRCreateFloat(a), IRCreateRegRef(&reg));
@@ -96,19 +96,19 @@ static graphNodeIR genBinopF64(struct opTextPair pair,graphNodeIR connectTo,stru
 
 		graphNodeIR lab;
 		{
-				long len=snprintf(NULL, 0, "%s_%li", pair.text,a);
+				long len=snprintf(NULL, 0, "%s_%lf", pair.text,a);
 				char buffer[len+1];
-				sprintf(buffer,"%s_%li", pair.text,a);
+				sprintf(buffer,"%s_%lf", pair.text,a);
 				lab=IRCreateGlobalLabel(buffer);
 		}
 
 		graphNodeIR strLit;
 		{
 				char *typeName=object2Str(obj);
-				const char *fmt="\n%s_%s_%li(%s=%s) %%li\n";
-				long len=snprintf(NULL, 0, fmt, pair.text,typeName,a,dst->name,src1->name);
+				const char *fmt="\n%s_%s_%lf(%s=%s) %%li\n";
+				long len=snprintf(NULL, 0, fmt, pair.text,typeName,res,dst->name,src1->name);
 				char buffer[len+1];
-				sprintf(buffer,fmt, pair.text,typeName,a,dst->name,src1->name);
+				sprintf(buffer,fmt, pair.text,typeName,res,dst->name,src1->name);
 				__auto_type lab=IRCreateGlobalLabel(buffer);
 				strLit=IRCreateStrLit(buffer);
 				free(typeName);
@@ -355,6 +355,8 @@ void fuzzTestBinops() {
 				}
 				}*/
 		{
+				double a=256.5;
+				double b=2.0;
 				setArch(ARCH_X64_SYSV);
 				strRegP regs CLEANUP(strRegPDestroy)=regGetForType(&typeF64);
 				for(long r1=0;r1!=strRegPSize(regs);r1++) {
@@ -366,7 +368,10 @@ void fuzzTestBinops() {
 										if(regConflict(&regX86XMM0, regs[r2]))continue;
 										if(regConflict(&regX86XMM0, regs[r3]))continue;
 										__auto_type start=IRCreateLabel();
-										__auto_type res=genBinopF64((struct opTextPair){IR_ADD,"ADD"},start, &typeF64, a, b, a+b, regs[r1],regs[r2],regs[r3]);
+										//__auto_type res=genBinopF64((struct opTextPair){IR_ADD,"ADD"},start, &typeF64, a, b, a+b, regs[r1],regs[r2],regs[r3]);
+										//__auto_type res=genBinopF64((struct opTextPair){IR_SUB,"SUB"},start, &typeF64, a, b, a-b, regs[r1],regs[r2],regs[r3]);
+										//__auto_type res=genBinopF64((struct opTextPair){IR_DIV,"DIV"},start, &typeF64, a, b, a/b, regs[r1],regs[r2],regs[r3]);
+										__auto_type res=genBinopF64((struct opTextPair){IR_MOD,"MOD"},start, &typeF64, a, b, 0.5, regs[r1],regs[r2],regs[r3]);
 										assembleTest64(start);
 										
 								}

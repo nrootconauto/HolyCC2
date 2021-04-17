@@ -1327,6 +1327,24 @@ void asmAssign(graphNodeIR atNode,struct X86AddressingMode *a, struct X86Address
 					}
 			}
 	}
+	if(isFltType(a->valueType)&&getCurrentArch()==ARCH_X64_SYSV) {
+			if(isIntType(b->valueType)||isPtrType(b->valueType)) {
+					//Only 32/64 allowed
+					long bSize=objectSize(b->valueType, NULL);
+					if(bSize==4||bSize==8) {
+							strX86AddrMode cvtArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+							cvtArgs=strX86AddrModeAppendItem(cvtArgs, X86AddrModeClone(a));
+							cvtArgs=strX86AddrModeAppendItem(cvtArgs, X86AddrModeClone(b));
+							assembleOpcode(atNode, "CVTSI2SD",  cvtArgs);
+							return ;
+					} else {
+							struct X86AddressingMode *raxMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regAMD64RAX, &typeI64i);
+							asmAssign(atNode, raxMode, b, 8, ASM_ASSIGN_X87FPU_POP);
+							asmTypecastAssign(atNode, a, raxMode, ASM_ASSIGN_X87FPU_POP);
+							return;
+					}
+			}
+	}
 	strX86AddrMode args CLEANUP(strX86AddrModeDestroy) = NULL;
 	strOpcodeTemplate ops CLEANUP(strOpcodeTemplateDestroy) = NULL;
 	if (size == 1 || size == 2 || size == 4 || size == 8) {
@@ -3093,7 +3111,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		binopArgs(start, &a, &b);
 		if((isFltNode(a)||isFltNode(b))&&getCurrentArch()==ARCH_X64_SYSV) {
       if(isDivOrMod)
-        assembleOpSD(start,"DIVSD");
+        return nextNodesToCompile(assembleOpSD(start,"DIVSD"));
       else {
         if(!nodeDest(start)) return NULL;
 
@@ -3113,23 +3131,17 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
           args=strX86AddrModeAppendItem(args,X86AddrModeClone(bMode));
           assembleOpcode(start,"DIVSD",args);
 
-          strX86AddrMode args2 CLEANUP(strX86AddrModeDestroy2)=NULL;
-          args2=strX86AddrModeAppendItem(args2,X86AddrModeClone(accum));
-          args2=strX86AddrModeAppendItem(args2,X86AddrModeClone(accum));
-          args2=strX86AddrModeAppendItem(args2,X86AddrModeSint(0b00000011));
-          assembleOpcode(start,"ROUNDSD",args2);
-        }
+          //Convert to int and back to round
+										struct X86AddressingMode *intAccum CLEANUP(X86AddrModeDestroy)=getAccumulatorForType(&typeI64i);
+										asmTypecastAssign(start, intAccum, accum, ASM_ASSIGN_X87FPU_POP);
+										asmTypecastAssign(start, accum, intAccum, ASM_ASSIGN_X87FPU_POP);
+								}
         //RES=a-(Q*=b)
         {
           CLEANUP(strX86AddrModeDestroy2) strX86AddrMode args=NULL;
           args=strX86AddrModeAppendItem(args,X86AddrModeClone(accum));
           args=strX86AddrModeAppendItem(args,X86AddrModeClone(bMode));
           assembleOpcode(start,"MULSD",args);
-
-          CLEANUP(strX86AddrModeDestroy2) strX86AddrMode args2=NULL;
-          args2=strX86AddrModeAppendItem(args2,X86AddrModeClone(accum));
-          args2=strX86AddrModeAppendItem(args2,X86AddrModeClone(bMode));
-          assembleOpcode(start,"MULSD",args2);
 
           AUTO_LOCK_MODE_REGS(aMode);AUTO_LOCK_MODE_REGS(bMode);
 
