@@ -461,7 +461,7 @@ static struct X86AddressingMode *abiI386AddrModeNode(struct objectFunction *func
 	for (long i = 0; i != strFuncArgSize(func->args); i++) {
 		long size = objectSize(func->args[i].type, NULL);
 		if (i+returnsStruct == argI)
-				return X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer(), objectPtrCreate(&typeU0)), X86AddrModeSint(-offset),  objectPtrCreate(&typeU0));
+				return X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(basePointer(), objectPtrCreate(&typeU0)), X86AddrModeSint(-offset),  func->args[i].type);
 		offset -= size / 4 * 4 + ((size % 4) ? 4 : 0);
 	}
 	if(argI==VA_ARG_LIST_ARGV) {
