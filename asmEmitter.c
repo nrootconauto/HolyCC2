@@ -571,8 +571,22 @@ static strChar emitMode(struct X86AddressingMode **args, long i) {
 		return strClone(buffer); 
 	}
 	case X86ADDRMODE_LABEL: {
-			char *buffer CLEANUP(free2)=fromFmt("$%s ", args[i]->value.label);
-		return strClone(buffer);
+			switch(getCurrentArch()) {
+			case ARCH_TEST_SYSV:
+			case ARCH_X86_SYSV: {
+					char *buffer CLEANUP(free2)=fromFmt("$%s ", args[i]->value.label);
+					return strClone(buffer);
+			}
+			case ARCH_X64_SYSV: {
+					if(!parserGetFuncByName(args[i]->value.label)) {
+							char *buffer CLEANUP(free2)=fromFmt("$%s ", args[i]->value.label);
+							return strClone(buffer);
+					} else {
+							char *buffer CLEANUP(free2)=fromFmt("%s WRT ..plt ", args[i]->value.label);
+							return strClone(buffer);
+					}
+			}
+	}
 	}
 	case X86ADDRMODE_REG: {
 		__auto_type find = ptrMapRegNameGet(regNames, args[i]->value.reg);

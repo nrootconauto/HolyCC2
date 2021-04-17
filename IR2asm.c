@@ -1380,6 +1380,21 @@ void asmAssign(graphNodeIR atNode,struct X86AddressingMode *a, struct X86Address
 		args=strX86AddrModeAppendItem(NULL, A);
 		args=strX86AddrModeAppendItem(args, B);
 
+		if(b->type==X86ADDRMODE_STR||b->type==X86ADDRMODE_LABEL) {
+				long size=objectSize(a->valueType,NULL);
+				if(size==ptrSize()) {
+						strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+						leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeClone(a));
+						leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeIndirSIB(0, NULL, NULL, X86AddrModeClone(b), getTypeForSize(ptrSize())));
+						assembleOpcode(atNode, "LEA", leaArgs);
+				} else {
+						struct X86AddressingMode *raxMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regAMD64RAX, getTypeForSize(ptrSize()));
+						asmAssign(atNode,raxMode , b, ptrSize(), ASM_ASSIGN_X87FPU_POP);
+						asmTypecastAssign(atNode, a, raxMode, ASM_ASSIGN_X87FPU_POP);
+				}
+				return;
+		}
+		
 		assembleOpcode(atNode,"MOV",args);
 		return;
 	} else {
