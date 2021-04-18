@@ -543,6 +543,7 @@ static strX86AddrMode shuffleArgsByFormula(strX86AddrMode args,strFormulaPair or
 				retVal[o]=X86AddrModeClone(args[order[o]->argI]);
 		return retVal;
 }
+#define HIDDEN_CLS_DST_ARG -1
 void IR_ABI_SYSV_X64_Call(graphNodeIR _call,struct X86AddressingMode *funcMode,strX86AddrMode args,struct X86AddressingMode *outMode) {
 		struct IRNodeFuncCall *call=(void*)graphNodeIRValuePtr(_call);
 		__auto_type abiInfo=llIRAttrFind(graphNodeIRValuePtr(_call)->attrs,IR_ATTR_ABI_INFO,IRAttrGetPred);
@@ -616,19 +617,40 @@ void IR_ABI_SYSV_X64_Call(graphNodeIR _call,struct X86AddressingMode *funcMode,s
 		strX86AddrMode  toPush CLEANUP(strX86AddrModeDestroy2)=NULL;
 
 		strFormulaPair toPassFormula CLEANUP(strFormulaPairDestroy2)=NULL;
-
+		//Push return memory location to stack before pushed pushed arguemtns
+		if(returnsMem) {
+				strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+				leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeReg(&regAMD64RAX, objectPtrCreate(&typeU0)));
+				leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeClone(outMode));
+				leaArgs[1]->valueType=&typeU64i;
+				assembleOpcode(_call, "LEA",  leaArgs);
+				pushReg(&regAMD64RAX);
+		}
+		
 		long spillStackSize=0;
 		long pushedArgsSize=0;
 		strFormulaPair outFormula CLEANUP(strFormulaPairDestroy)=NULL;
 		strFormulaPair spillFormula CLEANUP(strFormulaPairDestroy)=NULL;
 
-		if(returnsMem) {
-				strX86AddrMode leaArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
-				leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeReg(&regAMD64RDI, objectPtrCreate(&typeU0)));
-				leaArgs=strX86AddrModeAppendItem(leaArgs, X86AddrModeClone(outMode));
-				leaArgs[1]->valueType=&typeU64i;
-				assembleOpcode(_call, "LEA",  leaArgs);
+		/**
+			*HolyC specific, a "copy" of the variable-len arguments are passed on the stack
+			*/
+		if(fType->hasVarLenArgs) {
+				for(long a=strX86AddrModeSize(args)-1;a>=strFuncArgSize(fType->args);a--) {
+						__auto_type promoted=promote(args[a]->valueType);
+						if(promoted!=args[a]->valueType) {
+								struct X86AddressingMode *raxMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regAMD64RAX, promoted);
+								asmTypecastAssign(_call, raxMode,args[a], ASM_ASSIGN_X87FPU_POP);
+								pushMode(raxMode);
+								pushedArgsSize+=8;
+						} else {
+								pushMode(args[a]);
+								pushedArgsSize+=objectSize(args[a]->valueType, NULL);
+						} 
+				}
 		}
+		long HCC_ArgVStart=pushedArgsSize;
+		
 		for(long a=0;a!=strX86AddrModeSize(args);a++) {
 				int consumedInts=0;
 				int consumedSses=0;
@@ -694,6 +716,7 @@ void IR_ABI_SYSV_X64_Call(graphNodeIR _call,struct X86AddressingMode *funcMode,s
 				toPush=strX86AddrModeAppendItem(toPush,X86AddrModeClone(aMode));
 				pushedArgsSize+=objectSize(aMode->valueType, NULL);
 		}
+		
 		{
 				strX86AddrMode args2 CLEANUP(strX86AddrModeDestroy)=strX86AddrModeClone(args);
 				dependResolver(toPassFormula, &outFormula,&spillFormula);
@@ -728,14 +751,35 @@ void IR_ABI_SYSV_X64_Call(graphNodeIR _call,struct X86AddressingMode *funcMode,s
 		struct X86AddressingMode *alMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regAMD64RAX, &typeU64i);
 		struct X86AddressingMode *passedFltRegsMode CLEANUP(X86AddrModeDestroy)=X86AddrModeSint(stuffedSses);
 		asmTypecastAssign(_call, alMode, passedFltRegsMode, ASM_ASSIGN_X87FPU_POP);
+
+		/**
+			* HolyC specific,store argV in r10,argc in r11
+			*/
+		if(fType->hasVarLenArgs) {
+				long argVoffset=pushedArgsSize+spillStackSize-HCC_ArgVStart;
+				strX86AddrMode argVLea CLEANUP(strX86AddrModeDestroy2)=NULL;
+				argVLea=strX86AddrModeAppendItem(argVLea, X86AddrModeReg(&regAMD64R10u64, objectPtrCreate(&typeU0)));
+				argVLea=strX86AddrModeAppendItem(argVLea, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer(), objectPtrCreate(&typeU0)), X86AddrModeSint(argVoffset), objectPtrCreate(&typeU0)));
+				assembleOpcode(NULL, "LEA", argVLea);
+				struct X86AddressingMode *r11Mode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regAMD64R11u64, &typeI64i);
+				struct X86AddressingMode *argcMode CLEANUP(X86AddrModeDestroy)=X86AddrModeSint(strX86AddrModeSize(args)-strFuncArgSize(fType->args));
+				asmTypecastAssign(_call, r11Mode, argcMode, 0);
+		}
+		
+		//Load pushed return location from earlier is returns memory
+		if(returnsMem) {
+				struct X86AddressingMode *rdiMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regAMD64RDI,objectPtrCreate(&typeU0));
+				struct X86AddressingMode *retLoc CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer(),  &typeU64i), X86AddrModeSint(pushedArgsSize+spillStackSize),objectPtrCreate(&typeU0));
+				asmTypecastAssign(_call, rdiMode, retLoc, ASM_ASSIGN_X87FPU_POP);
+		}
 		
 		strX86AddrMode callArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeClone(funcMode));
 		assembleOpcode(_call, "CALL",  callArgs);
 
-		//Get Rid of the "spill" area and pushed arguments
+		//Get Rid of the "spill" area and pushed arguments AND possible stashed return value position
 		strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 		addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeReg(stackPointer(), objectPtrCreate(&typeU0)));
-		addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeSint(spillStackSize+pushedArgsSize));
+		addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeSint(spillStackSize+pushedArgsSize+(returnsMem?8:0))); //Add 8 if stashed return location
 		assembleOpcode(_call, "ADD", addArgs);
 		
 		if(outMode) {
@@ -848,6 +892,18 @@ static void transparentKillNode(graphNodeIR node) {
 void IR_ABI_SYSV_X64_LoadArgs(graphNodeIR start,long frameSize) {
 		struct IRNodeFuncStart *fStart=(void*)graphNodeIRValuePtr(start);
 		struct objectFunction *fType=(void*)fStart->func->type;
+
+		/**
+			* HolyC specific,r10 is argv and r11 argc
+			*/
+		if(fType->hasVarLenArgs) {
+				struct X86AddressingMode *argvVar CLEANUP(X86AddrModeDestroy)=X86AddrModeVar(fType->argvVar,0);
+				struct X86AddressingMode *argcVar CLEANUP(X86AddrModeDestroy)=X86AddrModeVar(fType->argcVar,0);
+				struct X86AddressingMode *r10Mode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regAMD64R10u64, objectPtrCreate(&typeI64i));
+				struct X86AddressingMode *r11Mode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regAMD64R11u64, &typeI64i);
+				asmTypecastAssign(NULL, argvVar, r10Mode, ASM_ASSIGN_X87FPU_POP);
+				asmTypecastAssign(NULL, argcVar, r11Mode, ASM_ASSIGN_X87FPU_POP);
+		}
 		
 		struct reg *intRegs[]={
 				&regAMD64RDI,
@@ -943,8 +999,9 @@ void IR_ABI_SYSV_X64_LoadArgs(graphNodeIR start,long frameSize) {
 		}
 		for(long n=0;n!=strGraphNodeIRPSize(allNodes);n++) {
 				struct IRNodeFuncArg *arg=(void*)graphNodeIRValuePtr(allNodes[n]);
-				if(arg->base.type!=IR_FUNC_ARG) continue;
-				transparentKillNode(allNodes[n]);
+				if(arg->base.type==IR_FUNC_ARG) transparentKillNode(allNodes[n]);
+				else if(arg->base.type==IR_FUNC_VAARG_ARGC) transparentKillNode(allNodes[n]);
+				else if(arg->base.type==IR_FUNC_VAARG_ARGV) transparentKillNode(allNodes[n]);
 		}
 
 		strObject retType CLEANUP(strObjectDestroy)= strObjectAppendItem(NULL, fType->retType);
