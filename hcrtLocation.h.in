@@ -4,16 +4,32 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <stdio.h>
+#include "registers.h"
 #define HCRT_LOC_LOCAL "@HCRT_LOCATION@"
 #define HCRT_LOC_INSTALLED "@HCRT_LOCATION_INSTALLED@"
+#define HCRT_LOC_LOCAL64 "@HCRT_LOCATION64@"
+#define HCRT_LOC_INSTALLED64 "@HCRT_LOCATION_INSTALLED64@"
 __attribute__((always_inline)) inline char *HCRTFile(const char *file) {
-		long len=snprintf(NULL, 0, "%s/%s", HCRT_LOC_LOCAL,file);
+		const char *localDir=NULL;
+		const char *installedlDir=NULL;
+		switch(getCurrentArch()) {
+		case ARCH_TEST_SYSV:
+		case ARCH_X86_SYSV:
+				localDir=HCRT_LOC_LOCAL;
+				installedlDir=HCRT_LOC_INSTALLED;
+				break;
+		case ARCH_X64_SYSV:
+				localDir=HCRT_LOC_LOCAL64;
+				installedlDir=HCRT_LOC_INSTALLED64;
+				break;
+		}
+		long len=snprintf(NULL, 0, "%s/%s", localDir,file);
 		char local[len+1];
-		sprintf(local, "%s/%s", HCRT_LOC_LOCAL,file);
+		sprintf(local, "%s/%s", localDir,file);
 
-		len=snprintf(NULL, 0, "%s/%s", HCRT_LOC_INSTALLED,file);
+		len=snprintf(NULL, 0, "%s/%s", installedlDir,file);
 		char installed[len+1];
-		sprintf(installed, "%s/%s", HCRT_LOC_INSTALLED,file);
+		sprintf(installed, "%s/%s", installedlDir,file);
 		
 		if(0==access(local, F_OK))
 				return strcpy(calloc(strlen(local)+1, 1), local);

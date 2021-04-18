@@ -125,6 +125,23 @@ static strStrChar assembleSources(strConstChar sources) {
 		}
 		return toAssemble;
 } 
+static void archCallback(int *argi,int argc,const char **argv) {
+		++*argi;
+		long next=nextFlagI(*argi, argc, argv);
+		if(next<=1+*argi) {
+				fprintf(stderr, "Expected a signle architecture. ");
+				abort();
+		}
+		if(0==strcmp(argv[*argi],"x86")) {
+				setArch(ARCH_X86_SYSV);
+		} else if(0==strcmp(argv[*argi],"x64")) {
+				setArch(ARCH_X64_SYSV);
+		} else {
+				fprintf(stderr, "Invalid architecture \"%s\"", argv[*argi]);
+				abort();
+		}
+		++*argi;
+}
 void parseCommandLineArgs(int argc,const char **argv) {
 		init();
 		setArch(ARCH_X86_SYSV);
@@ -158,6 +175,13 @@ void parseCommandLineArgs(int argc,const char **argv) {
 				debugDisableCallback,
 		};
 		registerCLIFlag(&debugDisable);
+		struct commlFlag arch={
+				"a",
+				"arch",
+				"This sets the arch(valids archs are x86,x64).",
+				archCallback,
+		};
+		registerCLIFlag(&arch);
 		
 		strConstChar sources CLEANUP(strConstCharDestroy)=NULL;
 		

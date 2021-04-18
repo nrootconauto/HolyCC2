@@ -39,9 +39,9 @@ static strParserNode parseFile(const char *fn,strFileMappings *fMappings2,llLexe
 		char *es=escapeString((char*)fn, strlen(fn));
 		FILE *f=fopen(tmpName, "w");
 		printf( "%s\n", tmpName);
-		char *dbgInfoLoader CLEANUP(free2)=HCRTFile("LoadDbgInfo.HC");
 		char * cwd=getcwd(NULL, 0);
 		if(HCC_Debug_Enable) {
+				char *dbgInfoLoader CLEANUP(free2)=HCRTFile("LoadDbgInfo.HC");	
 				fprintf(f,"static U8i *HCC_DEBUGGER_FILE=\"%s\";\n", es);
 				fprintf(f, "#include \"%s\"\n", dbgInfoLoader);
 		}
