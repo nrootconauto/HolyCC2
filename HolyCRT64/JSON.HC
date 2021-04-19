@@ -6,12 +6,13 @@ class JsonNode;
 #define JSON_FLT 3
 #define JSON_ARR 4
 #define JSON_SYN_ERR -1
+class CJsonNode;
 union UJsonValue {
 			U8i *str;
 			I64i sint;
 			F64 flt;
-			JsonNode **arr;
-			JsonNode *node;
+			CJsonNode **arr;
+			CJsonNode *node;
 };
 class CJsonNode {
 			CJsonNode *prev,*next,*par;
@@ -146,4 +147,47 @@ static U8 *__JsonParserSkipWhitespace(U8 *str) {
 										goto loop;
 							}
 							return str;
+}
+static CJsonNode *JsonNodeParse(U8 *str,U8 **end);
+static CJsonNode *JsonParseArray(U8 *str,U8 **end) {
+							str=__JsonParserSkipWhitespace(str);
+							if (*str!='[') {
+										if(end) *end=str;
+										return NULL;
+							}
+							I64 arrlen=0;
+							str++;
+							CJsonNode **arr=NULL;
+							loop:
+							str=__JsonParserSkipWhitespace(str);
+							if (*str==']') {
+										if(end) *end=str+1;
+										arr=realloc(arr,++arrlen*sizeof(CJsonNode*));
+										arr[arrlen-1]=NULL;
+										CJsonNode *retval=calloc(sizeof(CJsonNode),1);
+										retval->type=JSON_ARR;
+										retval->value.arr=arr;
+										return retval;
+							}
+							CJsonNode *node=JsonNodeParse(str,&str);
+							if(!node) throw (JSON_SYN_ERR);
+							arr=realloc(arr,++arrlen*sizeof(CJsonNode*));
+							arr[arrlen-1]=node;
+							str=__JsonParserSkipWhitespace(str);
+							if (*str==',') {
+										str++;
+										goto loop;
+							} else if(*str!=']') {
+									throw(JSON_SYN_ERR);
+							} else goto loop;
+}
+static CJsonNode *JsonNodeParse(U8 *str,U8 **end=NULL) {
+							CJsonNode *retval=NULL;
+							retval=JsonParseArray(str,end);
+							if(retval) return retval;
+							retval=JsonParseString(str,end);
+							if(retval) return retval;
+							retval=JsonParseNumber(str,end);
+							if(retval) return retval;
+							return retval;
 }
