@@ -182,9 +182,9 @@ static CJsonNode *JsonParseArray(U8 *str,U8 **end) {
 							} else goto loop;
 }
 static U8 *__JsonParseName(U8 *str,U8 **end=NULL) {
-							U8 *orig=NULL;
+							U8 *orig=str;
 							loop:
-							switch (str) {
+							switch (*str) {
 														case 'a'...'z':
 														case 'A'...'Z':
 														case '0'...'9':
@@ -217,11 +217,14 @@ static CJsonNode *JsonParseObject(U8 *str,U8 **end=NULL) {
 							name=__JsonParseName(str,&str);
 							if(!name) throw(JSON_SYN_ERR);
 							found:
+							str=__JsonParserSkipWhitespace(str);
+							if(*str!=':') throw(JSON_SYN_ERR); else str++;
+							str=__JsonParserSkipWhitespace(str);
 							CJsonNode *find=JsonNodeParse(str,&str);
 							if(!find) throw(JSON_SYN_ERR);
 							find->name=name;
 							find->prev=curr;
-							curr->next=find;
+							if(curr) curr->next=find;
 							curr=find;
 							str=__JsonParserSkipWhitespace(str);
 							if(*str==',') str++;
@@ -235,6 +238,8 @@ static CJsonNode *JsonNodeParse(U8 *str,U8 **end=NULL) {
 							if(retval) return retval;
 							retval=JsonParseNumber(str,end);
 							if(retval) return retval;
+							retval=JsonParseObject(str,end);
+							if(retval) return retval;
 							return retval;
 }
 static U0 PrintNTabs(I64 tabs) {
@@ -244,35 +249,31 @@ static U0 PrintNTabs(I64 tabs) {
 							printf("%s",fill);
 }
 static U0 JsonPrint(CJsonNode *node,I64 tabc=0) {
+							PrintNTabs(tabc);
 							if(node->name) printf("%s:",node->name);
 							I64 i=0;
 							switch (node->type) {
 														case JSON_STR:
-																			PrintNTabs(tabc);
 																			printf("\"%s\"",node->value.str);
 																			break;
 														case JSON_SINT:
-																			PrintNTabs(tabc);
 																			printf("%li",node->value.sint);
 																			break;
 														case JSON_OBJ:
-																			PrintNTabs(tabc);
-																			printf("{");
+																			printf("{\n");
 																			CJsonNode *currnode=node->value.obj;
 																			if (currnode) {
 																						for(currnode=node->value.obj->prev;currnode;currnode=currnode->prev) JsonPrint(currnode,tabc+1);
-																						JsonPrint(currnode,tabc+1);
+																						JsonPrint(node->value.obj,tabc+1);
 																						for(currnode=node->value.obj->next;currnode;currnode=currnode->next) JsonPrint(currnode,tabc+1);
 																			}
 																			PrintNTabs(tabc);
-																			printf("}");
+																			printf("}\n");
 																			break;
 														case JSON_FLT:
-																			PrintNTabs(tabc);
 																			printf("%lf",node->value.flt);
 																			break;
 														case JSON_ARR:
-																				PrintNTabs(tabc);
 																				printf("[\n");
 																				for (i=0;node->value.arr[i];i++) {
 																								JsonPrint(node->value.arr[i],tabc+1);
