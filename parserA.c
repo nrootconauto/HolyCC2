@@ -3282,8 +3282,8 @@ struct parserNode *parseFunction(llLexerItem start, llLexerItem *end) {
 	forward.name = refNode(name2);
 	forward.func=NULL;
 	struct parserNode *fwdAlloced = ALLOCATE(forward);
-		parserAddFunc(name2, funcType, fwdAlloced,NULL,NULL,(struct linkage){LINKAGE_LOCAL,NULL});
-		parserNodeDestroy(&fwdAlloced);
+	parserAddFunc(name2, funcType, fwdAlloced,NULL,NULL,(struct linkage){LINKAGE_LOCAL,NULL});
+	parserNodeDestroy(&fwdAlloced);
 	
 	struct parserNode *retVal = NULL;
 	enterScope();

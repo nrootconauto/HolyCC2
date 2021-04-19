@@ -128,7 +128,7 @@ static strStrChar assembleSources(strConstChar sources) {
 static void archCallback(int *argi,int argc,const char **argv) {
 		++*argi;
 		long next=nextFlagI(*argi, argc, argv);
-		if(next<=1+*argi) {
+		if(next<1+*argi) {
 				fprintf(stderr, "Expected a signle architecture. ");
 				abort();
 		}

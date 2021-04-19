@@ -399,7 +399,7 @@ static void dependResolver(strFormulaPair _in,strFormulaPair *out,strFormulaPair
 						for(long r=0;r!=strFormulaPairSize(reversed);r++) {
 								strFormulaPair ahead CLEANUP(strFormulaPairDestroy)=canComeAhead(_in, reversed[r]);
 								for(long r2=r+1;r2!=strFormulaPairSize(reversed);r2++) {
-										assert(strFormulaPairSortedInsert(ahead, reversed[r], formulaPairCmp));
+										assert(strFormulaPairSortedFind(ahead, reversed[r2], formulaPairCmp));
 								}
 						}
 						return;
