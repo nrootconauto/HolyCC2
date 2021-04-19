@@ -19,7 +19,47 @@ class CJsonNode {
 			I64 type;
 			UJsonValue value;
 };
-static U8 *JsonParseString(U8 *str,U8 *end=0) {
+static I64 __JsonParseNumber(U8 *str,U8 *end=0) {
+							I64 mult=1;
+							if (*str=='-') {
+										mult=-1;
+										str++;
+							}
+							U8 *digits="0123456789";
+							U8 *digits2="0123456789";
+							I64 base=10;
+							if (0==StrNCmp(str,"0x",2)) {
+										str+=2;
+										digits="0123456789ABCDEF";
+										digits2="0123456789abcdef";
+										base=16;
+							} else if(str[0]=='0') {
+									digits="01234567";
+									digits2="01234567";
+									base=8;
+							} else if(0==StrNCmp(str,"0b",2)) {
+									str+=2;
+									digits="01";
+									digits2="01";
+									base=2;
+							}
+							I64 retval=0;
+							for (;;) {
+											I64 digitvalue=0;
+											U8i *digit=StrChr(digits,*str);
+											if(digit) {digitvalue=digit-digits;goto find;}
+
+											if(!digit) digit=StrChr(digits2,*str);
+											if(digit) {digitvalue=digit-digits2;goto find;}
+											
+											if(!digit) break;
+											find:
+											retval*=base;
+											retval+=digitvalue;
+							}
+							return retval*mult;
+}
+static U8 *__JsonParseString(U8 *str,U8 *end=0) {
 							U8 run=0;
 							U8 firstchr=*str;
 							if (firstchr!='\''&&firstchr!='"') {

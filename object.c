@@ -826,7 +826,8 @@ int /*Returns 0 if not equal.*/ objectEqual(const struct object *a, const struct
  */
 static int /*Non-0 if arithmetic type*/
 isArith(const struct object *type) {
-	if (type == &typeU8i || type == &typeU16i || type == &typeU32i || type == &typeU64i || type == &typeI8i || type == &typeI16i || type == &typeI32i ||
+		type=objectBaseType(type);
+		if (type == &typeU8i || type == &typeU16i || type == &typeU32i || type == &typeU64i || type == &typeI8i || type == &typeI16i || type == &typeI32i ||
 	    type == &typeI64i || type == &typeF64 || type->type == TYPE_PTR || type->type == TYPE_ARRAY) {
 		return 1;
 	}
