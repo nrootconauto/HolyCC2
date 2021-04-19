@@ -442,7 +442,10 @@ strRegP regGetForType(struct object *type) {
 		avail = regsForArch();
 		// Reserved registers
 		const struct reg *res[] = {&regX86XMM0,&regAMD64RSP,&regAMD64RBP,&regX86ESP, &regX86EBP, &regX86SP, &regX86BP, &regX86SPL, &regX86BPL,
-				&regX86SS,  &regX86CS,  &regX86DS, &regX86ES, &regX86FS,  &regX86GS,&regAMD64RAX,&regX86EAX,&regX86AX,&regX86AH,&regX86AL};
+				&regX86SS,  &regX86CS,  &regX86DS, &regX86ES, &regX86FS,  &regX86GS,&regAMD64RAX,&regX86EAX,&regX86AX,&regX86AH,&regX86AL,
+				//REX doesn't permit A/B/C/DH
+				&regX86BH,&regX86CH,&regX86DH,
+		};
 		long len = sizeof(res) / sizeof(*res);
 		qsort(res, len, sizeof(*res), ptrPtrCmp);
 		strRegP reserved CLEANUP(strRegPDestroy) = strRegPAppendData(NULL, res, len);

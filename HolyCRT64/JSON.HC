@@ -1,0 +1,66 @@
+extern U0 *calloc(I64 len,I64 n);
+class JsonNode;
+#define JSON_STR 0
+#define JSON_SINT 1
+#define JSON_OBJ 2
+#define JSON_FLT 3
+#define JSON_ARR 4
+#define JSON_SYN_ERR -1
+union UJsonValue {
+			U8i *str;
+			I64i sint;
+			F64 flt;
+			JsonNode **arr;
+			JsonNode *node;
+};
+class CJsonNode {
+			CJsonNode *prev,*next,*par;
+			U8 *name;
+			I64 type;
+			UJsonValue value;
+};
+static U8 *JsonParseString(U8 *str,U8 *end=0) {
+							U8 run=0;
+							U8 firstchr=*str;
+							if (firstchr!='\''&&firstchr!='"') {
+										if(end) *end=str;
+										return 0
+							}
+							U8 *origstr=++str;
+							U8 *retval=0;
+							I64 len=0;
+							loop:
+							U8 toaddchr=0;
+							if(*str=='\0') throw(JSON_SYN_ERR);
+							if (*str=='\\') {
+										str++;
+										switch (*str) {
+																	case 'a': toaddchr='\a'; goto add;
+																	case 'b': toaddchr='\b'; goto add;
+																	case 'f': toaddchr='\f'; goto add;
+																	case 'n': toaddchr='\n'; goto add;
+																	case 't': toaddchr='\t'; goto add;
+																	case 'v': toaddchr='\v'; goto add;
+																	case '\\': toaddchr='\\'; goto add;
+																	case '\'': toaddchr='\''; goto add;
+																	case '\"': toaddchr='"'; goto add;
+										}
+							} else if(*str==firstchr) {
+									if (run) {
+												if(end) *end=str+1;
+												return retval;
+									}
+									retval=calloc(len+1,1);
+									run=1;
+									len=0;
+									str=origstr;
+									goto loop;
+							}
+							toaddchr=*str;
+							str++;
+							add:
+							if (run) {
+										retval[len++]=toaddchr;
+							} else len++;
+							goto loop;
+}
