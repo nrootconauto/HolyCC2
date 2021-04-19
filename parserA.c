@@ -2956,7 +2956,7 @@ struct parserNode *parseCase(llLexerItem start, llLexerItem *end) {
 		caseNode.label= refNode(kwCase);
 		retVal = ALLOCATE(caseNode);
 		if (end)
-			assignPosByLexerItems(retVal, originalStart, *end);
+			assignPosByLexerItems(retVal, originalStart, start);
 		else
 			assignPosByLexerItems(retVal, originalStart, NULL);
 

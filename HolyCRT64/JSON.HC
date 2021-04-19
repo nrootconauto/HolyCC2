@@ -191,3 +191,25 @@ static CJsonNode *JsonNodeParse(U8 *str,U8 **end=NULL) {
 							if(retval) return retval;
 							return retval;
 }
+static U0 JsonPrint(CJsonNode *node) {
+							if(node->name) printf("%s:",node->name);
+							I64 i=0;
+							switch (node->type) {
+														case JSON_STR:
+																			printf("\"%s\"",node->value.str);
+																			break;
+														case JSON_SINT:
+																			printf("%li",node->value.sint);
+																			break;
+														case JSON_OBJ:
+														case JSON_FLT:
+																			printf("%lf",node->value.flt);
+																			break;
+														case JSON_ARR:
+																			for (i=0;node->value.arr[i];i++) {
+																							JsonPrint(node->value.arr[i]);
+																							printf(",\n");
+																			}
+																			break;
+							}
+}

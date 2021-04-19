@@ -15,4 +15,5 @@ I32i main() {
 					printf("%s\n",StrStr("123abc","abc"));
 					printf("%s\n",__JsonParserSkipWhitespace("/*abc*/abc"));
 					CJsonNode *arr=JsonNodeParse("[1,2,3]");
+					JsonPrint(arr);
 }

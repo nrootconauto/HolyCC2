@@ -692,7 +692,7 @@ void IR_ABI_SYSV_X64_Call(graphNodeIR _call,struct X86AddressingMode *funcMode,s
 								toPassFormula=strFormulaPairSortedInsert(toPassFormula,ALLOCATE(pair),formulaPairCmp);
 								addOffsetIfIndir(aMode,8);
 						} else if(classes[c]==ABI_SSE) {
-								__auto_type r=subRegOfType(sseRegs[stuffedSses++],&typeF64);
+								__auto_type r=sseRegs[stuffedSses++];
 								struct formulaPair pair;
 								pair.depends=regsFromMode(args[a]);
 								pair.passInReg=r;
