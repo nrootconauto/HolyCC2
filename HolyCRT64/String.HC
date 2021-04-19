@@ -19,3 +19,21 @@ U8i *StrChr(U8i *str, U8i chr) {
   }
   return NULL;
 }
+I64 StrLen(U8 *str) {
+				I64 len=0;
+				for (;*str!='\0';len++,str++);
+				return len;
+}
+//https://en.cppreference.com/w/cpp/algorithm/search
+U8 *StrStr(U8 *a,U8 *b) {
+			U8 *aend=a+StrLen(a);
+			U8 *bend=b+StrLen(b);
+			for (;;a++) {
+							U8 *ait=a;
+							for (U8 *bit=b,;;ait++,bit++) {
+											if(bit==bend) return a;
+											if(ait==aend) return NULL;
+											if(*ait!=*bit) break;
+							}
+			}
+}

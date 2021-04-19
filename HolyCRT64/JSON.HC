@@ -32,7 +32,7 @@ static I64 __JsonParseNumber(U8 *str,U8 **end=0) {
 										str+=2;
 										digits="0123456789ABCDEF";
 										digits2="0123456789abcdef";
-										base=16;
+ 										base=16;
 							} else if(0==StrNCmp(str,"0b",2)) {
 									str+=2;
 									digits="01";
@@ -60,6 +60,16 @@ static I64 __JsonParseNumber(U8 *str,U8 **end=0) {
 							}
 							if(end) *end=str;
 							return retval*mult;
+}
+static CJsonNode *JsonParseNumber(U8 *str,U8 **end=0) {
+							U8 *end2=NULL;
+							I64 num=__JsonParseNumber(str,&end2);
+							if(str==end2) return NULL;
+							CJsonNode *retval=calloc(sizeof(CJsonNode),1);
+							retval->type=JSON_SINT;
+							retval->value.sint=num;
+							if(end) *end=end2;
+							return retval;
 }
 static U8 *__JsonParseString(U8 *str,U8 **end=0) {
 							U8 run=0;
@@ -105,4 +115,35 @@ static U8 *__JsonParseString(U8 *str,U8 **end=0) {
 										retval[len++]=toaddchr;
 							} else len++;
 							goto loop;
+}
+static CJsonNode *JsonParseString(U8 *str,U8 **end=0) {
+							U8 *end2=NULL;
+							U8 *str2=__JsonParseString(str,&end2);
+							if(str==end2) return NULL;
+							CJsonNode *retval=calloc(sizeof(CJsonNode),1);
+							retval->type=JSON_STR;
+							retval->value.str=str2;
+
+							if(end) *end=end2;
+							return retval;
+}
+static U8 *__JsonParserSkipWhitespace(U8 *str) {
+							loop:
+							U8 *white=" \t\n\r";
+							if (StrChr(white,*str)) {
+										str++;
+										goto loop;
+							}
+							if (0==StrNCmp(str,"//",2))  {
+										str=StrChr(str+2,'\n');
+										if(!str) return str+StrLen(str);
+										goto loop;
+							}
+							if (0==StrNCmp(str,"/*",2)) {
+										str=StrStr(str,"*/");
+										if(!str) throw(JSON_SYN_ERR);
+										str+=2;
+										goto loop;
+							}
+							return str;
 }
