@@ -12,10 +12,10 @@ union UJsonValue {
 			I64i sint;
 			F64 flt;
 			CJsonNode **arr;
-			CJsonNode *node;
+			CJsonNode *obj;
 };
 class CJsonNode {
-			CJsonNode *prev,*next,*par;
+			CJsonNode *prev,*next;
 			U8 *name;
 			I64 type;
 			UJsonValue value;
@@ -181,6 +181,52 @@ static CJsonNode *JsonParseArray(U8 *str,U8 **end) {
 									throw(JSON_SYN_ERR);
 							} else goto loop;
 }
+static U8 *__JsonParseName(U8 *str,U8 **end=NULL) {
+							U8 *orig=NULL;
+							loop:
+							switch (str) {
+														case 'a'...'z':
+														case 'A'...'Z':
+														case '0'...'9':
+														case '_':
+														str++;
+														goto loop;
+														default: break;
+							}
+							if(str==orig) return NULL;
+							if(end) *end=str;
+							return StrDupLen(orig,str-orig);
+}
+static CJsonNode *JsonParseObject(U8 *str,U8 **end=NULL) {
+							str=__JsonParserSkipWhitespace(str);
+							if (*str!='{') {
+										if(end) *end=str;
+										return NULL;
+							} else str++;
+							CJsonNode *curr=NULL;
+							loop:
+							str=__JsonParserSkipWhitespace(str);
+							if (*str=='}') {
+										CJsonNode *retval=malloc(sizeof(CJsonNode));
+										retval->type=JSON_OBJ;
+										retval->value.obj=curr;
+										return retval;
+							}
+							U8 *name=__JsonParseString(str,&str);
+							if(name) goto found;
+							name=__JsonParseName(str,&str);
+							if(!name) throw(JSON_SYN_ERR);
+							found:
+							CJsonNode *find=JsonNodeParse(str,&str);
+							if(!find) throw(JSON_SYN_ERR);
+							find->name=name;
+							find->prev=curr;
+							curr->next=find;
+							curr=find;
+							str=__JsonParserSkipWhitespace(str);
+							if(*str==',') str++;
+							goto loop;
+}
 static CJsonNode *JsonNodeParse(U8 *str,U8 **end=NULL) {
 							CJsonNode *retval=NULL;
 							retval=JsonParseArray(str,end);
@@ -191,25 +237,49 @@ static CJsonNode *JsonNodeParse(U8 *str,U8 **end=NULL) {
 							if(retval) return retval;
 							return retval;
 }
-static U0 JsonPrint(CJsonNode *node) {
+static U0 PrintNTabs(I64 tabs) {
+							U8 fill[tabs+1];
+							fill[tabs]='\0';
+							while(--tabs>=0) fill[tabs]='\t';
+							printf("%s",fill);
+}
+static U0 JsonPrint(CJsonNode *node,I64 tabc=0) {
 							if(node->name) printf("%s:",node->name);
 							I64 i=0;
 							switch (node->type) {
 														case JSON_STR:
+																			PrintNTabs(tabc);
 																			printf("\"%s\"",node->value.str);
 																			break;
 														case JSON_SINT:
+																			PrintNTabs(tabc);
 																			printf("%li",node->value.sint);
 																			break;
 														case JSON_OBJ:
+																			PrintNTabs(tabc);
+																			printf("{");
+																			CJsonNode *currnode=node->value.obj;
+																			if (currnode) {
+																						for(currnode=node->value.obj->prev;currnode;currnode=currnode->prev) JsonPrint(currnode,tabc+1);
+																						JsonPrint(currnode,tabc+1);
+																						for(currnode=node->value.obj->next;currnode;currnode=currnode->next) JsonPrint(currnode,tabc+1);
+																			}
+																			PrintNTabs(tabc);
+																			printf("}");
+																			break;
 														case JSON_FLT:
+																			PrintNTabs(tabc);
 																			printf("%lf",node->value.flt);
 																			break;
 														case JSON_ARR:
-																			for (i=0;node->value.arr[i];i++) {
-																							JsonPrint(node->value.arr[i]);
-																							printf(",\n");
-																			}
-																			break;
+																				PrintNTabs(tabc);
+																				printf("[\n");
+																				for (i=0;node->value.arr[i];i++) {
+																								JsonPrint(node->value.arr[i],tabc+1);
+																								printf(",\n");
+																				}
+																				PrintNTabs(tabc);
+																				printf("]\n");
+																				break;
 							}
 }

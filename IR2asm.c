@@ -2849,7 +2849,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 					return nextNodesToCompile(start);
 			struct X86AddressingMode *outMode CLEANUP(X86AddrModeDestroy)=IRNode2AddrMode(out);
 			AUTO_LOCK_MODE_REGS(outMode);
-			struct X86AddressingMode *addrMode CLEANUP(X86AddrModeDestroy)=getAccumulatorForType(&typeI32i);
+			struct X86AddressingMode *addrMode CLEANUP(X86AddrModeDestroy)=getAccumulatorForType(dftValType());
 
 			struct objectArray *type=(void*)IRNodeType(start);
 			long stackSize=0;
@@ -2860,8 +2860,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 							AUTO_LOCK_MODE_REGS(inMode);
 
 							strX86AddrMode mulArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
-							struct X86AddressingMode *stackPos=X86AddrModeIndirSIB(0,NULL, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())), X86AddrModeSint(4), &typeI32i);
-
+							
 							asmTypecastAssign(start,addrMode, inMode, ASM_ASSIGN_X87FPU_POP);
 
 							//Add an area on the stack,,we will start 1 and multiply  by the itemsize of each nested array's dim then mutlply my the itemsize
@@ -2875,10 +2874,10 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 							continue;
 					}
 			}
-			struct X86AddressingMode *stackTop CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirReg(stackPointer(), &typeI32i);
+			struct X86AddressingMode *stackTop CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirReg(stackPointer(), dftValType());
 			struct X86AddressingMode *itemSize CLEANUP(X86AddrModeDestroy)=X86AddrModeSint(objectSize((struct object*)type, NULL));
-			itemSize->valueType=&typeI32i;
-			addrMode->valueType=&typeI32i;
+			itemSize->valueType=dftValType();
+			addrMode->valueType=dftValType();
 			asmTypecastAssign(start,addrMode, itemSize, 0);
 
 			for(long s=0;s!=stackSize;s++) {

@@ -37,3 +37,10 @@ U8 *StrStr(U8 *a,U8 *b) {
 							}
 			}
 }
+U8i *StrDupLen(U8i *str, I64 len) {
+  U8i *retVal = malloc(len + 1);
+  retVal[len] = '\0';
+  while ((len -= 1) >= 0)
+    retVal[len] = str[len];
+  return retVal;
+}
