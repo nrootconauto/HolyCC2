@@ -239,7 +239,7 @@ void popReg(struct reg *r) {
 				addArgs = strX86AddrModeAppendItem(addArgs, X86AddrModeSint(8));
 				assembleInst("ADD", addArgs);
 
-				bytesOnStack+=8;
+				bytesOnStack-=8;
 				return;
 		}
 		
@@ -283,7 +283,7 @@ void popMode(struct X86AddressingMode *mode) {
 				addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeReg(stackPointer(), objectPtrCreate(&typeU0)));
 				addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeSint(objectSize(mode->valueType, NULL)));
 				assembleInst("ADD", addArgs);
-				bytesOnStack-=dataSize();
+				bytesOnStack-=objectSize(mode->valueType, NULL);
 		}
 }
 static struct object *getTypeForSize(long size) {
@@ -3946,10 +3946,7 @@ static strGraphNodeIRP __IR2Asm(graphNodeIR start) {
 		return retVal;
 	}
 	case IR_VALUE: {
-			if(objectBaseType(IRNodeType(start))==&typeF64) {
-					compileX87Expr(start);
-					return nextNodesToCompile(start);
-			}
+			COMPILE_87_IFN;
 			struct X86AddressingMode *currMode CLEANUP(X86AddrModeDestroy) = IRNode2AddrMode(start);
 		AUTO_LOCK_MODE_REGS(currMode);
 

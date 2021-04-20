@@ -434,27 +434,44 @@ static void dependResolver(strFormulaPair _in,strFormulaPair *out,strFormulaPair
 				in=strFormulaPairRemoveItem(in, in[lowestI], formulaPairCmp);
 		}
 }
+static void alignStack() {
+		//Align stack to 16 bytes
+		//RSP-=RSP&0xf //0&f takes the first base-16 item out and we subtract to get a 16 byte aligned
+				__auto_type ptr=objectPtrCreate(&typeU0);
+				struct X86AddressingMode *spMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(stackPointer(), ptr);
+				struct X86AddressingMode *raxMode CLEANUP(X86AddrModeDestroy)=X86AddrModeReg(&regAMD64RAX, ptr);
+				asmTypecastAssign(NULL, raxMode, spMode, ASM_ASSIGN_X87FPU_POP);
+				
+				strX86AddrMode andArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+				andArgs=strX86AddrModeAppendItem(andArgs, X86AddrModeReg(&regAMD64RAX, ptr));
+				andArgs=strX86AddrModeAppendItem(andArgs, X86AddrModeSint(0xf));
+				assembleOpcode(NULL, "AND", andArgs);
+				strX86AddrMode subArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
+				subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeReg(stackPointer(),ptr));
+				subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeReg(&regAMD64RAX,ptr));
+				assembleOpcode(NULL,"SUB", subArgs);
+}
 /**
 	* Pushes RDI at end of frame if returns mem,THEREFORE MAKE ROOM FOR THIS "hidden" VALUE. 
 	*/
-
 void IR_ABI_SYSV_X64_Prologue(long frameSize) {
 		CLEANUP(X86AddrModeDestroy) struct X86AddressingMode *esp=X86AddrModeReg(stackPointer(), objectPtrCreate(&typeU0));
 		struct X86AddressingMode *ebp CLEANUP(X86AddrModeDestroy) = X86AddrModeReg(basePointer(),objectPtrCreate(&typeU0));
 		pushReg(basePointer());
 		asmAssign(NULL,ebp, esp, ptrSize(),0);
-
 		
 		CLEANUP(strX86AddrModeDestroy2) strX86AddrMode subArgs=NULL;
 		subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeClone(esp));
 		subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeSint(frameSize+8)); //+8 Makes room for structure return location 
 		assembleOpcode(NULL, "SUB", subArgs);
-
+		
 		pushReg(&regAMD64RBX);
 		pushReg(&regAMD64R12u64);
 		pushReg(&regAMD64R13u64);
 		pushReg(&regAMD64R14u64);
 		pushReg(&regAMD64R15u64);
+
+		alignStack();
 }
 /**
 	* We store a hidden 8 byte value at the end of the frame for the return addr,so add 8
@@ -469,7 +486,7 @@ static void loadPreservedRegs(long frameSize) {
 		subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeReg(stackPointer(),objectPtrCreate(&typeU0)));
 		subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeSint(frameSize+5*8));
 		assembleOpcode(NULL,"SUB", subArgs);
-
+		
 		popReg(&regAMD64R15u64);
 		popReg(&regAMD64R14u64);
 		popReg(&regAMD64R13u64);
@@ -718,8 +735,34 @@ void IR_ABI_SYSV_X64_Call(graphNodeIR _call,struct X86AddressingMode *funcMode,s
 				toPush=strX86AddrModeAppendItem(toPush,X86AddrModeClone(aMode));
 				pushedArgsSize+=objectSize(aMode->valueType, NULL);
 		}
-		
+
+		/**
+			* This is the number of bytes on the stack beofre SysV x64 ABI.
+			* X64 abi requires stack to be aligned to 16bytes upon calling a function
+			* [regs]
+			* [TOS argv stack]
+			* bytesOnStackBeforeOverflow
+			* [padding ]
+			* [args passed on stack]
+			* [reutrn pointer pushed by call]
+			*/
+		long bytesOnStackBeforeOverflow=bytesOnStack;
+		long padding;
 		{
+				long tmp=0;
+				for(long s=0;s!=strFormulaPairSize(spillFormula);s++)
+						tmp+=objectSize(args[spillFormula[s]->argI]->valueType,NULL);
+				for(long p=0;p!=strX86AddrModeSize(toPush);p++)
+						tmp+=objectSize(toPush[p]->valueType,NULL);
+				padding=8-(bytesOnStackBeforeOverflow+tmp)%8;
+				bytesOnStack+=padding;
+				strX86AddrMode subArgs CLEANUP(strX86AddrModeDestroy)=NULL;
+				subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeReg(&regAMD64RSP, objectPtrCreate(&typeU0)));
+				subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeSint(padding));
+				assembleOpcode(_call, "SUB", subArgs);
+		}
+		{
+				
 				strX86AddrMode args2 CLEANUP(strX86AddrModeDestroy)=strX86AddrModeClone(args);
 				dependResolver(toPassFormula, &outFormula,&spillFormula);
 				args2=shuffleArgsByFormula(args2, outFormula);
@@ -774,12 +817,13 @@ void IR_ABI_SYSV_X64_Call(graphNodeIR _call,struct X86AddressingMode *funcMode,s
 				struct X86AddressingMode *retLoc CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer(),  &typeU64i), X86AddrModeSint(pushedArgsSize+spillStackSize),objectPtrCreate(&typeU0));
 				asmTypecastAssign(_call, rdiMode, retLoc, ASM_ASSIGN_X87FPU_POP);
 		}
-		
+
+		assert(0==(bytesOnStack%8)); //8 is for call address offset
 		strX86AddrMode callArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeClone(funcMode));
 		assembleOpcode(_call, "CALL",  callArgs);
 
 		//Get Rid of the "spill" area and pushed arguments AND possible stashed return value position
-		long popSize=spillStackSize+pushedArgsSize+(returnsMem?8:0);
+		long popSize=padding+spillStackSize+pushedArgsSize+(returnsMem?8:0);
 		strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 		addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeReg(stackPointer(), objectPtrCreate(&typeU0)));
 		addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeSint(popSize)); //Add 8 if stashed return location
