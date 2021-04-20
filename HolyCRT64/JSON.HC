@@ -207,6 +207,7 @@ static CJsonNode *JsonParseObject(U8 *str,U8 **end=NULL) {
 							loop:
 							str=__JsonParserSkipWhitespace(str);
 							if (*str=='}') {
+										if(end) *end=str;
 										CJsonNode *retval=malloc(sizeof(CJsonNode));
 										retval->type=JSON_OBJ;
 										retval->value.obj=curr;
@@ -215,13 +216,19 @@ static CJsonNode *JsonParseObject(U8 *str,U8 **end=NULL) {
 							U8 *name=__JsonParseString(str,&str);
 							if(name) goto found;
 							name=__JsonParseName(str,&str);
-							if(!name) throw(JSON_SYN_ERR);
+							if (!name) {
+										throw(JSON_SYN_ERR);
+							}
 							found:
 							str=__JsonParserSkipWhitespace(str);
-							if(*str!=':') throw(JSON_SYN_ERR); else str++;
+							if (*str!=':') {
+										throw(JSON_SYN_ERR);
+							} else str++;
 							str=__JsonParserSkipWhitespace(str);
 							CJsonNode *find=JsonNodeParse(str,&str);
-							if(!find) throw(JSON_SYN_ERR);
+							if (!find) {
+										throw(JSON_SYN_ERR);
+							}
 							find->name=name;
 							find->prev=curr;
 							if(curr) curr->next=find;

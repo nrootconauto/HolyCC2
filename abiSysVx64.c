@@ -749,23 +749,25 @@ void IR_ABI_SYSV_X64_Call(graphNodeIR _call,struct X86AddressingMode *funcMode,s
 		long bytesOnStackBeforeOverflow=bytesOnStack;
 		long padding;
 		{
-				long tmp=0;
-				for(long s=0;s!=strFormulaPairSize(spillFormula);s++)
-						tmp+=objectSize(args[spillFormula[s]->argI]->valueType,NULL);
-				for(long p=0;p!=strX86AddrModeSize(toPush);p++)
-						tmp+=objectSize(toPush[p]->valueType,NULL);
-				padding=16-(bytesOnStackBeforeOverflow+tmp)%16;
-				bytesOnStack+=padding;
-				strX86AddrMode subArgs CLEANUP(strX86AddrModeDestroy)=NULL;
-				subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeReg(&regAMD64RSP, objectPtrCreate(&typeU0)));
-				subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeSint(padding));
-				assembleOpcode(_call, "SUB", subArgs);
-		}
-		{
 				
 				strX86AddrMode args2 CLEANUP(strX86AddrModeDestroy)=strX86AddrModeClone(args);
 				dependResolver(toPassFormula, &outFormula,&spillFormula);
 				args2=shuffleArgsByFormula(args2, outFormula);
+
+				{
+						long tmp=0;
+						for(long s=0;s!=strFormulaPairSize(spillFormula);s++)
+								tmp+=objectSize(args[spillFormula[s]->argI]->valueType,NULL);
+						for(long p=0;p!=strX86AddrModeSize(toPush);p++)
+								tmp+=objectSize(toPush[p]->valueType,NULL);
+						padding=16-(bytesOnStackBeforeOverflow+tmp)%16;
+						printf("t:%li,b:%li,p:%li\n",tmp,bytesOnStackBeforeOverflow,padding);
+						bytesOnStack+=padding;
+						strX86AddrMode subArgs CLEANUP(strX86AddrModeDestroy)=NULL;
+						subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeReg(&regAMD64RSP, objectPtrCreate(&typeU0)));
+						subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeSint(padding));
+						assembleOpcode(_call, "SUB", subArgs);
+				}
 				
 				for(long s=0;s!=strFormulaPairSize(spillFormula);s++) {
 						pushMode(args[spillFormula[s]->argI]);
@@ -818,6 +820,8 @@ void IR_ABI_SYSV_X64_Call(graphNodeIR _call,struct X86AddressingMode *funcMode,s
 				asmTypecastAssign(_call, rdiMode, retLoc, ASM_ASSIGN_X87FPU_POP);
 		}
 
+		if(0!=(bytesOnStack%16))
+				printf("%li\n",bytesOnStack);
 		assert(0==(bytesOnStack%16)); //8 is for call address offset
 		strX86AddrMode callArgs CLEANUP(strX86AddrModeDestroy2)=strX86AddrModeAppendItem(NULL, X86AddrModeClone(funcMode));
 		assembleOpcode(_call, "CALL",  callArgs);

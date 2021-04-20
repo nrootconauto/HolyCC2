@@ -8,6 +8,7 @@ I32i main() {
 					U8 *str=__JsonParseString("\"a\nbc\"");
 					F64 x=1.23;
 					printf("%lf\n",x);
+					printf("%lf\n",x);
 					printf("%s\n",str);
 					printf("%li\n", __JsonParseNumber("123"));
 					printf("%li\n", __JsonParseNumber("0xFf"));
@@ -16,6 +17,7 @@ I32i main() {
 					printf("%s\n",__JsonParserSkipWhitespace("//   \nabc"));
 					printf("%s\n",StrStr("123abc","abc"));
 					printf("%s\n",__JsonParserSkipWhitespace("/*abc*/abc"));
-					CJsonNode *arr=JsonNodeParse("{abc:[1,2,3.12]}");
+					CJsonNode *arr=JsonNodeParse("{abc:[1,2,3.12],def:{a:1}}");
+printf("%p\n",arr);
 					JsonPrint(arr);
 }
