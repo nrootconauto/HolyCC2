@@ -197,15 +197,7 @@ void pushMode(struct X86AddressingMode *mode) {
 							return;
 					}
 					case ARCH_X64_SYSV: {
-							strX86AddrMode subArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
-							subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())));
-							subArgs=strX86AddrModeAppendItem(subArgs, X86AddrModeSint(8));
-							assembleInst("SUB", subArgs);
-							struct X86AddressingMode *stackTop CLEANUP(X86AddrModeDestroy)=X86AddrModeIndirReg(stackPointer(),&typeF64);
-							asmAssign(NULL,stackTop, mode, 8, ASM_ASSIGN_X87FPU_POP);
-
-							bytesOnStack+=8;
-							return;
+							goto putAtTop;
 					}
 					}
 			}
@@ -213,6 +205,7 @@ void pushMode(struct X86AddressingMode *mode) {
 			assembleInst("PUSH", pushArgs);
 			bytesOnStack+=objectSize(mode->valueType, NULL);
 	} else {
+			putAtTop:;
 			strX86AddrMode sub CLEANUP(strX86AddrModeDestroy2)=NULL;
 			sub=strX86AddrModeAppendItem(sub, X86AddrModeReg(stackPointer(), objectPtrCreate(&typeU0)));
 			sub=strX86AddrModeAppendItem(sub, X86AddrModeSint(objectSize(mode->valueType, NULL)));
@@ -228,7 +221,6 @@ void pushMode(struct X86AddressingMode *mode) {
 }
 void popReg(struct reg *r) {
 		if(isXmmReg(r)) {
-
 				strX86AddrMode movsd2Args CLEANUP(strX86AddrModeDestroy2) = NULL;
 				movsd2Args = strX86AddrModeAppendItem(movsd2Args, X86AddrModeReg(r,&typeF64));
 				movsd2Args = strX86AddrModeAppendItem(movsd2Args, X86AddrModeIndirSIB(0, NULL, X86AddrModeReg(stackPointer(),getTypeForSize(ptrSize())), X86AddrModeSint(0), &typeF64));

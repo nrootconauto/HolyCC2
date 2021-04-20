@@ -252,7 +252,6 @@ static F64 __JsonParseFloat(U8 *str,U8 **end) {
 							F64 tmp=0.0;
 							if (hasdot||hasexp) {
 										tmp=atof(orig);
-										printf("%lf\n",tmp);
 										if(end) *end=str;
 							} else {
 									if(end) *end=orig;
@@ -260,15 +259,13 @@ static F64 __JsonParseFloat(U8 *str,U8 **end) {
 							return tmp;
 }
 static CJsonNode *JsonParseFloat(U8 *str,U8 **end) {
-									F64 x=1.234;
-					printf("%lf\n",x);
-					
 							U8 *orig=str;
 							F64 tmp=__JsonParseFloat(str,&str);
 							if (str==orig) {
 										if(end) *end=orig;
 										return NULL;
 							}
+							if(end) *end=str;
 							CJsonNode *retval=calloc(sizeof(CJsonNode),1);
 							retval->type=JSON_FLT;
 							retval->value.flt=tmp;
