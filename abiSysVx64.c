@@ -1,3 +1,4 @@
+#include "X86AsmSharedVars.h"
 #include "registers.h"
 #include "object.h"
 #include "parserA.h"
@@ -778,10 +779,12 @@ void IR_ABI_SYSV_X64_Call(graphNodeIR _call,struct X86AddressingMode *funcMode,s
 		assembleOpcode(_call, "CALL",  callArgs);
 
 		//Get Rid of the "spill" area and pushed arguments AND possible stashed return value position
+		long popSize=spillStackSize+pushedArgsSize+(returnsMem?8:0);
 		strX86AddrMode addArgs CLEANUP(strX86AddrModeDestroy2)=NULL;
 		addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeReg(stackPointer(), objectPtrCreate(&typeU0)));
-		addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeSint(spillStackSize+pushedArgsSize+(returnsMem?8:0))); //Add 8 if stashed return location
+		addArgs=strX86AddrModeAppendItem(addArgs, X86AddrModeSint(popSize)); //Add 8 if stashed return location
 		assembleOpcode(_call, "ADD", addArgs);
+		bytesOnStack-=popSize;
 		
 		if(outMode) {
 				struct X86AddressingMode *oMode =outMode;
@@ -871,6 +874,9 @@ void IR_ABI_SYSV_X64_Call(graphNodeIR _call,struct X86AddressingMode *funcMode,s
 								o+=getConsecCount(groupings, o);
 						}
 				} else abort(); 
+		} else {
+				for(long b=strRegPSize(toBackup)-1;b>=0;b--)
+						popReg(toBackup[b]);
 		}
 		return;
 }
