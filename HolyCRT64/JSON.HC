@@ -230,11 +230,57 @@ static CJsonNode *JsonParseObject(U8 *str,U8 **end=NULL) {
 							if(*str==',') str++;
 							goto loop;
 }
+extern F64 atof(U8 *str,);
+static F64 __JsonParseFloat(U8 *str,U8 **end) {
+							U8 hasdot=0,hasexp=0;
+							str=__JsonParserSkipWhitespace(str);
+							U8 *orig=str;
+							U8 *digits="0123456789";
+							while(StrChr(digits,*str)) str++;
+							dot:
+							if (*str=='.') {
+										str++;
+										while(StrChr(digits,*str)) str++;
+										hasdot=1;
+							}
+							exp:
+							if (*str=='e'||*str=='E') {
+										str++;
+										while(StrChr(digits,*str)) str++;
+										hasexp=1;
+							}
+							F64 tmp=0.0;
+							if (hasdot||hasexp) {
+										tmp=atof(orig);
+										printf("%lf\n",tmp);
+										if(end) *end=str;
+							} else {
+									if(end) *end=orig;
+							}
+							return tmp;
+}
+static CJsonNode *JsonParseFloat(U8 *str,U8 **end) {
+									F64 x=1.234;
+					printf("%lf\n",x);
+					
+							U8 *orig=str;
+							F64 tmp=__JsonParseFloat(str,&str);
+							if (str==orig) {
+										if(end) *end=orig;
+										return NULL;
+							}
+							CJsonNode *retval=calloc(sizeof(CJsonNode),1);
+							retval->type=JSON_FLT;
+							retval->value.flt=tmp;
+							return retval;
+}
 static CJsonNode *JsonNodeParse(U8 *str,U8 **end=NULL) {
 							CJsonNode *retval=NULL;
 							retval=JsonParseArray(str,end);
 							if(retval) return retval;
 							retval=JsonParseString(str,end);
+							if(retval) return retval;
+							retval=JsonParseFloat(str,end);
 							if(retval) return retval;
 							retval=JsonParseNumber(str,end);
 							if(retval) return retval;
