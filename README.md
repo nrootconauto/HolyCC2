@@ -1,3 +1,5 @@
+See https://github.com/nrootconauto/Cubit this is more up to date. It is JIT,includes a REPL and is activley developed
+
 # HolyCC2
 ## Welcome
 This is a holyC compiler on a mission to keep the line-count down. Its goal is to compile TempleOS and its programs on linux ,**and** to also be an educational compiler designed to show how compilers are made. **This compiler caches,meaning it only recompiles the functions that change** Now,
